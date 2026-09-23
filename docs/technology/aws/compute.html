@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="EC2, Auto Scaling, Lambda, ECS, Fargate, and EKS: how each AWS compute option works, what it costs, and when to choose it.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AWS Compute Services">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="EC2, Auto Scaling, Lambda, ECS, Fargate, and EKS: how each AWS compute option works, what it costs, and when to choose it.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/compute.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AWS Compute Services">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="EC2, Auto Scaling, Lambda, ECS, Fargate, and EKS: how each AWS compute option works, what it costs, and when to choose it.">
 
 <title>AWS Compute Services | Andrews Notebook</title>
 
@@ -3131,688 +3131,360 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>EC2 virtual servers, Lambda serverless functions, Auto Scaling, and containers (ECS/Fargate) are the four main ways to run code on AWS. This page covers when to use each and how to operate them.</p>
-
-<h2 id="why-compute-services-matter">Why Compute Services Matter</h2>
-
-<p>Every application needs somewhere to run. In traditional IT, that means buying servers, racking them in a data center, and managing hardware failures. AWS compute services let you skip all of that and get straight to running your code.</p>
-
-<p>This guide covers two main approaches:</p>
-
-<ul>
-  <li><strong>EC2 (Elastic Compute Cloud)</strong>: Virtual servers you control completely, like renting computers in the cloud</li>
-  <li><strong>Lambda</strong>: Serverless functions where you just upload code and AWS handles everything else</li>
-</ul>
-
-<p><strong>Which should you choose?</strong> Start with EC2 if you need full control, have long-running processes, or are migrating existing applications. Choose Lambda for event-driven workloads, APIs, or when you want zero server management.</p>
+        <p>AWS offers several ways to run code, and they differ mainly in <strong>how much of the stack you manage</strong>: with EC2 you run whole virtual machines; with ECS and EKS you run containers on capacity that you or AWS manage; with Lambda you upload a function and AWS handles everything below it. This page covers each model, how it works, its limits and pricing levers, and how to choose between them. Pricing strategy across services is covered in <a href="cost.html">Cost Optimization</a>; network placement (VPCs, subnets, load balancers) in <a href="networking.html">Networking</a>.</p>
 
 <hr />
 
-<h2 id="aws-crash-course-from-zero-to-cloud-in-30-minutes">AWS Crash Course: From Zero to Cloud in 30 Minutes</h2>
+<h2 id="choosing-a-compute-option">Choosing a Compute Option</h2>
 
-<p>If you’re completely new to AWS, this crash course will get you up and running quickly. We’ll build something real while learning the essentials.</p>
-
-<h3 id="what-youll-build">What You’ll Build</h3>
-<p>In the next 30 minutes, you’ll deploy a simple web application that demonstrates core AWS concepts. By the end, you’ll have:</p>
-<ul>
-  <li>A virtual server running in the cloud (EC2)</li>
-  <li>A globally accessible website (S3 + CloudFront)</li>
-  <li>A managed database (RDS)</li>
-  <li>Monitoring and alerts (CloudWatch)</li>
-  <li>All connected securely</li>
-</ul>
-
-<h3 id="prerequisites">Prerequisites</h3>
-<ul>
-  <li>An AWS account (sign up at aws.amazon.com - credit card required but we’ll stay in free tier)</li>
-  <li>Basic command line knowledge</li>
-  <li>A web browser</li>
-  <li>30 minutes of focused time</li>
-</ul>
-
-<h3 id="step-1-secure-your-account-5-minutes">Step 1: Secure Your Account (5 minutes)</h3>
-<p><strong>Never skip this step.</strong> AWS gives you powerful tools that can cost money if misused.</p>
-
-<ol>
-  <li><strong>Enable MFA on Root Account</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>AWS Console → Your Account → Security Credentials → MFA
-</code></pre></div>    </div>
-    <p>Use Google Authenticator or similar. This prevents unauthorized access even if your password leaks.</p>
-  </li>
-  <li><strong>Create Your First IAM User</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>IAM → Users → Add User
-Username: your-name-admin
-Access: AWS Management Console access
-Permissions: AdministratorAccess (for learning only!)
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Set Up Billing Alerts</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Billing → Billing Preferences → Receive Billing Alerts
-CloudWatch → Alarms → Create Alarm
-Metric: EstimatedCharges
-Threshold: $5
-</code></pre></div>    </div>
-  </li>
-</ol>
-
-<p><strong>Common Pitfall</strong>: Using root account for daily work. This is like using admin/sudo for everything - dangerous and unnecessary.</p>
-
-<h3 id="step-2-launch-your-first-server-10-minutes">Step 2: Launch Your First Server (10 minutes)</h3>
-
-<p>Let’s create a virtual server (EC2 instance) - your computer in the cloud.</p>
-
-<ol>
-  <li><strong>Navigate to EC2</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Services → EC2 → Launch Instance
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Configure Your Instance</strong>
-    <ul>
-      <li><strong>Name</strong>: MyFirstServer</li>
-      <li><strong>OS</strong>: Amazon Linux 2023 (free tier eligible)</li>
-      <li><strong>Instance Type</strong>: t2.micro (1 CPU, 1GB RAM - free tier)</li>
-      <li><strong>Key Pair</strong>: Create new → Download .pem file (guard this carefully!)</li>
-      <li><strong>Network</strong>: Allow SSH (22) and HTTP (80)</li>
-    </ul>
-  </li>
-  <li><strong>Connect to Your Server</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Mac/Linux</span>
-<span class="nb">chmod </span>400 your-key.pem
-ssh <span class="nt">-i</span> your-key.pem ec2-user@your-instance-ip
-
-<span class="c"># Windows (use PuTTY or WSL)</span>
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Install a Web Server</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>yum update <span class="nt">-y</span>
-<span class="nb">sudo </span>yum <span class="nb">install </span>httpd <span class="nt">-y</span>
-<span class="nb">sudo </span>systemctl start httpd
-<span class="nb">sudo </span>systemctl <span class="nb">enable </span>httpd
-<span class="nb">echo</span> <span class="s2">"&lt;h1&gt;Hello from AWS!&lt;/h1&gt;"</span> | <span class="nb">sudo tee</span> /var/www/html/index.html
-</code></pre></div>    </div>
-  </li>
-</ol>
-
-<p>Visit your instance’s public IP in a browser - you have a website!</p>
-
-<p><strong>What Just Happened?</strong></p>
-<ul>
-  <li>You rented a computer in AWS’s data center</li>
-  <li>You connected to it over the internet</li>
-  <li>You installed software just like on any Linux machine</li>
-  <li>Your website is now globally accessible</li>
-</ul>
-
-<p><strong>Common Pitfalls</strong>:</p>
-<ul>
-  <li>Forgetting to allow HTTP in security group (your firewall rules)</li>
-  <li>Losing your key pair (no key = no access)</li>
-  <li>Leaving instances running (they cost money outside free tier hours)</li>
-</ul>
-
-<h3 id="step-3-create-scalable-storage-5-minutes">Step 3: Create Scalable Storage (5 minutes)</h3>
-
-<p>EC2 storage disappears when instances terminate. Let’s use S3 for permanent storage.</p>
-
-<ol>
-  <li><strong>Create an S3 Bucket</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>S3 → Create Bucket
-Name: my-first-bucket-[random-numbers]
-Region: Same as your EC2
-Block all public access: OFF (for learning only!)
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Upload a File</strong>
-Create a simple HTML file locally:
-    <div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
-<span class="nt">&lt;html&gt;</span>
-<span class="nt">&lt;head&gt;&lt;title&gt;</span>My S3 Site<span class="nt">&lt;/title&gt;&lt;/head&gt;</span>
-<span class="nt">&lt;body&gt;</span>
-  <span class="nt">&lt;h1&gt;</span>This website runs from S3!<span class="nt">&lt;/h1&gt;</span>
-  <span class="nt">&lt;p&gt;</span>No servers needed.<span class="nt">&lt;/p&gt;</span>
-<span class="nt">&lt;/body&gt;</span>
-<span class="nt">&lt;/html&gt;</span>
-</code></pre></div>    </div>
-    <p>Upload via console → Make public</p>
-  </li>
-  <li><strong>Enable Static Website Hosting</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Bucket → Properties → Static website hosting → Enable
-Index document: index.html
-</code></pre></div>    </div>
-  </li>
-</ol>
-
-<p>Your website now runs without any servers! Access via the S3 website endpoint.</p>
-
-<p><strong>Why This Matters</strong>: S3 is virtually unlimited storage that’s always available. It’s perfect for images, videos, backups, and static websites.</p>
-
-<h3 id="step-4-add-a-database-5-minutes">Step 4: Add a Database (5 minutes)</h3>
-
-<p>Most applications need to store data. Let’s add a managed database.</p>
-
-<ol>
-  <li><strong>Create an RDS Instance</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>RDS → Create Database
-Engine: MySQL
-Template: Free tier
-DB Instance: db.t3.micro
-Username: admin
-Password: [choose-strong-password]
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Configure Access</strong>
-    <ul>
-      <li>Same VPC as your EC2</li>
-      <li>Security group: Allow MySQL port (3306) from your EC2 security group</li>
-    </ul>
-  </li>
-  <li><strong>Connect from EC2</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># On Amazon Linux 2023, use dnf and the mariadb105 client package:</span>
-<span class="nb">sudo </span>dnf <span class="nb">install </span>mariadb105 <span class="nt">-y</span>
-mysql <span class="nt">-h</span> your-rds-endpoint <span class="nt">-u</span> admin <span class="nt">-p</span>
-</code></pre></div>    </div>
-  </li>
-</ol>
-
-<p><strong>What’s Happening</strong>: AWS manages backups, updates, and availability. You just use the database.</p>
-
-<h3 id="step-5-monitor-everything-5-minutes">Step 5: Monitor Everything (5 minutes)</h3>
-
-<p>You can’t improve what you don’t measure. CloudWatch monitors everything.</p>
-
-<ol>
-  <li><strong>View EC2 Metrics</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>EC2 → Your Instance → Monitoring Tab
-</code></pre></div>    </div>
-    <p>See CPU, network, disk usage</p>
-  </li>
-  <li><strong>Create an Alarm</strong>
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CloudWatch → Alarms → Create Alarm
-Select Metric: EC2 → Per-Instance Metrics
-CPU Utilization &gt; 80% for 5 minutes
-Send notification to your email
-</code></pre></div>    </div>
-  </li>
-  <li><strong>View Logs</strong>
-Install CloudWatch agent on EC2:
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>yum <span class="nb">install </span>amazon-cloudwatch-agent <span class="nt">-y</span>
-</code></pre></div>    </div>
-  </li>
-</ol>
-
-<p><strong>Real Impact</strong>: You’ll know about problems before your users do.</p>
-
-<h3 id="your-first-cloud-architecture">Your First Cloud Architecture</h3>
-
-<p>Congratulations! You’ve built a real cloud architecture:</p>
-
-<pre><code class="language-mermaid">flowchart TB
-    Internet([Internet]) --&gt; EC2["EC2&lt;br/&gt;Web Server"]
-    EC2 --&gt; RDS[("RDS&lt;br/&gt;Database")]
-    S3["S3&lt;br/&gt;Static Assets"] --&gt; CF["CloudFront&lt;br/&gt;CDN"]
-    CF --&gt; Internet
-    CW["CloudWatch"] -. "monitors" .-&gt; EC2
-    CW -. "monitors" .-&gt; RDS
-</code></pre>
-
-<h3 id="next-steps-after-the-crash-course">Next Steps After the Crash Course</h3>
-
-<ol>
-  <li><strong>Clean Up</strong> (Important!):
-    <ul>
-      <li>Terminate EC2 instance</li>
-      <li>Delete RDS instance</li>
-      <li>Empty and delete S3 bucket</li>
-      <li>This prevents charges</li>
-    </ul>
-  </li>
-  <li><strong>What to Learn Next</strong>:
-    <ul>
-      <li><strong>IAM Roles</strong>: Give EC2 permission to access S3 without keys</li>
-      <li><strong>Auto Scaling</strong>: Automatically add/remove servers based on load</li>
-      <li><strong>Load Balancers</strong>: Distribute traffic across multiple servers</li>
-      <li><strong>VPC</strong>: Create private networks for security</li>
-    </ul>
-  </li>
-  <li><strong>Practice Projects</strong>:
-    <ul>
-      <li>Deploy a WordPress blog (EC2 + RDS)</li>
-      <li>Create a serverless API (Lambda + API Gateway)</li>
-      <li>Build a data pipeline (S3 + Lambda + DynamoDB)</li>
-    </ul>
-  </li>
-</ol>
-
-<h3 id="common-beginner-mistakes-to-avoid">Common Beginner Mistakes to Avoid</h3>
-
-<ol>
-  <li><strong>The “It Works on My Machine” Trap</strong>
-    <ul>
-      <li>Always test in an AWS environment</li>
-      <li>Local and cloud environments differ</li>
-    </ul>
-  </li>
-  <li><strong>The “Infinite Scale” Misconception</strong>
-    <ul>
-      <li>Everything has limits (even in cloud)</li>
-      <li>Plan for growth, but start small</li>
-    </ul>
-  </li>
-  <li><strong>The “Set and Forget” Danger</strong>
-    <ul>
-      <li>Cloud resources need maintenance</li>
-      <li>Automate everything possible</li>
-    </ul>
-  </li>
-  <li><strong>The “All Public” Security Hole</strong>
-    <ul>
-      <li>Start with least privilege</li>
-      <li>Only expose what’s necessary</li>
-    </ul>
-  </li>
-  <li><strong>The “Bill Shock” Surprise</strong>
-    <ul>
-      <li>Set up billing alerts immediately</li>
-      <li>Understand pricing before using services</li>
-      <li>Use AWS Cost Explorer weekly</li>
-    </ul>
-  </li>
-</ol>
-
-<p>This crash course gives you hands-on experience with core AWS services. You’ve deployed real infrastructure and learned by doing. The rest of this guide builds on these foundations with deeper knowledge and advanced patterns.</p>
-
-<h2 id="core-concepts-to-master-first">Core Concepts to Master First</h2>
-
-<p>Before diving into specific services, let’s understand the fundamental concepts that make cloud computing powerful:</p>
-
-<h3 id="the-cloud-mental-model">The Cloud Mental Model</h3>
-<p>Traditional IT requires you to predict capacity, buy hardware, and maintain everything yourself. Cloud computing flips this model - you provision resources on-demand, scale instantly, and let AWS handle the infrastructure complexity.</p>
-
-<h3 id="regions-and-availability-zones">Regions and Availability Zones</h3>
-<p>AWS operates in multiple geographic regions worldwide. Each region contains multiple Availability Zones (AZs) - essentially separate data centers with independent power, cooling, and networking. This geographic distribution is your foundation for building resilient applications that can survive failures.</p>
-
-<h3 id="the-pay-as-you-go-model">The Pay-as-You-Go Model</h3>
-<p>Unlike traditional IT where you pay upfront for capacity you might not use, AWS charges based on actual consumption. Launch 100 servers for an hour? You pay for 100 server-hours. This model enables experimentation and scaling without massive capital investment.</p>
-
-<h3 id="security-as-a-shared-responsibility">Security as a Shared Responsibility</h3>
-<p>AWS secures the infrastructure (the “security of the cloud”), while you secure your data and applications (“security in the cloud”). Understanding this division helps you build secure systems from day one.</p>
-
-<h3 id="identity-and-access-management-iam">Identity and Access Management (IAM)</h3>
-<p>Before creating any resources, understand IAM - it’s the foundation of AWS security. IAM controls who can do what in your AWS account. Start with these principles:</p>
-<ul>
-  <li>Never use your root account for daily work</li>
-  <li>Create individual users with specific permissions</li>
-  <li>Use roles for applications, not hardcoded credentials</li>
-  <li>Enable MFA (Multi-Factor Authentication) everywhere</li>
-</ul>
-
-<h2 id="your-first-steps-with-aws">Your First Steps with AWS</h2>
-
-<p>Now that you understand the core concepts, let’s get practical. AWS can feel overwhelming with its 200+ services, but you don’t need to learn them all at once. Here’s a progressive path from beginner to advanced cloud architect.</p>
-
-<h3 id="getting-your-hands-dirty">Getting Your Hands Dirty</h3>
-
-<p>Start with the AWS Free Tier - it gives you 12 months of free access to core services with generous limits. This is your playground for learning without worrying about costs.</p>
-
-<ol>
-  <li><strong>Create an AWS Account</strong>: Set up billing alerts immediately (even on free tier)</li>
-  <li><strong>Secure Your Account</strong>: Enable MFA on your root account and create an IAM user for daily work</li>
-  <li><strong>Launch Your First EC2 Instance</strong>: Think of it as renting a computer in the cloud</li>
-  <li><strong>Store Files in S3</strong>: Upload some files and understand object storage</li>
-  <li><strong>Set Up a Simple Website</strong>: Combine EC2 and S3 to host a basic web application</li>
-</ol>
-
-<p>Each step builds on the previous one, gradually introducing you to how AWS services work together.</p>
-
-<h2 id="essential-services-for-every-developer">Essential Services for Every Developer</h2>
-
-<p>Let’s explore the services you’ll use most often, understanding not just what they do, but why they matter for real applications.</p>
-
-<h3 id="compute-services-your-applications-brain">Compute Services: Your Application’s Brain</h3>
-
-<h4 id="amazon-ec2---virtual-servers">Amazon EC2 - Virtual Servers</h4>
-
-<p>EC2 (Elastic Compute Cloud) is like renting computers in the cloud. You choose the operating system, processing power, memory, and storage. Need a small server for testing? Launch a t2.micro. Building a data processing pipeline? Spin up a compute-optimized instance.</p>
-
-<p><strong>Real-world example</strong>: A startup begins with one EC2 instance running their web application. As traffic grows, they add more instances behind a load balancer. During Black Friday, they scale to 50 instances, then scale back down afterward.</p>
-
-<h3 id="choosing-the-right-instance-type">Choosing the Right Instance Type</h3>
-
-<p>Consider the following when selecting an instance type: What is your workload’s primary bottleneck? CPU, memory, storage, or network?</p>
+<p>Moving down the table below, you give up control of the host in exchange for less operational work.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Instance Family</th>
-      <th>Best For</th>
-      <th>Example Use Cases</th>
-      <th>Starting Price*</th>
+      <th>Option</th>
+      <th>Unit you deploy</th>
+      <th>You manage</th>
+      <th>Billing</th>
+      <th>Typical fit</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>T3/T3a</strong> (Burstable)</td>
-      <td>Variable workloads with occasional spikes</td>
-      <td>Development, small websites, microservices</td>
-      <td>~$0.01/hr</td>
+      <td><strong>EC2</strong></td>
+      <td>Virtual machine</td>
+      <td>OS, patching, scaling, runtime</td>
+      <td>Per second while running</td>
+      <td>Lift-and-shift, stateful servers, custom kernels/drivers, GPU hosts</td>
     </tr>
     <tr>
-      <td><strong>M5/M6i</strong> (General Purpose)</td>
-      <td>Balanced compute, memory, networking</td>
-      <td>Web servers, app servers, small databases</td>
-      <td>~$0.10/hr</td>
+      <td><strong>ECS or EKS on EC2</strong></td>
+      <td>Container</td>
+      <td>Cluster hosts (AMI, patching, capacity)</td>
+      <td>EC2 instance price</td>
+      <td>Container fleets needing specific hardware or high utilization</td>
     </tr>
     <tr>
-      <td><strong>C5/C6i</strong> (Compute Optimized)</td>
-      <td>CPU-intensive tasks</td>
-      <td>Batch processing, gaming servers, scientific modeling</td>
-      <td>~$0.09/hr</td>
+      <td><strong>ECS Managed Instances / EKS Auto Mode</strong></td>
+      <td>Container</td>
+      <td>Instance <em>requirements</em> only</td>
+      <td>EC2 price plus a management fee</td>
+      <td>Containers on EC2 economics without host operations</td>
     </tr>
     <tr>
-      <td><strong>R5/R6i</strong> (Memory Optimized)</td>
-      <td>Large datasets in memory</td>
-      <td>In-memory databases, real-time analytics</td>
-      <td>~$0.13/hr</td>
+      <td><strong>Fargate</strong></td>
+      <td>Container (task/pod)</td>
+      <td>Nothing below the container</td>
+      <td>vCPU and GB per second</td>
+      <td>Services and jobs with no host requirements</td>
     </tr>
     <tr>
-      <td><strong>I3/I4i</strong> (Storage Optimized)</td>
-      <td>High sequential read/write</td>
-      <td>Data warehousing, distributed file systems</td>
-      <td>~$0.16/hr</td>
-    </tr>
-    <tr>
-      <td><strong>P4/G5</strong> (Accelerated)</td>
-      <td>GPU-intensive workloads</td>
-      <td>Machine learning training, video encoding</td>
-      <td>~$1.00/hr+</td>
+      <td><strong>Lambda</strong></td>
+      <td>Function</td>
+      <td>Code and configuration</td>
+      <td>Per request plus GB-seconds</td>
+      <td>Event-driven, bursty, short-lived work; scales to zero</td>
     </tr>
   </tbody>
 </table>
 
-<p>*Prices are approximate for US East, on-demand. Actual prices vary by region and change over time.</p>
+<pre><code class="language-mermaid">flowchart TD
+    A([New workload]) --&gt; B{Event-driven and&lt;br/&gt;under 15 min per run?}
+    B --&gt;|Yes| C{Steady high volume?}
+    C --&gt;|No, bursty or idle often| L[Lambda]
+    C --&gt;|Yes| LMI[Lambda Managed Instances&lt;br/&gt;or containers]
+    B --&gt;|No| D{Packaged as a container?}
+    D --&gt;|Yes| E{Need Kubernetes APIs&lt;br/&gt;or ecosystem?}
+    E --&gt;|Yes| EKS[EKS&lt;br/&gt;Auto Mode or managed node groups]
+    E --&gt;|No| F{Need specific hardware,&lt;br/&gt;GPUs, or privileged mode?}
+    F --&gt;|No| FG[ECS on Fargate]
+    F --&gt;|Yes| ECSEC2[ECS Managed Instances&lt;br/&gt;or ECS on EC2]
+    D --&gt;|No| EC2[EC2 with Auto Scaling]
+</code></pre>
 
-<h3 id="ec2-pricing-models">EC2 Pricing Models</h3>
+<p>A rough rule: start as far down the stack as the workload allows (Lambda or Fargate), and move to EC2 only when a concrete requirement (hardware, licensing, long-lived connections, sustained utilization that makes per-second serverless pricing expensive) forces it.</p>
 
-<p>You can significantly reduce costs by choosing the right pricing model:</p>
+<hr />
+
+<h2 id="amazon-ec2">Amazon EC2</h2>
+
+<p><strong>Amazon Elastic Compute Cloud (EC2)</strong> provides virtual machines (“instances”) launched from an <strong>Amazon Machine Image (AMI)</strong> into a subnet of a VPC. Almost all current instance types run on the <strong>AWS Nitro System</strong>, which offloads networking, storage, and security to dedicated hardware so that close to all of the host’s CPU and memory goes to the guest. Instances are billed per second (60-second minimum) for Linux while running; attached EBS volumes are billed whether or not the instance is running.</p>
+
+<h3 id="instance-types">Instance types</h3>
+
+<p>An instance type name encodes its family, generation, processor, and extras:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  m  8  g  d . 2xlarge
+  │  │  │  │   └── size: vCPU/memory scale (large = 2 vCPU, each step up doubles)
+  │  │  │  └────── option: d = local NVMe instance store, n = enhanced networking, e = extra memory/storage
+  │  │  └───────── processor: g = AWS Graviton (Arm), i = Intel, a = AMD
+  │  └──────────── generation: higher is newer and usually better price-performance
+  └─────────────── family: m = general purpose, c = compute, r = memory, ...
+</code></pre></div></div>
 
 <table>
   <thead>
     <tr>
-      <th>Model</th>
-      <th>Savings</th>
+      <th>Family</th>
+      <th>Optimized for</th>
+      <th>Current-generation examples</th>
+      <th>Typical workloads</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>T</strong> (burstable)</td>
+      <td>Low baseline CPU with burst credits</td>
+      <td>T4g, T3, T8i</td>
+      <td>Dev/test, small sites, low-traffic services</td>
+    </tr>
+    <tr>
+      <td><strong>M</strong> (general purpose)</td>
+      <td>Balanced CPU:memory (1:4)</td>
+      <td>M8g, M7i, M8i, M7a, M9g</td>
+      <td>Application servers, mid-size databases</td>
+    </tr>
+    <tr>
+      <td><strong>C</strong> (compute)</td>
+      <td>High CPU:memory (1:2)</td>
+      <td>C8g, C7i, C8i, C9g</td>
+      <td>Batch, encoding, high-throughput web tiers, HPC</td>
+    </tr>
+    <tr>
+      <td><strong>R / X</strong> (memory)</td>
+      <td>High memory per vCPU (1:8 and above)</td>
+      <td>R8g, R7i, R8i, R9g, X2</td>
+      <td>In-memory caches, large relational databases, analytics</td>
+    </tr>
+    <tr>
+      <td><strong>I / D</strong> (storage)</td>
+      <td>Dense local NVMe or HDD</td>
+      <td>I4i, I8g, D3</td>
+      <td>NoSQL stores, search indexes, data warehousing</td>
+    </tr>
+    <tr>
+      <td><strong>P / G / Trn / Inf</strong> (accelerated)</td>
+      <td>GPUs or AWS ML chips</td>
+      <td>P5, P6, G6, G6e, G7, Trn2, Inf2</td>
+      <td>Model training and inference, rendering, video</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Notes on choosing:</p>
+
+<ul>
+  <li><strong>Graviton (Arm) instances</strong> usually give the best price-performance for software that runs on arm64 (most Linux distributions, JVM/Go/Python/Node runtimes, containers built multi-arch). Graviton4 powers the 8g families; the Graviton5-based 9g families (M9g, C9g, R9g) are the newest, and AWS quotes up to 25% better compute performance for M9g than M8g.</li>
+  <li><strong>Burstable T instances</strong> accrue CPU credits below their baseline and spend them above it. T3/T4g default to <em>unlimited</em> mode, which bills for surplus credits: a T instance pinned at high CPU can cost more than an M instance of the same size.</li>
+  <li>Instance type availability varies by Region and Availability Zone. Specifying several interchangeable types (see <a href="#spot-instances">attribute-based selection</a>) avoids capacity errors.</li>
+</ul>
+
+<h3 id="purchasing-options">Purchasing options</h3>
+
+<p>The same instance can be bought several ways. The discount comes from commitment (Savings Plans, Reserved Instances) or from accepting interruption (Spot).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Discount vs On-Demand</th>
       <th>Commitment</th>
-      <th>Best For</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>On-Demand</strong></td>
-      <td>Baseline</td>
       <td>None</td>
-      <td>Unpredictable workloads, testing</td>
+      <td>None</td>
+      <td>Per-second billing; the baseline</td>
+    </tr>
+    <tr>
+      <td><strong>Compute Savings Plans</strong></td>
+      <td>Up to 66%</td>
+      <td>Hourly spend for 1 or 3 years</td>
+      <td>Applies across instance family, size, Region, OS, and to Fargate and Lambda</td>
+    </tr>
+    <tr>
+      <td><strong>EC2 Instance Savings Plans</strong></td>
+      <td>Up to 72%</td>
+      <td>Hourly spend for 1 or 3 years, one family in one Region</td>
+      <td>Size, OS, and tenancy can change</td>
     </tr>
     <tr>
       <td><strong>Reserved Instances</strong></td>
       <td>Up to 72%</td>
-      <td>1-3 years</td>
-      <td>Steady-state production workloads</td>
-    </tr>
-    <tr>
-      <td><strong>Savings Plans</strong></td>
-      <td>Up to 72%</td>
-      <td>1-3 years</td>
-      <td>Flexible usage across instance types</td>
+      <td>Specific instance attributes, 1 or 3 years</td>
+      <td>Largely superseded by Savings Plans for EC2; still the mechanism for RDS, ElastiCache, OpenSearch, Redshift</td>
     </tr>
     <tr>
       <td><strong>Spot Instances</strong></td>
       <td>Up to 90%</td>
-      <td>None (can be interrupted)</td>
-      <td>Fault-tolerant batch jobs, CI/CD</td>
+      <td>None</td>
+      <td>Can be reclaimed with a 2-minute warning</td>
+    </tr>
+    <tr>
+      <td><strong>On-Demand Capacity Reservations / Capacity Blocks for ML</strong></td>
+      <td>None (billed On-Demand)</td>
+      <td>Duration of the reservation</td>
+      <td>Guarantees capacity in an AZ; Capacity Blocks reserve GPU instances for fixed windows</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="practical-ec2-patterns">Practical EC2 Patterns</h3>
+<p>Savings Plans and Reserved Instances are billing constructs: they do not change how an instance runs, and they apply automatically to matching usage. See <a href="cost.html#commitment-discounts">Cost Optimization</a> for how to size a commitment.</p>
 
-<p><strong>1. Right-Sizing Instances</strong></p>
+<h3 id="spot-instances">Spot Instances</h3>
 
-<p>Check your CPU utilization with CloudWatch. If CPU stays below 20% consistently, you are likely overpaying:</p>
+<p>Spot Instances use spare EC2 capacity at a steep discount. The trade-off is that EC2 can reclaim the instance when it needs the capacity back. The price itself changes slowly and is rarely the reason for interruption; capacity is.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check CPU utilization for the past day</span>
-aws cloudwatch get-metric-statistics <span class="se">\</span>
-  <span class="nt">--namespace</span> AWS/EC2 <span class="nt">--metric-name</span> CPUUtilization <span class="se">\</span>
-  <span class="nt">--dimensions</span> <span class="nv">Name</span><span class="o">=</span>InstanceId,Value<span class="o">=</span>i-1234567890abcdef0 <span class="se">\</span>
-  <span class="nt">--statistics</span> Average <span class="nt">--start-time</span> 2024-01-01T00:00:00Z <span class="se">\</span>
-  <span class="nt">--end-time</span> 2024-01-02T00:00:00Z <span class="nt">--period</span> 3600
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Running: capacity available
+    Running --&gt; RebalanceRecommended: elevated interruption risk
+    RebalanceRecommended --&gt; Running: risk subsides
+    RebalanceRecommended --&gt; InterruptionNotice: capacity reclaimed
+    Running --&gt; InterruptionNotice: capacity reclaimed
+    InterruptionNotice --&gt; Terminated: after 2 minutes (default)
+    InterruptionNotice --&gt; Stopped: if interruption behavior = stop
+    InterruptionNotice --&gt; Hibernated: if interruption behavior = hibernate
+    Terminated --&gt; [*]
+</code></pre>
+
+<p>Both the <strong>rebalance recommendation</strong> and the <strong>two-minute interruption notice</strong> are published to instance metadata and as EventBridge events, so an application or an Auto Scaling group can drain work before the instance disappears.</p>
+
+<p>Practices that make Spot reliable:</p>
+
+<ul>
+  <li><strong>Diversify.</strong> Allow many instance types across all AZs. The more capacity pools a workload can use, the less likely it is to be interrupted or unable to launch. <strong>Attribute-based instance type selection</strong> (specify vCPU and memory ranges instead of type names) does this automatically and picks up new generations.</li>
+  <li><strong>Use the <code class="language-plaintext highlighter-rouge">price-capacity-optimized</code> allocation strategy</strong>, which favors the pools with the most spare capacity and then the lowest price.</li>
+  <li><strong>Do not set a maximum price</strong> unless you have a specific reason; the default cap is the On-Demand price, and a low cap mostly increases interruptions.</li>
+  <li><strong>Launch through Auto Scaling groups, EC2 Fleet, or <code class="language-plaintext highlighter-rouge">run-instances</code>.</strong> AWS describes the <code class="language-plaintext highlighter-rouge">RequestSpotInstances</code> API and Spot Fleet as legacy APIs with no planned investment.</li>
+  <li><strong>Make work interruptible:</strong> checkpoint long jobs, keep state off the instance, and handle <code class="language-plaintext highlighter-rouge">SIGTERM</code> in containers.</li>
+</ul>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># One-off Spot instance through the standard RunInstances API</span>
+aws ec2 run-instances <span class="se">\</span>
+  <span class="nt">--launch-template</span> <span class="nv">LaunchTemplateName</span><span class="o">=</span>batch-worker,Version<span class="o">=</span><span class="s1">'$Latest'</span> <span class="se">\</span>
+  <span class="nt">--instance-market-options</span> <span class="s1">'MarketType=spot,SpotOptions={SpotInstanceType=one-time,InstanceInterruptionBehavior=terminate}'</span>
 </code></pre></div></div>
 
-<p><strong>When to downsize</strong>: t3.micro to t3.nano saves 50%. m5.large to t3.medium saves 60% for variable workloads.</p>
+<p>Good Spot workloads: CI runners, batch and data processing, rendering, stateless web tiers behind a load balancer (mixed with an On-Demand base), and Kubernetes worker nodes managed by Karpenter or EKS Auto Mode.</p>
 
-<p><strong>2. Spot Instances for Batch Processing</strong></p>
+<h3 id="operating-ec2-instances">Operating EC2 instances</h3>
 
-<p>Spot instances offer up to 90% savings for interruptible workloads. The key is designing for interruption:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Concern</th>
+      <th>Current practice</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Operating system</strong></td>
+      <td>Amazon Linux 2023 (uses <code class="language-plaintext highlighter-rouge">dnf</code>; the older Amazon Linux 2 was scheduled to reach end of support on 30 June 2026), or a vendor distribution. Bottlerocket for container hosts.</td>
+    </tr>
+    <tr>
+      <td><strong>Shell access</strong></td>
+      <td>AWS Systems Manager <strong>Session Manager</strong> (<code class="language-plaintext highlighter-rouge">aws ssm start-session --target i-...</code>) instead of SSH keys and open port 22. Access is controlled by IAM and logged. EC2 Instance Connect is an alternative for short-lived SSH keys.</td>
+    </tr>
+    <tr>
+      <td><strong>Credentials</strong></td>
+      <td>Attach an <strong>IAM role</strong> through an instance profile; never store access keys on an instance.</td>
+    </tr>
+    <tr>
+      <td><strong>Instance metadata</strong></td>
+      <td>Require <strong>IMDSv2</strong> (session-token metadata). It blocks the SSRF-style credential theft that IMDSv1 allowed and is the default for new AMIs such as AL2023.</td>
+    </tr>
+    <tr>
+      <td><strong>Recovery</strong></td>
+      <td>Supported instance types have <strong>simplified automatic recovery</strong> on by default: an instance that fails a system status check (host problem) is moved to healthy hardware, keeping its ID, private IP, and EBS volumes. For stateless fleets, rely on Auto Scaling health checks instead.</td>
+    </tr>
+    <tr>
+      <td><strong>Addressing</strong></td>
+      <td>Public IPv4 addresses, including Elastic IPs, are billed hourly (since February 2024), whether attached or not. Put instances in private subnets behind a load balancer and use Elastic IPs only where a fixed address is required.</td>
+    </tr>
+    <tr>
+      <td><strong>Right-sizing</strong></td>
+      <td><strong>AWS Compute Optimizer</strong> analyses CloudWatch utilization and recommends smaller, larger, or Graviton instance types. Install the CloudWatch agent to include memory metrics in its analysis.</td>
+    </tr>
+    <tr>
+      <td><strong>Storage</strong></td>
+      <td>EBS volumes persist independently; instance store (the <code class="language-plaintext highlighter-rouge">d</code> variants) is erased when the instance stops. Use gp3 rather than gp2 for general-purpose volumes. See <a href="storage.html">Storage</a>.</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Request a Spot instance with a max price</span>
-aws ec2 request-spot-instances <span class="nt">--spot-price</span> <span class="s2">"0.10"</span> <span class="se">\</span>
-  <span class="nt">--instance-count</span> 1 <span class="nt">--type</span> <span class="s2">"one-time"</span> <span class="se">\</span>
-  <span class="nt">--launch-specification</span> file://spot-spec.json
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Launch an AL2023 instance with IMDSv2 required and an instance profile, no SSH key</span>
+aws ec2 run-instances <span class="se">\</span>
+  <span class="nt">--image-id</span> resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64 <span class="se">\</span>
+  <span class="nt">--instance-type</span> t4g.small <span class="se">\</span>
+  <span class="nt">--subnet-id</span> subnet-0abc1234 <span class="se">\</span>
+  <span class="nt">--security-group-ids</span> sg-0abc1234 <span class="se">\</span>
+  <span class="nt">--iam-instance-profile</span> <span class="nv">Name</span><span class="o">=</span>ssm-managed-instance <span class="se">\</span>
+  <span class="nt">--metadata-options</span> <span class="nv">HttpTokens</span><span class="o">=</span>required,HttpEndpoint<span class="o">=</span>enabled <span class="se">\</span>
+  <span class="nt">--tag-specifications</span> <span class="s1">'ResourceType=instance,Tags=[{Key=Name,Value=web-01},{Key=Owner,Value=platform}]'</span>
 </code></pre></div></div>
 
-<p><strong>When to use Spot</strong>: Batch processing, CI/CD builds, data analysis, any job that can checkpoint and resume.</p>
+<p>The <code class="language-plaintext highlighter-rouge">resolve:ssm:</code> prefix looks up the latest AMI ID from a public SSM parameter, so scripts do not hard-code Region-specific AMI IDs.</p>
 
-<p><strong>3. Auto-Recovery for Critical Instances</strong></p>
-
-<p>Configure CloudWatch alarms to automatically recover instances that fail system status checks:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Set up auto-recovery alarm</span>
-aws cloudwatch put-metric-alarm <span class="nt">--alarm-name</span> ec2-auto-recovery <span class="se">\</span>
-  <span class="nt">--metric-name</span> StatusCheckFailed_System <span class="nt">--namespace</span> AWS/EC2 <span class="se">\</span>
-  <span class="nt">--statistic</span> Maximum <span class="nt">--period</span> 60 <span class="nt">--evaluation-periods</span> 2 <span class="se">\</span>
-  <span class="nt">--threshold</span> 0 <span class="nt">--comparison-operator</span> GreaterThanThreshold <span class="se">\</span>
-  <span class="nt">--alarm-actions</span> arn:aws:automate:region:ec2:recover
-</code></pre></div></div>
-
-<h3 id="common-ec2-pitfalls-and-solutions">Common EC2 Pitfalls and Solutions</h3>
+<h3 id="common-ec2-problems">Common EC2 problems</h3>
 
 <table>
   <thead>
     <tr>
       <th>Problem</th>
       <th>Symptom</th>
-      <th>Solution</th>
+      <th>Remedy</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Zombie Instances</td>
-      <td>Running instances doing nothing useful</td>
-      <td>Tag with owner/purpose, run weekly audits</td>
+      <td>Idle or forgotten instances</td>
+      <td>Spend with no traffic</td>
+      <td>Mandatory <code class="language-plaintext highlighter-rouge">Owner</code> tags, Compute Optimizer idle findings, scheduled stop for non-production</td>
     </tr>
     <tr>
-      <td>Lost SSH Keys</td>
-      <td>Cannot access instance</td>
-      <td>Use Systems Manager Session Manager instead</td>
+      <td>Lost SSH key</td>
+      <td>Cannot log in</td>
+      <td>Session Manager (requires the SSM agent and an instance role)</td>
     </tr>
     <tr>
-      <td>Wrong Instance Family</td>
-      <td>Slower performance than expected</td>
-      <td>Match instance to workload (see table above)</td>
+      <td>Public IP changed</td>
+      <td>DNS or allow-lists break after stop/start</td>
+      <td>Use a load balancer or DNS name; Elastic IP only if a fixed IP is truly required</td>
     </tr>
     <tr>
-      <td>IP Address Changes</td>
-      <td>Public IP changes after stop/start</td>
-      <td>Use Elastic IPs for static addresses</td>
+      <td>T instance slow or costly</td>
+      <td>CPU throttled (standard mode) or surplus-credit charges (unlimited mode)</td>
+      <td>Move sustained workloads to M or C families</td>
     </tr>
     <tr>
-      <td>Unexpected Costs</td>
-      <td>Bill higher than expected</td>
-      <td>Set billing alerts, use AWS Cost Explorer</td>
+      <td><code class="language-plaintext highlighter-rouge">InsufficientInstanceCapacity</code></td>
+      <td>Launch fails in one AZ</td>
+      <td>Allow multiple instance types and AZs; use Capacity Reservations for must-launch capacity</td>
     </tr>
   </tbody>
 </table>
-
-<p><strong>Quick fix for lost SSH access</strong>: Use AWS Systems Manager to connect without keys:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ssm start-session <span class="nt">--target</span> i-1234567890abcdef0
-</code></pre></div></div>
-
-<p><strong>Quick fix for static IPs</strong>: Allocate an Elastic IP to prevent IP changes:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ec2 allocate-address <span class="nt">--domain</span> vpc
-aws ec2 associate-address <span class="nt">--instance-id</span> i-1234567890abcdef0 <span class="nt">--allocation-id</span> eipalloc-xxx
-</code></pre></div></div>
-
-<h4 id="aws-lambda---serverless-computing">AWS Lambda - Serverless Computing</h4>
-
-<p>Lambda represents a paradigm shift. Instead of managing servers, you upload your code and AWS runs it in response to events. You pay only for the milliseconds your code executes.</p>
-
-<p><strong>Real-world example</strong>: An e-commerce site uses Lambda to resize product images. When a seller uploads a photo, Lambda automatically creates multiple sizes for different devices. No servers to manage, automatic scaling, and you only pay when images are processed.</p>
-
-<h3 id="ec2-vs-lambda-when-to-use-each">EC2 vs Lambda: When to Use Each</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Factor</th>
-      <th>EC2</th>
-      <th>Lambda</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Execution time</strong></td>
-      <td>Unlimited</td>
-      <td>Max 15 minutes</td>
-    </tr>
-    <tr>
-      <td><strong>Startup time</strong></td>
-      <td>Minutes</td>
-      <td>Milliseconds (cold start: seconds)</td>
-    </tr>
-    <tr>
-      <td><strong>Pricing</strong></td>
-      <td>Per hour (even when idle)</td>
-      <td>Per millisecond of execution</td>
-    </tr>
-    <tr>
-      <td><strong>Control</strong></td>
-      <td>Full OS access</td>
-      <td>Runtime environment only</td>
-    </tr>
-    <tr>
-      <td><strong>Scaling</strong></td>
-      <td>Manual or Auto Scaling groups</td>
-      <td>Automatic, instant</td>
-    </tr>
-    <tr>
-      <td><strong>Best for</strong></td>
-      <td>Long-running apps, migrations</td>
-      <td>Event-driven, APIs, batch jobs</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="practical-lambda-patterns">Practical Lambda Patterns</h3>
-
-<p><strong>1. Event-Driven Processing</strong> (triggered by S3 uploads, database changes, etc.)</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-    <span class="c1"># Get the uploaded file info from S3 trigger
-</span>    <span class="n">bucket</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">Records</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">bucket</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">name</span><span class="sh">'</span><span class="p">]</span>
-    <span class="n">key</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">Records</span><span class="sh">'</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">s3</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">object</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">key</span><span class="sh">'</span><span class="p">]</span>
-
-    <span class="c1"># Process the file (resize image, parse CSV, etc.)
-</span>    <span class="c1"># ...
-</span>    <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Processed successfully</span><span class="sh">'</span><span class="p">}</span>
-</code></pre></div></div>
-
-<p><strong>2. API Backend</strong> (with API Gateway)</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">httpMethod</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">GET</span><span class="sh">'</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">'</span><span class="s">message</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Hello</span><span class="sh">'</span><span class="p">})}</span>
-    <span class="k">elif</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">httpMethod</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">POST</span><span class="sh">'</span><span class="p">:</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">])</span>
-        <span class="c1"># Process data...
-</span>        <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">201</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">'</span><span class="s">created</span><span class="sh">'</span><span class="p">:</span> <span class="bp">True</span><span class="p">})}</span>
-</code></pre></div></div>
-
-<p><strong>3. Scheduled Tasks</strong> (with CloudWatch Events/EventBridge)</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
-    <span class="c1"># Runs on schedule (e.g., daily cleanup, reports)
-</span>    <span class="c1"># Delete old files, send notifications, generate reports
-</span>    <span class="k">return</span> <span class="p">{</span><span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Task completed</span><span class="sh">'</span><span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="common-lambda-pitfalls-and-solutions">Common Lambda Pitfalls and Solutions</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Problem</th>
-      <th>Symptom</th>
-      <th>Solution</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Cold Starts</td>
-      <td>First invocation takes 3-5 seconds</td>
-      <td>Use Provisioned Concurrency or keep warm with scheduled pings</td>
-    </tr>
-    <tr>
-      <td>15-Minute Timeout</td>
-      <td>Long processes fail</td>
-      <td>Break into smaller functions, use Step Functions</td>
-    </tr>
-    <tr>
-      <td>Out of Memory</td>
-      <td>Function crashes on large files</td>
-      <td>Stream data instead of loading all at once</td>
-    </tr>
-    <tr>
-      <td>Package Too Large</td>
-      <td>Cannot upload (50MB zipped direct upload / 250MB unzipped)</td>
-      <td>Use Layers or container images (up to 10GB)</td>
-    </tr>
-    <tr>
-      <td>High Costs</td>
-      <td>Unexpected bills</td>
-      <td>Optimize memory settings, reduce execution time</td>
-    </tr>
-  </tbody>
-</table>
-
-<p><strong>Reducing cold starts</strong>: Keep deployment packages small. Avoid large libraries like pandas (40MB) when simpler alternatives work.</p>
-
-<p><strong>Handling long processes</strong>: Use AWS Step Functions to orchestrate multiple Lambda functions:</p>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"StartAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ProcessChunk"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"States"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-    </span><span class="nl">"ProcessChunk"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"Type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Map"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"ItemsPath"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$.chunks"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"MaxConcurrency"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"Iterator"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"StartAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DoWork"</span><span class="p">,</span><span class="w"> </span><span class="nl">"States"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="err">...</span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
-    </span><span class="p">}</span><span class="w">
-  </span><span class="p">}</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
-
-<p><strong>Handling large files</strong>: Stream instead of loading everything into memory:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Stream large files line by line
-</span><span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">s3_object</span><span class="p">[</span><span class="sh">'</span><span class="s">Body</span><span class="sh">'</span><span class="p">].</span><span class="nf">iter_lines</span><span class="p">():</span>
-    <span class="nf">process_line</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>  <span class="c1"># Process one line at a time
-</span></code></pre></div></div>
 
 <hr />
 
-<h2 id="auto-scaling-capacity-that-tracks-demand">Auto Scaling: Capacity That Tracks Demand</h2>
+<h2 id="ec2-auto-scaling">EC2 Auto Scaling</h2>
 
-<p>A single EC2 instance forces an uncomfortable choice: size it for peak traffic and waste money during quiet hours, or size it for average load and fall over during spikes. <strong>EC2 Auto Scaling</strong> removes the choice by adding and removing instances automatically based on demand.</p>
+<p>A single instance forces a choice between paying for peak capacity all day or failing at peak. An <strong>Auto Scaling group (ASG)</strong> removes that choice by keeping a <em>desired capacity</em> of instances across several AZs and changing it in response to demand.</p>
 
-<p>The mechanism has three parts working together:</p>
+<pre><code class="language-mermaid">flowchart LR
+    CW[CloudWatch metrics&lt;br/&gt;CPU, request count, queue depth] --&gt; P[Scaling policy&lt;br/&gt;target tracking, step,&lt;br/&gt;scheduled, predictive]
+    P --&gt;|adjust desired capacity| ASG[Auto Scaling group&lt;br/&gt;min / desired / max&lt;br/&gt;spread across AZs]
+    LT[Launch template&lt;br/&gt;AMI, instance types,&lt;br/&gt;role, user data] --&gt; ASG
+    ASG --&gt;|launch / terminate| I1[Instance AZ-a]
+    ASG --&gt; I2[Instance AZ-b]
+    ASG --&gt; I3[Instance AZ-c]
+    ALB[Application Load Balancer&lt;br/&gt;target group] --&gt; I1
+    ALB --&gt; I2
+    ALB --&gt; I3
+    ALB -.-&gt;|ELB health checks| ASG
+</code></pre>
 
 <table>
   <thead>
@@ -3823,26 +3495,62 @@ aws ec2 associate-address <span class="nt">--instance-id</span> i-1234567890abcd
   </thead>
   <tbody>
     <tr>
-      <td><strong>Launch Template</strong></td>
-      <td>The blueprint for new instances (AMI, instance type, security groups, user data)</td>
+      <td><strong>Launch template</strong></td>
+      <td>Versioned blueprint for new instances: AMI, instance type(s), security groups, instance profile, user data, metadata options</td>
     </tr>
     <tr>
-      <td><strong>Auto Scaling Group (ASG)</strong></td>
-      <td>Maintains a desired count of instances across multiple AZs, replacing any that fail health checks</td>
+      <td><strong>Auto Scaling group</strong></td>
+      <td>Holds min, max, and desired capacity; balances instances across AZs; replaces instances that fail health checks</td>
     </tr>
     <tr>
-      <td><strong>Scaling Policy</strong></td>
-      <td>The rule that changes the desired count (for example, “keep average CPU near 50%”)</td>
+      <td><strong>Scaling policy</strong></td>
+      <td>Changes desired capacity based on metrics or a schedule</td>
+    </tr>
+    <tr>
+      <td><strong>Load balancer target group</strong></td>
+      <td>Routes traffic to healthy instances; with ELB health checks enabled, the ASG also replaces instances the load balancer marks unhealthy</td>
     </tr>
   </tbody>
 </table>
 
-<p>The most robust everyday choice is a <strong>target tracking</strong> policy: you name a metric and a target value, and AWS adds or removes capacity to hold it there.</p>
+<h3 id="scaling-policies">Scaling policies</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Maintain 2-10 instances, scaling to keep average CPU around 50%</span>
+<table>
+  <thead>
+    <tr>
+      <th>Policy</th>
+      <th>How it decides</th>
+      <th>Use for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Target tracking</strong></td>
+      <td>Holds a metric near a target (for example 50% average CPU, or 1,000 requests per target)</td>
+      <td>The default for most services</td>
+    </tr>
+    <tr>
+      <td><strong>Step scaling</strong></td>
+      <td>Adds or removes capacity in tiers as an alarm breaches thresholds</td>
+      <td>Very bursty load where the size of the response should grow with the breach</td>
+    </tr>
+    <tr>
+      <td><strong>Scheduled</strong></td>
+      <td>Sets capacity at fixed times</td>
+      <td>Known patterns: business hours, batch windows, launches</td>
+    </tr>
+    <tr>
+      <td><strong>Predictive</strong></td>
+      <td>Forecasts load from recent history (up to 14 days) and scales ahead of it</td>
+      <td>Regular daily/weekly cycles with slow instance start-up</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Keep average CPU near 50% (the group's min/max still bound the result)</span>
 aws autoscaling put-scaling-policy <span class="se">\</span>
-  <span class="nt">--auto-scaling-group-name</span> my-asg <span class="se">\</span>
-  <span class="nt">--policy-name</span> cpu-target-tracking <span class="se">\</span>
+  <span class="nt">--auto-scaling-group-name</span> web-asg <span class="se">\</span>
+  <span class="nt">--policy-name</span> cpu50 <span class="se">\</span>
   <span class="nt">--policy-type</span> TargetTrackingScaling <span class="se">\</span>
   <span class="nt">--target-tracking-configuration</span> <span class="s1">'{
     "PredefinedMetricSpecification": {"PredefinedMetricType": "ASGAverageCPUUtilization"},
@@ -3850,151 +3558,440 @@ aws autoscaling put-scaling-policy <span class="se">\</span>
   }'</span>
 </code></pre></div></div>
 
-<div class="tip-card">
-  <h4>Pair Auto Scaling with a load balancer</h4>
-  <p>An ASG decides <em>how many</em> instances run; a load balancer decides <em>how traffic reaches them</em>. Register the ASG with an Application Load Balancer's target group and enable ELB health checks so the group replaces instances the balancer reports as unhealthy — not just ones that fail the basic EC2 system check.</p>
-</div>
+<p>Other features worth knowing:</p>
 
-<p><strong>Scaling policy types at a glance:</strong></p>
+<ul>
+  <li><strong>Mixed instances policy</strong> combines an On-Demand base (for example two instances) with Spot above it, across several instance types, in one group.</li>
+  <li><strong>Capacity Rebalancing</strong> launches a replacement when a Spot instance receives a rebalance recommendation, before the interruption arrives.</li>
+  <li><strong>Warm pools</strong> keep pre-initialized, stopped instances ready, cutting scale-out time for applications with long boot or warm-up.</li>
+  <li><strong>Instance refresh</strong> rolls a new launch template version (for example a patched AMI) through the group in batches, with checkpoints and automatic rollback.</li>
+  <li><strong>Lifecycle hooks</strong> pause instances on launch or termination so scripts can register, drain connections, or ship logs.</li>
+</ul>
+
+<hr />
+
+<h2 id="aws-lambda">AWS Lambda</h2>
+
+<p><strong>AWS Lambda</strong> runs a function in response to an event (an HTTP request through API Gateway or a function URL, an S3 upload, a message on SQS, a DynamoDB stream record, a schedule) and bills for the requests and the compute time used. There are no instances to manage, and a function with no traffic costs nothing.</p>
+
+<h3 id="execution-model">Execution model</h3>
+
+<p>Each concurrent request is served by an <strong>execution environment</strong>: a Firecracker microVM with the configured memory, the runtime, and the function code. An environment handles one request at a time and is reused for later requests, so anything created outside the handler (SDK clients, database connections, loaded models) is reused too.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant S as Event source
+    participant L as Lambda service
+    participant E as Execution environment
+    S-&gt;&gt;L: Invoke
+    alt No idle environment (cold start)
+        L-&gt;&gt;E: Create microVM, download code
+        E-&gt;&gt;E: INIT: start runtime, run code outside handler
+    end
+    L-&gt;&gt;E: INVOKE: run handler(event, context)
+    E--&gt;&gt;L: Response
+    L--&gt;&gt;S: Response (sync) or ack (async)
+    Note over E: Environment stays warm for reuse;&lt;br/&gt;idle environments are eventually shut down
+</code></pre>
+
+<p>A <strong>cold start</strong> is the INIT phase: creating the environment and running initialization code. It typically adds from under 100 ms (small Node.js or Python functions) to several seconds (large Java or .NET applications, heavy dependencies). Since August 2025, time spent in INIT is billed for all on-demand functions, which makes lean initialization a cost concern as well as a latency one.</p>
+
+<p>Concurrency is the number of environments serving requests at once. The default Regional quota is 1,000 concurrent executions (lower on new accounts, raised automatically with usage), and each function can scale by 1,000 environments every 10 seconds. <strong>Reserved concurrency</strong> caps a function (and guarantees it that share); <strong>provisioned concurrency</strong> keeps a number of environments initialized ahead of time.</p>
+
+<h3 id="invocation-models">Invocation models</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Policy type</th>
-      <th>How it decides</th>
-      <th>Best for</th>
+      <th>Model</th>
+      <th>Sources</th>
+      <th>Error handling</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Target tracking</strong></td>
-      <td>Holds a metric at a target value</td>
-      <td>Most workloads — the sensible default</td>
+      <td><strong>Synchronous</strong></td>
+      <td>API Gateway, function URLs, ALB, SDK <code class="language-plaintext highlighter-rouge">Invoke</code></td>
+      <td>The caller receives the error and decides whether to retry</td>
     </tr>
     <tr>
-      <td><strong>Step scaling</strong></td>
-      <td>Adds/removes capacity in tiers as a metric breaches thresholds</td>
-      <td>Fine-grained control over large, bursty changes</td>
+      <td><strong>Asynchronous</strong></td>
+      <td>S3, SNS, EventBridge, SDK with <code class="language-plaintext highlighter-rouge">InvocationType=Event</code></td>
+      <td>Lambda queues the event and retries twice; failures go to an on-failure destination or dead-letter queue</td>
     </tr>
     <tr>
-      <td><strong>Scheduled</strong></td>
-      <td>Changes capacity at set times</td>
-      <td>Predictable patterns (business hours, batch windows)</td>
+      <td><strong>Event source mapping (polling)</strong></td>
+      <td>SQS, Kinesis, DynamoDB Streams, Kafka (MSK or self-managed), Amazon MQ</td>
+      <td>Lambda polls and invokes in batches; use partial batch responses so one bad record does not force the whole batch to retry</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="quotas-and-limits">Quotas and limits</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Limit</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Maximum timeout</td>
+      <td>900 seconds (15 minutes)</td>
     </tr>
     <tr>
-      <td><strong>Predictive</strong></td>
-      <td>ML forecasts demand and pre-scales</td>
-      <td>Recurring daily/weekly cycles with long warm-up times</td>
+      <td>Memory</td>
+      <td>128 MB to 10,240 MB; CPU scales with memory (about 1 vCPU at 1,769 MB, up to 6 vCPUs)</td>
+    </tr>
+    <tr>
+      <td>Ephemeral storage (<code class="language-plaintext highlighter-rouge">/tmp</code>)</td>
+      <td>512 MB to 10,240 MB</td>
+    </tr>
+    <tr>
+      <td>Deployment package</td>
+      <td>50 MB zipped for direct upload; 250 MB unzipped including layers; container images up to 10 GB</td>
+    </tr>
+    <tr>
+      <td>Payload</td>
+      <td>6 MB request and response (synchronous); 200 MB for streamed responses; 1 MB for asynchronous events</td>
+    </tr>
+    <tr>
+      <td>Environment variables</td>
+      <td>4 KB total</td>
+    </tr>
+    <tr>
+      <td>Layers</td>
+      <td>5 per function</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="pricing">Pricing</h3>
+
+<p>Lambda charges per request and per GB-second of duration (memory size times execution time, rounded up to the millisecond). <strong>arm64 (Graviton)</strong> functions are priced about 20% lower per GB-second than x86_64 and usually run as fast or faster. Because CPU is proportional to memory, raising memory often <em>reduces</em> cost for CPU-bound functions by shortening duration; the open-source <strong>AWS Lambda Power Tuning</strong> tool measures this empirically. Compute Savings Plans apply to Lambda duration.</p>
+
+<h3 id="reducing-cold-starts">Reducing cold starts</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Effect</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Keep packages and initialization small</td>
+      <td>Shorter INIT for every cold start</td>
+      <td>Engineering effort; avoid importing large libraries you do not need</td>
+    </tr>
+    <tr>
+      <td><strong>SnapStart</strong> (Java 11+, Python 3.12+, .NET 8+)</td>
+      <td>Restores environments from a cached snapshot taken after INIT; sub-second starts for heavy runtimes</td>
+      <td>Code must tolerate snapshot reuse (regenerate unique IDs and randomness, re-establish connections); caching and restore charges for Python and .NET</td>
+    </tr>
+    <tr>
+      <td><strong>Provisioned concurrency</strong></td>
+      <td>Environments pre-initialized; double-digit-millisecond starts</td>
+      <td>Billed while provisioned, used or not; cannot be combined with SnapStart</td>
+    </tr>
+    <tr>
+      <td>Choose a lighter runtime</td>
+      <td>Node.js, Python, Go, and Rust start faster than JVM or .NET without SnapStart</td>
+      <td>May not match the team’s stack</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Scheduled “keep-warm” pings are a legacy workaround: they keep only one environment warm and do nothing for concurrent bursts.</p>
+
+<h3 id="handler-examples">Handler examples</h3>
+
+<p>An S3 upload handler. Object keys in S3 events are URL-encoded, so decode them before use:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">urllib.parse</span>
+<span class="kn">import</span> <span class="n">boto3</span>
+
+<span class="n">s3</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">"</span><span class="s">s3</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># created once per environment, reused across invocations
+</span>
+<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">Records</span><span class="sh">"</span><span class="p">]:</span>
+        <span class="n">bucket</span> <span class="o">=</span> <span class="n">record</span><span class="p">[</span><span class="sh">"</span><span class="s">s3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">bucket</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">]</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">parse</span><span class="p">.</span><span class="nf">unquote_plus</span><span class="p">(</span><span class="n">record</span><span class="p">[</span><span class="sh">"</span><span class="s">s3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">object</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">key</span><span class="sh">"</span><span class="p">])</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="n">s3</span><span class="p">.</span><span class="nf">get_object</span><span class="p">(</span><span class="n">Bucket</span><span class="o">=</span><span class="n">bucket</span><span class="p">,</span> <span class="n">Key</span><span class="o">=</span><span class="n">key</span><span class="p">)[</span><span class="sh">"</span><span class="s">Body</span><span class="sh">"</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">body</span><span class="p">.</span><span class="nf">iter_lines</span><span class="p">():</span>  <span class="c1"># stream; do not read large objects into memory
+</span>            <span class="nf">process</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>An HTTP handler behind API Gateway (REST API proxy integration, payload format 1.0):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
+
+<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="n">method</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">httpMethod</span><span class="sh">"</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="sh">"</span><span class="s">GET</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">statusCode</span><span class="sh">"</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="sh">"</span><span class="s">body</span><span class="sh">"</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">message</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">hello</span><span class="sh">"</span><span class="p">})}</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="sh">"</span><span class="s">POST</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">event</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">body</span><span class="sh">"</span><span class="p">)</span> <span class="ow">or</span> <span class="sh">"</span><span class="s">{}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">statusCode</span><span class="sh">"</span><span class="p">:</span> <span class="mi">201</span><span class="p">,</span> <span class="sh">"</span><span class="s">body</span><span class="sh">"</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">created</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span> <span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">:</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">)})}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">statusCode</span><span class="sh">"</span><span class="p">:</span> <span class="mi">405</span><span class="p">,</span> <span class="sh">"</span><span class="s">body</span><span class="sh">"</span><span class="p">:</span> <span class="sh">""</span><span class="p">}</span>
+</code></pre></div></div>
+
+<p>HTTP APIs and function URLs default to payload format 2.0, where the method is at <code class="language-plaintext highlighter-rouge">event["requestContext"]["http"]["method"]</code>.</p>
+
+<h3 id="long-running-and-stateful-work">Long-running and stateful work</h3>
+
+<p>The 15-minute limit and one-request-per-environment model shape how larger jobs are built:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>Option</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Multi-step workflow across AWS services, visual definition, native service integrations</td>
+      <td><strong>AWS Step Functions</strong> (Standard workflows run up to one year; Express workflows for high-volume, short runs). A <code class="language-plaintext highlighter-rouge">Map</code> state fans out over large datasets.</td>
+    </tr>
+    <tr>
+      <td>Multi-step workflow written as ordinary code inside Lambda</td>
+      <td><strong>Lambda durable functions</strong> (launched late 2025): an SDK for JavaScript/TypeScript, Python, and Java that checkpoints each step and replays on resume. Executions can last up to a year and are not billed while waiting.</td>
+    </tr>
+    <tr>
+      <td>Steady high-volume traffic, EC2 pricing, specialised instance types</td>
+      <td><strong>Lambda Managed Instances</strong>: functions run on EC2 instances in your account that Lambda provisions, patches, and scales. One environment serves multiple concurrent requests, Savings Plans and RIs apply, and AWS adds a 15% management fee. There are no cold starts, but it does not scale to zero.</td>
+    </tr>
+    <tr>
+      <td>Work longer than 15 minutes in a container</td>
+      <td>ECS on Fargate, or AWS Batch</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="common-lambda-problems">Common Lambda problems</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Problem</th>
+      <th>Symptom</th>
+      <th>Remedy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Cold-start latency</td>
+      <td>Slow first requests or bursts</td>
+      <td>Trim dependencies; SnapStart; provisioned concurrency for strict latency targets</td>
+    </tr>
+    <tr>
+      <td>Timeout</td>
+      <td><code class="language-plaintext highlighter-rouge">Task timed out after N seconds</code></td>
+      <td>Split work into Step Functions or durable function steps; check for slow downstream calls with X-Ray</td>
+    </tr>
+    <tr>
+      <td>Out of memory</td>
+      <td><code class="language-plaintext highlighter-rouge">Runtime exited with error: signal: killed</code></td>
+      <td>Stream data; increase memory (which also adds CPU)</td>
+    </tr>
+    <tr>
+      <td>Package too large</td>
+      <td>Upload rejected</td>
+      <td>Move dependencies to layers or package as a container image</td>
+    </tr>
+    <tr>
+      <td>Throttling</td>
+      <td><code class="language-plaintext highlighter-rouge">Rate Exceeded</code> / <code class="language-plaintext highlighter-rouge">TooManyRequestsException</code></td>
+      <td>Request a concurrency quota increase; reserve concurrency for critical functions; buffer with SQS</td>
+    </tr>
+    <tr>
+      <td>Database connection exhaustion</td>
+      <td>RDS <code class="language-plaintext highlighter-rouge">too many connections</code> under load</td>
+      <td><strong>RDS Proxy</strong> to pool connections, or a database with an HTTP/serverless interface (DynamoDB, Aurora DSQL)</td>
+    </tr>
+    <tr>
+      <td>Recursive loops</td>
+      <td>Runaway invocations and cost</td>
+      <td>Lambda detects and stops common SQS/SNS/S3 loops, but design triggers so a function never writes to its own source</td>
     </tr>
   </tbody>
 </table>
 
 <hr />
 
-<h2 id="containers-on-aws-ecs-and-fargate">Containers on AWS: ECS and Fargate</h2>
+<h2 id="containers-ecs-fargate-and-eks">Containers: ECS, Fargate, and EKS</h2>
 
-<p>Many teams package applications as containers (see <a href="../docker/">Docker</a>) rather than managing whole servers. AWS offers two main ways to run them.</p>
+<p>Many teams package applications as containers (see <a href="../docker/">Docker</a>) and hand them to an orchestrator. AWS has two:</p>
 
-<p><strong>Amazon ECS (Elastic Container Service)</strong> is AWS’s native container orchestrator. You define a <strong>task definition</strong> (which container images to run, with how much CPU and memory), and ECS schedules those tasks onto compute capacity.</p>
+<ul>
+  <li><strong>Amazon ECS (Elastic Container Service)</strong>, AWS’s own orchestrator. Simpler API, deep integration with IAM, ALB, CloudWatch, and Service Connect; no control-plane fee.</li>
+  <li><strong>Amazon EKS (Elastic Kubernetes Service)</strong>, managed Kubernetes. Use it when you want the Kubernetes API, its tooling (Helm, operators, Argo CD), or portability across clouds. EKS charges per cluster-hour for the control plane. See the <a href="../kubernetes/">Kubernetes guide</a>.</li>
+</ul>
 
-<p>That capacity comes in two <strong>launch types</strong>:</p>
+<h3 id="ecs-concepts">ECS concepts</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Launch type</th>
-      <th>You manage</th>
-      <th>AWS manages</th>
-      <th>Best for</th>
+      <th>Concept</th>
+      <th>Meaning</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>EC2 launch type</strong></td>
-      <td>The EC2 instances in the cluster</td>
-      <td>Container scheduling</td>
-      <td>Fine control over the host, GPU/specialized instances, steady high utilization</td>
+      <td><strong>Task definition</strong></td>
+      <td>Versioned JSON blueprint: container images, CPU and memory, ports, IAM roles, log configuration</td>
     </tr>
     <tr>
-      <td><strong>Fargate</strong></td>
-      <td>Nothing below the container</td>
-      <td>Servers, patching, scaling of the underlying host</td>
-      <td>Most workloads — no servers to manage, pay per task</td>
+      <td><strong>Task</strong></td>
+      <td>A running instance of a task definition (one or more containers that share a network namespace)</td>
+    </tr>
+    <tr>
+      <td><strong>Service</strong></td>
+      <td>Keeps N tasks running, replaces failed ones, registers them with a load balancer, and performs rolling or blue/green deployments</td>
+    </tr>
+    <tr>
+      <td><strong>Cluster</strong></td>
+      <td>Logical grouping of services and tasks and the capacity they run on</td>
+    </tr>
+    <tr>
+      <td><strong>Capacity provider</strong></td>
+      <td>Links a cluster to capacity (Fargate, Fargate Spot, an Auto Scaling group, or Managed Instances) with a weighting strategy</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Fargate</strong> is serverless compute for containers: you specify CPU and memory per task and AWS runs it without any EC2 instances for you to patch or scale. It is to containers what Lambda is to functions — zero host management, pay only for what runs.</p>
+<h3 id="where-containers-run">Where containers run</h3>
 
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">A</span><span class="w"> </span><span class="err">minimal</span><span class="w"> </span><span class="err">Fargate</span><span class="w"> </span><span class="err">task</span><span class="w"> </span><span class="err">definition</span><span class="w"> </span><span class="err">(excerpt)</span><span class="w">
-</span><span class="p">{</span><span class="w">
+<table>
+  <thead>
+    <tr>
+      <th>Capacity</th>
+      <th>Who manages hosts</th>
+      <th>Choose when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Fargate</strong></td>
+      <td>AWS; each task gets its own isolated micro-VM</td>
+      <td>Default choice; variable or modest workloads; no host access needed. <strong>Fargate Spot</strong> cuts cost up to 70% for interruptible tasks.</td>
+    </tr>
+    <tr>
+      <td><strong>ECS Managed Instances</strong></td>
+      <td>AWS provisions, patches, and scales EC2 instances in your account</td>
+      <td>You want EC2 pricing, instance choice (including GPUs), and denser packing without running hosts</td>
+    </tr>
+    <tr>
+      <td><strong>EC2 (self-managed)</strong></td>
+      <td>You manage the ASG, AMI, and ECS agent</td>
+      <td>Custom AMIs, privileged containers, special kernel settings, or existing Capacity Reservations</td>
+    </tr>
+    <tr>
+      <td><strong>EKS Auto Mode</strong></td>
+      <td>AWS runs Karpenter-based node provisioning, load balancer and storage controllers, and patches nodes (21-day maximum node lifetime)</td>
+      <td>Kubernetes with minimal node operations</td>
+    </tr>
+    <tr>
+      <td><strong>EKS managed node groups / Karpenter</strong></td>
+      <td>You own node configuration and upgrades</td>
+      <td>Full control of Kubernetes data plane</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A minimal Fargate task definition. The <strong>execution role</strong> lets ECS pull the image and write logs; the <strong>task role</strong> is what the application itself uses to call AWS APIs:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"family"</span><span class="p">:</span><span class="w"> </span><span class="s2">"web-app"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"networkMode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awsvpc"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"requiresCompatibilities"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"FARGATE"</span><span class="p">],</span><span class="w">
+  </span><span class="nl">"runtimePlatform"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"cpuArchitecture"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ARM64"</span><span class="p">,</span><span class="w"> </span><span class="nl">"operatingSystemFamily"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LINUX"</span><span class="w"> </span><span class="p">},</span><span class="w">
   </span><span class="nl">"cpu"</span><span class="p">:</span><span class="w"> </span><span class="s2">"256"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"memory"</span><span class="p">:</span><span class="w"> </span><span class="s2">"512"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"executionRoleArn"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::123456789012:role/ecsTaskExecutionRole"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"taskRoleArn"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::123456789012:role/web-app-task"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"containerDefinitions"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
     </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"web"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"image"</span><span class="p">:</span><span class="w"> </span><span class="s2">"123456789012.dkr.ecr.us-east-1.amazonaws.com/web-app:latest"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"portMappings"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"containerPort"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="w"> </span><span class="p">}]</span><span class="w">
+    </span><span class="nl">"image"</span><span class="p">:</span><span class="w"> </span><span class="s2">"123456789012.dkr.ecr.us-east-1.amazonaws.com/web-app:1.4.2"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"essential"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"portMappings"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"containerPort"</span><span class="p">:</span><span class="w"> </span><span class="mi">8080</span><span class="w"> </span><span class="p">}],</span><span class="w">
+    </span><span class="nl">"logConfiguration"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"logDriver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"awslogs"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"options"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"awslogs-group"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/ecs/web-app"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"awslogs-region"</span><span class="p">:</span><span class="w"> </span><span class="s2">"us-east-1"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"awslogs-stream-prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"web"</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
   </span><span class="p">}]</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<h3 id="choosing-among-the-compute-options">Choosing Among the Compute Options</h3>
+<p>Pin images to an immutable tag or digest rather than <code class="language-plaintext highlighter-rouge">latest</code>, so a redeploy or task replacement cannot silently pick up a different image.</p>
 
-<p>By now you have four ways to run code on AWS. This table ties them together:</p>
+<h3 id="service-to-service-networking">Service-to-service networking</h3>
+
+<ul>
+  <li><strong>ECS Service Connect</strong> gives ECS services short names, client-side load balancing, retries, and per-service metrics through a managed Envoy proxy.</li>
+  <li><strong>Amazon VPC Lattice</strong> connects services across VPCs and accounts, and across compute types (EC2, ECS, EKS, Lambda), with IAM-based auth policies.</li>
+  <li><strong>AWS App Mesh</strong> reaches end of support on <strong>30 September 2026</strong>, after which its console and resources are no longer accessible. AWS directs ECS users to Service Connect, and EKS users to VPC Lattice or an open-source mesh such as Istio.</li>
+</ul>
+
+<hr />
+
+<h2 id="other-compute-services">Other Compute Services</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Option</th>
-      <th>Unit of deployment</th>
-      <th>Server management</th>
-      <th>Reach for it when</th>
+      <th>Service</th>
+      <th>What it is</th>
+      <th>When it fits</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>EC2</strong></td>
-      <td>A virtual machine</td>
-      <td>You manage the OS</td>
-      <td>You need full host control or are migrating existing apps</td>
+      <td><strong>AWS Batch</strong></td>
+      <td>Job queues and schedulers on top of EC2, Spot, Fargate, or EKS</td>
+      <td>Large batch and HPC jobs, array jobs, GPU training runs</td>
     </tr>
     <tr>
-      <td><strong>ECS on EC2</strong></td>
-      <td>A container</td>
-      <td>You manage the cluster hosts</td>
-      <td>You run containers and want control over the underlying instances</td>
+      <td><strong>Elastic Beanstalk</strong></td>
+      <td>Platform that deploys an application onto EC2, ASG, and a load balancer it manages</td>
+      <td>Traditional web apps where the team wants a PaaS with EC2 underneath</td>
     </tr>
     <tr>
-      <td><strong>Fargate</strong></td>
-      <td>A container</td>
-      <td>None</td>
-      <td>You run containers and want zero host management</td>
+      <td><strong>Amazon Lightsail</strong></td>
+      <td>Fixed-price virtual servers, databases, and containers with bundled transfer</td>
+      <td>Small sites and prototypes with predictable needs</td>
     </tr>
     <tr>
-      <td><strong>Lambda</strong></td>
-      <td>A function</td>
-      <td>None</td>
-      <td>Event-driven, short, bursty work that should cost nothing when idle</td>
+      <td><strong>AWS Outposts / Local Zones</strong></td>
+      <td>AWS infrastructure on premises, or in metro areas near users</td>
+      <td>Data residency, single-digit-millisecond latency to a location</td>
     </tr>
   </tbody>
 </table>
 
-<div class="notice--info">
-  <p>For full Kubernetes instead of ECS, AWS offers <strong>EKS</strong> (Elastic Kubernetes Service) — also available with a Fargate data plane. See the <a href="../kubernetes/">Kubernetes guide</a> for orchestration concepts that apply across EKS, ECS, and self-managed clusters.</p>
-</div>
+<hr />
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="getting-started-safely">Getting Started Safely</h2>
 
-<ul>
-  <li><strong>EC2 for control, Lambda for scale-to-zero.</strong> Choose EC2 when you need a long-running server you fully control; choose Lambda for event-driven, bursty work that should cost nothing when idle.</li>
-  <li><strong>Auto Scaling plus load balancing.</strong> Pair an Auto Scaling group with a load balancer so capacity tracks demand and unhealthy instances are replaced automatically.</li>
-  <li><strong>Spot instances cut cost.</strong> Use Spot for fault-tolerant, interruptible workloads to save up to 90%; keep baseline capacity on On-Demand or Reserved.</li>
-  <li><strong>Mind Lambda’s limits.</strong> Watch cold starts, the 15-minute timeout, and package size. Reach for Step Functions to orchestrate long or multi-stage work.</li>
-  <li><strong>Fargate for containers without servers.</strong> Run containers on ECS (or EKS) with Fargate to skip host patching and scaling entirely — choose the EC2 launch type only when you need control over the underlying instances.</li>
-</ul>
+<p>A new account needs a few guardrails before the first instance is launched:</p>
+
+<ol>
+  <li><strong>Protect the root user.</strong> Enable MFA on it, delete any root access keys, and use it only for the handful of tasks that require it.</li>
+  <li><strong>Use federated or short-lived access.</strong> Configure <strong>IAM Identity Center</strong> for human users and sign in to the CLI with <code class="language-plaintext highlighter-rouge">aws configure sso</code> / <code class="language-plaintext highlighter-rouge">aws sso login</code>, instead of creating IAM users with long-lived access keys. Workloads use IAM roles.</li>
+  <li><strong>Set a budget</strong> with email alerts at a low amount (see <a href="cost.html#budgets-and-alerts">Cost Optimization</a>).</li>
+  <li><strong>Know the free tier.</strong> Accounts created since 15 July 2025 choose a <em>free plan</em> (up to 200 USD in credits over six months, after which the account closes unless upgraded) or a paid plan; some services such as Lambda also have always-free monthly allowances.</li>
+  <li><strong>Launch into private subnets</strong> where possible, use Session Manager instead of SSH, and tag every resource with an owner.</li>
+  <li><strong>Clean up.</strong> Terminate instances, delete unattached EBS volumes and snapshots, release Elastic IPs, and delete NAT gateways and load balancers when an experiment ends; these keep billing when idle.</li>
+</ol>
 
 <hr />
 
@@ -4002,13 +3999,14 @@ aws autoscaling put-scaling-policy <span class="se">\</span>
 
 <ul>
   <li><a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
-  <li><a href="storage.html">Storage Services</a> - S3 and EBS for your data</li>
-  <li><a href="databases.html">Database Services</a> - RDS and DynamoDB</li>
+  <li><a href="cost.html">Cost Optimization</a> - Savings Plans, Spot strategy, and budgets</li>
+  <li><a href="storage.html">Storage Services</a> - EBS volumes and S3</li>
+  <li><a href="databases.html">Database Services</a> - RDS, Aurora, and DynamoDB</li>
   <li><a href="networking.html">Networking &amp; Content Delivery</a> - VPC, load balancers, and CloudFront</li>
-  <li><a href="security.html">Security</a> - IAM and security best practices</li>
-  <li><a href="iac.html">Infrastructure as Code</a> - CloudFormation, monitoring, and cost optimization</li>
-  <li><a href="../kubernetes/">Kubernetes on AWS</a> - Container orchestration with EKS</li>
-  <li><a href="../docker/">Docker</a> - Containerization fundamentals</li>
+  <li><a href="security.html">Security</a> - IAM roles and instance hardening</li>
+  <li><a href="architecture.html">Architecture Patterns</a> - How compute fits into complete designs</li>
+  <li><a href="../kubernetes/">Kubernetes</a> - Orchestration concepts behind EKS</li>
+  <li><a href="../docker/">Docker</a> - Container fundamentals</li>
 </ul>
 
       </section>

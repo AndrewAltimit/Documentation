@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="What a monorepo is, the polyrepo trade-off, the core concepts (single source of truth, atomic changes, unified versioning), and when to adopt one">
+<meta name="description" content="What a monorepo is and is not, the properties that make one worthwhile (single source of truth, atomic changes, unified toolchain), the trade-off against pol...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Monorepo Strategies and Management">
-<meta property="og:description" content="What a monorepo is, the polyrepo trade-off, the core concepts (single source of truth, atomic changes, unified versioning), and when to adopt one">
+<meta property="og:description" content="What a monorepo is and is not, the properties that make one worthwhile (single source of truth, atomic changes, unified toolchain), the trade-off against pol...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/advanced/monorepo/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Monorepo Strategies and Management">
-<meta name="twitter:description" content="What a monorepo is, the polyrepo trade-off, the core concepts (single source of truth, atomic changes, unified versioning), and when to adopt one">
+<meta name="twitter:description" content="What a monorepo is and is not, the properties that make one worthwhile (single source of truth, atomic changes, unified toolchain), the trade-off against pol...">
 
 <title>Monorepo Strategies and Management | Andrews Notebook</title>
 
@@ -3133,54 +3133,19 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <h1 id="monorepo-strategies-and-management">Monorepo Strategies and Management</h1>
 
-<p><a href="./">Advanced Topics</a> » Monorepo Strategies and Management</p>
+<p><a href="../">Advanced Topics</a> » Monorepo Strategies and Management</p>
 
 <div class="advanced-note">
-  <p><strong>Advanced engineering deep-dive.</strong> This page is the conceptual hub for monorepos: what they are, how they differ from polyrepos, the core properties that make them worthwhile, and the decision of whether to adopt one. The two companion pages go deeper — <a href="../monorepo-tooling/">Tooling &amp; Build Systems</a> surveys Bazel, Nx, Turborepo, Rush, Lerna, and Pants; <a href="../monorepo-scaling/">Scaling &amp; Engineering</a> covers build graphs, remote execution, ownership, and VCS scaling. <strong>Helpful background:</strong> build systems and dependency graphs, CI/CD pipelines, and Git internals. For day-to-day Git workflows see the <a href="../../technology/git-reference.html">Git Reference</a>; for pipeline fundamentals see <a href="../../technology/ci-cd/">CI/CD Pipelines</a>.</p>
+  <p><strong>Advanced engineering deep-dive.</strong> This is the hub page for monorepos. It covers what a monorepo is, how it differs from a polyrepo, what it gives you, whether to adopt one, and how to migrate into one. Two companion pages go deeper. <a href="../monorepo-tooling/">Tooling &amp; Build Systems</a> compares Nx, Turborepo, moon, Lerna, Rush, Bazel, Buck2, and Pants. <a href="../monorepo-scaling/">Scaling &amp; Engineering</a> covers affected-target analysis, caching, remote execution, ownership, CI, and VCS scaling. <strong>Helpful background:</strong> dependency graphs, CI/CD pipelines, and Git internals. See also the <a href="../../technology/git-reference.html">Git Reference</a> and <a href="../../technology/ci-cd/">CI/CD Pipelines</a>.</p>
 </div>
 
-<h2 id="introduction">Introduction</h2>
+<p>A <strong>monorepo</strong> is a single version-controlled repository that holds many distinct projects, such as applications, services, and libraries, that can each be built and deployed independently. Google, Meta, and Microsoft each run very large monorepos. The approach is also common in small teams, because modern build tools make it practical at any size. A monorepo doesn’t remove complexity. It moves complexity out of coordination <em>between</em> repositories and into tooling <em>within</em> one repository.</p>
 
-<p>A monorepo (monolithic repository) is a software development strategy where code for multiple projects is stored in a single repository. This approach has gained significant traction among large tech companies and is increasingly adopted by teams of all sizes.</p>
-
-<ul>
-  <li><strong>One repo, many projects.</strong> A monorepo is not a monolith. Many independently-deployable projects share one version-controlled tree, enabling atomic cross-project changes.</li>
-  <li><strong>The build graph is everything.</strong> Modern monorepo tools model projects as a dependency DAG, so they can build, test, and deploy only what a change actually affects.</li>
-  <li><strong>Caching makes it scale.</strong> Content-addressed local and remote caches mean a given input is built once, ever — across the whole team and CI fleet.</li>
-  <li><strong>It’s a trade-off.</strong> You trade per-team autonomy and small clones for shared tooling and frictionless code reuse. Worth it when projects are coupled; costly when they aren’t.</li>
-</ul>
-
-<h2 id="what-is-a-monorepo">What is a Monorepo?</h2>
-
-<p>A monorepo contains multiple distinct projects with well-defined relationships and dependencies, all within a single repository. Unlike a monolithic application, projects in a monorepo can be deployed independently.</p>
-
-<p>The mental model that unlocks every monorepo tool is the <strong>project dependency graph</strong>. Tools like Nx, Turborepo, and Bazel parse this graph, then use it to answer the only question that matters at scale: <em>given this change, what is the minimal set of projects I must rebuild, retest, and redeploy?</em></p>
-
-<pre><code class="language-mermaid">flowchart TD
-    subgraph Packages
-      utils["@org/utils"]
-      ui["@org/ui-components"]
-      api["@org/api-client"]
-    end
-    subgraph Apps
-      web["apps/web"]
-      admin["apps/admin"]
-    end
-    utils --&gt; ui
-    utils --&gt; api
-    ui --&gt; web
-    api --&gt; web
-    ui --&gt; admin
-    api --&gt; admin
-    web -. "change here" .-&gt; affected1["rebuild: web only"]
-    utils -. "change here" .-&gt; affected2["rebuild: utils, ui, api, web, admin"]
-</code></pre>
-
-<p>A change to a leaf app rebuilds just that app; a change to a foundational package like <code class="language-plaintext highlighter-rouge">utils</code> cascades to everything that transitively depends on it. “Affected” commands (<code class="language-plaintext highlighter-rouge">nx affected</code>, <code class="language-plaintext highlighter-rouge">turbo run --filter</code>) compute exactly this set, which is why monorepos can keep CI fast even with thousands of projects. The mechanics of computing and exploiting that affected set are the subject of the <a href="../monorepo-scaling/">Scaling &amp; Engineering</a> page.</p>
+<h2 id="definition">Definition</h2>
 
 <h3 id="monorepo-monolith-and-polyrepo">Monorepo, Monolith, and Polyrepo</h3>
 
-<p>These three terms are routinely confused; pinning them down is the fastest way to understand what a monorepo actually is.</p>
+<p>These three terms are often confused. A monorepo describes how <strong>source code is organized</strong>. It says nothing about how the software runs.</p>
 
 <table>
   <thead>
@@ -3209,95 +3174,123 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
-<p>A monorepo is an axis of <em>source organization</em>, not of <em>runtime architecture</em>. You can ship a single monolith out of a polyrepo, or hundreds of independently-deployed microservices out of a monorepo. The defining property of a monorepo is simply that conceptually distinct, separately-deployable projects share one version-controlled tree — and therefore one commit history, one set of tooling, and one place where a single change can atomically touch many projects at once.</p>
+<p>You can ship one monolith out of several repositories, or hundreds of microservices out of one monorepo. A monorepo is defined by one thing: separately deployable projects share one tree. As a result they share one commit history and one toolchain, and a single commit can change many of them together.</p>
 
-<h2 id="core-concepts">Core Concepts</h2>
+<p>A folder of unrelated projects with no shared tooling is not really a monorepo. It is <em>co-location</em>. The benefits below come from treating the repository as one <strong>dependency graph</strong>.</p>
 
-<p>Three properties define what a monorepo <em>is</em> and explain why teams reach for one. Everything else — the tooling, the caching, the CI strategy — exists to deliver or protect these three.</p>
+<h3 id="the-project-graph">The Project Graph</h3>
+
+<p>Every monorepo tool models projects as a directed acyclic graph (DAG) of dependencies. It uses the graph to answer one question: <em>given this change, what is the smallest set of projects that must be rebuilt, retested, and redeployed?</em></p>
+
+<pre><code class="language-mermaid">flowchart BT
+    utils["libs/utils"]
+    ui["libs/ui"]
+    api["libs/api-client"]
+    web["apps/web"]
+    admin["apps/admin"]
+    svc["services/billing"]
+    utils --&gt; ui
+    utils --&gt; api
+    ui --&gt; web
+    api --&gt; web
+    ui --&gt; admin
+    api --&gt; admin
+    api --&gt; svc
+</code></pre>
+
+<p>Arrows point from a dependency to its consumers. A change to <code class="language-plaintext highlighter-rouge">apps/web</code> affects only <code class="language-plaintext highlighter-rouge">web</code>. A change to <code class="language-plaintext highlighter-rouge">libs/api-client</code> affects <code class="language-plaintext highlighter-rouge">api</code>, <code class="language-plaintext highlighter-rouge">web</code>, <code class="language-plaintext highlighter-rouge">admin</code>, and <code class="language-plaintext highlighter-rouge">svc</code>. A change to <code class="language-plaintext highlighter-rouge">libs/utils</code> affects every node. “Affected” commands (<code class="language-plaintext highlighter-rouge">nx affected</code>, <code class="language-plaintext highlighter-rouge">turbo run --affected</code>, <code class="language-plaintext highlighter-rouge">bazel query 'rdeps(...)'</code>) compute these sets, which keeps CI time proportional to the change rather than to the repository. How the affected set is computed is covered in <a href="../monorepo-scaling/#affected-target-analysis">Affected-Target Analysis</a>.</p>
+
+<h2 id="core-properties">Core Properties</h2>
+
+<p>Three properties explain why teams adopt monorepos. The tooling, caching, and CI strategy all exist to deliver or protect them.</p>
 
 <h3 id="single-source-of-truth">Single Source of Truth</h3>
 
-<p>In a monorepo, there is exactly one version of every internal package at any given commit. There is no “which version of <code class="language-plaintext highlighter-rouge">@org/utils</code> is <code class="language-plaintext highlighter-rouge">apps/web</code> actually running?” — the answer is <em>whatever is on this commit</em>, because both live in the same tree. This eliminates an entire class of problems that polyrepos spend significant effort managing:</p>
+<p>At any commit, each internal package has exactly one version. The question “which version of <code class="language-plaintext highlighter-rouge">utils</code> is <code class="language-plaintext highlighter-rouge">web</code> running?” always has the same answer: the one in this commit. This removes several problems polyrepos spend real effort on:</p>
 
 <ul>
-  <li><strong>No internal version skew.</strong> A consumer always builds against the current source of its dependencies, not a published snapshot that may be weeks stale.</li>
-  <li><strong>No diamond dependency conflicts between internal packages.</strong> Two libraries cannot transitively demand incompatible versions of a third internal package, because there is only one version of it.</li>
-  <li><strong>One canonical place to look.</strong> Cross-cutting concerns — a shared lint config, a security patch, an API contract — have a single authoritative location rather than being copied across repos.</li>
+  <li><strong>No internal version skew.</strong> Consumers build against the current source of their dependencies, not a published snapshot that may be weeks old.</li>
+  <li><strong>No internal diamond conflicts.</strong> Two libraries can’t require incompatible versions of a third internal package, because only one version exists.</li>
+  <li><strong>One place for shared concerns.</strong> Lint config, a security patch, or an API contract lives in one authoritative location instead of being copied between repositories.</li>
 </ul>
 
-<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// In a monorepo, an internal dependency is a workspace reference,</span>
-<span class="c1">// not a pinned published version:</span>
-<span class="p">{</span>
-  <span class="dl">"</span><span class="s2">dependencies</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
-    <span class="dl">"</span><span class="s2">@org/utils</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">workspace:*</span><span class="dl">"</span>   <span class="c1">// always the source in this tree</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<p>In JS/TS workspaces, an internal dependency is a reference to source in the tree, not a pinned published version:</p>
 
-<p>The cost is that “the truth” is now large: every developer’s checkout conceptually contains the whole organization’s code. Keeping that workable is exactly what the VCS-scaling techniques on the <a href="../monorepo-scaling/">Scaling &amp; Engineering</a> page address.</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w"> </span><span class="nl">"dependencies"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"@org/utils"</span><span class="p">:</span><span class="w"> </span><span class="s2">"workspace:*"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Many monorepos extend this to <strong>third-party</strong> dependencies with a <em>single-version policy</em>: the whole repository uses one version of <code class="language-plaintext highlighter-rouge">react</code> or <code class="language-plaintext highlighter-rouge">protobuf</code>. Google enforces this rule. JS repositories can get the same effect with pnpm or Bun catalogs (see <a href="../monorepo-tooling/#language-native-workspaces">Tooling</a>).</p>
+
+<p>The cost is that the source of truth is now large. Conceptually, every checkout contains the whole organization’s code. The VCS-scaling techniques on <a href="../monorepo-scaling/#vcs-scaling-keeping-the-working-tree-tractable">Scaling &amp; Engineering</a> keep that manageable.</p>
 
 <h3 id="atomic-cross-project-changes">Atomic Cross-Project Changes</h3>
 
-<p>Because every project shares one commit history, a single commit (and a single pull request) can change a shared library <em>and</em> every consumer of it together. The change either lands as a coherent whole or not at all.</p>
+<p>All projects share one history, so a single commit can change a shared library and every consumer of it. The change lands completely or not at all. Of the three properties, this one most clearly separates a monorepo from a polyrepo:</p>
 
-<p>This is the property that most cleanly distinguishes a monorepo from a polyrepo. In a polyrepo, renaming a function in a shared library is a multi-step dance: change and publish the library, then open a follow-up PR in each consumer to bump the dependency and adapt to the new API, coordinating the merges so nothing breaks in between. In a monorepo it is one PR:</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Polyrepo["Polyrepo: rename an API"]
+        direction TB
+        p1["PR 1: change lib,&lt;br/&gt;keep old API as shim"] --&gt; p2["Publish lib v2.0"]
+        p2 --&gt; p3["PR 2..N: bump + adapt&lt;br/&gt;each consumer repo"]
+        p3 --&gt; p4["Wait for all consumers"]
+        p4 --&gt; p5["PR N+1: remove shim,&lt;br/&gt;publish v3.0"]
+    end
+    subgraph Monorepo["Monorepo: rename an API"]
+        direction TB
+        m1["One PR: change lib&lt;br/&gt;+ every caller"] --&gt; m2["CI tests the&lt;br/&gt;affected set"]
+        m2 --&gt; m3["Merge"]
+    end
+</code></pre>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># One commit renames the API and updates every caller at once.</span>
-<span class="c"># CI builds the affected set; the change is atomic and bisectable.</span>
-git commit <span class="nt">-am</span> <span class="s2">"rename formatDate -&gt; formatTimestamp across all consumers"</span>
-</code></pre></div></div>
-
-<p>Atomicity has two compounding benefits:</p>
-
-<ul>
-  <li><strong>Refactoring is cheap.</strong> IDEs and codemods can find and update every usage in the tree, so large cross-cutting refactors become routine rather than dreaded.</li>
-  <li><strong>History stays coherent.</strong> Every commit on <code class="language-plaintext highlighter-rouge">main</code> represents a buildable, internally-consistent state of the whole organization, which makes <code class="language-plaintext highlighter-rouge">git bisect</code> and rollbacks meaningful across project boundaries.</li>
-</ul>
-
-<h3 id="unified-versioning-and-consistent-tooling">Unified Versioning and Consistent Tooling</h3>
-
-<p>A monorepo centralizes the decisions a polyrepo distributes. There is one root toolchain configuration — one TypeScript version, one linter config, one formatter, one set of CI conventions — inherited by every project unless it deliberately overrides it. Upgrading the whole organization to a new compiler is a single PR rather than a campaign across dozens of repos.</p>
-
-<p>Versioning of <em>published</em> artifacts can still follow different policies, and the choice is a deliberate one:</p>
-
-<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Version strategies for what a monorepo publishes externally</span>
-<span class="kr">enum</span> <span class="nx">VersionStrategy</span> <span class="p">{</span>
-  <span class="nx">FIXED</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">fixed</span><span class="dl">"</span><span class="p">,</span>             <span class="c1">// all packages share one version, bumped together</span>
-  <span class="nx">INDEPENDENT</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">independent</span><span class="dl">"</span><span class="p">,</span> <span class="c1">// each package carries its own semver</span>
-  <span class="nx">GROUPED</span> <span class="o">=</span> <span class="dl">"</span><span class="s2">grouped</span><span class="dl">"</span>          <span class="c1">// groups of related packages version together</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<p>This has two benefits that build on each other:</p>
 
 <ul>
-  <li><strong>Fixed</strong> (lockstep) versioning trades semantic precision for simplicity: every release bumps everything, so the version number stops meaning “what changed in <em>this</em> package.” Good for tightly-coupled suites.</li>
-  <li><strong>Independent</strong> versioning preserves per-package semver, at the cost of release tooling that can compute exactly which packages changed and bump only those.</li>
+  <li><strong>Refactoring is cheap.</strong> IDEs, codemods, and tools like Google’s Rosie can find and update every usage in the tree, so large cross-cutting refactors become routine.</li>
+  <li><strong>History stays coherent.</strong> Every commit on the main branch is a buildable, consistent state of the whole codebase. That makes <code class="language-plaintext highlighter-rouge">git bisect</code>, reverts, and rollbacks meaningful across project boundaries.</li>
 </ul>
 
-<p>The key point is that <em>internal</em> dependencies need no versioning at all — they are workspace references resolved from source — so versioning becomes purely an <em>external publishing</em> concern rather than an everyday-development one.</p>
+<p>Atomic commits are not atomic <em>deployments</em>. Services built from one commit still roll out independently, so wire protocols and database schemas still need backward compatibility during a rollout. A monorepo makes code changes atomic. Runtime compatibility is still your job.</p>
 
-<h2 id="monorepo-vs-polyrepo-comparison">Monorepo vs Polyrepo Comparison</h2>
+<h3 id="unified-toolchain-and-versioning">Unified Toolchain and Versioning</h3>
 
-<p>Choosing a monorepo is choosing a set of trade-offs, not an unambiguous upgrade. The right answer depends on how coupled your projects are and how much your teams need isolation from one another.</p>
+<p>A monorepo centralizes decisions that a polyrepo spreads across repositories. There is one TypeScript version, one linter and formatter configuration, and one set of CI conventions. Projects inherit them unless they deliberately override them. Upgrading a compiler across the organization takes one pull request, not a campaign across dozens of repositories.</p>
 
-<h3 id="monorepo-advantages">Monorepo Advantages</h3>
-<ul>
-  <li><strong>Atomic Changes</strong>: Refactor across multiple projects in one commit</li>
-  <li><strong>Shared Code</strong>: Easy code reuse without package publishing</li>
-  <li><strong>Consistent Tooling</strong>: Single set of build tools and configurations</li>
-  <li><strong>Simplified Dependencies</strong>: No version conflicts between internal packages</li>
-  <li><strong>Better Refactoring</strong>: IDEs can find and update all usages</li>
-</ul>
+<p>Internal dependencies don’t need version numbers at all. Versioning matters only for artifacts <strong>published</strong> outside the repository, and the policy for those is a deliberate choice:</p>
 
-<h3 id="polyrepo-advantages">Polyrepo Advantages</h3>
-<ul>
-  <li><strong>Independent Versioning</strong>: Each project has its own release cycle</li>
-  <li><strong>Smaller Repositories</strong>: Faster cloning and operations</li>
-  <li><strong>Clear Boundaries</strong>: Enforced separation between projects</li>
-  <li><strong>Flexible Tech Stacks</strong>: Each repo can use different tools</li>
-  <li><strong>Granular Access Control</strong>: Per-repository permissions</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Strategy</th>
+      <th>Behavior</th>
+      <th>Suits</th>
+      <th>Tooling</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Fixed</strong> (lockstep)</td>
+      <td>Every package shares one version, bumped together</td>
+      <td>Tightly coupled suites released as one product</td>
+      <td>Lerna fixed mode, Nx Release</td>
+    </tr>
+    <tr>
+      <td><strong>Independent</strong></td>
+      <td>Each package has its own semver, bumped only when it changes</td>
+      <td>Loosely related libraries</td>
+      <td>Changesets, Lerna independent, Nx Release</td>
+    </tr>
+    <tr>
+      <td><strong>Grouped</strong></td>
+      <td>Related packages version together, groups are independent</td>
+      <td>Large SDK families</td>
+      <td>Nx Release groups, Rush version policies</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="comparison-table">Comparison Table</h3>
+<h2 id="monorepo-vs-polyrepo">Monorepo vs Polyrepo</h2>
+
+<p>Choosing a monorepo means accepting one set of trade-offs in place of another. It is not automatically an upgrade.</p>
 
 <table>
   <thead>
@@ -3309,164 +3302,237 @@ git commit <span class="nt">-am</span> <span class="s2">"rename formatDate -&gt;
   </thead>
   <tbody>
     <tr>
-      <td>Code Sharing</td>
-      <td>Direct imports</td>
-      <td>Published packages</td>
+      <td>Code sharing</td>
+      <td>Direct source imports</td>
+      <td>Published, versioned packages</td>
     </tr>
     <tr>
-      <td>Atomic Changes</td>
-      <td>Native</td>
-      <td>Requires coordination</td>
+      <td>Cross-project changes</td>
+      <td>One atomic commit</td>
+      <td>Coordinated multi-repo sequence</td>
     </tr>
     <tr>
-      <td>Build Complexity</td>
-      <td>Higher</td>
-      <td>Lower per repo</td>
+      <td>Internal version skew</td>
+      <td>Impossible by construction</td>
+      <td>Normal; managed with bots (Renovate, Dependabot)</td>
     </tr>
     <tr>
-      <td>Repository Size</td>
-      <td>Large</td>
+      <td>Toolchain consistency</td>
+      <td>Enforced centrally</td>
+      <td>Drifts per repository</td>
+    </tr>
+    <tr>
+      <td>Build tooling required</td>
+      <td>Graph-aware tool essential at scale</td>
+      <td>Simple per-repo builds</td>
+    </tr>
+    <tr>
+      <td>Clone / checkout size</td>
+      <td>Large; needs partial clone and sparse checkout at scale</td>
       <td>Small</td>
     </tr>
     <tr>
-      <td>Team Autonomy</td>
-      <td>Lower</td>
-      <td>Higher</td>
+      <td>Team autonomy</td>
+      <td>Lower; shared conventions and a shared main branch</td>
+      <td>Higher; each team owns its repo end to end</td>
     </tr>
     <tr>
-      <td>Tooling Investment</td>
-      <td>High upfront</td>
-      <td>Lower initial</td>
+      <td>Access control</td>
+      <td>Path-level review (CODEOWNERS); read access usually repo-wide</td>
+      <td>Per-repository permissions</td>
+    </tr>
+    <tr>
+      <td>CI</td>
+      <td>Must be affected-aware to stay fast</td>
+      <td>Naturally scoped per repo</td>
+    </tr>
+    <tr>
+      <td>Blast radius of a bad commit</td>
+      <td>Can break many projects at once (needs merge queues)</td>
+      <td>Contained to one repo</td>
     </tr>
   </tbody>
 </table>
 
-<p>A useful way to read this table: a monorepo <em>moves complexity from coordination into tooling</em>. Polyrepos keep each repository simple but push complexity into the spaces between repos — publishing, version negotiation, and multi-repo change coordination. Monorepos collapse that inter-repo complexity but demand graph-aware build tools and VCS scaling techniques to stay fast. You are choosing <em>where</em> the hard problems live, not whether you have any.</p>
+<p>The table shows where the difficult problems end up. Polyrepos keep each repository simple and push the complexity into the gaps between them: publishing, version negotiation, and change coordination. Monorepos remove those gaps, but they need graph-aware build tools, affected-aware CI, a merge queue, and VCS scaling to stay fast.</p>
+
+<h3 id="common-misconceptions">Common Misconceptions</h3>
+
+<ul>
+  <li><strong>“A monorepo means a monolith.”</strong> No. Deployment granularity is independent of repository layout.</li>
+  <li><strong>“Monorepos don’t scale.”</strong> They do, but only with investment. The largest known monorepos run on custom version-control systems.</li>
+  <li><strong>“Everyone can change everything.”</strong> Write access is usually controlled per path through required reviews (CODEOWNERS). Build-level visibility rules then restrict which projects may depend on which.</li>
+  <li><strong>“Git can’t handle it.”</strong> Stock Git now includes partial clone, sparse checkout, the commit-graph, a filesystem monitor, and Scalar (bundled since Git 2.38), which cover most organizations short of the very largest.</li>
+</ul>
+
+<h3 id="middle-grounds">Middle Grounds</h3>
+
+<p>Not every organization has to choose one extreme:</p>
+
+<ul>
+  <li><strong>Several domain monorepos.</strong> One repository per product line or language. This keeps most of the benefits and limits size and blast radius.</li>
+  <li><strong>Meta-repositories.</strong> Git submodules, or tools like <code class="language-plaintext highlighter-rouge">repo</code> and <code class="language-plaintext highlighter-rouge">meta</code>, stitch several repositories into one checkout. You get co-location, but not atomic commits or a single source of truth.</li>
+  <li><strong>Hybrid.</strong> Core shared libraries live in a monorepo. Loosely coupled or externally open-sourced projects stay in their own repositories and consume published packages.</li>
+</ul>
 
 <h2 id="when-to-adopt-a-monorepo">When to Adopt a Monorepo</h2>
 
-<p>The deciding question is <strong>coupling</strong>: how often do changes need to cross project boundaries, and how much code do projects genuinely share? The more your projects move together, the more a monorepo’s atomicity and single-source-of-truth pay for their tooling cost.</p>
+<p>The deciding question is <strong>coupling</strong>. How often do changes cross project boundaries, and how much code do projects actually share? The more your projects change together, the more atomic changes and a single source of truth are worth their tooling cost.</p>
 
-<p><strong>Consider a monorepo when:</strong></p>
-<ul>
-  <li>You have multiple projects that share code</li>
-  <li>Teams frequently collaborate across projects</li>
-  <li>You need atomic commits across multiple projects</li>
-  <li>Consistent tooling and standards are important</li>
-  <li>You want simplified dependency management</li>
-</ul>
-
-<p><strong>Avoid a monorepo when:</strong></p>
-<ul>
-  <li>Projects have completely different tech stacks</li>
-  <li>Teams require strict access control separation</li>
-  <li>Projects have vastly different release cycles</li>
-  <li>Your VCS struggles with large repositories</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Favors a monorepo</th>
+      <th>Favors polyrepos</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Projects share libraries and change together</td>
+      <td>Projects are independent products</td>
+    </tr>
+    <tr>
+      <td>Similar languages and toolchains</td>
+      <td>Radically different stacks and build systems</td>
+    </tr>
+    <tr>
+      <td>Frequent cross-team refactors or API changes</td>
+      <td>Stable, versioned interfaces between teams</td>
+    </tr>
+    <tr>
+      <td>Desire for consistent standards and one CI system</td>
+      <td>Teams need full autonomy over process and tooling</td>
+    </tr>
+    <tr>
+      <td>Organization can staff build and developer-experience tooling</td>
+      <td>No capacity to own build infrastructure</td>
+    </tr>
+    <tr>
+      <td>Read access can be broad</td>
+      <td>Hard confidentiality boundaries between codebases</td>
+    </tr>
+  </tbody>
+</table>
 
 <pre><code class="language-mermaid">flowchart TD
-    start{Do projects&lt;br/&gt;share code or&lt;br/&gt;change together?}
-    start -- "Rarely / never" --&gt; poly[Polyrepo&lt;br/&gt;keep teams autonomous]
-    start -- "Frequently" --&gt; stack{Same-ish tech stack&lt;br/&gt;and tooling?}
-    stack -- "No, wildly different" --&gt; poly
-    stack -- "Yes" --&gt; access{Need hard per-team&lt;br/&gt;access isolation?}
-    access -- "Yes" --&gt; poly
-    access -- "No" --&gt; mono[Monorepo&lt;br/&gt;invest in graph tooling]
+    start{"Do projects share code&lt;br/&gt;or change together?"}
+    start -- "Rarely" --&gt; poly["Polyrepo"]
+    start -- "Often" --&gt; sec{"Hard confidentiality&lt;br/&gt;boundaries needed?"}
+    sec -- "Yes" --&gt; split["Polyrepo or several&lt;br/&gt;domain monorepos"]
+    sec -- "No" --&gt; stack{"Compatible languages&lt;br/&gt;and toolchains?"}
+    stack -- "No" --&gt; herm{"Willing to adopt a&lt;br/&gt;polyglot build system&lt;br/&gt;(Bazel, Buck2, Pants)?"}
+    herm -- "No" --&gt; split
+    herm -- "Yes" --&gt; mono["Monorepo"]
+    stack -- "Yes" --&gt; mono
 </code></pre>
 
-<div class="tip-card">
-  <h4 id="adopt-gradually-not-all-at-once">Adopt gradually, not all at once</h4>
-  <p>A monorepo is rarely worth a big-bang migration. The lower-risk path is to start a monorepo with the few projects that are most tightly coupled, prove out the tooling and CI on them, and migrate additional projects only as the coupling (and the pain of keeping them separate) justifies it. The mechanics of polyrepo-to-monorepo migration — preserving history with <code class="language-plaintext highlighter-rouge">git subtree</code>/<code class="language-plaintext highlighter-rouge">git filter-repo</code>, rewriting import paths, and wiring up the workspace — live on the <a href="../monorepo-scaling/">Scaling &amp; Engineering</a> page.</p>
-</div>
+<h2 id="migrating-to-a-monorepo">Migrating to a Monorepo</h2>
 
-<h2 id="going-deeper">Going Deeper</h2>
+<p>A big-bang migration is rarely worth the risk. The lower-risk path looks like this:</p>
 
-<p>This hub covers the <em>what</em> and <em>whether</em> of monorepos. The two companion pages cover the <em>how</em>: the tools that make a monorepo more than a large folder, and the engineering that keeps it fast at scale.</p>
+<ol>
+  <li><strong>Start with the most tightly coupled projects.</strong> Pick the libraries and their main consumers that already suffer from version-bump churn.</li>
+  <li><strong>Set up the tooling first.</strong> Configure workspaces, an orchestrator, an affected-aware CI pipeline, and CODEOWNERS before most projects move in.</li>
+  <li>
+    <p><strong>Import repositories with history.</strong> Rewrite each source repository into its target subdirectory, then merge it in:</p>
 
-<div class="command-grid">
-  <div class="feature-card">
-    <h4 id="tooling--build-systems"><a href="../monorepo-tooling/">Tooling &amp; Build Systems</a></h4>
-    <p><em>Pick and configure the build tool</em></p>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># in a fresh clone of the source repo</span>
+git filter-repo <span class="nt">--to-subdirectory-filter</span> services/billing
 
-    <ul>
-      <li>The three tiers: affected-graph runners, package managers, hermetic build systems</li>
-      <li>Nx, Turborepo, Lerna, Rush, Bazel, Buck2, Pants compared</li>
-      <li>Workspace configuration and internal dependency wiring</li>
-      <li>Computation caching and remote-cache internals</li>
-      <li>A decision guide keyed to language mix and scale</li>
-    </ul>
+<span class="c"># in the monorepo</span>
+git remote add billing ../billing
+git fetch billing
+git merge <span class="nt">--allow-unrelated-histories</span> billing/main
+git remote remove billing
+</code></pre></div>    </div>
 
-    <p><em>Read this when: choosing or configuring a monorepo tool</em></p>
-  </div>
-  <div class="feature-card">
-    <h4 id="scaling--engineering"><a href="../monorepo-scaling/">Scaling &amp; Engineering</a></h4>
-    <p><em>Keep it fast as it grows</em></p>
+    <p><code class="language-plaintext highlighter-rouge">git filter-repo</code> is a separate tool that replaces the deprecated <code class="language-plaintext highlighter-rouge">git filter-branch</code>. <code class="language-plaintext highlighter-rouge">git subtree add --prefix=...</code> is a built-in alternative that doesn’t rewrite paths in old commits.</p>
+  </li>
+  <li><strong>Rewire dependencies.</strong> Replace published-version dependencies on internal packages with workspace references, and delete the old publish-and-bump automation.</li>
+  <li><strong>Archive the old repository.</strong> Make it read-only with a pointer to the new location, so history and links still resolve.</li>
+  <li><strong>Repeat</strong> only while the coupling justifies it. Some projects are better left out.</li>
+</ol>
 
-    <ul>
-      <li>Build graphs and affected-target analysis</li>
-      <li>Distributed remote execution and parallelism</li>
-      <li>Dependency-visibility rules and enforced boundaries</li>
-      <li>Code ownership (CODEOWNERS) and review policy</li>
-      <li>CI strategy and VCS scaling (sparse checkout, partial clone, VFS)</li>
-    </ul>
+<h2 id="industry-examples">Industry Examples</h2>
 
-    <p><em>Read this when: operating a monorepo at scale</em></p>
-  </div>
-</div>
+<p>The largest monorepos show that the core properties hold at extreme scale. They also show that reaching that scale took custom infrastructure.</p>
 
-<h2 id="real-world-case-studies">Real-World Case Studies</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Organization</th>
+      <th>Scale (as published)</th>
+      <th>Version control</th>
+      <th>Build system</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Google</strong></td>
+      <td>~2 billion lines, ~9 million source files, 86 TB (2016)</td>
+      <td>Piper (custom) with CitC cloud workspaces</td>
+      <td>Blaze (open-sourced as Bazel)</td>
+      <td>Trunk-based development, single-version policy, automated large-scale changes (Rosie)</td>
+    </tr>
+    <tr>
+      <td><strong>Meta</strong></td>
+      <td>Hundreds of millions of lines</td>
+      <td>Custom Mercurial, later <strong>Sapling</strong> (open-sourced 2022) with EdenFS virtual filesystem</td>
+      <td>Buck, now <strong>Buck2</strong> (open-sourced 2023)</td>
+      <td>Custom VCS built because stock Mercurial and Git could not scale</td>
+    </tr>
+    <tr>
+      <td><strong>Microsoft (Windows)</strong></td>
+      <td>~3.5 million files, ~300 GB (2017)</td>
+      <td>Git + GVFS / VFS for Git, later <strong>Scalar</strong> (merged into Git 2.38)</td>
+      <td>Internal</td>
+      <td>Showed stock Git could be extended to extreme scale</td>
+    </tr>
+    <tr>
+      <td><strong>Uber</strong></td>
+      <td>Large Go monorepo (plus separate mobile monorepos)</td>
+      <td>Git</td>
+      <td>Bazel</td>
+      <td>Built <strong>SubmitQueue</strong> to keep main green under high commit rates (EuroSys 2019)</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The largest monorepos in industry validate the core concepts above — and show that delivering them at scale requires substantial custom tooling.</p>
+<p>Sources: Potvin &amp; Levenberg, “Why Google Stores Billions of Lines of Code in a Single Repository,” <em>CACM</em> 59(7), 2016; Microsoft DevOps blog posts on GVFS (2017); Meta Engineering blog announcements of Sapling (2022) and Buck2 (2023); Ananthanarayanan et al., “Keeping Master Green at Scale,” EuroSys 2019.</p>
 
-<h3 id="google">Google</h3>
+<h2 id="further-reading-on-this-site">Further Reading on This Site</h2>
 
-<ul>
-  <li><strong>Size</strong>: 2+ billion lines of code</li>
-  <li><strong>Tool</strong>: Bazel (originally Blaze)</li>
-  <li><strong>Strategy</strong>: Single massive repository</li>
-  <li><strong>Benefits</strong>: Unified tooling, atomic changes</li>
-  <li><strong>Challenges</strong>: Custom VCS (Piper), specialized tools</li>
-</ul>
-
-<h3 id="facebook-meta">Facebook (Meta)</h3>
-
-<ul>
-  <li><strong>Size</strong>: Hundreds of millions of lines</li>
-  <li><strong>Tool</strong>: Buck (now open source)</li>
-  <li><strong>Strategy</strong>: Mercurial-based monorepo</li>
-  <li><strong>Benefits</strong>: Rapid iteration, code sharing</li>
-  <li><strong>Challenges</strong>: Performance at scale</li>
-</ul>
-
-<h3 id="microsoft">Microsoft</h3>
-
-<ul>
-  <li><strong>Project</strong>: Windows codebase</li>
-  <li><strong>Tool</strong>: Git with VFS (Virtual File System)</li>
-  <li><strong>Strategy</strong>: Git-based monorepo</li>
-  <li><strong>Benefits</strong>: Unified Windows development</li>
-  <li><strong>Challenges</strong>: 300GB+ repo size</li>
-</ul>
-
-<h3 id="uber">Uber</h3>
-
-<ul>
-  <li><strong>Migration</strong>: Polyrepo to monorepo (2018)</li>
-  <li><strong>Tool</strong>: Bazel</li>
-  <li><strong>Languages</strong>: Go, Java, JavaScript</li>
-  <li><strong>Benefits</strong>: 50% reduction in build times</li>
-  <li><strong>Results</strong>: Improved developer productivity</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Page</th>
+      <th>Covers</th>
+      <th>Read it when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="../monorepo-tooling/">Tooling &amp; Build Systems</a></td>
+      <td>The three tool tiers; Nx, Turborepo, moon, Lerna, Rush, Bazel, Buck2, Pants; workspaces and catalogs; remote-cache security; selection guide</td>
+      <td>Choosing or configuring a tool</td>
+    </tr>
+    <tr>
+      <td><a href="../monorepo-scaling/">Scaling &amp; Engineering</a></td>
+      <td>Affected analysis, content-addressed caching, distributed and remote execution, visibility rules, CODEOWNERS, CI matrices, merge queues, partial clone, sparse checkout, Scalar</td>
+      <td>Operating a monorepo as it grows</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
 <ul>
-  <li><strong>A monorepo organizes source, not runtime.</strong> It is about one repository of many independently-deployable projects — orthogonal to whether you ship a monolith or microservices.</li>
-  <li><strong>Single source of truth removes version skew.</strong> One version of every internal package per commit eliminates internal diamond conflicts and “which version is running?” entirely.</li>
-  <li><strong>Atomic changes are the killer feature.</strong> One commit can change a library and every consumer together, making cross-cutting refactors routine and history coherent.</li>
-  <li><strong>It moves complexity, it doesn’t remove it.</strong> Inter-repo coordination cost is traded for graph-aware tooling and VCS-scaling cost. You choose where the hard problems live.</li>
-  <li><strong>Coupling is the deciding question.</strong> Adopt when projects share code and change together; keep polyrepos when teams need autonomy, isolation, or divergent stacks.</li>
-  <li><strong>Adopt gradually.</strong> Start with the most coupled projects, prove the tooling, and migrate the rest as the trade-off justifies it — not in a big bang.</li>
+  <li><strong>A monorepo is about source layout, not runtime architecture.</strong> It is one repository of many independently deployable projects.</li>
+  <li><strong>The graph is the point.</strong> Without a dependency graph and graph-aware tooling, a monorepo is just co-location.</li>
+  <li><strong>Single source of truth removes internal version skew.</strong> Atomic commits make cross-cutting refactors routine. Deployments are still not atomic.</li>
+  <li><strong>It moves complexity rather than removing it.</strong> Coordination between repositories is replaced by the cost of build tooling, CI, and VCS scaling.</li>
+  <li><strong>Coupling decides.</strong> Adopt a monorepo when projects share code and change together, migrate incrementally, and leave independent projects out.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
@@ -3476,28 +3542,23 @@ git commit <span class="nt">-am</span> <span class="s2">"rename formatDate -&gt;
 
   <p><strong>Monorepo Companion Pages</strong></p>
   <ul>
-    <li><a href="../monorepo-tooling/">Monorepos: Tooling &amp; Build Systems</a> — Bazel, Nx, Turborepo, Rush, Lerna, Pants compared, with caching internals</li>
-    <li><a href="../monorepo-scaling/">Monorepos: Scaling &amp; Engineering</a> — Build graphs, remote execution, ownership, CI, and VCS scaling</li>
+    <li><a href="../monorepo-tooling/">Monorepos: Tooling &amp; Build Systems</a>: tools compared, with current configuration and caching security</li>
+    <li><a href="../monorepo-scaling/">Monorepos: Scaling &amp; Engineering</a>: build graphs, remote execution, ownership, CI, and VCS scaling</li>
   </ul>
 
-  <p><strong>Related Advanced Topics</strong></p>
+  <p><strong>Related Topics</strong></p>
   <ul>
-    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> — Distributed and remote build execution</li>
-    <li><a href="../ai-mathematics/">AI Mathematics</a> — Managing large ML research codebases</li>
-    <li><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> — Organizing quantum software projects</li>
+    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a>: background for distributed and remote build execution</li>
+    <li><a href="../../technology/git-reference.html">Git Reference</a>: sparse checkout, worktrees, LFS, and large-repo workflows</li>
+    <li><a href="../../technology/ci-cd/">CI/CD Pipelines</a>: affected-only builds in continuous integration</li>
+    <li><a href="../../technology/docker/">Docker</a>: containerizing monorepo builds</li>
+    <li><a href="../../optimization/">Performance Optimization</a>: build-time and caching optimization</li>
   </ul>
 
-  <p><strong>Applied Technology</strong></p>
+  <p><strong>External</strong></p>
   <ul>
-    <li><a href="../../technology/git-reference.html">Git Reference</a> — Sparse checkout, LFS, and large-repo workflows</li>
-    <li><a href="../../technology/ci-cd/">CI/CD Pipelines</a> — Affected-only builds in continuous integration</li>
-    <li><a href="../../technology/docker/">Docker</a> — Containerizing monorepo builds</li>
-    <li><a href="../../optimization/">Performance Optimization</a> — Build-time and caching optimization</li>
-  </ul>
-
-  <p><strong>External Documentation</strong></p>
-  <ul>
-    <li><a href="https://nx.dev">Nx</a> · <a href="https://turbo.build">Turborepo</a> · <a href="https://lerna.js.org">Lerna</a> · <a href="https://rushjs.io">Rush</a> · <a href="https://bazel.build">Bazel</a> · <a href="https://monorepo.tools">Monorepo.tools</a></li>
+    <li><a href="https://monorepo.tools">monorepo.tools</a>: vendor-neutral feature comparison</li>
+    <li>Potvin &amp; Levenberg, <a href="https://cacm.acm.org/research/why-google-stores-billions-of-lines-of-code-in-a-single-repository/">Why Google Stores Billions of Lines of Code in a Single Repository</a> (CACM, 2016)</li>
   </ul>
 </div>
 

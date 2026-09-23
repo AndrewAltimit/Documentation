@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Heartbeats, timeouts, phi-accrual detectors, gossip dissemination, Merkle-tree anti-entropy, SWIM and Lifeguard, and failure detection in production systems.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Distributed Systems: Failure Detection & Gossip">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Heartbeats, timeouts, phi-accrual detectors, gossip dissemination, Merkle-tree anti-entropy, SWIM and Lifeguard, and failure detection in production systems.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/distributed-systems/failure-detection.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Distributed Systems: Failure Detection & Gossip">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Heartbeats, timeouts, phi-accrual detectors, gossip dissemination, Merkle-tree anti-entropy, SWIM and Lifeguard, and failure detection in production systems.">
 
 <title>Distributed Systems: Failure Detection & Gossip | Andrews Notebook</title>
 
@@ -2877,271 +2877,343 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Distributed Systems</a> » Failure Detection &amp; Gossip</p>
 
-<p>A distributed system cannot tell the difference between a node that has <em>crashed</em> and one that is merely <em>slow</em> or <em>unreachable</em>. Failure detection is the discipline of converting that fundamental uncertainty into an actionable signal — a suspicion that a process is dead — and propagating that signal across the cluster cheaply and robustly. This page covers the spectrum from simple heartbeats to the phi-accrual detector used by Cassandra and Akka, and then the gossip family (epidemic dissemination, anti-entropy, Merkle trees, and SWIM) that membership systems use to keep that view consistent at scale.</p>
+<p>A distributed system cannot tell a node that has <em>crashed</em> apart from one that is merely <em>slow</em> or <em>unreachable</em>. A <strong>failure detector</strong> turns that uncertainty into something the system can act on: a suspicion that a process has failed. A <strong>membership protocol</strong> spreads those suspicions so that the cluster keeps a roughly consistent view of who is alive. This page covers the detectors, from fixed-timeout heartbeats to the phi-accrual detector used by Cassandra and Akka. It then covers the gossip mechanisms that spread their verdicts (epidemic dissemination, Merkle-tree anti-entropy, and SWIM with HashiCorp’s Lifeguard extensions), and closes with how production systems such as Kubernetes, Raft and Redis Cluster detect failures and act on them safely.</p>
 
 <h2 id="why-failure-detection-is-hard">Why Failure Detection Is Hard</h2>
 
-<p>In an asynchronous network there is no upper bound on message delay. A node that has sent no heartbeat for 5 seconds might be:</p>
+<p>In an asynchronous network there is no upper bound on message delay. A node that has been silent for 5 seconds might be:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>State</th>
+      <th>Typical causes</th>
+      <th>Will it come back?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Crashed</strong></td>
+      <td>Process exit, kernel panic, power loss</td>
+      <td>No, or only after a restart with reset state</td>
+    </tr>
+    <tr>
+      <td><strong>Slow</strong></td>
+      <td>Stop-the-world GC pause, CPU throttling, disk stall, swap</td>
+      <td>Yes, possibly still believing it holds a lease or leadership</td>
+    </tr>
+    <tr>
+      <td><strong>Partitioned</strong></td>
+      <td>Broken network path between <em>you</em> and it</td>
+      <td>Yes, and it may have kept serving other clients all along</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>From outside, these cases look the same. A <strong>perfect</strong> failure detector, one that never suspects a live process, therefore cannot be built in an asynchronous system. If it could, it would solve consensus, which the <a href="consensus-and-coordination.html#the-flp-impossibility-result">FLP result</a> rules out. Practical systems add <strong>timing assumptions</strong>: they assume the network is <em>usually</em> well behaved and use timeouts as an imperfect oracle.</p>
+
+<p>Two further failure modes make the problem harder in practice:</p>
 
 <ul>
   <li>
-<strong>Crashed</strong> — it will never respond again.</li>
+<strong>Gray failure</strong> (Huang et al., HotOS 2017). A component is broken from its clients’ point of view but looks healthy to the failure detector. For example, a node answers heartbeats while its disk-bound request path is stuck. The underlying cause is <em>differential observability</em>: the detector observes something different from what the clients use.</li>
   <li>
-<strong>Slow</strong> — garbage-collection pause, CPU starvation, or disk stall.</li>
-  <li>
-<strong>Partitioned</strong> — alive and well, but the network path to <em>you</em> is broken.</li>
+<strong>Fail-slow hardware</strong> (Gunawi et al., FAST 2018). Disks, NICs, and SSDs that run at a fraction of their normal speed without ever failing outright. A single slow replica can drag down a whole quorum.</li>
 </ul>
-
-<p>These cases are observationally indistinguishable from the outside. The <a href="../advanced/distributed-systems-theory/">FLP impossibility result</a> makes this precise: with even one faulty process and no timing assumptions, no deterministic algorithm can <em>guarantee</em> it will ever decide that a process has failed without risking a false positive. Practical systems escape FLP by adding <strong>timing assumptions</strong> — they assume the network is “mostly synchronous” and use timeouts as an oracle. A failure detector is exactly that oracle, and its quality is judged on two axes.</p>
 
 <h3 id="completeness-and-accuracy">Completeness and Accuracy</h3>
 
-<p>Chandra and Toueg’s classic framework characterizes a failure detector by two properties:</p>
+<p>Chandra and Toueg (1996) describe a failure detector by two properties:</p>
 
 <ul>
   <li>
-<strong>Completeness</strong> — every process that actually crashes is <em>eventually</em> suspected by every correct process. (Don’t miss real deaths.)</li>
+<strong>Completeness:</strong> every process that crashes is eventually suspected by every correct process. The detector does not miss real failures.</li>
   <li>
-<strong>Accuracy</strong> — correct processes are <em>not</em> wrongly suspected. (Don’t raise false alarms.)</li>
+<strong>Accuracy:</strong> correct processes are not wrongly suspected. The detector does not raise false alarms.</li>
 </ul>
 
-<p>These are in tension. Aggressive timeouts give strong completeness (you notice deaths fast) but weak accuracy (you wrongly evict slow-but-alive nodes). Conservative timeouts do the reverse. The famous classes of detector are:</p>
+<p>The two pull against each other. Short timeouts catch crashes quickly but evict slow nodes that are still alive. Long timeouts avoid false alarms but leave real crashes unnoticed for longer. All the standard detector classes have strong completeness and differ in how accurate they are:</p>
 
 <table>
   <thead>
     <tr>
       <th>Class</th>
-      <th>Completeness</th>
-      <th>Accuracy</th>
+      <th>Accuracy guarantee</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>
 <strong>P</strong> (Perfect)</td>
-      <td>Strong</td>
-      <td>Strong</td>
+      <td>No correct process is ever suspected</td>
     </tr>
     <tr>
       <td>
-<strong>♦P</strong> (Eventually Perfect)</td>
-      <td>Strong</td>
-      <td>Eventually strong</td>
+<strong>$\Diamond$P</strong> (Eventually Perfect)</td>
+      <td>After some unknown time, no correct process is suspected</td>
     </tr>
     <tr>
       <td>
 <strong>S</strong> (Strong)</td>
-      <td>Strong</td>
-      <td>Weak</td>
+      <td>Some correct process is never suspected</td>
     </tr>
     <tr>
       <td>
-<strong>♦S</strong> (Eventually Strong)</td>
-      <td>Strong</td>
-      <td>Eventually weak</td>
+<strong>$\Diamond$S</strong> (Eventually Strong)</td>
+      <td>After some unknown time, some correct process is never suspected</td>
     </tr>
   </tbody>
 </table>
 
-<p><code class="language-plaintext highlighter-rouge">♦S</code> is the weakest detector that still lets you solve consensus (with a majority of correct processes) — which is why Raft and Paxos implementations only need “eventually, timeouts mostly work,” not a perfect oracle.</p>
+<p>$\Diamond$S, and the equivalent leader oracle $\Omega$, is the weakest detector that makes consensus solvable when a majority of processes are correct. This is why Raft and Paxos only need timeouts to work <em>eventually</em>, not a perfect oracle.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    Reality["Is the process&lt;br/&gt;actually dead?"] --&gt; Detector["Failure detector&lt;br/&gt;(timeout oracle)"]
-    Detector --&gt;|"says dead, is dead"| TP["True positive ✔"]
-    Detector --&gt;|"says alive, is alive"| TN["True negative ✔"]
-    Detector --&gt;|"says dead, is alive"| FP["False positive&lt;br/&gt;(accuracy violation)"]
-    Detector --&gt;|"says alive, is dead"| FN["False negative&lt;br/&gt;(completeness gap)"]
+    Detector["Failure detector verdict"] --&gt; Dead["Says 'dead'"]
+    Detector --&gt; Alive["Says 'alive'"]
+    Dead --&gt;|"node really dead"| TP["Correct detection"]
+    Dead --&gt;|"node alive"| FP["False positive:&lt;br/&gt;accuracy violation"]
+    Alive --&gt;|"node alive"| TN["Correct"]
+    Alive --&gt;|"node really dead"| FN["Not yet detected:&lt;br/&gt;detection latency"]
 </code></pre>
+
+<h3 id="measuring-a-detector">Measuring a Detector</h3>
+
+<p>Chen, Toueg and Aguilera (2002) proposed quality-of-service metrics that make the trade-off measurable:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Meaning</th>
+      <th>Improves with</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+<strong>Detection time</strong> $T_D$</td>
+      <td>Time from a crash until it is permanently suspected</td>
+      <td>Shorter timeouts, faster heartbeats</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Mistake recurrence time</strong> $T_{MR}$</td>
+      <td>Average time between false suspicions</td>
+      <td>Longer timeouts</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Mistake duration</strong> $T_M$</td>
+      <td>How long a false suspicion lasts before it is corrected</td>
+      <td>Faster heartbeats, refutation mechanisms</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Heartbeat frequency is the only setting that improves <em>both</em> sides of the trade-off, and it costs bandwidth and CPU.</p>
 
 <h2 id="heartbeats-and-timeouts">Heartbeats and Timeouts</h2>
 
-<p>The baseline mechanism: each process periodically sends an “I’m alive” heartbeat to its monitors. The monitor maintains a timer; if no heartbeat arrives within a timeout window, the process is suspected.</p>
+<p>The baseline mechanism is simple. Each process periodically signals that it is alive, and a monitor suspects it if the signal stops for longer than a timeout.</p>
 
-<h3 id="push-vs-pull">Push vs. Pull</h3>
+<h3 id="push-and-pull">Push and Pull</h3>
 
-<ul>
-  <li>
-<strong>Push (heartbeat):</strong> the monitored process sends <code class="language-plaintext highlighter-rouge">HEARTBEAT</code> every interval <code class="language-plaintext highlighter-rouge">Δi</code>. The monitor suspects after <code class="language-plaintext highlighter-rouge">Δto</code> of silence.</li>
-  <li>
-<strong>Pull (ping):</strong> the monitor sends <code class="language-plaintext highlighter-rouge">ARE-YOU-ALIVE</code> and expects an <code class="language-plaintext highlighter-rouge">ACK</code> within a round-trip deadline. This is what most health checks (Kubernetes liveness probes, load-balancer health checks) actually do.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Style</th>
+      <th>Mechanism</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Push (heartbeat)</strong></td>
+      <td>The monitored process sends <code class="language-plaintext highlighter-rouge">HEARTBEAT</code> every $\Delta_i$; the monitor suspects it after $\Delta_{to}$ of silence</td>
+      <td>Raft leader heartbeats, Kubernetes node leases, Cassandra gossip</td>
+    </tr>
+    <tr>
+      <td><strong>Pull (probe)</strong></td>
+      <td>The monitor sends <code class="language-plaintext highlighter-rouge">PING</code> and expects an <code class="language-plaintext highlighter-rouge">ACK</code> before a deadline</td>
+      <td>Load-balancer health checks, Kubernetes liveness probes, SWIM</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Push scales better with many monitors (one broadcast vs. N pings) and survives a monitor that is itself slow; pull lets the monitor control the cadence and detect asymmetric reachability.</p>
+<p>Push costs the monitor less when many processes are watched, and one message can serve many monitors. Pull lets the monitor set its own pace, and it tests the full request path, including the process’s ability to answer.</p>
 
 <h3 id="choosing-the-timeout">Choosing the Timeout</h3>
 
-<p>A fixed timeout <code class="language-plaintext highlighter-rouge">Δto</code> is the crux of the accuracy/completeness trade-off. Too short and a GC pause triggers a false eviction; too long and a real crash goes unnoticed, stalling progress. The detection time after a real crash is bounded by:</p>
+<p>If the timer is measured from the last heartbeat <em>received</em>, the worst-case detection time after a crash is</p>
 
-\[T_{D} \le \Delta_{i} + \Delta_{to}\]
+\[T_D \le \Delta_{to} + d_{\max}\]
 
-<p>where the heartbeat arrives just before the crash in the worst case. A safe-but-slow rule of thumb sets the timeout from the observed network behavior:</p>
+<p>where $d_{\max}$ is the maximum one-way network delay. The worst case is a crash just after sending a heartbeat that then took $d_{\max}$ to arrive. A shorter heartbeat interval $\Delta_i$ does not lower this bound directly. It does let $\Delta_{to}$ be set to a smaller multiple of $\Delta_i$ without causing false positives.</p>
 
-\[\Delta_{to} = \mathrm{RTT}_{\max} + \alpha \cdot \sigma_{\mathrm{RTT}}\]
+<p>Timeouts are usually derived from observed behaviour in the same way TCP computes its retransmission timeout (RFC 6298: $\mathrm{RTO} = \mathrm{SRTT} + 4 \cdot \mathrm{RTTVAR}$):</p>
 
-<p>with <code class="language-plaintext highlighter-rouge">α</code> a safety multiplier (typically 3–4) over the standard deviation of round-trip times. The trouble is that a single fixed threshold cannot adapt: a datacenter LAN and a cross-region WAN link need wildly different <code class="language-plaintext highlighter-rouge">Δto</code>, and conditions drift over the day.</p>
+\[\Delta_{to} = \mu + \alpha \, \sigma + \Delta_{\mathrm{pause}}\]
+
+<p>Here $\mu$ and $\sigma$ are the mean and standard deviation of heartbeat inter-arrival times, $\alpha$ is a safety multiplier (typically 3 to 4), and $\Delta_{\mathrm{pause}}$ is an allowance for known pauses such as garbage collection. A fixed threshold still cannot adapt on its own: a LAN and a cross-region link need very different values, and conditions change during the day.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">time</span>
 
 <span class="k">class</span> <span class="nc">HeartbeatDetector</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Fixed-timeout push heartbeat detector.</span><span class="sh">"""</span>
+    <span class="sh">"""</span><span class="s">Fixed-timeout push heartbeat detector (monotonic clock).</span><span class="sh">"""</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">10.0</span><span class="p">):</span>
         <span class="n">self</span><span class="p">.</span><span class="n">timeout</span> <span class="o">=</span> <span class="n">timeout</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">last_seen</span> <span class="o">=</span> <span class="p">{}</span>        <span class="c1"># node_id -&gt; timestamp of last heartbeat
+        <span class="n">self</span><span class="p">.</span><span class="n">last_seen</span> <span class="o">=</span> <span class="p">{}</span>                 <span class="c1"># node_id -&gt; monotonic time of last heartbeat
 </span>
-    <span class="k">def</span> <span class="nf">heartbeat</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">,</span> <span class="n">now</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">last_seen</span><span class="p">[</span><span class="n">node_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">now</span> <span class="k">if</span> <span class="n">now</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">heartbeat</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">last_seen</span><span class="p">[</span><span class="n">node_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">monotonic</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">is_suspected</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">,</span> <span class="n">now</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="n">now</span> <span class="o">=</span> <span class="n">now</span> <span class="k">if</span> <span class="n">now</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">is_suspected</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">):</span>
         <span class="n">last</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">last_seen</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">node_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">last</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">True</span>             <span class="c1"># never heard from it
-</span>        <span class="nf">return </span><span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">last</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">timeout</span>
+            <span class="k">return</span> <span class="bp">True</span>                     <span class="c1"># never heard from it
+</span>        <span class="k">return</span> <span class="n">time</span><span class="p">.</span><span class="nf">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">last</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">timeout</span>
 </code></pre></div></div>
 
-<p>The fixed-timeout detector is binary (alive/dead) and brittle. The phi-accrual detector replaces the binary verdict with a continuous <em>suspicion level</em>.</p>
+<p>Always measure timeouts with a <strong>monotonic</strong> clock. If the timer uses wall-clock time, an NTP step adjustment can suspect every node at once, or none.</p>
 
 <h2 id="the-phi-accrual-failure-detector">The Phi-Accrual Failure Detector</h2>
 
-<p>Hayashibara et al. (2004) proposed decoupling <em>failure detection</em> from <em>action</em>. Instead of returning a boolean, the detector outputs a continuous value <strong>φ</strong> (phi) that grows the longer a heartbeat is overdue. Each application chooses its own threshold <code class="language-plaintext highlighter-rouge">Φ</code> on that value, so the same detector can serve a latency-sensitive lock service (low threshold, fast but jumpy) and a conservative replication manager (high threshold) simultaneously.</p>
+<p>Hayashibara, Défago, Yared and Katayama (2004) separated <em>detecting</em> a failure from <em>acting</em> on it. The detector does not return alive or dead. It returns a continuous suspicion level $\varphi$ that grows the longer a heartbeat is overdue. Each consumer applies its own threshold $\varphi_{\mathrm{th}}$, so one stream of heartbeats can serve a latency-sensitive component (low threshold, fast but jumpy) and a conservative one (high threshold) at the same time.</p>
 
-<h3 id="the-core-idea">The Core Idea</h3>
+<h3 id="definition">Definition</h3>
 
-<p>The detector keeps a sliding window of recent <strong>inter-arrival times</strong> between heartbeats and fits a distribution to them. When asked at time <code class="language-plaintext highlighter-rouge">t_now</code>, it computes how surprising it is that no heartbeat has arrived since the last one at <code class="language-plaintext highlighter-rouge">t_last</code>. Define the elapsed time:</p>
+<p>The detector keeps a sliding window of recent heartbeat <strong>inter-arrival times</strong> and fits a distribution to them. When queried, it computes how surprising the current silence is. Let $t_{\Delta} = t_{\mathrm{now}} - t_{\mathrm{last}}$ be the time since the last heartbeat, and let $P_{\mathrm{later}}(t)$ be the probability, under the fitted distribution, that the next heartbeat arrives more than $t$ after the previous one:</p>
 
-\[t_{\Delta} = t_{\mathrm{now}} - t_{\mathrm{last}}\]
+\[\varphi(t_{\mathrm{now}}) = -\log_{10} P_{\mathrm{later}}(t_{\Delta})\]
 
-<p>Let <code class="language-plaintext highlighter-rouge">P_later(t)</code> be the probability, under the fitted distribution, that a heartbeat arrives <em>more than</em> <code class="language-plaintext highlighter-rouge">t</code> after the previous one. Then:</p>
+<p>Each unit of $\varphi$ is one order of magnitude. At $\varphi = 1$, a live node would stay silent this long about 10% of the time. At $\varphi = 2$ that falls to about 1%, and at $\varphi = 3$ to about 0.1%. A threshold of $\varphi_{\mathrm{th}} = 8$ corresponds to a false-positive probability of about $10^{-8}$ <em>per decision, if the fitted model is correct</em>. Real inter-arrival times have heavier tails than a normal distribution, so treat $\varphi$ as a well-calibrated scale rather than a literal probability.</p>
 
-\[\varphi(t_{\mathrm{now}}) = -\log_{10}\bigl(P_{\mathrm{later}}(t_{\Delta})\bigr)\]
+<h3 id="choice-of-distribution">Choice of Distribution</h3>
 
-<p>The value of φ has a clean operational meaning: <strong>φ = 1 means roughly a 10% chance of a false positive if you decide “dead” right now, φ = 2 means ~1%, φ = 3 means ~0.1%</strong>, and so on — each unit is one order of magnitude of confidence. An application that suspects at <code class="language-plaintext highlighter-rouge">Φ = 8</code> accepts a false-positive rate around <code class="language-plaintext highlighter-rouge">10^-8</code> per decision.</p>
+<p>The original paper models inter-arrival times as <strong>normally distributed</strong>, with mean $\mu$ and standard deviation $\sigma$ taken from the window. The tail probability is then</p>
 
-<h3 id="fitting-the-distribution">Fitting the Distribution</h3>
+\[P_{\mathrm{later}}(t) = 1 - \Phi\!\left(\frac{t - \mu}{\sigma}\right)\]
 
-<p>The original paper assumes inter-arrival times are <strong>normally distributed</strong> with mean <code class="language-plaintext highlighter-rouge">μ</code> and standard deviation <code class="language-plaintext highlighter-rouge">σ</code> estimated from the sliding window of the last <code class="language-plaintext highlighter-rouge">n</code> samples. Under that assumption, <code class="language-plaintext highlighter-rouge">P_later(t)</code> is the upper tail of the normal CDF:</p>
+<p>where $\Phi$ is the standard normal CDF. Cassandra uses an <strong>exponential</strong> model instead, $P_{\mathrm{later}}(t) = e^{-t/\mu}$, which gives a simple linear formula:</p>
 
-\[P_{\mathrm{later}}(t) = 1 - F(t) = 1 - \Phi\!\left(\frac{t - \mu}{\sigma}\right)\]
+\[\varphi(t_{\Delta}) = \frac{t_{\Delta}}{\mu \ln 10} \approx 0.434 \, \frac{t_{\Delta}}{\mu}\]
 
-<p>where <code class="language-plaintext highlighter-rouge">Φ</code> here is the standard-normal CDF. Combining:</p>
-
-\[\varphi(t_{\Delta}) = -\log_{10}\!\left(1 - \Phi\!\left(\frac{t_{\Delta} - \mu}{\sigma}\right)\right)\]
-
-<p>As <code class="language-plaintext highlighter-rouge">t_Δ</code> grows beyond the mean inter-arrival time, the tail probability shrinks toward zero and φ climbs without bound — so a node that has gone truly silent accrues an ever-higher suspicion, while a node whose heartbeats are merely jittery (large σ) is forgiven for longer. Cassandra uses a related exponential-distribution variant; the structure is identical, only <code class="language-plaintext highlighter-rouge">P_later</code> changes.</p>
+<p>The exponential model ignores jitter, but it is much more forgiving. With one-second gossip, Cassandra’s default <code class="language-plaintext highlighter-rouge">phi_convict_threshold</code> of 8 convicts after about $8 \times 2.303 \approx 18$ seconds of silence. Akka and Apache Pekko use the normal model, approximate $\Phi$ with a logistic function, and add an <code class="language-plaintext highlighter-rouge">acceptable-heartbeat-pause</code> to $\mu$ to absorb GC pauses.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    HB["Heartbeat&lt;br/&gt;arrivals"] --&gt; Win["Sliding window&lt;br/&gt;of inter-arrival times"]
-    Win --&gt; Fit["Estimate μ, σ"]
-    Fit --&gt; Phi["φ(t) = -log₁₀ P_later(t_Δ)"]
-    Phi --&gt; Th{"φ ≥ Φ ?"}
+    HB["Heartbeat&lt;br/&gt;arrivals"] --&gt; Win["Sliding window of&lt;br/&gt;inter-arrival times"]
+    Win --&gt; Fit["Estimate mean, std dev"]
+    Fit --&gt; Phi["phi = -log10 P_later(t since last)"]
+    Phi --&gt; Th{"phi &gt;= threshold?"}
     Th --&gt;|yes| Susp["Suspect node"]
     Th --&gt;|no| OK["Treat as alive"]
 </code></pre>
 
 <h3 id="worked-example">Worked Example</h3>
 
-<p>Suppose the last 1000 heartbeats arrived every 1.0 s on average, with σ = 0.1 s. The last heartbeat was received <code class="language-plaintext highlighter-rouge">t_last = 0</code>. We poll at several <code class="language-plaintext highlighter-rouge">t_Δ</code>:</p>
+<p>Heartbeats have arrived every $\mu = 1.0$ s with $\sigma = 0.1$ s, and the last one arrived at $t = 0$. Under the normal model:</p>
 
-<ul>
-  <li>
-<code class="language-plaintext highlighter-rouge">t_Δ = 1.0 s</code>: <code class="language-plaintext highlighter-rouge">z = (1.0 − 1.0)/0.1 = 0</code>, tail = 0.5, <strong>φ = −log₁₀(0.5) ≈ 0.30</strong> — completely normal, no suspicion.</li>
-  <li>
-<code class="language-plaintext highlighter-rouge">t_Δ = 1.3 s</code>: <code class="language-plaintext highlighter-rouge">z = 3</code>, tail ≈ 0.00135, <strong>φ ≈ 2.87</strong> — ~0.1% false-positive risk; a jumpy detector might already act.</li>
-  <li>
-<code class="language-plaintext highlighter-rouge">t_Δ = 1.5 s</code>: <code class="language-plaintext highlighter-rouge">z = 5</code>, tail ≈ 2.9×10⁻⁷, <strong>φ ≈ 6.5</strong> — strong evidence of death.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center">$t_{\Delta}$</th>
+      <th style="text-align: center">$z = (t_{\Delta} - \mu)/\sigma$</th>
+      <th style="text-align: center">$P_{\mathrm{later}}$</th>
+      <th style="text-align: center">$\varphi$</th>
+      <th>Interpretation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center">1.0 s</td>
+      <td style="text-align: center">0</td>
+      <td style="text-align: center">0.5</td>
+      <td style="text-align: center">0.30</td>
+      <td>Normal; no suspicion</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">1.3 s</td>
+      <td style="text-align: center">3</td>
+      <td style="text-align: center">$1.35 \times 10^{-3}$</td>
+      <td style="text-align: center">2.87</td>
+      <td>A threshold of 3 is about to fire</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">1.5 s</td>
+      <td style="text-align: center">5</td>
+      <td style="text-align: center">$2.9 \times 10^{-7}$</td>
+      <td style="text-align: center">6.54</td>
+      <td>Strong evidence</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">1.56 s</td>
+      <td style="text-align: center">5.6</td>
+      <td style="text-align: center">$1.1 \times 10^{-8}$</td>
+      <td style="text-align: center">7.97</td>
+      <td>A threshold of 8 fires here</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>A service using <code class="language-plaintext highlighter-rouge">Φ = 8</code> would wait a little longer; one using <code class="language-plaintext highlighter-rouge">Φ = 3</code> acts at ~1.3 s. The same stream of heartbeats serves both, which is the whole point.</p>
+<p>The same silence under Cassandra’s exponential model gives $\varphi \approx 0.65$ at 1.5 s. The choice of distribution matters as much as the threshold. A very small $\sigma$ also makes the normal model too eager, which is why implementations set a minimum standard deviation.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">math</span>
+<span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">deque</span>
 
 <span class="k">class</span> <span class="nc">PhiAccrualDetector</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">
-    Phi-accrual failure detector (normal-distribution variant).
-    Maintains a sliding window of heartbeat inter-arrival times and
-    reports a continuous suspicion level phi for the monitored node.
-    </span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">min_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">initial_interval</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">window_size</span> <span class="o">=</span> <span class="n">window_size</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">min_std</span> <span class="o">=</span> <span class="n">min_std</span>            <span class="c1"># floor on sigma; avoids div-by-zero
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">intervals</span> <span class="o">=</span> <span class="p">[]</span>               <span class="c1"># recent inter-arrival times
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span> <span class="o">=</span> <span class="bp">None</span>
-        <span class="c1"># Seed the window so cold-start does not over-suspect.
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">intervals</span> <span class="o">=</span> <span class="p">[</span><span class="n">initial_interval</span><span class="p">]</span> <span class="o">*</span> <span class="mi">10</span>
+    <span class="sh">"""</span><span class="s">Phi-accrual failure detector, normal-distribution variant.</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">window_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">min_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+                 <span class="n">acceptable_pause</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">first_interval</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="c1"># Seed with a plausible interval so a cold start doesn't over-suspect.
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">intervals</span> <span class="o">=</span> <span class="nf">deque</span><span class="p">([</span><span class="n">first_interval</span><span class="p">,</span> <span class="n">first_interval</span><span class="p">],</span> <span class="n">maxlen</span><span class="o">=</span><span class="n">window_size</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">min_std</span> <span class="o">=</span> <span class="n">min_std</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">acceptable_pause</span> <span class="o">=</span> <span class="n">acceptable_pause</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span> <span class="o">=</span> <span class="bp">None</span>
 
     <span class="k">def</span> <span class="nf">heartbeat</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">now</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="n">delta</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">window_size</span><span class="p">:</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span><span class="p">)</span>
         <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span> <span class="o">=</span> <span class="n">now</span>
-
-    <span class="k">def</span> <span class="nf">_mean_std</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">)</span>
-        <span class="n">mean</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
-        <span class="n">var</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
-        <span class="n">std</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">math</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">var</span><span class="p">),</span> <span class="n">self</span><span class="p">.</span><span class="n">min_std</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">mean</span><span class="p">,</span> <span class="n">std</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_normal_cdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">std</span><span class="p">):</span>
-        <span class="c1"># CDF of N(mean, std^2) via the error function.
-</span>        <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">math</span><span class="p">.</span><span class="nf">erf</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">std</span> <span class="o">*</span> <span class="n">math</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="p">))))</span>
 
     <span class="k">def</span> <span class="nf">phi</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">now</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="mf">0.0</span>
-        <span class="n">t_delta</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span>
-        <span class="n">mean</span><span class="p">,</span> <span class="n">std</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_mean_std</span><span class="p">()</span>
-        <span class="n">p_later</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="nf">_normal_cdf</span><span class="p">(</span><span class="n">t_delta</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">std</span><span class="p">)</span>
-        <span class="c1"># Clamp the tail so log stays finite for very overdue heartbeats.
-</span>        <span class="n">p_later</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">p_later</span><span class="p">,</span> <span class="mf">1e-300</span><span class="p">)</span>
-        <span class="k">return</span> <span class="o">-</span><span class="n">math</span><span class="p">.</span><span class="nf">log10</span><span class="p">(</span><span class="n">p_later</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">)</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
+        <span class="n">std</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">math</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="nf">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">mean</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">intervals</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span><span class="p">),</span>
+                  <span class="n">self</span><span class="p">.</span><span class="n">min_std</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">now</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">last_ts</span> <span class="o">-</span> <span class="p">(</span><span class="n">mean</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">acceptable_pause</span><span class="p">))</span> <span class="o">/</span> <span class="n">std</span>
+        <span class="n">p_later</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">math</span><span class="p">.</span><span class="nf">erfc</span><span class="p">(</span><span class="n">z</span> <span class="o">/</span> <span class="n">math</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="p">))</span>   <span class="c1"># upper normal tail, stable for large z
+</span>        <span class="k">return</span> <span class="o">-</span><span class="n">math</span><span class="p">.</span><span class="nf">log10</span><span class="p">(</span><span class="nf">max</span><span class="p">(</span><span class="n">p_later</span><span class="p">,</span> <span class="mf">1e-300</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="nf">is_suspected</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">8.0</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">phi</span><span class="p">(</span><span class="n">now</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">threshold</span>
 </code></pre></div></div>
 
-<h3 id="where-it-is-used">Where It Is Used</h3>
+<p>Adaptivity is the main advantage over a fixed timeout. When a WAN link gets slower and more jittery, $\sigma$ grows and the implied timeout grows with it, which avoids the burst of false positives a fixed threshold would produce. The drawback is that adaptation works both ways: a node that is getting steadily slower teaches the detector to tolerate it, which is how gray failures slip through.</p>
 
-<ul>
-  <li>
-<strong>Apache Cassandra</strong> — the <code class="language-plaintext highlighter-rouge">FailureDetector</code> uses a phi-accrual variant; the <code class="language-plaintext highlighter-rouge">phi_convict_threshold</code> (default 8) is operator-tunable.</li>
-  <li>
-<strong>Akka Cluster</strong> — <code class="language-plaintext highlighter-rouge">akka.cluster.failure-detector</code> is phi-accrual with a configurable threshold and <code class="language-plaintext highlighter-rouge">acceptable-heartbeat-pause</code> to absorb GC.</li>
-  <li>
-<strong>Riak, ScyllaDB</strong> — similar adaptive detectors.</li>
-</ul>
+<h2 id="gossip-protocols">Gossip Protocols</h2>
 
-<p>The benefit over fixed timeouts is adaptivity: a transient WAN slowdown widens σ, which <em>raises</em> the timeout the detector implicitly applies, suppressing the false-positive storm that a fixed threshold would produce.</p>
+<p>Failure detection answers “is node X alive?” <strong>Membership</strong> answers “who is in the cluster, and in what state?” With hundreds or thousands of nodes, all-to-all heartbeating costs $O(N^2)$ messages per interval. <strong>Gossip</strong> (epidemic) protocols spread information the way a rumour spreads: in each round, every node exchanges state with a few randomly chosen peers. No single node coordinates, yet the whole cluster converges.</p>
 
-<h2 id="gossip--epidemic-protocols">Gossip / Epidemic Protocols</h2>
+<h3 id="epidemic-spreading">Epidemic Spreading</h3>
 
-<p>Failure detection answers “is node X alive?”; <strong>membership</strong> answers “who is in the cluster, and what is their state?” At scale (hundreds to thousands of nodes), having every node heartbeat every other node is <code class="language-plaintext highlighter-rouge">O(N²)</code> traffic and a single point of overload. <strong>Gossip protocols</strong> (a.k.a. epidemic protocols) disseminate information the way a rumor — or a virus — spreads through a population: each round, every node picks a few random peers and exchanges state. No node has the full picture, yet the whole cluster converges.</p>
+<p>The analysis borrows from epidemiology. A node is <em>susceptible</em> if it has not yet heard an update and <em>infected</em> if it has heard it and is spreading it. If each infected node contacts $b$ random peers per round, the expected number of informed nodes follows logistic growth:</p>
 
-<h3 id="why-epidemic">Why “Epidemic”</h3>
+\[i_{r+1} \approx i_{r} + b \, i_{r} \, \frac{N - i_{r}}{N}\]
 
-<p>The math is literally that of disease spread. Model each node as <em>susceptible</em> (hasn’t heard the update) or <em>infected</em> (has it and is spreading it). If each infected node contacts <code class="language-plaintext highlighter-rouge">b</code> random peers per round, the number of informed nodes grows roughly:</p>
+<p>Growth is slow at first, very fast in the middle, and slows again as almost everyone has heard. With one push per node per round, the number of rounds needed to inform everyone is $\log_2 N + \ln N + O(1)$ with high probability (Pittel, 1987). For $N = 10{,}000$ that is about 23 rounds. <strong>Push-pull</strong> gossip finishes in $\log_3 N + O(\log \log N)$ rounds (Karp, Schindelhauer, Shenker and Vöcking, 2000). Either way, latency grows <strong>logarithmically</strong> while each node’s load stays <strong>constant</strong>. This is why gossip is used for membership in large clusters.</p>
 
-\[i_{r+1} = i_{r} + b \cdot i_{r} \cdot \frac{N - i_{r}}{N}\]
-
-<p>This is logistic growth: slow start, explosive middle, saturating tail. The headline result is that an update reaches all <code class="language-plaintext highlighter-rouge">N</code> nodes in:</p>
-
-\[R = O(\log N)\]
-
-<p>rounds with high probability. For a 10,000-node cluster, an update saturates in roughly <code class="language-plaintext highlighter-rouge">log₂(10000) ≈ 14</code> rounds — and each node sends only <code class="language-plaintext highlighter-rouge">b</code> messages per round regardless of cluster size, so per-node load is constant. That <code class="language-plaintext highlighter-rouge">O(log N)</code> latency with <code class="language-plaintext highlighter-rouge">O(1)</code> per-node bandwidth is why gossip is the backbone of large-scale membership.</p>
-
-<pre><code class="language-mermaid">flowchart TD
-    R0["Round 0&lt;br/&gt;1 node knows"] --&gt; R1["Round 1&lt;br/&gt;~b nodes"]
-    R1 --&gt; R2["Round 2&lt;br/&gt;~b² nodes"]
-    R2 --&gt; R3["Round 3&lt;br/&gt;logistic explosion"]
-    R3 --&gt; Rk["Round O(log N)&lt;br/&gt;whole cluster converged"]
+<pre><code class="language-mermaid">xychart-beta
+    title "Informed nodes per round (N = 1000, push, fanout 1)"
+    x-axis "Round" [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    y-axis "Informed nodes" 0 --&gt; 1000
+    line [1, 2, 4, 8, 16, 32, 62, 120, 226, 401, 641, 871, 983, 1000, 1000]
 </code></pre>
 
-<h3 id="gossip-styles">Gossip Styles</h3>
+<p>The curve is the deterministic approximation above with $b = 1$, which saturates after about 13 rounds. Real runs are randomized: reaching the last few stragglers takes the extra $\ln N$ term, so about 17 rounds for $N = 1000$.</p>
 
-<p>Three interaction modes, with different convergence/bandwidth trade-offs:</p>
+<h3 id="gossip-styles">Gossip Styles</h3>
 
 <table>
   <thead>
@@ -3154,409 +3226,413 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><strong>Push</strong></td>
-      <td>Infected node pushes update to a random peer</td>
-      <td>Fast early, wasteful late (most targets already know)</td>
+      <td>An informed node sends the update to a random peer</td>
+      <td>Fast early; wasteful late, because most targets already know</td>
     </tr>
     <tr>
       <td><strong>Pull</strong></td>
-      <td>Node asks a random peer “anything new?”</td>
-      <td>Fast late (mops up stragglers), wasteful early</td>
+      <td>A node asks a random peer for anything new</td>
+      <td>Slow early; fast late, because it reaches stragglers</td>
     </tr>
     <tr>
-      <td><strong>Push-Pull</strong></td>
+      <td><strong>Push-pull</strong></td>
       <td>Both directions in one exchange</td>
-      <td>Best overall; convergence in <code class="language-plaintext highlighter-rouge">~log N</code> with low residue</td>
+      <td>Best overall, and the usual choice in production</td>
     </tr>
   </tbody>
 </table>
 
-<p>Production systems use <strong>push-pull</strong> because pull’s late-stage efficiency complements push’s early-stage speed.</p>
+<h3 id="rumour-mongering-and-anti-entropy">Rumour Mongering and Anti-Entropy</h3>
 
-<h3 id="dissemination-vs-state">Dissemination vs. State</h3>
-
-<p>Gossip carries two kinds of payload:</p>
+<p>Demers et al. (1987) described two complementary modes:</p>
 
 <ul>
   <li>
-<strong>Rumor mongering (event dissemination):</strong> spread a <em>delta</em> — “node 7 just joined,” “node 3 is suspected.” Each node forwards a hot rumor for a few rounds, then stops once it’s “old news.” Low bandwidth, but a rumor stopped too early can leave a few nodes uninformed.</li>
+<strong>Rumour mongering</strong> spreads a <em>delta</em>, such as “node 7 joined” or “node 3 is suspected.” Each node forwards a new rumour for a limited number of rounds and then drops it. Bandwidth is low, but a rumour dropped too early can miss a few nodes.</li>
   <li>
-<strong>Anti-entropy (state reconciliation):</strong> periodically compare <em>full state</em> with a random peer and reconcile differences. Slower and heavier, but guarantees eventual convergence even if individual rumors are lost — it’s the safety net underneath rumor mongering.</li>
+<strong>Anti-entropy</strong> periodically compares <em>full state</em> (or a digest of it) with a random peer and repairs the differences. It is slower and heavier, but it guarantees eventual convergence even when rumours are lost. It is the safety net under rumour mongering.</li>
 </ul>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">random</span>
 
 <span class="k">class</span> <span class="nc">GossipNode</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Minimal push-pull anti-entropy gossip over a versioned key-value state.</span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">,</span> <span class="n">peers</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Push-pull anti-entropy over a versioned key-value map (LWW by version).</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">):</span>
         <span class="n">self</span><span class="p">.</span><span class="n">node_id</span> <span class="o">=</span> <span class="n">node_id</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">peers</span> <span class="o">=</span> <span class="n">peers</span>                  <span class="c1"># list of other GossipNode refs
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="p">{}</span>                     <span class="c1"># key -&gt; (value, version)
+        <span class="n">self</span><span class="p">.</span><span class="n">peers</span> <span class="o">=</span> <span class="p">[]</span>                           <span class="c1"># other GossipNode objects
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="p">{}</span>                           <span class="c1"># key -&gt; (value, version)
 </span>
     <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">ver</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
         <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ver</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_digest</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Compact summary: key -&gt; version. Cheap to send.
-</span>        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">ver</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">items</span><span class="p">()}</span>
+    <span class="k">def</span> <span class="nf">digest</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">ver</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">items</span><span class="p">()}</span>   <span class="c1"># cheap summary
+</span>
+    <span class="k">def</span> <span class="nf">newer_than</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">digest</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">ver</span> <span class="o">&gt;</span> <span class="n">digest</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)}</span>
 
-    <span class="k">def</span> <span class="nf">_merge</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">incoming</span><span class="p">):</span>
-        <span class="c1"># Last-writer-wins by version number.
-</span>        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="ow">in</span> <span class="n">incoming</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
-            <span class="n">_</span><span class="p">,</span> <span class="n">mine</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">ver</span> <span class="o">&gt;</span> <span class="n">mine</span><span class="p">:</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">merge</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">entries</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="ow">in</span> <span class="n">entries</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">ver</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">))[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">gossip_round</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="n">peers</span><span class="p">:</span>
             <span class="k">return</span>
         <span class="n">peer</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="nf">choice</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">peers</span><span class="p">)</span>
-        <span class="c1"># PUSH-PULL: send my digest, peer replies with what I'm missing,
-</span>        <span class="c1"># and asks for what it is missing in return.
-</span>        <span class="n">their_digest</span> <span class="o">=</span> <span class="n">peer</span><span class="p">.</span><span class="nf">_digest</span><span class="p">()</span>
-        <span class="n">deltas_to_send</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">ver</span> <span class="o">&gt;</span> <span class="n">their_digest</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-        <span class="p">}</span>
-        <span class="n">peer</span><span class="p">.</span><span class="nf">_merge</span><span class="p">(</span><span class="n">deltas_to_send</span><span class="p">)</span>
-        <span class="n">their_newer</span> <span class="o">=</span> <span class="n">peer</span><span class="p">.</span><span class="nf">_collect_newer</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">_digest</span><span class="p">())</span>
-        <span class="n">self</span><span class="p">.</span><span class="nf">_merge</span><span class="p">(</span><span class="n">their_newer</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_collect_newer</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">asker_digest</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="n">k</span><span class="p">:</span> <span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">ver</span><span class="p">)</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">ver</span> <span class="o">&gt;</span> <span class="n">asker_digest</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-        <span class="p">}</span>
+        <span class="c1"># 1. send my digest; peer returns what I'm missing (pull)
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">merge</span><span class="p">(</span><span class="n">peer</span><span class="p">.</span><span class="nf">newer_than</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">digest</span><span class="p">()))</span>
+        <span class="c1"># 2. send what the peer is missing (push)
+</span>        <span class="n">peer</span><span class="p">.</span><span class="nf">merge</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">newer_than</span><span class="p">(</span><span class="n">peer</span><span class="p">.</span><span class="nf">digest</span><span class="p">()))</span>
 </code></pre></div></div>
 
 <h2 id="anti-entropy-and-merkle-trees">Anti-Entropy and Merkle Trees</h2>
 
-<p>Anti-entropy that ships <em>full state</em> every round is fine for small membership tables but ruinous for a replica holding millions of keys (Dynamo, Cassandra, Riak). The problem: two replicas are <em>almost</em> identical and you must find the <em>few</em> keys that differ without transferring everything. <strong>Merkle trees</strong> solve this with a hierarchical hash that lets two nodes localize differences in <code class="language-plaintext highlighter-rouge">O(log N)</code> exchanges.</p>
+<p>Exchanging full state works for a small membership table, but not for replicas holding millions of keys, as in Dynamo-style stores such as Cassandra and Riak. Two replicas are usually <em>almost</em> identical, and the task is to find the few keys that differ without transferring everything. <strong>Merkle trees</strong> (hash trees) find the differences in a number of comparisons proportional to the number of differences multiplied by the tree depth.</p>
 
 <h3 id="structure">Structure</h3>
 
-<p>A Merkle (hash) tree is a binary tree where:</p>
-
 <ul>
   <li>
-<strong>Leaves</strong> hash a partition of the key space (e.g., a range of keys or a bucket).</li>
+<strong>Leaves</strong> hash one fixed partition of the key space, such as a token range or hash bucket.</li>
   <li>
 <strong>Internal nodes</strong> hash the concatenation of their children’s hashes.</li>
-  <li>The <strong>root</strong> is a single fingerprint of the entire dataset.</li>
+  <li>The <strong>root</strong> is a single fingerprint for the whole dataset.</li>
 </ul>
 
 \[h_{\mathrm{parent}} = H\bigl(h_{\mathrm{left}} \,\|\, h_{\mathrm{right}}\bigr)\]
 
-<p>where <code class="language-plaintext highlighter-rouge">H</code> is a collision-resistant hash (SHA-256) and <code class="language-plaintext highlighter-rouge">‖</code> is concatenation.</p>
+<p>Here $H$ is a collision-resistant hash function and $|$ denotes concatenation. Leaves must cover <strong>fixed key ranges</strong> agreed by both replicas. If leaves were simply “the i-th key in sorted order,” one inserted key would shift every later leaf and make the whole tree look different.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    Root["Root = H(H1 ‖ H2)"] --&gt; H1["H1 = H(L1 ‖ L2)"]
-    Root --&gt; H2["H2 = H(L3 ‖ L4)"]
-    H1 --&gt; L1["L1 = H(keys 0..24)"]
-    H1 --&gt; L2["L2 = H(keys 25..49)"]
-    H2 --&gt; L3["L3 = H(keys 50..74)"]
-    H2 --&gt; L4["L4 = H(keys 75..99)"]
+    Root["root = H(A || B)"] --&gt; A["A = H(L1 || L2)"]
+    Root --&gt; B["B = H(L3 || L4)"]
+    A --&gt; L1["L1: range 0"]
+    A --&gt; L2["L2: range 1"]
+    B --&gt; L3["L3: range 2 (differs)"]
+    B --&gt; L4["L4: range 3"]
+    classDef diff stroke-width:3px,stroke-dasharray:4 3
+    class Root,B,L3 diff
 </code></pre>
+
+<p>The dashed nodes are the only ones that differ between the two replicas. The comparison descends only along that path, and only range 2 is streamed.</p>
 
 <h3 id="reconciliation-walk">Reconciliation Walk</h3>
 
-<p>To compare two replicas:</p>
-
 <ol>
-  <li>Exchange <strong>root</strong> hashes. If equal, the datasets are identical — <strong>done, zero key transfer</strong>.</li>
-  <li>If they differ, exchange the two <strong>child</strong> hashes and recurse only into subtrees whose hashes disagree.</li>
-  <li>Continue until you reach the differing <strong>leaves</strong>, then transfer only the keys in those buckets.</li>
+  <li>Exchange <strong>root</strong> hashes. If they match, the replicas are identical and nothing needs to be transferred.</li>
+  <li>If they differ, compare the children and descend only into subtrees whose hashes differ.</li>
+  <li>At the differing <strong>leaves</strong>, transfer the keys in those ranges.</li>
 </ol>
 
-<p>Because each mismatch prunes half the tree, locating <code class="language-plaintext highlighter-rouge">d</code> differing leaves costs <code class="language-plaintext highlighter-rouge">O(d · log N)</code> hash comparisons — vastly less than streaming all <code class="language-plaintext highlighter-rouge">N</code> keys. This is exactly how Cassandra’s <code class="language-plaintext highlighter-rouge">nodetool repair</code> and DynamoDB-style anti-entropy work: replicas trade Merkle trees, and only the divergent ranges are streamed.</p>
+<p>Locating $d$ differing leaves in a tree of depth $\log L$ costs $O(d \log L)$ hash comparisons, far less than streaming every key. Cassandra’s <code class="language-plaintext highlighter-rouge">nodetool repair</code> works this way: each replica builds a Merkle tree over a token range in a validation compaction, the trees are compared, and only mismatched ranges are streamed. Leaf granularity is a trade-off. Coarse leaves mean small trees but <em>overstreaming</em>, because a single differing key forces its whole range to be resent.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">hashlib</span>
 
-<span class="k">def</span> <span class="nf">_h</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-    <span class="k">return</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">data</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">H</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">b</span><span class="p">).</span><span class="nf">digest</span><span class="p">()</span>
 
 <span class="k">class</span> <span class="nc">MerkleTree</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Merkle tree over an ordered list of (key, value) leaves.</span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">kv_pairs</span><span class="p">):</span>
-        <span class="c1"># Leaf hashes in key order.
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">leaves</span> <span class="o">=</span> <span class="p">[</span><span class="nf">_h</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s">=</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">())</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">kv_pairs</span><span class="p">)]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">levels</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_build</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">leaves</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_build</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">leaves</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">leaves</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">[[</span><span class="nf">_h</span><span class="p">(</span><span class="sa">b</span><span class="sh">""</span><span class="p">)]]</span>
-        <span class="n">levels</span> <span class="o">=</span> <span class="p">[</span><span class="n">leaves</span><span class="p">]</span>
-        <span class="n">cur</span> <span class="o">=</span> <span class="n">leaves</span>
-        <span class="k">while</span> <span class="nf">len</span><span class="p">(</span><span class="n">cur</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">nxt</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">cur</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span>
-                <span class="n">left</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-                <span class="n">right</span> <span class="o">=</span> <span class="n">cur</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nf">len</span><span class="p">(</span><span class="n">cur</span><span class="p">)</span> <span class="k">else</span> <span class="n">cur</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-                <span class="n">nxt</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nf">_h</span><span class="p">((</span><span class="n">left</span> <span class="o">+</span> <span class="n">right</span><span class="p">).</span><span class="nf">encode</span><span class="p">()))</span>
-            <span class="n">levels</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">nxt</span><span class="p">)</span>
-            <span class="n">cur</span> <span class="o">=</span> <span class="n">nxt</span>
-        <span class="k">return</span> <span class="n">levels</span>
+    <span class="sh">"""</span><span class="s">Merkle tree over 2**depth fixed hash buckets of the key space.</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">kv</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">depth</span> <span class="o">=</span> <span class="n">depth</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">depth</span>
+        <span class="n">buckets</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kv</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+            <span class="n">buckets</span><span class="p">[</span><span class="nb">int</span><span class="p">.</span><span class="nf">from_bytes</span><span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="nf">encode</span><span class="p">())[:</span><span class="mi">8</span><span class="p">],</span> <span class="sh">"</span><span class="s">big</span><span class="sh">"</span><span class="p">)</span> <span class="o">%</span> <span class="n">n</span><span class="p">].</span><span class="nf">append</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+        <span class="n">leaves</span> <span class="o">=</span> <span class="p">[</span><span class="nc">H</span><span class="p">(</span><span class="sa">b</span><span class="sh">""</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s">=</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">())</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">b</span><span class="p">)))</span>
+                  <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">buckets</span><span class="p">]</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">levels</span> <span class="o">=</span> <span class="p">[</span><span class="n">leaves</span><span class="p">]</span>
+        <span class="k">while</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">levels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">prev</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">levels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">levels</span><span class="p">.</span><span class="nf">append</span><span class="p">([</span><span class="nc">H</span><span class="p">(</span><span class="n">prev</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">prev</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">prev</span><span class="p">),</span> <span class="mi">2</span><span class="p">)])</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">root</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">root</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">levels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 
-<span class="k">def</span> <span class="nf">diff_leaf_ranges</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">MerkleTree</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">MerkleTree</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Return leaf indices that differ. O(d log N) by pruning equal subtrees.</span><span class="sh">"""</span>
-    <span class="k">if</span> <span class="n">a</span><span class="p">.</span><span class="n">root</span> <span class="o">==</span> <span class="n">b</span><span class="p">.</span><span class="n">root</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">[]</span>                     <span class="c1"># identical: nothing to repair
-</span>    <span class="n">differing</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="c1"># Walk top-down comparing nodes at each level.
-</span>    <span class="k">def</span> <span class="nf">recurse</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
-        <span class="n">a_level</span><span class="p">,</span> <span class="n">b_level</span> <span class="o">=</span> <span class="n">a</span><span class="p">.</span><span class="n">levels</span><span class="p">[</span><span class="n">level</span><span class="p">],</span> <span class="n">b</span><span class="p">.</span><span class="n">levels</span><span class="p">[</span><span class="n">level</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="nf">len</span><span class="p">(</span><span class="n">a_level</span><span class="p">)</span> <span class="ow">or</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="nf">len</span><span class="p">(</span><span class="n">b_level</span><span class="p">):</span>
-            <span class="k">return</span>
-        <span class="k">if</span> <span class="n">a_level</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">==</span> <span class="n">b_level</span><span class="p">[</span><span class="n">idx</span><span class="p">]:</span>
-            <span class="k">return</span>                    <span class="c1"># prune: whole subtree matches
+<span class="k">def</span> <span class="nf">differing_buckets</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">MerkleTree</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">MerkleTree</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Bucket indices whose contents differ; prunes every matching subtree.</span><span class="sh">"""</span>
+    <span class="k">assert</span> <span class="n">a</span><span class="p">.</span><span class="n">depth</span> <span class="o">==</span> <span class="n">b</span><span class="p">.</span><span class="n">depth</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">a</span><span class="p">.</span><span class="n">levels</span><span class="p">[</span><span class="n">level</span><span class="p">][</span><span class="n">idx</span><span class="p">]</span> <span class="o">==</span> <span class="n">b</span><span class="p">.</span><span class="n">levels</span><span class="p">[</span><span class="n">level</span><span class="p">][</span><span class="n">idx</span><span class="p">]:</span>
+            <span class="k">return</span>                                  <span class="c1"># whole subtree identical
 </span>        <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">differing</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>     <span class="c1"># a differing leaf
-</span>            <span class="k">return</span>
-        <span class="nf">recurse</span><span class="p">(</span><span class="n">level</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">idx</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="nf">recurse</span><span class="p">(</span><span class="n">level</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">idx</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="nf">recurse</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">levels</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">differing</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="nf">walk</span><span class="p">(</span><span class="n">level</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">idx</span><span class="p">)</span>
+        <span class="nf">walk</span><span class="p">(</span><span class="n">level</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="nf">walk</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">depth</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
 </code></pre></div></div>
 
 <h2 id="swim">SWIM</h2>
 
-<p><strong>SWIM</strong> — Scalable Weakly-consistent Infection-style process Group Membership (Das, Gupta, Motivala, 2002) — is the protocol that ties failure detection and gossip together, and it underpins HashiCorp’s Serf/Consul (<code class="language-plaintext highlighter-rouge">memberlist</code>), Uber’s Ringpop, and many service meshes. Naïve all-to-all heartbeating is <code class="language-plaintext highlighter-rouge">O(N²)</code>; SWIM achieves <code class="language-plaintext highlighter-rouge">O(N)</code>-per-node failure detection with a <strong>constant</strong> per-node message load and a detection time independent of cluster size.</p>
+<p><strong>SWIM</strong> (Scalable Weakly-consistent Infection-style process group Membership; Das, Gupta and Motivala, 2002) combines failure detection and gossip in one protocol. HashiCorp’s <code class="language-plaintext highlighter-rouge">memberlist</code> library implements it, and that library underlies Serf, Consul, Nomad, and the memberlist key-value store used by Grafana Loki, Mimir and Tempo. All-to-all heartbeating costs $O(N^2)$ messages in total. SWIM keeps the <strong>per-node</strong> load <strong>constant</strong> (so the total is $O(N)$), and its expected detection time does not depend on cluster size.</p>
 
-<h3 id="the-two-components">The Two Components</h3>
-
-<p>SWIM cleanly separates the <em>failure detector</em> from the <em>dissemination</em> mechanism:</p>
+<p>SWIM separates two components:</p>
 
 <ol>
   <li>
-<strong>Failure detection</strong> via randomized direct + indirect probing.</li>
+<strong>Failure detection</strong> by randomized direct and indirect probing.</li>
   <li>
-<strong>Dissemination</strong> of membership changes piggybacked on those probe messages (no separate gossip traffic).</li>
+<strong>Dissemination</strong> of membership changes, <em>piggybacked</em> on the probe messages, so it adds no extra traffic.</li>
 </ol>
 
 <h3 id="the-probe-protocol">The Probe Protocol</h3>
 
-<p>Each protocol period (a fixed interval <code class="language-plaintext highlighter-rouge">T</code>), a node <code class="language-plaintext highlighter-rouge">M_i</code> runs one detection round:</p>
+<p>In every protocol period $T$, each member $M_i$ runs one round:</p>
 
 <ol>
-  <li>
-<code class="language-plaintext highlighter-rouge">M_i</code> picks a <strong>random</strong> member <code class="language-plaintext highlighter-rouge">M_j</code> and sends it a <code class="language-plaintext highlighter-rouge">PING</code>.</li>
-  <li>If <code class="language-plaintext highlighter-rouge">M_j</code> replies with <code class="language-plaintext highlighter-rouge">ACK</code> before a timeout, it’s alive — done.</li>
-  <li>If not, <code class="language-plaintext highlighter-rouge">M_i</code> does <strong>not</strong> immediately declare <code class="language-plaintext highlighter-rouge">M_j</code> dead. Instead it picks <code class="language-plaintext highlighter-rouge">k</code> other random members and asks each to <strong>indirectly probe</strong> <code class="language-plaintext highlighter-rouge">M_j</code> via <code class="language-plaintext highlighter-rouge">PING-REQ</code>. Those <code class="language-plaintext highlighter-rouge">k</code> nodes ping <code class="language-plaintext highlighter-rouge">M_j</code> and relay any <code class="language-plaintext highlighter-rouge">ACK</code> back.</li>
-  <li>If neither the direct nor any indirect probe yields an <code class="language-plaintext highlighter-rouge">ACK</code> within the period, <code class="language-plaintext highlighter-rouge">M_i</code> marks <code class="language-plaintext highlighter-rouge">M_j</code> as <strong>suspect</strong>.</li>
+  <li>$M_i$ picks a member $M_j$ and sends it <code class="language-plaintext highlighter-rouge">PING</code>.</li>
+  <li>If $M_j$ answers with <code class="language-plaintext highlighter-rouge">ACK</code> before the timeout, it is alive and the round ends.</li>
+  <li>Otherwise $M_i$ asks $k$ other members to probe $M_j$ on its behalf with <code class="language-plaintext highlighter-rouge">PING-REQ</code>. Each of them pings $M_j$ and relays any <code class="language-plaintext highlighter-rouge">ACK</code> back.</li>
+  <li>If no <code class="language-plaintext highlighter-rouge">ACK</code> arrives by the end of the period, $M_i$ marks $M_j$ <strong>suspect</strong>.</li>
 </ol>
 
-<p>Indirect probing is the crucial trick: it distinguishes “<code class="language-plaintext highlighter-rouge">M_j</code> is dead” from “the <em>direct path</em> <code class="language-plaintext highlighter-rouge">M_i → M_j</code> is congested or lossy.” If even one of the <code class="language-plaintext highlighter-rouge">k</code> helpers reaches <code class="language-plaintext highlighter-rouge">M_j</code>, the false positive is avoided. This is what makes SWIM’s accuracy hold up on real, lossy networks.</p>
+<p>Indirect probing separates “$M_j$ is dead” from “the path between $M_i$ and $M_j$ is congested.” If any of the $k$ helpers reaches $M_j$, the false positive is avoided.</p>
 
 <pre><code class="language-mermaid">sequenceDiagram
     participant Mi as M_i (prober)
     participant Mj as M_j (target)
-    participant Mk as k random helpers
+    participant Mk as k helpers
     Mi-&gt;&gt;Mj: PING
-    Note over Mi,Mj: timeout, no ACK
+    Note over Mi,Mj: no ACK within timeout
     Mi-&gt;&gt;Mk: PING-REQ(M_j)
     Mk-&gt;&gt;Mj: PING
     Mj--&gt;&gt;Mk: ACK (if alive)
     Mk--&gt;&gt;Mi: ACK relayed
-    Note over Mi: if no ACK at all → mark M_j SUSPECT
+    Note over Mi: no ACK by end of period: mark M_j SUSPECT
 </code></pre>
 
-<h3 id="suspicion-mechanism">Suspicion Mechanism</h3>
+<h3 id="suspicion-and-incarnation-numbers">Suspicion and Incarnation Numbers</h3>
 
-<p>The original SWIM declares a node dead the moment a probe round fails, which still produces false positives under bad luck. The <strong>SWIM+Inf.+Susp.</strong> extension (almost always used in practice) adds a <em>suspicion subprotocol</em>:</p>
+<p>Declaring a node dead after one failed round causes false positives whenever a node has a brief hiccup. The full protocol (called SWIM+Inf.+Susp. in the paper, and the form always used in practice) adds a <strong>suspicion</strong> stage:</p>
 
 <ul>
-  <li>A failed probe marks the target <strong>suspect</strong>, not dead, and this suspicion is <strong>gossiped</strong>.</li>
-  <li>The suspected node, on hearing it is suspected, broadcasts an <strong>alive/refute</strong> message with a higher <em>incarnation number</em>, clearing the suspicion cluster-wide.</li>
-  <li>If no refutation arrives within a suspicion timeout, the node is promoted <strong>suspect → dead</strong> and that confirmation is gossiped.</li>
+  <li>A failed probe marks the target <strong>suspect</strong>, and the suspicion is gossiped.</li>
+  <li>A live node that hears it is suspected increments its <strong>incarnation number</strong> and gossips <code class="language-plaintext highlighter-rouge">alive</code> with the new number. This refutes the suspicion across the cluster.</li>
+  <li>If no refutation arrives before the suspicion timeout, the node is declared <strong>dead</strong>, and that is gossiped too.</li>
 </ul>
 
-<p>Incarnation numbers (a per-node logical counter the node alone may increment) resolve conflicting rumors: a higher-incarnation “alive” always beats a lower-incarnation “suspect,” so a briefly-slow node can authoritatively clear its own name.</p>
+<p>Only a node can increment its own incarnation number. Conflicting rumours are resolved by fixed precedence rules:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Incoming message about node X</th>
+      <th>Overrides the local view if</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">alive(X, i)</code></td>
+      <td>local is <code class="language-plaintext highlighter-rouge">alive(X, j)</code> or <code class="language-plaintext highlighter-rouge">suspect(X, j)</code> with $i &gt; j$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">suspect(X, i)</code></td>
+      <td>local is <code class="language-plaintext highlighter-rouge">suspect(X, j)</code> with $i &gt; j$, or <code class="language-plaintext highlighter-rouge">alive(X, j)</code> with $i \ge j$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dead(X, i)</code></td>
+      <td>always, since dead is final; X must rejoin with a new identity or incarnation</td>
+    </tr>
+  </tbody>
+</table>
 
 <pre><code class="language-mermaid">stateDiagram-v2
-    [*] --&gt; Alive
-    Alive --&gt; Suspect: failed direct + indirect probe
-    Suspect --&gt; Alive: refutation (higher incarnation)
-    Suspect --&gt; Dead: suspicion timeout, no refutation
+    [*] --&gt; Alive: join
+    Alive --&gt; Suspect: probe + indirect probes fail
+    Suspect --&gt; Alive: refutation with higher incarnation
+    Suspect --&gt; Dead: suspicion timeout
     Dead --&gt; [*]
 </code></pre>
 
-<h3 id="dissemination-and-round-robin-probing">Dissemination and Round-Robin Probing</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">RANK</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">alive</span><span class="sh">"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="sh">"</span><span class="s">suspect</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">dead</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
 
-<p>SWIM piggybacks membership updates (<code class="language-plaintext highlighter-rouge">joined</code>, <code class="language-plaintext highlighter-rouge">suspect</code>, <code class="language-plaintext highlighter-rouge">alive</code>, <code class="language-plaintext highlighter-rouge">dead</code>) onto the <code class="language-plaintext highlighter-rouge">PING</code>/<code class="language-plaintext highlighter-rouge">ACK</code>/<code class="language-plaintext highlighter-rouge">PING-REQ</code> messages it is already sending, so dissemination costs no extra packets. Newer updates are gossiped preferentially and each is forwarded for <code class="language-plaintext highlighter-rouge">O(log N)</code> rounds — the epidemic bound from earlier.</p>
+<span class="k">def</span> <span class="nf">should_apply</span><span class="p">(</span><span class="n">local</span><span class="p">,</span> <span class="n">incoming</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">SWIM precedence: local/incoming are (state, incarnation) or None.</span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">local</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">True</span>
+    <span class="p">(</span><span class="n">ls</span><span class="p">,</span> <span class="n">li</span><span class="p">),</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="o">=</span> <span class="n">local</span><span class="p">,</span> <span class="n">incoming</span>
+    <span class="k">if</span> <span class="n">ls</span> <span class="o">==</span> <span class="sh">"</span><span class="s">dead</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">False</span>                      <span class="c1"># dead is final
+</span>    <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="sh">"</span><span class="s">dead</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">True</span>
+    <span class="k">if</span> <span class="n">s</span> <span class="o">==</span> <span class="sh">"</span><span class="s">alive</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">li</span>                     <span class="c1"># only a newer incarnation clears suspicion
+</span>    <span class="c1"># s == "suspect"
+</span>    <span class="k">return</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">li</span> <span class="ow">or</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">li</span> <span class="ow">and</span> <span class="n">ls</span> <span class="o">==</span> <span class="sh">"</span><span class="s">alive</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
 
-<p>Two refinements give SWIM its stable, size-independent quality:</p>
+<h3 id="dissemination-and-target-selection">Dissemination and Target Selection</h3>
 
 <ul>
   <li>
-<strong>Round-robin target selection:</strong> rather than picking the probe target uniformly at random each period, nodes shuffle the member list and probe each member once per traversal. This bounds the worst-case detection time to roughly one traversal (deterministic coverage) instead of relying on randomness to eventually hit every node.</li>
+<strong>Piggybacking.</strong> Membership updates (<code class="language-plaintext highlighter-rouge">join</code>, <code class="language-plaintext highlighter-rouge">suspect</code>, <code class="language-plaintext highlighter-rouge">alive</code>, <code class="language-plaintext highlighter-rouge">dead</code>) travel inside <code class="language-plaintext highlighter-rouge">PING</code>, <code class="language-plaintext highlighter-rouge">ACK</code> and <code class="language-plaintext highlighter-rouge">PING-REQ</code> messages. Each update is retransmitted about $\lambda \log N$ times, the epidemic bound from above, with the newest updates sent first.</li>
   <li>
-<strong>Constant per-node load:</strong> each period a node sends one <code class="language-plaintext highlighter-rouge">PING</code> plus at most <code class="language-plaintext highlighter-rouge">k</code> <code class="language-plaintext highlighter-rouge">PING-REQ</code>s — independent of <code class="language-plaintext highlighter-rouge">N</code> — so total cluster traffic is <code class="language-plaintext highlighter-rouge">O(N)</code>, not <code class="language-plaintext highlighter-rouge">O(N²)</code>.</li>
+<strong>Round-robin targets.</strong> Picking a uniformly random target each period gives an expected first detection after $e/(e-1) \approx 1.58$ periods, but no worst-case bound. SWIM instead walks a randomly shuffled member list, which guarantees that every failed member is probed within $2N - 1$ periods.</li>
+  <li>
+<strong>Constant load.</strong> Each period a node sends one <code class="language-plaintext highlighter-rouge">PING</code> and at most $k$ <code class="language-plaintext highlighter-rouge">PING-REQ</code>s, regardless of $N$.</li>
 </ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">random</span>
+<h3 id="lifeguard">Lifeguard</h3>
 
-<span class="k">class</span> <span class="nc">SwimNode</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">
-    SWIM membership with indirect probing and suspicion.
-    Simplified to a single synchronous protocol period for clarity.
-    </span><span class="sh">"""</span>
-    <span class="n">K_INDIRECT</span> <span class="o">=</span> <span class="mi">3</span>
-    <span class="n">SUSPECT_TIMEOUT</span> <span class="o">=</span> <span class="mi">3</span>       <span class="c1"># protocol periods before suspect -&gt; dead
-</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">,</span> <span class="n">network</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">node_id</span> <span class="o">=</span> <span class="n">node_id</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">network</span>            <span class="c1"># maps id -&gt; SwimNode (test harness)
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">members</span> <span class="o">=</span> <span class="p">{}</span>                 <span class="c1"># id -&gt; {"state", "incarnation"}
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">suspect_since</span> <span class="o">=</span> <span class="p">{}</span>           <span class="c1"># id -&gt; period when first suspected
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">incarnation</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">_round_robin</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">_rr_idx</span> <span class="o">=</span> <span class="mi">0</span>
+<p>SWIM assumes that the node doing the probing is healthy. In practice a prober that is itself overloaded, for example CPU-starved or with a backed-up network queue, misses <code class="language-plaintext highlighter-rouge">ACK</code>s and falsely accuses healthy peers. <strong>Lifeguard</strong> (Dadgar, Phillips and Currey, HashiCorp, 2018) adds <em>local health awareness</em> and is enabled in <code class="language-plaintext highlighter-rouge">memberlist</code> by default:</p>
 
-    <span class="k">def</span> <span class="nf">_next_target</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">period</span><span class="p">):</span>
-        <span class="c1"># Round-robin over a shuffled member list for deterministic coverage.
-</span>        <span class="n">alive</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">members</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span>
-                 <span class="k">if</span> <span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">state</span><span class="sh">"</span><span class="p">]</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">dead</span><span class="sh">"</span> <span class="ow">and</span> <span class="n">m</span> <span class="o">!=</span> <span class="n">self</span><span class="p">.</span><span class="n">node_id</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">_rr_idx</span> <span class="o">&gt;=</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">_round_robin</span><span class="p">):</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">_round_robin</span> <span class="o">=</span> <span class="n">alive</span>
-            <span class="n">random</span><span class="p">.</span><span class="nf">shuffle</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">_round_robin</span><span class="p">)</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">_rr_idx</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="n">_round_robin</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">None</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">_round_robin</span><span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">_rr_idx</span><span class="p">]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">_rr_idx</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="k">return</span> <span class="n">target</span>
+<table>
+  <thead>
+    <tr>
+      <th>Extension</th>
+      <th>Mechanism</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Local Health Multiplier (LHM)</strong></td>
+      <td>A saturating counter that rises when the node’s own probes fail, when it gets no NACK from helpers, or when it has to refute suspicion of itself. It scales the node’s probe interval and timeout, so an unhealthy node slows down instead of accusing others.</td>
+    </tr>
+    <tr>
+      <td><strong>Local Health Aware Suspicion</strong></td>
+      <td>The suspicion timeout starts long and shrinks logarithmically as <em>independent</em> members confirm the suspicion. A single possibly-sick accuser cannot convict quickly.</td>
+    </tr>
+    <tr>
+      <td><strong>Buddy System</strong></td>
+      <td>A prober tells a suspected target directly in its <code class="language-plaintext highlighter-rouge">PING</code> that it is suspected, so the target can refute immediately rather than waiting for gossip to reach it.</td>
+    </tr>
+  </tbody>
+</table>
 
-    <span class="k">def</span> <span class="nf">_direct_ping</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-        <span class="n">node</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">network</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">node</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">node</span><span class="p">.</span><span class="nf">alive_for_probe</span><span class="p">()</span>
+<p>The paper reports false positives reduced by more than 50x in controlled tests, with little change in detection time for real failures.</p>
 
-    <span class="k">def</span> <span class="nf">_indirect_ping</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-        <span class="n">helpers</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">members</span>
-                   <span class="k">if</span> <span class="n">m</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">node_id</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-                   <span class="ow">and</span> <span class="n">self</span><span class="p">.</span><span class="n">members</span><span class="p">[</span><span class="n">m</span><span class="p">][</span><span class="sh">"</span><span class="s">state</span><span class="sh">"</span><span class="p">]</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">dead</span><span class="sh">"</span><span class="p">]</span>
-        <span class="n">random</span><span class="p">.</span><span class="nf">shuffle</span><span class="p">(</span><span class="n">helpers</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">helper</span> <span class="ow">in</span> <span class="n">helpers</span><span class="p">[:</span><span class="n">self</span><span class="p">.</span><span class="n">K_INDIRECT</span><span class="p">]:</span>
-            <span class="n">hnode</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">network</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">helper</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">hnode</span> <span class="ow">and</span> <span class="n">hnode</span><span class="p">.</span><span class="nf">_direct_ping</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
-                <span class="k">return</span> <span class="bp">True</span>
-        <span class="k">return</span> <span class="bp">False</span>
-
-    <span class="k">def</span> <span class="nf">alive_for_probe</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Real node would reply to a PING; here always True if instantiated.
-</span>        <span class="k">return</span> <span class="bp">True</span>
-
-    <span class="k">def</span> <span class="nf">mark_suspect</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">period</span><span class="p">):</span>
-        <span class="n">info</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">members</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">info</span> <span class="ow">and</span> <span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">state</span><span class="sh">"</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">alive</span><span class="sh">"</span><span class="p">:</span>
-            <span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">state</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">suspect</span><span class="sh">"</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">suspect_since</span><span class="p">[</span><span class="n">target</span><span class="p">]</span> <span class="o">=</span> <span class="n">period</span>
-            <span class="c1"># (gossip this suspicion to peers via piggybacking)
-</span>
-    <span class="k">def</span> <span class="nf">protocol_period</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">period</span><span class="p">):</span>
-        <span class="c1"># 1. Probe one target this period.
-</span>        <span class="n">target</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_next_target</span><span class="p">(</span><span class="n">period</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="nf">_direct_ping</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="nf">_indirect_ping</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
-                    <span class="n">self</span><span class="p">.</span><span class="nf">mark_suspect</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">period</span><span class="p">)</span>
-        <span class="c1"># 2. Promote stale suspects to dead.
-</span>        <span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">since</span> <span class="ow">in</span> <span class="nf">list</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">suspect_since</span><span class="p">.</span><span class="nf">items</span><span class="p">()):</span>
-            <span class="k">if</span> <span class="n">period</span> <span class="o">-</span> <span class="n">since</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">SUSPECT_TIMEOUT</span><span class="p">:</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">members</span><span class="p">[</span><span class="n">m</span><span class="p">][</span><span class="sh">"</span><span class="s">state</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">dead</span><span class="sh">"</span>
-                <span class="k">del</span> <span class="n">self</span><span class="p">.</span><span class="n">suspect_since</span><span class="p">[</span><span class="n">m</span><span class="p">]</span>
-
-    <span class="k">def</span> <span class="nf">refute</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-        <span class="c1"># Node clears its own suspicion with a higher incarnation number.
-</span>        <span class="k">if</span> <span class="n">target</span> <span class="o">==</span> <span class="n">self</span><span class="p">.</span><span class="n">node_id</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">incarnation</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">members</span><span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">node_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="sh">"</span><span class="s">state</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">alive</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">incarnation</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">incarnation</span>
-            <span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="swim-in-the-wild">SWIM in the Wild</h3>
+<h2 id="failure-detection-in-production">Failure Detection in Production</h2>
 
 <table>
   <thead>
     <tr>
       <th>System</th>
-      <th>Library</th>
-      <th>Notes</th>
+      <th>Mechanism</th>
+      <th>Defaults and notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Consul / Serf</strong></td>
-      <td>HashiCorp <code class="language-plaintext highlighter-rouge">memberlist</code>
+      <td><strong>Raft (etcd, Consul, KRaft)</strong></td>
+      <td>Leader heartbeats; a follower whose randomized election timeout expires starts an election</td>
+      <td>etcd: 100 ms heartbeat, 1000 ms election timeout. PreVote and CheckQuorum limit disruption from nodes on the wrong side of a partition. See <a href="consensus-and-coordination.html#raft">Raft</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Kubernetes nodes</strong></td>
+      <td>The kubelet renews a <code class="language-plaintext highlighter-rouge">Lease</code> object in <code class="language-plaintext highlighter-rouge">kube-node-lease</code> (every 10 s); the node lifecycle controller marks the node <code class="language-plaintext highlighter-rouge">NotReady</code> after <code class="language-plaintext highlighter-rouge">node-monitor-grace-period</code>
 </td>
-      <td>SWIM + Lifeguard refinements to cut false positives under load</td>
+      <td>The grace period default rose from 40 s to 50 s in v1.32. Pods are then evicted through taint-based eviction (<code class="language-plaintext highlighter-rouge">not-ready</code>/<code class="language-plaintext highlighter-rouge">unreachable</code> taints, 300 s default toleration).</td>
     </tr>
     <tr>
-      <td><strong>Ringpop</strong></td>
-      <td>Uber</td>
-      <td>SWIM for sharding/membership of stateful services</td>
+      <td><strong>Kubernetes pods</strong></td>
+      <td>Pull probes: liveness (restart), readiness (remove from endpoints), startup (delay the other two)</td>
+      <td>A liveness probe that checks dependencies can cause cascading restarts. Keep it local. See <a href="resilience-patterns.html#health-checks">Health Checks</a>.</td>
     </tr>
     <tr>
-      <td><strong>Cassandra (newer)</strong></td>
-      <td>—</td>
-      <td>Gossip-based membership inspired by these ideas</td>
+      <td><strong>Cassandra</strong></td>
+      <td>Gossip every second with heartbeat versions, plus exponential phi-accrual</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">phi_convict_threshold</code> defaults to 8. In Cassandra 6.0 (pre-GA in 2026), topology and schema move from gossip to Transactional Cluster Metadata, a linearized log, while gossip remains for liveness.</td>
+    </tr>
+    <tr>
+      <td><strong>Akka / Apache Pekko Cluster</strong></td>
+      <td>Normal-model phi-accrual with heartbeats sent to a subset of neighbours; gossip for membership</td>
+      <td>Threshold 8, plus <code class="language-plaintext highlighter-rouge">acceptable-heartbeat-pause</code> for GC.</td>
+    </tr>
+    <tr>
+      <td><strong>Consul, Nomad, Serf</strong></td>
+      <td>SWIM + Lifeguard via <code class="language-plaintext highlighter-rouge">memberlist</code>
+</td>
+      <td>Separate LAN and WAN gossip pools with different timing profiles.</td>
+    </tr>
+    <tr>
+      <td><strong>Redis Cluster</strong></td>
+      <td>Each node pings peers over the cluster bus; a peer silent past <code class="language-plaintext highlighter-rouge">cluster-node-timeout</code> is flagged <code class="language-plaintext highlighter-rouge">PFAIL</code> locally</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">PFAIL</code> becomes <code class="language-plaintext highlighter-rouge">FAIL</code> once a majority of primaries report it. A replica of the failed primary is then promoted.</td>
     </tr>
   </tbody>
 </table>
 
-<p>HashiCorp’s <strong>Lifeguard</strong> extensions are worth knowing: they make the suspicion timeout <em>self-aware</em> (a node that suspects it is itself overloaded — because its own probes are timing out — becomes more lenient before accusing others), which dramatically reduces false positives during cluster-wide load spikes or partial network degradation.</p>
+<h3 id="acting-on-a-suspicion-safely">Acting on a Suspicion Safely</h3>
+
+<p>A suspicion can always be wrong. Whatever the system does next, such as promoting a replica, reassigning a lock, or rescheduling a pod, has to be safe even if the “dead” node is still running:</p>
+
+<ul>
+  <li>
+<strong>Leases</strong> mean a node’s authority expires on its own. A node that cannot renew its lease stops acting before anyone else takes over, provided clock drift is bounded.</li>
+  <li>
+<strong>Fencing tokens</strong> are monotonically increasing epochs, such as a Raft term or a lock version, checked by the <em>resource</em>. The resource rejects writes from a deposed holder even if that holder has just woken from a long GC pause. See <a href="resilience-patterns.html#distributed-locks">Distributed Locks</a>.</li>
+  <li>
+<strong>STONITH</strong> (“shoot the other node in the head”) powers off or isolates a suspected node through an out-of-band channel before failing over, as in Pacemaker clusters.</li>
+  <li>
+<strong>Quorum-based decisions</strong> mean no single observer’s opinion is enough. Redis’s <code class="language-plaintext highlighter-rouge">PFAIL</code>-to-<code class="language-plaintext highlighter-rouge">FAIL</code> promotion, Lifeguard’s independent confirmations, and Raft’s majority votes all apply this principle.</li>
+</ul>
 
 <h2 id="putting-it-together">Putting It Together</h2>
 
-<p>A production membership/failure-detection stack composes all of these layers:</p>
-
 <pre><code class="language-mermaid">flowchart TD
-    Probe["SWIM probing&lt;br/&gt;(direct + indirect)"] --&gt; Phi["Phi-accrual / suspicion&lt;br/&gt;(continuous confidence)"]
-    Phi --&gt; Diss["Gossip dissemination&lt;br/&gt;(piggybacked, O(log N) rounds)"]
-    Diss --&gt; AE["Anti-entropy + Merkle trees&lt;br/&gt;(eventual convergence safety net)"]
-    AE --&gt; View["Consistent membership view&lt;br/&gt;across the cluster"]
-    View --&gt; Consensus["Feeds leader election&lt;br/&gt;&amp; consensus (Raft/Paxos)"]
+    Probe["Probing / heartbeats&lt;br/&gt;SWIM direct + indirect, leases"] --&gt; Conf["Suspicion level&lt;br/&gt;phi-accrual or suspect state + incarnations"]
+    Conf --&gt; Diss["Gossip dissemination&lt;br/&gt;piggybacked, O(log N) rounds"]
+    Diss --&gt; AE["Anti-entropy + Merkle trees&lt;br/&gt;convergence safety net"]
+    AE --&gt; View["Membership view&lt;br/&gt;(eventually consistent)"]
+    View --&gt; Act["Actions, fenced and quorum-checked&lt;br/&gt;leader election, failover, rebalancing"]
 </code></pre>
 
 <ul>
   <li>
-<strong>SWIM</strong> provides scalable, accuracy-preserving detection with indirect probes.</li>
+<strong>Probing</strong> with indirect checks keeps accuracy acceptable on lossy networks.</li>
   <li>
-<strong>Phi-accrual</strong> (or SWIM’s suspicion subprotocol) converts noisy timing into a tunable confidence signal instead of a brittle boolean.</li>
+<strong>Accrual or suspicion</strong> turns noisy timing into a graded, refutable signal rather than a brittle yes/no.</li>
   <li>
-<strong>Gossip</strong> disseminates the resulting membership deltas in <code class="language-plaintext highlighter-rouge">O(log N)</code> rounds at constant per-node cost.</li>
+<strong>Gossip</strong> spreads the resulting membership changes in $O(\log N)$ rounds at constant cost per node.</li>
   <li>
-<strong>Anti-entropy + Merkle trees</strong> guarantee that even with lost rumors, replicas eventually converge while transferring only the differences.</li>
+<strong>Anti-entropy</strong> ensures replicas converge even when rumours are lost, transferring only the differences.</li>
+  <li>
+<strong>Fencing and quorums</strong> keep the actions that follow safe when the detector is wrong.</li>
 </ul>
 
-<p>The output — a reasonably consistent view of who is alive — is the <em>input</em> that consensus protocols like <a href="../advanced/distributed-systems-theory/">Raft and Paxos</a> assume when they elect leaders and require a majority of “live” nodes to make progress.</p>
+<p>The membership view this produces is an input to consensus, not a replacement for it. Protocols like <a href="consensus-and-coordination.html">Raft and Paxos</a> use timeouts only for liveness, and their safety never depends on a failure detector being right.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li>
-<strong><a href="./">Distributed Systems Hub</a></strong> — patterns, consensus, and consistency models in context</li>
+<strong><a href="./">Distributed Systems Hub</a></strong>: section index</li>
   <li>
-<strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — FLP impossibility, failure-detector classes, and consensus proofs</li>
+<strong><a href="consensus-and-coordination.html">Consensus &amp; Coordination</a></strong>: FLP, quorums, and how Raft uses timeouts for leader election</li>
   <li>
-<strong><a href="../technology/database-design/">Database Design</a></strong> — replication and anti-entropy in distributed datastores</li>
+<strong><a href="resilience-patterns.html">Resilience Patterns</a></strong>: health checks, circuit breakers, distributed locks and fencing</li>
   <li>
-<strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — liveness/readiness probes as practical pull-based health checks</li>
+<strong><a href="service-discovery.html">Service Discovery</a></strong>: turning a membership view into routable endpoints</li>
   <li>
-<strong><a href="../technology/networking/">Networking</a></strong> — RTT, jitter, and the timing assumptions detectors rely on</li>
+<strong><a href="../advanced/distributed-systems-theory/#failure-detectors">Distributed Systems Theory</a></strong>: formal failure-detector classes and reductions</li>
+  <li>
+<strong><a href="../technology/kubernetes/">Kubernetes</a></strong>: node leases and liveness, readiness and startup probes</li>
+  <li>
+<strong><a href="../technology/networking/">Networking</a></strong>: RTT, jitter, and the timing assumptions detectors depend on</li>
 </ul>
 
 <h3 id="foundational-papers">Foundational Papers</h3>
 
 <ul>
-  <li>Chandra &amp; Toueg, <em>Unreliable Failure Detectors for Reliable Distributed Systems</em> (1996)</li>
-  <li>Hayashibara et al., <em>The φ Accrual Failure Detector</em> (2004)</li>
-  <li>Das, Gupta &amp; Motivala, <em>SWIM: Scalable Weakly-consistent Infection-style Process Group Membership</em> (2002)</li>
   <li>Demers et al., <em>Epidemic Algorithms for Replicated Database Maintenance</em> (1987)</li>
+  <li>Pittel, <em>On Spreading a Rumor</em> (1987)</li>
+  <li>Chandra, Toueg, <em>Unreliable Failure Detectors for Reliable Distributed Systems</em> (1996)</li>
+  <li>Karp, Schindelhauer, Shenker, Vöcking, <em>Randomized Rumor Spreading</em> (2000)</li>
+  <li>Chen, Toueg, Aguilera, <em>On the Quality of Service of Failure Detectors</em> (2002)</li>
+  <li>Das, Gupta, Motivala, <em>SWIM: Scalable Weakly-consistent Infection-style Process Group Membership Protocol</em> (2002)</li>
+  <li>Hayashibara, Défago, Yared, Katayama, <em>The φ Accrual Failure Detector</em> (2004)</li>
+  <li>Huang et al., <em>Gray Failure: The Achilles’ Heel of Cloud-Scale Systems</em> (HotOS 2017)</li>
+  <li>Gunawi et al., <em>Fail-Slow at Scale: Evidence of Hardware Performance Faults in Large Production Systems</em> (FAST 2018)</li>
+  <li>Dadgar, Phillips, Currey, <em>Lifeguard: Local Health Awareness for More Accurate Failure Detection</em> (2018)</li>
 </ul>
 
       </section>

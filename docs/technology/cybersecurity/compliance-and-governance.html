@@ -3135,289 +3135,417 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="compliance--governance">Compliance &amp; Governance</h1>
 
-<p>Technology controls are necessary but not sufficient. A durable security posture needs governance: legal obligations that give security teeth (GDPR, PCI DSS), attestation frameworks that prove diligence to customers (SOC 2, ISO 27001), a repeatable way to identify and prioritize risk, a culture that treats people as a defense rather than a liability, and metrics that show whether any of it is working. This page covers how to build security as an ongoing program rather than a one-time fix.</p>
+<p><strong>Security governance</strong> is the organizational machinery that decides which risks matter, who owns them, and how controls are chosen, funded, and verified; <strong>compliance</strong> is the subset of that work driven by external obligations — laws, contracts, and certification schemes. This page covers the regulatory landscape (privacy law, sector and cyber-specific regulation, PCI DSS), attestation frameworks (SOC 2, ISO/IEC 27001), program frameworks (NIST CSF 2.0, CIS Controls), quantitative and qualitative risk management, third-party risk, the human side of security, and the metrics and maturity models used to show whether a program works. The engineering side of privacy law is covered in <a href="privacy-engineering.html">Privacy Engineering</a>.</p>
 
-<h2 id="compliance-security-with-legal-teeth">Compliance: Security With Legal Teeth</h2>
+<h2 id="regulations-standards-and-frameworks">Regulations, Standards, and Frameworks</h2>
 
-<p>Compliance isn’t just bureaucracy—it’s security with consequences. Two things make compliance worth understanding even if you never sign an audit report. First, it codifies a baseline: a regulator or standards body has already decided what “reasonable” looks like, so you don’t have to argue it from scratch. Second, it shifts incentives—non-compliance carries fines, lost contracts, and personal liability for executives, which is often what finally funds a security program. Understanding the major frameworks helps you build better security regardless of whether you’re formally in scope.</p>
+<p>Compliance obligations come in four kinds, and confusing them causes both over- and under-investment:</p>
 
-<p>A useful mental model is to separate <strong>regulations</strong> (laws you must obey if you handle certain data: GDPR, HIPAA, PCI DSS) from <strong>attestation frameworks</strong> (voluntary standards you adopt and get audited against to prove diligence: SOC 2, ISO 27001). Regulations are imposed on you; attestations are sought by you, usually because customers demand them before they’ll trust you with their data.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Kind</th>
+      <th>Imposed by</th>
+      <th>Examples</th>
+      <th>Consequence of failure</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Regulation</strong></td>
+      <td>Law, for anyone in scope</td>
+      <td>GDPR, NIS2, DORA, HIPAA, SEC disclosure rules</td>
+      <td>Fines, enforcement orders, personal liability for executives</td>
+    </tr>
+    <tr>
+      <td><strong>Contractual standard</strong></td>
+      <td>Commercial agreements</td>
+      <td>PCI DSS (card brands), customer security addenda</td>
+      <td>Loss of the ability to process cards, lost contracts, breach-related fines</td>
+    </tr>
+    <tr>
+      <td><strong>Voluntary attestation or certification</strong></td>
+      <td>Chosen by the organization, usually because customers demand it</td>
+      <td>SOC 2, ISO/IEC 27001, CSA STAR, FedRAMP (for US federal sales)</td>
+      <td>Lost deals; no direct legal penalty</td>
+    </tr>
+    <tr>
+      <td><strong>Program framework</strong></td>
+      <td>Adopted as internal scaffolding</td>
+      <td>NIST CSF 2.0, CIS Controls, NIST SP 800-53</td>
+      <td>None directly — they organize the work that satisfies everything above</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="gdpr-privacy-as-a-human-right">GDPR: Privacy as a Human Right</h3>
+<p>These overlap heavily. The efficient approach is a single <strong>control set</strong> with shared evidence, mapped to every obligation in scope, rather than one parallel program per framework:</p>
 
-<p>The EU’s General Data Protection Regulation (in force since May 2018) changed how the world thinks about personal data. Its central premise is that personal data belongs to the individual (“data subject”), not to the company that collects it, and that processing it requires a lawful basis and a defined purpose.</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Controls["One control set + evidence"]
+        C1["Access control and MFA"]
+        C2["Encryption and key management"]
+        C3["Logging and monitoring"]
+        C4["Vulnerability management"]
+        C5["Incident response"]
+        C6["Vendor risk management"]
+    end
+    Controls --&gt; S["SOC 2"]
+    Controls --&gt; I["ISO/IEC 27001"]
+    Controls --&gt; P["PCI DSS"]
+    Controls --&gt; G["GDPR Art. 32"]
+    Controls --&gt; N["NIS2 Art. 21"]
+</code></pre>
 
-<p><strong>Core principles</strong> (Article 5): lawfulness and transparency, purpose limitation, data minimization, accuracy, storage limitation, integrity and confidentiality, and accountability. The last one—accountability—means you must be able to <em>demonstrate</em> compliance, not merely assert it.</p>
+<p>Compliance is a floor, not a measure of security: organizations with clean audit reports are breached routinely. The goal is for compliance to be a <strong>by-product</strong> of a risk-driven program, not the program’s purpose.</p>
 
-<p><strong>Key data-subject rights</strong> that drive engineering requirements:</p>
+<h2 id="privacy-regulation">Privacy Regulation</h2>
+
+<h3 id="gdpr">GDPR</h3>
+
+<p>The EU General Data Protection Regulation (applicable since May 2018; mirrored in the UK GDPR) treats personal data as belonging to the individual. Processing requires one of six <strong>lawful bases</strong> (consent, contract, legal obligation, vital interests, public task, or legitimate interests) and a defined purpose.</p>
 
 <ul>
-  <li><strong>Right of access</strong> — a user can demand a copy of everything you hold about them.</li>
-  <li><strong>Right to erasure</strong> (“right to be forgotten”) — a user can demand deletion, which means your architecture must be able to actually find and remove all of one person’s data.</li>
-  <li><strong>Right to data portability</strong> — export in a machine-readable format.</li>
-  <li><strong>Right to object / restrict processing</strong> — e.g. opt out of profiling.</li>
+  <li><strong>Principles (Article 5)</strong>: lawfulness, fairness and transparency; purpose limitation; data minimization; accuracy; storage limitation; integrity and confidentiality; and <strong>accountability</strong> — the controller must be able to <em>demonstrate</em> compliance, which in practice means records of processing, data protection impact assessments (DPIAs), and documented decisions.</li>
+  <li><strong>Data-subject rights</strong>: access, rectification, erasure, restriction, portability, and objection (including to profiling). Each is an engineering requirement: you cannot honor an erasure request if you cannot find all of a person’s data.</li>
+  <li><strong>Security of processing (Article 32)</strong>: “appropriate technical and organisational measures”, explicitly naming encryption and pseudonymization.</li>
+  <li><strong>Privacy by design and by default (Article 25)</strong>: protections belong in the design, and the most protective setting must be the default.</li>
+  <li><strong>Breach notification</strong>: to the supervisory authority within <strong>72 hours</strong> of becoming aware of a personal-data breach, and to affected individuals without undue delay when the risk to them is high (see <a href="incident-response.html#regulatory-notification-deadlines">Incident Response</a>).</li>
+  <li><strong>International transfers</strong>: data leaving the EU needs an adequacy decision (e.g. the 2023 EU–US Data Privacy Framework), standard contractual clauses, or binding corporate rules.</li>
+  <li><strong>Penalties</strong>: up to <strong>€20 million or 4% of worldwide annual turnover</strong>, whichever is higher. Cumulative fines passed €5 billion by 2025; the largest single fine remains €1.2 billion against Meta (2023) for EU–US data transfers.</li>
 </ul>
 
-<p><strong>Breach notification</strong> is the operational sting: a personal-data breach must be reported to the supervisory authority within <strong>72 hours</strong> of becoming aware of it, and affected individuals must be told if the breach poses a high risk to their rights. Fines reach up to <strong>€20 million or 4% of global annual turnover</strong>, whichever is higher.</p>
+<h3 id="the-global-privacy-landscape">The Global Privacy Landscape</h3>
 
-<p><strong>Global privacy landscape</strong> — GDPR was the template; the rest of the world followed:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Jurisdiction</th>
+      <th>Law</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EU / UK</td>
+      <td>GDPR / UK GDPR</td>
+      <td>The template for most later laws</td>
+    </tr>
+    <tr>
+      <td>United States</td>
+      <td>No comprehensive federal law</td>
+      <td>Roughly twenty state laws (California CCPA/CPRA, Virginia, Colorado, Texas, and others) plus sector laws: HIPAA (health), GLBA (finance), COPPA (children)</td>
+    </tr>
+    <tr>
+      <td>China</td>
+      <td>PIPL (2021)</td>
+      <td>Consent-centric; data localization and security assessments for cross-border transfers</td>
+    </tr>
+    <tr>
+      <td>India</td>
+      <td>DPDP Act (2023)</td>
+      <td>Implementing rules notified in November 2025, with obligations phased in over the following 18 months</td>
+    </tr>
+    <tr>
+      <td>Brazil</td>
+      <td>LGPD (2020)</td>
+      <td>Closely modeled on GDPR</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>EU</strong>: cumulative GDPR fines have exceeded €4 billion.</li>
-  <li><strong>US</strong>: state laws proliferating (California’s CCPA/CPRA, Virginia’s VCDPA, Colorado, and others) — there is still no single federal privacy law.</li>
-  <li><strong>India</strong>: the Digital Personal Data Protection (DPDP) Act 2023 is being implemented.</li>
-  <li><strong>China</strong>: PIPL (Personal Information Protection Law) enforcement is increasing, with strict data-localization and cross-border transfer rules.</li>
-  <li><strong>AI-specific</strong>: the EU AI Act (2024) layers risk-tiered obligations on top of GDPR for systems that process personal data.</li>
-</ul>
+<h3 id="ai-regulation">AI Regulation</h3>
 
-<p>GDPR’s “privacy by design and by default” requirement (Article 25) means privacy controls belong in the design phase, not bolted on later:</p>
+<p>The <strong>EU AI Act</strong> entered into force in August 2024 with obligations phased in by risk tier: prohibited practices from February 2025, general-purpose AI model obligations from August 2025, and most high-risk-system obligations scheduled for August 2026 onward, although the European Commission has proposed delaying parts of the high-risk regime. It applies alongside GDPR wherever AI systems process personal data. <strong>ISO/IEC 42001</strong> (2023) provides a certifiable AI management system standard analogous to ISO 27001, and the <strong>NIST AI Risk Management Framework</strong> is the common voluntary reference in the US.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GDPR requires "privacy by design"
-</span><span class="k">class</span> <span class="nc">UserDataHandler</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">purpose_limitation</span> <span class="o">=</span> <span class="bp">True</span>  <span class="c1"># Only use data for stated purpose
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">data_minimization</span> <span class="o">=</span> <span class="bp">True</span>   <span class="c1"># Collect minimum necessary
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">retention_limit</span> <span class="o">=</span> <span class="mi">90</span>       <span class="c1"># Delete after 90 days
-</span>
-    <span class="k">def</span> <span class="nf">collect_user_data</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">user</span><span class="p">):</span>
-        <span class="c1"># Must have a lawful basis — for marketing, that's explicit consent
-</span>        <span class="k">if</span> <span class="ow">not</span> <span class="n">user</span><span class="p">.</span><span class="nf">has_consented</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="nc">GDPRViolation</span><span class="p">(</span><span class="sh">"</span><span class="s">No consent for data collection</span><span class="sh">"</span><span class="p">)</span>
+<h2 id="cybersecurity-regulation">Cybersecurity Regulation</h2>
 
-        <span class="c1"># Right to be forgotten
-</span>        <span class="k">if</span> <span class="n">user</span><span class="p">.</span><span class="nf">requests_deletion</span><span class="p">():</span>
-            <span class="n">self</span><span class="p">.</span><span class="nf">delete_all_user_data</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
-            <span class="n">self</span><span class="p">.</span><span class="nf">log_deletion</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>  <span class="c1"># Prove compliance (accountability principle)
-</span>
-    <span class="k">def</span> <span class="nf">data_breach_notification</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Must notify the supervisory authority within 72 hours!
-</span>        <span class="nf">notify_authorities</span><span class="p">()</span>
-        <span class="k">if</span> <span class="nf">high_risk_to_individuals</span><span class="p">():</span>
-            <span class="nf">notify_affected_users</span><span class="p">()</span>
-</code></pre></div></div>
+<p>A newer wave of regulation targets security directly rather than through privacy, and increasingly makes <strong>boards and senior management personally accountable</strong>.</p>
 
-<h3 id="pci-dss-protecting-payment-cards">PCI DSS: Protecting Payment Cards</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Regulation</th>
+      <th>Scope</th>
+      <th>Key obligations</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>NIS2 Directive</strong> (EU; member-state transposition deadline October 2024)</td>
+      <td>“Essential” and “important” entities across 18 sectors (energy, transport, health, digital infrastructure, ICT service providers, manufacturing, and more)</td>
+      <td>Risk-management measures (Art. 21) including supply-chain security; 24-hour early warning and 72-hour incident notification; management bodies must approve measures and receive training, and can be held liable</td>
+    </tr>
+    <tr>
+      <td><strong>DORA</strong> (EU; applies from 17 January 2025)</td>
+      <td>Banks, insurers, investment firms, and their critical ICT providers</td>
+      <td>ICT risk management, major-incident reporting, resilience testing including threat-led penetration testing, and oversight of critical third-party ICT providers</td>
+    </tr>
+    <tr>
+      <td><strong>Cyber Resilience Act</strong> (EU; in force December 2024)</td>
+      <td>Manufacturers of hardware and software products with digital elements sold in the EU</td>
+      <td>Vulnerability and incident reporting from <strong>11 September 2026</strong>; secure-by-design requirements, vulnerability handling, security updates for the support period, and SBOMs from December 2027</td>
+    </tr>
+    <tr>
+      <td><strong>SEC cybersecurity disclosure rules</strong> (US, from December 2023)</td>
+      <td>US-listed public companies</td>
+      <td>Disclose material incidents on Form 8-K within four business days of determining materiality; describe risk management, strategy, and governance annually in Form 10-K</td>
+    </tr>
+    <tr>
+      <td><strong>HIPAA Security Rule</strong> (US)</td>
+      <td>Healthcare providers, plans, clearinghouses, and their business associates</td>
+      <td>Administrative, physical, and technical safeguards for electronic protected health information; risk analysis; breach notification</td>
+    </tr>
+    <tr>
+      <td><strong>CMMC 2.0</strong> (US; phased into DoD contracts from November 2025)</td>
+      <td>Defense contractors handling Federal Contract Information or Controlled Unclassified Information</td>
+      <td>Three levels: Level 1 (basic safeguarding, self-assessed), Level 2 (the 110 requirements of NIST SP 800-171, mostly third-party assessed), Level 3 (adds selected SP 800-172 requirements, government-assessed)</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>If you store, process, or transmit credit card data, the Payment Card Industry Data Security Standard (PCI DSS) isn’t optional—it’s contractually mandated by the card brands (Visa, Mastercard, etc.). Unlike GDPR it’s not a law, but failing it can mean losing the ability to accept cards at all, plus per-record fines after a breach.</p>
+<h2 id="pci-dss-protecting-payment-card-data">PCI DSS: Protecting Payment Card Data</h2>
 
-<p>PCI DSS v4.0 organizes its requirements into <strong>six goals</strong> and twelve top-level requirements:</p>
+<p>Any organization that stores, processes, or transmits payment card data must comply with the <strong>Payment Card Industry Data Security Standard</strong>, a contractual requirement enforced by the card brands through acquiring banks. It is not a law, but non-compliance can mean fines, higher processing fees, and ultimately losing the ability to accept cards.</p>
+
+<p><strong>Version status.</strong> PCI DSS v3.2.1 was retired in March 2024 and v4.0 at the end of 2024; <strong>v4.0.1</strong> (June 2024, a clarification release) is current. The 51 “future-dated” v4.0 requirements became mandatory on <strong>31 March 2025</strong>, so the full v4 standard is now in force.</p>
+
+<p>The standard has six goals and twelve principal requirements:</p>
 
 <table>
   <thead>
     <tr>
       <th>Goal</th>
-      <th>Requirements</th>
+      <th>Principal requirements</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Build and maintain a secure network</td>
-      <td>Firewalls; no vendor-default passwords</td>
+      <td>Build and maintain a secure network and systems</td>
+      <td>1. Network security controls · 2. Secure configurations</td>
     </tr>
     <tr>
-      <td>Protect cardholder data</td>
-      <td>Protect stored data; encrypt data in transit</td>
+      <td>Protect account data</td>
+      <td>3. Protect stored account data · 4. Strong cryptography in transit over open networks</td>
     </tr>
     <tr>
-      <td>Maintain a vulnerability program</td>
-      <td>Anti-malware; secure systems and software</td>
+      <td>Maintain a vulnerability management program</td>
+      <td>5. Anti-malware · 6. Secure systems and software</td>
     </tr>
     <tr>
       <td>Implement strong access control</td>
-      <td>Need-to-know access; unique IDs; physical access control</td>
+      <td>7. Need-to-know access · 8. Identify users and authenticate · 9. Physical access</td>
     </tr>
     <tr>
-      <td>Monitor and test networks</td>
-      <td>Log and monitor access; test security regularly</td>
+      <td>Regularly monitor and test networks</td>
+      <td>10. Log and monitor all access · 11. Test security regularly</td>
     </tr>
     <tr>
       <td>Maintain an information security policy</td>
-      <td>Maintain a policy addressing security for all personnel</td>
+      <td>12. Organizational policies and programs</td>
     </tr>
   </tbody>
 </table>
 
-<p>The single biggest risk-reducer in PCI is <strong>scope reduction</strong>: the fewer systems that touch card data, the smaller and cheaper your compliance burden. <strong>Tokenization</strong> (replacing the card number with a meaningless token) and using a PCI-compliant payment processor so card data never lands in your systems are the standard moves.</p>
+<p>Notable changes in v4:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># PCI DSS Requirement 3: Protect stored cardholder data
-# NEVER store (Requirement 3.2):
-# - Full magnetic stripe data
-# - CVV/CVC (the 3-digit code)
-# - PIN / PIN block
+<ul>
+  <li><strong>MFA for all access</strong> into the cardholder data environment, not just remote and administrative access (Req. 8.4.2).</li>
+  <li><strong>Payment-page script integrity</strong>: inventory, authorize, and monitor every script on payment pages, and detect unauthorized changes to them (Req. 6.4.3 and 11.6.1) — a direct response to Magecart-style web skimming.</li>
+  <li><strong>Targeted risk analyses</strong> that let organizations set the frequency of some controls themselves, and a <strong>customized approach</strong> that allows alternative controls meeting a requirement’s stated objective.</li>
+  <li>Stronger password requirements (12 characters minimum) and automated log review.</li>
+</ul>
+
+<h3 id="scope-reduction">Scope Reduction</h3>
+
+<p>The most effective PCI strategy is to keep card data out of your systems, because every system that stores, processes, or transmits it — or can connect to one that does — is in scope.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    B["Customer browser"] --&gt;|"card entered in processor-hosted field or redirect"| PSP["Payment processor&lt;br/&gt;(stores PAN)"]
+    PSP --&gt;|"opaque token"| APP["Your application"]
+    APP --&gt;|"charge token"| PSP
+    APP --&gt; DB[("Your database&lt;br/&gt;tokens only")]
+</code></pre>
+
+<p>With hosted payment fields or a redirect, the primary account number (PAN) never touches your servers, which can reduce the assessment to the shortest self-assessment questionnaire (SAQ A). Tokens are useless outside the processor, so a stolen token database does not expose card numbers.</p>
+
+<p>When PAN must be stored, v4 requires:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># PCI DSS v4.0.1, Requirement 3 — illustrative only.
+#
+# 3.3.1  Sensitive authentication data (full track data, CVV2/CVC2, PIN/PIN
+#        block) must NOT be retained after authorization, even encrypted.
+# 3.4.1  PAN is masked when displayed: at most the BIN (first 6 or 8 digits)
+#        and the last 4 digits are visible, and only to roles that need more.
+# 3.5.1  PAN is rendered unreadable wherever it is stored: strong
+#        cryptography with managed keys, truncation, index tokens, or
+#        keyed cryptographic hashes of the entire PAN.
 </span>
-<span class="c1"># If you must store the Primary Account Number (PAN):
-</span><span class="k">def</span> <span class="nf">store_card_number</span><span class="p">(</span><span class="n">card_number</span><span class="p">):</span>
-    <span class="c1"># Requirement 3.4: Render PAN unreadable wherever it is stored.
-</span>    <span class="c1"># Display masking: show only first 6 and last 4 digits.
-</span>    <span class="n">masked</span> <span class="o">=</span> <span class="n">card_number</span><span class="p">[:</span><span class="mi">6</span><span class="p">]</span> <span class="o">+</span> <span class="sh">"</span><span class="s">*</span><span class="sh">"</span> <span class="o">*</span> <span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">card_number</span><span class="p">)</span> <span class="o">-</span> <span class="mi">10</span><span class="p">)</span> <span class="o">+</span> <span class="n">card_number</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">:]</span>
+<span class="k">def</span> <span class="nf">mask_pan</span><span class="p">(</span><span class="n">pan</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">pan</span><span class="p">[:</span><span class="mi">6</span><span class="p">]</span> <span class="o">+</span> <span class="sh">"</span><span class="s">*</span><span class="sh">"</span> <span class="o">*</span> <span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">pan</span><span class="p">)</span> <span class="o">-</span> <span class="mi">10</span><span class="p">)</span> <span class="o">+</span> <span class="n">pan</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">:]</span>
 
-    <span class="c1"># Encrypt the full number (strong cryptography + proper key management)
-</span>    <span class="n">encrypted</span> <span class="o">=</span> <span class="nf">strong_encryption</span><span class="p">(</span><span class="n">card_number</span><span class="p">)</span>
-
-    <span class="c1"># Store with restricted, need-to-know access
-</span>    <span class="nf">store_with_access_control</span><span class="p">(</span><span class="n">encrypted</span><span class="p">,</span> <span class="n">access_level</span><span class="o">=</span><span class="sh">"</span><span class="s">PCI_AUTHORIZED_ONLY</span><span class="sh">"</span><span class="p">)</span>
-
-<span class="c1"># Better still: tokenize so the real PAN never sits in your database.
-</span><span class="k">def</span> <span class="nf">tokenize_card</span><span class="p">(</span><span class="n">card_number</span><span class="p">):</span>
-    <span class="c1"># The processor stores the PAN; you store an opaque token that is
-</span>    <span class="c1"># useless if stolen and takes those systems out of PCI scope.
-</span>    <span class="k">return</span> <span class="n">payment_processor</span><span class="p">.</span><span class="nf">tokenize</span><span class="p">(</span><span class="n">card_number</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">store_pan</span><span class="p">(</span><span class="n">pan</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">ciphertext</span> <span class="o">=</span> <span class="nf">kms_encrypt</span><span class="p">(</span><span class="n">key_id</span><span class="o">=</span><span class="sh">"</span><span class="s">pan-key</span><span class="sh">"</span><span class="p">,</span> <span class="n">plaintext</span><span class="o">=</span><span class="n">pan</span><span class="p">.</span><span class="nf">encode</span><span class="p">())</span>  <span class="c1"># key in KMS/HSM
+</span>    <span class="n">db</span><span class="p">.</span><span class="nf">insert</span><span class="p">(</span><span class="sh">"</span><span class="s">cards</span><span class="sh">"</span><span class="p">,</span> <span class="n">pan_encrypted</span><span class="o">=</span><span class="n">ciphertext</span><span class="p">,</span> <span class="n">pan_display</span><span class="o">=</span><span class="nf">mask_pan</span><span class="p">(</span><span class="n">pan</span><span class="p">))</span>
 </code></pre></div></div>
 
-<h3 id="soc-2-and-iso-27001-proving-youre-trustworthy">SOC 2 and ISO 27001: Proving You’re Trustworthy</h3>
+<h2 id="attestation-soc-2-and-isoiec-27001">Attestation: SOC 2 and ISO/IEC 27001</h2>
 
-<p>GDPR and PCI tell you what you <em>must</em> do. SOC 2 and ISO 27001 are how you <em>prove to a customer</em> that you have your house in order—the attestations a B2B buyer’s procurement team asks for before signing.</p>
+<p>Regulations say what you must do; attestations are how you <strong>prove to customers</strong> that you do it. Enterprise procurement typically asks for a SOC 2 Type II report or an ISO 27001 certificate before signing.</p>
 
-<p><strong>SOC 2</strong> (Service Organization Control 2), defined by the AICPA, evaluates a service provider’s controls against the five <strong>Trust Services Criteria</strong>:</p>
+<p><strong>SOC 2</strong>, defined by the AICPA, is an auditor’s report on a service organization’s controls against the <strong>Trust Services Criteria</strong>: Security (the mandatory “common criteria”), plus optionally Availability, Processing Integrity, Confidentiality, and Privacy. A <strong>Type I</strong> report assesses whether controls are suitably <em>designed</em> at a point in time; a <strong>Type II</strong> report tests whether they <em>operated effectively</em> over a period (typically 6–12 months) and is the one customers expect. The organization defines its own controls; the auditor opines on them.</p>
 
-<ul>
-  <li><strong>Security</strong> (the only mandatory one — sometimes called the “common criteria”)</li>
-  <li><strong>Availability</strong></li>
-  <li><strong>Processing Integrity</strong></li>
-  <li><strong>Confidentiality</strong></li>
-  <li><strong>Privacy</strong></li>
-</ul>
-
-<p>A <strong>Type I</strong> report assesses whether controls are <em>designed</em> correctly at a point in time; a <strong>Type II</strong> report assesses whether they <em>operated effectively</em> over a period (typically 3–12 months) and is the one buyers actually trust. SOC 2 is prescriptive about <em>what to evaluate</em> but lets you choose <em>how</em> to meet each criterion, so the report is paired with auditor narrative describing your specific controls.</p>
-
-<p><strong>ISO/IEC 27001</strong> is the international standard for an <strong>Information Security Management System (ISMS)</strong>. Where SOC 2 is an attestation report, ISO 27001 is a <em>certification</em> you earn from an accredited body. Its defining ideas:</p>
-
-<ul>
-  <li>A <strong>risk-based</strong> ISMS: you identify risks, choose controls to treat them, and document the choices in a <strong>Statement of Applicability</strong>.</li>
-  <li><strong>Annex A</strong> provides a catalog of controls (93 controls in the 2022 revision, grouped into Organizational, People, Physical, and Technological themes) that you select from based on your risk assessment.</li>
-  <li>A continual-improvement loop (Plan-Do-Check-Act) with internal audits and management review, recertified on a three-year cycle with annual surveillance audits.</li>
-</ul>
+<p><strong>ISO/IEC 27001</strong> specifies an <strong>information security management system (ISMS)</strong> and is certified by an accredited certification body. Its core is a risk-based cycle: assess risks, select controls to treat them, record the choices and justifications in a <strong>Statement of Applicability</strong>, and improve continuously through internal audit and management review. <strong>Annex A</strong> lists 93 reference controls in four themes (organizational, people, physical, technological) in the 2022 revision; certificates against the older 2013 edition expired when the transition period ended on 31 October 2025. Certification runs on a three-year cycle with annual surveillance audits.</p>
 
 <table>
   <thead>
     <tr>
       <th>Aspect</th>
       <th>SOC 2</th>
-      <th>ISO 27001</th>
+      <th>ISO/IEC 27001</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Type</td>
-      <td>Attestation report</td>
-      <td>Certification</td>
+      <td>Output</td>
+      <td>CPA firm’s attestation report (Type I or II), shared under NDA</td>
+      <td>Public certificate from an accredited body</td>
     </tr>
     <tr>
-      <td>Authority</td>
-      <td>AICPA (US-centric)</td>
+      <td>Origin</td>
+      <td>AICPA (US)</td>
       <td>ISO/IEC (international)</td>
     </tr>
     <tr>
-      <td>Output</td>
-      <td>Auditor’s report (Type I/II)</td>
-      <td>Certificate + audit reports</td>
-    </tr>
-    <tr>
       <td>Structure</td>
-      <td>5 Trust Services Criteria</td>
-      <td>ISMS + Annex A controls</td>
+      <td>Trust Services Criteria; organization-defined controls</td>
+      <td>ISMS requirements (clauses 4–10) + Annex A controls</td>
     </tr>
     <tr>
-      <td>Validity</td>
-      <td>Point-in-time / period covered</td>
-      <td>3-year cycle + annual surveillance</td>
+      <td>Coverage period</td>
+      <td>Point in time (Type I) or a review period (Type II)</td>
+      <td>Three-year cycle with annual surveillance</td>
+    </tr>
+    <tr>
+      <td>Typical buyers</td>
+      <td>North American SaaS customers</td>
+      <td>Global, especially Europe and Asia</td>
     </tr>
   </tbody>
 </table>
 
-<p>These overlap heavily, so a common strategy is to build one set of controls and evidence and map it to both frameworks (and to PCI/GDPR where relevant) rather than running parallel programs. That mapping discipline is the heart of “compliance as a byproduct of good security” rather than the other way around.</p>
+<p>Related schemes include <strong>ISO/IEC 27701</strong> (privacy extension), <strong>ISO/IEC 27017/27018</strong> (cloud security and cloud PII), <strong>CSA STAR</strong> (cloud), <strong>ISO/IEC 42001</strong> (AI), and <strong>FedRAMP</strong> (US federal cloud authorization). Compliance-automation platforms that continuously collect evidence from cloud APIs, identity providers, and ticketing systems have made “continuous compliance” the norm for smaller companies, replacing annual screenshot-gathering.</p>
 
 <h2 id="building-a-security-program">Building a Security Program</h2>
 
-<p>Knowing the theory is one thing—implementing it is another. A security <em>program</em> is the organizational machinery that turns one-off controls into a sustained, improving practice. It rests on three pillars: a governance structure (who owns risk, who approves exceptions, who reports to the board), a risk-management process (covered next), and an operational backbone (policies, training, and metrics).</p>
+<p>A security <em>program</em> turns individual controls into a sustained, improving practice. It needs a <strong>governance structure</strong> (who owns risk, who approves exceptions, how the board is informed), a <strong>risk-management process</strong>, and an <strong>operational backbone</strong> of policies, standards, training, and metrics. The CISO role typically reports to the CEO, CIO, or general counsel; regulations such as NIS2 and the SEC rules now require the board itself to oversee cybersecurity risk.</p>
 
-<p>A widely used scaffolding is the <strong>NIST Cybersecurity Framework (CSF 2.0)</strong>, which organizes everything a program does into six functions:</p>
+<h3 id="nist-cybersecurity-framework-20">NIST Cybersecurity Framework 2.0</h3>
 
-<pre><code class="language-mermaid">flowchart LR
-    G["Govern"] --&gt; ID["Identify"]
-    ID --&gt; PR["Protect"]
-    PR --&gt; DE["Detect"]
-    DE --&gt; RS["Respond"]
-    RS --&gt; RC["Recover"]
-    RC -.lessons learned.-&gt; G
-    style G fill:#e3f2fd,stroke:#1565c0
-    style RC fill:#e8f5e9,stroke:#2e7d32
+<p>The <strong>NIST CSF 2.0</strong> (February 2024) is the most widely used program framework. Version 2.0 broadened it from critical infrastructure to all organizations and added a sixth function, <strong>Govern</strong>, which sits at the center and informs the other five:</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    GV(("Govern&lt;br/&gt;strategy, roles, policy,&lt;br/&gt;oversight, supply chain"))
+    GV --- ID["Identify&lt;br/&gt;assets, risk, improvement"]
+    GV --- PR["Protect&lt;br/&gt;identity, data, platform security, training"]
+    GV --- DE["Detect&lt;br/&gt;monitoring, adverse-event analysis"]
+    GV --- RS["Respond&lt;br/&gt;incident management, analysis, communication"]
+    GV --- RC["Recover&lt;br/&gt;restoration, recovery communication"]
+    ID --&gt; PR --&gt; DE --&gt; RS --&gt; RC
 </code></pre>
 
-<ul>
-  <li><strong>Govern</strong> — risk strategy, roles, policy, oversight (added in CSF 2.0).</li>
-  <li><strong>Identify</strong> — know your assets, data, and risks.</li>
-  <li><strong>Protect</strong> — implement safeguards.</li>
-  <li><strong>Detect</strong> — find events as they happen (<a href="operations-and-response.html">covered in Operations</a>).</li>
-  <li><strong>Respond</strong> — act on incidents (<a href="operations-and-response.html">Operations</a>).</li>
-  <li><strong>Recover</strong> — restore and learn.</li>
-</ul>
+<p>The CSF is used through <strong>Profiles</strong> — a <em>current</em> profile describing what the organization does today and a <em>target</em> profile describing where it needs to be — with the gap between them forming the roadmap. Its <strong>Tiers</strong> (Partial, Risk Informed, Repeatable, Adaptive) describe how rigorous the organization’s risk-management practices are. The CSF deliberately does not prescribe controls; it points to control catalogs through informative references.</p>
 
-<p>Compliance with GDPR/PCI/SOC 2 maps neatly onto these functions, which is why a framework-driven program produces audit evidence almost for free.</p>
-
-<h3 id="start-with-risk-assessment">Start with Risk Assessment</h3>
-
-<p>You cannot protect everything equally, so the program starts by deciding what matters most. Risk assessment answers three questions for each asset: what threatens it, how exposed is it, and what happens if it’s compromised.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">assess_security_risks</span><span class="p">():</span>
-    <span class="n">risks</span> <span class="o">=</span> <span class="p">[]</span>
-
-    <span class="c1"># What are your crown jewels?
-</span>    <span class="n">critical_assets</span> <span class="o">=</span> <span class="nf">identify_critical_assets</span><span class="p">()</span>
-    <span class="c1"># Customer data? Source code? Trade secrets?
-</span>
-    <span class="k">for</span> <span class="n">asset</span> <span class="ow">in</span> <span class="n">critical_assets</span><span class="p">:</span>
-        <span class="c1"># What threatens this asset?
-</span>        <span class="n">threats</span> <span class="o">=</span> <span class="nf">identify_threats</span><span class="p">(</span><span class="n">asset</span><span class="p">)</span>
-        <span class="c1"># Hackers? Insiders? Natural disasters?
-</span>
-        <span class="c1"># How vulnerable are you?
-</span>        <span class="n">vulnerabilities</span> <span class="o">=</span> <span class="nf">assess_vulnerabilities</span><span class="p">(</span><span class="n">asset</span><span class="p">)</span>
-        <span class="c1"># Unpatched systems? Weak passwords? No backups?
-</span>
-        <span class="c1"># What's the impact if compromised?
-</span>        <span class="n">impact</span> <span class="o">=</span> <span class="nf">calculate_impact</span><span class="p">(</span><span class="n">asset</span><span class="p">)</span>
-        <span class="c1"># Financial loss? Reputation damage? Legal liability?
-</span>
-        <span class="n">risk_score</span> <span class="o">=</span> <span class="n">threats</span> <span class="o">*</span> <span class="n">vulnerabilities</span> <span class="o">*</span> <span class="n">impact</span>
-        <span class="n">risks</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">asset</span><span class="p">,</span> <span class="n">risk_score</span><span class="p">))</span>
-
-    <span class="c1"># Focus on highest risks first
-</span>    <span class="k">return</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">risks</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="risk-management-quantifying-and-treating-risk">Risk Management: Quantifying and Treating Risk</h3>
-
-<p>The toy <code class="language-plaintext highlighter-rouge">threats * vulnerabilities * impact</code> formula above is fine for prioritization, but a mature program needs a defensible, repeatable method. The standard decomposition expresses risk as the product of how often a bad thing happens and how much it costs when it does:</p>
-
-\[\text{Annualized Loss Expectancy} = \text{ALE} = \text{SLE} \times \text{ARO}\]
-
-<p>where the <strong>Single Loss Expectancy</strong> is the cost of one occurrence and the <strong>Annualized Rate of Occurrence</strong> is how many times per year you expect it:</p>
-
-\[\text{SLE} = \text{Asset Value} \times \text{Exposure Factor}\]
-
-<p>The <strong>Exposure Factor</strong> is the fraction of the asset’s value lost in a single event (0 to 1). A control is economically justified when it reduces ALE by more than it costs to run:</p>
-
-\[\text{Control Value} = (\text{ALE}_{\text{before}} - \text{ALE}_{\text{after}}) - \text{Annual Cost of Control}\]
-
-<p><strong>Worked example.</strong> A customer database is valued at $5,000,000. A ransomware event would render it unusable, so the exposure factor is 0.8, giving an SLE of $4,000,000. Historically you assess such an event as occurring roughly once every 10 years, so ARO = 0.1 and the annualized loss expectancy is:</p>
-
-\[\text{ALE}_{\text{before}} = 4{,}000{,}000 \times 0.1 = 400{,}000 \text{ per year}\]
-
-<p>You’re considering immutable backups plus endpoint detection that you believe drops the rate to once every 50 years (ARO = 0.02) and the controls cost $120,000 per year to operate:</p>
-
-\[\text{ALE}_{\text{after}} = 4{,}000{,}000 \times 0.02 = 80{,}000 \text{ per year}\]
-
-\[\text{Control Value} = (400{,}000 - 80{,}000) - 120{,}000 = 200{,}000 \text{ per year}\]
-
-<p>The control yields $200,000 of net annual risk reduction, so it’s justified. This is <strong>quantitative</strong> risk analysis. In practice the probabilities are uncertain, so many teams supplement it with <strong>qualitative</strong> analysis—plotting likelihood against impact on a 5×5 matrix and using the result to rank, not to compute exact dollars.</p>
-
-<p>Once a risk is understood, you choose one of four <strong>treatment</strong> strategies:</p>
+<h3 id="control-catalogs">Control Catalogs</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Strategy</th>
+      <th>Catalog</th>
+      <th>Size and structure</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>CIS Controls v8.1</strong></td>
+      <td>18 controls with prioritized safeguards in three Implementation Groups (IG1 = essential cyber hygiene for every organization)</td>
+      <td>Small and mid-sized organizations deciding what to do first</td>
+    </tr>
+    <tr>
+      <td><strong>NIST SP 800-53 Rev. 5</strong></td>
+      <td>Over 1,000 controls and enhancements in 20 families, with low/moderate/high baselines</td>
+      <td>US federal systems (FISMA, FedRAMP) and highly regulated environments</td>
+    </tr>
+    <tr>
+      <td><strong>ISO/IEC 27002:2022</strong></td>
+      <td>Implementation guidance for the 93 Annex A controls</td>
+      <td>ISO 27001 programs</td>
+    </tr>
+    <tr>
+      <td><strong>NIST SP 800-171</strong></td>
+      <td>110 requirements for protecting CUI</td>
+      <td>US defense and federal contractors (CMMC Level 2)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="risk-assessment">Risk Assessment</h3>
+
+<p>A program cannot protect everything equally, so it begins by deciding what matters most. For each important asset — customer data, source code, payment systems, production availability — risk assessment asks what threatens it, how exposed it is, and what the impact of compromise would be. Assets are identified from inventories and data-flow mapping; threats from threat intelligence and <a href="application-and-cloud-security.html">threat modeling</a>; vulnerabilities from scanning, penetration tests, and audits.</p>
+
+<p>Most organizations start with <strong>qualitative</strong> assessment: each risk is scored for likelihood and impact on a 1–5 scale, and the product places it on a 5×5 heat map. This is fast and good for ranking, but the scores are ordinal (a “4” is not twice a “2”), multiplying them is mathematically dubious, and it cannot answer “is this control worth its cost?”</p>
+
+<h3 id="quantitative-risk-analysis">Quantitative Risk Analysis</h3>
+
+<p>The classic quantitative model expresses risk as expected annual loss:</p>
+
+\[\text{SLE} = \text{Asset Value} \times \text{Exposure Factor}, \qquad \text{ALE} = \text{SLE} \times \text{ARO}\]
+
+<p>where the <strong>single loss expectancy (SLE)</strong> is the cost of one occurrence, the <strong>exposure factor</strong> is the fraction of the asset’s value lost in one event (0 to 1), and the <strong>annualized rate of occurrence (ARO)</strong> is the expected number of events per year. A control is economically justified when it reduces ALE by more than it costs:</p>
+
+\[\text{Control Value} = \left(\text{ALE}_{\text{before}} - \text{ALE}_{\text{after}}\right) - \text{Annual Cost of Control}\]
+
+<p><strong>Worked example.</strong> A customer database is valued at $5,000,000. A ransomware event would make it unusable (exposure factor 0.8), so SLE = $4,000,000. Such an event is estimated at once per 10 years (ARO = 0.1):</p>
+
+\[\text{ALE}_{\text{before}} = 4{,}000{,}000 \times 0.1 = 400{,}000 \text{ per year}\]
+
+<p>Immutable backups plus EDR are estimated to cut the rate to once per 50 years (ARO = 0.02) at an operating cost of $120,000 per year:</p>
+
+\[\text{ALE}_{\text{after}} = 4{,}000{,}000 \times 0.02 = 80{,}000, \qquad
+\text{Control Value} = (400{,}000 - 80{,}000) - 120{,}000 = 200{,}000 \text{ per year}\]
+
+<p>The controls return $200,000 of net annual risk reduction, so they are justified.</p>
+
+<p>Single-point estimates hide the real uncertainty. The <strong>FAIR</strong> model (Factor Analysis of Information Risk, standardized by The Open Group as Open FAIR) decomposes risk into <em>loss event frequency</em> and <em>loss magnitude</em>, expresses each as a range (minimum, most likely, maximum), and runs a Monte Carlo simulation to produce a <strong>loss exceedance curve</strong> — the probability that annual losses exceed any given amount:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">years</span> <span class="o">=</span> <span class="mi">100_000</span>
+
+<span class="c1"># Loss events per year ~ Poisson(0.1); each event's cost ~ lognormal
+# with a median of $2M and a heavy right tail. Output: mean about $0.3M,
+# P(loss &gt; $5M) about 1.7%, 95th percentile about $2M.
+</span><span class="n">events</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">poisson</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">years</span><span class="p">)</span>
+<span class="n">annual_loss</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span>
+    <span class="n">rng</span><span class="p">.</span><span class="nf">lognormal</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="mf">2e6</span><span class="p">),</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">).</span><span class="nf">sum</span><span class="p">()</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">events</span>
+<span class="p">])</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Expected annual loss:       $</span><span class="si">{</span><span class="n">annual_loss</span><span class="p">.</span><span class="nf">mean</span><span class="p">()</span><span class="si">:</span><span class="p">,.</span><span class="mi">0</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">P(annual loss &gt; $5M):       </span><span class="si">{</span><span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">annual_loss</span> <span class="o">&gt;</span> <span class="mf">5e6</span><span class="p">)</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="o">%</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">95th percentile annual loss: $</span><span class="si">{</span><span class="n">np</span><span class="p">.</span><span class="nf">percentile</span><span class="p">(</span><span class="n">annual_loss</span><span class="p">,</span> <span class="mi">95</span><span class="p">)</span><span class="si">:</span><span class="p">,.</span><span class="mi">0</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>A board can act on “there is roughly a 2% chance of losing more than $5M this year, and this control halves it” in a way it cannot act on “risk score 16, red”.</p>
+
+<h3 id="risk-treatment-and-the-risk-register">Risk Treatment and the Risk Register</h3>
+
+<p>Each assessed risk receives one of four treatments:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Treatment</th>
       <th>Meaning</th>
       <th>Example</th>
     </tr>
@@ -3426,189 +3554,223 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td><strong>Mitigate</strong></td>
       <td>Reduce likelihood or impact with controls</td>
-      <td>Add MFA, patch faster, encrypt backups</td>
+      <td>MFA, faster patching, immutable backups</td>
     </tr>
     <tr>
       <td><strong>Transfer</strong></td>
-      <td>Shift the cost to a third party</td>
-      <td>Buy cyber-insurance; use a PCI-compliant processor</td>
+      <td>Shift financial impact to a third party</td>
+      <td>Cyber insurance; outsourcing card handling to a PCI-compliant processor</td>
     </tr>
     <tr>
       <td><strong>Avoid</strong></td>
-      <td>Stop doing the risky activity</td>
-      <td>Don’t store data you don’t need</td>
+      <td>Stop the risky activity</td>
+      <td>Stop collecting data you do not need</td>
     </tr>
     <tr>
       <td><strong>Accept</strong></td>
       <td>Knowingly tolerate the residual risk</td>
-      <td>Document and sign off on a low, expensive-to-fix risk</td>
+      <td>Documented sign-off on a low risk that is expensive to fix</td>
     </tr>
   </tbody>
 </table>
 
-<p>The output is a <strong>risk register</strong>: a living list of risks with owners, scores, chosen treatments, and review dates. Accepting a risk is a legitimate choice, but it must be an explicit, documented decision by someone with the authority to own the consequences—never an accident.</p>
+<p>The output is a <strong>risk register</strong> — a living record of risks with owners, scores, treatments, and review dates:</p>
 
-<h3 id="security-awareness-your-human-firewall">Security Awareness: Your Human Firewall</h3>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Risk</th>
+      <th>Owner</th>
+      <th>Inherent</th>
+      <th>Treatment</th>
+      <th>Residual</th>
+      <th>Review</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>R-014</td>
+      <td>Ransomware encrypts production and backups</td>
+      <td>CIO</td>
+      <td>High</td>
+      <td>Mitigate: immutable backups, EDR, tiered admin</td>
+      <td>Medium</td>
+      <td>Quarterly</td>
+    </tr>
+    <tr>
+      <td>R-022</td>
+      <td>Leaked cloud access key used for data theft</td>
+      <td>Head of Platform</td>
+      <td>High</td>
+      <td>Mitigate: short-lived credentials, secret scanning</td>
+      <td>Low</td>
+      <td>Quarterly</td>
+    </tr>
+    <tr>
+      <td>R-031</td>
+      <td>Legacy HR system cannot enforce MFA</td>
+      <td>CHRO</td>
+      <td>Medium</td>
+      <td>Accept until replacement in Q2; compensating network restriction</td>
+      <td>Medium</td>
+      <td>Monthly</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The best security technology can’t protect against a user who clicks every link. Phishing and social engineering remain a leading cause of breaches precisely because they bypass technical controls and target the human.</p>
+<p>Accepting a risk is legitimate, but only as an explicit, time-bound decision by someone with the authority to own the consequences — never by default. Transfer is limited too: cyber-insurance policies exclude many scenarios (state-backed “acts of war” exclusions are a recurring point of dispute) and increasingly require baseline controls such as MFA and EDR as a condition of cover.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SecurityAwarenessProgram</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">training_modules</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="sh">"</span><span class="s">Recognizing Phishing</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Password Security</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Physical Security</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Social Engineering</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Incident Reporting</span><span class="sh">"</span>
-        <span class="p">]</span>
+<h2 id="third-party-and-supply-chain-risk">Third-Party and Supply-Chain Risk</h2>
 
-    <span class="k">def</span> <span class="nf">conduct_phishing_test</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Send a harmless simulated phishing email to employees
-</span>        <span class="n">results</span> <span class="o">=</span> <span class="nf">send_test_phishing_campaign</span><span class="p">()</span>
+<p>Most organizations now depend on hundreds of SaaS providers, open-source packages, and managed services, each of which extends the attack surface; incidents at MOVEit (2023), Snowflake customer tenants (2024), and CrowdStrike’s faulty update (2024) each affected thousands of downstream organizations. CSF 2.0 moved supply-chain risk management into the Govern function (GV.SC), and NIS2 and DORA make it a legal obligation.</p>
 
-        <span class="k">for</span> <span class="n">employee</span> <span class="ow">in</span> <span class="n">results</span><span class="p">.</span><span class="n">clicked_link</span><span class="p">:</span>
-            <span class="c1"># Don't punish—educate! Just-in-time training works best.
-</span>            <span class="nf">provide_immediate_training</span><span class="p">(</span><span class="n">employee</span><span class="p">)</span>
+<p>A proportionate vendor-risk process:</p>
 
-        <span class="c1"># Track improvement over time (click rate should fall)
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">metrics</span><span class="p">.</span><span class="nf">record</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+<ol>
+  <li><strong>Tier vendors</strong> by the data they hold and how critical they are to operations.</li>
+  <li><strong>Assess</strong> proportionately — a SOC 2 report or ISO certificate plus a standard questionnaire (SIG, CAIQ) for most; deeper review for critical vendors.</li>
+  <li><strong>Contract</strong> for security obligations, breach notification windows, audit rights, and exit plans.</li>
+  <li><strong>Monitor</strong> continuously: renewed reports, breach news, and security ratings.</li>
+  <li>For software, require an <strong>SBOM</strong> and track vulnerable components (see <a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> for supply-chain attacks).</li>
+</ol>
 
-    <span class="k">def</span> <span class="nf">gamify_security</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Make security engaging rather than a compliance chore
-</span>        <span class="k">return</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">Security Champion badges</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Spot the Phish contests</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Capture the Flag events</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Security escape rooms</span><span class="sh">"</span>
-        <span class="p">}</span>
-</code></pre></div></div>
+<h2 id="people-and-culture">People and Culture</h2>
 
-<p>The crucial principle is <strong>blameless education over punishment</strong>. If clicking a simulated phish results in public shaming, employees learn to hide mistakes—including the real breach they cause—rather than report them quickly. Fast reporting is worth far more than a perfect click rate.</p>
+<p>Technology cannot compensate for a culture in which security is seen as an obstacle. Two organizations with identical tooling can have very different real-world security depending on whether people report mistakes quickly and whether the secure path is also the easy one.</p>
 
-<h3 id="the-human-element">The Human Element</h3>
+<p><strong>Security awareness and phishing simulation.</strong> Training remains a regulatory expectation (PCI DSS, HIPAA, and NIS2 all require it), but the evidence for its effect is weaker than vendors suggest: a large 2025 study of about 19,500 employees at UC San Diego Health found that annual training and embedded simulation training produced little measurable reduction in phishing click rates. The more robust levers are:</p>
 
-<p>Technology alone can’t secure your systems. Culture determines whether your controls are used as intended or routinely worked around. Two organizations with identical tooling can have wildly different real-world security depending on whether people see security as their job or as the security team’s obstacle course.</p>
+<ul>
+  <li><strong>Phishing-resistant authentication</strong> — FIDO2 security keys and passkeys cannot be phished by a look-alike site, which removes the most damaging consequence of a click.</li>
+  <li><strong>Easy, blameless reporting</strong> — a one-click “report phish” button and fast feedback. The <strong>report rate</strong> and time-to-report are better metrics than the click rate, because one early report can protect the whole organization.</li>
+  <li><strong>Short, just-in-time guidance</strong> at the point of risk (e.g. external-sender and look-alike-domain banners) rather than annual lectures.</li>
+  <li><strong>Never punishing</strong> people who click simulated phish; punishment teaches people to hide real incidents.</li>
+</ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Security culture indicators — leading signals that culture is healthy
-</span><span class="k">class</span> <span class="nc">SecurityCulture</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">measure_culture_health</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="sh">"</span><span class="s">password_manager_adoption</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">85%</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">phishing_report_rate</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">high</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">security_champion_volunteers</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">growing</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">shadow_it_usage</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">declining</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">incident_reporting_time</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">&lt; 1 hour average</span><span class="sh">"</span>
-        <span class="p">}</span>
+<p><strong>Make the secure path the easy path.</strong> If the password manager, single sign-on, the approved cloud account, and the hardened CI pipeline are easier than the workarounds, security happens by default. When they are harder, people route around them (“shadow IT” and, increasingly, unsanctioned AI tools). <strong>Security champions</strong> — engineers in each team with extra training and a direct line to the security team — scale this without a proportional increase in security headcount.</p>
 
-    <span class="k">def</span> <span class="nf">build_security_culture</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Make security everyone's responsibility
-</span>        <span class="n">initiatives</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="sh">"</span><span class="s">Executive support and visible commitment</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Regular security awareness training</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Reward security-conscious behavior</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Blameless post-mortems for incidents</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Security champions in each team</span><span class="sh">"</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Make the secure path the easy path</span><span class="sh">"</span>
-        <span class="p">]</span>
-        <span class="k">return</span> <span class="n">initiatives</span>
-</code></pre></div></div>
+<h2 id="measuring-success">Measuring Success</h2>
 
-<p>The single most effective cultural lever is the last one: <strong>make the secure path the easy path</strong>. If using the password manager, the approved cloud account, or the hardened CI pipeline is <em>easier</em> than the insecure workaround, security happens by default. When it’s harder, you’re relying on willpower, and willpower loses at scale—people reach for unsanctioned tools (“shadow IT”) to get their jobs done.</p>
+<p>Good security metrics are <strong>outcome-oriented</strong>, tied to risk, and trended over time. Vanity metrics — attacks blocked, training sessions delivered — look impressive and say nothing about risk.</p>
 
-<h2 id="measuring-success-kpis-and-maturity">Measuring Success: KPIs and Maturity</h2>
-
-<p>“You can’t manage what you can’t measure” applies sharply to security, but the field is littered with vanity metrics (number of attacks blocked, number of training sessions held) that look impressive and tell you nothing about risk. Good security metrics are <strong>outcome-oriented</strong>, tied to risk reduction, and trended over time rather than reported as a single snapshot.</p>
-
-<h3 id="operational-kpis">Operational KPIs</h3>
-
-<p>The most actionable metrics measure how fast you find and fix problems, because dwell time correlates directly with damage:</p>
+<h3 id="key-metrics">Key Metrics</h3>
 
 <table>
   <thead>
     <tr>
       <th>Metric</th>
       <th>What it tells you</th>
-      <th>Goal</th>
+      <th>Direction</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>MTTD</strong> (Mean Time to Detect)</td>
+      <td>Mean time to detect (MTTD)</td>
       <td>How long attackers go unnoticed</td>
       <td>Lower</td>
     </tr>
     <tr>
-      <td><strong>MTTR</strong> (Mean Time to Respond/Remediate)</td>
-      <td>How fast you contain once detected</td>
+      <td>Mean time to respond / contain (MTTR, MTTC)</td>
+      <td>How fast incidents are stopped once detected</td>
       <td>Lower</td>
     </tr>
     <tr>
-      <td><strong>Mean time to patch</strong></td>
-      <td>Window of exposure for known vulns</td>
+      <td>Critical vulnerabilities remediated within SLA (%)</td>
+      <td>Whether vulnerability management works; track known-exploited (CISA KEV) vulnerabilities separately</td>
+      <td>Higher, toward 100%</td>
+    </tr>
+    <tr>
+      <td>MFA coverage, phishing-resistant MFA coverage (%)</td>
+      <td>Identity control gaps</td>
+      <td>Higher, toward 100%</td>
+    </tr>
+    <tr>
+      <td>EDR and logging coverage of assets (%)</td>
+      <td>Blind spots</td>
+      <td>Higher, toward 100%</td>
+    </tr>
+    <tr>
+      <td>Phishing report rate and time-to-report</td>
+      <td>Human detection capability</td>
+      <td>Higher / lower</td>
+    </tr>
+    <tr>
+      <td>Open high risks past treatment date</td>
+      <td>Governance discipline</td>
       <td>Lower</td>
     </tr>
     <tr>
-      <td><strong>% critical vulns remediated in SLA</strong></td>
-      <td>Whether the vuln program actually works</td>
-      <td>Higher (→100%)</td>
-    </tr>
-    <tr>
-      <td><strong>Phishing simulation click rate</strong></td>
-      <td>Human-firewall resilience</td>
-      <td>Lower, trending down</td>
-    </tr>
-    <tr>
-      <td><strong>% systems with EDR / MFA coverage</strong></td>
-      <td>Control coverage gaps</td>
-      <td>Higher (→100%)</td>
-    </tr>
-    <tr>
-      <td><strong>Patch latency for criticals</strong></td>
-      <td>Speed of the protect function</td>
-      <td>Days, not months</td>
+      <td>Total residual annualized loss (from the risk register)</td>
+      <td>Overall risk exposure</td>
+      <td>Lower over time</td>
     </tr>
   </tbody>
 </table>
 
-<p>A complementary financial view ties these back to risk: track the <strong>residual ALE</strong> across your risk register over time. If the program is working, total residual annualized loss expectancy should trend down even as the business (and its attack surface) grows.</p>
+<p>The last metric ties the program back to money: if the program is working, total residual expected loss should fall even as the business and its attack surface grow. Board reporting should lead with a few such outcome measures and the top risks, not operational detail.</p>
 
-<h3 id="security-maturity-models">Security Maturity Models</h3>
+<h3 id="maturity-models">Maturity Models</h3>
 
-<p>KPIs tell you how today’s controls are performing; a <strong>maturity model</strong> tells you how capable your program is as a whole, and gives a roadmap for where to invest next. A simple, widely used five-level scale (derived from CMMI) is:</p>
+<p>Metrics show how controls perform today; a <strong>maturity model</strong> describes how capable the program is and where to invest next. A common generic scale derived from CMMI:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    L1["1. Initial&lt;br/&gt;ad hoc, reactive"] --&gt; L2["2. Repeatable&lt;br/&gt;documented, inconsistent"]
-    L2 --&gt; L3["3. Defined&lt;br/&gt;standardized org-wide"]
-    L3 --&gt; L4["4. Managed&lt;br/&gt;measured with metrics"]
-    L4 --&gt; L5["5. Optimizing&lt;br/&gt;continuous improvement"]
-    style L1 fill:#ffebee,stroke:#c62828
-    style L5 fill:#e8f5e9,stroke:#2e7d32
+    L1["1. Initial&lt;br/&gt;ad hoc, reactive"] --&gt; L2["2. Repeatable&lt;br/&gt;practiced, not standardized"]
+    L2 --&gt; L3["3. Defined&lt;br/&gt;documented, organization-wide"]
+    L3 --&gt; L4["4. Managed&lt;br/&gt;measured and controlled"]
+    L4 --&gt; L5["5. Optimizing&lt;br/&gt;continuous, data-driven improvement"]
 </code></pre>
 
-<ul>
-  <li><strong>Level 1 — Initial</strong>: security is ad hoc and depends on individual heroics. Success isn’t repeatable.</li>
-  <li><strong>Level 2 — Repeatable</strong>: basic processes exist and are followed, but they’re not documented or consistent across teams.</li>
-  <li><strong>Level 3 — Defined</strong>: processes are documented, standardized, and applied organization-wide.</li>
-  <li><strong>Level 4 — Managed</strong>: the program is measured—the KPIs above drive decisions, not gut feel.</li>
-  <li><strong>Level 5 — Optimizing</strong>: continuous improvement is built in; the organization proactively refines controls based on data and threat intelligence.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Characteristics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1 — Initial</td>
+      <td>Ad hoc and dependent on individual heroics; success is not repeatable</td>
+    </tr>
+    <tr>
+      <td>2 — Repeatable</td>
+      <td>Basic processes are followed but not documented or consistent across teams</td>
+    </tr>
+    <tr>
+      <td>3 — Defined</td>
+      <td>Processes are documented, standardized, and applied organization-wide</td>
+    </tr>
+    <tr>
+      <td>4 — Managed</td>
+      <td>Metrics drive decisions; performance is measured against targets</td>
+    </tr>
+    <tr>
+      <td>5 — Optimizing</td>
+      <td>Continuous improvement based on data and threat intelligence</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The point of a maturity model isn’t to reach Level 5 everywhere—that’s rarely cost-justified—but to make a <em>deliberate</em> choice about the target level for each capability based on the risk it addresses. A startup might rationally sit at Level 2 for physical security while pushing to Level 4 for its software supply chain. Frameworks like the <strong>NIST CSF</strong> and <strong>CMMC</strong> (for US defense contractors) provide more detailed, domain-specific maturity tiers when a generic five-level scale isn’t granular enough.</p>
+<p>The goal is not Level 5 everywhere — that is rarely cost-justified — but a <em>deliberate</em> target per capability based on the risk it addresses. A startup may rationally sit at Level 2 for physical security while pushing to Level 4 for its software supply chain. Domain-specific alternatives include the NIST CSF Tiers, <strong>CMMC</strong> levels for defense contractors, the OWASP <strong>SAMM</strong> for software security, and the <strong>C2M2</strong> model for energy and critical infrastructure.</p>
 
 <hr />
 
 <div class="page-nav">
-  <span class="page-nav-prev"><a href="operations-and-response.html">← Operations &amp; Response</a></span>
-  <span class="page-nav-next"><a href="./">Back to Cybersecurity Hub →</a></span>
+  <span class="page-nav-prev"><a href="security-operations.html">← Security Operations</a></span>
+  <span class="page-nav-next"><a href="privacy-engineering.html">Privacy Engineering →</a></span>
 </div>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="operations-and-response.html">Operations, Response &amp; Compliance</a> — incident response, SIEM, and the day-to-day security operations a program governs</li>
-  <li><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> — the threats your risk register is defending against</li>
-  <li><a href="application-and-cloud-security.html">Web, Cloud &amp; Container Security</a> — the technical controls that mitigate the risks identified here</li>
-  <li><a href="cryptography.html">Cryptography</a> — the encryption GDPR and PCI DSS require for protecting data</li>
+  <li><a href="./">Cybersecurity Hub</a> — the full map of security topics</li>
+  <li><a href="incident-response.html">Incident Response &amp; Forensics</a> — breach handling and regulatory notification deadlines</li>
+  <li><a href="security-operations.html">Security Operations</a> — the monitoring and detection a program governs</li>
+  <li><a href="privacy-engineering.html">Privacy Engineering</a> — implementing GDPR and CCPA requirements in systems</li>
+  <li><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> — the threats a risk register defends against</li>
+  <li><a href="application-and-cloud-security.html">Application Security</a> — threat modeling and secure development</li>
+  <li><a href="cryptography.html">Cryptography</a> — the encryption GDPR and PCI DSS require</li>
 </ul>
 
       </section>

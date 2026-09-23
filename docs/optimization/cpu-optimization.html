@@ -3135,33 +3135,92 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Performance Optimization</a> » CPU Profiling &amp; Tuning</p>
 
-<p>Modern CPUs are starved for data, not for arithmetic. The single biggest lever on most workloads is keeping the right bytes in cache, feeding the pipeline straight-line work it can predict, and spreading independent work across cores without making them fight over the same cache lines.</p>
+<p>CPU optimization reduces the time a processor spends executing code. On modern hardware the limit is usually not arithmetic but <strong>data movement and prediction</strong>: a core that can retire four or more instructions per cycle spends much of its time waiting on memory or recovering from mispredicted branches. This page covers measurement (sampling profilers, hardware counters, top-down analysis, benchmarking), cache-friendly data layout, SIMD, branch prediction, compiler-driven optimization (LTO, PGO, BOLT), and multithreading. Algorithm choice comes first and is covered in <a href="./algorithmic-optimization.html">Algorithmic Optimization</a>; allocators and the memory hierarchy in depth are in <a href="./memory-optimization.html">Memory Optimization</a>.</p>
 
-<p>CPU optimization is the systematic process of reducing wall-clock time spent executing code. It begins with measurement — a profiler tells you where time actually goes, which is almost never where intuition says — and proceeds through a hierarchy of fixes: better algorithms first, then cache-friendly data layout, then vectorization and branch-friendly control flow, and finally parallelism across cores. Each fix targets a specific hardware bottleneck, and the only reliable way to know which one you have is to profile.</p>
+<p>The order of attack:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Measure&lt;br/&gt;profile a release build"] --&gt; B["Algorithm&lt;br/&gt;complexity class"]
+    B --&gt; C["Data layout&lt;br/&gt;cache locality"]
+    C --&gt; D["Instruction level&lt;br/&gt;SIMD, branches, compiler"]
+    D --&gt; E["Parallelism&lt;br/&gt;threads and tasks"]
+    E --&gt;|"re-profile"| A
+</code></pre>
+
+<p>Each step changes what the next profile shows. Vectorizing or threading a loop that stalls on cache misses mostly multiplies the stalls.</p>
 
 <h2 id="profiling-tools">Profiling Tools</h2>
 
-<p>You cannot optimize what you have not measured. Always profile a <strong>Release/optimized build</strong> on a <strong>representative, worst-case workload</strong>, and collect multiple runs to average out noise. Debug builds disable inlining and optimization and will point you at the wrong hot spots.</p>
+<p>Profile a <strong>release build with debug symbols</strong> (<code class="language-plaintext highlighter-rouge">-O2 -g</code>, or RelWithDebInfo) on a <strong>representative, worst-case workload</strong>, and repeat runs to see the noise. Debug builds disable inlining and optimization and point at the wrong hot spots.</p>
 
-<p><strong>Platform Profilers:</strong></p>
-<ul>
-  <li><strong>Visual Studio Profiler</strong>: Windows CPU/memory analysis with sampling and instrumentation modes</li>
-  <li><strong>Instruments</strong>: macOS/iOS profiling suite (Time Profiler, System Trace)</li>
-  <li><strong>perf</strong>: Linux performance counters and sampling profiler</li>
-  <li><strong>VTune</strong>: Intel CPU deep analysis (microarchitecture, memory access, threading)</li>
-  <li><strong>Superluminal</strong>: Low-overhead sampling profiler for Windows</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Platform</th>
+      <th>Type</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">perf</code></td>
+      <td>Linux</td>
+      <td>Sampling, hardware counters</td>
+      <td>The standard Linux profiler; also <code class="language-plaintext highlighter-rouge">perf c2c</code>, <code class="language-plaintext highlighter-rouge">perf mem</code>, <code class="language-plaintext highlighter-rouge">perf sched</code></td>
+    </tr>
+    <tr>
+      <td>Intel VTune Profiler</td>
+      <td>Linux, Windows</td>
+      <td>Sampling, microarchitecture analysis</td>
+      <td>Top-down analysis, memory access, threading; best on Intel CPUs</td>
+    </tr>
+    <tr>
+      <td>AMD uProf</td>
+      <td>Linux, Windows</td>
+      <td>Sampling, counters</td>
+      <td>AMD’s equivalent for Zen cores</td>
+    </tr>
+    <tr>
+      <td>Visual Studio Profiler, Windows Performance Analyzer (ETW)</td>
+      <td>Windows</td>
+      <td>Sampling, tracing</td>
+      <td>WPA shows system-wide CPU, scheduling, and I/O</td>
+    </tr>
+    <tr>
+      <td>Instruments</td>
+      <td>macOS, iOS</td>
+      <td>Sampling, tracing</td>
+      <td>Time Profiler, CPU Counters, System Trace</td>
+    </tr>
+    <tr>
+      <td>samply</td>
+      <td>Linux, macOS, Windows</td>
+      <td>Sampling</td>
+      <td>Command-line sampler that opens results in the Firefox Profiler UI</td>
+    </tr>
+    <tr>
+      <td>Superluminal</td>
+      <td>Windows, consoles</td>
+      <td>Sampling</td>
+      <td>Low-overhead, popular in game development</td>
+    </tr>
+    <tr>
+      <td>Tracy</td>
+      <td>Cross-platform</td>
+      <td>Instrumentation plus sampling</td>
+      <td>Frame-oriented timeline profiler for games and real-time code</td>
+    </tr>
+    <tr>
+      <td>Unreal Insights, Unity Profiler</td>
+      <td>Engine</td>
+      <td>Instrumentation</td>
+      <td>Engine-integrated frame traces</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>In-Engine:</strong></p>
-<ul>
-  <li>Unreal Insights</li>
-  <li>Unity Profiler</li>
-  <li>Custom timing systems (scoped timers writing to a frame trace)</li>
-</ul>
-
-<h3 id="sampling-vs-instrumentation">Sampling vs Instrumentation</h3>
-
-<p>There are two fundamentally different ways to profile, and they answer different questions:</p>
+<h3 id="sampling-versus-instrumentation">Sampling Versus Instrumentation</h3>
 
 <table>
   <thead>
@@ -3175,374 +3234,557 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><strong>Sampling</strong></td>
-      <td>Periodically interrupt the program and record the call stack</td>
-      <td>Very low overhead; profiles release builds unchanged; reveals where wall-clock time actually goes</td>
-      <td>Statistical — rare functions may be missed; no exact call counts</td>
+      <td>Interrupt the program periodically (timer or hardware-counter overflow) and record the call stack</td>
+      <td>Low overhead; works on unmodified release builds; shows where time actually goes</td>
+      <td>Statistical: short or rare functions can be missed; no exact call counts</td>
     </tr>
     <tr>
       <td><strong>Instrumentation</strong></td>
-      <td>Insert enter/exit hooks around functions or scopes</td>
-      <td>Exact call counts and per-call timing</td>
-      <td>High overhead; can distort the very behavior being measured (especially tiny hot functions)</td>
+      <td>Record timestamps at function or scope entry and exit</td>
+      <td>Exact counts and per-call durations; shows ordering on a timeline</td>
+      <td>Overhead distorts small hot functions; only covers instrumented code</td>
     </tr>
   </tbody>
 </table>
 
-<p>For finding <em>where</em> time goes, start with a sampling profiler. Reach for instrumentation only when you need exact counts for a specific suspect.</p>
+<p>Start with sampling to find <em>where</em> time goes. Add instrumentation (scoped timers, Tracy zones) where you need per-frame timelines or exact counts.</p>
 
-<h3 id="using-perf-on-linux">Using <code class="language-plaintext highlighter-rouge">perf</code> on Linux</h3>
+<h3 id="perf-on-linux">perf on Linux</h3>
 
-<p><code class="language-plaintext highlighter-rouge">perf</code> is the workhorse Linux profiler. It samples hardware performance counters with negligible overhead and needs no special build (though <code class="language-plaintext highlighter-rouge">-fno-omit-frame-pointer</code> or DWARF unwinding improves stacks).</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Sample with call graphs. Frame-pointer unwinding (fp) is cheap and accurate when</span>
+<span class="c"># code is built with -fno-omit-frame-pointer; dwarf works without it but costs more.</span>
+perf record <span class="nt">-F</span> 999 <span class="nt">-g</span> <span class="nt">--call-graph</span> fp ./my_app <span class="nt">--workload</span><span class="o">=</span>stress
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Record a sampling profile (call graphs via DWARF unwinding)</span>
-perf record <span class="nt">-g</span> <span class="nt">--call-graph</span> dwarf ./my_app <span class="nt">--workload</span><span class="o">=</span>stress
+perf report            <span class="c"># interactive: hot functions, callers and callees</span>
+perf top               <span class="c"># live system-wide view</span>
+perf annotate          <span class="c"># per-instruction samples for one function</span>
 
-<span class="c"># Interactive report: hot functions, expand to see callers/callees</span>
-perf report
-
-<span class="c"># Flat top-down view, refreshed live, like 'top' for functions</span>
-perf top
-
-<span class="c"># Count specific hardware events for the whole run</span>
+<span class="c"># Count hardware events for the whole run</span>
 perf <span class="nb">stat</span> <span class="nt">-e</span> cycles,instructions,cache-references,cache-misses,branches,branch-misses ./my_app
+
+<span class="c"># Top-down breakdown (on CPUs and kernels that support it)</span>
+perf <span class="nb">stat</span> <span class="nt">-M</span> TopdownL1 ./my_app
 </code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">perf stat</code> output is the fastest way to classify a bottleneck. Two derived ratios matter most:</p>
+<p>Stack quality depends on unwinding. Ubuntu 24.04 and recent Fedora releases build their 64-bit packages with frame pointers enabled, for a typical cost of about 1 to 2 percent, so system libraries now unwind cleanly with <code class="language-plaintext highlighter-rouge">--call-graph fp</code>. Build your own code with <code class="language-plaintext highlighter-rouge">-fno-omit-frame-pointer</code> for the same benefit.</p>
 
-\[\text{IPC} = \frac{\text{instructions}}{\text{cycles}}\]
+<p>Two ratios from <code class="language-plaintext highlighter-rouge">perf stat</code> classify a bottleneck quickly:</p>
 
-<p>A modern core can retire ~3-4 instructions per cycle. An IPC below ~1.0 means the core is stalling — usually on memory or mispredicted branches — and raw “do less math” optimizations will not help. The miss rate</p>
+\[\text{IPC} = \frac{\text{instructions retired}}{\text{cycles}}
+\qquad\qquad
+\text{branch miss rate} = \frac{\text{branch misses}}{\text{branches}}\]
 
-\[\text{branch miss rate} = \frac{\text{branch-misses}}{\text{branches}}\]
-
-<p>flags branch-prediction problems; anything above a few percent on a hot loop is worth investigating.</p>
+<p>Current cores can retire 4 to 8 instructions per cycle at peak, and well-tuned compute loops often sustain 2 to 4. An IPC below about 1 means the core is mostly stalled, usually on memory or mispredicts, and removing arithmetic will not help. A branch miss rate above a few percent in a hot loop is worth investigating.</p>
 
 <h3 id="flame-graphs">Flame Graphs</h3>
 
-<p>A flame graph collapses thousands of sampled stacks into a single picture: width is time spent, the y-axis is call depth. The widest plateaus near the top are your hot leaf functions — the place to start.</p>
+<p>A <strong>flame graph</strong> merges thousands of sampled stacks into one picture: the x-axis is the share of samples (not time order), the y-axis is stack depth, and wide plateaus at the top are the hot leaf functions.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Record, then fold stacks and render an interactive SVG</span>
-perf record <span class="nt">-g</span> ./my_app
-perf script | stackcollapse-perf.pl | flamegraph.pl <span class="o">&gt;</span> profile.svg
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>perf record <span class="nt">-F</span> 999 <span class="nt">-g</span> ./my_app
+perf script | stackcollapse-perf.pl | flamegraph.pl <span class="o">&gt;</span> profile.svg   <span class="c"># Brendan Gregg's FlameGraph scripts</span>
+<span class="c"># or: samply record ./my_app   (opens an interactive flame graph and call tree)</span>
 </code></pre></div></div>
 
-<h3 id="vtune-for-microarchitectural-analysis">VTune for Microarchitectural Analysis</h3>
+<p><strong>Differential flame graphs</strong> (<code class="language-plaintext highlighter-rouge">difffolded.pl</code>) compare two profiles and color the functions that got slower or faster, which is the quickest way to explain a regression.</p>
 
-<p>When <code class="language-plaintext highlighter-rouge">perf stat</code> shows low IPC but you cannot tell <em>why</em>, Intel VTune’s <strong>Microarchitecture Exploration</strong> (top-down analysis) attributes every stalled cycle to a category: front-end bound (instruction fetch/decode), back-end bound (split into core-bound and memory-bound), bad speculation (branch mispredicts), or retiring (useful work). This top-down breakdown tells you whether to chase cache misses, branch prediction, or instruction-level parallelism before you change any code.</p>
+<h3 id="top-down-microarchitecture-analysis">Top-Down Microarchitecture Analysis</h3>
+
+<p>When IPC is low but the cause is unclear, <strong>top-down analysis</strong> (Intel’s TMA method, exposed by VTune, <code class="language-plaintext highlighter-rouge">perf stat -M TopdownL1</code>, and AMD uProf’s pipeline-utilization view) attributes every issue slot to one of four categories:</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    A["perf stat / VTune top-down"] --&gt; B{"IPC high?"}
-    B --&gt;|"Yes, ~3+"| C["Compute bound&lt;br/&gt;vectorize, reduce work, better algorithm"]
-    B --&gt;|"No, &amp;lt;1"| D{"Which stall?"}
-    D --&gt;|"Memory bound"| E["Cache misses&lt;br/&gt;improve data layout, prefetch"]
-    D --&gt;|"Bad speculation"| F["Branch mispredicts&lt;br/&gt;make branches predictable / branchless"]
-    D --&gt;|"Front-end bound"| G["I-cache / decode&lt;br/&gt;reduce code size, improve locality"]
+    S["Pipeline issue slots"] --&gt; R["Retiring&lt;br/&gt;useful work"]
+    S --&gt; BS["Bad speculation&lt;br/&gt;mispredicted branches,&lt;br/&gt;machine clears"]
+    S --&gt; FE["Front-end bound&lt;br/&gt;instruction fetch and decode:&lt;br/&gt;i-cache, iTLB misses"]
+    S --&gt; BE["Back-end bound"]
+    BE --&gt; MB["Memory bound&lt;br/&gt;L1 / L2 / L3 / DRAM misses"]
+    BE --&gt; CB["Core bound&lt;br/&gt;execution-port pressure,&lt;br/&gt;long dependency chains"]
 </code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Dominant category</th>
+      <th>Likely fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Retiring high</td>
+      <td>Already efficient per instruction: do less work (better algorithm, SIMD to do more per instruction)</td>
+    </tr>
+    <tr>
+      <td>Memory bound</td>
+      <td>Improve locality and layout, reduce footprint, prefetch, block or tile loops</td>
+    </tr>
+    <tr>
+      <td>Bad speculation</td>
+      <td>Make branches predictable, or remove them</td>
+    </tr>
+    <tr>
+      <td>Front-end bound</td>
+      <td>Shrink hot code, improve code layout (PGO, BOLT), reduce indirect calls</td>
+    </tr>
+    <tr>
+      <td>Core bound</td>
+      <td>Break dependency chains, use more independent accumulators, vectorize</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="benchmarking-hygiene">Benchmarking Hygiene</h3>
+
+<p>Profiles tell you where; microbenchmarks tell you whether a change helped. They are easy to get wrong:</p>
+
+<ul>
+  <li>Use a harness that handles warm-up, repetition, and statistics: Google Benchmark or nanobench (C++), Criterion (Rust), JMH (Java), pyperf (Python).</li>
+  <li>Stop the compiler from deleting the work under test (<code class="language-plaintext highlighter-rouge">benchmark::DoNotOptimize</code>, <code class="language-plaintext highlighter-rouge">std::hint::black_box</code>).</li>
+  <li>Control the machine: fixed CPU frequency governor, turbo behavior noted or disabled, the process pinned to one core type on hybrid P-core/E-core CPUs, and a quiet system.</li>
+  <li>Report distributions (median and spread), not a single best run, and confirm that a win in a microbenchmark survives in the full application, where caches are shared with everything else.</li>
+</ul>
 
 <h2 id="cache-optimization">Cache Optimization</h2>
 
-<p>Understanding the CPU cache hierarchy is the foundation of CPU performance. Each level up is roughly an order of magnitude slower:</p>
+<h3 id="the-memory-hierarchy">The Memory Hierarchy</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CPU Core
-├── L1 Cache: 32-64 KB, ~4 cycles
-├── L2 Cache: 256-512 KB, ~12 cycles
-├── L3 Cache: 8-32 MB, ~40 cycles
-└── Main Memory: GBs, ~200 cycles
+<pre><code class="language-mermaid">flowchart LR
+    R["Registers&lt;br/&gt;~0 cycles"] --&gt; L1["L1 data cache&lt;br/&gt;32-64 KB per core&lt;br/&gt;~4-5 cycles"]
+    L1 --&gt; L2["L2&lt;br/&gt;1-2 MB per core&lt;br/&gt;~12-17 cycles"]
+    L2 --&gt; L3["L3 / last level&lt;br/&gt;tens of MB, shared&lt;br/&gt;~40-70 cycles"]
+    L3 --&gt; D["DRAM&lt;br/&gt;GBs&lt;br/&gt;~80-120 ns, hundreds of cycles"]
+</code></pre>
 
-Cache Line: 64 bytes (typical)
-</code></pre></div></div>
+<p>Figures are representative of 2024 to 2026 desktop and server x86 cores; Apple’s performance cores use a 128 KB L1D and larger shared L2 clusters, and AMD’s 3D V-Cache parts stack L3 to 96 MB or more per chiplet. The number that matters is the ratio: one DRAM miss costs as much time as several hundred instructions. That is why <strong>memory access patterns dominate data-heavy workloads</strong>.</p>
 
-<p>The decisive number is the ~200-cycle cost of a main-memory access versus ~4 cycles for L1. In those 200 cycles a core could have retired several hundred instructions. This is why <strong>memory access patterns dominate performance</strong> on data-heavy workloads — a single cache miss can erase the savings from dozens of arithmetic optimizations.</p>
-
-<p>Two properties govern whether your accesses hit cache:</p>
+<p>Data moves in <strong>cache lines</strong>, 64 bytes on x86 and most Arm server cores, 128 bytes on Apple silicon. Two kinds of locality determine whether accesses hit:</p>
 
 <ul>
-  <li><strong>Spatial locality</strong> — when you touch a byte, the CPU loads the whole surrounding 64-byte cache line. Accessing data that lives next to data you just used is effectively free. Sequential array traversal is the ideal pattern; the hardware prefetcher even reads ahead for you.</li>
-  <li><strong>Temporal locality</strong> — recently accessed data stays in cache. Reusing it soon is cheap; revisiting it after walking gigabytes is a guaranteed miss.</li>
+  <li><strong>Spatial locality.</strong> Touching one byte loads its whole line, so neighboring data is effectively free. Sequential traversal is ideal, and hardware prefetchers detect sequential and strided streams and fetch ahead.</li>
+  <li><strong>Temporal locality.</strong> Recently used data is still in cache. Reuse it soon; revisiting it after streaming through gigabytes guarantees a miss.</li>
 </ul>
+
+<p>Translation matters too: every access needs a virtual-to-physical translation from the TLB. Random access over a large heap can be TLB-bound; <strong>huge pages</strong> (2 MB on x86, via transparent huge pages or explicit <code class="language-plaintext highlighter-rouge">madvise</code>) cut TLB misses substantially for such workloads.</p>
 
 <h3 id="data-oriented-design-aos-vs-soa">Data-Oriented Design: AoS vs SoA</h3>
 
-<p>The classic cache pitfall is the <strong>Array of Structures (AoS)</strong> layout, where hot and cold fields are interleaved. Iterating over one hot field drags every cold field through cache with it, wasting most of every cache line you load.</p>
+<p>The classic cache pitfall is an <strong>array of structures</strong> (AoS) where hot and cold fields are interleaved. A loop that reads one hot field drags every cold field through the cache with it.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Cache-unfriendly (Array of Structures)</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Array of Structures: each Entity is ~96 bytes; the update loop uses 28 of them</span>
 <span class="k">struct</span> <span class="nc">Entity</span> <span class="p">{</span>
-    <span class="n">Vector3</span> <span class="n">position</span><span class="p">;</span>    <span class="c1">// Used every frame</span>
-    <span class="n">Vector3</span> <span class="n">velocity</span><span class="p">;</span>    <span class="c1">// Used every frame</span>
-    <span class="n">String</span> <span class="n">name</span><span class="p">;</span>         <span class="c1">// Rarely used</span>
-    <span class="n">Texture</span><span class="o">*</span> <span class="n">icon</span><span class="p">;</span>       <span class="c1">// Rarely used</span>
-    <span class="kt">float</span> <span class="n">health</span><span class="p">;</span>        <span class="c1">// Used every frame</span>
-    <span class="c1">// ... more fields</span>
+    <span class="n">Vector3</span>     <span class="n">position</span><span class="p">;</span>   <span class="c1">// hot: every frame</span>
+    <span class="n">Vector3</span>     <span class="n">velocity</span><span class="p">;</span>   <span class="c1">// hot: every frame</span>
+    <span class="kt">float</span>       <span class="n">health</span><span class="p">;</span>     <span class="c1">// hot: every frame</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">name</span><span class="p">;</span>       <span class="c1">// cold</span>
+    <span class="n">Texture</span><span class="o">*</span>    <span class="n">icon</span><span class="p">;</span>       <span class="c1">// cold</span>
+    <span class="c1">// ... more cold fields</span>
 <span class="p">};</span>
-<span class="n">Entity</span> <span class="n">entities</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Entity</span><span class="o">&gt;</span> <span class="n">entities</span><span class="p">;</span>
 
-<span class="c1">// Cache-friendly (Structure of Arrays)</span>
-<span class="k">struct</span> <span class="nc">EntityData</span> <span class="p">{</span>
-    <span class="n">Vector3</span> <span class="n">positions</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>   <span class="c1">// Contiguous hot data</span>
-    <span class="n">Vector3</span> <span class="n">velocities</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>  <span class="c1">// Contiguous hot data</span>
-    <span class="kt">float</span> <span class="n">healths</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>       <span class="c1">// Contiguous hot data</span>
+<span class="c1">// Structure of Arrays: each hot field is its own contiguous stream</span>
+<span class="k">struct</span> <span class="nc">EntityHot</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Vector3</span><span class="o">&gt;</span> <span class="n">positions</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Vector3</span><span class="o">&gt;</span> <span class="n">velocities</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span>   <span class="n">healths</span><span class="p">;</span>
 <span class="p">};</span>
-<span class="k">struct</span> <span class="nc">EntityMetadata</span> <span class="p">{</span>
-    <span class="n">String</span> <span class="n">names</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>        <span class="c1">// Separate cold data</span>
-    <span class="n">Texture</span><span class="o">*</span> <span class="n">icons</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>
+<span class="k">struct</span> <span class="nc">EntityCold</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">names</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Texture</span><span class="o">*&gt;</span>    <span class="n">icons</span><span class="p">;</span>
 <span class="p">};</span>
 </code></pre></div></div>
 
-<p>With <strong>Structure of Arrays (SoA)</strong>, an integration loop that reads <code class="language-plaintext highlighter-rouge">positions</code> and <code class="language-plaintext highlighter-rouge">velocities</code> walks two tight, contiguous streams. Every byte pulled into cache is used, the prefetcher tracks both streams perfectly, and — as the next section shows — the compiler can vectorize the loop because the data is laid out the way SIMD wants it.</p>
+<p>With <strong>structure of arrays</strong> (SoA), an update that reads positions and velocities walks tight contiguous streams. Every byte loaded is used, the prefetcher tracks each stream, and the loop is laid out the way SIMD wants it. Entity-component-system (ECS) engines such as Unity DOTS, Bevy, and flecs are built on this principle.</p>
 
-<h3 id="quantifying-the-win">Quantifying the Win</h3>
+<p>For the update above, AoS moves about 96 bytes per entity to use 28, roughly 3.4 times the memory traffic of SoA. On a memory-bound loop that translates almost directly into a 3x speedup with no change to the arithmetic.</p>
 
-<p>For a physics step that touches only <code class="language-plaintext highlighter-rouge">position</code>, <code class="language-plaintext highlighter-rouge">velocity</code>, and <code class="language-plaintext highlighter-rouge">health</code> (28 bytes of a, say, 96-byte AoS struct), the AoS layout transfers ~3.4× more memory than SoA. On a memory-bound loop that translates almost directly into a ~3× speedup — without changing a single arithmetic operation. This is the single most reliable CPU optimization in data-heavy code.</p>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph AoS["AoS: one 64-byte line"]
+        direction LR
+        a1["pos"] --- a2["vel"] --- a3["hp"] --- a4["name"] --- a5["icon"] --- a6["..."]
+    end
+    subgraph SoA["SoA: one 64-byte line of positions"]
+        direction LR
+        b1["pos 0"] --- b2["pos 1"] --- b3["pos 2"] --- b4["pos 3"] --- b5["pos 4"]
+    end
+</code></pre>
 
 <h3 id="other-cache-techniques">Other Cache Techniques</h3>
 
 <ul>
-  <li><strong>Hot/cold splitting</strong> — keep rarely-touched fields (debug names, serialization metadata) in a separate, parallel array so they never pollute the hot cache lines.</li>
-  <li><strong>Blocking/tiling</strong> — for nested loops over large matrices, process the data in cache-sized tiles so each block is reused before it is evicted. This turns an O(n) memory-traffic-per-element loop into one that touches main memory once per tile.</li>
-  <li><strong>Prefetching</strong> — when an access pattern is predictable but not sequential (e.g. pointer-chasing through a known list), software prefetch hints (<code class="language-plaintext highlighter-rouge">__builtin_prefetch</code>, <code class="language-plaintext highlighter-rouge">_mm_prefetch</code>) can fetch the next element while the current one is being processed. Use sparingly and measure; the hardware prefetcher already handles sequential streams.</li>
+  <li><strong>Hot/cold splitting.</strong> Move rarely touched fields (debug names, serialization data) into a parallel array or behind a pointer so they never occupy hot lines.</li>
+  <li><strong>Loop blocking (tiling).</strong> For nested loops over large matrices, process cache-sized tiles so each tile is reused many times before eviction. Blocked matrix multiplication moves each element from DRAM once per tile instead of once per use.</li>
+  <li><strong>Smaller types.</strong> <code class="language-plaintext highlighter-rouge">float</code> instead of <code class="language-plaintext highlighter-rouge">double</code>, 32-bit indices instead of pointers, and bitfields or packed enums fit more elements per line.</li>
+  <li><strong>Software prefetch.</strong> For predictable but non-sequential access (walking an index array, pointer chasing a known list), <code class="language-plaintext highlighter-rouge">__builtin_prefetch</code> or <code class="language-plaintext highlighter-rouge">_mm_prefetch</code> a few iterations ahead can hide latency. The hardware prefetcher already handles sequential and simple strided streams, so measure: badly placed prefetches waste bandwidth.</li>
 </ul>
 
 <h2 id="simd-and-vectorization">SIMD and Vectorization</h2>
 
-<p>A SIMD (Single Instruction, Multiple Data) instruction applies one operation to several values at once. On x86, SSE registers hold 4 floats, AVX holds 8, and AVX-512 holds 16; ARM NEON holds 4. A loop that does the same arithmetic on every element of an array is the perfect candidate — the inner body is replicated across lanes and the trip count drops by the lane width.</p>
+<p>A <strong>SIMD</strong> (single instruction, multiple data) instruction applies one operation to every lane of a wide register.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>ISA</th>
+      <th>Register width</th>
+      <th>32-bit float lanes</th>
+      <th>Availability</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SSE2 to SSE4.2</td>
+      <td>128-bit</td>
+      <td>4</td>
+      <td>Every x86-64 CPU (SSE2 is the baseline)</td>
+    </tr>
+    <tr>
+      <td>AVX2 + FMA</td>
+      <td>256-bit</td>
+      <td>8</td>
+      <td>Most x86 CPUs since about 2013 to 2015</td>
+    </tr>
+    <tr>
+      <td>AVX-512 / AVX10</td>
+      <td>512-bit</td>
+      <td>16</td>
+      <td>Intel server parts, AMD Zen 4 and Zen 5</td>
+    </tr>
+    <tr>
+      <td>Arm NEON (ASIMD)</td>
+      <td>128-bit</td>
+      <td>4</td>
+      <td>Every AArch64 CPU</td>
+    </tr>
+    <tr>
+      <td>Arm SVE / SVE2</td>
+      <td>128 to 2048-bit, vector-length agnostic</td>
+      <td>Implementation-defined</td>
+      <td>Neoverse V-series, Graviton 3 and 4, Grace</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A loop doing the same arithmetic on every element of an array is the ideal candidate: the body is replicated across lanes and the iteration count divides by the lane width.</p>
 
 <h3 id="auto-vectorization">Auto-Vectorization</h3>
 
-<p>The compiler will vectorize many loops automatically given <code class="language-plaintext highlighter-rouge">-O2</code>/<code class="language-plaintext highlighter-rouge">-O3</code> (<code class="language-plaintext highlighter-rouge">/O2</code> on MSVC), <em>if</em> you let it. Vectorization fails when the compiler cannot prove the loop is safe to transform:</p>
+<p>Compilers vectorize many loops at <code class="language-plaintext highlighter-rouge">-O2</code>/<code class="language-plaintext highlighter-rouge">-O3</code> (<code class="language-plaintext highlighter-rouge">/O2</code> in MSVC) if they can prove the transformation is safe. Common blockers:</p>
 
 <ul>
-  <li><strong>Aliasing</strong> — if two pointers might overlap, the compiler must assume writes through one affect reads through the other. Mark non-overlapping pointers <code class="language-plaintext highlighter-rouge">__restrict</code> (or <code class="language-plaintext highlighter-rouge">restrict</code> in C) to unlock vectorization.</li>
-  <li><strong>Loop-carried dependencies</strong> — when iteration <code class="language-plaintext highlighter-rouge">i+1</code> needs the result of iteration <code class="language-plaintext highlighter-rouge">i</code>, lanes cannot run independently.</li>
-  <li><strong>Branches and function calls</strong> in the loop body block or complicate vectorization.</li>
-  <li><strong>Non-unit strides / gather-scatter</strong> — vectorization is far more effective on contiguous (SoA) data than on strided AoS access.</li>
+  <li><strong>Aliasing.</strong> If two pointers might overlap, a write through one may change what the other reads. Mark non-overlapping pointers <code class="language-plaintext highlighter-rouge">__restrict</code> (<code class="language-plaintext highlighter-rouge">restrict</code> in C).</li>
+  <li><strong>Loop-carried dependencies.</strong> If iteration <code class="language-plaintext highlighter-rouge">i + 1</code> needs the result of iteration <code class="language-plaintext highlighter-rouge">i</code>, lanes cannot run independently. Floating-point reductions are a special case: vectorizing a sum reorders additions, which the compiler will not do without <code class="language-plaintext highlighter-rouge">-ffast-math</code>, <code class="language-plaintext highlighter-rouge">-fassociative-math</code>, or an OpenMP <code class="language-plaintext highlighter-rouge">simd reduction</code> pragma.</li>
+  <li><strong>Calls and complex control flow</strong> in the loop body.</li>
+  <li><strong>Non-unit strides and gathers.</strong> Contiguous SoA data vectorizes far better than strided AoS access.</li>
 </ul>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// __restrict promises a, b, out do not overlap -&gt; compiler can vectorize freely</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// __restrict promises out, a, b do not overlap, so the compiler can vectorize freely</span>
 <span class="kt">void</span> <span class="nf">add_scaled</span><span class="p">(</span><span class="kt">float</span><span class="o">*</span> <span class="kr">__restrict</span> <span class="n">out</span><span class="p">,</span>
                 <span class="k">const</span> <span class="kt">float</span><span class="o">*</span> <span class="kr">__restrict</span> <span class="n">a</span><span class="p">,</span>
                 <span class="k">const</span> <span class="kt">float</span><span class="o">*</span> <span class="kr">__restrict</span> <span class="n">b</span><span class="p">,</span>
-                <span class="kt">float</span> <span class="n">k</span><span class="p">,</span> <span class="kt">int</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
-        <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">k</span> <span class="o">*</span> <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>   <span class="c1">// one fused multiply-add per lane</span>
+                <span class="kt">float</span> <span class="n">k</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">k</span> <span class="o">*</span> <span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>     <span class="c1">// one fused multiply-add per lane with FMA enabled</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>Ask the compiler to report what it did so you are not guessing:</p>
+<p>Ask the compiler what it did instead of guessing:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># GCC: explain which loops vectorized and why others didn't</span>
-g++ <span class="nt">-O3</span> <span class="nt">-march</span><span class="o">=</span>native <span class="nt">-fopt-info-vec-missed</span> add.cpp
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># GCC: report loops that were and were not vectorized, with reasons</span>
+g++ <span class="nt">-O3</span> <span class="nt">-march</span><span class="o">=</span>x86-64-v3 <span class="nt">-fopt-info-vec-optimized</span> <span class="nt">-fopt-info-vec-missed</span> add.cpp
 
-<span class="c"># Clang: emit vectorization remarks</span>
-clang++ <span class="nt">-O3</span> <span class="nt">-march</span><span class="o">=</span>native <span class="nt">-Rpass</span><span class="o">=</span>loop-vectorize <span class="nt">-Rpass-missed</span><span class="o">=</span>loop-vectorize add.cpp
+<span class="c"># Clang: optimization remarks</span>
+clang++ <span class="nt">-O3</span> <span class="nt">-march</span><span class="o">=</span>x86-64-v3 <span class="nt">-Rpass</span><span class="o">=</span>loop-vectorize <span class="nt">-Rpass-missed</span><span class="o">=</span>loop-vectorize add.cpp
 </code></pre></div></div>
 
-<p>Note <code class="language-plaintext highlighter-rouge">-march=native</code> (or a specific <code class="language-plaintext highlighter-rouge">-mavx2</code>): without telling the compiler the target supports wide vectors, it conservatively emits only the baseline instruction set.</p>
+<p>Without a <code class="language-plaintext highlighter-rouge">-march</code> flag the compiler targets baseline x86-64 (SSE2) only. <code class="language-plaintext highlighter-rouge">-march=native</code> tunes for the build machine, which is wrong for binaries shipped elsewhere; the <strong>microarchitecture levels</strong> <code class="language-plaintext highlighter-rouge">x86-64-v2</code> (SSE4.2), <code class="language-plaintext highlighter-rouge">x86-64-v3</code> (AVX2, FMA, BMI2), and <code class="language-plaintext highlighter-rouge">x86-64-v4</code> (AVX-512) are the portable choices. Libraries that must run everywhere use <strong>function multiversioning</strong> (<code class="language-plaintext highlighter-rouge">[[gnu::target_clones("avx2","default")]]</code>) or runtime dispatch to pick a code path per CPU.</p>
 
-<h3 id="intrinsics">Intrinsics</h3>
+<h3 id="intrinsics-and-portable-simd">Intrinsics and Portable SIMD</h3>
 
-<p>When the compiler cannot auto-vectorize — or you need a specific shuffle/reduction it will not find — drop to intrinsics, which map almost one-to-one to machine instructions while letting the compiler handle register allocation.</p>
+<p>When the compiler cannot vectorize a loop, or you need a specific shuffle or reduction, <strong>intrinsics</strong> map almost one-to-one to machine instructions while leaving register allocation to the compiler.</p>
 
 <div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;immintrin.h&gt;</span><span class="cp">
-</span><span class="c1">// Sum an array of floats using AVX (8 lanes), then reduce the partial sums</span>
-<span class="kt">float</span> <span class="nf">sum_avx</span><span class="p">(</span><span class="k">const</span> <span class="kt">float</span><span class="o">*</span> <span class="n">data</span><span class="p">,</span> <span class="kt">int</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">__m256</span> <span class="n">acc</span> <span class="o">=</span> <span class="n">_mm256_setzero_ps</span><span class="p">();</span>
-    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(;</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">;</span> <span class="n">i</span> <span class="o">+=</span> <span class="mi">8</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">__m256</span> <span class="n">v</span> <span class="o">=</span> <span class="n">_mm256_loadu_ps</span><span class="p">(</span><span class="n">data</span> <span class="o">+</span> <span class="n">i</span><span class="p">);</span>   <span class="c1">// load 8 floats</span>
-        <span class="n">acc</span> <span class="o">=</span> <span class="n">_mm256_add_ps</span><span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">v</span><span class="p">);</span>            <span class="c1">// 8 adds in one instruction</span>
+</span>
+<span class="c1">// Sum floats with AVX (8 lanes). Two accumulators hide the 4-cycle add latency.</span>
+<span class="kt">float</span> <span class="nf">sum_avx</span><span class="p">(</span><span class="k">const</span> <span class="kt">float</span><span class="o">*</span> <span class="n">data</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">__m256</span> <span class="n">acc0</span> <span class="o">=</span> <span class="n">_mm256_setzero_ps</span><span class="p">(),</span> <span class="n">acc1</span> <span class="o">=</span> <span class="n">_mm256_setzero_ps</span><span class="p">();</span>
+    <span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(;</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">16</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">;</span> <span class="n">i</span> <span class="o">+=</span> <span class="mi">16</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">acc0</span> <span class="o">=</span> <span class="n">_mm256_add_ps</span><span class="p">(</span><span class="n">acc0</span><span class="p">,</span> <span class="n">_mm256_loadu_ps</span><span class="p">(</span><span class="n">data</span> <span class="o">+</span> <span class="n">i</span><span class="p">));</span>
+        <span class="n">acc1</span> <span class="o">=</span> <span class="n">_mm256_add_ps</span><span class="p">(</span><span class="n">acc1</span><span class="p">,</span> <span class="n">_mm256_loadu_ps</span><span class="p">(</span><span class="n">data</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">8</span><span class="p">));</span>
     <span class="p">}</span>
-    <span class="c1">// Horizontal reduce the 8 partial sums to one scalar</span>
-    <span class="kt">float</span> <span class="n">partial</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span>
-    <span class="n">_mm256_storeu_ps</span><span class="p">(</span><span class="n">partial</span><span class="p">,</span> <span class="n">acc</span><span class="p">);</span>
-    <span class="kt">float</span> <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0f</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="mi">8</span><span class="p">;</span> <span class="o">++</span><span class="n">j</span><span class="p">)</span> <span class="n">total</span> <span class="o">+=</span> <span class="n">partial</span><span class="p">[</span><span class="n">j</span><span class="p">];</span>
-    <span class="k">for</span> <span class="p">(;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">total</span> <span class="o">+=</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>        <span class="c1">// scalar tail</span>
+    <span class="n">__m256</span> <span class="n">acc</span> <span class="o">=</span> <span class="n">_mm256_add_ps</span><span class="p">(</span><span class="n">acc0</span><span class="p">,</span> <span class="n">acc1</span><span class="p">);</span>
+    <span class="c1">// Horizontal reduction: 8 lanes -&gt; 4 -&gt; 2 -&gt; 1</span>
+    <span class="n">__m128</span> <span class="n">lo</span> <span class="o">=</span> <span class="n">_mm256_castps256_ps128</span><span class="p">(</span><span class="n">acc</span><span class="p">);</span>
+    <span class="n">__m128</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">_mm256_extractf128_ps</span><span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">__m128</span> <span class="n">s</span>  <span class="o">=</span> <span class="n">_mm_add_ps</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">);</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">_mm_add_ps</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">_mm_movehl_ps</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">s</span><span class="p">));</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">_mm_add_ss</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">_mm_shuffle_ps</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="mh">0x55</span><span class="p">));</span>
+    <span class="kt">float</span> <span class="n">total</span> <span class="o">=</span> <span class="n">_mm_cvtss_f32</span><span class="p">(</span><span class="n">s</span><span class="p">);</span>
+    <span class="k">for</span> <span class="p">(;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="n">total</span> <span class="o">+=</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>   <span class="c1">// scalar tail</span>
     <span class="k">return</span> <span class="n">total</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>Intrinsics are powerful but non-portable and easy to get wrong. Prefer auto-vectorization first, verify with <code class="language-plaintext highlighter-rouge">-fopt-info-vec</code>, and reach for intrinsics only on a profiled hot loop. Libraries such as <code class="language-plaintext highlighter-rouge">std::experimental::simd</code>, Google Highway, or <code class="language-plaintext highlighter-rouge">xsimd</code> offer portable wrappers that target multiple instruction sets from one source.</p>
+<p>Intrinsics are non-portable and easy to get subtly wrong. Portable alternatives:</p>
+
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">std::simd</code></strong> (header <code class="language-plaintext highlighter-rouge">&lt;simd&gt;</code>, proposal P1928) is part of <strong>C++26</strong>, providing <code class="language-plaintext highlighter-rouge">std::simd::vec&lt;T&gt;</code> and <code class="language-plaintext highlighter-rouge">std::simd::mask</code> types; <code class="language-plaintext highlighter-rouge">std::experimental::simd</code> from the Parallelism TS v2 is its predecessor and ships with GCC’s libstdc++.</li>
+  <li><strong>Google Highway</strong>, <strong>xsimd</strong>, and <strong>EVE</strong> target many instruction sets from one source with runtime dispatch.</li>
+  <li>Rust’s <code class="language-plaintext highlighter-rouge">std::simd</code> (nightly, portable SIMD) and crates such as <code class="language-plaintext highlighter-rouge">wide</code>; .NET’s <code class="language-plaintext highlighter-rouge">Vector&lt;T&gt;</code> and <code class="language-plaintext highlighter-rouge">Vector256&lt;T&gt;</code>; Java’s incubating Vector API.</li>
+</ul>
+
+<p>Prefer auto-vectorization, verify with compiler reports, and use explicit SIMD only on a profiled hot loop.</p>
 
 <h2 id="branch-prediction">Branch Prediction</h2>
 
-<p>Modern CPUs have deep pipelines (15-20+ stages) and execute speculatively: at every conditional branch the branch predictor guesses the outcome and the pipeline races ahead. A correct guess is free. A <strong>misprediction</strong> flushes the in-flight pipeline and costs ~15-20 cycles — comparable to several L2 cache misses.</p>
+<p>Cores run deep pipelines speculatively: at every conditional branch the predictor guesses the outcome and execution races ahead. A correct guess is almost free. A <strong>misprediction</strong> discards the speculative work and costs roughly 15 to 20 cycles, which on a 6- to 8-wide core is on the order of 100 lost instruction slots.</p>
 
-<p>Predictors are extremely good at <em>regular</em> patterns (always-taken, never-taken, simple loops). They struggle with <strong>data-dependent, unpredictable</strong> branches — for example, a comparison against random data inside a hot loop.</p>
+<p>Predictors learn regular patterns (always taken, loop exits, repeating sequences, correlations with recent branches) extremely well. They fail on <strong>data-dependent, random</strong> outcomes, such as comparing unsorted random data against a threshold in a hot loop.</p>
 
-<h3 id="sorting-to-make-branches-predictable">Sorting to Make Branches Predictable</h3>
+<h3 id="making-branches-predictable">Making Branches Predictable</h3>
 
-<p>A famous example: summing the elements of an array that exceed a threshold is dramatically faster if the array is sorted first, because the branch then becomes a long run of not-taken followed by a long run of taken — perfectly predictable — instead of coin-flip random.</p>
-
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">long</span> <span class="nf">sum_above</span><span class="p">(</span><span class="k">const</span> <span class="kt">int</span><span class="o">*</span> <span class="n">data</span><span class="p">,</span> <span class="kt">int</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
-    <span class="kt">long</span> <span class="n">sum</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">128</span><span class="p">)</span>   <span class="c1">// unpredictable on random data -&gt; mispredicts</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">long</span> <span class="kt">long</span> <span class="nf">sum_above</span><span class="p">(</span><span class="k">const</span> <span class="kt">int</span><span class="o">*</span> <span class="n">data</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">long</span> <span class="kt">long</span> <span class="n">sum</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">128</span><span class="p">)</span>     <span class="c1">// random data: mispredicts about half the time</span>
             <span class="n">sum</span> <span class="o">+=</span> <span class="n">data</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
     <span class="k">return</span> <span class="n">sum</span><span class="p">;</span>
 <span class="p">}</span>
-<span class="c1">// Sorting `data` first can make this loop several times faster,</span>
-<span class="c1">// purely by making the branch predictable.</span>
 </code></pre></div></div>
+
+<p>On random data this branch is a coin flip. If the data is sorted (or partitioned) first, the branch becomes a long run of not-taken followed by a long run of taken, and the loop can run several times faster purely from prediction. In practice, an optimizing compiler may turn this particular loop into a conditional move or vectorized select, removing the branch altogether; check the generated assembly before drawing conclusions from a benchmark like this.</p>
 
 <h3 id="branchless-code">Branchless Code</h3>
 
-<p>When a branch is inherently unpredictable, removing it entirely can win. Replace control flow with arithmetic or data-flow the CPU does not have to predict:</p>
+<p>When a branch is inherently unpredictable, replacing control flow with data flow can win:</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Branchy: clamp to [0, hi]</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Branchy clamp to [0, hi]</span>
 <span class="kt">int</span> <span class="nf">clamp_branchy</span><span class="p">(</span><span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="kt">int</span> <span class="n">hi</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">hi</span><span class="p">)</span> <span class="k">return</span> <span class="n">hi</span><span class="p">;</span>
     <span class="k">return</span> <span class="n">x</span><span class="p">;</span>
 <span class="p">}</span>
 
-<span class="c1">// Branchless: compiles to conditional-move / min-max, no prediction needed</span>
+<span class="c1">// Branchless: typically compiles to max/min or conditional moves (CMOV, CSEL)</span>
 <span class="kt">int</span> <span class="nf">clamp_branchless</span><span class="p">(</span><span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="kt">int</span> <span class="n">hi</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">?</span> <span class="n">x</span> <span class="o">:</span> <span class="mi">0</span><span class="p">;</span>       <span class="c1">// typically a CMOV / max</span>
-    <span class="k">return</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">hi</span> <span class="o">?</span> <span class="n">x</span> <span class="o">:</span> <span class="n">hi</span><span class="p">;</span>  <span class="c1">// typically a CMOV / min</span>
+    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">min</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">hi</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>Other branchless tools: <code class="language-plaintext highlighter-rouge">select</code>/conditional-move via the ternary operator, bit-twiddling (<code class="language-plaintext highlighter-rouge">mask = -(cond)</code> then <code class="language-plaintext highlighter-rouge">a ^ ((a ^ b) &amp; mask)</code>), and predication in SIMD (compute both sides, blend with a mask). Caveat: branchless code does <em>more</em> work unconditionally. It only wins when the branch was both <strong>hot</strong> and <strong>unpredictable</strong>; for predictable branches, leave the branch in. Use likelihood hints (<code class="language-plaintext highlighter-rouge">[[likely]]</code>/<code class="language-plaintext highlighter-rouge">[[unlikely]]</code>, <code class="language-plaintext highlighter-rouge">__builtin_expect</code>) to steer the compiler when one side dominates.</p>
+<p>Other techniques: select via bit masks (<code class="language-plaintext highlighter-rouge">mask = -int(cond); r = b ^ ((a ^ b) &amp; mask)</code>), lookup tables, and SIMD predication (compute both sides and blend with a mask). Branchless code always executes both paths, so it only wins when the branch was both <strong>hot</strong> and <strong>unpredictable</strong>; a predictable branch is cheaper than the extra work. When one side dominates, <code class="language-plaintext highlighter-rouge">[[likely]]</code> and <code class="language-plaintext highlighter-rouge">[[unlikely]]</code> (C++20) or <code class="language-plaintext highlighter-rouge">__builtin_expect</code> help the compiler place the common path in straight-line code.</p>
+
+<h2 id="compiler-and-build-optimizations">Compiler and Build Optimizations</h2>
+
+<p>Some of the largest cheap wins come from the build rather than the source.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>What it does</th>
+      <th>Typical gain</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong><code class="language-plaintext highlighter-rouge">-O2</code> / <code class="language-plaintext highlighter-rouge">-O3</code></strong></td>
+      <td>Standard optimization levels; <code class="language-plaintext highlighter-rouge">-O3</code> adds more aggressive inlining and vectorization</td>
+      <td>Baseline; <code class="language-plaintext highlighter-rouge">-O3</code> is not always faster than <code class="language-plaintext highlighter-rouge">-O2</code></td>
+    </tr>
+    <tr>
+      <td><strong>Target flags</strong> (<code class="language-plaintext highlighter-rouge">-march=x86-64-v3</code>)</td>
+      <td>Allows AVX2, FMA, BMI2 and tunes scheduling</td>
+      <td>Large on SIMD-friendly code</td>
+    </tr>
+    <tr>
+      <td><strong>LTO</strong> (<code class="language-plaintext highlighter-rouge">-flto</code>, ThinLTO)</td>
+      <td>Optimizes across translation units: cross-file inlining, dead-code removal</td>
+      <td>A few percent to 10%+</td>
+    </tr>
+    <tr>
+      <td><strong>PGO</strong> (<code class="language-plaintext highlighter-rouge">-fprofile-generate</code>, then <code class="language-plaintext highlighter-rouge">-fprofile-use</code>; Clang also accepts sampled perf profiles)</td>
+      <td>Uses a recorded workload to guide inlining, branch layout, and hot/cold code splitting</td>
+      <td>Often 10 to 20% on large, branchy programs (compilers, databases, interpreters)</td>
+    </tr>
+    <tr>
+      <td><strong>BOLT</strong> (LLVM post-link optimizer)</td>
+      <td>Reorders functions and basic blocks in the final binary using a perf profile</td>
+      <td>Additional gains on front-end-bound code, on top of PGO</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>PGO and BOLT help most on code that is <strong>front-end bound</strong>: large binaries whose hot paths are scattered, such as compilers, databases, browsers, and language runtimes. Many major projects ship PGO-optimized builds, including CPython, Chromium, Firefox, and the Rust compiler. The cost is a representative training workload and a more complex build.</p>
 
 <h2 id="multithreading">Multithreading</h2>
 
-<p>Once a single core is saturated, the next axis is parallelism across cores. The goal is to split independent work into tasks that run concurrently and recombine the results.</p>
+<p>Once a single core is well used, the next axis is running independent work on several cores.</p>
 
-<h3 id="task-based-systems">Task-Based Systems</h3>
+<h3 id="task-based-parallelism">Task-Based Parallelism</h3>
 
-<p>A <strong>job system</strong> is the standard pattern: worker threads pull jobs from a queue, and a counter tracks completion so dependent work can wait on it. This scales to whatever core count is available without hardcoding thread counts.</p>
+<p>Rather than one thread per job, production systems use a <strong>thread pool</strong> with a work queue, typically with <strong>work stealing</strong>: each worker has its own deque, and idle workers steal from busy ones, balancing load automatically. Use an existing implementation where possible:</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Job system pattern</span>
-<span class="k">struct</span> <span class="nc">Job</span> <span class="p">{</span>
-    <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">function</span><span class="p">)(</span><span class="kt">void</span><span class="o">*</span> <span class="n">data</span><span class="p">);</span>
-    <span class="kt">void</span><span class="o">*</span> <span class="n">data</span><span class="p">;</span>
-    <span class="n">atomic</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;*</span> <span class="n">counter</span><span class="p">;</span>
-<span class="p">};</span>
+<table>
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Library</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>C++</td>
+      <td>oneTBB, Taskflow, OpenMP; C++17 parallel algorithms (<code class="language-plaintext highlighter-rouge">std::execution::par</code>); C++26 <code class="language-plaintext highlighter-rouge">std::execution</code> (senders and receivers)</td>
+    </tr>
+    <tr>
+      <td>Rust</td>
+      <td>Rayon (data parallelism), Tokio (async I/O)</td>
+    </tr>
+    <tr>
+      <td>Java</td>
+      <td><code class="language-plaintext highlighter-rouge">ForkJoinPool</code>, parallel streams, virtual threads (for I/O concurrency)</td>
+    </tr>
+    <tr>
+      <td>.NET</td>
+      <td>Task Parallel Library, <code class="language-plaintext highlighter-rouge">Parallel.For</code></td>
+    </tr>
+    <tr>
+      <td>Game engines</td>
+      <td>Engine job systems (Unity C# Job System, Unreal Task Graph)</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="kt">void</span> <span class="nf">worker_thread</span><span class="p">()</span> <span class="p">{</span>
-    <span class="k">while</span> <span class="p">(</span><span class="n">running</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">Job</span> <span class="n">job</span> <span class="o">=</span> <span class="n">job_queue</span><span class="p">.</span><span class="n">pop</span><span class="p">();</span>
-        <span class="n">job</span><span class="p">.</span><span class="n">function</span><span class="p">(</span><span class="n">job</span><span class="p">.</span><span class="n">data</span><span class="p">);</span>
-        <span class="n">job</span><span class="p">.</span><span class="n">counter</span><span class="o">-&gt;</span><span class="n">fetch_sub</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-    <span class="p">}</span>
-<span class="p">}</span>
+<p>A fork-join parallel loop with the C++ standard library (libstdc++ implements the parallel policies on top of oneTBB, so link with <code class="language-plaintext highlighter-rouge">-ltbb</code>):</p>
 
-<span class="c1">// Usage</span>
-<span class="kt">void</span> <span class="nf">parallel_update</span><span class="p">(</span><span class="n">Entity</span><span class="o">*</span> <span class="n">entities</span><span class="p">,</span> <span class="kt">int</span> <span class="n">count</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">atomic</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-    <span class="kt">int</span> <span class="n">batch_size</span> <span class="o">=</span> <span class="n">count</span> <span class="o">/</span> <span class="n">num_workers</span><span class="p">;</span>
-
-    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">num_workers</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">submit_job</span><span class="p">(</span><span class="n">update_batch</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">entities</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">batch_size</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">counter</span><span class="p">);</span>
-    <span class="p">}</span>
-
-    <span class="n">wait_for_counter</span><span class="p">(</span><span class="o">&amp;</span><span class="n">counter</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;algorithm&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;execution&gt;</span><span class="cp">
+</span>
+<span class="c1">// Each element is independent, so the runtime can split the range across</span>
+<span class="c1">// cores (par) and vectorize within each chunk (unseq).</span>
+<span class="kt">void</span> <span class="nf">integrate</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Particle</span><span class="o">&gt;&amp;</span> <span class="n">ps</span><span class="p">,</span> <span class="kt">float</span> <span class="n">dt</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">for_each</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">execution</span><span class="o">::</span><span class="n">par_unseq</span><span class="p">,</span> <span class="n">ps</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">ps</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span>
+                  <span class="p">[</span><span class="n">dt</span><span class="p">](</span><span class="n">Particle</span><span class="o">&amp;</span> <span class="n">p</span><span class="p">)</span> <span class="p">{</span> <span class="n">p</span><span class="p">.</span><span class="n">pos</span> <span class="o">+=</span> <span class="n">p</span><span class="p">.</span><span class="n">vel</span> <span class="o">*</span> <span class="n">dt</span><span class="p">;</span> <span class="p">});</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p><strong>Common Patterns:</strong></p>
+<p>Patterns:</p>
+
 <ul>
-  <li><strong>Fork-join</strong> for parallel loops (split a range, process in parallel, join)</li>
-  <li><strong>Producer-consumer</strong> for pipelines (stages hand work to the next stage via a queue)</li>
-  <li><strong>Thread pools</strong> for task scheduling (fixed worker set, dynamic work)</li>
-  <li><strong>Lock-free data structures</strong> for high contention (atomics and CAS instead of mutexes)</li>
+  <li><strong>Fork-join</strong> for data-parallel loops: split a range, process chunks, join.</li>
+  <li><strong>Pipelines</strong> (producer-consumer) where stages hand work downstream through bounded queues.</li>
+  <li><strong>Task graphs</strong> where jobs declare dependencies and the scheduler runs whatever is ready, as in frame-based game engines.</li>
+  <li><strong>Lock-free structures</strong> (atomics, compare-and-swap) for high-contention shared state. They are hard to get right; prefer designs that avoid sharing.</li>
 </ul>
 
-<h3 id="amdahls-law">Amdahl’s Law</h3>
+<p>Chunk size matters: too small and scheduling overhead dominates, too large and some cores idle at the end. Work-stealing runtimes adapt automatically, which is a main reason to prefer them over hand-rolled splits.</p>
 
-<p>Parallelism has a hard ceiling. If a fraction <em>p</em> of the work is parallelizable and <em>(1 − p)</em> is inherently serial, the maximum speedup on <em>N</em> cores is</p>
+<h3 id="amdahls-and-gustafsons-laws">Amdahl’s and Gustafson’s Laws</h3>
 
-\[S(N) = \frac{1}{(1 - p) + \dfrac{p}{N}}\]
+<p>If a fraction $p$ of the work parallelizes perfectly and $1 - p$ is serial, the speedup on $N$ cores is bounded by <strong>Amdahl’s law</strong>:</p>
 
-<p>As <em>N</em> grows, <em>S</em> approaches <em>1/(1 − p)</em>. A workload that is 90% parallel can never exceed a 10× speedup no matter how many cores you throw at it. The lesson: attack the serial fraction (and per-task overhead) before adding cores, and never expect linear scaling.</p>
+\[S(N) = \frac{1}{(1 - p) + \dfrac{p}{N}}, \qquad \lim_{N \to \infty} S(N) = \frac{1}{1 - p}\]
+
+<p>A program that is 90% parallel can never exceed a 10x speedup. <strong>Gustafson’s law</strong> gives the complementary view: if the problem grows with the machine (more pixels, more entities, larger batches), the scaled speedup is $S(N) = (1 - p) + pN$, which keeps growing. Both point to the same practice: shrink the serial fraction and per-task overhead before adding cores, and expect sublinear scaling.</p>
+
+<p>On <strong>hybrid CPUs</strong> (Intel P-cores and E-cores, Arm big.LITTLE, Apple performance and efficiency cores), equal-sized static chunks finish at different times. Dynamic scheduling or work stealing handles the asymmetry; fixed splits leave the fast cores waiting on the slow ones.</p>
 
 <h3 id="false-sharing">False Sharing</h3>
 
-<p>The subtlest multithreading bug is not a race — it is <strong>false sharing</strong>, a silent performance killer. Cache coherency operates at cache-line granularity (64 bytes), not per variable. When two threads write to <em>different</em> variables that happen to share the same cache line, every write invalidates the other core’s copy of the line, forcing it to be re-fetched. The threads are logically independent but the hardware ping-pongs the line between cores, sometimes turning a parallel speedup into a slowdown.</p>
+<p>Cache coherence operates on whole cache lines. When two threads write to <em>different</em> variables that share a line, each write invalidates the other core’s copy and the line ping-pongs between cores. The threads are logically independent, yet the program can run slower in parallel than serially.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// FALSE SHARING: counters[0] and counters[1] live in the same 64-byte line.</span>
-<span class="c1">// Two threads incrementing them thrash each other's cache.</span>
-<span class="k">struct</span> <span class="nc">Counters</span> <span class="p">{</span>
-    <span class="n">atomic</span><span class="o">&lt;</span><span class="kt">long</span><span class="o">&gt;</span> <span class="n">counters</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span>   <span class="c1">// packed tightly -&gt; shared lines</span>
-<span class="p">};</span>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C0 as Core 0, writes counter 0
+    participant L as One cache line, counters 0 to 7
+    participant C1 as Core 1, writes counter 1
+    C0-&gt;&gt;L: write: take line exclusive
+    C1-&gt;&gt;L: write: invalidate Core 0 copy, take line
+    C0-&gt;&gt;L: write: invalidate Core 1 copy, take line
+    Note over C0,C1: every write is a coherence miss
+</code></pre>
 
-<span class="c1">// FIX: pad/align each counter to its own cache line.</span>
-<span class="k">struct</span> <span class="nc">alignas</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span> <span class="n">PaddedCounter</span> <span class="p">{</span>
-    <span class="n">atomic</span><span class="o">&lt;</span><span class="kt">long</span><span class="o">&gt;</span> <span class="n">value</span><span class="p">;</span>
-    <span class="kt">char</span> <span class="n">padding</span><span class="p">[</span><span class="mi">64</span> <span class="o">-</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">atomic</span><span class="o">&lt;</span><span class="kt">long</span><span class="o">&gt;</span><span class="p">)];</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;atomic&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;new&gt;</span><span class="cp">
+</span>
+<span class="c1">// Contended: eight counters packed into one or two cache lines</span>
+<span class="k">struct</span> <span class="nc">Counters</span> <span class="p">{</span> <span class="n">std</span><span class="o">::</span><span class="n">atomic</span><span class="o">&lt;</span><span class="kt">long</span><span class="o">&gt;</span> <span class="n">value</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span> <span class="p">};</span>
+
+<span class="c1">// Fixed: each counter on its own line. std::hardware_destructive_interference_size</span>
+<span class="c1">// (C++17, &lt;new&gt;) is typically 64; some code uses 128 because Intel's adjacent-line</span>
+<span class="c1">// prefetcher pulls lines in pairs, and Apple silicon uses 128-byte lines.</span>
+<span class="k">struct</span> <span class="nc">alignas</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">hardware_destructive_interference_size</span><span class="p">)</span> <span class="n">PaddedCounter</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">atomic</span><span class="o">&lt;</span><span class="kt">long</span><span class="o">&gt;</span> <span class="n">value</span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
 <span class="p">};</span>
-<span class="n">PaddedCounter</span> <span class="n">counters</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span>      <span class="c1">// each on its own line -&gt; no false sharing</span>
+<span class="n">PaddedCounter</span> <span class="n">counters</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span>
 </code></pre></div></div>
 
-<p>Detect false sharing with VTune’s “memory access” or “false sharing” analysis, or <code class="language-plaintext highlighter-rouge">perf c2c</code> on Linux, which attributes cache-line contention to specific source lines. The fix is almost always padding/aligning per-thread data to 64 bytes, or giving each thread a private accumulator that is combined once at the end.</p>
+<p>Detect false sharing with <code class="language-plaintext highlighter-rouge">perf c2c</code> on Linux, which reports contended cache lines and the source lines touching them, or with VTune’s memory-access analysis. The usual fixes are padding per-thread data to a line, or better, giving each thread a private accumulator and combining results once at the end.</p>
 
-<h2 id="memory-allocation">Memory Allocation</h2>
+<h2 id="memory-allocation-on-the-hot-path">Memory Allocation on the Hot Path</h2>
 
-<p>General-purpose allocators (<code class="language-plaintext highlighter-rouge">malloc</code>/<code class="language-plaintext highlighter-rouge">new</code>) are surprisingly expensive on a hot path: they take a lock, search free lists, and hand back memory scattered across the heap — wrecking cache locality. High-performance code avoids per-frame allocation almost entirely.</p>
-
-<h3 id="object-pooling">Object Pooling</h3>
-
-<p>A pool pre-allocates a fixed block of objects and hands them out from an intrusive free list. Allocation and deallocation become a couple of pointer writes with no lock and no fragmentation.</p>
-
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="nc">T</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">PoolSize</span><span class="p">&gt;</span>
-<span class="k">class</span> <span class="nc">ObjectPool</span> <span class="p">{</span>
-    <span class="n">T</span> <span class="n">objects</span><span class="p">[</span><span class="n">PoolSize</span><span class="p">];</span>
-    <span class="n">T</span><span class="o">*</span> <span class="n">free_list</span><span class="p">;</span>
-
-<span class="nl">public:</span>
-    <span class="n">T</span><span class="o">*</span> <span class="n">allocate</span><span class="p">()</span> <span class="p">{</span>
-        <span class="n">T</span><span class="o">*</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">free_list</span><span class="p">;</span>
-        <span class="n">free_list</span> <span class="o">=</span> <span class="o">*</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">**&gt;</span><span class="p">(</span><span class="n">free_list</span><span class="p">);</span>
-        <span class="k">return</span> <span class="n">obj</span><span class="p">;</span>
-    <span class="p">}</span>
-
-    <span class="kt">void</span> <span class="nf">deallocate</span><span class="p">(</span><span class="n">T</span><span class="o">*</span> <span class="n">obj</span><span class="p">)</span> <span class="p">{</span>
-        <span class="o">*</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">**&gt;</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">=</span> <span class="n">free_list</span><span class="p">;</span>
-        <span class="n">free_list</span> <span class="o">=</span> <span class="n">obj</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">};</span>
-</code></pre></div></div>
-
-<h3 id="frame-lineararena-allocators">Frame (Linear/Arena) Allocators</h3>
-
-<p>For data that lives exactly one frame, a <strong>linear allocator</strong> is unbeatable: it bumps a pointer forward to allocate and resets the pointer to the start at end of frame. There is no per-object free, no fragmentation, and allocations are perfectly sequential and cache-friendly.</p>
+<p>General-purpose <code class="language-plaintext highlighter-rouge">malloc</code>/<code class="language-plaintext highlighter-rouge">new</code> is expensive on a hot path: it may take locks, search free lists, touch cold metadata, and scatter objects across the heap. High-performance code avoids per-item allocation in inner loops.</p>
 
 <ul>
-  <li>Linear allocator for per-frame data (a single bump pointer)</li>
-  <li>Reset the pointer at frame end (frees everything in O(1))</li>
-  <li>Zero fragmentation</li>
-  <li>Cache-friendly sequential access</li>
+  <li><strong>Reserve capacity</strong> for containers whose size is known.</li>
+  <li><strong>Arena (bump) allocators</strong> for data with a shared lifetime such as one frame or one request: allocation is a pointer increment, and everything is freed at once.</li>
+  <li><strong>Pools</strong> for many same-sized objects with individual lifetimes.</li>
+  <li><strong>A faster general allocator.</strong> Swapping glibc <code class="language-plaintext highlighter-rouge">malloc</code> for mimalloc, jemalloc, or tcmalloc (often with no code changes, via linking or <code class="language-plaintext highlighter-rouge">LD_PRELOAD</code>) can noticeably speed up allocation-heavy, multithreaded programs.</li>
 </ul>
 
-<h3 id="other-allocation-strategies">Other Allocation Strategies</h3>
+<p>Implementations and trade-offs are covered in <a href="./memory-optimization.html#allocation-strategies">Memory Optimization: Allocation Strategies</a>.</p>
 
-<ul>
-  <li><strong>Stack allocators</strong> add a LIFO discipline to the linear allocator — useful for nested scopes where you free in reverse order of allocation.</li>
-  <li><strong>Slab/free-list allocators</strong> serve fixed-size blocks for a single type, like the object pool but growable.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">reserve()</code> up front</strong> — for <code class="language-plaintext highlighter-rouge">std::vector</code> and friends, reserve the expected capacity once to avoid repeated reallocation and copy as the container grows.</li>
-  <li><strong>Custom STL allocators</strong> let you route container allocations through an arena, keeping standard-library code on your fast path.</li>
-</ul>
+<h2 id="worked-example-an-optimization-pass">Worked Example: An Optimization Pass</h2>
 
-<h2 id="worked-example-a-full-optimization-pass">Worked Example: A Full Optimization Pass</h2>
+<p>An illustrative sequence for an update over 1,000,000 entities that takes 14 ms, too much for a 16.7 ms (60 Hz) frame once the rest of the game is added:</p>
 
-<p>To tie the techniques together, consider an N-body-style update over 1,000,000 entities that was running at 14 ms — far over a 16 ms frame budget once the rest of the game is added.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Step</th>
+      <th>Observation</th>
+      <th>Change</th>
+      <th>Time</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1. Profile</td>
+      <td><code class="language-plaintext highlighter-rouge">perf stat</code>: IPC 0.4, high LLC miss rate; top-down says memory bound</td>
+      <td>None yet: vectorizing now would multiply stalls</td>
+      <td>14 ms</td>
+    </tr>
+    <tr>
+      <td>2. Layout</td>
+      <td>AoS loop drags cold fields through cache</td>
+      <td>Split hot <code class="language-plaintext highlighter-rouge">position</code>, <code class="language-plaintext highlighter-rouge">velocity</code>, <code class="language-plaintext highlighter-rouge">mass</code> into SoA arrays</td>
+      <td>~5 ms, IPC ~1.6</td>
+    </tr>
+    <tr>
+      <td>3. Vectorize</td>
+      <td>Contiguous floats, no aliasing</td>
+      <td><code class="language-plaintext highlighter-rouge">__restrict</code> and <code class="language-plaintext highlighter-rouge">-march=x86-64-v3</code>; loop processes 8 entities per AVX instruction</td>
+      <td>~2 ms</td>
+    </tr>
+    <tr>
+      <td>4. Parallelize</td>
+      <td>Independent elements, no shared writes</td>
+      <td><code class="language-plaintext highlighter-rouge">std::for_each(std::execution::par_unseq, ...)</code> over 8 cores</td>
+      <td>~0.4 ms</td>
+    </tr>
+  </tbody>
+</table>
 
-<ol>
-  <li><strong>Profile</strong> (<code class="language-plaintext highlighter-rouge">perf stat</code>): IPC of 0.4, cache-miss rate ~30%. Clearly <strong>memory bound</strong>, not compute bound — vectorizing first would be wasted effort.</li>
-  <li><strong>Fix the data layout</strong> (AoS → SoA): split the hot <code class="language-plaintext highlighter-rouge">position</code>/<code class="language-plaintext highlighter-rouge">velocity</code>/<code class="language-plaintext highlighter-rouge">mass</code> fields into contiguous arrays, cold metadata elsewhere. Cache misses drop sharply; time falls to ~5 ms. IPC rises to ~1.6.</li>
-  <li><strong>Now vectorize</strong>: with contiguous SoA arrays and <code class="language-plaintext highlighter-rouge">__restrict</code>, the integration loop auto-vectorizes under <code class="language-plaintext highlighter-rouge">-O3 -march=native</code>, processing 8 entities per AVX instruction. Time falls to ~2 ms.</li>
-  <li><strong>Parallelize</strong> the now-compute-light loop across 8 cores with a fork-join over disjoint ranges (no shared writes, so no false sharing). Time falls to ~0.4 ms.</li>
-</ol>
-
-<p>Net result: ~35× faster, and the order mattered — vectorizing or threading before fixing the layout would have parallelized a memory-stalled loop and left most of the win on the table. <strong>Profile, fix the dominant bottleneck, re-profile, repeat.</strong></p>
+<p>About 35x overall, and the order mattered: threading the original loop would have spread a memory-stalled loop across cores that share the same memory bandwidth. The loop is: <strong>profile, fix the dominant bottleneck, re-profile.</strong></p>
 
 <h2 id="see-also">See Also</h2>
+
 <ul>
-  <li><a href="./">Performance Optimization</a> - The optimization hub: philosophy, process, and learning paths</li>
-  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - GPU pipeline and rendering performance</li>
-  <li><a href="../gamedev/">Game Development</a> - Engine architecture and real-time systems</li>
-  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> - Scaling beyond a single machine</li>
-  <li><a href="../technology/docker/">Docker</a> - Container resource limits and performance</li>
+  <li><a href="./">Performance Optimization</a>: the hub, process, and learning paths</li>
+  <li><a href="./algorithmic-optimization.html">Algorithmic Optimization</a>: complexity and data-structure choice, which come before any of this</li>
+  <li><a href="./memory-optimization.html">Memory Optimization</a>: allocators, fragmentation, and cache locality in depth</li>
+  <li><a href="./gpu-optimization.html">GPU Optimization</a>: the throughput-oriented counterpart</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics and Rendering</a>: the rendering pipeline the CPU feeds</li>
+  <li><a href="../gamedev/">Game Development</a>: frame budgets and engine architecture</li>
+  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a>: scaling beyond one machine</li>
+  <li><a href="../technology/docker/">Docker</a>: CPU limits and their effect on performance in containers</li>
 </ul>
 
       </section>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Machine models, time and space classes, NP-completeness, the polynomial hierarchy, circuits, randomness, interactive proofs, fine-grained complexity, and the...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Computational Complexity Theory">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Machine models, time and space classes, NP-completeness, the polynomial hierarchy, circuits, randomness, interactive proofs, fine-grained complexity, and the...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/advanced/complexity-theory/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Computational Complexity Theory">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Machine models, time and space classes, NP-completeness, the polynomial hierarchy, circuits, randomness, interactive proofs, fine-grained complexity, and the...">
 
 <title>Computational Complexity Theory | Andrews Notebook</title>
 
@@ -3133,599 +3133,814 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <h1 id="computational-complexity-theory">Computational Complexity Theory</h1>
 
-<p><a href="./">Advanced Topics</a> » Computational Complexity Theory</p>
+<p><a href="../">Advanced Topics</a> » Computational Complexity Theory</p>
 
 <div class="advanced-note">
-  <p><strong>Graduate-level research page.</strong> This page develops the formal theory of computation: machine models, time and space classes, reductions and completeness, the polynomial hierarchy, circuit complexity, randomized computation, and the relativization/natural-proofs barriers that explain why P vs NP remains open. <strong>Prerequisites:</strong> discrete mathematics, formal languages and automata, graph theory, basic probability, and mathematical maturity with asymptotic analysis. For applied algorithm analysis and Big-O in practice instead, see the <a href="../distributed-systems-theory/">Distributed Systems Theory</a> page’s complexity sections or the practical <a href="../../technology/">Technology Hub</a>.</p>
+  <p><strong>Prerequisites:</strong> discrete mathematics, automata and computability (see <a href="../automata-and-formal-languages/">Automata and Formal Languages</a>), basic probability, and comfort with asymptotic analysis.</p>
 </div>
 
-<p>Complexity theory asks not <em>whether</em> a problem can be solved, but <em>how much</em> of a resource — time, memory, randomness, nondeterminism, circuit size — is required to solve it. Its central objects are <strong>complexity classes</strong>: sets of decision problems solvable within a given resource bound. Its central question is whether these classes are genuinely different. P vs NP is the most famous instance, but the same separation question recurs at every level of the hierarchy, and a recurring theme is that our standard proof techniques are provably too weak to settle it. This page builds the machinery from the Turing machine up to the barriers.</p>
+<p><strong>Computational complexity theory</strong> classifies problems by the resources needed to solve them: time, memory, randomness, nondeterminism, circuit size, interaction, or quantum operations. Its basic objects are <strong>complexity classes</strong>, sets of decision problems solvable within a resource bound, and its basic questions ask which classes differ. A few separations are proved (more time or space strictly helps), but nearly every separation between <em>different kinds</em> of resource, P vs NP included, is open, and three barrier theorems explain why standard techniques cannot settle them. This page develops the standard classes from the Turing machine up, then covers completeness, the polynomial hierarchy, circuits, randomized and interactive computation, fine-grained complexity, the barriers, and the current state of P vs NP.</p>
 
-<ul>
-  <li><strong>The model barely matters.</strong> Up to polynomial overhead, every “reasonable” sequential model (multi-tape TM, RAM, while-program) computes the same things in the same time class. This robustness is what makes P a meaningful notion of “efficient.”</li>
-  <li><strong>Completeness localizes hardness.</strong> A single NP-complete problem — SAT — is a faithful proxy for all of NP. Polynomial-time reductions let one hard problem stand in for thousands.</li>
-  <li><strong>Randomness may be free.</strong> BPP is widely conjectured to equal P: under plausible circuit lower bounds, derandomization shows coin flips add no power to polynomial time.</li>
-  <li><strong>Our tools hit walls.</strong> Relativization, natural proofs, and algebrization each rule out broad classes of techniques for P vs NP. Any resolution must be “non-relativizing” and “non-naturalizing.”</li>
-</ul>
+<h2 id="overview">Overview</h2>
 
-<h3 id="how-to-read-this-page">How to Read This Page</h3>
-
-<p>The development is bottom-up. We fix a machine model (the Turing machine) so that “time” and “space” have precise meanings, then carve out the standard classes by bounding those resources. Reductions and completeness give us a way to compare problems and identify the hardest members of a class. Stacking nondeterminism produces the polynomial hierarchy; replacing uniform machines with circuit families gives a non-uniform model that is easier to prove lower bounds against; adding randomness gives BPP. Finally, the relativization and natural-proofs barriers explain why, despite all this structure, P vs NP is still open.</p>
-
-<pre><code class="language-mermaid">flowchart LR
-    TM["Machine model&lt;br/&gt;Turing machines"] --&gt; TS["Time &amp;amp; space classes&lt;br/&gt;P, NP, PSPACE, EXP"]
-    TS --&gt; RC["Reductions &amp;amp; completeness&lt;br/&gt;SAT, Cook-Levin"]
-    RC --&gt; PH["Polynomial hierarchy&lt;br/&gt;&amp;Sigma;_k, &amp;Pi;_k"]
-    TS --&gt; CC["Circuit complexity&lt;br/&gt;P/poly, non-uniformity"]
-    TS --&gt; BPP["Randomized classes&lt;br/&gt;BPP, RP, ZPP"]
-    PH --&gt; B["Barriers&lt;br/&gt;relativization, natural proofs"]
-    CC --&gt; B
-    BPP --&gt; B
-    B --&gt; PvNP["P vs NP"]
-</code></pre>
-
-<h2 id="table-of-contents">Table of Contents</h2>
-<ul>
-  <li><a href="#the-turing-machine-model">The Turing Machine Model</a></li>
-  <li><a href="#time-and-space-complexity-classes">Time and Space Complexity Classes</a></li>
-  <li><a href="#reductions-and-completeness">Reductions and Completeness</a></li>
-  <li><a href="#the-polynomial-hierarchy">The Polynomial Hierarchy</a></li>
-  <li><a href="#circuit-complexity-and-non-uniformity">Circuit Complexity and Non-Uniformity</a></li>
-  <li><a href="#randomized-complexity-classes">Randomized Complexity Classes</a></li>
-  <li><a href="#relativization-and-the-barriers">Relativization and the Barriers</a></li>
-  <li><a href="#p-vs-np">P vs NP</a></li>
-</ul>
-
-<h2 id="the-turing-machine-model">The Turing Machine Model</h2>
-
-<p>Complexity is defined relative to a model of computation. The standard choice is the <strong>multi-tape deterministic Turing machine (DTM)</strong> — expressive enough to be realistic, simple enough to reason about, and robust under polynomial simulation by any other reasonable model.</p>
-
-<div class="postulate-card">
-  <h4 id="definition-multi-tape-turing-machine">Definition (Multi-tape Turing machine)</h4>
-  <p>A $k$-tape Turing machine is a tuple $M = (Q, \Sigma, \Gamma, \delta, q_0, q_{\mathrm{acc}}, q_{\mathrm{rej}})$ where $Q$ is a finite set of states, $\Sigma$ the input alphabet, $\Gamma \supseteq \Sigma \cup {\sqcup}$ the tape alphabet (with blank $\sqcup$), and the transition function is
-\(\delta : Q \times \Gamma^{k} \to Q \times \Gamma^{k} \times \{L, R, S\}^{k}.\)
-The machine reads one symbol from each tape, writes one symbol to each, moves each head left/right/stay, and changes state. It <strong>halts</strong> on entering $q_{\mathrm{acc}}$ or $q_{\mathrm{rej}}$.</p>
-</div>
-
-<p><strong>Configurations and computation.</strong> A <em>configuration</em> records the state, the head positions, and the (finite non-blank portions of the) tape contents. The transition function induces a <em>next-configuration</em> relation; a computation is the sequence of configurations from the start. For a DTM this sequence is unique. The <strong>time</strong> taken on input $x$ is the number of steps until halting; the <strong>space</strong> is the number of distinct work-tape cells visited (the read-only input tape is not charged, which is what lets us study <em>sublinear</em> space).</p>
-
-<p><strong>Nondeterminism.</strong> A <strong>nondeterministic Turing machine (NTM)</strong> replaces $\delta$ with a <em>relation</em> (equivalently $\delta : Q \times \Gamma^k \to \mathcal{P}(Q \times \Gamma^k \times {L,R,S}^k)$): from a configuration there may be several legal successors. The computation is a <em>tree</em>. An NTM <strong>accepts</strong> $x$ if <em>some</em> root-to-leaf branch reaches $q_{\mathrm{acc}}$. Its running time is the height of the shortest accepting branch (or the whole tree’s depth on rejection). Nondeterminism is not a physical model — it is a definitional device that captures “is there a short certificate?”.</p>
-
-<div class="principle-card">
-  <h4 id="the-robustness-of-the-model">The robustness of the model</h4>
-  <p>Any $k$-tape TM running in time $t(n)$ can be simulated by a single-tape TM in time $O(t(n)^2)$, and by a two-tape TM in time $O(t(n)\log t(n))$. A random-access machine (RAM) with unit-cost arithmetic and a TM simulate each other with only polynomial overhead. Consequently <strong>polynomial time is model-independent</strong> — the defining feature that makes P a stable notion.</p>
-</div>
-
-<p>This is the content of the (modern, strengthened) <strong>Church–Turing thesis</strong> as applied to complexity: every physically realizable <em>deterministic</em> sequential model is polynomially equivalent to the Turing machine. Quantum computation is the one widely-studied potential exception, captured by the class <strong>BQP</strong> (see <a href="../quantum-algorithms-research/">Quantum Algorithms Research</a>).</p>
-
-<h3 id="asymptotic-notation-and-complexity-measures">Asymptotic notation and complexity measures</h3>
+<p>The table summarizes what is known about the most-cited relationships. “Open” means neither equality nor separation has been proved.</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Relationship</th>
+      <th>Status</th>
+      <th>Belief</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>We measure resources as functions of the input length $n =</td>
-      <td>x</td>
-      <td>$, ignoring constants and lower-order terms.</td>
+      <td>P vs EXP</td>
+      <td>$\mathrm{P} \subsetneq \mathrm{EXP}$ (time hierarchy)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>L vs PSPACE</td>
+      <td>$\mathrm{L} \subsetneq \mathrm{PSPACE}$ (space hierarchy)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>NL vs coNL</td>
+      <td>$\mathrm{NL} = \mathrm{coNL}$ (Immerman-Szelepcsényi)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>PSPACE vs NPSPACE</td>
+      <td>Equal (Savitch)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>NP vs NEXP</td>
+      <td>$\mathrm{NP} \subsetneq \mathrm{NEXP}$ (nondeterministic time hierarchy)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>IP vs PSPACE</td>
+      <td>Equal (Shamir)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>P vs NP</td>
+      <td>Open</td>
+      <td>$\mathrm{P} \neq \mathrm{NP}$</td>
+    </tr>
+    <tr>
+      <td>NP vs coNP</td>
+      <td>Open</td>
+      <td>Different</td>
+    </tr>
+    <tr>
+      <td>P vs PSPACE</td>
+      <td>Open</td>
+      <td>$\mathrm{P} \neq \mathrm{PSPACE}$</td>
+    </tr>
+    <tr>
+      <td>P vs BPP</td>
+      <td>Open</td>
+      <td>$\mathrm{P} = \mathrm{BPP}$</td>
+    </tr>
+    <tr>
+      <td>L vs P</td>
+      <td>Open</td>
+      <td>$\mathrm{L} \neq \mathrm{P}$</td>
+    </tr>
+    <tr>
+      <td>BPP vs BQP</td>
+      <td>Open (separated relative to oracles)</td>
+      <td>$\mathrm{BPP} \neq \mathrm{BQP}$</td>
+    </tr>
+    <tr>
+      <td>NP vs P/poly</td>
+      <td>Open</td>
+      <td>$\mathrm{NP} \not\subseteq \mathrm{P/poly}$</td>
     </tr>
   </tbody>
 </table>
 
-<p>\(f(n) = O(g(n)) \iff \exists c &gt; 0,\ n_0 :\ \forall n \geq n_0,\ f(n) \leq c\, g(n).\)
-\(f(n) = \Omega(g(n)) \iff g(n) = O(f(n)), \qquad f(n) = \Theta(g(n)) \iff f = O(g) \wedge f = \Omega(g).\)</p>
+<pre><code class="language-mermaid">flowchart LR
+    TM["Machine models"] --&gt; TS["Time and space classes"]
+    TS --&gt; RC["Reductions and completeness"]
+    RC --&gt; PH["Polynomial hierarchy, counting"]
+    TS --&gt; CC["Circuits and non-uniformity"]
+    TS --&gt; RND["Randomness"]
+    RND --&gt; IP["Interactive proofs, PCP"]
+    RC --&gt; FG["Fine-grained complexity"]
+    PH --&gt; B["Barriers"]
+    CC --&gt; B
+    IP --&gt; B
+    B --&gt; PNP["P vs NP"]
+</code></pre>
 
-<p>A function $t : \mathbb{N} \to \mathbb{N}$ is <strong>time-constructible</strong> if there is a TM that, on input $1^n$, halts in exactly $t(n)$ steps; <strong>space-constructible</strong> is analogous. All natural bounds ($n$, $n^2$, $2^n$, $n\log n$) are constructible. Constructibility is the technical hypothesis the hierarchy theorems below need so the simulating machine can “count its own budget.”</p>
+<h2 id="models-of-computation">Models of Computation</h2>
+
+<p>Complexity is defined relative to a machine model. The standard choice is the <strong>multi-tape deterministic Turing machine</strong>, which is simple enough to reason about and simulates, and is simulated by, every other reasonable sequential model with polynomial overhead.</p>
+
+<p><strong>Definition.</strong> A $k$-tape Turing machine is a tuple $M = (Q, \Sigma, \Gamma, \delta, q_0, q_{\mathrm{acc}}, q_{\mathrm{rej}})$ with finite state set $Q$, input alphabet $\Sigma$, tape alphabet $\Gamma \supseteq \Sigma \cup {\sqcup}$ (with blank $\sqcup$), and transition function</p>
+
+\[\delta : Q \times \Gamma^{k} \to Q \times \Gamma^{k} \times \{L, R, S\}^{k}.\]
+
+<p>In each step the machine reads one symbol per tape, writes one symbol per tape, moves each head left, right, or not at all, and changes state. It halts on entering $q_{\mathrm{acc}}$ or $q_{\mathrm{rej}}$.</p>
+
+<p>A <strong>configuration</strong> records the state, head positions, and non-blank tape contents. The <strong>running time</strong> on input $x$ is the number of steps before halting. For <strong>space</strong>, the input sits on a read-only tape that is not charged, and space is the number of work-tape cells used; this convention makes sublinear classes such as $\mathrm{L} = \mathrm{DSPACE}(\log n)$ meaningful.</p>
+
+<table>
+  <tbody>
+    <tr>
+      <td><strong>Nondeterminism.</strong> A <strong>nondeterministic Turing machine</strong> (NTM) has a transition <em>relation</em>, so a configuration may have several successors and the computation is a tree. The NTM accepts $x$ if <em>some</em> branch reaches $q_{\mathrm{acc}}$, and it runs in time $t(n)$ if <em>every</em> branch halts within $t(</td>
+      <td>x</td>
+      <td>)$ steps. Nondeterminism is not a physical model; it formalizes “a short certificate exists.”</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Robustness.</strong> A $k$-tape machine running in time $t(n)$ can be simulated by a one-tape machine in time $O(t(n)^2)$ and by a two-tape machine in time $O(t(n) \log t(n))$ (Hennie-Stearns). Random-access machines with logarithmic-cost arithmetic and Turing machines simulate each other with polynomial overhead. Polynomial time is therefore model-independent. The <strong>extended (strong) Church-Turing thesis</strong> asserts that every physically realizable model is polynomially equivalent to a probabilistic Turing machine; quantum computation, captured by <strong>BQP</strong>, is the main challenge to it (see <a href="#quantum-complexity">Quantum Complexity</a>).</p>
+
+<p><strong>Asymptotics and constructibility.</strong> Resources are measured as functions of the input length $n = \lvert x \rvert$ up to constant factors, using $O$, $\Omega$, $\Theta$, and $o$. A bound $t : \mathbb{N} \to \mathbb{N}$ is <strong>time-constructible</strong> if some machine, on input $1^n$, halts in exactly $t(n)$ steps (space-constructible is analogous). All natural bounds ($n \log n$, $n^2$, $2^n$) are constructible; the hierarchy theorems need this so a simulating machine can measure its own budget.</p>
 
 <h2 id="time-and-space-complexity-classes">Time and Space Complexity Classes</h2>
 
-<p>Fixing the resource and the bound carves out a class.</p>
-
-<div class="postulate-card">
-  <h4 id="definition-deterministic-and-nondeterministic-resource-classes">Definition (Deterministic and nondeterministic resource classes)</h4>
-  <p>For a constructible bound $f$,
-\(\mathrm{DTIME}(f(n)) = \{\, L : L \text{ decided by a DTM in } O(f(n)) \text{ time}\,\},\)
-\(\mathrm{NTIME}(f(n)) = \{\, L : L \text{ decided by an NTM in } O(f(n)) \text{ time}\,\},\)
-\(\mathrm{DSPACE}(f(n)),\ \mathrm{NSPACE}(f(n)) \text{ analogously for space.}\)</p>
-</div>
-
-<p>The headline classes are unions over all polynomials or exponentials:</p>
+<p>For a constructible bound $f$, $\mathrm{DTIME}(f)$ and $\mathrm{NTIME}(f)$ are the languages decided by deterministic and nondeterministic machines in time $O(f(n))$; $\mathrm{DSPACE}(f)$ and $\mathrm{NSPACE}(f)$ are the space analogues. The standard classes are unions over polynomial or exponential bounds.</p>
 
 <table>
   <thead>
     <tr>
       <th>Class</th>
       <th>Definition</th>
-      <th>Intuition</th>
+      <th>Informal meaning</th>
+      <th>Typical problem</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>$\mathrm{L}$</td>
       <td>$\mathrm{DSPACE}(\log n)$</td>
-      <td>logarithmic work space</td>
+      <td>A constant number of pointers into the input</td>
+      <td>Undirected connectivity (Reingold 2005)</td>
     </tr>
     <tr>
       <td>$\mathrm{NL}$</td>
       <td>$\mathrm{NSPACE}(\log n)$</td>
-      <td>nondeterministic log space</td>
+      <td>Guess a path, remember only the current node</td>
+      <td>Directed $s$-$t$ reachability</td>
     </tr>
     <tr>
       <td>$\mathrm{P}$</td>
       <td>$\bigcup_k \mathrm{DTIME}(n^k)$</td>
-      <td>deterministic polynomial time (“efficient”)</td>
+      <td>Efficiently solvable</td>
+      <td>Linear programming, primality</td>
     </tr>
     <tr>
       <td>$\mathrm{NP}$</td>
       <td>$\bigcup_k \mathrm{NTIME}(n^k)$</td>
-      <td>poly-checkable certificates</td>
+      <td>Efficiently verifiable certificates</td>
+      <td>SAT, graph coloring</td>
     </tr>
     <tr>
       <td>$\mathrm{coNP}$</td>
-      <td>${\overline{L} : L \in \mathrm{NP}}$</td>
-      <td>poly-checkable <em>dis</em>proofs</td>
+      <td>Complements of NP languages</td>
+      <td>Efficiently verifiable refutations</td>
+      <td>Tautology, UNSAT</td>
     </tr>
     <tr>
       <td>$\mathrm{PSPACE}$</td>
       <td>$\bigcup_k \mathrm{DSPACE}(n^k)$</td>
-      <td>polynomial memory, unbounded time</td>
+      <td>Polynomial memory, unbounded time</td>
+      <td>TQBF, generalized games</td>
     </tr>
     <tr>
       <td>$\mathrm{EXP}$</td>
       <td>$\bigcup_k \mathrm{DTIME}(2^{n^k})$</td>
-      <td>exponential time</td>
+      <td>Exponential time</td>
+      <td>Generalized chess on $n \times n$ boards</td>
     </tr>
     <tr>
       <td>$\mathrm{NEXP}$</td>
       <td>$\bigcup_k \mathrm{NTIME}(2^{n^k})$</td>
-      <td>nondeterministic exponential time</td>
+      <td>Exponentially long certificates</td>
+      <td>Succinct SAT</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="np-as-certificate-checking">NP as certificate-checking</h3>
+<h3 id="np-as-verification">NP as verification</h3>
 
-<p>The certificate (or “verifier”) definition of NP is the one that connects to practice, and it is provably equivalent to the NTM definition.</p>
+<p><strong>Definition.</strong> $L \in \mathrm{NP}$ if and only if there is a polynomial $p$ and a polynomial-time deterministic verifier $V$ such that</p>
 
-<div class="principle-card">
-  <h4 id="definition-np-via-verifiers">Definition (NP via verifiers)</h4>
-  <p>$L \in \mathrm{NP}$ iff there is a polynomial $p$ and a polynomial-time DTM $V$ (the <em>verifier</em>) such that
-\(x \in L \iff \exists\, w \in \{0,1\}^{p(|x|)} :\ V(x, w) = 1.\)
-The string $w$ is a <em>certificate</em> (witness). “Guess the certificate” is exactly the work the nondeterministic branches do.</p>
-</div>
+\[x \in L \iff \exists\, w \in \{0,1\}^{p(\lvert x \rvert)} :\ V(x, w) = 1 .\]
 
-<p>For example, $\mathrm{SAT} \in \mathrm{NP}$: the certificate is a satisfying assignment, and $V$ evaluates the formula in linear time. $\mathrm{coNP}$ flips the quantifier — membership has a <em>universally</em>-checkable form ($x \in L \iff \forall w,\ V(x,w)=1$); TAUTOLOGY (is a formula true under all assignments?) is the canonical coNP problem.</p>
+<p>The string $w$ is a <strong>certificate</strong> or <strong>witness</strong>, and a nondeterministic machine’s branches correspond to guessing it. $\mathrm{SAT} \in \mathrm{NP}$ because a satisfying assignment can be checked in linear time. $\mathrm{coNP}$ swaps the quantifier ($x \in L \iff \forall w,\ V(x,w) = 1$). Problems in $\mathrm{NP} \cap \mathrm{coNP}$ have short proofs of both membership and non-membership; factoring (as a decision problem) and, historically, primality and linear programming are examples, which is one reason such problems are not expected to be NP-complete.</p>
 
 <h3 id="known-inclusions">Known inclusions</h3>
 
-<pre><code class="language-mermaid">flowchart TD
+<pre><code class="language-mermaid">flowchart BT
     L["L"] --&gt; NL["NL"]
     NL --&gt; P["P"]
     P --&gt; NP["NP"]
     P --&gt; coNP["coNP"]
-    NP --&gt; PSPACE["PSPACE"]
-    coNP --&gt; PSPACE
+    P --&gt; BPP["BPP"]
+    NP --&gt; S2["Σ2 ∩ Π2 level of PH"]
+    coNP --&gt; S2
+    BPP --&gt; S2
+    BPP --&gt; BQP["BQP"]
+    NP --&gt; PP["PP"]
+    BQP --&gt; PP
+    S2 --&gt; PH["PH"]
+    PH --&gt; PPP["P^#P (Toda)"]
+    PP --&gt; PPP
+    PPP --&gt; PSPACE["PSPACE = IP"]
     PSPACE --&gt; EXP["EXP"]
     EXP --&gt; NEXP["NEXP"]
 </code></pre>
 
-\[\mathrm{L} \subseteq \mathrm{NL} \subseteq \mathrm{P} \subseteq \mathrm{NP} \cap \mathrm{coNP} \subseteq \mathrm{NP} \cup \mathrm{coNP} \subseteq \mathrm{PSPACE} \subseteq \mathrm{EXP} \subseteq \mathrm{NEXP}.\]
+<p>Arrows denote inclusion (upward). Every inclusion shown is proved; the only strict separations known among these classes are the ones implied by the hierarchy theorems, such as $\mathrm{L} \subsetneq \mathrm{PSPACE}$, $\mathrm{P} \subsetneq \mathrm{EXP}$, $\mathrm{NL} \subsetneq \mathrm{PSPACE}$, and $\mathrm{NP} \subsetneq \mathrm{NEXP}$. Consequently at least one inclusion in $\mathrm{P} \subseteq \mathrm{NP} \subseteq \mathrm{PSPACE} \subseteq \mathrm{EXP}$ is strict, but no one knows which.</p>
 
-<p>Every inclusion shown is <em>known</em>; almost none are known to be <em>strict</em>. The two structural pillars that organize them are the hierarchy theorems and Savitch’s theorem.</p>
+<h3 id="hierarchy-theorems">Hierarchy theorems</h3>
 
-<h3 id="the-hierarchy-theorems">The hierarchy theorems</h3>
+<p>Diagonalization proves that more of the same resource buys more power.</p>
 
-<p>More resource strictly buys more computational power — the one place we <em>can</em> prove separations.</p>
+<p><strong>Theorem (deterministic time hierarchy; Hartmanis-Stearns 1965, sharpened by Hennie-Stearns).</strong> If $f$ is time-constructible and $g(n) \log g(n) = o(f(n))$, then</p>
 
-<div class="postulate-card">
-  <h4 id="theorem-time-hierarchy-hartmanisstearns">Theorem (Time Hierarchy, Hartmanis–Stearns)</h4>
-  <p>If $f$ is time-constructible and $g(n)\log g(n) = o(f(n))$, then
-\(\mathrm{DTIME}(g(n)) \subsetneq \mathrm{DTIME}(f(n)).\)
-In particular $\mathrm{P} \subsetneq \mathrm{EXP}$, so there <em>exist</em> provably intractable decidable problems.</p>
-</div>
+\[\mathrm{DTIME}(g(n)) \subsetneq \mathrm{DTIME}(f(n)).\]
 
-<div class="postulate-card">
-  <h4 id="theorem-space-hierarchy">Theorem (Space Hierarchy)</h4>
-  <p>If $f$ is space-constructible and $g(n) = o(f(n))$, then
-\(\mathrm{DSPACE}(g(n)) \subsetneq \mathrm{DSPACE}(f(n)).\)
-Hence $\mathrm{L} \subsetneq \mathrm{PSPACE}$.</p>
-</div>
+<p><strong>Theorem (space hierarchy; Stearns-Hartmanis-Lewis 1965).</strong> If $f$ is space-constructible and $g(n) = o(f(n))$, then $\mathrm{DSPACE}(g(n)) \subsetneq \mathrm{DSPACE}(f(n))$.</p>
 
-<p><strong>Proof idea (time hierarchy).</strong> Diagonalization. Build a machine $D$ that, on input $\langle M\rangle$, simulates $M$ on $\langle M\rangle$ for $f(n)$ steps and <em>flips</em> the answer. $D$ runs in $\mathrm{DTIME}(f)$ (the $\log g$ slowdown is the cost of a universal simulator’s bookkeeping). No machine running in time $g \ll f$ can decide $L(D)$, because such a machine would disagree with $D$ on its own encoding — the classic self-reference contradiction. The $\log$ factor is the price of universal simulation; with a RAM-style model it can be removed.</p>
+<p><strong>Theorem (nondeterministic time hierarchy; Cook 1972, Seiferas-Fischer-Meyer 1978, Žák 1983).</strong> If $f$ is time-constructible and $g(n+1) = o(f(n))$, then $\mathrm{NTIME}(g(n)) \subsetneq \mathrm{NTIME}(f(n))$.</p>
 
-<p>The hierarchy theorems show the <em>vertical</em> axis (more of the same resource) is strict. The hard open questions are all about the <em>horizontal</em> axis: does <em>changing the resource</em> (determinism to nondeterminism, time to space) add power?</p>
+<p><em>Proof idea (time).</em> A machine $D$, on input $\langle M \rangle$, simulates $M$ on its own description for about $f(n)$ steps and outputs the opposite answer. $D$ runs within the larger bound, and any machine running within the smaller bound disagrees with $D$ on its own description. The $\log g$ factor is the overhead of universal simulation on a fixed number of tapes. The nondeterministic version cannot simply flip answers (complementing an NTM is not known to be cheap) and uses <em>lazy diagonalization</em> instead.</p>
 
-<h3 id="savitchs-theorem-and-the-space-classes">Savitch’s theorem and the space classes</h3>
+<p>The hierarchy theorems separate classes that differ in the <em>amount</em> of one resource. The hard open problems ask whether changing the <em>kind</em> of resource (determinism to nondeterminism, time to space) adds power.</p>
 
-<p>For space, nondeterminism is provably almost free.</p>
+<h3 id="savitch-and-immerman-szelepcsényi">Savitch and Immerman-Szelepcsényi</h3>
 
-<div class="postulate-card">
-  <h4 id="theorem-savitch-1970">Theorem (Savitch, 1970)</h4>
-  <p>For space-constructible $f(n) \geq \log n$,
-\(\mathrm{NSPACE}(f(n)) \subseteq \mathrm{DSPACE}(f(n)^2).\)
-In particular $\mathrm{NPSPACE} = \mathrm{PSPACE}$ and $\mathrm{NL} \subseteq \mathrm{DSPACE}(\log^2 n)$.</p>
-</div>
+<p>For space, nondeterminism is provably cheap.</p>
 
-<p><strong>Proof idea.</strong> Reachability between configurations is the bottleneck. Define $\mathrm{REACH}(c_1, c_2, i)$ = “can $c_2$ be reached from $c_1$ in $\leq 2^i$ steps?” and solve it recursively by guessing a midpoint $c_m$: $\mathrm{REACH}(c_1,c_2,i)$ holds iff $\exists c_m:\ \mathrm{REACH}(c_1,c_m,i{-}1) \wedge \mathrm{REACH}(c_m,c_2,i{-}1)$. The recursion depth is $O(f(n))$ and each level stores one configuration of size $O(f(n))$, giving $O(f(n)^2)$ total space. Time blows up to exponential, but space is what we are counting.</p>
+<p><strong>Theorem (Savitch 1970).</strong> For space-constructible $f(n) \geq \log n$,</p>
 
-<p>A companion result, the <strong>Immerman–Szelepcsényi theorem</strong> (1987–88), shows nondeterministic space is closed under complement: $\mathrm{NSPACE}(f) = \mathrm{coNSPACE}(f)$ for $f \geq \log n$, so $\mathrm{NL} = \mathrm{coNL}$. (The analogous question for <em>time</em>, whether $\mathrm{NP} = \mathrm{coNP}$, is wide open and conjectured false.)</p>
+\[\mathrm{NSPACE}(f(n)) \subseteq \mathrm{DSPACE}\big(f(n)^2\big).\]
+
+<p>Hence $\mathrm{NPSPACE} = \mathrm{PSPACE}$ and $\mathrm{NL} \subseteq \mathrm{DSPACE}(\log^2 n)$.</p>
+
+<p><em>Proof idea.</em> Let $\mathrm{REACH}(c_1, c_2, i)$ mean “configuration $c_2$ is reachable from $c_1$ in at most $2^i$ steps.” It holds if and only if some midpoint $c_m$ satisfies $\mathrm{REACH}(c_1, c_m, i-1)$ and $\mathrm{REACH}(c_m, c_2, i-1)$. Trying every midpoint deterministically and reusing space between the two recursive calls gives recursion depth $O(f(n))$ with $O(f(n))$ space per level.</p>
+
+<p><strong>Theorem (Immerman 1988; Szelepcsényi 1987).</strong> For $f(n) \geq \log n$, $\mathrm{NSPACE}(f) = \mathrm{coNSPACE}(f)$; in particular $\mathrm{NL} = \mathrm{coNL}$. The proof uses <em>inductive counting</em>: a nondeterministic log-space machine can compute the exact number of reachable configurations and then certify unreachability. The analogous statement for time, $\mathrm{NP} = \mathrm{coNP}$, is open and believed false.</p>
+
+<h3 id="time-versus-space">Time versus space</h3>
+
+<p>Every time-$t$ computation uses at most $t$ space, so $\mathrm{TIME}(t) \subseteq \mathrm{SPACE}(t)$. For fifty years the best improvement was Hopcroft, Paul, and Valiant (1977): $\mathrm{TIME}(t) \subseteq \mathrm{SPACE}(t / \log t)$ for multitape machines. In 2025 Ryan Williams proved a far stronger simulation:</p>
+
+\[\mathrm{TIME}(t) \subseteq \mathrm{SPACE}\big(\sqrt{t \log t}\,\big) \qquad \text{for } t(n) \geq n .\]
+
+<p>The proof reduces a time-$t$ computation to an instance of the <strong>Tree Evaluation</strong> problem and applies the space-efficient algorithm of Cook and Mertz (STOC 2024), which evaluates trees in $O(\log n \cdot \log\log n)$ space by reusing memory that already holds data (“catalytic” techniques). Combined with the space hierarchy theorem, the simulation gives explicit problems solvable in $O(n)$ space that require $n^{2-\varepsilon}$ time on multitape Turing machines for every $\varepsilon &gt; 0$. Separating P from PSPACE would require an analogous result for all polynomial time bounds, which remains far out of reach.</p>
 
 <h2 id="reductions-and-completeness">Reductions and Completeness</h2>
 
-<p>Reductions let us <em>compare</em> problems: if $A$ reduces to $B$, then $B$ is “at least as hard” as $A$. Completeness identifies the single hardest problems in a class.</p>
+<p><strong>Definition.</strong> $A$ is <strong>polynomial-time many-one reducible</strong> to $B$, written $A \leq_p B$, if there is a polynomial-time computable $f$ with</p>
 
-<div class="postulate-card">
-  <h4 id="definition-polynomial-time-many-one-reduction">Definition (Polynomial-time many-one reduction)</h4>
-  <p>$A \leq_{p} B$ if there is a polynomial-time computable $f$ such that
-\(x \in A \iff f(x) \in B \quad \text{for all } x.\)
-$A \leq_p B$ means “an efficient algorithm for $B$ yields one for $A$.” For space classes we use the stricter <strong>log-space reduction</strong> $\leq_{\log}$, computable in $O(\log n)$ space.</p>
-</div>
+\[x \in A \iff f(x) \in B \quad \text{for all } x .\]
 
-<div class="principle-card">
-  <h4 id="definition-hardness-and-completeness">Definition (Hardness and completeness)</h4>
-  <p>Let $\mathcal{C}$ be a class and $\leq$ a reduction. A language $B$ is <strong>$\mathcal{C}$-hard</strong> (under $\leq$) if $A \leq B$ for every $A \in \mathcal{C}$. It is <strong>$\mathcal{C}$-complete</strong> if additionally $B \in \mathcal{C}$.
-A complete problem is a faithful proxy: $\mathcal{C} = \mathcal{C}’$ collapses to a single reduction question about the complete problem.</p>
-</div>
+<p>A problem $B$ is <strong>$\mathcal{C}$-hard</strong> if every $A \in \mathcal{C}$ reduces to it, and <strong>$\mathcal{C}$-complete</strong> if it is also in $\mathcal{C}$. A complete problem stands in for the whole class: $\mathcal{C} \subseteq \mathcal{D}$ for a class $\mathcal{D}$ closed under the reduction if and only if the complete problem lies in $\mathcal{D}$.</p>
 
-<p>We must reduce with <em>weaker</em> resources than the class we study, or the reduction could smuggle in the answer. NP-completeness uses $\leq_p$ (P is weaker than NP); NL- and P-completeness use $\leq_{\log}$ (because $\leq_p$ would be useless inside P).</p>
+<p>Reductions must be weaker than the class being studied, or they could solve the problem themselves. NP-completeness uses polynomial-time reductions; completeness for P and NL uses <strong>log-space reductions</strong> $\leq_{\log}$. <strong>Karp</strong> (many-one) reductions make one query and pass the answer through; <strong>Cook</strong> (Turing) reductions may make many adaptive oracle queries. NP-completeness is conventionally defined with Karp reductions, which distinguish NP from coNP.</p>
 
-<h3 id="the-cooklevin-theorem">The Cook–Levin theorem</h3>
+<h3 id="the-cook-levin-theorem">The Cook-Levin theorem</h3>
 
-<p>The foundational completeness result. Boolean satisfiability is the seed from which all of NP-completeness grows.</p>
+<p><strong>Theorem (Cook 1971; Levin 1973).</strong> SAT is NP-complete, and so is 3SAT, its restriction to clauses of three literals.</p>
 
-<div class="postulate-card">
-  <h4 id="theorem-cook-1971-levin-1973">Theorem (Cook 1971, Levin 1973)</h4>
-  <p>$\mathrm{SAT}$ — given a Boolean formula, is there a satisfying assignment? — is <strong>NP-complete</strong>. So is $\mathrm{3SAT}$ (clauses of exactly three literals).</p>
-</div>
+<p><em>Proof sketch.</em> Membership is immediate. For hardness, let $L$ be decided by an NTM $M$ in time $p(n)$. An accepting computation fits in a $p(n) \times p(n)$ <strong>tableau</strong> whose rows are successive configurations. Build a formula $\varphi_x$ with variables “cell $(t, j)$ holds symbol $s$” (states and head positions are encoded as extra symbols) and clauses stating that</p>
 
-<p><strong>Proof sketch.</strong> $\mathrm{SAT} \in \mathrm{NP}$ is immediate (the assignment is the certificate). For hardness, take any $L \in \mathrm{NP}$ decided by an NTM $M$ in time $p(n)$. The entire computation fits in a $p(n) \times p(n)$ <strong>tableau</strong> (rows = time steps, columns = tape cells). We build a formula $\varphi_x$ whose variables encode “cell $c$ at time $t$ holds symbol $s$ / head is here / state is $q$,” with clauses asserting:</p>
 <ol>
-  <li>the first row encodes the start configuration on input $x$;</li>
-  <li>each $2\times 3$ window of cells obeys $\delta$ (this is where nondeterministic <em>choices</em> become existentially-quantified variables);</li>
-  <li>some row is accepting.</li>
+  <li>row 0 is the start configuration on input $x$;</li>
+  <li>every $2 \times 3$ window of adjacent cells is consistent with $\delta$ (this is where nondeterministic choices become free variables);</li>
+  <li>some row contains the accepting state.</li>
 </ol>
 
-<p>Then $x \in L \iff M$ has an accepting branch $\iff \varphi_x \in \mathrm{SAT}$, and $\varphi_x$ is built in polynomial time. The reduction to 3SAT clausifies each constraint into 3-literal clauses with auxiliary variables.</p>
+<p>Then $x \in L \iff \varphi_x$ is satisfiable, and $\varphi_x$ has size polynomial in $n$. Tseitin-style introduction of auxiliary variables converts it to 3-CNF.</p>
 
-<p>Once SAT is complete, hardness propagates by composition: $\leq_p$ is transitive, so to prove a new problem $B$ is NP-hard it suffices to reduce <em>one known</em> NP-hard problem to it.</p>
+<p>Because $\leq_p$ is transitive, a new problem is shown NP-hard by reducing any known NP-hard problem to it. Karp (1972) gave 21 such reductions; thousands are now known.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    SAT["SAT (Cook-Levin)"] --&gt; T3["3-SAT"]
-    T3 --&gt; CLIQUE["CLIQUE"]
+    SAT["SAT (Cook-Levin)"] --&gt; T3["3SAT"]
     T3 --&gt; IS["Independent Set"]
-    T3 --&gt; VC["Vertex Cover"]
+    IS --&gt; CLIQUE["Clique"]
+    IS --&gt; VC["Vertex Cover"]
+    VC --&gt; SC["Set Cover"]
+    T3 --&gt; COL["3-Coloring"]
     T3 --&gt; HAM["Hamiltonian Cycle"]
-    HAM --&gt; TSP["Traveling Salesman"]
-    T3 --&gt; 3COL["3-Colorability"]
-    T3 --&gt; SUBSET["Subset Sum"]
-    SUBSET --&gt; KNAP["Knapsack"]
+    HAM --&gt; TSP["Traveling Salesman (decision)"]
+    T3 --&gt; SS["Subset Sum"]
+    SS --&gt; KNAP["Knapsack"]
+    SS --&gt; PART["Partition"]
 </code></pre>
 
-<p>Karp’s 1972 paper exhibited 21 such reductions; thousands are now known. Crucially, <strong>if any NP-complete problem is in P, then P = NP</strong> — because everything in NP reduces to it.</p>
+<p>If any NP-complete problem is in P then $\mathrm{P} = \mathrm{NP}$. Several apparently similar problems fall on opposite sides of the line: 2SAT, 2-coloring, Eulerian circuits, and shortest paths are in P, while 3SAT, 3-coloring, Hamiltonian cycles, and longest paths are NP-complete.</p>
 
-<h3 id="completeness-for-other-classes">Completeness for other classes</h3>
+<p><strong>Dichotomy theorems.</strong> Schaefer (1978) showed that every Boolean constraint satisfaction problem (CSP) is either in P or NP-complete, with no intermediate cases. The Feder-Vardi conjecture extended this to CSPs over any finite domain; it was proved independently by Bulatov and by Zhuk in 2017, using the algebraic approach in which the complexity of a CSP is determined by its <em>polymorphisms</em>.</p>
+
+<h3 id="complete-problems-for-other-classes">Complete problems for other classes</h3>
 
 <table>
   <thead>
     <tr>
       <th>Class</th>
-      <th>A canonical complete problem</th>
+      <th>Canonical complete problem</th>
       <th>Reduction</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>$\mathrm{NL}$</td>
-      <td>$\mathrm{STCON}$ (directed $s$–$t$ connectivity)</td>
+      <td>STCON (directed $s$-$t$ reachability)</td>
       <td>$\leq_{\log}$</td>
     </tr>
     <tr>
       <td>$\mathrm{P}$</td>
-      <td>$\mathrm{CVP}$ (Circuit Value Problem)</td>
+      <td>Circuit Value Problem; Horn-SAT; linear programming</td>
       <td>$\leq_{\log}$</td>
     </tr>
     <tr>
       <td>$\mathrm{NP}$</td>
-      <td>$\mathrm{SAT}$, $\mathrm{3SAT}$, CLIQUE, …</td>
+      <td>SAT, 3SAT, Clique, 3-Coloring, …</td>
       <td>$\leq_p$</td>
     </tr>
     <tr>
       <td>$\mathrm{coNP}$</td>
-      <td>$\mathrm{TAUTOLOGY}$, $\mathrm{UNSAT}$</td>
+      <td>Tautology, UNSAT</td>
       <td>$\leq_p$</td>
     </tr>
     <tr>
+      <td>$\Sigma_2^p$</td>
+      <td>$\exists\forall$-3SAT; minimum equivalent DNF</td>
+      <td>$\leq_p$</td>
+    </tr>
+    <tr>
+      <td>$\mathrm{PP}$</td>
+      <td>MAJ-SAT (is a majority of assignments satisfying?)</td>
+      <td>$\leq_p$</td>
+    </tr>
+    <tr>
+      <td>$#\mathrm{P}$</td>
+      <td>#SAT; permanent of a 0/1 matrix (Valiant 1979)</td>
+      <td>parsimonious / Turing</td>
+    </tr>
+    <tr>
       <td>$\mathrm{PSPACE}$</td>
-      <td>$\mathrm{TQBF}$ (True Quantified Boolean Formula)</td>
+      <td>TQBF; generalized Geography; Sokoban</td>
       <td>$\leq_p$</td>
     </tr>
     <tr>
       <td>$\mathrm{EXP}$</td>
-      <td>succinct-circuit versions of P-complete problems</td>
+      <td>Generalized chess and checkers; succinct Circuit Value</td>
       <td>$\leq_p$</td>
     </tr>
   </tbody>
 </table>
 
-<p>$\mathrm{TQBF}$ — deciding the truth of $\exists x_1 \forall x_2 \exists x_3 \cdots \varphi$ — is the PSPACE archetype: the alternating quantifiers correspond exactly to exploring a game tree, and game-against-an-adversary problems (generalized Geography, Go, etc.) are typically PSPACE-complete. P-completeness, meanwhile, is the theory of <em>inherently sequential</em> problems: a P-complete problem is unlikely to have a fast parallel ($\mathrm{NC}$) algorithm.</p>
+<p>TQBF, the truth of $\exists x_1 \forall x_2 \exists x_3 \cdots \varphi$, is the PSPACE archetype: alternating quantifiers correspond to moves in a two-player game, and many generalized games are PSPACE- or EXP-complete. P-complete problems are the <em>inherently sequential</em> ones: a P-complete problem in NC would give $\mathrm{NC} = \mathrm{P}$.</p>
 
-<h2 id="the-polynomial-hierarchy">The Polynomial Hierarchy</h2>
+<h2 id="the-polynomial-hierarchy-and-counting">The Polynomial Hierarchy and Counting</h2>
 
-<p>NP and coNP correspond to one quantifier ($\exists$ or $\forall$) in front of a poly-time predicate. Alternating quantifiers builds an infinite tower — the <strong>polynomial hierarchy (PH)</strong> — that sits between NP and PSPACE.</p>
+<h3 id="the-polynomial-hierarchy">The polynomial hierarchy</h3>
 
-<div class="postulate-card">
-  <h4 id="definition-polynomial-hierarchy">Definition (Polynomial hierarchy)</h4>
-  <p>Set $\Sigma_0^p = \Pi_0^p = \Delta_0^p = \mathrm{P}$. For $k \geq 0$:
-\(\Sigma_{k+1}^p = \mathrm{NP}^{\Sigma_k^p}, \qquad \Pi_{k+1}^p = \mathrm{coNP}^{\Sigma_k^p}, \qquad \Delta_{k+1}^p = \mathrm{P}^{\Sigma_k^p},\)
-where $\mathcal{C}^{\mathcal{D}}$ denotes $\mathcal{C}$ with an oracle for $\mathcal{D}$. Equivalently, $L \in \Sigma_k^p$ iff there is a poly-time predicate $R$ and polynomial bounds with
-\(x \in L \iff \exists w_1\, \forall w_2\, \exists w_3 \cdots Q_k w_k\ R(x, w_1, \dots, w_k),\)
-with $k$ alternating quantifiers starting from $\exists$ ($\Pi_k^p$ starts from $\forall$). Then $\mathrm{PH} = \bigcup_k \Sigma_k^p$.</p>
-</div>
+<p>NP and coNP place one quantifier in front of a polynomial-time predicate. Allowing a bounded number of alternations gives the <strong>polynomial hierarchy</strong> (Meyer and Stockmeyer, 1972).</p>
 
-<p>So $\Sigma_1^p = \mathrm{NP}$, $\Pi_1^p = \mathrm{coNP}$, and $\Delta_2^p = \mathrm{P}^{\mathrm{NP}}$ (e.g. computing the <em>optimal</em> clique size, not just deciding a threshold). Each level contains the ones below it:
-\(\Sigma_k^p \cup \Pi_k^p \subseteq \Delta_{k+1}^p \subseteq \Sigma_{k+1}^p \cap \Pi_{k+1}^p, \qquad \mathrm{PH} \subseteq \mathrm{PSPACE}.\)</p>
+<p><strong>Definition.</strong> $\Sigma_0^p = \Pi_0^p = \Delta_0^p = \mathrm{P}$, and for $k \geq 0$</p>
 
-<pre><code class="language-mermaid">flowchart TD
-    P["P = &amp;Sigma;_0 = &amp;Pi;_0"] --&gt; S1["&amp;Sigma;_1 = NP"]
-    P --&gt; P1["&amp;Pi;_1 = coNP"]
-    S1 --&gt; D2["&amp;Delta;_2 = P^NP"]
-    P1 --&gt; D2
-    D2 --&gt; S2["&amp;Sigma;_2"]
-    D2 --&gt; P2["&amp;Pi;_2"]
-    S2 --&gt; PH["PH = &amp;cup;_k &amp;Sigma;_k"]
-    P2 --&gt; PH
+\[\Sigma_{k+1}^p = \mathrm{NP}^{\Sigma_k^p}, \qquad \Pi_{k+1}^p = \mathrm{coNP}^{\Sigma_k^p}, \qquad \Delta_{k+1}^p = \mathrm{P}^{\Sigma_k^p},\]
+
+<p>where $\mathcal{C}^{\mathcal{D}}$ is $\mathcal{C}$ with an oracle for a $\mathcal{D}$-complete language. Equivalently, $L \in \Sigma_k^p$ if and only if</p>
+
+\[x \in L \iff \exists w_1\, \forall w_2\, \exists w_3 \cdots Q_k w_k \ R(x, w_1, \ldots, w_k)\]
+
+<p>for a polynomial-time predicate $R$ and polynomially bounded $w_i$. $\Pi_k^p$ starts with $\forall$, and $\mathrm{PH} = \bigcup_k \Sigma_k^p \subseteq \mathrm{PSPACE}$.</p>
+
+<p>So $\Sigma_1^p = \mathrm{NP}$, $\Pi_1^p = \mathrm{coNP}$, and $\Delta_2^p = \mathrm{P}^{\mathrm{NP}}$ contains optimization problems such as computing the exact size of a maximum clique. Each level contains the previous ones:</p>
+
+\[\Sigma_k^p \cup \Pi_k^p \subseteq \Delta_{k+1}^p \subseteq \Sigma_{k+1}^p \cap \Pi_{k+1}^p .\]
+
+<pre><code class="language-mermaid">flowchart BT
+    P["P = Σ0 = Π0"] --&gt; NP["Σ1 = NP"]
+    P --&gt; CONP["Π1 = coNP"]
+    NP --&gt; D2["Δ2 = P^NP"]
+    CONP --&gt; D2
+    D2 --&gt; S2["Σ2 = NP^NP"]
+    D2 --&gt; P2["Π2 = coNP^NP"]
+    S2 --&gt; D3["Δ3"]
+    P2 --&gt; D3
+    D3 --&gt; DOTS["..."]
+    DOTS --&gt; PH["PH"]
     PH --&gt; PSPACE["PSPACE"]
 </code></pre>
 
-<div class="principle-card">
-  <h4 id="collapse-theorems">Collapse theorems</h4>
-  <p>The hierarchy is conjectured <strong>infinite</strong> (all levels distinct). But it is fragile:</p>
-  <ul>
-    <li>If $\Sigma_k^p = \Pi_k^p$ for some $k$, then $\mathrm{PH} = \Sigma_k^p$ — the hierarchy <em>collapses to level $k$</em>.</li>
-    <li>In particular, <strong>if $\mathrm{P} = \mathrm{NP}$ then $\mathrm{PH} = \mathrm{P}$</strong>, and <strong>if $\mathrm{NP} = \mathrm{coNP}$ then $\mathrm{PH} = \mathrm{NP}$</strong>.
-So “the polynomial hierarchy is infinite” is a strictly stronger conjecture than $\mathrm{P} \neq \mathrm{NP}$, and theorists often state results as “…unless PH collapses” to signal an extremely unlikely conclusion.</li>
-  </ul>
-</div>
+<p><strong>Collapse.</strong> If $\Sigma_k^p = \Pi_k^p$ for some $k$, then $\mathrm{PH} = \Sigma_k^p$: two adjacent quantifiers of the same type can be merged, so no formula needs more than $k$ alternations. In particular $\mathrm{P} = \mathrm{NP}$ implies $\mathrm{PH} = \mathrm{P}$, and $\mathrm{NP} = \mathrm{coNP}$ implies $\mathrm{PH} = \mathrm{NP}$. “The polynomial hierarchy is infinite” is therefore a stronger conjecture than $\mathrm{P} \neq \mathrm{NP}$, and “unless PH collapses” is the standard hypothesis attached to conditional results.</p>
 
-<p><strong>Why a collapse propagates.</strong> If the $\exists/\forall$ at level $k$ can be swapped (that is, $\Sigma_k^p = \Pi_k^p$), then any two adjacent same-type quantifiers in a level-$(k{+}1)$ formula can be merged, and the alternation count never exceeds $k$ thereafter — every higher level folds down. This is the quantifier-alternation analogue of $\mathrm{NP} = \mathrm{coNP}$ trivializing all of PH.</p>
+<h3 id="counting-classes">Counting classes</h3>
 
-<h2 id="circuit-complexity-and-non-uniformity">Circuit Complexity and Non-Uniformity</h2>
+<p><strong>$#\mathrm{P}$</strong> (Valiant 1979) is the class of functions counting the accepting paths of a polynomial-time NTM, for example the number of satisfying assignments of a formula. Counting can be hard even when deciding is easy: deciding whether a bipartite graph has a perfect matching is in P, but counting perfect matchings, equivalently computing the permanent of a 0/1 matrix, is #P-complete. <strong>PP</strong> is the decision analogue (“do more than half the paths accept?”).</p>
 
-<p>Turing machines are <strong>uniform</strong>: one finite program handles all input lengths. <strong>Circuits</strong> are <strong>non-uniform</strong>: a <em>different</em> circuit is permitted for each length $n$. This extra freedom makes circuits a promising target for lower bounds — combinatorial objects are sometimes easier to argue about than programs.</p>
+<p><strong>Theorem (Toda 1991).</strong> $\mathrm{PH} \subseteq \mathrm{P}^{#\mathrm{P}} = \mathrm{P}^{\mathrm{PP}}$.</p>
 
-<div class="postulate-card">
-  <h4 id="definition-boolean-circuits-and-ppoly">Definition (Boolean circuits and P/poly)</h4>
-  <p>A Boolean circuit on $n$ inputs is a DAG whose nodes are AND/OR/NOT gates (and input/constant nodes), with one output. Its <strong>size</strong> is the number of gates, its <strong>depth</strong> the longest input-to-output path. A <em>family</em> ${C_n}_{n\in\mathbb{N}}$ decides $L$ if $C_n$ outputs $1$ exactly on the length-$n$ members of $L$. Then
-\(\mathrm{P/poly} = \{\, L : L \text{ has a circuit family of size } n^{O(1)}\,\}.\)</p>
-</div>
+<p>A single call to a counting oracle is thus at least as powerful as the entire polynomial hierarchy. Toda’s theorem also underlies the belief that exact counting is much harder than NP.</p>
 
-<p>The non-uniformity is genuine power: $\mathrm{P/poly}$ contains <strong>undecidable</strong> languages (encode a hard unary language one bit per input length into the circuits). So $\mathrm{P} \subsetneq \mathrm{P/poly}$ in the sense that P/poly contains things P cannot — yet,</p>
+<h2 id="circuit-complexity">Circuit Complexity</h2>
 
-<div class="principle-card">
-  <h4 id="why-circuit-lower-bounds-attack-p-vs-np">Why circuit lower bounds attack P vs NP</h4>
-  <p>$\mathrm{P} \subseteq \mathrm{P/poly}$ (unfold a poly-time TM’s computation into a poly-size circuit, one layer per step). Therefore <strong>proving $\mathrm{NP} \not\subseteq \mathrm{P/poly}$ would prove $\mathrm{P} \neq \mathrm{NP}$.</strong> This reduces a question about <em>algorithms</em> to one about <em>circuit size</em> — combinatorics rather than computation.</p>
-</div>
+<p>Turing machines are <strong>uniform</strong>: one finite program handles all input lengths. Boolean circuits are <strong>non-uniform</strong>: each input length $n$ may use a different circuit. Circuits are finite combinatorial objects, which makes them a natural target for lower bounds.</p>
 
-<p>The <strong>Karp–Lipton theorem</strong> sharpens the stakes: <em>if</em> $\mathrm{NP} \subseteq \mathrm{P/poly}$, <em>then</em> $\mathrm{PH} = \Sigma_2^p$ (the hierarchy collapses to its second level). So NP having small circuits is itself a near-incredible conclusion, which is why most researchers believe $\mathrm{NP} \not\subseteq \mathrm{P/poly}$.</p>
+<p><strong>Definition.</strong> A Boolean circuit on $n$ inputs is a directed acyclic graph of AND, OR, and NOT gates with one output. Its <strong>size</strong> is the number of gates and its <strong>depth</strong> the length of the longest input-output path. A family ${C_n}$ decides $L$ if $C_n$ agrees with $L$ on all inputs of length $n$, and</p>
 
-<h3 id="bounded-depth-circuits-and-what-we-can-prove">Bounded-depth circuits and what we <em>can</em> prove</h3>
+\[\mathrm{P/poly} = \{\, L : L \text{ is decided by a circuit family of size } n^{O(1)} \,\}.\]
 
-<p>Unconditional lower bounds exist only for <em>restricted</em> circuit classes.</p>
+<p>Non-uniformity is genuinely powerful: $\mathrm{P/poly}$ contains undecidable unary languages. Nevertheless $\mathrm{P} \subseteq \mathrm{P/poly}$ (unroll the tableau of a polynomial-time machine), so <strong>proving $\mathrm{NP} \not\subseteq \mathrm{P/poly}$ would prove $\mathrm{P} \neq \mathrm{NP}$</strong>. The <strong>Karp-Lipton theorem</strong> (1980) says $\mathrm{NP} \subseteq \mathrm{P/poly}$ would collapse PH to $\Sigma_2^p$, so NP is not expected to have small circuits. Adleman’s theorem gives $\mathrm{BPP} \subseteq \mathrm{P/poly}$.</p>
+
+<h3 id="what-is-known">What is known</h3>
+
+<p>A counting argument (Shannon 1949) shows that almost every Boolean function on $n$ variables requires circuits of size about $2^n / n$. The difficulty is exhibiting an <em>explicit</em> hard function.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Circuit class</th>
+      <th>Model</th>
+      <th>Best known lower bounds</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>General circuits</td>
+      <td>Unbounded depth, fan-in 2</td>
+      <td>$3.1n - o(n)$ for an explicit function in P (Li and Yang, STOC 2022); nothing superlinear for any NP problem</td>
+    </tr>
+    <tr>
+      <td>Exponential-time classes</td>
+      <td>General circuits</td>
+      <td>Symmetric exponential time $\mathrm{S_2E}$ requires size $2^n / n$ (Chen-Hirahara-Ren; Li; STOC 2024)</td>
+    </tr>
+    <tr>
+      <td>$\mathrm{AC}^0$</td>
+      <td>Constant depth, unbounded fan-in AND/OR</td>
+      <td>PARITY needs exponential size (Furst-Saxe-Sipser, Ajtai, Yao; Håstad’s switching lemma, 1986)</td>
+    </tr>
+    <tr>
+      <td>$\mathrm{AC}^0[p]$</td>
+      <td>$\mathrm{AC}^0$ plus MOD-$p$ gates, $p$ prime</td>
+      <td>MOD-$q$ for a different prime $q$ is not in $\mathrm{AC}^0[p]$ (Razborov 1987, Smolensky 1987)</td>
+    </tr>
+    <tr>
+      <td>$\mathrm{ACC}^0$</td>
+      <td>$\mathrm{AC}^0$ plus MOD-$m$ gates, any $m$</td>
+      <td>$\mathrm{NEXP} \not\subseteq \mathrm{ACC}^0$ (Williams 2011); $\mathrm{NQP} \not\subseteq \mathrm{ACC}^0$ (Murray-Williams 2018)</td>
+    </tr>
+    <tr>
+      <td>$\mathrm{TC}^0$</td>
+      <td>Constant depth with majority gates</td>
+      <td>Only slightly superlinear wire lower bounds; separating $\mathrm{TC}^0$ from NP is open</td>
+    </tr>
+    <tr>
+      <td>Monotone circuits</td>
+      <td>AND/OR only</td>
+      <td>Clique needs exponential monotone size (Razborov 1985; Alon-Boppana)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Williams’ $\mathrm{ACC}^0$ result introduced the <strong>algorithmic method</strong>: a satisfiability algorithm for a circuit class that beats brute force by even a modest factor implies a lower bound against that class. It is the leading example of a lower-bound technique that is not blocked by the barriers discussed below.</p>
+
+<h3 id="parallel-computation">Parallel computation</h3>
+
+<p>$\mathrm{NC}^i$ is the class of problems with uniform circuits of polynomial size, depth $O(\log^i n)$, and fan-in 2; $\mathrm{NC} = \bigcup_i \mathrm{NC}^i$ captures efficient parallel algorithms. The classes interleave with small space:</p>
+
+\[\mathrm{NC}^1 \subseteq \mathrm{L} \subseteq \mathrm{NL} \subseteq \mathrm{NC}^2 \subseteq \mathrm{NC} \subseteq \mathrm{P}.\]
+
+<p>Whether $\mathrm{NC} = \mathrm{P}$ (whether every efficient problem parallelizes) is open; P-complete problems such as the Circuit Value Problem are the conjectured obstructions. Tree Evaluation, mentioned above, was proposed as a candidate for separating L from P; the Cook-Mertz algorithm weakened that approach by putting it in nearly logarithmic space.</p>
+
+<h2 id="randomized-computation">Randomized Computation</h2>
+
+<p>A probabilistic Turing machine reads random bits and must run in polynomial time; classes differ in the error they tolerate.</p>
 
 <table>
   <thead>
     <tr>
       <th>Class</th>
-      <th>Resources</th>
-      <th>Status</th>
+      <th>Error on yes-instances</th>
+      <th>Error on no-instances</th>
+      <th>Example</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>$\mathrm{AC}^0$</td>
-      <td>constant depth, unbounded fan-in AND/OR</td>
-      <td>$\mathrm{PARITY} \notin \mathrm{AC}^0$ (Furst–Saxe–Sipser; Håstad’s switching lemma)</td>
+      <td>$\mathrm{BPP}$</td>
+      <td>$\leq 1/3$</td>
+      <td>$\leq 1/3$</td>
+      <td>Polynomial identity testing is in coRP ⊆ BPP</td>
     </tr>
     <tr>
-      <td>$\mathrm{AC}^0[p]$</td>
-      <td>$\mathrm{AC}^0$ plus mod-$p$ gates</td>
-      <td>$\mathrm{MOD}_q \notin \mathrm{AC}^0[p]$ for distinct primes (Razborov–Smolensky)</td>
+      <td>$\mathrm{RP}$</td>
+      <td>$\leq 1/2$</td>
+      <td>0</td>
+      <td>Non-zero-ness of a polynomial</td>
     </tr>
     <tr>
-      <td>$\mathrm{TC}^0$</td>
-      <td>constant depth with threshold gates</td>
-      <td>strong lower bounds <em>open</em></td>
+      <td>$\mathrm{coRP}$</td>
+      <td>0</td>
+      <td>$\leq 1/2$</td>
+      <td>Polynomial identity testing (Schwartz-Zippel)</td>
     </tr>
     <tr>
-      <td>$\mathrm{NC}^i$</td>
-      <td>depth $O(\log^i n)$, bounded fan-in</td>
-      <td>$\mathrm{NC} = \bigcup_i \mathrm{NC}^i$ = efficiently parallelizable</td>
+      <td>$\mathrm{ZPP}$</td>
+      <td>0 (expected polynomial time)</td>
+      <td>0</td>
+      <td>$\mathrm{ZPP} = \mathrm{RP} \cap \mathrm{coRP}$</td>
     </tr>
     <tr>
-      <td>monotone circuits</td>
-      <td>AND/OR only, no NOT</td>
-      <td>$\mathrm{CLIQUE}$ needs exponential monotone size (Razborov)</td>
+      <td>$\mathrm{PP}$</td>
+      <td>$&lt; 1/2$</td>
+      <td>$\leq 1/2$</td>
+      <td>MAJ-SAT; unbounded error, not practical</td>
     </tr>
   </tbody>
 </table>
 
-<p>These successes are real but stop short: the moment we allow general (unrestricted depth, non-monotone) circuits, no superlinear lower bound is known for any explicit NP problem — and the <strong>natural proofs</strong> barrier (below) explains the wall.</p>
+<p><strong>Amplification.</strong> The constants are arbitrary as long as the gap from $1/2$ is at least an inverse polynomial. Running a BPP algorithm $k$ times independently and taking the majority answer gives, by the Hoeffding (Chernoff) bound,</p>
 
-<p>A related uniformity remark: $\mathrm{NC}^1 \subseteq \mathrm{L} \subseteq \mathrm{NL} \subseteq \mathrm{NC}^2 \subseteq \mathrm{P}$, so the parallel ($\mathrm{NC}$) and small-space classes interleave. The <strong>$\mathrm{NC}$ vs P</strong> question — are all efficient problems efficiently parallelizable? — is the parallel-computing analogue of P vs NP, and P-complete problems are the conjectured obstructions.</p>
+\[\Pr[\text{majority is wrong}] \leq \exp\!\left(-2k\left(\tfrac{1}{2} - \tfrac{1}{3}\right)^{2}\right) = e^{-k/18},\]
 
-<h2 id="randomized-complexity-classes">Randomized Complexity Classes</h2>
+<p>so the error falls exponentially in the number of repetitions, and $k = O(n)$ repetitions reduce it below $2^{-n}$.</p>
 
-<p>Allowing the machine to flip coins yields <em>probabilistic</em> classes. The key design choice is what kind of error we tolerate.</p>
+<p><strong>Where BPP sits.</strong> $\mathrm{P} \subseteq \mathrm{ZPP} \subseteq \mathrm{RP} \subseteq \mathrm{BPP}$ and $\mathrm{RP} \subseteq \mathrm{NP}$. BPP is not known to be in NP, but the Sipser-Gács-Lautemann theorem places it in $\Sigma_2^p \cap \Pi_2^p$, and Adleman’s theorem places it in P/poly (a single good random string per input length works for all inputs of that length).</p>
 
-<div class="postulate-card">
-  <h4 id="definition-probabilistic-polynomial-time-classes">Definition (Probabilistic polynomial-time classes)</h4>
-  <p>A probabilistic TM has access to random bits; it runs in polynomial time and we bound its error probability over its coins.</p>
-  <ul>
-    <li>$\mathrm{BPP}$ (bounded-error, two-sided): $x\in L \Rightarrow \Pr[\text{accept}] \geq \tfrac{2}{3}$; $x\notin L \Rightarrow \Pr[\text{accept}] \leq \tfrac{1}{3}$.</li>
-    <li>$\mathrm{RP}$ (one-sided): $x\in L \Rightarrow \Pr[\text{accept}] \geq \tfrac{1}{2}$; $x\notin L \Rightarrow \Pr[\text{accept}] = 0$.</li>
-    <li>$\mathrm{coRP}$: error only on no-instances.</li>
-    <li>$\mathrm{ZPP}$ (zero-error, Las Vegas): always correct, <em>expected</em> poly time; $\mathrm{ZPP} = \mathrm{RP} \cap \mathrm{coRP}$.</li>
-  </ul>
-</div>
+<h3 id="derandomization">Derandomization</h3>
 
-<p><strong>Amplification.</strong> The constants $\tfrac{2}{3}, \tfrac{1}{3}$ are arbitrary. Run a BPP machine $k$ times and take the majority vote; by a Chernoff bound the error drops doubly-exponentially in $k$:
-\(\Pr[\text{majority wrong}] \leq \exp\!\left(-\,2 k\,\Big(\tfrac{1}{2} - \tfrac{1}{3}\Big)^{2}\right) = \exp\!\left(-\tfrac{k}{18}\right).\)
-So any gap bounded away from $\tfrac12$ amplifies to error $2^{-n}$ in polynomial time — the definition is extremely robust.</p>
+<p>The prevailing conjecture is $\mathrm{P} = \mathrm{BPP}$. The <strong>hardness versus randomness</strong> paradigm (Nisan-Wigderson 1994; Impagliazzo-Wigderson 1997) shows that circuit lower bounds imply derandomization: if some problem in $\mathrm{E} = \mathrm{DTIME}(2^{O(n)})$ requires circuits of size $2^{\Omega(n)}$, then there are pseudorandom generators strong enough to replace the random bits, and $\mathrm{P} = \mathrm{BPP}$. The implication partly runs in reverse: Kabanets and Impagliazzo (2004) showed that derandomizing polynomial identity testing would itself imply circuit lower bounds, so derandomization and lower bounds are closely tied.</p>
 
-<h3 id="where-bpp-sits">Where BPP sits</h3>
+<p>Unconditional derandomizations exist for specific problems. The AKS test (Agrawal, Kayal, Saxena 2002) put primality in P, and Reingold (2005) showed undirected connectivity is in L, derandomizing a random-walk algorithm. Polynomial identity testing remains the most prominent problem in coRP not known to be in P.</p>
 
-\[\mathrm{P} \subseteq \mathrm{ZPP} \subseteq \mathrm{RP} \subseteq \mathrm{BPP} \subseteq \Sigma_2^p \cap \Pi_2^p, \qquad \mathrm{RP} \subseteq \mathrm{NP}.\]
+<h2 id="interactive-proofs-and-pcps">Interactive Proofs and PCPs</h2>
 
-<p>The containment $\mathrm{BPP} \subseteq \Sigma_2^p \cap \Pi_2^p$ (Sipser–Gács–Lautemann) is notable because BPP is <em>not known</em> to have complete problems and is not known to be inside NP — yet it provably cannot escape the second level of PH. The <strong>Adleman</strong> theorem adds $\mathrm{BPP} \subseteq \mathrm{P/poly}$: a randomized algorithm’s coins can be fixed to a single good “advice” string per input length.</p>
+<p>NP is the class of statements with short proofs that a deterministic verifier can check. Letting the verifier use randomness and interact with a prover dramatically increases the power of proof systems.</p>
 
-<div class="principle-card">
-  <h4 id="is-randomness-even-necessary--derandomization">Is randomness even necessary? — derandomization</h4>
-  <p>The modern expectation is <strong>$\mathrm{P} = \mathrm{BPP}$</strong>. The Nisan–Wigderson and Impagliazzo–Wigderson program shows this follows from plausible <em>hardness</em>: if there is a problem in $\mathrm{E} = \mathrm{DTIME}(2^{O(n)})$ requiring circuits of size $2^{\Omega(n)}$, then strong <strong>pseudorandom generators</strong> exist and $\mathrm{BPP} = \mathrm{P}$. The slogan is <strong>“hardness vs randomness”</strong>: a hard enough function can be stretched into pseudorandom bits that fool any efficient test, letting us deterministically simulate the coin flips.</p>
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>Proof system</th>
+      <th>Class</th>
+      <th>Result</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Static certificate, deterministic verifier</td>
+      <td>$\mathrm{NP}$</td>
+      <td>Definition</td>
+    </tr>
+    <tr>
+      <td>Interaction with one prover, public or private coins</td>
+      <td>$\mathrm{IP} = \mathrm{PSPACE}$</td>
+      <td>Lund-Fortnow-Karloff-Nisan; Shamir (1990)</td>
+    </tr>
+    <tr>
+      <td>Two non-communicating provers</td>
+      <td>$\mathrm{MIP} = \mathrm{NEXP}$</td>
+      <td>Babai-Fortnow-Lund (1991)</td>
+    </tr>
+    <tr>
+      <td>Random access to a proof, $O(\log n)$ random bits, $O(1)$ queries</td>
+      <td>$\mathrm{PCP}(\log n, 1) = \mathrm{NP}$</td>
+      <td>PCP theorem: Arora-Safra; Arora-Lund-Motwani-Sudan-Szegedy (1992); combinatorial proof by Dinur (2007)</td>
+    </tr>
+    <tr>
+      <td>Two provers sharing quantum entanglement</td>
+      <td>$\mathrm{MIP}^{*} = \mathrm{RE}$</td>
+      <td>Ji-Natarajan-Vidick-Wright-Yuen (2020)</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>This is a rare <em>positive</em> use of lower bounds: rather than separating classes, a circuit lower bound would <em>collapse</em> BPP into P. Empirically the program already paid off — the famous <strong>AKS primality test (2002)</strong> put PRIMES in P unconditionally, removing a long-standing flagship problem from the “needs randomness” column.</p>
+<p>The proofs of $\mathrm{IP} = \mathrm{PSPACE}$ and the PCP theorem use <strong>arithmetization</strong>: Boolean formulas are extended to low-degree polynomials over a finite field, and the verifier checks polynomial identities at random points (the <strong>sum-check protocol</strong>). The PCP theorem is equivalent to NP-hardness of approximating MAX-3SAT within some constant, and is the foundation of the theory of inapproximability described in <a href="../approximation-algorithms/#the-pcp-theorem">Approximation Algorithms</a>. $\mathrm{MIP}^{*} = \mathrm{RE}$ shows that entangled provers can convince a verifier of any recursively enumerable statement, including instances of the halting problem; it also refuted the Connes embedding conjecture in operator algebras. Interactive and zero-knowledge proofs are also the theoretical basis of modern succinct proof systems (SNARKs); see <a href="../cryptography/">Cryptography</a>.</p>
 
-<h2 id="relativization-and-the-barriers">Relativization and the Barriers</h2>
+<h2 id="quantum-complexity">Quantum Complexity</h2>
 
-<p>Why, after fifty years, is P vs NP still open? Because three successive <strong>barrier theorems</strong> show that the techniques we have are provably incapable of resolving it. Any proof must evade all three.</p>
+<p><strong>BQP</strong> is the class of decision problems solvable by polynomial-size uniform quantum circuits with bounded error. Known containments are</p>
 
-<h3 id="relativization-bakergillsolovay-1975">Relativization (Baker–Gill–Solovay, 1975)</h3>
+\[\mathrm{BPP} \subseteq \mathrm{BQP} \subseteq \mathrm{PP} \subseteq \mathrm{PSPACE}.\]
 
-<p>An <strong>oracle</strong> $A$ is a language a machine may query in one step. A proof technique <em>relativizes</em> if it works unchanged when every machine is given the same oracle — diagonalization and simulation both do, because they treat machines as black boxes.</p>
+<p>Factoring and discrete logarithms are in BQP (Shor 1994) but are not believed to be in BPP, which is the strongest evidence against the extended Church-Turing thesis. BQP is not believed to contain NP-complete problems: relative to a random oracle, NP is not contained in BQP, and Grover search gives only a quadratic speedup for unstructured search, which is optimal (Bennett-Bernstein-Brassard-Vazirani 1997). In the other direction, Raz and Tal (2018) constructed an oracle relative to which BQP is not contained in PH. See <a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> for algorithms and quantum advantage experiments.</p>
 
-<div class="postulate-card">
-  <h4 id="theorem-bakergillsolovay">Theorem (Baker–Gill–Solovay)</h4>
-  <p>There exist oracles $A$ and $B$ with
-\(\mathrm{P}^{A} = \mathrm{NP}^{A} \qquad \text{and} \qquad \mathrm{P}^{B} \neq \mathrm{NP}^{B}.\)</p>
-</div>
+<h2 id="fine-grained-and-parameterized-complexity">Fine-Grained and Parameterized Complexity</h2>
 
-<p><strong>Construction.</strong> For $A$, take any PSPACE-complete oracle: with it, both $\mathrm{P}^A$ and $\mathrm{NP}^A$ equal PSPACE, so they coincide. For $B$, define a unary language $L_B = {1^n : B \text{ contains a length-}n\text{ string}}$; clearly $L_B \in \mathrm{NP}^B$ (guess the string and query). By diagonalizing against all poly-time oracle machines — at each stage reserving a long unqueried string we are still free to put into $B$ or not — we force every $\mathrm{P}^B$ machine to err, so $L_B \notin \mathrm{P}^B$.</p>
+<p>Classical complexity asks whether a problem is in P. <strong>Fine-grained complexity</strong> asks for the exact exponent, using reductions that preserve running times up to $n^{o(1)}$ factors and a small number of hardness hypotheses.</p>
 
-<div class="principle-card">
-  <h4 id="consequence">Consequence</h4>
-  <p>Since the <em>same</em> proof gives opposite answers under different oracles, <strong>no relativizing technique can settle P vs NP.</strong> This immediately retired the hope that clever diagonalization alone would do it.</p>
-</div>
+<table>
+  <thead>
+    <tr>
+      <th>Hypothesis</th>
+      <th>Statement</th>
+      <th>Conditional lower bounds</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ETH (Impagliazzo-Paturi 2001)</td>
+      <td>3SAT on $n$ variables needs $2^{\Omega(n)}$ time</td>
+      <td>$2^{o(n)}$ algorithms ruled out for many NP-hard graph problems</td>
+    </tr>
+    <tr>
+      <td>SETH</td>
+      <td>For every $\varepsilon &gt; 0$ some $k$-SAT needs $2^{(1-\varepsilon)n}$ time</td>
+      <td>Edit distance and LCS need $n^{2-o(1)}$ (Backurs-Indyk 2015; Abboud-Backurs-Vassilevska Williams 2015); Orthogonal Vectors needs $n^{2-o(1)}$</td>
+    </tr>
+    <tr>
+      <td>3SUM</td>
+      <td>3SUM needs $n^{2-o(1)}$ time</td>
+      <td>Problems in computational geometry</td>
+    </tr>
+    <tr>
+      <td>APSP</td>
+      <td>All-pairs shortest paths needs $n^{3-o(1)}$ time</td>
+      <td>Negative triangle detection, radius, many graph problems are subcubically equivalent</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="natural-proofs-razborovrudich-1994">Natural proofs (Razborov–Rudich, 1994)</h3>
+<p><strong>Matrix multiplication</strong> is the most studied case where the exponent is unknown. The exponent $\omega$ satisfies $2 \leq \omega &lt; 2.371339$ (Alman, Duan, Vassilevska Williams, Xu, Xu, Zhou; SODA 2025), obtained by refining Strassen’s laser method. An August 2026 preprint by Google DeepMind researchers with Alman, Vassilevska Williams, and Zhou reports $\omega &lt; 2.371177$, found by re-optimizing the laser-method analysis with modern numerical optimization and AlphaEvolve.</p>
 
-<p>After BGS, circuit lower bounds (which do <em>not</em> obviously relativize) became the great hope. Razborov and Rudich identified why even <em>those</em> stalled.</p>
+<p><strong>Parameterized complexity</strong> measures running time in terms of the input size $n$ and a parameter $k$. A problem is <strong>fixed-parameter tractable</strong> (FPT) if it can be solved in $f(k) \cdot n^{O(1)}$ time; Vertex Cover parameterized by solution size is FPT. The W-hierarchy plays the role of NP: $k$-Clique is W[1]-complete, and under ETH it has no $f(k) \cdot n^{o(k)}$ algorithm.</p>
 
-<p>A lower-bound argument is a <strong>natural proof</strong> against a class $\mathcal{C}$ if it works by exhibiting a <em>property</em> $P$ of Boolean functions that is (i) <strong>useful</strong> — every function in $\mathcal{C}$ lacks $P$, so possessing $P$ certifies hardness; (ii) <strong>large</strong> — a random function has $P$ with non-negligible probability; and (iii) <strong>constructive</strong> — $P$ is checkable in time polynomial in the truth-table size ($2^n$). Almost every known circuit lower bound is natural in this sense.</p>
+<h2 id="barriers-to-separating-classes">Barriers to Separating Classes</h2>
 
-<div class="postulate-card">
-  <h4 id="theorem-razborovrudich">Theorem (Razborov–Rudich)</h4>
-  <p>If strong <strong>pseudorandom function generators</strong> exist (a standard cryptographic assumption, e.g. from the hardness of factoring/discrete log), then <strong>no natural proof can separate $\mathrm{P}$ from $\mathrm{NP}$</strong> — more precisely, no natural property is useful against $\mathrm{P/poly}$.</p>
-</div>
+<p>Three theorems show that broad families of proof techniques cannot resolve P vs NP. Any proof must avoid all three.</p>
 
-<p><strong>The tension.</strong> A constructive, large property is exactly an efficient <em>distinguisher</em> that tells truly-random functions from the pseudorandom ones a PRF produces. If such a property also certified circuit hardness, it would <em>break</em> the cryptographic generator. So the very efficiency that makes our proofs work is what cryptography says cannot exist — assuming cryptography is secure, our proof style is self-defeating.</p>
-
-<h3 id="algebrization-aaronsonwigderson-2008">Algebrization (Aaronson–Wigderson, 2008)</h3>
-
-<p>Interactive-proof breakthroughs ($\mathrm{IP} = \mathrm{PSPACE}$, the PCP theorem) used <strong>arithmetization</strong> — lifting Boolean formulas to low-degree polynomials over a field — and these results famously <em>do not</em> relativize. Hope rekindled. Aaronson and Wigderson then showed arithmetization has its own wall.</p>
-
-<div class="postulate-card">
-  <h4 id="theorem-aaronsonwigderson">Theorem (Aaronson–Wigderson)</h4>
-  <p>A technique <strong>algebrizes</strong> if it relativizes even when one side of an inclusion gets the oracle and the other side gets a low-degree <em>polynomial extension</em> of that oracle. There are algebraic oracles forcing $\mathrm{P} = \mathrm{NP}$ and others forcing $\mathrm{P} \neq \mathrm{NP}$. Hence <strong>no algebrizing technique resolves P vs NP</strong> — and arithmetization-based methods, including those behind $\mathrm{IP}=\mathrm{PSPACE}$, algebrize.</p>
-</div>
-
-<pre><code class="language-mermaid">flowchart TD
-    Diag["Diagonalization &amp;amp; simulation"] --&gt; R["Relativization barrier&lt;br/&gt;(BGS 1975)"]
-    Circ["Combinatorial circuit bounds"] --&gt; N["Natural proofs barrier&lt;br/&gt;(Razborov-Rudich 1994)"]
-    Arith["Arithmetization / IP, PCP"] --&gt; A["Algebrization barrier&lt;br/&gt;(Aaronson-Wigderson 2008)"]
-    R --&gt; Need["A resolution must be&lt;br/&gt;non-relativizing, non-naturalizing,&lt;br/&gt;and non-algebrizing"]
+<pre><code class="language-mermaid">flowchart LR
+    Diag["Diagonalization, simulation"] --&gt; R["Relativization&lt;br/&gt;Baker-Gill-Solovay 1975"]
+    Circ["Combinatorial circuit lower bounds"] --&gt; N["Natural proofs&lt;br/&gt;Razborov-Rudich 1994"]
+    Arith["Arithmetization: IP = PSPACE, PCP"] --&gt; A["Algebrization&lt;br/&gt;Aaronson-Wigderson 2008"]
+    R --&gt; Need["A proof of P ≠ NP must be&lt;br/&gt;non-relativizing, non-naturalizing,&lt;br/&gt;and non-algebrizing"]
     N --&gt; Need
     A --&gt; Need
 </code></pre>
 
-<p>The cumulative message: any proof of $\mathrm{P} \neq \mathrm{NP}$ must be <strong>non-relativizing, non-naturalizing, and non-algebrizing</strong> simultaneously. No known technique clears all three bars, which is the most precise modern explanation for why the problem is so hard.</p>
+<h3 id="relativization">Relativization</h3>
+
+<p>An <strong>oracle</strong> $A$ is a language that a machine can query at unit cost. A proof technique <strong>relativizes</strong> if it remains valid when all machines are given the same oracle; diagonalization and simulation relativize because they treat machines as black boxes.</p>
+
+<p><strong>Theorem (Baker-Gill-Solovay 1975).</strong> There are oracles $A$ and $B$ with $\mathrm{P}^{A} = \mathrm{NP}^{A}$ and $\mathrm{P}^{B} \neq \mathrm{NP}^{B}$.</p>
+
+<p>For $A$, take any PSPACE-complete language: then $\mathrm{P}^A = \mathrm{NP}^A = \mathrm{PSPACE}$. For $B$, let $L_B = {1^n : B \text{ contains a string of length } n}$, which is in $\mathrm{NP}^B$; construct $B$ in stages so that each polynomial-time oracle machine, which can query only polynomially many of the $2^n$ strings of length $n$, answers incorrectly on some $1^n$. Since a relativizing proof would give the same answer relative to both oracles, <strong>no relativizing technique settles P vs NP</strong>. Non-relativizing results do exist, notably $\mathrm{IP} = \mathrm{PSPACE}$, which fails relative to some oracles.</p>
+
+<h3 id="natural-proofs">Natural proofs</h3>
+
+<p>A lower-bound argument against a circuit class $\mathcal{C}$ is <strong>natural</strong> if it identifies a property of Boolean functions that is</p>
+
+<ol>
+  <li><strong>useful:</strong> no function computable in $\mathcal{C}$ has it;</li>
+  <li><strong>large:</strong> a random function has it with non-negligible probability;</li>
+  <li><strong>constructive:</strong> it can be decided in time polynomial in the truth-table size $2^n$.</li>
+</ol>
+
+<p>Most known circuit lower bounds, including those for $\mathrm{AC}^0$ and $\mathrm{AC}^0[p]$, are natural.</p>
+
+<p><strong>Theorem (Razborov-Rudich 1994).</strong> If pseudorandom function families secure against subexponential-size circuits exist, then no natural property is useful against $\mathrm{P/poly}$.</p>
+
+<p>A large, constructive property is an efficient test that distinguishes truly random functions from pseudorandom ones, because pseudorandom functions are computable by small circuits and so lack a useful property. Such a test would break the pseudorandom function family. Proving strong lower bounds for general circuits therefore requires non-natural arguments, assuming standard cryptography is secure.</p>
+
+<h3 id="algebrization">Algebrization</h3>
+
+<p><strong>Theorem (Aaronson-Wigderson 2008).</strong> A technique <strong>algebrizes</strong> if it remains valid when one side of the statement receives an oracle $A$ and the other receives a low-degree extension $\tilde{A}$ of $A$ over a finite field. Arithmetization-based results, including $\mathrm{IP} = \mathrm{PSPACE}$, algebrize, and there are algebraic oracles relative to which $\mathrm{P} = \mathrm{NP}$ and others relative to which $\mathrm{P} \neq \mathrm{NP}$. Hence <strong>no algebrizing technique resolves P vs NP</strong>.</p>
+
+<h3 id="approaches-beyond-the-barriers">Approaches beyond the barriers</h3>
+
+<ul>
+  <li><strong>The algorithmic method</strong> (Williams) derives lower bounds from nontrivial algorithms; the $\mathrm{ACC}^0$ lower bounds are the main success.</li>
+  <li><strong>Meta-complexity</strong> studies the complexity of complexity-theoretic problems themselves, such as the Minimum Circuit Size Problem (MCSP) and time-bounded Kolmogorov complexity. Liu and Pass (2020) showed that one-way functions exist if and only if a time-bounded Kolmogorov complexity problem is mildly hard on average, tying cryptography directly to a natural complexity question.</li>
+  <li><strong>Geometric complexity theory</strong> (Mulmuley-Sohoni) attacks the algebraic analogue, VP vs VNP (determinant vs permanent), through representation theory. Some of its original “occurrence obstruction” strategies were shown not to work (Bürgisser-Ikenmeyer-Panova 2016), but the program continues in modified forms.</li>
+  <li><strong>Proof complexity</strong> asks whether every tautology has short proofs in a given proof system; super-polynomial lower bounds for all proof systems would imply $\mathrm{NP} \neq \mathrm{coNP}$ (Cook-Reckhow 1979).</li>
+</ul>
 
 <h2 id="p-vs-np">P vs NP</h2>
 
-<div class="postulate-card">
-  <h4 id="the-question">The question</h4>
-  <p>Is $\mathrm{P} = \mathrm{NP}$? Equivalently: if a solution can be <em>verified</em> in polynomial time, can one always be <em>found</em> in polynomial time? Equivalently again: does $\mathrm{SAT} \in \mathrm{P}$?</p>
-</div>
+<p><strong>The question.</strong> Is $\mathrm{P} = \mathrm{NP}$? Equivalently: whenever a solution can be verified in polynomial time, can one be found in polynomial time? Equivalently: is $\mathrm{SAT} \in \mathrm{P}$? It is one of the seven Clay Millennium Prize Problems and remains open.</p>
 
-<p>It is one of the seven Clay Millennium Prize Problems. The near-universal belief is $\mathrm{P} \neq \mathrm{NP}$, on three grounds: (1) decades of effort have produced no polynomial algorithm for any of thousands of NP-complete problems; (2) the <em>exponential-time hypothesis</em> (ETH) and its strong form are consistent with all evidence; (3) a world with $\mathrm{P} = \mathrm{NP}$ would be “too good” — efficient algorithms for theorem-proving, optimal learning, and the collapse $\mathrm{PH} = \mathrm{P}$.</p>
+<p>Most researchers believe $\mathrm{P} \neq \mathrm{NP}$. The evidence is indirect: no polynomial algorithm has been found for any of thousands of NP-complete problems from unrelated fields, despite intense effort; $\mathrm{P} = \mathrm{NP}$ would collapse PH to P and make finding proofs of mathematical theorems (of polynomial length) as easy as checking them; and many related structural consequences, such as the collapse of PH, are considered implausible.</p>
 
-<div class="principle-card">
-  <h4 id="what-hangs-on-the-answer">What hangs on the answer</h4>
-  <ul>
-    <li><strong>If $\mathrm{P} = \mathrm{NP}$:</strong> every NP-complete problem (SAT, TSP, scheduling, protein folding’s decision versions) is efficiently solvable; the polynomial hierarchy collapses to P; <em>and</em> essentially all public-key cryptography breaks, since its security rests on the average-case hardness of problems in NP.</li>
-    <li><strong>If $\mathrm{P} \neq \mathrm{NP}$:</strong> intractability is permanent for the worst case, justifying approximation algorithms, heuristics, parameterized complexity, and cryptography — but note this is a <em>worst-case</em> statement; cryptography needs the stronger <em>average-case</em> hardness, which $\mathrm{P} \neq \mathrm{NP}$ alone does not guarantee.</li>
-  </ul>
-</div>
+<h3 id="what-depends-on-the-answer">What depends on the answer</h3>
 
-<h3 id="ladners-theorem-the-middle-ground">Ladner’s theorem: the middle ground</h3>
+<p>Worst-case $\mathrm{P} \neq \mathrm{NP}$ is not enough for cryptography, which needs problems that are hard <em>on average</em> and for which hard instances can be generated with known solutions. Impagliazzo (1995) described five possible worlds consistent with current knowledge:</p>
 
-<p>If $\mathrm{P} \neq \mathrm{NP}$, the gap is not clean.</p>
+<table>
+  <thead>
+    <tr>
+      <th>World</th>
+      <th>What holds</th>
+      <th>Consequences</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Algorithmica</td>
+      <td>$\mathrm{P} = \mathrm{NP}$ (or effectively so)</td>
+      <td>Search and optimization are easy; public-key cryptography is impossible</td>
+    </tr>
+    <tr>
+      <td>Heuristica</td>
+      <td>$\mathrm{P} \neq \mathrm{NP}$, but NP is easy on average</td>
+      <td>Hard instances exist but are hard to find</td>
+    </tr>
+    <tr>
+      <td>Pessiland</td>
+      <td>Hard-on-average problems exist, but no one-way functions</td>
+      <td>Hardness without cryptography</td>
+    </tr>
+    <tr>
+      <td>Minicrypt</td>
+      <td>One-way functions exist, but no public-key encryption</td>
+      <td>Private-key cryptography, signatures, pseudorandomness</td>
+    </tr>
+    <tr>
+      <td>Cryptomania</td>
+      <td>Public-key cryptography exists</td>
+      <td>The world assumed by current practice (lattices, elliptic curves)</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="postulate-card">
-  <h4 id="theorem-ladner-1975">Theorem (Ladner, 1975)</h4>
-  <p>If $\mathrm{P} \neq \mathrm{NP}$, there exist <strong>NP-intermediate</strong> languages: problems in $\mathrm{NP} \setminus \mathrm{P}$ that are <em>not</em> NP-complete.</p>
-</div>
+<p>Proving $\mathrm{P} \neq \mathrm{NP}$ would rule out only Algorithmica. Placing the world in Cryptomania requires stronger, average-case assumptions; see <a href="../cryptography/">Cryptography</a>.</p>
 
-<p>The proof “blows holes” into SAT by a delayed-diagonalization (lazy-padding) construction, making the language too sparse to be P yet too irregular to be complete. Natural candidates for NP-intermediate status include <strong>factoring</strong>, <strong>discrete log</strong>, and <strong>graph isomorphism</strong> — none known to be in P, none known to be NP-complete (graph isomorphism was placed in quasipolynomial time by Babai in 2015, strong evidence it is <em>not</em> NP-complete unless PH collapses).</p>
+<h3 id="np-intermediate-problems">NP-intermediate problems</h3>
 
-<h3 id="the-landscape-assuming-the-conjectures">The landscape, assuming the conjectures</h3>
+<p><strong>Theorem (Ladner 1975).</strong> If $\mathrm{P} \neq \mathrm{NP}$, there are problems in $\mathrm{NP}$ that are neither in P nor NP-complete.</p>
 
-<pre><code class="language-mermaid">flowchart TD
-    P["P"] --&gt; NPI["NP-intermediate&lt;br/&gt;(factoring, GI, ...)"]
-    NPI --&gt; NPC["NP-complete&lt;br/&gt;(SAT, TSP, ...)"]
-    P --&gt; coNP["coNP"]
-    NPC --&gt; NP["NP"]
-    NPI --&gt; NP
-    NP --&gt; PH["PH"]
-    coNP --&gt; PH
-    PH --&gt; PSPACE["PSPACE"]
-    PSPACE --&gt; EXP["EXP (provably &amp;ne; P)"]
-</code></pre>
+<p>The proof removes parts of SAT by a delayed-diagonalization construction, producing a language too sparse to be complete but too hard to be in P. Natural candidates include <strong>factoring</strong> and <strong>discrete logarithm</strong> (both in $\mathrm{NP} \cap \mathrm{coNP}$ as decision problems, so NP-completeness would imply $\mathrm{NP} = \mathrm{coNP}$) and <strong>graph isomorphism</strong>. Babai (2015, with a 2017 correction) placed graph isomorphism in quasipolynomial time $\exp\big((\log n)^{O(1)}\big)$; it was already known that GI is not NP-complete unless PH collapses to its second level (Boppana-Håstad-Zachos 1987).</p>
 
-<p>The only <em>unconditional</em> strict separation visible here is $\mathrm{P} \subsetneq \mathrm{EXP}$ (time hierarchy). Everything else — $\mathrm{P}$ vs $\mathrm{NP}$, $\mathrm{NP}$ vs $\mathrm{coNP}$, $\mathrm{NP}$ vs $\mathrm{PSPACE}$, $\mathrm{P}$ vs $\mathrm{PSPACE}$ — is conjectured strict but unproven, and any one of them being strict would already be a generational result.</p>
+<h3 id="the-conjectured-landscape">The conjectured landscape</h3>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<figure class="diagram">
+<svg viewBox="0 0 560 380" role="img" aria-labelledby="cx-landscape-title" style="max-width: 560px; width: 100%; color: inherit;">
+  <title id="cx-landscape-title">Conjectured landscape: nested EXP, PSPACE, and PH containing overlapping NP and coNP, with P in their intersection</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.4">
+    <rect x="10" y="10" width="540" height="360" rx="18" />
+    <rect x="40" y="45" width="480" height="310" rx="16" />
+    <rect x="70" y="80" width="420" height="260" rx="14" />
+    <ellipse cx="230" cy="220" rx="150" ry="95" />
+    <ellipse cx="330" cy="220" rx="150" ry="95" stroke-dasharray="6 4" />
+    <ellipse cx="280" cy="245" rx="48" ry="38" stroke-width="2" />
+  </g>
+  <g font-family="sans-serif" fill="currentColor">
+    <text x="30" y="36" font-size="15" font-weight="bold">EXP</text>
+    <text x="60" y="70" font-size="15" font-weight="bold">PSPACE</text>
+    <text x="90" y="104" font-size="15" font-weight="bold">PH</text>
+    <text x="150" y="160" font-size="15" font-weight="bold">NP</text>
+    <text x="385" y="160" font-size="15" font-weight="bold">coNP</text>
+    <text x="280" y="243" font-size="15" font-weight="bold" text-anchor="middle">P</text>
+    <text x="280" y="262" font-size="11" text-anchor="middle">L ⊆ NL ⊆ P</text>
+    <text x="125" y="212" font-size="12" text-anchor="middle">NP-complete</text>
+    <text x="125" y="227" font-size="11" text-anchor="middle">SAT, TSP</text>
+    <text x="435" y="212" font-size="12" text-anchor="middle">coNP-complete</text>
+    <text x="435" y="227" font-size="11" text-anchor="middle">UNSAT</text>
+    <text x="280" y="180" font-size="11" text-anchor="middle">factoring, discrete log</text>
+    <text x="280" y="194" font-size="10" text-anchor="middle" opacity="0.8">(NP ∩ coNP)</text>
+    <text x="160" y="272" font-size="11" text-anchor="middle">graph iso.</text>
+    <text x="280" y="332" font-size="11" text-anchor="middle" opacity="0.8">TQBF (PSPACE-complete) lies outside PH if PH ≠ PSPACE</text>
+  </g>
+</svg>
+<figcaption>The picture most researchers expect, assuming P ≠ NP ≠ coNP and an infinite PH. Only the outermost separation, P ≠ EXP, is proved. BPP is conjectured to equal P and is omitted.</figcaption>
+</figure>
+
+<h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong>The model is robust.</strong> Polynomial time is independent of the (reasonable, classical, sequential) machine model. That robustness is what makes P a meaningful definition of “efficient.”</li>
-  <li><strong>Hierarchies are the easy part.</strong> Diagonalization proves more time/space buys more power (P ≠ EXP, L ≠ PSPACE). Changing the resource — determinism vs nondeterminism — is the hard, open direction.</li>
-  <li><strong>Completeness compresses a class.</strong> SAT captures all of NP under poly-time reductions. Solve one NP-complete problem efficiently and P = NP follows for free.</li>
-  <li><strong>Alternation builds PH.</strong> Stacking ∃/∀ quantifiers gives the polynomial hierarchy. Any collapse at one level cascades downward; an infinite PH is stronger than P ≠ NP.</li>
-  <li><strong>Circuits and randomness reframe it.</strong> NP ¬⊆ P/poly would prove P ≠ NP; and a strong circuit lower bound would instead collapse BPP into P via derandomization.</li>
-  <li><strong>Three barriers, one moral.</strong> Relativization, natural proofs, and algebrization each kill a class of techniques. A resolution of P vs NP must dodge all three.</li>
+  <li><a href="../automata-and-formal-languages/">Automata and Formal Languages</a>: computability, decidability, and the Chomsky hierarchy</li>
+  <li><a href="../approximation-algorithms/">Approximation Algorithms</a>: coping with NP-hardness, the PCP theorem, and inapproximability</li>
+  <li><a href="../cryptography/">Cryptography</a>: one-way functions, average-case hardness, and zero-knowledge proofs</li>
+  <li><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a>: BQP and quantum speedups</li>
+  <li><a href="../category-and-type-theory/">Category Theory and Type Theory</a>: the lambda calculus and type systems as models of computation</li>
+  <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a>: impossibility results and round and message complexity</li>
+  <li><a href="../ai-mathematics/">Advanced AI Mathematics</a>: computational learning theory</li>
+  <li><a href="../../reference/">Mathematical Reference</a>: notation and quick reference</li>
 </ul>
 
 <h2 id="references">References</h2>
 
 <ol>
-  <li>Arora, S., &amp; Barak, B. (2009). <em>Computational Complexity: A Modern Approach.</em></li>
-  <li>Sipser, M. (2013). <em>Introduction to the Theory of Computation</em> (3rd ed.).</li>
-  <li>Papadimitriou, C. (1994). <em>Computational Complexity.</em></li>
-  <li>Cook, S. (1971). “The complexity of theorem-proving procedures.” <em>STOC.</em></li>
-  <li>Karp, R. (1972). “Reducibility among combinatorial problems.”</li>
-  <li>Baker, T., Gill, J., &amp; Solovay, R. (1975). “Relativizations of the P =? NP question.” <em>SIAM J. Comput.</em></li>
-  <li>Razborov, A., &amp; Rudich, S. (1997). “Natural proofs.” <em>JCSS.</em></li>
-  <li>Aaronson, S., &amp; Wigderson, A. (2009). “Algebrization: A new barrier in complexity theory.” <em>ACM TOCT.</em></li>
-  <li>Ladner, R. (1975). “On the structure of polynomial time reducibility.” <em>JACM.</em></li>
-  <li>Impagliazzo, R., &amp; Wigderson, A. (1997). “P = BPP if E requires exponential circuits.” <em>STOC.</em></li>
+  <li>Arora, S., &amp; Barak, B. (2009). <em>Computational Complexity: A Modern Approach</em>. Cambridge University Press.</li>
+  <li>Sipser, M. (2012). <em>Introduction to the Theory of Computation</em> (3rd ed.). Cengage.</li>
+  <li>Papadimitriou, C. (1994). <em>Computational Complexity</em>. Addison-Wesley.</li>
+  <li>Goldreich, O. (2008). <em>Computational Complexity: A Conceptual Perspective</em>. Cambridge University Press.</li>
+  <li>Cook, S. (1971). “The complexity of theorem-proving procedures.” <em>STOC</em>.</li>
+  <li>Karp, R. (1972). “Reducibility among combinatorial problems.” In <em>Complexity of Computer Computations</em>.</li>
+  <li>Baker, T., Gill, J., &amp; Solovay, R. (1975). “Relativizations of the P =? NP question.” <em>SIAM Journal on Computing</em> 4(4).</li>
+  <li>Razborov, A., &amp; Rudich, S. (1997). “Natural proofs.” <em>Journal of Computer and System Sciences</em> 55(1).</li>
+  <li>Aaronson, S., &amp; Wigderson, A. (2009). “Algebrization: A new barrier in complexity theory.” <em>ACM Transactions on Computation Theory</em> 1(1).</li>
+  <li>Impagliazzo, R. (1995). “A personal view of average-case complexity.” <em>Structure in Complexity Theory Conference</em>.</li>
+  <li>Impagliazzo, R., &amp; Wigderson, A. (1997). “P = BPP if E requires exponential circuits: Derandomizing the XOR lemma.” <em>STOC</em>.</li>
+  <li>Williams, R. (2014). “Nonuniform ACC circuit lower bounds.” <em>Journal of the ACM</em> 61(1).</li>
+  <li>Cook, J., &amp; Mertz, I. (2024). “Tree evaluation is in space $O(\log n \cdot \log\log n)$.” <em>STOC</em>.</li>
+  <li>Williams, R. (2025). “Simulating time with square-root space.” <em>STOC</em>.</li>
+  <li>Ji, Z., Natarajan, A., Vidick, T., Wright, J., &amp; Yuen, H. (2020). “MIP* = RE.” arXiv:2001.04383.</li>
+  <li>Alman, J., Duan, R., Vassilevska Williams, V., Xu, Y., Xu, Z., &amp; Zhou, R. (2025). “More asymmetry yields faster matrix multiplication.” <em>SODA</em>.</li>
 </ol>
-
-<hr />
-
-<p><em>This page develops the theoretical foundations of computational complexity for researchers and graduate students. For applied algorithm analysis, see the practical <a href="../../technology/">Technology Hub</a>.</em></p>
-
-<h2 id="see-also">See Also</h2>
-
-<h3 id="related-advanced-topics">Related Advanced Topics</h3>
-<ul>
-  <li><strong><a href="../distributed-systems-theory/">Distributed Systems Theory</a></strong> - Impossibility results and message/round complexity bounds for distributed computation</li>
-  <li><strong><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a></strong> - Quantum complexity classes (BQP) and where quantum speedups break the classical landscape</li>
-  <li><strong><a href="../ai-mathematics/">AI Mathematics</a></strong> - Computational learning theory, where complexity classes bound what is efficiently learnable</li>
-  <li><strong><a href="./">Advanced Topics Research Hub</a></strong> - All graduate-level research pages</li>
-</ul>
-
-<h3 id="foundational-and-applied-connections">Foundational and Applied Connections</h3>
-<ul>
-  <li><strong><a href="../../technology/">Technology Hub</a></strong> - Practical algorithm and systems engineering</li>
-  <li><strong><a href="../../reference/">Mathematical Reference</a></strong> - Notation, constants, and quick references</li>
-</ul>
 
       </section>
     </div>

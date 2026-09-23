@@ -3136,141 +3136,245 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Build confidence in software through disciplined testing — from unit assertions to chaos engineering</p>
 </div>
 
-<div class="code-example">
-  <p>Comprehensive documentation for software testing and quality assurance, from the fast unit tests at the base of the pyramid to the property-based, fuzz, and chaos techniques that find the bugs nothing else can. This hub frames the testing discipline as a whole and routes you into focused pages for the everyday practices and the advanced ones.</p>
-</div>
+<p><strong>Software testing</strong> is the practice of building justified confidence that software behaves as intended and keeps doing so as it changes. Testing cannot prove the absence of bugs; it reduces their probability and blast radius, and — just as importantly — makes change safe, because a trustworthy suite lets a team refactor and ship continuously. This hub introduces the vocabulary and the shape of a healthy test suite, then routes to focused pages on everyday unit and integration testing and on advanced techniques.</p>
 
-<h2 id="overview">Overview</h2>
+<h2 id="section-pages">Section Pages</h2>
 
-<p>Testing is the engineering discipline of building justified confidence that software behaves as intended — and keeps doing so as it changes. It is not about proving the absence of bugs (which is generally impossible) but about systematically reducing the probability and blast radius of the bugs that remain. A good test suite is a safety net that lets a team refactor aggressively, ship continuously, and sleep at night.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Page</th>
+      <th>Covers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="unit-and-integration.html">Unit &amp; Integration Testing</a></td>
+      <td>Anatomy of a unit test, test doubles (stubs, fakes, spies, mocks), TDD, fixtures and test data, integration tests against real dependencies (Testcontainers), coverage and its misuse, running tests in CI, flaky tests</td>
+    </tr>
+    <tr>
+      <td><a href="advanced-testing.html">Advanced Testing</a></td>
+      <td>Contract testing, property-based testing, fuzzing, mutation testing, end-to-end and snapshot/visual testing, load and performance testing, chaos engineering, testing in production, AI-assisted test generation</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>What you’ll get:</strong> a working model of the testing pyramid and the trade-offs between test levels, the everyday craft of writing fast and trustworthy unit and integration tests, and the advanced techniques — property-based testing, fuzzing, mutation testing, and chaos engineering — that go beyond hand-written examples.</p>
+<p>Related material elsewhere: <a href="../technology/ci-cd/">CI/CD Pipelines</a> for where tests run and gate releases, and <a href="../distributed-systems/testing-distributed-systems.html">Testing Distributed Systems</a> for deterministic simulation, Jepsen-style consistency checking, and fault injection across many nodes.</p>
 
-<p><strong>Assumed background:</strong> comfort with at least one programming language and version control. No prior testing experience required; we build from first principles and motivate each technique by the class of bug it catches.</p>
+<h2 id="the-shape-of-a-test-suite">The Shape of a Test Suite</h2>
 
 <h3 id="the-testing-pyramid">The Testing Pyramid</h3>
 
-<p>The pyramid is the central heuristic for <em>shaping</em> a test suite. It sorts tests by scope and speed: the lower a layer, the smaller the unit under test, the faster and more deterministic the test, and the more of them you should have. The higher a layer, the more of the real system it exercises, the slower and flakier it gets, and the fewer you should keep.</p>
+<p>The <strong>testing pyramid</strong> (Mike Cohn, <em>Succeeding with Agile</em>, 2009) sorts tests by scope. The lower a layer, the smaller the unit under test and the faster, more deterministic, and more numerous its tests; the higher a layer, the more of the real system each test exercises and the slower and flakier it becomes.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    E2E["End-to-End / UI&lt;br/&gt;few · slow · high-fidelity&lt;br/&gt;full system through real interfaces"]
-    INT["Integration&lt;br/&gt;some · moderate speed&lt;br/&gt;modules, DBs, services talking to each other"]
-    UNIT["Unit&lt;br/&gt;many · fast · isolated&lt;br/&gt;one function or class, no I/O"]
+    E2E["End-to-end / UI&lt;br/&gt;few · seconds to minutes&lt;br/&gt;whole system through real interfaces"]
+    INT["Integration&lt;br/&gt;some · milliseconds to seconds&lt;br/&gt;modules with real DBs, queues, services"]
+    UNIT["Unit&lt;br/&gt;many · milliseconds&lt;br/&gt;one function or class, no I/O"]
     UNIT --&gt; INT --&gt; E2E
 </code></pre>
-
-<p>The reasoning behind the shape is economic. A unit test failure points at a single function; an end-to-end failure could be anything from a CSS change to a database outage, so it costs far more to diagnose. Unit tests run in milliseconds and rarely flake; end-to-end tests run in seconds-to-minutes and flake on timing, network, and environment. You therefore want most of your coverage to come from the cheap, precise layer.</p>
 
 <table>
   <thead>
     <tr>
       <th>Level</th>
       <th>Scope</th>
-      <th>Speed</th>
+      <th>Typical speed</th>
       <th>Flakiness</th>
-      <th>How many</th>
+      <th>Failure points to…</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Unit</strong></td>
-      <td>One function/class, dependencies stubbed</td>
+      <td>Unit</td>
+      <td>One function or class, collaborators replaced</td>
       <td>Milliseconds</td>
       <td>Very low</td>
-      <td>Many (the broad base)</td>
+      <td>A specific function</td>
     </tr>
     <tr>
-      <td><strong>Integration</strong></td>
-      <td>Several units, or a unit + real DB/queue/service</td>
-      <td>Tens of ms to seconds</td>
+      <td>Integration</td>
+      <td>Several components, or one component plus a real database/queue/HTTP server</td>
+      <td>Milliseconds to seconds</td>
       <td>Moderate</td>
-      <td>Some (the middle)</td>
+      <td>A seam between components</td>
     </tr>
     <tr>
-      <td><strong>End-to-end</strong></td>
-      <td>The whole system through its real interface</td>
+      <td>End-to-end</td>
+      <td>The deployed system via its UI or public API</td>
       <td>Seconds to minutes</td>
       <td>High</td>
-      <td>Few (the thin top)</td>
+      <td>“Somewhere in the system”</td>
     </tr>
   </tbody>
 </table>
 
-<p>Two well-known anti-patterns invert this shape. The <strong>ice-cream cone</strong> piles most coverage into slow, brittle end-to-end tests with little unit coverage underneath — the suite becomes slow and unreliable. The <strong>testing hourglass</strong> has lots of unit and end-to-end tests but a starved integration layer, so wiring bugs between components slip through. The fix in both cases is to push coverage down to the cheapest level that can still catch the bug.</p>
+<p>The argument is economic: catch each bug at the cheapest level that <em>can</em> catch it. Pricing arithmetic belongs in a unit test; “the order endpoint persists an order” belongs in an integration test; “a customer can check out” deserves one of a handful of end-to-end tests.</p>
 
-<h3 id="what-good-looks-like-the-first-properties">What “Good” Looks Like: the F.I.R.S.T. Properties</h3>
+<h3 id="alternative-shapes">Alternative Shapes</h3>
 
-<p>Independent of level, trustworthy tests share a set of properties often abbreviated <strong>F.I.R.S.T.</strong>:</p>
-
-<ul>
-  <li><strong>Fast</strong> — fast enough to run constantly, so failures are caught the moment they’re introduced.</li>
-  <li><strong>Independent</strong> — no test depends on another’s side effects or ordering; each sets up and tears down its own state.</li>
-  <li><strong>Repeatable</strong> — the same result every run, in any environment, with no reliance on wall-clock time, network, or random seeds you don’t control.</li>
-  <li><strong>Self-validating</strong> — a test passes or fails with a clear assertion, never requiring a human to eyeball output.</li>
-  <li><strong>Timely</strong> — written alongside (or before, in TDD) the code, while the intended behavior is still fresh.</li>
-</ul>
-
-<p>A test that violates these — slow, order-dependent, or <em>flaky</em> (non-deterministically passing and failing) — actively erodes confidence: teams learn to ignore it, and a red build stops meaning anything. Eliminating flakiness is therefore a first-class quality concern, not housekeeping.</p>
-
-<h3 id="coverage-is-a-floor-not-a-goal">Coverage Is a Floor, Not a Goal</h3>
-
-<p>Line and branch <strong>coverage</strong> tell you which code the suite <em>executed</em>, not whether it <em>verified the right behavior</em>. It is entirely possible to have 100% coverage with assertions that test nothing. Coverage is best used as a floor — “no new code below X%” — and as a map of untested regions, not as the metric you optimize. The techniques that actually measure test <em>quality</em> (does the suite detect injected faults?) live in mutation testing, covered in <a href="advanced-testing.html">Advanced Testing</a>.</p>
-
-<h2 id="explore-the-topics">Explore the Topics</h2>
-
-<p>The two areas below are ordered so that <strong>everyday craft comes before advanced techniques</strong>: master fast, trustworthy unit and integration tests first, then layer on the generative and resilience techniques that find what example-based tests cannot. Make tests drive design (practice TDD so tests shape interfaces, not just verify them); then move up to generative and system-level techniques — property-based testing and fuzzing for the inputs you’d never type, mutation testing to prove your assertions bite, and performance/load/chaos testing for behavior under the stress, partition, and failure that production eventually imposes.</p>
+<p>The pyramid predates cheap containers and component-level frameworks, and two widely cited alternatives shift weight toward the middle:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Page</th>
-      <th>What it covers</th>
+      <th>Model</th>
+      <th>Proposed by</th>
+      <th>Emphasis</th>
+      <th>Best fit</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="unit-and-integration.html">Unit &amp; Integration Testing</a></td>
-      <td>The testing pyramid in practice, test structure (Arrange-Act-Assert), test doubles, test-driven development, integration testing with real dependencies, fixtures, and managing flakiness</td>
+      <td>Pyramid</td>
+      <td>Mike Cohn (2009)</td>
+      <td>Mostly unit tests</td>
+      <td>Logic-heavy code, libraries</td>
     </tr>
     <tr>
-      <td><a href="advanced-testing.html">Advanced Testing</a></td>
-      <td>Property-based testing, fuzzing, mutation testing, snapshot and contract testing, performance/load testing, and chaos engineering</td>
+      <td>Testing trophy</td>
+      <td>Kent C. Dodds (2018)</td>
+      <td>Static analysis at the base, then mostly integration tests</td>
+      <td>Front-end applications, where most bugs are in how components combine</td>
+    </tr>
+    <tr>
+      <td>Testing honeycomb</td>
+      <td>Spotify engineering (2018)</td>
+      <td>Mostly integration tests of each service through its API, few implementation-detail unit tests</td>
+      <td>Microservices whose own logic is thin compared with their I/O</td>
     </tr>
   </tbody>
 </table>
 
-<p>To see how these practices slot into an automated pipeline, see <a href="../technology/ci-cd/">CI/CD Pipelines</a>; for the failure-injection techniques specific to multi-node systems, see <a href="../distributed-systems/testing-distributed-systems.html">Testing &amp; Chaos Engineering</a> in the Distributed Systems hub.</p>
+<p>All three agree on the fundamentals: keep end-to-end tests few, avoid tests coupled to implementation details, and make the bulk of the suite fast and deterministic. Two failure shapes are worth naming: the <strong>ice-cream cone</strong> (mostly manual and end-to-end tests over a thin base — slow and unreliable) and the <strong>hourglass</strong> (many unit and end-to-end tests but a starved integration layer, so wiring bugs slip through).</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h3 id="matching-techniques-to-bug-classes">Matching Techniques to Bug Classes</h3>
+
+<p>Different techniques catch structurally different bugs. Example-based tests only verify the cases someone thought of; the rest of the toolbox exists to find the ones nobody did.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Bugs["Where the bug lives"]
+        B1["Logic in one function"]
+        B2["Seam: schema, serialization,&lt;br/&gt;transactions"]
+        B3["Contract between services"]
+        B4["Inputs nobody thought of"]
+        B5["Weak or missing assertions"]
+        B6["Load, tail latency"]
+        B7["Infrastructure failure"]
+        B8["Only in real traffic"]
+    end
+    B1 --&gt; U["Unit tests, TDD"]
+    B2 --&gt; I["Integration tests"]
+    B3 --&gt; C["Contract tests"]
+    B4 --&gt; P["Property-based tests, fuzzing"]
+    B5 --&gt; M["Mutation testing"]
+    B6 --&gt; L["Load / performance tests"]
+    B7 --&gt; X["Chaos engineering"]
+    B8 --&gt; Pr["Canaries, feature flags"]
+</code></pre>
+
+<h2 id="properties-of-good-tests">Properties of Good Tests</h2>
+
+<p>Whatever the level, trustworthy tests share the properties abbreviated <strong>F.I.R.S.T.</strong>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Fast</strong></td>
+      <td>Quick enough to run on every change, so a failure is attributed to the change that caused it</td>
+    </tr>
+    <tr>
+      <td><strong>Independent</strong></td>
+      <td>No reliance on another test’s side effects or on execution order</td>
+    </tr>
+    <tr>
+      <td><strong>Repeatable</strong></td>
+      <td>Same verdict in every run and environment: no uncontrolled clock, network, randomness, or shared state</td>
+    </tr>
+    <tr>
+      <td><strong>Self-validating</strong></td>
+      <td>Pass or fail via assertions, never by a human reading output</td>
+    </tr>
+    <tr>
+      <td><strong>Timely</strong></td>
+      <td>Written with (or before, in TDD) the code, while intent is fresh</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A <strong>flaky</strong> test — one that passes and fails nondeterministically on the same code — is worse than a missing test: it teaches the team that red builds can be ignored. Treat flakiness as a defect with an owner, not background noise (<a href="unit-and-integration.html#flaky-tests">details</a>).</p>
+
+<p><strong>Coverage</strong> tells you what code the suite <em>executed</em>, not what it <em>verified</em>. Use it to find untested code and as a ratchet that must not fall, not as a target to maximize; the direct measure of assertion strength is <a href="advanced-testing.html#mutation-testing">mutation testing</a>.</p>
+
+<h2 id="glossary">Glossary</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Term</th>
+      <th>Definition</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>System under test (SUT)</td>
+      <td>The code a test exercises and makes assertions about</td>
+    </tr>
+    <tr>
+      <td>Test double</td>
+      <td>Any stand-in for a real collaborator: dummy, stub, fake, spy, or mock</td>
+    </tr>
+    <tr>
+      <td>Fixture</td>
+      <td>The known baseline state a test runs against, plus its setup and teardown</td>
+    </tr>
+    <tr>
+      <td>Regression test</td>
+      <td>A test added to make sure a fixed bug stays fixed</td>
+    </tr>
+    <tr>
+      <td>Smoke test</td>
+      <td>A small, fast check that a build or deployment is basically working</td>
+    </tr>
+    <tr>
+      <td>Oracle</td>
+      <td>The mechanism that decides whether an output is correct (an expected value, a reference implementation, a property)</td>
+    </tr>
+    <tr>
+      <td>Hermetic test</td>
+      <td>A test with no dependencies outside what it starts itself, so it cannot be affected by other runs or external services</td>
+    </tr>
+    <tr>
+      <td>Shift-left / shift-right</td>
+      <td>Moving verification earlier (static analysis, unit tests) or into production (canaries, observability)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="further-reading">Further Reading</h2>
 
 <ul>
-  <li><strong>Shape the suite like a pyramid.</strong> Many fast unit tests, fewer integration tests, a thin layer of end-to-end tests. Push every check to the cheapest level that can catch the bug.</li>
-  <li><strong>Optimize for fast feedback.</strong> A suite that runs in seconds gets run constantly; a slow one gets skipped. Speed at the base is what makes testing a habit.</li>
-  <li><strong>Make tests F.I.R.S.T.</strong> Fast, Independent, Repeatable, Self-validating, Timely. A flaky or order-dependent test is worse than no test — it teaches the team to ignore red.</li>
-  <li><strong>Coverage is a floor.</strong> It tells you what ran, not what was verified. Use it to find untested code, not as the number you optimize.</li>
-  <li><strong>Generate the inputs you can’t imagine.</strong> Property-based testing and fuzzing explore the input space example tests miss; mutation testing proves your assertions actually bite.</li>
-  <li><strong>Test under failure, not just success.</strong> Performance, load, and chaos testing reveal the behavior that only emerges under stress, latency, and partition.</li>
+  <li>Kent Beck, <em>Test-Driven Development: By Example</em> (2002)</li>
+  <li>Gerard Meszaros, <em>xUnit Test Patterns</em> (2007)</li>
+  <li>Steve Freeman and Nat Pryce, <em>Growing Object-Oriented Software, Guided by Tests</em> (2009)</li>
+  <li>Michael Feathers, <em>Working Effectively with Legacy Code</em> (2004)</li>
+  <li>Titus Winters, Tom Manshreck, and Hyrum Wright (eds.), <em>Software Engineering at Google</em> (2020), chapters 11–14 on testing</li>
+  <li>Casey Rosenthal and Nora Jones, <em>Chaos Engineering</em> (2020)</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="unit-and-integration.html">Unit &amp; Integration Testing</a></strong> — the everyday craft at the base and middle of the pyramid.</li>
-  <li><strong><a href="advanced-testing.html">Advanced Testing</a></strong> — property-based, fuzz, mutation, and chaos techniques.</li>
-  <li><strong><a href="../technology/ci-cd/">CI/CD Pipelines</a></strong> — where tests run automatically as a release gate.</li>
-  <li><strong><a href="../distributed-systems/testing-distributed-systems.html">Testing Distributed Systems</a></strong> — chaos engineering and fault injection for multi-node systems.</li>
-  <li><strong><a href="../technology/git/">Git</a></strong> — the version control workflow tests guard against regressions in.</li>
-  <li><strong><a href="../technology/cybersecurity/">Cybersecurity</a></strong> — fuzzing and security testing for finding exploitable defects.</li>
-</ul>
-
-<h3 id="further-reading">Further Reading</h3>
-
-<ul>
-  <li>“Working Effectively with Legacy Code” by Michael Feathers</li>
-  <li>“Test-Driven Development: By Example” by Kent Beck</li>
-  <li>“xUnit Test Patterns” by Gerard Meszaros</li>
-  <li>“Growing Object-Oriented Software, Guided by Tests” by Steve Freeman &amp; Nat Pryce</li>
-  <li>“Chaos Engineering” by Casey Rosenthal &amp; Nora Jones</li>
+  <li><a href="../technology/ci-cd/">CI/CD Pipelines</a> — running tests automatically as a merge and release gate</li>
+  <li><a href="../distributed-systems/testing-distributed-systems.html">Testing Distributed Systems</a> — simulation, Jepsen-style checking, and fault injection for multi-node systems</li>
+  <li><a href="../technology/git/">Git</a> — the version-control workflow that tests guard</li>
+  <li><a href="../technology/cybersecurity/">Cybersecurity</a> — security testing, including fuzzing for exploitable defects</li>
 </ul>
 
       </section>

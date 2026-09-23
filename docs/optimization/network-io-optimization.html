@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Latency, bandwidth, and concurrency; TCP, QUIC, and HTTP/1.1-3; batching, compression, connection pooling; storage queue depth, the page cache, io_uring, and...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Optimization: Network & I/O Optimization">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Latency, bandwidth, and concurrency; TCP, QUIC, and HTTP/1.1-3; batching, compression, connection pooling; storage queue depth, the page cache, io_uring, and...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/optimization/network-io-optimization.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Optimization: Network & I/O Optimization">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Latency, bandwidth, and concurrency; TCP, QUIC, and HTTP/1.1-3; batching, compression, connection pooling; storage queue depth, the page cache, io_uring, and...">
 
 <title>Optimization: Network & I/O Optimization | Andrews Notebook</title>
 
@@ -3135,59 +3135,136 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Performance Optimization</a> » Network &amp; I/O Optimization</p>
 
-<p>Most “slow” systems are not slow because the CPU cannot keep up — they are slow because they spend their time <em>waiting</em>: for a packet to cross the network, for a disk head to seek, for the kernel to copy a buffer, or for a connection to be established. This page is the optimization discipline for that waiting. It covers the two physical constraints you can never repeal (latency and bandwidth), the protocol choices that determine how efficiently you use them, and the software techniques — batching, pipelining, compression, connection pooling, and zero-copy — that shrink the gap between theoretical throughput and what your application actually achieves. Four governing ideas:</p>
+<p>Many slow systems are not short of CPU; they spend their time <strong>waiting</strong>: for a packet to cross the network, for a storage device to complete a read, for the kernel to copy a buffer, or for a connection handshake. This page covers optimizing those wait states. It starts with the quantities that govern every I/O channel (latency, bandwidth, and concurrency), then covers protocol choice, batching and pipelining, compression, connection pooling, storage access patterns, the page cache, and zero-copy data paths.</p>
+
+<p>The recurring rules:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Remove round trips before tuning anything else</td>
+      <td>Latency has a physical floor; bandwidth can be bought</td>
+    </tr>
+    <tr>
+      <td>Keep many operations in flight</td>
+      <td>By Little’s Law, concurrency is how throughput rises at fixed latency</td>
+    </tr>
+    <tr>
+      <td>Batch small operations</td>
+      <td>Per-operation overhead dominates small transfers</td>
+    </tr>
+    <tr>
+      <td>Avoid copying bytes you only forward</td>
+      <td>Each copy costs memory bandwidth, cache, and CPU</td>
+    </tr>
+    <tr>
+      <td>Treat storage like a network</td>
+      <td>Device latency, queue depth, and caching obey the same arithmetic</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="latency-bandwidth-and-concurrency">Latency, Bandwidth, and Concurrency</h2>
+
+<p>Every I/O channel, whether a TCP connection, an NVMe SSD, or a PCIe link, has two independent characteristics:</p>
 
 <ul>
-  <li><strong>Latency is a floor you cannot cross.</strong> Bandwidth can be bought; round-trip latency is bounded by the speed of light. Design to amortize round trips, not to “make the network faster.”</li>
-  <li><strong>Batch and pipeline before you tune.</strong> One request of 1000 items beats 1000 requests of one item by orders of magnitude. Coalescing work hides latency for free.</li>
-  <li><strong>Every copy is wasted bandwidth.</strong> A naive read-then-send touches data four times across two address spaces. Zero-copy paths (<code class="language-plaintext highlighter-rouge">sendfile</code>, <code class="language-plaintext highlighter-rouge">splice</code>, <code class="language-plaintext highlighter-rouge">io_uring</code>) eliminate most of it.</li>
-  <li><strong>Disk is just another network.</strong> Seeks are round trips; the page cache is your connection pool. The same latency-vs-bandwidth reasoning applies to storage.</li>
+  <li><strong>Latency</strong>: the time for one operation to complete, such as a round trip (RTT) or the time to first byte of a read. It is set by distance, queuing, and per-operation overhead.</li>
+  <li><strong>Bandwidth</strong> (throughput): the rate at which data flows once it is flowing, in bytes per second.</li>
 </ul>
 
-<h2 id="latency-vs-bandwidth-the-two-fundamental-limits">Latency vs Bandwidth: The Two Fundamental Limits</h2>
+<p>A trans-Pacific 10 Gbit/s link has high bandwidth and a round-trip time of well over 100 ms; a datacenter link might have a 50-200 µs RTT. Light in fiber travels about 200 km per millisecond, so no protocol or hardware change reduces a New York-London round trip much below about 55 ms. Latency is attacked with <strong>fewer round trips and more concurrency</strong>; bandwidth with <strong>larger transfers, compression, and parallel streams</strong>.</p>
 
-<p>Every I/O channel — a TCP socket, an NVMe SSD, a spinning disk, a PCIe lane — is characterized by two independent numbers, and conflating them is the most common source of bad optimization decisions.</p>
+<h3 id="reference-latencies">Reference Latencies</h3>
 
-<ul>
-  <li><strong>Latency</strong> is the time for a single operation to complete end to end: how long one packet takes to reach the other side and come back, or how long one read takes to return its first byte. It is dominated by distance, queuing, and per-operation overhead.</li>
-  <li><strong>Bandwidth</strong> (throughput) is the rate at which data flows once it <em>is</em> flowing: bytes per second on a saturated link, or sustained MB/s from a streaming read.</li>
-</ul>
+<p>Approximate figures, useful for back-of-envelope estimates; measure your own environment.</p>
 
-<p>These are independent. A trans-Pacific 10 Gbit/s link has enormous bandwidth and terrible latency (~150 ms RTT). A local loopback has low bandwidth ceilings relative to the CPU but near-zero latency. You optimize them with different techniques: latency with <strong>fewer, coalesced round trips</strong>; bandwidth with <strong>compression, larger transfers, and parallel streams</strong>.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Operation</th>
+      <th>Approximate time</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Main-memory access</td>
+      <td>~100 ns</td>
+    </tr>
+    <tr>
+      <td>Syscall (simple, no I/O)</td>
+      <td>~0.1-1 µs</td>
+    </tr>
+    <tr>
+      <td>NVMe SSD random 4 KB read</td>
+      <td>~50-100 µs</td>
+    </tr>
+    <tr>
+      <td>Round trip within a datacenter</td>
+      <td>~50-500 µs</td>
+    </tr>
+    <tr>
+      <td>HDD seek + rotational latency</td>
+      <td>~5-10 ms</td>
+    </tr>
+    <tr>
+      <td>Round trip within a continent</td>
+      <td>~20-60 ms</td>
+    </tr>
+    <tr>
+      <td>Round trip across an ocean</td>
+      <td>~70-200 ms</td>
+    </tr>
+    <tr>
+      <td>Round trip over a mobile network</td>
+      <td>~30-100+ ms, highly variable</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="the-bandwidth-delay-product">The Bandwidth-Delay Product</h3>
+<h3 id="bandwidth-delay-product">Bandwidth-Delay Product</h3>
 
-<p>The amount of data “in flight” on a link at any instant is its capacity, and it sets the minimum buffer size needed to keep the pipe full:</p>
+<p>The amount of data that must be in flight to keep a link full is the <strong>bandwidth-delay product</strong> (BDP):</p>
 
 \[\text{BDP} = \text{bandwidth} \times \text{RTT}\]
 
-<p>For a 1 Gbit/s link with a 100 ms round-trip time:</p>
+<p>For a 1 Gbit/s link with a 100 ms round trip:</p>
 
-\[\text{BDP} = 125 \times 10^6 \ \text{B/s} \times 0.1 \ \text{s} = 12.5 \ \text{MB}\]
+\[\text{BDP} = 125 \times 10^{6} \ \text{B/s} \times 0.1 \ \text{s} = 12.5 \ \text{MB}\]
 
-<p>If your TCP send/receive window is smaller than 12.5 MB, the sender stalls waiting for acknowledgements and you will <em>never</em> reach line rate no matter how much bandwidth you bought. This is why long-fat networks (LFNs) require window scaling (RFC 7323) and why a default 64 KB window caps a 100 ms link at roughly 5 Mbit/s.</p>
+<p>A TCP sender can have at most one window of unacknowledged data outstanding, so the achievable throughput is bounded by:</p>
 
-<h3 id="littles-law-concurrency-hides-latency">Little’s Law: Concurrency Hides Latency</h3>
+\[\text{throughput} \le \frac{\text{window}}{\text{RTT}}\]
 
-<p>Throughput, latency, and concurrency are tied together by Little’s Law:</p>
+<p>A 64 KB window on that 100 ms path caps throughput at about 5 Mbit/s regardless of link capacity. Window scaling (RFC 7323) allows windows up to 1 GB, and Linux autotunes socket buffers, but the maximums in <code class="language-plaintext highlighter-rouge">net.ipv4.tcp_rmem</code> / <code class="language-plaintext highlighter-rouge">tcp_wmem</code> (and application-set <code class="language-plaintext highlighter-rouge">SO_RCVBUF</code>, which disables autotuning) must still be large enough for long, fat paths.</p>
 
-\[L = \lambda W\]
+<h3 id="littles-law">Little’s Law</h3>
 
-<p>where $L$ is the average number of in-flight requests, $\lambda$ is throughput (requests/sec), and $W$ is average latency (seconds). Rearranged:</p>
+<p>Throughput, latency, and concurrency are related by Little’s Law, which holds for any stable queueing system:</p>
 
-\[\lambda = \frac{L}{W}\]
+\[L = \lambda W \qquad \Longleftrightarrow \qquad \lambda = \frac{L}{W}\]
 
-<p>To raise throughput you either lower per-request latency $W$ or raise concurrency $L$. A request that takes 10 ms served strictly one-at-a-time yields 100 req/s; with 50 in-flight requests it yields 5000 req/s at the <em>same</em> latency. This is the entire justification for connection pools, pipelining, and async I/O: you cannot make light faster, so you keep many requests in flight.</p>
+<p>$L$ is the mean number of requests in flight, $\lambda$ the throughput, and $W$ the mean latency. A 10 ms request handled one at a time yields 100 requests/s; with 50 in flight it yields 5,000 requests/s at the same latency. Connection pools, pipelining, HTTP/2 multiplexing, asynchronous I/O, and deep storage queues are all ways of raising $L$.</p>
 
 <h3 id="tail-latency">Tail Latency</h3>
 
-<p>Averages lie. User-facing systems are judged by their tail — the p99 and p99.9 latencies — because a single slow dependency in a fan-out makes the whole response slow. If a request touches 100 backends and each has a 1% chance of a slow response, roughly $1 - 0.99^{100} \approx 63\%$ of requests hit at least one slow backend. Optimizing the network means optimizing the tail: bounded queues, hedged/redundant requests, and timeouts that fail fast rather than letting one stalled connection block a thread.</p>
+<p>Averages hide the requests users notice. In a fan-out system, one slow dependency makes the whole response slow: if a request touches 100 backends and each has a 1% chance of being slow, then</p>
 
-<h2 id="protocol-choice-tcp-udp-quic-http11-http2-http3">Protocol Choice: TCP, UDP, QUIC, HTTP/1.1, HTTP/2, HTTP/3</h2>
+\[P(\text{at least one slow}) = 1 - 0.99^{100} \approx 0.63\]
 
-<p>The transport and application protocol you choose dictates how many round trips you pay before useful data flows, how head-of-line blocking behaves, and how much per-message overhead you carry.</p>
+<p>so most requests experience some backend’s p99. Defenses include bounded queues (shed load rather than queue unboundedly), deadlines propagated through the call graph, <strong>hedged requests</strong> (send a duplicate to another replica after the p95 latency elapses and take whichever answers first), and avoiding head-of-line blocking at every layer.</p>
 
-<h3 id="tcp-vs-udp">TCP vs UDP</h3>
+<h2 id="protocol-choice">Protocol Choice</h2>
+
+<p>The transport and application protocols determine how many round trips precede useful data, how loss affects unrelated requests, and the per-message overhead.</p>
+
+<h3 id="tcp-vs-udp-vs-quic">TCP vs. UDP vs. QUIC</h3>
 
 <table>
   <thead>
@@ -3195,119 +3272,284 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Property</th>
       <th>TCP</th>
       <th>UDP</th>
+      <th>QUIC (RFC 9000)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Delivery</td>
-      <td>Reliable, ordered, retransmitted</td>
-      <td>Best-effort, may drop/reorder</td>
+      <td>Reliable, ordered byte stream</td>
+      <td>Best-effort datagrams</td>
+      <td>Reliable, ordered <em>per stream</em>; optional unreliable datagrams (RFC 9221)</td>
     </tr>
     <tr>
-      <td>Connection</td>
-      <td>Stateful, 3-way handshake (1 RTT)</td>
-      <td>Connectionless, zero setup</td>
+      <td>Setup</td>
+      <td>1 RTT handshake (+ TLS)</td>
+      <td>None</td>
+      <td>1 RTT including TLS 1.3; 0-RTT on resumption</td>
     </tr>
     <tr>
-      <td>Congestion control</td>
-      <td>Built-in (CUBIC, BBR)</td>
-      <td>None — you implement it</td>
+      <td>Encryption</td>
+      <td>Separate (TLS)</td>
+      <td>None (DTLS optional)</td>
+      <td>Always (TLS 1.3 integrated)</td>
     </tr>
     <tr>
       <td>Head-of-line blocking</td>
-      <td>Yes (one lost segment stalls the stream)</td>
-      <td>No (each datagram independent)</td>
+      <td>Yes, across the whole connection</td>
+      <td>No</td>
+      <td>Only within the affected stream</td>
     </tr>
     <tr>
-      <td>Overhead</td>
-      <td>20-byte header + handshake + ACKs</td>
-      <td>8-byte header</td>
+      <td>Congestion control</td>
+      <td>Kernel (CUBIC default on Linux, BBR available)</td>
+      <td>Application’s responsibility</td>
+      <td>Userspace library (CUBIC, BBR, others)</td>
     </tr>
     <tr>
-      <td>Best for</td>
-      <td>Bulk transfer, RPC, anything needing ordering</td>
-      <td>Real-time media, games, DNS, custom reliability</td>
+      <td>Connection identity</td>
+      <td>IP/port 4-tuple</td>
+      <td>None</td>
+      <td>Connection ID; survives address changes</td>
+    </tr>
+    <tr>
+      <td>Implementation</td>
+      <td>Kernel, with hardware offloads</td>
+      <td>Kernel</td>
+      <td>Usually a userspace library over UDP</td>
     </tr>
   </tbody>
 </table>
 
-<p>TCP’s reliability is not free: a single lost segment blocks delivery of every byte behind it until retransmission completes (head-of-line blocking). UDP avoids this but pushes reliability, ordering, and congestion control into your application — which is exactly what QUIC does, in userspace, on top of UDP.</p>
+<p>TCP’s reliability means a single lost segment holds back every byte behind it until it is retransmitted. UDP avoids this but leaves reliability, ordering, and congestion control to the application. QUIC provides them in userspace on top of UDP, with independent streams. The trade-off is CPU cost: QUIC stacks cannot use the kernel’s mature TCP offloads as fully, and historically cost more CPU per byte than TCP+TLS, although UDP GSO/GRO and improved stacks have narrowed the gap.</p>
 
-<h3 id="the-handshake-cost">The Handshake Cost</h3>
+<h3 id="handshake-cost">Handshake Cost</h3>
 
-<p>Connection setup is pure latency tax, paid in round trips before any application data moves:</p>
+<p>Setup is paid in round trips before the first byte of application data:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Stack</th>
+      <th>Round trips before request can be sent</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>TCP + TLS 1.2 (full handshake)</td>
+      <td>3 (1 TCP + 2 TLS)</td>
+    </tr>
+    <tr>
+      <td>TCP + TLS 1.3</td>
+      <td>2 (1 TCP + 1 TLS)</td>
+    </tr>
+    <tr>
+      <td>TCP + TLS 1.3 resumption with 0-RTT early data</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>QUIC (first connection)</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>QUIC resumption with 0-RTT</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Server
+    Note over C,S: TCP + TLS 1.3 (2 RTT to first request)
+    C-&gt;&gt;S: SYN
+    S-&gt;&gt;C: SYN-ACK
+    C-&gt;&gt;S: ACK + ClientHello
+    S-&gt;&gt;C: ServerHello, certificate, Finished
+    C-&gt;&gt;S: Finished + HTTP request
+    S-&gt;&gt;C: HTTP response
+    Note over C,S: QUIC (1 RTT to first request)
+    C-&gt;&gt;S: Initial (ClientHello)
+    S-&gt;&gt;C: Initial + Handshake (ServerHello, certificate, Finished)
+    C-&gt;&gt;S: Handshake Finished + HTTP/3 request
+    S-&gt;&gt;C: HTTP/3 response
+</code></pre>
+
+<p>On a 100 ms path, TLS 1.2 over TCP spends 300 ms before sending the request. Reusing connections amortizes this cost across many requests; that is why keep-alive and pooling usually matter more than any protocol tuning. Note that 0-RTT early data can be replayed by an attacker, so servers should accept it only for idempotent requests.</p>
+
+<h3 id="http11-http2-and-http3">HTTP/1.1, HTTP/2, and HTTP/3</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>HTTP/1.1</th>
+      <th>HTTP/2 (RFC 9113)</th>
+      <th>HTTP/3 (RFC 9114)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Transport</td>
+      <td>TCP</td>
+      <td>TCP</td>
+      <td>QUIC over UDP</td>
+    </tr>
+    <tr>
+      <td>Concurrency per connection</td>
+      <td>One outstanding request (pipelining unusable in practice)</td>
+      <td>Many multiplexed streams</td>
+      <td>Many multiplexed streams</td>
+    </tr>
+    <tr>
+      <td>Header compression</td>
+      <td>None</td>
+      <td>HPACK</td>
+      <td>QPACK</td>
+    </tr>
+    <tr>
+      <td>Loss behavior</td>
+      <td>Affects one request</td>
+      <td>One lost segment stalls <strong>all</strong> streams</td>
+      <td>Stalls only the affected stream</td>
+    </tr>
+    <tr>
+      <td>Typical client behavior</td>
+      <td>~6 parallel connections per host</td>
+      <td>One connection per origin</td>
+      <td>One connection per origin; migrates across networks</td>
+    </tr>
+  </tbody>
+</table>
 
 <ul>
-  <li><strong>TCP</strong>: 1 RTT for the SYN / SYN-ACK / ACK handshake.</li>
-  <li><strong>TCP + TLS 1.2</strong>: 1 RTT (TCP) + 2 RTT (TLS) = <strong>3 RTT</strong> before the first byte.</li>
-  <li><strong>TCP + TLS 1.3</strong>: 1 RTT (TCP) + 1 RTT (TLS) = <strong>2 RTT</strong>, with optional 0-RTT resumption.</li>
-  <li><strong>QUIC</strong>: combines transport and crypto into <strong>1 RTT</strong> on first connect, and <strong>0-RTT</strong> for resumed sessions.</li>
+  <li><strong>HTTP/1.1</strong> serializes requests on a connection, so browsers open several connections per host, each paying its own handshake and slow-start ramp.</li>
+  <li><strong>HTTP/2</strong> multiplexes streams over one TCP connection, but TCP delivers bytes strictly in order, so a single loss stalls every stream. On lossy networks, one HTTP/2 connection can underperform six HTTP/1.1 connections. <strong>Server push</strong> has been removed from major browsers (Chrome disabled it in 2022); use <code class="language-plaintext highlighter-rouge">103 Early Hints</code> or preload links instead.</li>
+  <li><strong>HTTP/3</strong> moves the same semantics onto QUIC, eliminating transport-level head-of-line blocking and enabling connection migration (Wi-Fi to cellular without reconnecting). All major browsers and CDNs support it; servers advertise it through the <code class="language-plaintext highlighter-rouge">Alt-Svc</code> header or DNS HTTPS records.</li>
 </ul>
-
-<p>On a 100 ms link, TLS-1.2-over-TCP spends 300 ms doing nothing useful. This is why connection reuse (pooling, keep-alive) matters so much: amortizing one handshake over thousands of requests turns a per-request 300 ms tax into a per-request rounding error.</p>
-
-<h3 id="http11">HTTP/1.1</h3>
-
-<p>One request per connection at a time. Pipelining (sending the next request before the response arrives) is specified but suffers from head-of-line blocking and is effectively unused. Browsers worked around the serialization by opening 6+ parallel connections per host, multiplying handshakes and congestion-control state. Each connection independently ramps up from TCP slow start, so short-lived HTTP/1.1 connections rarely reach full bandwidth.</p>
-
-<h3 id="http2">HTTP/2</h3>
-
-<p>Multiplexes many concurrent <strong>streams</strong> over a <em>single</em> TCP connection, with header compression (HPACK) and server push. This eliminates application-level head-of-line blocking and the wasteful connection sprawl of HTTP/1.1. But because it still rides on one TCP stream, it reintroduces head-of-line blocking at the <em>transport</em> layer: one lost TCP segment stalls <em>every</em> multiplexed stream, because TCP must deliver bytes in order before HTTP/2 can demultiplex them. On lossy networks, HTTP/2 over a single connection can be <em>worse</em> than HTTP/1.1 over six.</p>
-
-<h3 id="http3-and-quic">HTTP/3 and QUIC</h3>
-
-<p>HTTP/3 runs over <strong>QUIC</strong>, which runs over UDP. QUIC implements reliability, ordering, congestion control, and TLS 1.3 in userspace, with one crucial difference: each stream has its own delivery state, so a lost packet only stalls the stream it belonged to, not the others. This finally solves transport-layer head-of-line blocking. QUIC also enables 0-RTT resumption and connection migration (a connection survives an IP change, e.g. Wi-Fi to cellular, via a connection ID rather than the 4-tuple).</p>
-
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>HTTP/1.1     HTTP/2              HTTP/3
-  one          many streams        many streams
- request       over one TCP        over QUIC/UDP
-per conn       (transport HOL      (per-stream
-               blocking on loss)    delivery, no HOL)
-
-   TCP            TCP                 QUIC
-    |              |                   |
-   IP             IP                 UDP / IP
-</code></pre></div></div>
 
 <h3 id="choosing">Choosing</h3>
 
-<ul>
-  <li><strong>Bulk, ordered, lossless transfer (file sync, RPC, databases):</strong> TCP, ideally with HTTP/2 multiplexing or a binary RPC framing (gRPC).</li>
-  <li><strong>Web traffic at scale, mobile/lossy networks:</strong> HTTP/3 (QUIC) for faster setup, no transport HOL blocking, and connection migration.</li>
-  <li><strong>Real-time / latency-over-reliability (VoIP, video conferencing, game state):</strong> UDP, or QUIC/WebRTC datagrams, accepting and concealing occasional loss rather than waiting for retransmission.</li>
-  <li><strong>Tiny request/response on the same datacenter:</strong> plain UDP (DNS-style) or a pooled persistent TCP connection — the handshake dominates everything else.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Workload</th>
+      <th>Recommended</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Web and API traffic to browsers and mobile clients</td>
+      <td>HTTP/2 everywhere, plus HTTP/3 for lossy and mobile networks</td>
+    </tr>
+    <tr>
+      <td>Internal service-to-service RPC</td>
+      <td>Pooled, long-lived HTTP/2 connections (e.g. gRPC)</td>
+    </tr>
+    <tr>
+      <td>Bulk transfer within a datacenter</td>
+      <td>TCP with tuned buffers; parallel streams for long, fat paths</td>
+    </tr>
+    <tr>
+      <td>Real-time media and game state</td>
+      <td>UDP with application-level reliability, WebRTC, or QUIC datagrams; conceal loss rather than wait for retransmission</td>
+    </tr>
+    <tr>
+      <td>Browser-to-server low-latency messaging</td>
+      <td>WebSocket today; WebTransport (over HTTP/3) where supported</td>
+    </tr>
+    <tr>
+      <td>Tiny request/response within a datacenter</td>
+      <td>Persistent connection; handshake cost dominates everything else</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="transport-tuning-knobs">Transport Tuning Knobs</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">TCP_NODELAY</code></td>
+      <td>Disables Nagle’s algorithm, which delays small writes to coalesce them. Set it for request/response protocols; batch writes yourself instead.</td>
+    </tr>
+    <tr>
+      <td>Congestion control (<code class="language-plaintext highlighter-rouge">net.ipv4.tcp_congestion_control</code>)</td>
+      <td>CUBIC is the Linux default. BBR models bandwidth and RTT instead of reacting to loss and performs much better on lossy long-haul paths; widely deployed by large content providers. Pair it with the <code class="language-plaintext highlighter-rouge">fq</code> qdisc.</td>
+    </tr>
+    <tr>
+      <td>TCP Fast Open (RFC 7413)</td>
+      <td>Carries data in the SYN on repeat connections; limited by middlebox interference. TLS 1.3 0-RTT and QUIC achieve similar results more reliably.</td>
+    </tr>
+    <tr>
+      <td>Socket buffer limits (<code class="language-plaintext highlighter-rouge">tcp_rmem</code>, <code class="language-plaintext highlighter-rouge">tcp_wmem</code>)</td>
+      <td>Must accommodate the BDP of the longest paths served</td>
+    </tr>
+    <tr>
+      <td>Initial congestion window</td>
+      <td>Linux default is 10 segments (RFC 6928); determines how much a new connection can send in its first RTT</td>
+    </tr>
+    <tr>
+      <td>NIC offloads (TSO/GSO, GRO, checksum), RSS, IRQ affinity</td>
+      <td>Reduce per-packet CPU cost; spread load across cores</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="batching-and-pipelining">Batching and Pipelining</h2>
 
-<p>The cheapest round trip is the one you never make. Both techniques attack latency by amortizing per-operation overhead.</p>
+<p>The cheapest round trip is one that is never made.</p>
 
-<p><strong>Batching</strong> combines many logical operations into one physical request. Instead of 1000 single-row inserts (1000 round trips), send one multi-row insert (one round trip). The latency win is dramatic: at 1 ms RTT, 1000 sequential round trips cost 1 second; one batched round trip costs ~1 ms plus transfer time.</p>
-
-<p><strong>Pipelining</strong> keeps multiple requests in flight without waiting for each response, exploiting Little’s Law directly. Redis pipelining and HTTP/2 multiplexing both work this way: you fire request 2 before response 1 arrives, so the RTT is paid once across the whole batch rather than once per request.</p>
+<ul>
+  <li><strong>Batching</strong> merges many logical operations into one physical request: one multi-row <code class="language-plaintext highlighter-rouge">INSERT</code> instead of 1,000 single-row inserts. At 1 ms RTT, 1,000 sequential round trips take at least a second; one batch takes about a millisecond plus transfer time.</li>
+  <li><strong>Pipelining</strong> sends further requests without waiting for earlier responses, so the RTT is paid once per window rather than once per request.</li>
+</ul>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">redis</span>
 
 <span class="n">r</span> <span class="o">=</span> <span class="n">redis</span><span class="p">.</span><span class="nc">Redis</span><span class="p">()</span>
 
-<span class="c1"># Anti-pattern: one round trip per command (N x RTT)
+<span class="c1"># Anti-pattern: one round trip per command (10,000 x RTT).
 </span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">10_000</span><span class="p">):</span>
     <span class="n">r</span><span class="p">.</span><span class="nf">set</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">key:</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
 
-<span class="c1"># Pipelined: commands buffered and flushed together (~1 x RTT)
+<span class="c1"># Pipelined: commands are buffered and sent together (a few RTTs total).
 </span><span class="k">with</span> <span class="n">r</span><span class="p">.</span><span class="nf">pipeline</span><span class="p">(</span><span class="n">transaction</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">pipe</span><span class="p">:</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">10_000</span><span class="p">):</span>
         <span class="n">pipe</span><span class="p">.</span><span class="nf">set</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">key:</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-    <span class="n">pipe</span><span class="p">.</span><span class="nf">execute</span><span class="p">()</span>   <span class="c1"># single network round trip for all 10,000 commands
-</span></code></pre></div></div>
+    <span class="n">pipe</span><span class="p">.</span><span class="nf">execute</span><span class="p">()</span>
+</code></pre></div></div>
 
-<p>On a 1 ms link this turns ~10 seconds of cumulative round-trip time into a handful of milliseconds. The same pattern applies to database <code class="language-plaintext highlighter-rouge">executemany</code>, S3/object-store bulk operations, GraphQL/REST request coalescing (DataLoader-style), and message queues that support batch publish.</p>
+<p>The same pattern appears as <code class="language-plaintext highlighter-rouge">executemany</code> and <code class="language-plaintext highlighter-rouge">COPY</code> in databases, bulk APIs in object stores, request coalescing in GraphQL (DataLoader), and batch publish in message queues.</p>
 
-<p><strong>The batching trade-off is latency vs throughput.</strong> Holding requests to accumulate a batch adds latency to the first item in the batch. Production systems bound this with a <strong>max-batch-size OR max-delay</strong> flush rule (e.g. “flush when 100 items queued <em>or</em> 5 ms elapses, whichever comes first”) so a quiet period never strands a request indefinitely. This is the Nagle algorithm’s logic generalized — and Nagle itself (which coalesces small TCP writes) is why latency-sensitive protocols disable it with <code class="language-plaintext highlighter-rouge">TCP_NODELAY</code>.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Server
+    Note over C,S: Sequential: N round trips
+    C-&gt;&gt;S: GET a
+    S--&gt;&gt;C: a
+    C-&gt;&gt;S: GET b
+    S--&gt;&gt;C: b
+    Note over C,S: Pipelined: about one round trip
+    C-&gt;&gt;S: GET a
+    C-&gt;&gt;S: GET b
+    C-&gt;&gt;S: GET c
+    S--&gt;&gt;C: a
+    S--&gt;&gt;C: b
+    S--&gt;&gt;C: c
+</code></pre>
+
+<p><strong>Batching trades latency for throughput.</strong> Waiting to fill a batch delays the first item in it. Production batchers flush on <strong>whichever comes first: a maximum batch size or a maximum delay</strong> (for example, 100 items or 5 ms), so a quiet period never strands a request. Kafka’s <code class="language-plaintext highlighter-rouge">linger.ms</code> and <code class="language-plaintext highlighter-rouge">batch.size</code> producer settings implement exactly this rule.</p>
 
 <h2 id="compression">Compression</h2>
 
-<p>Compression trades CPU for bandwidth — sensible when the link is the bottleneck and the data is compressible, harmful when the CPU is the bottleneck or the data is already compressed (JPEG, video, encrypted bytes).</p>
+<p>Compression trades CPU for bytes. It helps when the link is the bottleneck and the data is compressible; it hurts when the CPU is the bottleneck or the data is already compressed (images, video, encrypted data, most archives).</p>
 
 <table>
   <thead>
@@ -3315,205 +3557,396 @@ per conn       (transport HOL      (per-stream
       <th>Codec</th>
       <th>Ratio</th>
       <th>Speed</th>
-      <th>Use case</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>gzip / DEFLATE</td>
-      <td>Good</td>
       <td>Moderate</td>
-      <td>Universal HTTP, broad compatibility</td>
+      <td>Moderate</td>
+      <td>Universal HTTP compatibility</td>
     </tr>
     <tr>
       <td>Brotli</td>
-      <td>Best (text)</td>
-      <td>Slow to compress, fast to decompress</td>
-      <td>Static web assets compressed once, served many times</td>
+      <td>Best for text at high levels</td>
+      <td>Slow at high levels; fast decompression</td>
+      <td>Static web assets compressed once at build time</td>
     </tr>
     <tr>
-      <td>Zstandard (zstd)</td>
-      <td>Good, tunable (levels 1-22)</td>
-      <td>Very fast, dictionary support</td>
-      <td>RPC, logs, storage, real-time streams</td>
+      <td>Zstandard (RFC 8878)</td>
+      <td>Good, tunable (negative “fast” levels through 22)</td>
+      <td>Fast compression, very fast decompression; dictionaries</td>
+      <td>RPC, logs, storage, databases, HTTP (<code class="language-plaintext highlighter-rouge">Content-Encoding: zstd</code> supported in Chrome and Firefox since 2024)</td>
     </tr>
     <tr>
       <td>LZ4</td>
       <td>Lower</td>
-      <td>Extremely fast (GB/s)</td>
-      <td>Hot paths where CPU is scarce — memory, page-cache, DB pages</td>
+      <td>Several GB/s per core</td>
+      <td>Hot paths: in-memory, page-level, and block-storage compression</td>
     </tr>
     <tr>
       <td>Snappy</td>
       <td>Lower</td>
       <td>Very fast</td>
-      <td>Big-data shuffles (Kafka, Cassandra, RPC)</td>
+      <td>Legacy big-data systems (being replaced by zstd and LZ4 in many)</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Decision rule.</strong> Compress when <code class="language-plaintext highlighter-rouge">compression_time + transfer_time_compressed &lt; transfer_time_uncompressed</code>. On a fast LAN (10+ Gbit/s) heavy compression often <em>slows</em> transfer because the CPU cannot compress as fast as the wire moves bytes; LZ4/Snappy or no compression wins. On a slow WAN, even Brotli’s CPU cost is dwarfed by the bytes saved.</p>
+<p><strong>Decision rule.</strong> Compress when</p>
+
+\[t_{\text{compress}} + t_{\text{transfer, compressed}} + t_{\text{decompress}} &lt; t_{\text{transfer, uncompressed}}\]
+
+<p>On a 25-100 Gbit/s datacenter link, a high-ratio codec can be slower than sending raw bytes; LZ4 or no compression wins. Over a slow WAN or mobile link, even expensive compression pays for itself.</p>
 
 <p>Practical guidance:</p>
+
 <ul>
-  <li><strong>Compress once, serve many:</strong> precompress static assets at the highest ratio (Brotli) at build time; never recompress per request.</li>
-  <li><strong>Compress dynamic responses with a fast codec</strong> (gzip level 4-6, or zstd) so the CPU cost stays bounded under load.</li>
-  <li><strong>Never compress already-compressed payloads</strong> — you pay CPU for ~0% gain and sometimes a slightly larger output.</li>
-  <li><strong>Set a minimum size threshold</strong> (e.g. only compress responses &gt; 1 KB); small payloads cost more in framing overhead than they save.</li>
-  <li><strong>Use shared dictionaries</strong> (zstd dictionaries) when transferring many small, similar messages (JSON records, protobufs) — the dictionary primes the compressor so even tiny messages compress well.</li>
+  <li><strong>Precompress static assets</strong> at maximum Brotli or zstd levels at build time and serve the stored file; never recompress per request.</li>
+  <li><strong>Use a fast level for dynamic responses</strong> (gzip 4-6, Brotli 4-5, zstd 1-3) so CPU cost stays bounded under load.</li>
+  <li><strong>Skip incompressible payloads</strong> and very small ones (below about 1 KB), where framing overhead exceeds savings.</li>
+  <li><strong>Use dictionaries for many small, similar messages</strong> (JSON records, log lines, protobufs). A trained zstd dictionary lets a 200-byte message compress well on its own. For the web, <strong>Compression Dictionary Transport</strong> (RFC 9842, 2025) lets a previously downloaded resource serve as the dictionary for the next version, so an updated JavaScript bundle is sent as a small delta (<code class="language-plaintext highlighter-rouge">dcb</code> for Brotli, <code class="language-plaintext highlighter-rouge">dcz</code> for zstd).</li>
+  <li><strong>Beware compression side channels.</strong> Compressing secrets together with attacker-controlled input over TLS enables CRIME/BREACH-style attacks.</li>
 </ul>
 
 <h2 id="connection-pooling">Connection Pooling</h2>
 
-<p>Opening a connection is expensive: a TCP handshake, a TLS handshake, congestion-control slow start, and (for databases) authentication and session setup. A <strong>connection pool</strong> keeps a set of established connections alive and hands them out to callers, amortizing all of that across thousands of operations.</p>
+<p>A new connection costs a TCP handshake, a TLS handshake, a slow-start ramp, and for databases authentication and session setup (a PostgreSQL connection is a forked backend process). A <strong>connection pool</strong> keeps established connections open and lends them to callers.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Without pooling: full TCP + TLS + auth handshake on EVERY query
-</span><span class="k">def</span> <span class="nf">query_unpooled</span><span class="p">(</span><span class="n">sql</span><span class="p">):</span>
-    <span class="n">conn</span> <span class="o">=</span> <span class="nf">connect</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="n">user</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>   <span class="c1"># ~3 RTT + auth
-</span>    <span class="n">result</span> <span class="o">=</span> <span class="n">conn</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">)</span>
-    <span class="n">conn</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>                            <span class="c1"># connection discarded
-</span>    <span class="k">return</span> <span class="n">result</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">sqlalchemy</span> <span class="kn">import</span> <span class="n">create_engine</span><span class="p">,</span> <span class="n">text</span>
 
-<span class="c1"># With pooling: handshake paid once, reused for the connection's lifetime
-</span><span class="kn">from</span> <span class="n">sqlalchemy</span> <span class="kn">import</span> <span class="n">create_engine</span>
 <span class="n">engine</span> <span class="o">=</span> <span class="nf">create_engine</span><span class="p">(</span>
-    <span class="sh">"</span><span class="s">postgresql://user:pass@host/db</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">pool_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>         <span class="c1"># persistent connections kept warm
-</span>    <span class="n">max_overflow</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>      <span class="c1"># temporary extras under burst load
-</span>    <span class="n">pool_timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>      <span class="c1"># how long a caller waits for a free connection
-</span>    <span class="n">pool_recycle</span><span class="o">=</span><span class="mi">1800</span><span class="p">,</span>    <span class="c1"># recycle connections older than 30 min
-</span>    <span class="n">pool_pre_ping</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>   <span class="c1"># validate a connection before handing it out
+    <span class="sh">"</span><span class="s">postgresql+psycopg://user:pass@host/db</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">pool_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>         <span class="c1"># persistent connections kept open
+</span>    <span class="n">max_overflow</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>       <span class="c1"># temporary extras during bursts
+</span>    <span class="n">pool_timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>       <span class="c1"># seconds a caller waits before failing
+</span>    <span class="n">pool_recycle</span><span class="o">=</span><span class="mi">1800</span><span class="p">,</span>    <span class="c1"># replace connections older than 30 minutes
+</span>    <span class="n">pool_pre_ping</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>   <span class="c1"># validate a connection before lending it out
 </span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">engine</span><span class="p">.</span><span class="nf">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>                  <span class="c1"># returned to the pool on exit
+</span>    <span class="n">rows</span> <span class="o">=</span> <span class="n">conn</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="nf">text</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT 1</span><span class="sh">"</span><span class="p">)).</span><span class="nf">all</span><span class="p">()</span>
 </code></pre></div></div>
 
-<p><strong>Sizing the pool</strong> follows from Little’s Law: you need roughly <code class="language-plaintext highlighter-rouge">throughput x average_hold_time</code> connections to avoid queuing. For databases, more is not better — each Postgres connection is a backend process consuming memory and contending on locks; pools of 2-3x the core count, fronted by a proxy like PgBouncer, usually beat huge per-app pools. For HTTP clients, the pool prevents the latency disaster of a fresh TLS handshake per call; always enable keep-alive and reuse a single client instance rather than constructing one per request.</p>
+<p><strong>Sizing.</strong> From Little’s Law, the pool needs about $\lambda \times W_{\text{hold}}$ connections, where $W_{\text{hold}}$ is how long each operation holds a connection. For databases, more is not better: past a small multiple of the server’s core count, extra connections add lock contention and memory without adding throughput. With many application instances, put a pooler such as PgBouncer (transaction mode) in front of PostgreSQL so thousands of client connections share a few dozen server connections. PgBouncer 1.21 and later support protocol-level prepared statements in transaction mode.</p>
 
-<p><strong>Pool hazards to guard against:</strong></p>
+<p>For HTTP clients, create one client (and one pool) per process and reuse it; constructing a client per request discards the pool and pays a new TLS handshake every time.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Hazard</th>
+      <th>Symptom</th>
+      <th>Defense</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Stale connections</td>
+      <td>Errors after idle periods; a load balancer or NAT dropped the connection silently</td>
+      <td>Pre-ping or validation, idle timeouts shorter than the middlebox’s</td>
+    </tr>
+    <tr>
+      <td>Pool exhaustion</td>
+      <td>Callers block until <code class="language-plaintext highlighter-rouge">pool_timeout</code>; latency cliff</td>
+      <td>Statement timeouts, always return connections (context managers), alert on wait time</td>
+    </tr>
+    <tr>
+      <td>Connection age</td>
+      <td>Server-side limits, accumulated session state</td>
+      <td><code class="language-plaintext highlighter-rouge">pool_recycle</code>, maximum-lifetime settings</td>
+    </tr>
+    <tr>
+      <td>Uneven load after scaling</td>
+      <td>New backends receive no traffic on long-lived HTTP/2 connections</td>
+      <td>Maximum connection age, client-side load balancing</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="storage-io-patterns">Storage I/O Patterns</h2>
+
+<p>Storage follows the same latency, bandwidth, and concurrency rules as the network.</p>
+
+<h3 id="sequential-vs-random">Sequential vs. Random</h3>
+
 <ul>
-  <li><strong>Stale connections:</strong> a peer or load balancer silently dropped the connection. Use <code class="language-plaintext highlighter-rouge">pool_pre_ping</code> / validation queries or bounded idle timeouts.</li>
-  <li><strong>Pool exhaustion:</strong> all connections checked out and held (e.g. a slow query or a leaked handle) causes callers to block on <code class="language-plaintext highlighter-rouge">pool_timeout</code>. Cap query time and always return connections in a <code class="language-plaintext highlighter-rouge">finally</code>/context manager.</li>
-  <li><strong>Connection age:</strong> long-lived connections accumulate state and can outlive server-side timeouts; <code class="language-plaintext highlighter-rouge">pool_recycle</code> rotates them.</li>
+  <li><strong>Sequential</strong> access streams contiguous blocks. HDDs avoid seeks, SSDs spread work across flash channels, and readahead can fetch ahead.</li>
+  <li><strong>Random</strong> access pays the device’s per-operation latency on each request, including a mechanical seek of several milliseconds on HDDs. On an HDD, sequential throughput can exceed random throughput by more than 100x; on NVMe SSDs the gap is much smaller at high queue depths but remains significant, especially for writes.</li>
 </ul>
 
-<h2 id="disk-io-patterns">Disk I/O Patterns</h2>
+<p>This is why storage engines prefer large nodes (B-trees) and append-only writes (write-ahead logs, LSM-trees): converting random writes into sequential ones is often the largest storage optimization available.</p>
 
-<p>Storage obeys the same latency-vs-bandwidth duality as the network, and the gap between access patterns is enormous.</p>
+<h3 id="iops-throughput-and-queue-depth">IOPS, Throughput, and Queue Depth</h3>
 
-<h3 id="sequential-vs-random">Sequential vs Random</h3>
-
-<ul>
-  <li><strong>Sequential access</strong> reads/writes contiguous blocks. On an HDD the head streams without seeking; on an SSD it maximizes parallelism across NAND chips and lets the prefetcher work. Sequential throughput can be 100x+ random throughput on HDDs and several-x on SSDs.</li>
-  <li><strong>Random access</strong> scatters small reads across the device. Each one pays the device’s access latency, and on an HDD that includes a mechanical seek (~5-10 ms). This is why a B-tree designed for disk uses large nodes (one big sequential read) rather than many pointer chases.</li>
-</ul>
-
-<h3 id="iops-vs-throughput">IOPS vs Throughput</h3>
-
-<p>A device is rated by both <strong>IOPS</strong> (operations/sec, the limit for small random I/O) and <strong>throughput</strong> (MB/s, the limit for large sequential I/O). A workload of 4 KB random reads is IOPS-bound; a workload of 1 MB sequential reads is throughput-bound. The relationship:</p>
+<p>Devices are rated in <strong>IOPS</strong> (operations per second, the limit for small random I/O) and <strong>throughput</strong> (bytes per second, the limit for large sequential I/O):</p>
 
 \[\text{throughput} = \text{IOPS} \times \text{I/O size}\]
 
-<p>Larger I/O sizes amortize per-operation overhead. This is why databases and log systems prefer large, append-only sequential writes (LSM-trees, write-ahead logs) over in-place random updates: turning random writes into sequential ones can be the single biggest storage win available.</p>
+<p>An NVMe SSD achieves its rated IOPS only with many requests outstanding. Little’s Law again gives the arithmetic:</p>
 
-<h3 id="buffered-vs-direct-sync-vs-async">Buffered vs Direct, Sync vs Async</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Access pattern</th>
+      <th>Outstanding I/Os</th>
+      <th>Per-I/O latency</th>
+      <th>Result</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Synchronous 4 KB reads, one thread</td>
+      <td>1</td>
+      <td>~80 µs</td>
+      <td>~12,500 IOPS, ~50 MB/s</td>
+    </tr>
+    <tr>
+      <td>Asynchronous 4 KB reads</td>
+      <td>32</td>
+      <td>~80-100 µs</td>
+      <td>~300,000-400,000 IOPS, ~1.2-1.6 GB/s</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A fast device driven by a single synchronous thread leaves most of its capability idle. Measure with <code class="language-plaintext highlighter-rouge">fio</code> at several queue depths to find where latency begins to rise sharply.</p>
+
+<h3 id="buffered-direct-and-asynchronous-io">Buffered, Direct, and Asynchronous I/O</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Behavior</th>
+      <th>Use when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Buffered (default)</td>
+      <td>Goes through the page cache; reads may hit RAM, writes are deferred</td>
+      <td>General-purpose file access, repeated reads</td>
+    </tr>
+    <tr>
+      <td>Direct (<code class="language-plaintext highlighter-rouge">O_DIRECT</code>)</td>
+      <td>Bypasses the page cache; requires aligned buffers, offsets, and sizes</td>
+      <td>Databases and caches that manage their own buffer pool</td>
+    </tr>
+    <tr>
+      <td>Memory-mapped (<code class="language-plaintext highlighter-rouge">mmap</code>)</td>
+      <td>File pages appear in the address space; faults load them</td>
+      <td>Read-mostly random access to large files</td>
+    </tr>
+    <tr>
+      <td>Asynchronous (<code class="language-plaintext highlighter-rouge">io_uring</code>, Windows IOCP / IoRing)</td>
+      <td>Many operations submitted without blocking a thread each</td>
+      <td>High-IOPS storage and high-connection-count networking</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong><code class="language-plaintext highlighter-rouge">io_uring</code></strong> (Linux 5.1 and later, still gaining features) uses a pair of ring buffers shared between the application and the kernel: the application places submission entries on one ring and reaps completions from the other, so many operations cost few or no syscalls. It covers files, sockets, timers, and more, and supports registered buffers and files to avoid per-operation setup. It has largely superseded <code class="language-plaintext highlighter-rouge">libaio</code>, which worked reliably only with <code class="language-plaintext highlighter-rouge">O_DIRECT</code>.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph U["User space"]
+        A["Application"]
+    end
+    subgraph SH["Shared memory"]
+        SQ["Submission queue&lt;br/&gt;(SQEs)"]
+        CQ["Completion queue&lt;br/&gt;(CQEs)"]
+    end
+    subgraph K["Kernel"]
+        IO["io_uring&lt;br/&gt;worker / driver"]
+        D["NVMe / NIC"]
+    end
+    A --&gt;|"write SQEs"| SQ
+    SQ --&gt;|"io_uring_enter&lt;br/&gt;or SQPOLL thread"| IO
+    IO --&gt; D
+    D --&gt; IO
+    IO --&gt;|"post CQEs"| CQ
+    CQ --&gt;|"reap, no syscall"| A
+</code></pre>
+
+<p>Because <code class="language-plaintext highlighter-rouge">io_uring</code> exposes a large kernel attack surface, some environments restrict it (several container runtimes’ default seccomp profiles, some Android and ChromeOS configurations, and a sysctl <code class="language-plaintext highlighter-rouge">kernel.io_uring_disabled</code> since Linux 6.6). Check the deployment target before depending on it.</p>
+
+<h2 id="the-page-cache">The Page Cache</h2>
+
+<p>The page cache is the kernel’s in-memory cache of file contents. Understanding it separates “the disk is slow” from “the workload is thrashing the cache.”</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    R["read()"] --&gt; H{"Page in cache?"}
+    H --&gt;|hit| U["Copy to user buffer"]
+    H --&gt;|miss| DEV["Device read"] --&gt; PC["Insert into page cache&lt;br/&gt;+ readahead next pages"] --&gt; U
+    W["write()"] --&gt; DP["Copy into page cache&lt;br/&gt;mark dirty, return"]
+    DP --&gt; FL["Background writeback&lt;br/&gt;or fsync()"] --&gt; DEV2["Device write"]
+</code></pre>
 
 <ul>
-  <li><strong>Buffered I/O</strong> (the default) routes through the kernel page cache: reads may hit cache and return instantly; writes are absorbed into dirty pages and flushed later. Great for repeated access, but it costs a memory copy and gives up control over timing.</li>
-  <li><strong>Direct I/O</strong> (<code class="language-plaintext highlighter-rouge">O_DIRECT</code>) bypasses the page cache to move data straight between the device and a user buffer. Databases use it because they manage their own cache and do not want double-buffering; it requires aligned buffers and careful sizing.</li>
-  <li><strong>Asynchronous I/O</strong> lets you submit many requests without blocking a thread per request — essential for keeping a fast SSD’s deep queue full. On Linux, <code class="language-plaintext highlighter-rouge">io_uring</code> is the modern interface: a submission/completion ring shared with the kernel that batches syscalls and supports zero-copy operations, far outperforming the older <code class="language-plaintext highlighter-rouge">libaio</code> and thread-pool approaches.</li>
+  <li><strong>Reads</strong> check the cache first. On a miss, the kernel reads from the device and, if the access looks sequential, <strong>reads ahead</strong> to prefetch subsequent pages.</li>
+  <li><strong>Writes</strong> copy into the cache, mark pages dirty, and return immediately. Data reaches the device during background writeback or on <code class="language-plaintext highlighter-rouge">fsync</code>/<code class="language-plaintext highlighter-rouge">fdatasync</code>. A successful <code class="language-plaintext highlighter-rouge">write()</code> does not mean the data is durable.</li>
 </ul>
 
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Queue depth matters: one outstanding 4 KB read at a time on an NVMe SSD</span>
-<span class="c1">// leaves &gt;90% of its IOPS idle. Async submission keeps the device busy.</span>
-<span class="c1">//</span>
-<span class="c1">// Synchronous (queue depth 1): throughput = 1 / latency</span>
-<span class="c1">//   4 KB read latency ~ 80 us  -&gt;  ~12,500 IOPS  -&gt;  ~50 MB/s</span>
-<span class="c1">//</span>
-<span class="c1">// Asynchronous (queue depth 32 via io_uring):</span>
-<span class="c1">//   device serves 32 in flight  -&gt;  ~400,000 IOPS  -&gt;  ~1.6 GB/s</span>
-</code></pre></div></div>
-
-<p>The lesson mirrors Little’s Law from the network: a fast device with deep parallelism is wasted by a serial, one-at-a-time access pattern. Keep the queue full.</p>
-
-<h2 id="filesystem-and-page-cache-behavior">Filesystem and Page-Cache Behavior</h2>
-
-<p>The page cache is the kernel’s RAM cache of file contents, and understanding it is what separates “the disk is slow” from “we are thrashing the cache.”</p>
-
-<h3 id="how-it-works">How It Works</h3>
-
-<p>A buffered <code class="language-plaintext highlighter-rouge">read()</code> first checks the page cache; a hit returns from RAM with no device access. A miss triggers a device read, the page is cached, and (often) the kernel <strong>readahead</strong> heuristic prefetches subsequent pages, betting on sequential access. A buffered <code class="language-plaintext highlighter-rouge">write()</code> marks pages <strong>dirty</strong> and returns immediately; a background flusher (or <code class="language-plaintext highlighter-rouge">fsync</code>) writes them to the device later. This write-back behavior is why an un-<code class="language-plaintext highlighter-rouge">fsync</code>‘d write can be lost on power failure even though the syscall “succeeded” — durability requires an explicit flush.</p>
-
-<h3 id="implications-for-optimization">Implications for Optimization</h3>
+<p>Implications:</p>
 
 <ul>
-  <li><strong>The cache is shared and finite.</strong> Streaming a file far larger than RAM (a backup, a full table scan) can evict the hot working set of everything else on the box — <em>cache pollution</em>. Advise the kernel with <code class="language-plaintext highlighter-rouge">posix_fadvise(POSIX_FADV_DONTNEED)</code> after streaming, or use <code class="language-plaintext highlighter-rouge">O_DIRECT</code>, so a one-shot scan does not blow away useful cache.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">fsync</code> is the durability/latency knob.</strong> Calling <code class="language-plaintext highlighter-rouge">fsync</code> per write is safe but slow (it forces a device flush and waits). Batching writes and <code class="language-plaintext highlighter-rouge">fsync</code>-ing once per group — the WAL group-commit pattern — amortizes the flush across many transactions.</li>
-  <li><strong>Memory-mapped files (<code class="language-plaintext highlighter-rouge">mmap</code>)</strong> map file pages directly into the address space; access faults pages in on demand and the page cache <em>is</em> your buffer, eliminating explicit read syscalls and the read copy. Excellent for random access over large read-mostly files (indexes, embedded databases); less ideal for write-heavy or strictly-sequential streaming where readahead and explicit buffering win.</li>
-  <li><strong>Readahead tuning</strong> helps sequential scans (raise it) and hurts random workloads (lower it), because aggressive prefetch on random access wastes bandwidth on pages you never use.</li>
+  <li><strong>Cache pollution.</strong> Streaming a file larger than RAM (a backup, a full scan) evicts everyone else’s hot data. Use <code class="language-plaintext highlighter-rouge">posix_fadvise(POSIX_FADV_DONTNEED)</code> after consuming data, or <code class="language-plaintext highlighter-rouge">O_DIRECT</code> for one-shot scans.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">fsync</code> is the durability-latency trade-off.</strong> Flushing after every write is safe but slow. <strong>Group commit</strong> (collect many transactions, then issue one <code class="language-plaintext highlighter-rouge">fsync</code>) amortizes the flush; it is how write-ahead logs achieve high transaction rates.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">mmap</code></strong> removes explicit read calls and the read copy, and suits random access over large read-mostly files. It is a poor fit for write-heavy workloads or where the application needs control over eviction and I/O errors, which is why many databases that began with <code class="language-plaintext highlighter-rouge">mmap</code> moved to their own buffer pools.</li>
+  <li><strong>Readahead</strong> helps sequential scans and wastes bandwidth on random access. Tune per file with <code class="language-plaintext highlighter-rouge">posix_fadvise(POSIX_FADV_SEQUENTIAL / POSIX_FADV_RANDOM)</code> or per device with <code class="language-plaintext highlighter-rouge">blockdev --setra</code>.</li>
 </ul>
 
 <h2 id="zero-copy">Zero-Copy</h2>
 
-<p>The classic “read a file and send it over a socket” path copies the data four times and crosses the user/kernel boundary four times:</p>
+<p>Serving a file over a socket with <code class="language-plaintext highlighter-rouge">read()</code> and <code class="language-plaintext highlighter-rouge">write()</code> copies the data through user space:</p>
 
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Traditional read() + write():
+<pre><code class="language-mermaid">flowchart LR
+    subgraph T["read() + write(): 2 CPU copies, 4 user/kernel transitions"]
+        direction LR
+        D1["Disk"] --&gt;|DMA| P1["Page cache"] --&gt;|CPU copy| U1["User buffer"] --&gt;|CPU copy| S1["Socket buffer"] --&gt;|DMA| N1["NIC"]
+    end
+    subgraph Z["sendfile(): 0 CPU copies with scatter-gather NIC"]
+        direction LR
+        D2["Disk"] --&gt;|DMA| P2["Page cache"] --&gt;|"DMA (descriptors only)"| N2["NIC"]
+    end
+</code></pre>
 
-  disk --DMA--&gt; [kernel page cache] --CPU copy--&gt; [user buffer]
-       --CPU copy--&gt; [kernel socket buffer] --DMA--&gt; NIC
+<p>Each CPU copy consumes memory bandwidth and pollutes caches; zero-copy paths let the kernel or hardware move data without touching it with the CPU.</p>
 
-  4 copies (2 of them CPU-driven), 4 context switches
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism (Linux)</th>
+      <th>What it does</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">sendfile()</code></td>
+      <td>File to socket entirely in the kernel</td>
+      <td>The classic static-file fast path</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">splice()</code> / <code class="language-plaintext highlighter-rouge">tee()</code> / <code class="language-plaintext highlighter-rouge">vmsplice()</code></td>
+      <td>Move data between file descriptors through a pipe</td>
+      <td>Zero-copy proxying and pipelines</td>
+    </tr>
+    <tr>
+      <td>Kernel TLS (kTLS)</td>
+      <td>TLS record encryption in the kernel or NIC after the handshake</td>
+      <td>Lets <code class="language-plaintext highlighter-rouge">sendfile</code> work for HTTPS; with NIC TLS offload, encryption is also removed from the CPU</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MSG_ZEROCOPY</code> (Linux 4.14+)</td>
+      <td><code class="language-plaintext highlighter-rouge">send()</code> from user memory without copying into the socket buffer</td>
+      <td>Completion notifications required; pays off for sends larger than about 10 KB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">io_uring</code> <code class="language-plaintext highlighter-rouge">SEND_ZC</code> (Linux 6.0+)</td>
+      <td>Zero-copy send through the ring</td>
+      <td>Pairs with registered buffers</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">io_uring</code> zero-copy receive (zcrx, Linux 6.15+)</td>
+      <td>Receives payloads directly into user memory</td>
+      <td>Requires NIC header/data split and flow steering</td>
+    </tr>
+    <tr>
+      <td>RDMA, DPDK, AF_XDP</td>
+      <td>Bypass or partially bypass the kernel network stack</td>
+      <td>Specialized high-throughput and low-latency deployments</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Every CPU copy burns memory bandwidth and cache, and the context switches add latency. <strong>Zero-copy</strong> removes the redundant trips through userspace by letting the kernel move data device-to-device:</p>
-
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sendfile() / splice():
-
-  disk --DMA--&gt; [kernel page cache] --(DMA, scatter-gather)--&gt; NIC
-
-  0 CPU copies, data never enters userspace, 2 context switches
-</code></pre></div></div>
-
-<p>Mechanisms on Linux:</p>
-<ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">sendfile(out_fd, in_fd, ...)</code></strong> copies between two file descriptors entirely in the kernel — the canonical web-server and file-server fast path for serving static content.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">splice()</code> / <code class="language-plaintext highlighter-rouge">vmsplice()</code> / <code class="language-plaintext highlighter-rouge">tee()</code></strong> move data between fds via a kernel pipe buffer, enabling zero-copy pipelines (e.g. file -&gt; socket, or socket -&gt; socket proxying).</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">MSG_ZEROCOPY</code></strong> lets <code class="language-plaintext highlighter-rouge">send()</code> transmit directly from a user buffer without copying into the kernel socket buffer (useful for large sends; has setup overhead, so it pays off above a size threshold).</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">io_uring</code></strong> supports zero-copy submission and registered buffers, unifying async I/O and zero-copy in one ring interface.</li>
-</ul>
-
-<p>The payoff is largest for large transfers where the copies dominate (file servers, video streaming, proxies, log shippers). For tiny messages the syscall and setup overhead can outweigh the saved copy, so zero-copy — like compression and batching — is a technique you apply where the profiler shows the copy actually costs you.</p>
-
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Static-file server hot path: serve a file to a socket without</span>
-<span class="c1">// ever bringing its bytes into userspace.</span>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;sys/sendfile.h&gt;</span><span class="cp">
+</span>
+<span class="c1">// Serve a static file: bytes flow page cache -&gt; NIC without entering user space.</span>
 <span class="kt">off_t</span> <span class="n">offset</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="kt">ssize_t</span> <span class="n">sent</span> <span class="o">=</span> <span class="n">sendfile</span><span class="p">(</span><span class="n">client_socket</span><span class="p">,</span> <span class="n">file_fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">offset</span><span class="p">,</span> <span class="n">file_size</span><span class="p">);</span>
-<span class="c1">// Bytes flow disk -&gt; page cache -&gt; NIC entirely inside the kernel.</span>
-<span class="c1">// No read() into a user buffer, no write() copy back out.</span>
+<span class="k">while</span> <span class="p">(</span><span class="n">offset</span> <span class="o">&lt;</span> <span class="n">file_size</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">ssize_t</span> <span class="n">n</span> <span class="o">=</span> <span class="n">sendfile</span><span class="p">(</span><span class="n">client_fd</span><span class="p">,</span> <span class="n">file_fd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">offset</span><span class="p">,</span> <span class="n">file_size</span> <span class="o">-</span> <span class="n">offset</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="cm">/* handle EAGAIN on non-blocking sockets, or errors */</span> <span class="k">break</span><span class="p">;</span> <span class="p">}</span>
+<span class="p">}</span>
 </code></pre></div></div>
 
-<h2 id="putting-it-together-a-profiling-driven-checklist">Putting It Together: A Profiling-Driven Checklist</h2>
+<p>Zero-copy pays off for large transfers (file servers, video delivery, proxies, log shipping). For small messages, notification and setup overhead can exceed the cost of the copy; apply it where a profile shows copying is significant.</p>
 
-<p>Optimizing I/O is the same disciplined loop as the rest of <a href="./">performance work</a> — measure, find the bottleneck, fix it, re-measure — applied to the wait states rather than the compute.</p>
+<h2 id="profiling-io">Profiling I/O</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Tools</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Is the process waiting on I/O or CPU?</td>
+      <td><code class="language-plaintext highlighter-rouge">pidstat -d</code>, <code class="language-plaintext highlighter-rouge">top</code> (I/O wait), off-CPU flame graphs (<code class="language-plaintext highlighter-rouge">offcputime</code> from BCC/bpftrace)</td>
+    </tr>
+    <tr>
+      <td>What is the device doing?</td>
+      <td><code class="language-plaintext highlighter-rouge">iostat -x</code> (utilization, queue size, await), <code class="language-plaintext highlighter-rouge">biolatency</code>, <code class="language-plaintext highlighter-rouge">biosnoop</code></td>
+    </tr>
+    <tr>
+      <td>Which syscalls are slow?</td>
+      <td><code class="language-plaintext highlighter-rouge">strace -T -c</code> (high overhead), <code class="language-plaintext highlighter-rouge">perf trace</code>, <code class="language-plaintext highlighter-rouge">syscount</code></td>
+    </tr>
+    <tr>
+      <td>What is on the wire?</td>
+      <td><code class="language-plaintext highlighter-rouge">tcpdump</code>, Wireshark, <code class="language-plaintext highlighter-rouge">ss -ti</code> (per-socket RTT, congestion window, retransmits)</td>
+    </tr>
+    <tr>
+      <td>Where is network latency added?</td>
+      <td><code class="language-plaintext highlighter-rouge">tcplife</code>, <code class="language-plaintext highlighter-rouge">tcpretrans</code>, distributed tracing (OpenTelemetry)</td>
+    </tr>
+    <tr>
+      <td>Maximum achievable throughput</td>
+      <td><code class="language-plaintext highlighter-rouge">iperf3</code> (network), <code class="language-plaintext highlighter-rouge">fio</code> (storage)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="checklist">Checklist</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+    S["Slow I/O-bound path"] --&gt; Q{"Latency-bound or&lt;br/&gt;bandwidth-bound?"}
+    Q --&gt;|"latency: idle, waiting"| L1["Reuse connections&lt;br/&gt;(keep-alive, pools)"]
+    L1 --&gt; L2["Batch and pipeline"]
+    L2 --&gt; L3["Raise concurrency&lt;br/&gt;(async I/O, deeper queues)"]
+    L3 --&gt; L4["Fewer handshakes&lt;br/&gt;(TLS 1.3, QUIC, 0-RTT where safe)"]
+    Q --&gt;|"bandwidth: link or device saturated"| B1["Compress, if CPU allows"]
+    B1 --&gt; B2["Larger, sequential transfers"]
+    B2 --&gt; B3["Remove copies&lt;br/&gt;(sendfile, kTLS, io_uring)"]
+    B3 --&gt; B4["Protect the page cache&lt;br/&gt;(fadvise, O_DIRECT, group commit)"]
+</code></pre>
 
 <ol>
-  <li><strong>Classify the bottleneck.</strong> Is the request latency-bound (idle waiting on round trips) or bandwidth-bound (link/device saturated)? <code class="language-plaintext highlighter-rouge">latency</code> charts vs <code class="language-plaintext highlighter-rouge">MB/s</code> charts tell you which family of fixes applies.</li>
-  <li><strong>Kill round trips first.</strong> Pool connections, enable keep-alive, batch and pipeline. This is usually the single biggest win and costs no extra hardware.</li>
-  <li><strong>Pick the protocol for the network.</strong> HTTP/2 on stable links, HTTP/3/QUIC on lossy/mobile, UDP for real-time, pooled TCP for datacenter RPC.</li>
-  <li><strong>Trade CPU for bandwidth only when bandwidth-bound.</strong> Compress with a codec matched to the link speed and the data; never recompress incompressible bytes.</li>
-  <li><strong>Make disk access sequential and parallel.</strong> Convert random writes to append-only sequential ones; keep a deep async queue (<code class="language-plaintext highlighter-rouge">io_uring</code>) to saturate fast SSDs.</li>
-  <li><strong>Respect the page cache.</strong> Avoid cache pollution from one-shot scans; batch <code class="language-plaintext highlighter-rouge">fsync</code>; consider <code class="language-plaintext highlighter-rouge">mmap</code> for read-mostly random access.</li>
-  <li><strong>Eliminate redundant copies.</strong> Use <code class="language-plaintext highlighter-rouge">sendfile</code>/<code class="language-plaintext highlighter-rouge">splice</code>/zero-copy on large transfers once the profiler shows copies dominate.</li>
+  <li><strong>Classify the bottleneck.</strong> Is the path idle and waiting on round trips (latency-bound), or is a link or device saturated (bandwidth-bound)?</li>
+  <li><strong>Remove round trips.</strong> Pool connections, enable keep-alive, batch, and pipeline. This is usually the largest win and needs no hardware.</li>
+  <li><strong>Match the protocol to the network.</strong> HTTP/2 on stable links, HTTP/3 for lossy and mobile clients, UDP-based protocols for real-time data, pooled connections for internal RPC.</li>
+  <li><strong>Compress only when bandwidth-bound</strong>, with a codec matched to link speed and data type.</li>
+  <li><strong>Make storage access sequential and concurrent.</strong> Append-only writes, deep asynchronous queues.</li>
+  <li><strong>Respect the page cache.</strong> Avoid pollution from one-shot scans; group <code class="language-plaintext highlighter-rouge">fsync</code> calls.</li>
+  <li><strong>Eliminate copies</strong> on large transfers once profiling shows they matter.</li>
 </ol>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="./">Performance Optimization</a> - The section hub: profiling-driven methodology and the optimization loop</li>
-  <li><a href="./cpu-optimization.html">CPU Optimization</a> - Cache hierarchy, multithreading, and allocation patterns that underlie async I/O</li>
-  <li><a href="./memory-optimization.html">Memory Optimization</a> - Streaming, page-cache interaction, and memory-mapped assets</li>
-  <li><a href="./algorithmic-optimization.html">Algorithmic Optimization</a> - Spatial structures and complexity wins that reduce I/O volume</li>
-  <li><a href="../technology/docker/">Docker</a> - Container networking and storage driver performance</li>
-  <li><a href="../technology/kubernetes/">Kubernetes</a> - Service networking, ingress, and resource-aware I/O at scale</li>
-  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> - Foundations of latency, consistency, and coordination across the network</li>
+  <li><a href="./">Performance Optimization</a> - section hub and the optimization loop</li>
+  <li><a href="cpu-optimization.html">CPU Optimization</a> - threading and concurrency models that underlie asynchronous servers</li>
+  <li><a href="memory-optimization.html">Memory Optimization</a> - streaming, memory-mapped assets, and huge pages</li>
+  <li><a href="algorithmic-optimization.html">Algorithmic Optimization</a> - data structures and caching that reduce I/O volume</li>
+  <li><a href="../technology/networking/transport-and-protocols.html">Transport and Protocols</a> - TCP, UDP, and QUIC mechanics in depth</li>
+  <li><a href="../technology/networking/performance-and-security.html">Network Performance and Security</a> - network-level performance tuning</li>
+  <li><a href="../observability/tracing.html">Distributed Tracing</a> - attributing latency across services</li>
+  <li><a href="../technology/docker/">Docker</a> - container networking and storage driver performance</li>
+  <li><a href="../technology/kubernetes/">Kubernetes</a> - service networking and ingress at scale</li>
+  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> - latency, consistency, and coordination across the network</li>
 </ul>
 
       </section>

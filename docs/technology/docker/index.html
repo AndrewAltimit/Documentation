@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Docker and OCI containers: fundamentals, storage and security, Dockerfiles, networking, registries and supply-chain security, and production patterns.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Docker">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Docker and OCI containers: fundamentals, storage and security, Dockerfiles, networking, registries and supply-chain security, and production patterns.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/docker/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Docker">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Docker and OCI containers: fundamentals, storage and security, Dockerfiles, networking, registries and supply-chain security, and production patterns.">
 
 <title>Docker | Andrews Notebook</title>
 
@@ -3136,108 +3136,143 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Build, ship, and run anywhere</p>
 </div>
 
-<p>Docker solves the “it works on my machine” problem by packaging applications with all their dependencies into lightweight, portable units that run identically across development, testing, and production.</p>
+<p>Docker is a platform for building, distributing, and running applications as <strong>containers</strong>: isolated Linux processes that carry their own filesystem, packaged as portable, content-addressed <strong>images</strong>. The Docker Engine (open source, from the Moby project), the <code class="language-plaintext highlighter-rouge">docker</code> CLI, BuildKit, and Compose together cover the whole path from source code to a running service, and the image and runtime formats they use are the vendor-neutral <a href="https://opencontainers.org/">OCI</a> standards shared with Kubernetes, Podman, and every major cloud.</p>
 
-<h2 id="why-learn-docker">Why Learn Docker?</h2>
+<p>This section documents Docker as it stands in late 2026 (Docker Engine 29.x). The guides follow the life of an image:</p>
 
-<p>Containers buy four things: <strong>environment consistency</strong> (the same behavior on a laptop and in production), <strong>fast onboarding</strong> (a new contributor runs one <code class="language-plaintext highlighter-rouge">docker run</code> instead of spending days configuring tools), <strong>efficient resource use</strong> (higher density than virtual machines), and <strong>simple deployments</strong> (package once, deploy anywhere). They are the foundation of modern application delivery for developers and operations engineers alike.</p>
+<pre><code class="language-mermaid">flowchart LR
+    SRC["Source + Dockerfile"] --&gt;|"docker build&lt;br/&gt;(BuildKit)"| IMG["Image"]
+    IMG --&gt;|"docker push"| REG[("Registry")]
+    REG --&gt;|"docker pull"| HOST["Host"]
+    HOST --&gt;|"docker run /&lt;br/&gt;docker compose up"| CTR["Containers"]
+    CTR --- VOL[("Volumes")]
+    CTR --- NET(["Networks"])
+</code></pre>
 
-<hr />
-
-<h2 id="learning-path">Learning Path</h2>
-
-<p>Work through the guides in order, or jump to the one matching your task.</p>
-
-<div class="command-grid">
-  <div class="nav-card">
-    <h4><a href="fundamentals.html">1. Fundamentals</a></h4>
-    <p>Start here. Images vs containers, essential commands, image layering, containers vs VMs, and bridge networking basics.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="storage-security.html">2. Storage &amp; Security</a></h4>
-    <p>Persist data with volumes, bind mounts, and tmpfs; choose network drivers; harden containers; install and troubleshoot.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="dockerfiles.html">3. Dockerfiles &amp; CI/CD</a></h4>
-    <p>Write and optimize Dockerfiles, multi-stage builds, Docker Swarm, and pipelines with GitHub Actions and GitLab.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="docker-networking.html">4. Networking</a></h4>
-    <p>Network drivers, DNS-based service discovery, port publishing, multi-host overlays, and locking the network down.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="registry.html">5. Registries &amp; Supply Chain</a></h4>
-    <p>Distribute images through registries, pin by digest, and prove what you ship with signing, SBOMs, scanning, and provenance.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="docker-design-patterns.html">6. Design Patterns</a></h4>
-    <p>Multi-container composition patterns, hardened images, and runtime security for production workloads.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="advanced.html">7. Advanced Patterns</a></h4>
-    <p>Production architectures, real case studies, design patterns, and WebAssembly as a next-gen container runtime.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="../container-runtimes.html">8. Container Runtimes</a></h4>
-    <p>Beyond Docker: the OCI spec, runc/containerd/CRI-O, sandboxed runtimes (gVisor, Kata), Firecracker microVMs, and Wasm.</p>
-  </div>
-</div>
-
-<p style="margin-top: 1.5rem; padding: 0.75rem 1rem; border-left: 4px solid #0066cc; background: rgba(0, 102, 204, 0.08); border-radius: 4px;"><strong><span style="display: inline-block; background: #0066cc; color: white; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 3px; vertical-align: middle;">QUICK REFERENCE</span> <a href="../docker-essentials.html">Docker Essentials</a></strong> is a side-by-side command cheat sheet, <em>not</em> a step in the sequential path above. Keep it open while you work through the guides.</p>
-
-<hr />
-
-<h2 id="key-capabilities">Key Capabilities</h2>
-
-<p>Containers are lightweight (they share the host kernel), start in seconds rather than minutes, and run consistently anywhere. The contrast with virtual machines makes the trade-offs concrete:</p>
+<h2 id="guides">Guides</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Capability</th>
+      <th>#</th>
+      <th>Guide</th>
+      <th>Covers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><a href="fundamentals.html">Fundamentals</a></td>
+      <td>Images vs. containers, engine architecture (dockerd, containerd, runc), namespaces and cgroups, layers and copy-on-write, lifecycle, everyday commands, Compose</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><a href="storage-security.html">Storage &amp; Security</a></td>
+      <td>Volumes, bind mounts, tmpfs, image mounts, backups; image, build, runtime, and host hardening; secrets; troubleshooting</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><a href="dockerfiles.html">Dockerfiles &amp; CI/CD</a></td>
+      <td>Dockerfile instructions, multi-stage builds, BuildKit features, build performance, GitHub Actions and GitLab pipelines</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><a href="docker-networking.html">Networking</a></td>
+      <td>Network drivers, DNS service discovery, port publishing, overlay and macvlan, network security</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><a href="registry.html">Registries &amp; Supply Chain</a></td>
+      <td>OCI registries, tags vs. digests, choosing a registry, signing (cosign, Notation), SBOMs, scanning, SLSA provenance</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><a href="docker-design-patterns.html">Design Patterns</a></td>
+      <td>Multi-container composition patterns, hardened images, runtime security in production</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><a href="advanced.html">Advanced Patterns</a></td>
+      <td>Compose in production, Docker Swarm, reference architectures, choosing an orchestration level</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td><a href="../container-runtimes.html">Container Runtimes</a></td>
+      <td>The OCI specs, runc, containerd, CRI-O, gVisor, Kata Containers, Firecracker, Wasm</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For a one-page command cheat sheet, see <a href="../docker-essentials.html">Docker Essentials</a>; it is a quick reference rather than a step in the sequence above.</p>
+
+<h2 id="containers-and-virtual-machines">Containers and Virtual Machines</h2>
+
+<p>Containers share the host kernel; virtual machines each run their own. That single difference drives the trade-offs:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
       <th>Containers</th>
-      <th>Virtual Machines</th>
+      <th>Virtual machines</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Startup time</td>
-      <td>Seconds</td>
-      <td>Minutes</td>
+      <td>Milliseconds to seconds</td>
+      <td>Seconds to minutes</td>
     </tr>
     <tr>
       <td>Memory overhead</td>
-      <td>Minimal (shared kernel)</td>
-      <td>High (full OS per VM)</td>
+      <td>Close to the process itself</td>
+      <td>Full guest OS per VM</td>
     </tr>
     <tr>
-      <td>Disk usage</td>
-      <td>MBs</td>
-      <td>GBs</td>
+      <td>Disk footprint</td>
+      <td>Megabytes (shared layers)</td>
+      <td>Gigabytes per guest</td>
     </tr>
     <tr>
-      <td>Isolation level</td>
-      <td>Process-level</td>
-      <td>Hardware-level</td>
+      <td>Isolation boundary</td>
+      <td>Kernel namespaces, cgroups, seccomp, LSMs</td>
+      <td>Hardware virtualization</td>
     </tr>
     <tr>
-      <td>Best for</td>
-      <td>Microservices, CI/CD</td>
-      <td>Legacy apps, different OS</td>
+      <td>Guest OS</td>
+      <td>Same kernel family as host</td>
+      <td>Any</td>
+    </tr>
+    <tr>
+      <td>Typical use</td>
+      <td>Microservices, CI jobs, dense packing of trusted workloads</td>
+      <td>Legacy systems, different OSes, hard multi-tenancy</td>
     </tr>
   </tbody>
 </table>
 
-<hr />
+<p>Sandboxed runtimes (gVisor, Kata Containers, Firecracker) blur the line by giving each container a VM-grade boundary; see <a href="../container-runtimes.html">Container Runtimes</a>.</p>
+
+<h2 id="what-changed-recently">What Changed Recently</h2>
+
+<p>Material written before 2024 is often out of date on these points:</p>
+
+<ul>
+  <li><strong>Docker Engine 29</strong> (November 2025) made the <strong>containerd image store</strong> the default for new installations, removed <strong>Docker Content Trust</strong> from the CLI (use cosign or Notation instead), deprecated <strong>cgroup v1</strong>, and added an experimental <strong>nftables</strong> firewall backend.</li>
+  <li><strong>BuildKit</strong> has been the default builder since Engine 23.0; <code class="language-plaintext highlighter-rouge">DOCKER_BUILDKIT=1</code> is unnecessary.</li>
+  <li><strong>Compose V2</strong> (<code class="language-plaintext highlighter-rouge">docker compose</code>, with a space) replaced the Python <code class="language-plaintext highlighter-rouge">docker-compose</code>; the <code class="language-plaintext highlighter-rouge">version:</code> key in <code class="language-plaintext highlighter-rouge">compose.yaml</code> is obsolete, and <code class="language-plaintext highlighter-rouge">docker compose watch</code> provides a file-sync development loop.</li>
+  <li><strong>Supply-chain attestations</strong> (SBOM and SLSA provenance) can be generated by BuildKit and attached to images; Docker Hardened Images ship them for common base images.</li>
+  <li><strong>Docker Hub</strong> limits pulls per 6-hour window (100 unauthenticated, 200 for authenticated free accounts), so CI should authenticate or use a mirror.</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="../docker-essentials.html">Docker Essentials</a> - Quick command reference</li>
+  <li><a href="../docker-essentials.html">Docker Essentials</a> - Command reference</li>
   <li><a href="../container-runtimes.html">Container Runtimes</a> - Runtimes beyond Docker</li>
   <li><a href="../kubernetes/">Kubernetes</a> - Container orchestration</li>
-  <li><a href="../aws/compute.html">AWS ECS</a> - Managed container service</li>
-  <li><a href="../ci-cd/">CI/CD</a> - Continuous deployment</li>
+  <li><a href="../aws/compute.html">AWS Compute</a> - ECS, Fargate, and EKS</li>
+  <li><a href="../ci-cd/">CI/CD</a> - Build and deployment pipelines</li>
 </ul>
 
       </section>

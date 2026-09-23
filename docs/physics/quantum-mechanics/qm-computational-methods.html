@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Numerical methods for quantum problems: grid discretization, exact diagonalization, tensor networks and DMRG, quantum Monte Carlo, neural-network wavefunctio...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Quantum Mechanics: Computational Methods">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Numerical methods for quantum problems: grid discretization, exact diagonalization, tensor networks and DMRG, quantum Monte Carlo, neural-network wavefunctio...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/quantum-mechanics/qm-computational-methods.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Quantum Mechanics: Computational Methods">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Numerical methods for quantum problems: grid discretization, exact diagonalization, tensor networks and DMRG, quantum Monte Carlo, neural-network wavefunctio...">
 
 <title>Quantum Mechanics: Computational Methods | Andrews Notebook</title>
 
@@ -3135,582 +3135,725 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Quantum Mechanics</a> » Computational Methods</p>
 
-<p><strong>Level and scope.</strong> This page is a reference for the numerical methods used to solve quantum problems that have no closed-form answer. It assumes the linear-algebra and operator language developed on the <a href="formalism.html">Formalism</a> page, and complements the conceptual <a href="computing-and-advanced.html">Computing &amp; Advanced Formalism</a> page. The recurring theme is the <em>curse of dimensionality</em>: the Hilbert space of an N-particle system grows exponentially, so every method below is, at heart, a strategy for taming or sidestepping that exponential.</p>
+<p>Most quantum problems of practical interest have no closed-form solution. This page surveys the numerical methods used to solve them: grid discretization for few-body problems, exact diagonalization, tensor networks, quantum Monte Carlo, neural-network wavefunctions, and time propagation for closed, driven and open systems. It assumes the operator language of <a href="formalism.html">States, Operators &amp; Dynamics</a> and, for open systems, the density-matrix material on <a href="qm-advanced-formalism.html">Advanced Formalism</a>. Electronic-structure methods for molecules and solids (Hartree–Fock, DFT, coupled cluster) are covered separately under <a href="../computational-physics/electronic-structure-beyond-dft.html">Computational Physics</a>.</p>
 
-<h2 id="the-curse-of-dimensionality">The Curse of Dimensionality</h2>
+<p>Code examples use Python with NumPy/SciPy and, where noted, QuTiP 5 and TeNPy 1.x. Units are $\hbar = m = 1$ unless stated otherwise.</p>
 
-<p>A single spin-$\tfrac{1}{2}$ lives in a $2$-dimensional Hilbert space. Two spins live in $2^2 = 4$ dimensions, and $N$ spins in $2^N$. By $N = 50$ the state vector has $2^{50} \approx 10^{15}$ complex amplitudes — a petabyte of memory just to store one wavefunction. The Hamiltonian is a $2^N \times 2^N$ matrix.</p>
+<h2 id="the-exponential-wall">The Exponential Wall</h2>
 
-\[\dim \mathcal{H} = d^N\]
+<p>The Hilbert space of $N$ subsystems, each of local dimension $d$, has dimension</p>
 
-<p>where $d$ is the local Hilbert-space dimension. Every computational method in quantum mechanics is a response to this exponential wall:</p>
+\[\dim \mathcal{H} = d^N .\]
 
-<ul>
-  <li><strong>Exact diagonalization</strong> confronts it head-on, exploiting symmetry and sparsity to push the accessible $N$ as far as memory allows (typically $N \lesssim 20$–$40$ spins).</li>
-  <li><strong>Tensor networks / DMRG</strong> exploit the fact that physical ground states occupy a tiny, low-entanglement corner of Hilbert space, parameterizing the state with polynomially many numbers.</li>
-  <li><strong>Quantum Monte Carlo</strong> never stores the full state; it samples it stochastically.</li>
-  <li><strong>Time-propagation methods</strong> integrate the Schrödinger equation step by step, avoiding any global diagonalization.</li>
-</ul>
-
-<p>The right tool depends on dimensionality, the entanglement structure, whether the model has a sign problem, and whether you want statics or dynamics.</p>
-
-<h2 id="exact-diagonalization">Exact Diagonalization</h2>
-
-<p>Exact diagonalization (ED) builds the Hamiltonian matrix in a finite basis and diagonalizes it numerically. It is the gold standard for small systems: it gives the full spectrum (or, with iterative solvers, the low-lying eigenstates) with no approximation beyond the truncation of the basis itself.</p>
-
-<h3 id="building-the-hamiltonian">Building the Hamiltonian</h3>
+<p>A generic state therefore needs $d^N$ complex amplitudes. For spin-1/2 ($d = 2$) stored in double-precision complex numbers (16 bytes each):</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Spins $N$</th>
+      <th>Amplitudes</th>
+      <th>Memory for one state vector</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>For a spin chain the basis states are the $2^N$ computational-basis strings $</td>
-      <td>s_1 s_2 \cdots s_N\rangle$. The Hamiltonian acts on these by local operators. For the transverse-field Ising model,</td>
+      <td>20</td>
+      <td>$\approx 10^6$</td>
+      <td>16 MiB</td>
+    </tr>
+    <tr>
+      <td>30</td>
+      <td>$\approx 10^9$</td>
+      <td>16 GiB</td>
+    </tr>
+    <tr>
+      <td>40</td>
+      <td>$\approx 10^{12}$</td>
+      <td>16 TiB</td>
+    </tr>
+    <tr>
+      <td>50</td>
+      <td>$\approx 10^{15}$</td>
+      <td>16 PiB</td>
     </tr>
   </tbody>
 </table>
 
-\[\hat{H} = -J \sum_{i} \hat{\sigma}^z_i \hat{\sigma}^z_{i+1} - h \sum_i \hat{\sigma}^x_i .\]
+<p>Every method below is a strategy for dealing with this growth:</p>
 
-<p>The $\hat{\sigma}^z\hat{\sigma}^z$ terms are diagonal; the $\hat{\sigma}^x$ terms flip a single spin and connect basis states differing in one bit. The matrix is therefore extremely <strong>sparse</strong> — each row has only $O(N)$ nonzero entries out of $2^N$.</p>
+<ul>
+  <li><strong>Exact diagonalization</strong> attacks it directly, using sparsity and symmetry to reach as large an $N$ as memory allows.</li>
+  <li><strong>Tensor networks</strong> exploit the fact that ground states of local Hamiltonians have limited entanglement, so they can be described by polynomially many parameters.</li>
+  <li><strong>Quantum Monte Carlo</strong> never stores the state; it samples it.</li>
+  <li><strong>Variational and neural-network ansätze</strong> restrict to a parameterized family and optimize within it.</li>
+  <li><strong>Time propagation</strong> applies $e^{-i\hat H t}$ to a vector without ever forming the exponential.</li>
+</ul>
+
+<p>Which is appropriate depends on dimensionality, entanglement, whether the problem has a sign problem, and whether statics or dynamics are wanted.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+  Q["What is being computed?"] --&gt; FEW{"Few particles in&lt;br/&gt;continuous space?"}
+  FEW -- yes --&gt; GRID["Grid / basis-set methods&lt;br/&gt;(finite differences, DVR, FFT)"]
+  FEW -- no --&gt; LAT{"Lattice or spin model"}
+  LAT --&gt; SMALL{"Hilbert space&lt;br/&gt;fits in memory?"}
+  SMALL -- yes --&gt; ED["Exact diagonalization&lt;br/&gt;(Lanczos + symmetries)"]
+  SMALL -- no --&gt; DIM{"Effectively 1D&lt;br/&gt;or low entanglement?"}
+  DIM -- yes --&gt; TN["MPS / DMRG, TEBD, TDVP"]
+  DIM -- no --&gt; SIGN{"Sign-problem free?"}
+  SIGN -- yes --&gt; QMC["Quantum Monte Carlo&lt;br/&gt;(SSE, PIMC, DMC)"]
+  SIGN -- no --&gt; APPROX["Approximate: fixed-node DMC, AFQMC,&lt;br/&gt;PEPS, neural-network VMC"]
+</code></pre>
+
+<h2 id="grid-and-basis-set-methods">Grid and Basis-Set Methods</h2>
+
+<p>For one to three particles in continuous space, the direct approach is to discretize the wavefunction on a grid or expand it in a finite basis and solve a matrix eigenvalue problem.</p>
+
+<ul>
+  <li><strong>Finite differences</strong> replace $d^2/dx^2$ by $(\psi_{j+1} - 2\psi_j + \psi_{j-1})/\Delta x^2$, giving a sparse, tridiagonal Hamiltonian with error $O(\Delta x^2)$.</li>
+  <li><strong>Discrete variable representations (DVR)</strong> and <strong>Fourier grid</strong> methods evaluate the kinetic energy exactly in a spectral basis. They converge exponentially for smooth potentials and need far fewer points.</li>
+  <li><strong>Basis-set expansions</strong> (harmonic-oscillator functions, Gaussians, B-splines) give small dense matrices and are the standard in atomic and molecular physics.</li>
+  <li>The <strong>shooting method</strong> integrates the 1D equation outward from each boundary and adjusts $E$ until the solutions match; it is simple but does not generalize beyond 1D.</li>
+</ul>
+
+<p>The finite-difference harmonic oscillator is a useful correctness check, since the exact eigenvalues are $n + \tfrac12$:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 <span class="kn">import</span> <span class="n">scipy.sparse</span> <span class="k">as</span> <span class="n">sp</span>
 <span class="kn">from</span> <span class="n">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">eigsh</span>
 
-<span class="c1"># Single-site Pauli matrices
-</span><span class="n">sx</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">csr_matrix</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-<span class="n">sz</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">csr_matrix</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-<span class="n">I2</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">identity</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">csr</span><span class="sh">"</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">fd_hamiltonian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Second-order finite-difference Hamiltonian on a uniform grid (Dirichlet walls).</span><span class="sh">"""</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="n">size</span>
+    <span class="n">lap</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">diags</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
+    <span class="nf">return </span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">hbar</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">lap</span> <span class="o">+</span> <span class="n">sp</span><span class="p">.</span><span class="nf">diags</span><span class="p">(</span><span class="nc">V</span><span class="p">(</span><span class="n">x</span><span class="p">))).</span><span class="nf">tocsr</span><span class="p">()</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2001</span><span class="p">)</span>
+<span class="n">H</span> <span class="o">=</span> <span class="nf">fd_hamiltonian</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">E</span><span class="p">,</span> <span class="n">psi</span> <span class="o">=</span> <span class="nf">eigsh</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="sh">"</span><span class="s">SA</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">psi</span> <span class="o">/=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>       <span class="c1"># normalize so that sum |psi|^2 dx = 1
+</span><span class="nf">print</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>             <span class="c1"># [0.5 1.49998 2.49996 3.49992 4.49987]
+</span></code></pre></div></div>
+
+<p>The same grid Hamiltonian is the starting point for the <a href="#time-propagation">time-propagation methods</a> below. Grid methods scale as $n^{D}$ for $n$ points per dimension in $D$ dimensions, so they become impractical beyond three or four degrees of freedom; multi-configuration methods such as MCTDH extend them to tens of coupled modes.</p>
+
+<h2 id="exact-diagonalization">Exact Diagonalization</h2>
+
+<p>Exact diagonalization (ED) constructs the Hamiltonian in the full many-body basis and diagonalizes it numerically. It is exact up to finite-size effects and is the reference against which approximate methods are tested.</p>
+
+<h3 id="building-a-sparse-hamiltonian">Building a sparse Hamiltonian</h3>
+
+<p>For a spin chain the basis states are the $2^N$ strings $\lvert s_1 s_2\cdots s_N\rangle$. For the transverse-field Ising model (TFIM),</p>
+
+\[\hat{H} = -J \sum_{i} \hat{\sigma}^z_i \hat{\sigma}^z_{i+1} - h \sum_i \hat{\sigma}^x_i ,\]
+
+<p>the $\hat\sigma^z\hat\sigma^z$ terms are diagonal and each $\hat\sigma^x_i$ flips one spin. Every row has $O(N)$ nonzero entries out of $2^N$, so the matrix is extremely sparse.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">scipy.sparse</span> <span class="k">as</span> <span class="n">sp</span>
+<span class="kn">from</span> <span class="n">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">eigsh</span>
+
+<span class="n">sx</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">csr_matrix</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]])</span>
+<span class="n">sz</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">csr_matrix</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]])</span>
 
 <span class="k">def</span> <span class="nf">op_at</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">site</span><span class="p">,</span> <span class="n">N</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Embed a single-site operator at `site` in an N-site chain via Kronecker products.</span><span class="sh">"""</span>
-    <span class="n">mats</span> <span class="o">=</span> <span class="p">[</span><span class="n">op</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">site</span> <span class="k">else</span> <span class="n">I2</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
-    <span class="n">out</span> <span class="o">=</span> <span class="n">mats</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">mats</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">csr</span><span class="sh">"</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">out</span>
+    <span class="sh">"""</span><span class="s">Embed a single-site operator: 1 x ... x op x ... x 1.</span><span class="sh">"""</span>
+    <span class="n">left</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">identity</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="n">site</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">csr</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">right</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">identity</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="p">(</span><span class="n">N</span> <span class="o">-</span> <span class="n">site</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">csr</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sp</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">sp</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">op</span><span class="p">),</span> <span class="n">right</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">csr</span><span class="sh">"</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">tfim_hamiltonian</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">J</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">periodic</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Transverse-field Ising model as a sparse 2^N x 2^N matrix.</span><span class="sh">"""</span>
-    <span class="n">H</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">csr_matrix</span><span class="p">((</span><span class="mi">2</span><span class="o">**</span><span class="n">N</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="n">N</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-    <span class="n">bonds</span> <span class="o">=</span> <span class="nf">range</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="k">if</span> <span class="n">periodic</span> <span class="k">else</span> <span class="nf">range</span><span class="p">(</span><span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">bonds</span><span class="p">:</span>
-        <span class="n">j</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">N</span>
-        <span class="n">H</span> <span class="o">=</span> <span class="n">H</span> <span class="o">-</span> <span class="n">J</span> <span class="o">*</span> <span class="p">(</span><span class="nf">op_at</span><span class="p">(</span><span class="n">sz</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span> <span class="o">@</span> <span class="nf">op_at</span><span class="p">(</span><span class="n">sz</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">csr_matrix</span><span class="p">((</span><span class="mi">2</span><span class="o">**</span><span class="n">N</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="n">N</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">N</span> <span class="k">if</span> <span class="n">periodic</span> <span class="k">else</span> <span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">H</span> <span class="o">-=</span> <span class="n">J</span> <span class="o">*</span> <span class="nf">op_at</span><span class="p">(</span><span class="n">sz</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span> <span class="o">@</span> <span class="nf">op_at</span><span class="p">(</span><span class="n">sz</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-        <span class="n">H</span> <span class="o">=</span> <span class="n">H</span> <span class="o">-</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">op_at</span><span class="p">(</span><span class="n">sx</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
+        <span class="n">H</span> <span class="o">-=</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">op_at</span><span class="p">(</span><span class="n">sx</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">N</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">H</span>
 
 <span class="n">N</span> <span class="o">=</span> <span class="mi">12</span>
-<span class="n">H</span> <span class="o">=</span> <span class="nf">tfim_hamiltonian</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">J</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">H</span> <span class="o">=</span> <span class="nf">tfim_hamiltonian</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">J</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>       <span class="c1"># critical point h = J
+</span><span class="n">evals</span><span class="p">,</span> <span class="n">evecs</span> <span class="o">=</span> <span class="nf">eigsh</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="sh">"</span><span class="s">SA</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># Lanczos for the lowest 4 states
+</span><span class="nf">print</span><span class="p">(</span><span class="n">evals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">N</span><span class="p">)</span>                        <span class="c1"># -1.2769; thermodynamic limit -4/pi = -1.2732
+</span></code></pre></div></div>
 
-<span class="c1"># Lanczos: get the lowest few eigenpairs without dense diagonalization
-</span><span class="n">evals</span><span class="p">,</span> <span class="n">evecs</span> <span class="o">=</span> <span class="nf">eigsh</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="sh">"</span><span class="s">SA</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># smallest algebraic
-</span><span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Ground-state energy per site:</span><span class="sh">"</span><span class="p">,</span> <span class="n">evals</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">N</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Lowest 4 energies:</span><span class="sh">"</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">evals</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
-</code></pre></div></div>
+<p>The TFIM is real and symmetric, so real arithmetic halves the memory compared with complex storage. Production codes do not build operators by Kronecker products; they act with $\hat H$ directly on bit-string representations of basis states (“matrix-free” ED).</p>
 
-<h3 id="lanczos-and-sparse-solvers">Lanczos and Sparse Solvers</h3>
+<h3 id="lanczos-and-other-krylov-solvers">Lanczos and other Krylov solvers</h3>
 
-<p>Dense diagonalization (<code class="language-plaintext highlighter-rouge">numpy.linalg.eigh</code>) costs $O((d^N)^3)$ time and $O(d^{2N})$ memory — hopeless beyond $N \approx 14$ spins. The <strong>Lanczos algorithm</strong> instead builds a small Krylov subspace,</p>
+<p>Dense diagonalization costs $O(D^3)$ time and $O(D^2)$ memory for $D = d^N$, which limits it to roughly 14–16 spins. The <strong>Lanczos algorithm</strong> instead builds the Krylov subspace</p>
 
-\[\mathcal{K}_m = \mathrm{span}\{ |v\rangle, \hat{H}|v\rangle, \hat{H}^2|v\rangle, \ldots, \hat{H}^{m-1}|v\rangle \},\]
+\[\mathcal{K}_m = \operatorname{span}\left\{ \lvert v\rangle, \hat{H}\lvert v\rangle, \hat{H}^2\lvert v\rangle, \ldots, \hat{H}^{m-1}\lvert v\rangle \right\},\]
 
-<p>in which $\hat{H}$ projects to a tridiagonal $m \times m$ matrix whose extreme eigenvalues converge to those of $\hat{H}$ after only $m \sim 100$ iterations. Each iteration needs only a sparse matrix–vector product, costing $O(N\, d^N)$ — this is what <code class="language-plaintext highlighter-rouge">scipy.sparse.linalg.eigsh</code> (and ARPACK underneath) does. Lanczos delivers the ground state and a few excited states; it does not give the full spectrum.</p>
+<p>in which $\hat H$ is represented by an $m\times m$ tridiagonal matrix. Its extreme eigenvalues converge to those of $\hat H$ after $m$ of order 100 iterations, each needing one sparse matrix–vector product. SciPy’s <code class="language-plaintext highlighter-rouge">eigsh</code> uses ARPACK’s implicitly restarted Lanczos method. Lanczos gives a few extremal eigenpairs; for interior eigenvalues (needed, for example, in studies of many-body localization) shift-invert or polynomial-filtering methods are used. Lanczos with a continued-fraction expansion also yields dynamical correlation functions $S(\mathbf{q},\omega)$ directly.</p>
 
-<h3 id="exploiting-symmetry">Exploiting Symmetry</h3>
+<h3 id="symmetries">Symmetries</h3>
 
-<p>Conserved quantities block-diagonalize $\hat{H}$. If $[\hat{H}, \hat{Q}] = 0$, the eigenstates organize by the eigenvalue of $\hat{Q}$, and each symmetry sector can be diagonalized independently — shrinking the largest matrix you ever store. Common reductions:</p>
+<p>If $[\hat H, \hat Q] = 0$, the Hamiltonian is block diagonal in the eigenbasis of $\hat Q$, and each block can be diagonalized separately.</p>
 
-<ul>
-  <li><strong>Magnetization</strong> $\hat{S}^z_{\text{tot}} = \sum_i \hat{\sigma}^z_i$: for a Heisenberg model this splits the $2^N$ space into sectors of fixed total $S^z$, the largest being $\binom{N}{N/2}$ — roughly a factor of $\sqrt{N}$ smaller.</li>
-  <li><strong>Translation invariance</strong>: momentum $k$ blocks reduce dimension by a factor of $N$.</li>
-  <li><strong>Parity / reflection / spin-flip</strong>: additional factors of $2$.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Symmetry</th>
+      <th>Quantum number</th>
+      <th>Typical reduction</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>U(1), e.g. total $S^z$ or particle number</td>
+      <td>$S^z_{\text{tot}}$, $N_{\text{particles}}$</td>
+      <td>Largest sector $\binom{N}{N/2} \approx 2^N\sqrt{2/(\pi N)}$</td>
+    </tr>
+    <tr>
+      <td>Lattice translation</td>
+      <td>Crystal momentum $k$</td>
+      <td>Factor $\approx N$</td>
+    </tr>
+    <tr>
+      <td>Reflection, spin inversion</td>
+      <td>Parity $\pm 1$</td>
+      <td>Factor 2 each</td>
+    </tr>
+    <tr>
+      <td>Point group of a 2D cluster</td>
+      <td>Irreducible representation</td>
+      <td>Factor up to the group order</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Combining symmetries routinely pushes ED from $N \approx 20$ to $N \approx 40$ for the largest sector — the difference between intractable and a coffee break.</p>
-
-<p><strong>When to use ED.</strong> Small systems, when you need the <em>exact</em> answer (full spectrum, degeneracies, dynamical correlation functions, finite-temperature properties via the full eigenbasis), or as the ground-truth benchmark for approximate methods. The hard ceiling is memory: the state vector alone is <code class="language-plaintext highlighter-rouge">16 × 2^N</code> bytes in complex128.</p>
+<p>With all symmetries and distributed-memory, matrix-free implementations, ED has reached spin-1/2 clusters of about 48 sites. Beyond ground states, full diagonalization of symmetry sectors of 16–22 spins gives complete spectra for level-statistics and eigenstate-thermalization studies. Libraries include QuSpin (Python) and many research codes.</p>
 
 <h2 id="tensor-networks-and-dmrg">Tensor Networks and DMRG</h2>
 
-<p>The exponential wall has a loophole: the ground states of <em>local, gapped</em> Hamiltonians are not generic vectors in Hilbert space. They obey an <strong>area law</strong> for entanglement entropy — the entanglement between a region and its complement scales with the boundary, not the volume. In one dimension this means a gapped ground state can be represented to high accuracy by a <strong>Matrix Product State (MPS)</strong> with only polynomially many parameters.</p>
+<p>Ground states of local, gapped Hamiltonians are not generic vectors in Hilbert space. They satisfy an <strong>area law</strong>: the entanglement entropy of a region grows with the size of its boundary rather than its volume. In 1D the boundary is a point, so the entanglement across any cut is bounded, and the state can be compressed efficiently. Critical 1D systems violate the area law only logarithmically, $S \sim (c/6)\ln \ell$ for open chains, where $c$ is the central charge.</p>
 
-<h3 id="matrix-product-states">Matrix Product States</h3>
+<h3 id="matrix-product-states">Matrix product states</h3>
 
-<p>An MPS factorizes the $d^N$ amplitudes of a state into a chain of small tensors:</p>
+<p>A <strong>matrix product state</strong> (MPS) writes each amplitude as a product of matrices, one per site:</p>
 
-\[|\psi\rangle = \sum_{s_1 \cdots s_N} A^{s_1}_{(1)} A^{s_2}_{(2)} \cdots A^{s_N}_{(N)} \; |s_1 s_2 \cdots s_N\rangle ,\]
+\[\lvert\psi\rangle = \sum_{s_1 \cdots s_N} A^{[1]s_1} A^{[2]s_2} \cdots A^{[N]s_N} \; \lvert s_1 s_2 \cdots s_N\rangle ,\]
 
-<p>where each $A^{s_i}_{(i)}$ is a $D \times D$ matrix (smaller at the boundaries) and the <strong>bond dimension</strong> $D$ controls how much entanglement the state can carry. The number of parameters is $O(N d D^2)$ — linear in $N$ rather than exponential. $D$ is the single knob that trades accuracy for cost: $D \to d^{N/2}$ recovers any state exactly, but in practice $D$ of a few hundred captures gapped ground states to machine precision.</p>
+<p>where $A^{[i]s_i}$ is a $\chi_{i-1}\times\chi_i$ matrix. The <strong>bond dimension</strong> $\chi$ (often written $D$) bounds the entanglement the state can carry, $S \le \ln\chi$ across any cut. The number of parameters is $O(N d \chi^2)$, linear in $N$. Any state can be written exactly with $\chi = d^{N/2}$; for gapped ground states, $\chi$ of a few hundred typically gives energies accurate to near machine precision.</p>
 
-<p>The diagram for a $5$-site MPS, with physical legs pointing down and bond (virtual) legs connecting neighbors:</p>
-
-<div style="overflow-x:auto;">
-<svg viewBox="0 0 520 160" xmlns="http://www.w3.org/2000/svg" style="max-width:560px; width:100%; height:auto; font-family:sans-serif;">
-  <!-- bond legs -->
-  <line x1="60" y1="70" x2="140" y2="70" stroke="#11998e" stroke-width="2.5" />
-  <line x1="140" y1="70" x2="220" y2="70" stroke="#11998e" stroke-width="2.5" />
-  <line x1="220" y1="70" x2="300" y2="70" stroke="#11998e" stroke-width="2.5" />
-  <line x1="300" y1="70" x2="380" y2="70" stroke="#11998e" stroke-width="2.5" />
-  <!-- nodes -->
-  <g>
-    <circle cx="60" cy="70" r="18" fill="#38ef7d" stroke="#0b6b62" stroke-width="2" />
-    <circle cx="140" cy="70" r="18" fill="#38ef7d" stroke="#0b6b62" stroke-width="2" />
-    <circle cx="220" cy="70" r="18" fill="#38ef7d" stroke="#0b6b62" stroke-width="2" />
-    <circle cx="300" cy="70" r="18" fill="#38ef7d" stroke="#0b6b62" stroke-width="2" />
-    <circle cx="380" cy="70" r="18" fill="#38ef7d" stroke="#0b6b62" stroke-width="2" />
+<figure style="margin:1.5em auto; max-width:560px;">
+<svg viewBox="0 0 520 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Five-site matrix product state: a chain of tensors joined by bond legs of dimension chi, each with one physical leg s1 to s5" style="width:100%; height:auto; font-family:sans-serif; color:currentColor;">
+  <g stroke="currentColor" stroke-width="2.4">
+    <line x1="60" y1="70" x2="420" y2="70" />
+    <line x1="60" y1="88" x2="60" y2="128" />
+    <line x1="150" y1="88" x2="150" y2="128" />
+    <line x1="240" y1="88" x2="240" y2="128" />
+    <line x1="330" y1="88" x2="330" y2="128" />
+    <line x1="420" y1="88" x2="420" y2="128" />
   </g>
-  <!-- physical legs -->
-  <g stroke="#0b6b62" stroke-width="2.5">
-    <line x1="60" y1="88" x2="60" y2="130" />
-    <line x1="140" y1="88" x2="140" y2="130" />
-    <line x1="220" y1="88" x2="220" y2="130" />
-    <line x1="300" y1="88" x2="300" y2="130" />
-    <line x1="380" y1="88" x2="380" y2="130" />
+  <g fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2">
+    <circle cx="60" cy="70" r="18" />
+    <circle cx="150" cy="70" r="18" />
+    <circle cx="240" cy="70" r="18" />
+    <circle cx="330" cy="70" r="18" />
+    <circle cx="420" cy="70" r="18" />
   </g>
-  <g fill="#0b6b62" font-size="14" text-anchor="middle">
-    <text x="60" y="150">s₁</text>
-    <text x="140" y="150">s₂</text>
-    <text x="220" y="150">s₃</text>
-    <text x="300" y="150">s₄</text>
-    <text x="380" y="150">s₅</text>
+  <g fill="currentColor" font-size="13" text-anchor="middle">
+    <text x="60" y="75">A¹</text>
+    <text x="150" y="75">A²</text>
+    <text x="240" y="75">A³</text>
+    <text x="330" y="75">A⁴</text>
+    <text x="420" y="75">A⁵</text>
+    <text x="60" y="148">s₁</text>
+    <text x="150" y="148">s₂</text>
+    <text x="240" y="148">s₃</text>
+    <text x="330" y="148">s₄</text>
+    <text x="420" y="148">s₅</text>
+    <text x="105" y="60">χ</text>
+    <text x="195" y="60">χ</text>
+    <text x="285" y="60">χ</text>
+    <text x="375" y="60">χ</text>
   </g>
-  <text x="100" y="60" fill="#0b6b62" font-size="13" text-anchor="middle">D</text>
-  <text x="440" y="74" fill="#555" font-size="13">bond dim D</text>
+  <text x="470" y="150" font-size="12" fill="currentColor">physical</text>
+  <text x="470" y="30" font-size="12" fill="currentColor" text-anchor="end">bond (virtual) legs, dimension χ</text>
 </svg>
-</div>
+<figcaption style="font-size:0.9em; text-align:center;">Tensor-network notation: each circle is a tensor, each leg an index, and a connected leg is a summed index. The open legs are the physical spins.</figcaption>
+</figure>
+
+<p>Any state vector can be converted to an MPS by repeated singular value decompositions. Truncating the smallest singular values at each cut gives the optimal approximation at that bond dimension, and the sum of the discarded squared singular values bounds the error:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">import</span> <span class="n">tensornetwork</span> <span class="k">as</span> <span class="n">tn</span>
 
-<span class="k">def</span> <span class="nf">create_mps</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">D</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    Create a (random) Matrix Product State for ground-state calculation.
-    N: number of sites
-    d: local (physical) dimension
-    D: bond dimension
-    </span><span class="sh">"""</span>
-    <span class="c1"># Initialize random MPS tensors (open boundary conditions)
-</span>    <span class="n">tensors</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span>
-        <span class="n">tensors</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="o">*</span><span class="n">shape</span><span class="p">))</span>
+<span class="k">def</span> <span class="nf">to_mps</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">chi_max</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Left-canonical MPS of a state vector via successive SVDs.
+    Returns the tensors (shape chi_left x d x chi_right) and the discarded weight.</span><span class="sh">"""</span>
+    <span class="n">tensors</span><span class="p">,</span> <span class="n">discarded</span> <span class="o">=</span> <span class="p">[],</span> <span class="mf">0.0</span>
+    <span class="n">rest</span> <span class="o">=</span> <span class="n">psi</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">chi_left</span> <span class="o">=</span> <span class="n">rest</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">U</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">Vh</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">svd</span><span class="p">(</span><span class="n">rest</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="n">chi_left</span> <span class="o">*</span> <span class="n">d</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">full_matrices</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+        <span class="n">keep</span> <span class="o">=</span> <span class="n">S</span> <span class="o">&gt;</span> <span class="n">tol</span> <span class="o">*</span> <span class="n">S</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">chi_max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">keep</span><span class="p">[</span><span class="n">chi_max</span><span class="p">:]</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="n">discarded</span> <span class="o">+=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">S</span><span class="p">[</span><span class="o">~</span><span class="n">keep</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">U</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">Vh</span> <span class="o">=</span> <span class="n">U</span><span class="p">[:,</span> <span class="n">keep</span><span class="p">],</span> <span class="n">S</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">Vh</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+        <span class="n">tensors</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">U</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="n">chi_left</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">rest</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">S</span><span class="p">)</span> <span class="o">@</span> <span class="n">Vh</span>
+    <span class="n">tensors</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">rest</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">tensors</span><span class="p">,</span> <span class="n">discarded</span>
 
-    <span class="c1"># Create tensor-network nodes
-</span>    <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">tn</span><span class="p">.</span><span class="nc">Node</span><span class="p">(</span><span class="n">tensor</span><span class="p">)</span> <span class="k">for</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">tensors</span><span class="p">]</span>
-
-    <span class="c1"># Connect virtual (bond) legs between neighbors
-</span>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">^</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">^</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-
-    <span class="k">return</span> <span class="n">nodes</span>
-</code></pre></div></div>
-
-<h3 id="matrix-product-operators">Matrix Product Operators</h3>
-
-<p>Operators get the same treatment. A <strong>Matrix Product Operator (MPO)</strong> writes the Hamiltonian as a chain of rank-4 tensors. Local Hamiltonians have remarkably small MPOs — the transverse-field Ising model needs bond dimension $3$. The MPO encodes a finite-state automaton: as you sweep along the chain it is in one of a few “states” (identity-so-far, just-placed-the-first-half-of-a-bond, done), which is why nearest-neighbor models compress so tightly.</p>
-
-<h3 id="the-dmrg-algorithm">The DMRG Algorithm</h3>
-
-<p>The <strong>Density Matrix Renormalization Group (DMRG)</strong> finds the ground-state MPS by variational sweeping. It optimizes one (or two) tensors at a time while holding the rest fixed, sweeping left-to-right and back until the energy converges. Each local update is a small eigenvalue problem solved by Lanczos.</p>
-
-<p>The two-site DMRG sweep:</p>
-
-<ol>
-  <li>Contract everything to the left of the active sites into a left <strong>environment</strong> $L$, and everything to the right into a right environment $R$.</li>
-  <li>Form the effective Hamiltonian $H_{\text{eff}}$ acting only on the two active-site tensor, sandwiched between $L$, the local MPO tensors, and $R$.</li>
-  <li>Find the ground state of $H_{\text{eff}}$ by Lanczos — this is a tiny $\sim d^2 D^2$ eigenproblem.</li>
-  <li><strong>SVD</strong> the optimized two-site tensor to split it back into two single-site tensors, truncating the bond to dimension $D$ by keeping the largest singular values. The discarded weight is a rigorous error estimate.</li>
-  <li>Shift one site and repeat; reverse direction at the chain ends.</li>
-</ol>
-
-\[H_{\text{eff}} = L \;\cdot\; W_{(i)} \;\cdot\; W_{(i+1)} \;\cdot\; R\]
-
-<p>The variational energy is monotonically non-increasing, and the truncation error tells you when to grow $D$. DMRG is essentially exact for 1D gapped systems and is the workhorse for quantum chemistry and condensed-matter ground states.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Variational optimization using DMRG (schematic two-site update)
-</span><span class="k">def</span> <span class="nf">dmrg_step</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">mpo</span><span class="p">,</span> <span class="n">site</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    Single two-site DMRG optimization step.
-
-    1. Build the left/right environments around `site` and `site+1`.
-    2. Form the effective Hamiltonian from (L, W[site], W[site+1], R).
-    3. Lanczos-solve for the local ground state.
-    4. SVD-split and truncate the two-site tensor to bond dimension D.
-    5. Carry the singular values into the next site (canonical form).
-    </span><span class="sh">"""</span>
-    <span class="n">L</span> <span class="o">=</span> <span class="nf">build_left_environment</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">mpo</span><span class="p">,</span> <span class="n">site</span><span class="p">)</span>
-    <span class="n">R</span> <span class="o">=</span> <span class="nf">build_right_environment</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">mpo</span><span class="p">,</span> <span class="n">site</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">theta</span> <span class="o">=</span> <span class="nf">contract_two_sites</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">site</span><span class="p">)</span>
-    <span class="n">H_eff</span> <span class="o">=</span> <span class="nf">effective_hamiltonian</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">mpo</span><span class="p">[</span><span class="n">site</span><span class="p">],</span> <span class="n">mpo</span><span class="p">[</span><span class="n">site</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">R</span><span class="p">)</span>
-    <span class="n">theta_gs</span> <span class="o">=</span> <span class="nf">lanczos_ground_state</span><span class="p">(</span><span class="n">H_eff</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span>
-    <span class="n">A</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">B</span> <span class="o">=</span> <span class="nf">truncated_svd</span><span class="p">(</span><span class="n">theta_gs</span><span class="p">,</span> <span class="n">max_bond</span><span class="o">=</span><span class="n">mps</span><span class="p">.</span><span class="n">D</span><span class="p">)</span>
-    <span class="nf">update_mps_tensors</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">site</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nf">discarded_weight</span><span class="p">(</span><span class="n">S</span><span class="p">)</span>  <span class="c1"># convergence / truncation diagnostic
+<span class="c1"># Compress the 12-site TFIM ground state from the ED example above
+</span><span class="n">mps</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="nf">to_mps</span><span class="p">(</span><span class="n">evecs</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">N</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">chi_max</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">([</span><span class="n">A</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">A</span> <span class="ow">in</span> <span class="n">mps</span><span class="p">],</span> <span class="n">err</span><span class="p">)</span>   <span class="c1"># bonds grow 2, 4, 8, ... ; discarded weight ~4e-5
 </span></code></pre></div></div>
 
-<p><strong>Beyond 1D.</strong> The MPS area law is special to one dimension. In 2D, ground-state entanglement grows with the boundary length, so an MPS needs <code class="language-plaintext highlighter-rouge">D</code> exponential in the width — DMRG on cylinders works for moderate widths but degrades fast. Genuinely 2D networks (PEPS, Projected Entangled Pair States) restore the area law but are far costlier to contract. The <a href="https://github.com/ITensor/ITensors.jl">ITensor</a> library implements all of these.</p>
+<p>This exact-then-compress route is only a demonstration, since it starts from the full vector. Practical algorithms work with the MPS throughout.</p>
+
+<h3 id="matrix-product-operators">Matrix product operators</h3>
+
+<p>Operators are written the same way as a <strong>matrix product operator</strong> (MPO), a chain of four-index tensors. Local Hamiltonians have small MPOs: the TFIM needs bond dimension 3, and any Hamiltonian with nearest-neighbour terms needs a bond dimension of 2 plus the number of distinct two-site terms. The MPO acts like a finite-state machine that, reading along the chain, is in one of a few states (“nothing placed yet”, “first half of a bond placed”, “term complete”).</p>
+
+<h3 id="dmrg">DMRG</h3>
+
+<p>The <strong>density-matrix renormalization group</strong> (White, 1992) is, in modern language, a variational minimization of $\langle\psi\vert\hat H\vert\psi\rangle$ over MPS of fixed bond dimension. It optimizes one or two tensors at a time and sweeps back and forth along the chain:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+  A["Contract left and right&lt;br/&gt;environments L, R"] --&gt; B["Form effective H on sites i, i+1&lt;br/&gt;from L, W_i, W_i+1, R"]
+  B --&gt; C["Lanczos: lowest eigenvector&lt;br/&gt;of the effective H"]
+  C --&gt; D["SVD and truncate to χ&lt;br/&gt;(record discarded weight)"]
+  D --&gt; E["Move one site;&lt;br/&gt;reverse at chain ends"]
+  E --&gt; A
+  E --&gt; F{"Energy and discarded&lt;br/&gt;weight converged?"}
+  F -- "no: increase χ" --&gt; A
+  F -- yes --&gt; G["Ground-state MPS"]
+</code></pre>
+
+<p>The local problem has dimension $d^2\chi^2$, so a sweep costs $O(N d^3 \chi^3)$ with a two-site update. The energy decreases monotonically, and extrapolating it against the discarded weight gives an error estimate. For 1D gapped systems DMRG is effectively exact; it is also widely used in quantum chemistry for strongly correlated active spaces.</p>
+
+<p>With TeNPy the full calculation is a few lines (the TFIM in TeNPy’s convention is $-J\sum\sigma^x\sigma^x - g\sum\sigma^z$):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">tenpy.algorithms</span> <span class="kn">import</span> <span class="n">dmrg</span>
+<span class="kn">from</span> <span class="n">tenpy.models.tf_ising</span> <span class="kn">import</span> <span class="n">TFIChain</span>
+<span class="kn">from</span> <span class="n">tenpy.networks.mps</span> <span class="kn">import</span> <span class="n">MPS</span>
+
+<span class="n">M</span> <span class="o">=</span> <span class="nc">TFIChain</span><span class="p">({</span><span class="sh">"</span><span class="s">L</span><span class="sh">"</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span> <span class="sh">"</span><span class="s">J</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="sh">"</span><span class="s">g</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span> <span class="sh">"</span><span class="s">bc_MPS</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">finite</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">conserve</span><span class="sh">"</span><span class="p">:</span> <span class="bp">None</span><span class="p">})</span>
+<span class="n">psi</span> <span class="o">=</span> <span class="n">MPS</span><span class="p">.</span><span class="nf">from_product_state</span><span class="p">(</span><span class="n">M</span><span class="p">.</span><span class="n">lat</span><span class="p">.</span><span class="nf">mps_sites</span><span class="p">(),</span> <span class="p">[</span><span class="sh">"</span><span class="s">up</span><span class="sh">"</span><span class="p">]</span> <span class="o">*</span> <span class="n">M</span><span class="p">.</span><span class="n">lat</span><span class="p">.</span><span class="n">N_sites</span><span class="p">,</span> <span class="n">bc</span><span class="o">=</span><span class="n">M</span><span class="p">.</span><span class="n">lat</span><span class="p">.</span><span class="n">bc_MPS</span><span class="p">)</span>
+<span class="n">info</span> <span class="o">=</span> <span class="n">dmrg</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">M</span><span class="p">,</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">mixer</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">max_E_err</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1e-10</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">trunc_params</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">chi_max</span><span class="sh">"</span><span class="p">:</span> <span class="mi">64</span><span class="p">,</span> <span class="sh">"</span><span class="s">svd_min</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1e-10</span><span class="p">},</span>
+<span class="p">})</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">E</span><span class="sh">"</span><span class="p">],</span> <span class="n">psi</span><span class="p">.</span><span class="n">chi</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">psi</span><span class="p">.</span><span class="nf">entanglement_entropy</span><span class="p">())</span>   <span class="c1"># grows logarithmically toward the chain centre at criticality
+</span></code></pre></div></div>
+
+<h3 id="dynamics-and-higher-dimensions">Dynamics and higher dimensions</h3>
+
+<ul>
+  <li><strong>Real-time evolution</strong>: TEBD applies Trotterized two-site gates and re-truncates after each; the <strong>time-dependent variational principle</strong> (TDVP) projects the Schrödinger equation onto the MPS manifold and handles long-range interactions. Both are limited by entanglement growth: after a quench the entanglement typically grows linearly in time, so the required $\chi$ grows exponentially.</li>
+  <li><strong>Two dimensions</strong>: an MPS wrapped on a cylinder of width $W$ needs $\chi \sim e^{W}$, so DMRG works up to moderate widths (about 6–12 sites depending on the model). <strong>PEPS</strong> (projected entangled pair states) obey the 2D area law by construction but are expensive to contract exactly; approximate contraction schemes (boundary MPS, corner transfer matrices, belief propagation) make them practical.</li>
+  <li><strong>Simulating quantum processors</strong>: tensor networks are the main classical competitor to near-term quantum experiments. IBM’s 127-qubit “utility” experiment (Kim et al., <em>Nature</em> 618, 500 (2023)) was reproduced more accurately with a belief-propagation tensor network adapted to the heavy-hex lattice (<a href="https://arxiv.org/abs/2306.14887">Tindall et al., <em>PRX Quantum</em> 5, 010308 (2024)</a>).</li>
+</ul>
 
 <h2 id="quantum-monte-carlo">Quantum Monte Carlo</h2>
 
-<p>Quantum Monte Carlo (QMC) sidesteps the exponential wall entirely: it never stores the wavefunction, but samples observables stochastically. The error falls as $1/\sqrt{N_{\text{samples}}}$ independent of system size, so QMC scales to thousands of particles where ED and even DMRG cannot reach — at the cost of statistical noise and, sometimes, the sign problem.</p>
+<p>Quantum Monte Carlo (QMC) samples configurations stochastically instead of storing the state. The statistical error scales as $1/\sqrt{N_{\text{samples}}}$ independently of system size, so QMC reaches thousands of particles in any dimension. Its limitation is the sign problem.</p>
 
 <h3 id="variational-monte-carlo">Variational Monte Carlo</h3>
 
-<p>Variational Monte Carlo (VMC) estimates the energy of a <em>trial</em> wavefunction $\psi_T$ by importance sampling. Writing the energy expectation in the position basis,</p>
+<p>Variational Monte Carlo (VMC) estimates the energy of a trial wavefunction $\psi_T$. Writing the expectation value as an average over configurations $\mathbf{x}$,</p>
 
-\[E = \frac{\langle \psi_T | \hat{H} | \psi_T \rangle}{\langle \psi_T | \psi_T \rangle}
-  = \sum_{\mathbf{x}} \frac{|\psi_T(\mathbf{x})|^2}{\sum_{\mathbf{x}'} |\psi_T(\mathbf{x}')|^2} \; E_{\text{loc}}(\mathbf{x}),\]
+\[E[\psi_T] = \frac{\langle \psi_T \vert \hat{H} \vert \psi_T \rangle}{\langle \psi_T \vert \psi_T \rangle}
+= \int p(\mathbf x)\, E_{\text{loc}}(\mathbf{x})\, d\mathbf x,
+\qquad
+p(\mathbf x) = \frac{\lvert\psi_T(\mathbf{x})\rvert^2}{\int \lvert\psi_T\rvert^2},
+\qquad
+E_{\text{loc}}(\mathbf{x}) = \frac{(\hat{H}\psi_T)(\mathbf{x})}{\psi_T(\mathbf{x})} .\]
 
-<p>with the <strong>local energy</strong></p>
+<p>Configurations are drawn from $p(\mathbf x)$ by the Metropolis algorithm, which needs only ratios $\lvert\psi_T(\mathbf x’)/\psi_T(\mathbf x)\rvert^2$, so the normalization is never computed. If $\psi_T$ is an exact eigenstate, $E_{\text{loc}}$ is constant and the variance vanishes (<strong>zero-variance principle</strong>); the variance is therefore a direct measure of trial-function quality.</p>
 
-\[E_{\text{loc}}(\mathbf{x}) = \frac{\hat{H}\psi_T(\mathbf{x})}{\psi_T(\mathbf{x})} .\]
-
-<table>
-  <tbody>
-    <tr>
-      <td>We sample configurations $\mathbf{x}$ from the probability distribution $p(\mathbf{x}) =</td>
-      <td>\psi_T(\mathbf{x})</td>
-      <td>^2 / Z$ using the <strong>Metropolis algorithm</strong> and average $E_{\text{loc}}$ over the samples. The variance vanishes as $\psi_T$ approaches an exact eigenstate (the <em>zero-variance principle</em>), making $E_{\text{loc}}$ a sensitive measure of trial-function quality.</td>
-    </tr>
-  </tbody>
-</table>
+<p>For the harmonic oscillator with $\psi_T = e^{-a x^2}$, the local energy is $E_{\text{loc}} = a + x^2(\tfrac12 - 2a^2)$:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<span class="k">def</span> <span class="nf">variational_monte_carlo</span><span class="p">(</span><span class="n">psi_trial</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    Variational Monte Carlo for quantum systems.
+<span class="k">def</span> <span class="nf">vmc_harmonic</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">200_000</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">burn_in</span><span class="o">=</span><span class="mi">1_000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">VMC energy and variance for psi_T = exp(-a x^2), H = -1/2 d^2/dx^2 + x^2/2.</span><span class="sh">"""</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">energies</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+        <span class="n">x_new</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span> <span class="o">*</span> <span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># Metropolis acceptance with probability |psi(x_new)/psi(x)|^2
+</span>        <span class="k">if</span> <span class="n">rng</span><span class="p">.</span><span class="nf">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">a</span> <span class="o">*</span> <span class="p">(</span><span class="n">x_new</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x_new</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">burn_in</span><span class="p">:</span>
+            <span class="n">energies</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">a</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">e</span><span class="p">.</span><span class="nf">mean</span><span class="p">(),</span> <span class="n">e</span><span class="p">.</span><span class="nf">var</span><span class="p">()</span>
 
-    psi_trial:  callable, psi_trial(config) -&gt; amplitude
-    H:          Hamiltonian (used inside calculate_local_energy)
-    Returns the mean energy and its standard error.
-    </span><span class="sh">"""</span>
-    <span class="n">energy_samples</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">):</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nf">vmc_harmonic</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>   <span class="c1"># a = 0.5 gives E = 0.5 with zero variance
+</span></code></pre></div></div>
 
-    <span class="c1"># Metropolis sampling from |psi_trial|^2
-</span>    <span class="n">config</span> <span class="o">=</span> <span class="nf">initialize_random_config</span><span class="p">()</span>
+<p>Successive samples are correlated, so error bars must account for the autocorrelation time (for example by blocking/binning). The trial-function parameters are optimized by minimizing the energy or its variance; for many parameters the <strong>stochastic reconfiguration</strong> method (a natural-gradient scheme) is standard.</p>
 
-    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_samples</span><span class="p">):</span>
-        <span class="c1"># Propose a move
-</span>        <span class="n">new_config</span> <span class="o">=</span> <span class="nf">propose_move</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<h3 id="neural-network-quantum-states">Neural-network quantum states</h3>
 
-        <span class="c1"># Acceptance probability = |psi(new)/psi(old)|^2
-</span>        <span class="n">prob_ratio</span> <span class="o">=</span> <span class="nf">abs</span><span class="p">(</span><span class="nf">psi_trial</span><span class="p">(</span><span class="n">new_config</span><span class="p">)</span> <span class="o">/</span> <span class="nf">psi_trial</span><span class="p">(</span><span class="n">config</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span>
+<p>Carleo and Troyer (<a href="https://arxiv.org/abs/1606.02318"><em>Science</em> 355, 602 (2017)</a>) proposed using a neural network as the VMC ansatz: the network maps a configuration to an amplitude $\psi_\theta(\mathbf x)$, and $\theta$ is trained by stochastic reconfiguration. Architectures have since moved from restricted Boltzmann machines to convolutional networks and transformers. In continuous space, FermiNet and PauliNet represent many-electron wavefunctions with antisymmetric networks and reach high accuracy for small molecules. Neural-network states are not limited by the area law, which makes them attractive for 2D frustrated magnets, but optimization can be difficult and accuracy is not guaranteed. NetKet is a widely used library.</p>
 
-        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">rand</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">prob_ratio</span><span class="p">:</span>
-            <span class="n">config</span> <span class="o">=</span> <span class="n">new_config</span>
+<h3 id="projector-methods-diffusion-and-auxiliary-field-qmc">Projector methods: diffusion and auxiliary-field QMC</h3>
 
-        <span class="c1"># Local energy at the current configuration
-</span>        <span class="n">E_local</span> <span class="o">=</span> <span class="nf">calculate_local_energy</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">psi_trial</span><span class="p">,</span> <span class="n">H</span><span class="p">)</span>
-        <span class="n">energy_samples</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">E_local</span><span class="p">)</span>
+<p>Projector methods improve on the trial state by imaginary-time evolution:</p>
 
-    <span class="n">mean_energy</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">energy_samples</span><span class="p">)</span>
-    <span class="n">std_error</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">std</span><span class="p">(</span><span class="n">energy_samples</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">mean_energy</span><span class="p">,</span> <span class="n">std_error</span>
-</code></pre></div></div>
+\[e^{-\tau \hat{H}} \lvert\psi_T\rangle = \sum_n e^{-\tau E_n} c_n \lvert n\rangle \;\longrightarrow\; c_0\, e^{-\tau E_0} \lvert 0\rangle \quad (\tau \to \infty),\]
 
-<h3 id="projector-and-diffusion-monte-carlo">Projector and Diffusion Monte Carlo</h3>
+<p>provided $c_0 = \langle 0\vert\psi_T\rangle \ne 0$. Excited-state components decay faster, leaving the ground state.</p>
 
-<p>VMC is only as good as the trial function. <strong>Projector</strong> methods improve on it by filtering the trial state toward the true ground state through imaginary-time evolution. Since</p>
+<ul>
+  <li><strong>Diffusion Monte Carlo</strong> (DMC) works in real space. The kinetic term becomes a diffusion of walkers and the potential term a birth–death (branching) process, with $\psi_T$ used for importance sampling. It is exact for bosonic ground states.</li>
+  <li><strong>Auxiliary-field QMC</strong> (AFQMC) decouples two-body interactions with a Hubbard–Stratonovich transformation and samples Slater determinants. It is used for lattice fermion models and increasingly for ab initio chemistry.</li>
+  <li><strong>Finite-temperature methods</strong>: path-integral Monte Carlo samples the ring-polymer representation of $e^{-\beta\hat H}$ (see <a href="qm-advanced-formalism.html#imaginary-time-and-statistical-mechanics">Advanced Formalism</a>), and the stochastic series expansion (SSE) handles lattice spin models.</li>
+</ul>
 
-\[e^{-\tau \hat{H}} |\psi_T\rangle = \sum_n e^{-\tau E_n} c_n |n\rangle \xrightarrow{\tau \to \infty} c_0 e^{-\tau E_0} |0\rangle ,\]
+<h3 id="the-sign-problem">The sign problem</h3>
 
-<p>the highest-energy components decay fastest, leaving the ground state. <strong>Diffusion Monte Carlo (DMC)</strong> realizes $e^{-\tau \hat{H}}$ as a branching random walk: the kinetic term becomes diffusion of walkers, and the potential term becomes a birth/death (branching) process. DMC is essentially exact for bosons and for the fixed-node approximation in fermionic systems.</p>
+<p>For fermions and frustrated spins, the weights in these expansions are not all positive. Sampling $\lvert w\rvert$ and attaching the sign to the observable works in principle, but the average sign decays exponentially:</p>
 
-<h3 id="the-sign-problem">The Sign Problem</h3>
+\[\langle \operatorname{sign} \rangle \sim e^{-\beta N \Delta f}, \qquad
+\frac{\sigma_{\langle O\rangle}}{\langle O\rangle} \sim \frac{e^{\beta N \Delta f}}{\sqrt{N_{\text{samples}}}},\]
 
-<p>For fermions (and frustrated spins), the imaginary-time weights are not positive — wavefunction antisymmetry forces sign changes, and the Monte Carlo average becomes a difference of large nearly-cancelling positive and negative contributions. The statistical error then grows <em>exponentially</em> with system size and inverse temperature:</p>
+<p>where $\Delta f &gt; 0$ is the free-energy density difference between the true system and the one with weights $\lvert w\rvert$. Troyer and Wiese (2005) showed that a general solution would imply efficient algorithms for NP-hard problems. The practical workarounds are:</p>
 
-\[\frac{\sigma}{\langle \mathrm{sign} \rangle} \sim e^{+\beta N \, \Delta f},\]
+<ul>
+  <li>models that are sign-free (<strong>stoquastic</strong>) in a suitable basis: bosons, unfrustrated antiferromagnets on bipartite lattices, the half-filled Hubbard model on bipartite lattices in AFQMC;</li>
+  <li>controlled approximations: the <strong>fixed-node</strong> approximation in DMC (exact if the nodes of $\psi_T$ are exact) and the constrained-path or phaseless approximation in AFQMC;</li>
+  <li>choosing a basis in which the sign problem is milder.</li>
+</ul>
 
-<p>where $\Delta f$ is a free-energy difference. This <strong>sign problem</strong> is the central obstacle of QMC; it is NP-hard in general, with no universal cure. The standard workarounds — the fixed-node approximation in DMC, or restricting to sign-problem-free (stoquastic) models like unfrustrated bosons and bipartite antiferromagnets — define the boundary of what QMC can reach.</p>
+<h2 id="time-propagation">Time Propagation</h2>
 
-<p><strong>When to use QMC.</strong> Large systems in any dimension, especially bosons, unfrustrated spins, and continuum electronic-structure problems where a good trial wavefunction exists. Avoid it (or accept the fixed-node bias) for frustrated magnets and generic fermions, where the sign problem bites.</p>
+<p>Static methods find eigenstates; dynamics requires applying the propagator. For a time-independent Hamiltonian,</p>
 
-<h2 id="time-propagation-methods">Time Propagation Methods</h2>
+\[\lvert\psi(t)\rangle = e^{-i\hat{H}t/\hbar}\lvert\psi(0)\rangle ,\]
 
-<p>Static methods find eigenstates; <strong>dynamics</strong> asks how a state evolves. The formal solution of the time-dependent Schrödinger equation,</p>
-
-\[i\hbar \, \frac{\partial}{\partial t} |\psi(t)\rangle = \hat{H}(t)\, |\psi(t)\rangle ,\]
+<p>and the numerical task is to apply this exponential to a vector without forming the matrix exponential, which would be dense.</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Unitary?</th>
+      <th>Error per step</th>
+      <th>Best suited to</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>is the propagator $</td>
-      <td>\psi(t)\rangle = \hat{U}(t)</td>
-      <td>\psi(0)\rangle$. For a time-independent $\hat{H}$, $\hat{U}(t) = e^{-i\hat{H}t/\hbar}$; the numerical task is to apply this exponential without ever forming the full matrix exponential.</td>
+      <td>General ODE integrator (RK45)</td>
+      <td>No; norm drifts</td>
+      <td>Adaptive</td>
+      <td>Arbitrary time dependence, small systems</td>
+    </tr>
+    <tr>
+      <td>Crank–Nicolson</td>
+      <td>Yes</td>
+      <td>$O(\Delta t^3)$</td>
+      <td>Grid problems; needs a sparse linear solve per step</td>
+    </tr>
+    <tr>
+      <td>Split-operator / Trotter</td>
+      <td>Yes</td>
+      <td>$O(\Delta t^3)$ (second order)</td>
+      <td>$\hat H = \hat T + \hat V$ on grids; local lattice terms</td>
+    </tr>
+    <tr>
+      <td>Krylov (Lanczos) propagation</td>
+      <td>To working precision</td>
+      <td>Controllable, exponential in $m$</td>
+      <td>Large sparse $\hat H$, long steps</td>
+    </tr>
+    <tr>
+      <td>Chebyshev expansion</td>
+      <td>To working precision</td>
+      <td>Controllable</td>
+      <td>Time-independent $\hat H$ with known spectral bounds</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="direct-integration">Direct Integration</h3>
+<h3 id="direct-integration">Direct integration</h3>
 
-<p>The most direct route is to treat the Schrödinger equation as a system of coupled ODEs and hand it to a standard integrator (Runge–Kutta, adaptive step). This is flexible — it handles arbitrary time-dependence — but a naive RK scheme is not unitary, so the norm drifts and energy is not conserved over long times unless steps are kept small.</p>
+<p>Treating the Schrödinger equation as a system of ODEs and passing it to a general-purpose integrator handles arbitrary time dependence. Standard Runge–Kutta schemes are not unitary, so the norm and energy drift unless tolerances are tight; they are suitable for small systems and short times.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 <span class="kn">from</span> <span class="n">scipy.integrate</span> <span class="kn">import</span> <span class="n">solve_ivp</span>
 
-<span class="k">def</span> <span class="nf">schrodinger_rhs</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="n">H</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">d|psi&gt;/dt = -(i/hbar) H |psi&gt;, with hbar = 1.</span><span class="sh">"""</span>
-    <span class="k">return</span> <span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="p">(</span><span class="n">H</span> <span class="o">@</span> <span class="n">psi</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">integrate_state</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">psi0</span><span class="p">,</span> <span class="n">t_span</span><span class="p">,</span> <span class="n">t_eval</span><span class="p">):</span>
-    <span class="n">sol</span> <span class="o">=</span> <span class="nf">solve_ivp</span><span class="p">(</span>
-        <span class="n">schrodinger_rhs</span><span class="p">,</span> <span class="n">t_span</span><span class="p">,</span> <span class="n">psi0</span><span class="p">,</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span>
-        <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">H</span><span class="p">,),</span> <span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">RK45</span><span class="sh">"</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-11</span><span class="p">,</span>
-    <span class="p">)</span>
-    <span class="k">return</span> <span class="n">sol</span><span class="p">.</span><span class="n">t</span><span class="p">,</span> <span class="n">sol</span><span class="p">.</span><span class="n">y</span>  <span class="c1"># columns are |psi(t)&gt;
+<span class="k">def</span> <span class="nf">propagate_ode</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">psi0</span><span class="p">,</span> <span class="n">t_eval</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Integrate i d|psi&gt;/dt = H |psi&gt; (hbar = 1) with an adaptive Runge-Kutta method.</span><span class="sh">"""</span>
+    <span class="n">sol</span> <span class="o">=</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="p">(</span><span class="n">H</span> <span class="o">@</span> <span class="n">y</span><span class="p">),</span> <span class="p">(</span><span class="n">t_eval</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t_eval</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span>
+                    <span class="n">psi0</span><span class="p">.</span><span class="nf">astype</span><span class="p">(</span><span class="nb">complex</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-11</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sol</span><span class="p">.</span><span class="n">y</span>   <span class="c1"># column k is |psi(t_eval[k])&gt;
 </span></code></pre></div></div>
 
-<h3 id="split-operator-and-trotter-methods">Split-Operator and Trotter Methods</h3>
+<h3 id="split-operator-and-trotter-methods">Split-operator and Trotter methods</h3>
 
-<p>For a Hamiltonian that splits into kinetic and potential parts, $\hat{H} = \hat{T} + \hat{V}$, the <strong>split-operator</strong> method applies each piece where it is diagonal — $\hat{V}$ in position space, $\hat{T}$ in momentum space — alternating via the FFT. The Suzuki–Trotter decomposition,</p>
+<p>For $\hat H = \hat T + \hat V$, the <strong>split-operator</strong> method applies $\hat V$ in position space and $\hat T$ in momentum space, switching between them with the FFT. The symmetric (Strang) splitting,</p>
 
-\[e^{-i\hat{H}\,\Delta t/\hbar} \approx e^{-i\hat{V}\Delta t/2\hbar}\; e^{-i\hat{T}\Delta t/\hbar}\; e^{-i\hat{V}\Delta t/2\hbar} + O(\Delta t^3),\]
+\[e^{-i\hat{H}\Delta t/\hbar} = e^{-i\hat{V}\Delta t/2\hbar}\; e^{-i\hat{T}\Delta t/\hbar}\; e^{-i\hat{V}\Delta t/2\hbar} + O(\Delta t^3),\]
 
-<p>is <strong>exactly unitary</strong> at every step (each factor is the exponential of a Hermitian operator), so the norm is conserved by construction. The symmetric (Strang) form above is second-order accurate per step. The same Trotter idea underlies <strong>TEBD</strong> (Time-Evolving Block Decimation), which propagates an MPS by applying two-site gates and re-truncating — the dynamical counterpart of DMRG.</p>
+<p>is exactly unitary because each factor is. The local error is $O(\Delta t^3)$ and the global error $O(\Delta t^2)$; Suzuki’s recursive construction gives fourth- and higher-order splittings at the cost of more exponentials per step. The same Trotter idea underlies TEBD for MPS and Trotterized Hamiltonian simulation on quantum computers.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<span class="k">def</span> <span class="nf">split_operator_step</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">k2</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    One symmetric (Strang) split-operator step for H = p^2/2m + V(x)
-    on a uniform grid. `k2` is the array of k^2 momentum values.
-    </span><span class="sh">"""</span>
-    <span class="c1"># Half step in potential (position space)
-</span>    <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">V</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">hbar</span><span class="p">))</span> <span class="o">*</span> <span class="n">psi</span>
-    <span class="c1"># Full step in kinetic energy (momentum space via FFT)
-</span>    <span class="n">psi_k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span>
-    <span class="n">psi_k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">hbar</span> <span class="o">*</span> <span class="n">k2</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m</span><span class="p">))</span> <span class="o">*</span> <span class="n">psi_k</span>
-    <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft</span><span class="p">(</span><span class="n">psi_k</span><span class="p">)</span>
-    <span class="c1"># Half step in potential again
-</span>    <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">V</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">hbar</span><span class="p">))</span> <span class="o">*</span> <span class="n">psi</span>
-    <span class="k">return</span> <span class="n">psi</span>
+<span class="n">n</span><span class="p">,</span> <span class="n">L</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span> <span class="mf">40.0</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">L</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">L</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">k</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">L</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>      <span class="c1"># angular wavenumbers matching np.fft ordering
+</span><span class="n">V</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span>
+
+<span class="k">def</span> <span class="nf">split_operator_step</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">One Strang step for H = p^2/2m + V(x) on a periodic grid.</span><span class="sh">"""</span>
+    <span class="n">half_v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5j</span> <span class="o">*</span> <span class="n">V</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="n">hbar</span><span class="p">)</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="n">half_v</span> <span class="o">*</span> <span class="n">psi</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5j</span> <span class="o">*</span> <span class="n">hbar</span> <span class="o">*</span> <span class="n">k</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft</span><span class="p">(</span><span class="n">psi</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">half_v</span> <span class="o">*</span> <span class="n">psi</span>
+
+<span class="c1"># A displaced Gaussian oscillates classically: after half a period &lt;x&gt; goes from 3 to -3
+</span><span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">**</span><span class="mf">0.25</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">0.01</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">round</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">dt</span><span class="p">)):</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="nf">split_operator_step</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+<span class="n">dx</span> <span class="o">=</span> <span class="n">L</span> <span class="o">/</span> <span class="n">n</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>   <span class="c1"># 1.0, -3.0
+</span></code></pre></div></div>
+
+<p>Replacing $\Delta t$ by $-i\Delta\tau$ and renormalizing after each step gives <strong>imaginary-time propagation</strong>, a simple way to relax any initial state to the ground state.</p>
+
+<h3 id="krylov-subspace-propagation">Krylov-subspace propagation</h3>
+
+<p>For a large sparse $\hat H$, the most accurate general approach is to build an $m$-dimensional Krylov space from the current state with the Lanczos recursion, exponentiate the small tridiagonal matrix exactly, and map back. With $m$ of 20–40 the error is typically at machine precision for a step, and it can be estimated a posteriori. Expokit and most tensor-network and ED codes use this approach.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy.linalg</span> <span class="kn">import</span> <span class="n">eigh_tridiagonal</span>
+
+<span class="k">def</span> <span class="nf">krylov_step</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Approximate exp(-i H dt) |psi&gt; in an m-dimensional Krylov space (hbar = 1).
+    No reorthogonalization: adequate for modest m and short steps.</span><span class="sh">"""</span>
+    <span class="n">beta0</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">psi</span><span class="p">.</span><span class="n">size</span><span class="p">,</span> <span class="n">m</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
+    <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">m</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">V</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">psi</span> <span class="o">/</span> <span class="n">beta0</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">m</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">H</span> <span class="o">@</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span>
+        <span class="n">alpha</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">vdot</span><span class="p">(</span><span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="p">],</span> <span class="n">w</span><span class="p">).</span><span class="n">real</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">w</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="n">beta</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="n">m</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">beta</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">beta</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">1e-12</span><span class="p">:</span>          <span class="c1"># invariant subspace found: Krylov space is exact
+</span>            <span class="n">m</span> <span class="o">=</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">break</span>
+        <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">w</span> <span class="o">/</span> <span class="n">beta</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+    <span class="n">theta</span><span class="p">,</span> <span class="n">S</span> <span class="o">=</span> <span class="nf">eigh_tridiagonal</span><span class="p">(</span><span class="n">alpha</span><span class="p">[:</span><span class="n">m</span><span class="p">],</span> <span class="n">beta</span><span class="p">[:</span><span class="n">m</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="n">S</span> <span class="o">@</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">theta</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span> <span class="o">*</span> <span class="n">S</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:])</span>   <span class="c1"># exp(-i T dt) e_1
+</span>    <span class="k">return</span> <span class="n">beta0</span> <span class="o">*</span> <span class="p">(</span><span class="n">V</span><span class="p">[:,</span> <span class="p">:</span><span class="n">m</span><span class="p">]</span> <span class="o">@</span> <span class="n">coeffs</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="krylov-subspace-propagation">Krylov-Subspace Propagation</h3>
+<p>SciPy’s <code class="language-plaintext highlighter-rouge">scipy.sparse.linalg.expm_multiply</code> computes the same action of the exponential but with a different algorithm, a truncated Taylor series with scaling (Al-Mohy and Higham, 2011); it accepts <code class="language-plaintext highlighter-rouge">start</code>, <code class="language-plaintext highlighter-rouge">stop</code> and <code class="language-plaintext highlighter-rouge">num</code> arguments to return the state on a uniform time grid.</p>
 
-<table>
-  <tbody>
-    <tr>
-      <td>When $\hat{H}$ is large and sparse, the most accurate per-step method is <strong>Krylov-subspace (Lanczos) propagation</strong>: build a small Krylov space from $</td>
-      <td>\psi(t)\rangle$, exponentiate the resulting tiny tridiagonal matrix exactly, and project back. A subspace of dimension $m \sim 20$–$40$ typically reaches machine precision for a single time step, with the error controllable a posteriori. This is what production codes (e.g. <code class="language-plaintext highlighter-rouge">expokit</code>, <code class="language-plaintext highlighter-rouge">scipy.sparse.linalg.expm_multiply</code>) use to apply $e^{-i\hat{H}t}</td>
-      <td>\psi\rangle$ without forming the exponential.</td>
-    </tr>
-  </tbody>
-</table>
+<h3 id="periodically-driven-systems-floquet-theory">Periodically driven systems: Floquet theory</h3>
+
+<p>If $\hat H(t+T) = \hat H(t)$, <strong>Floquet’s theorem</strong> (the time-domain analogue of Bloch’s theorem) gives solutions of the form $\lvert\psi_n(t)\rangle = e^{-i\varepsilon_n t/\hbar}\lvert\phi_n(t)\rangle$ with $\lvert\phi_n(t+T)\rangle = \lvert\phi_n(t)\rangle$. The <strong>quasienergies</strong> $\varepsilon_n$ are defined modulo $\hbar\omega = 2\pi\hbar/T$ and are obtained by diagonalizing the one-period propagator $\hat U(T)$, whose eigenvalues are $e^{-i\varepsilon_n T/\hbar}$. This captures the stroboscopic dynamics at all later times and is the basis of <strong>Floquet engineering</strong> (designing effective Hamiltonians by periodic driving). QuTiP 5 provides this through <code class="language-plaintext highlighter-rouge">FloquetBasis</code>:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">from</span> <span class="n">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">expm_multiply</span>
-
-<span class="k">def</span> <span class="nf">krylov_propagate</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">psi0</span><span class="p">,</span> <span class="n">times</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    Apply exp(-i H t) |psi0&gt; at a sequence of times using a Krylov method.
-    `H` is a sparse Hamiltonian (hbar = 1).
-    </span><span class="sh">"""</span>
-    <span class="c1"># expm_multiply efficiently builds exp(A) @ b across a time grid
-</span>    <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="o">=</span> <span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">num</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nf">expm_multiply</span><span class="p">(</span><span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">H</span><span class="p">,</span> <span class="n">psi0</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="n">stop</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="n">num</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="driven-systems-and-floquet-theory">Driven Systems and Floquet Theory</h3>
-
-<p>When the Hamiltonian is periodic in time, $\hat{H}(t + T) = \hat{H}(t)$, <strong>Floquet theory</strong> is the time-domain analogue of Bloch’s theorem. The one-period propagator $\hat{U}(T)$ has eigenvalues $e^{-i\varepsilon_n T/\hbar}$ defining <strong>quasienergies</strong> $\varepsilon_n$ (defined modulo $\hbar\omega = 2\pi\hbar/T$) and time-periodic <strong>Floquet modes</strong>. Diagonalizing $\hat{U}(T)$ once captures the long-time stroboscopic dynamics of a periodically driven system — the basis for Floquet engineering of effective Hamiltonians.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">linalg</span>
 <span class="kn">import</span> <span class="n">qutip</span> <span class="k">as</span> <span class="n">qt</span>
 
-<span class="k">def</span> <span class="nf">time_dependent_hamiltonian</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Driven two-level / oscillator Hamiltonian H0 + H1 cos(omega t).</span><span class="sh">"""</span>
-    <span class="n">H0</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="sh">"</span><span class="s">H0</span><span class="sh">"</span><span class="p">]</span>
-    <span class="n">H1</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="sh">"</span><span class="s">H1</span><span class="sh">"</span><span class="p">]</span>
-    <span class="n">omega</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="sh">"</span><span class="s">omega</span><span class="sh">"</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">H0</span> <span class="o">+</span> <span class="n">H1</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">omega</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
+<span class="n">delta</span><span class="p">,</span> <span class="n">eps0</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">omega</span> <span class="o">=</span> <span class="mf">0.2</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">2.5</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span>
+<span class="n">T</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">omega</span>
 
-<span class="k">def</span> <span class="nf">floquet_modes</span><span class="p">(</span><span class="n">H_func</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    Compute Floquet modes and quasienergies for a T-periodic Hamiltonian.
-    </span><span class="sh">"""</span>
-    <span class="c1"># One-period propagator U(T)
-</span>    <span class="n">U</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">propagator</span><span class="p">(</span><span class="n">H_func</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">)</span>
-
-    <span class="c1"># Diagonalize the Floquet operator
-</span>    <span class="n">evals</span><span class="p">,</span> <span class="n">evecs</span> <span class="o">=</span> <span class="n">linalg</span><span class="p">.</span><span class="nf">eig</span><span class="p">(</span><span class="n">U</span><span class="p">.</span><span class="nf">full</span><span class="p">())</span>
-
-    <span class="c1"># Quasienergies (defined modulo hbar*omega = 2*pi/T)
-</span>    <span class="n">epsilon</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="p">.</span><span class="nf">angle</span><span class="p">(</span><span class="n">evals</span><span class="p">)</span> <span class="o">/</span> <span class="n">T</span>
-
-    <span class="k">return</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">evecs</span>
-</code></pre></div></div>
+<span class="n">H0</span> <span class="o">=</span> <span class="o">-</span><span class="n">delta</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">qt</span><span class="p">.</span><span class="nf">sigmax</span><span class="p">()</span> <span class="o">-</span> <span class="n">eps0</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">qt</span><span class="p">.</span><span class="nf">sigmaz</span><span class="p">()</span>
+<span class="n">H1</span> <span class="o">=</span> <span class="n">A</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">qt</span><span class="p">.</span><span class="nf">sigmaz</span><span class="p">()</span>
+<span class="n">H</span> <span class="o">=</span> <span class="p">[</span><span class="n">H0</span><span class="p">,</span> <span class="p">[</span><span class="n">H1</span><span class="p">,</span> <span class="sh">"</span><span class="s">sin(w * t)</span><span class="sh">"</span><span class="p">]]</span>          <span class="c1"># QuTiP list format: H0 + H1 sin(w t)
+</span>
+<span class="n">floquet</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nc">FloquetBasis</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">w</span><span class="sh">"</span><span class="p">:</span> <span class="n">omega</span><span class="p">})</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">floquet</span><span class="p">.</span><span class="n">e_quasi</span><span class="p">)</span>                <span class="c1"># quasienergies, here approx [-2.831, 2.831]
+</span></code></pre></div></div>
 
 <h3 id="open-systems-and-lindblad-dynamics">Open Systems and Lindblad Dynamics</h3>
 
-<p>Closed-system propagation conserves purity; real systems couple to an environment. For Markovian dissipation the density matrix obeys the <strong>Lindblad master equation</strong>,</p>
+<p>A system coupled to a Markovian environment obeys the <a href="qm-advanced-formalism.html#open-quantum-systems-and-the-lindblad-equation">Lindblad master equation</a>:</p>
 
-\[\frac{d\hat{\rho}}{dt} = -\frac{i}{\hbar}[\hat{H}, \hat{\rho}] + \sum_k \gamma_k \left( \hat{L}_k \hat{\rho}\hat{L}_k^\dagger - \frac{1}{2}\{ \hat{L}_k^\dagger \hat{L}_k, \hat{\rho} \} \right),\]
+\[\frac{d\hat{\rho}}{dt} = -\frac{i}{\hbar}[\hat{H}, \hat{\rho}] + \sum_k \gamma_k \left( \hat{L}_k \hat{\rho}\hat{L}_k^\dagger - \frac{1}{2}\left\{ \hat{L}_k^\dagger \hat{L}_k, \hat{\rho} \right\} \right).\]
 
-<p>which is propagated either by integrating the $d^2$-dimensional vectorized $\hat{\rho}$ directly (<code class="language-plaintext highlighter-rouge">mesolve</code> below) or by averaging over <strong>quantum trajectories</strong> — stochastic pure-state evolutions punctuated by random jumps, which scale as $d$ rather than $d^2$.</p>
+<p>There are two ways to solve it numerically:</p>
 
-<h2 id="a-worked-example-with-qutip">A Worked Example with QuTiP</h2>
+<ul>
+  <li><strong>Direct integration</strong> of the vectorized density matrix, a vector of length $D^2$ acted on by a $D^2\times D^2$ Liouvillian superoperator. Steady states are the null vector of the Liouvillian.</li>
+  <li><strong>Quantum trajectories</strong> (Monte Carlo wavefunction method): evolve pure states of length $D$ under the non-Hermitian effective Hamiltonian $\hat H_{\text{eff}} = \hat H - \tfrac{i\hbar}{2}\sum_k \gamma_k \hat L_k^\dagger\hat L_k$, interrupted by random jumps $\lvert\psi\rangle \to \hat L_k\lvert\psi\rangle$. The average over trajectories reproduces $\hat\rho(t)$, with statistical error $\propto 1/\sqrt{N_{\text{traj}}}$. This trades memory ($D$ instead of $D^2$) for sampling and is also a physical model of continuously monitored systems.</li>
+</ul>
 
-<p><a href="https://github.com/qutip/qutip">QuTiP</a> bundles many of these methods behind a clean interface. The example below builds a two-level Hamiltonian, evolves an initial state, and tracks an expectation value — exercising the open-system <code class="language-plaintext highlighter-rouge">mesolve</code> propagator on a trivially small system so the mechanics are visible.</p>
+<pre><code class="language-mermaid">flowchart LR
+  S["Pure state ψ(t)"] --&gt; NH["Evolve with non-Hermitian&lt;br/&gt;H_eff for one step dt"]
+  NH --&gt; P{"Norm loss δp:&lt;br/&gt;jump with probability δp?"}
+  P -- "no (1 − δp)" --&gt; R["Renormalize ψ"]
+  P -- "yes (δp)" --&gt; J["Apply a jump operator L_k&lt;br/&gt;(chosen by weight), renormalize"]
+  R --&gt; S
+  J --&gt; S
+  S -.-&gt; AVG["Average over many trajectories:&lt;br/&gt;ρ(t) = mean of projectors onto ψ(t)"]
+</code></pre>
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon" /><a href="https://github.com/qutip/qutip"> Library: <b><i>QuTiP - Quantum Toolbox in Python</i></b></a></p>
+<p>For large open systems, both approaches combine with tensor networks (MPO representations of $\hat\rho$, or MPS trajectories), and non-Markovian baths are treated with the hierarchical equations of motion (HEOM) or process-tensor methods.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">from</span> <span class="n">qutip</span> <span class="kn">import</span> <span class="o">*</span>
+<h2 id="worked-example-a-damped-driven-qubit-in-qutip">Worked Example: A Damped, Driven Qubit in QuTiP</h2>
 
-<span class="c1"># Create a two-level system (qubit)
-</span><span class="n">N</span> <span class="o">=</span> <span class="mi">2</span>
-<span class="n">a</span> <span class="o">=</span> <span class="nf">destroy</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
-
-<span class="c1"># Define the Hamiltonian
-</span><span class="n">w0</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># frequency
-</span><span class="n">g</span> <span class="o">=</span> <span class="mf">0.1</span>   <span class="c1"># coupling strength
-</span><span class="n">H</span> <span class="o">=</span> <span class="n">w0</span> <span class="o">*</span> <span class="n">a</span><span class="p">.</span><span class="nf">dag</span><span class="p">()</span> <span class="o">*</span> <span class="n">a</span> <span class="o">+</span> <span class="n">g</span> <span class="o">*</span> <span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">a</span><span class="p">.</span><span class="nf">dag</span><span class="p">())</span>
-
-<span class="c1"># Initial state (ground state)
-</span><span class="n">psi0</span> <span class="o">=</span> <span class="nf">basis</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-
-<span class="c1"># Time evolution
-</span><span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
-<span class="n">result</span> <span class="o">=</span> <span class="nf">mesolve</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">psi0</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="p">[],</span> <span class="p">[])</span>
-
-<span class="c1"># Expectation value of the number operator
-</span><span class="n">n_exp</span> <span class="o">=</span> <span class="nf">expect</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="nf">dag</span><span class="p">()</span> <span class="o">*</span> <span class="n">a</span><span class="p">,</span> <span class="n">result</span><span class="p">.</span><span class="n">states</span><span class="p">)</span>
-
-<span class="c1"># Visualize the evolution
-</span><span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">n_exp</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">xlabel</span><span class="p">(</span><span class="sh">"</span><span class="s">Time</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">ylabel</span><span class="p">(</span><span class="sh">"</span><span class="s">Excitation Probability</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">title</span><span class="p">(</span><span class="sh">"</span><span class="s">Driven Two-Level Evolution</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-</code></pre></div></div>
-
-<h3 id="visualizing-wave-functions">Visualizing Wave Functions</h3>
-
-<p>The harmonic-oscillator eigenstates are a useful sanity check: they have a closed form, so plotting the numerically evaluated $\psi_n(x)$ confirms a code’s normalization and basis conventions before turning it loose on harder problems.</p>
+<p><a href="https://qutip.org/">QuTiP</a> (version 5.3 at the time of writing) implements most of the propagators above. The example drives a two-level system resonantly (Rabi frequency $\Omega$) while it decays at rate $\gamma_1 = 1/T_1$ and dephases at rate $\gamma_\phi$, and compares the master-equation solution with a trajectory average.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">from</span> <span class="n">scipy.special</span> <span class="kn">import</span> <span class="n">hermite</span>
-<span class="kn">from</span> <span class="n">math</span> <span class="kn">import</span> <span class="n">factorial</span>
+<span class="kn">import</span> <span class="n">qutip</span> <span class="k">as</span> <span class="n">qt</span>
 
-<span class="k">def</span> <span class="nf">quantum_harmonic_oscillator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">w</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">hbar</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Wave function of the quantum harmonic oscillator.
-    Returns a properly normalized psi_n with integral |psi|^2 dx = 1.
-    </span><span class="sh">"""</span>
-    <span class="c1"># Length scale
-</span>    <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">hbar</span> <span class="o">/</span> <span class="p">(</span><span class="n">m</span> <span class="o">*</span> <span class="n">w</span><span class="p">))</span>
+<span class="n">g</span><span class="p">,</span> <span class="n">e</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">basis</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">qt</span><span class="p">.</span><span class="nf">basis</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>        <span class="c1"># ground and excited state
+</span><span class="n">sm</span> <span class="o">=</span> <span class="n">g</span> <span class="o">*</span> <span class="n">e</span><span class="p">.</span><span class="nf">dag</span><span class="p">()</span>                             <span class="c1"># lowering operator |g&gt;&lt;e|
+</span><span class="n">sz</span> <span class="o">=</span> <span class="n">e</span><span class="p">.</span><span class="nf">proj</span><span class="p">()</span> <span class="o">-</span> <span class="n">g</span><span class="p">.</span><span class="nf">proj</span><span class="p">()</span>
 
-    <span class="c1"># Normalization constant
-</span>    <span class="n">C</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="n">n</span> <span class="o">*</span> <span class="nf">factorial</span><span class="p">(</span><span class="n">n</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">m</span> <span class="o">*</span> <span class="n">w</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">hbar</span><span class="p">))</span> <span class="o">**</span> <span class="mf">0.25</span>
+<span class="n">Omega</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mf">1.0</span>                      <span class="c1"># Rabi frequency
+</span><span class="n">gamma1</span><span class="p">,</span> <span class="n">gamma_phi</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.2</span>                 <span class="c1"># decay and pure-dephasing rates
+</span>
+<span class="n">H</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Omega</span> <span class="o">*</span> <span class="p">(</span><span class="n">sm</span> <span class="o">+</span> <span class="n">sm</span><span class="p">.</span><span class="nf">dag</span><span class="p">())</span>            <span class="c1"># resonant drive, rotating frame
+</span><span class="n">c_ops</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">gamma1</span><span class="p">)</span> <span class="o">*</span> <span class="n">sm</span><span class="p">,</span>               <span class="c1"># spontaneous emission (T1)
+</span>         <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">gamma_phi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">sz</span><span class="p">]</span>        <span class="c1"># pure dephasing: coherences decay at gamma_phi
+</span><span class="n">tlist</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">501</span><span class="p">)</span>
 
-    <span class="c1"># Hermite polynomial
-</span>    <span class="n">H</span> <span class="o">=</span> <span class="nf">hermite</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+<span class="n">me</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">mesolve</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">tlist</span><span class="p">,</span> <span class="n">c_ops</span><span class="o">=</span><span class="n">c_ops</span><span class="p">,</span> <span class="n">e_ops</span><span class="o">=</span><span class="p">[</span><span class="n">e</span><span class="p">.</span><span class="nf">proj</span><span class="p">()])</span>
+<span class="n">mc</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">mcsolve</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">tlist</span><span class="p">,</span> <span class="n">c_ops</span><span class="o">=</span><span class="n">c_ops</span><span class="p">,</span> <span class="n">e_ops</span><span class="o">=</span><span class="p">[</span><span class="n">e</span><span class="p">.</span><span class="nf">proj</span><span class="p">()],</span> <span class="n">ntraj</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
 
-    <span class="c1"># Wave function
-</span>    <span class="n">psi</span> <span class="o">=</span> <span class="n">C</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">m</span> <span class="o">*</span> <span class="n">w</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">hbar</span><span class="p">))</span> <span class="o">*</span> <span class="nc">H</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">x0</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">psi</span>
+<span class="n">p_me</span><span class="p">,</span> <span class="n">p_mc</span> <span class="o">=</span> <span class="n">me</span><span class="p">.</span><span class="n">expect</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mc</span><span class="p">.</span><span class="n">expect</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>      <span class="c1"># excited-state population vs time
+</span><span class="nf">print</span><span class="p">(</span><span class="n">p_me</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">p_mc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>                    <span class="c1"># both approach the steady state (about 0.49 here)
+</span></code></pre></div></div>
 
-<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
-
-<span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
-<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
-    <span class="n">psi</span> <span class="o">=</span> <span class="nf">quantum_harmonic_oscillator</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
-    <span class="n">plt</span><span class="p">.</span><span class="nf">subplot</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="sh">"</span><span class="s">b</span><span class="sh">"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-    <span class="n">plt</span><span class="p">.</span><span class="nf">fill_between</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-    <span class="n">plt</span><span class="p">.</span><span class="nf">title</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">n = </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="p">.</span><span class="nf">xlabel</span><span class="p">(</span><span class="sh">"</span><span class="s">Position</span><span class="sh">"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="p">.</span><span class="nf">ylabel</span><span class="p">(</span><span class="sh">"</span><span class="s">psi(x)</span><span class="sh">"</span><span class="p">)</span>
-    <span class="n">plt</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-    <span class="n">plt</span><span class="p">.</span><span class="nf">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="sh">"</span><span class="s">k</span><span class="sh">"</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-
-<span class="n">plt</span><span class="p">.</span><span class="nf">tight_layout</span><span class="p">()</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-</code></pre></div></div>
-
-<center>
-<p class="referenceBoxes type2">
-<a href="https://qutip.org/docs/latest/guide/guide-basics.html">
-<img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon" /> Tutorial: <b><i>QuTiP Basics - Quantum System Simulation</i></b></a>
-</p>
-</center>
+<p>The excited-state population shows Rabi oscillations whose envelope decays toward a steady state; the trajectory average agrees with <code class="language-plaintext highlighter-rouge">mesolve</code> to within its sampling error (a few percent for 500 trajectories). Plotting <code class="language-plaintext highlighter-rouge">p_me</code> and <code class="language-plaintext highlighter-rouge">p_mc</code> against <code class="language-plaintext highlighter-rouge">tlist</code> with Matplotlib shows this directly.</p>
 
 <h2 id="choosing-a-method">Choosing a Method</h2>
 
 <table>
   <thead>
-    <tr><th>Method</th><th>Best for</th><th>Cost / limit</th><th>Approximation</th></tr>
+    <tr>
+      <th>Method</th>
+      <th>Best for</th>
+      <th>Cost and limits</th>
+      <th>Approximation</th>
+    </tr>
   </thead>
   <tbody>
     <tr>
+      <td>Grid / basis set</td>
+      <td>1–3 particles in continuous space</td>
+      <td>$n^D$ points; impractical beyond a few degrees of freedom</td>
+      <td>Discretization, controllable</td>
+    </tr>
+    <tr>
       <td>Exact diagonalization</td>
-      <td>Small systems; full spectrum; ground-truth benchmarks</td>
-      <td>Exponential in N (memory ceiling ~20–40 spins with symmetry)</td>
-      <td>None (basis truncation only)</td>
+      <td>Small lattices; full spectra; benchmarks</td>
+      <td>Exponential in $N$; about 48 spin-1/2 sites at the frontier</td>
+      <td>None beyond finite size</td>
     </tr>
     <tr>
       <td>DMRG / MPS</td>
-      <td>1D gapped ground states &amp; low-lying spectrum; quantum chemistry</td>
-      <td>Polynomial in N; cost grows with entanglement (bond dim D)</td>
-      <td>Controlled by truncation / discarded weight</td>
+      <td>1D and quasi-1D ground states and low-lying states; strongly correlated chemistry</td>
+      <td>Polynomial in $N$; exponential in cylinder width</td>
+      <td>Truncation, controlled by discarded weight</td>
     </tr>
     <tr>
-      <td>TEBD / tensor-network dynamics</td>
-      <td>1D real-time evolution at short-to-moderate times</td>
-      <td>Fails once entanglement grows linearly in time</td>
-      <td>Truncation error per step</td>
+      <td>TEBD / TDVP</td>
+      <td>1D real-time dynamics</td>
+      <td>Fails once entanglement has grown (typically linear in time after a quench)</td>
+      <td>Truncation per step</td>
     </tr>
     <tr>
-      <td>Quantum Monte Carlo</td>
-      <td>Large systems, any D; bosons, unfrustrated spins, electronic structure</td>
-      <td>Statistical error ~1/√N_samples; sign problem for fermions/frustration</td>
+      <td>PEPS and 2D networks</td>
+      <td>2D ground states</td>
+      <td>High polynomial cost in $\chi$; approximate contraction</td>
+      <td>Truncation and contraction error</td>
+    </tr>
+    <tr>
+      <td>QMC (SSE, PIMC, DMC)</td>
+      <td>Large sign-free systems in any dimension; finite temperature</td>
+      <td>Statistical error $\propto 1/\sqrt{N_{\text{samples}}}$; sign problem</td>
       <td>Statistical; fixed-node bias for fermions</td>
     </tr>
     <tr>
-      <td>Time propagation (split-op / Krylov)</td>
-      <td>Real- and imaginary-time dynamics; driven and open systems</td>
-      <td>Per-step cost of a sparse matrix–vector product</td>
-      <td>Trotter / Krylov truncation, controllable</td>
+      <td>Neural-network VMC</td>
+      <td>Frustrated and 2D systems, continuum electrons</td>
+      <td>Optimization cost; no a-priori accuracy guarantee</td>
+      <td>Variational</td>
+    </tr>
+    <tr>
+      <td>Time propagation (split-operator, Krylov)</td>
+      <td>Real- and imaginary-time dynamics, driven and open systems</td>
+      <td>One sparse matrix–vector product per Krylov vector</td>
+      <td>Trotter or Krylov error, controllable</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="computational-resources">Computational Resources</h2>
+<h2 id="software">Software</h2>
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon" /><a href="https://github.com/qutip/qutip"> Library: <b><i>QuTiP - Quantum Toolbox in Python</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon" /><a href="https://github.com/ITensor/ITensors.jl"> Library: <b><i>ITensor - Tensor Network &amp; DMRG Calculations</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon" /><a href="https://github.com/tenpy/tenpy"> Library: <b><i>TeNPy - Tensor Networks in Python (DMRG, TEBD)</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon" /><a href="https://arxiv.org/pdf/1008.3477.pdf"> Review: <b><i>The density-matrix renormalization group in the age of matrix product states</i></b> - Ulrich Schollwöck</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon" /><a href="https://arxiv.org/pdf/0906.4725.pdf"> Review: <b><i>Area Laws in Quantum Systems</i></b> - Eisert, Cramer, Plenio</a></p>
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Language</th>
+      <th>Focus</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://qutip.org/">QuTiP</a></td>
+      <td>Python</td>
+      <td>Closed and open system dynamics, master equations, trajectories, Floquet</td>
+    </tr>
+    <tr>
+      <td><a href="https://quspin.github.io/QuSpin/">QuSpin</a></td>
+      <td>Python</td>
+      <td>Exact diagonalization and dynamics of spin, boson and fermion lattice models with symmetries</td>
+    </tr>
+    <tr>
+      <td><a href="https://itensor.org/">ITensor</a></td>
+      <td>Julia</td>
+      <td>Tensor networks: DMRG, TDVP, general tensor algebra</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/tenpy/tenpy">TeNPy</a></td>
+      <td>Python</td>
+      <td>MPS algorithms: DMRG, TEBD, TDVP, infinite-system variants</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/jcmgray/quimb">quimb</a></td>
+      <td>Python</td>
+      <td>Tensor networks, including arbitrary-geometry contraction and quantum-circuit simulation</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.netket.org/">NetKet</a></td>
+      <td>Python (JAX)</td>
+      <td>Neural-network quantum states and VMC</td>
+    </tr>
+  </tbody>
+</table>
 
-<hr />
+<h2 id="further-reading">Further Reading</h2>
+
+<ul>
+  <li>U. Schollwöck, “The density-matrix renormalization group in the age of matrix product states,” <em>Ann. Phys.</em> 326, 96 (2011), <a href="https://arxiv.org/abs/1008.3477">arXiv:1008.3477</a>.</li>
+  <li>J. Eisert, M. Cramer and M. B. Plenio, “Area laws for the entanglement entropy,” <em>Rev. Mod. Phys.</em> 82, 277 (2010), <a href="https://arxiv.org/abs/0808.3773">arXiv:0808.3773</a>.</li>
+  <li>J. I. Cirac, D. Pérez-García, N. Schuch and F. Verstraete, “Matrix product states and projected entangled pair states: concepts, symmetries, theorems,” <em>Rev. Mod. Phys.</em> 93, 045003 (2021), <a href="https://arxiv.org/abs/2011.12127">arXiv:2011.12127</a>.</li>
+  <li>F. Becca and S. Sorella, <em>Quantum Monte Carlo Approaches for Correlated Systems</em> (Cambridge, 2017).</li>
+  <li>M. Troyer and U.-J. Wiese, “Computational complexity and fundamental limitations to fermionic quantum Monte Carlo simulations,” <em>Phys. Rev. Lett.</em> 94, 170201 (2005).</li>
+  <li>G. Carleo and M. Troyer, “Solving the quantum many-body problem with artificial neural networks,” <em>Science</em> 355, 602 (2017).</li>
+  <li>A. J. Daley, “Quantum trajectories and open many-body quantum systems,” <em>Adv. Phys.</em> 63, 77 (2014).</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="computing-and-advanced.html">Computing, Information &amp; Advanced Formalism</a> — quantum computing, density matrices, and the graduate mathematical machinery these methods rest on.</li>
-  <li><a href="systems-and-phenomena.html">Systems &amp; Phenomena</a> — the solvable systems used to benchmark these numerical methods.</li>
-  <li><a href="formalism.html">Formalism</a> — the Hilbert-space and operator language underlying every algorithm here.</li>
-  <li><a href="./">Quantum Mechanics Hub</a> — the full quantum-mechanics reference.</li>
-  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — partition functions and finite-temperature methods that extend these techniques to thermal ensembles.</li>
+  <li><a href="./">Quantum Mechanics Hub</a></li>
+  <li><a href="qm-advanced-formalism.html">Advanced Formalism</a>: density matrices, the Lindblad equation and the imaginary-time path integral used here.</li>
+  <li><a href="systems-and-phenomena.html">Systems &amp; Phenomena</a>: exactly solvable systems used to validate numerical codes.</li>
+  <li><a href="qm-computing.html">Quantum Computing</a>: quantum hardware as a simulator for problems beyond classical methods.</li>
+  <li><a href="qm-research-frontiers.html">Research Frontiers</a>: the physics of entanglement, tensor networks and many-body systems.</li>
+  <li><a href="../computational-physics/quantum-methods.html">Computational Physics: Quantum Methods</a> and <a href="../computational-physics/electronic-structure-beyond-dft.html">Electronic Structure Beyond DFT</a>.</li>
+  <li><a href="../statistical-mechanics/">Statistical Mechanics</a>: finite-temperature ensembles and classical Monte Carlo.</li>
 </ul>
 
       </section>

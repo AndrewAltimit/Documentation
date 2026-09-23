@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Game UI architecture: immediate vs retained mode, engine UI frameworks, screen stacks, HUD design and data binding, resolution scaling and safe areas, focus ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Game Dev: UI/UX & Menu Architecture">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Game UI architecture: immediate vs retained mode, engine UI frameworks, screen stacks, HUD design and data binding, resolution scaling and safe areas, focus ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/gamedev/ui-design.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Game Dev: UI/UX & Menu Architecture">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Game UI architecture: immediate vs retained mode, engine UI frameworks, screen stacks, HUD design and data binding, resolution scaling and safe areas, focus ...">
 
 <title>Game Dev: UI/UX & Menu Architecture | Andrews Notebook</title>
 
@@ -3135,84 +3135,83 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Game Development</a> » UI/UX &amp; Menu Architecture</p>
 
-<p>A game’s user interface is the membrane between the player and the simulation: it surfaces state (health, ammo, objectives), accepts intent (move, confirm, pause), and frames the experience through menus and overlays. Unlike application UI, game UI must redraw every frame inside a tight budget, work across mouse, controller, and touch simultaneously, scale from a phone to a 4K TV viewed from a couch, and remain legible and operable for players with a wide range of abilities. This page covers the two architectural paradigms (immediate vs retained mode), menu and screen state management, HUD design, responsive scaling and safe areas, focus-based input navigation, and accessibility. Four ideas anchor good game UI:</p>
+<p>A game’s <strong>user interface</strong> surfaces simulation state (health, ammunition, objectives), accepts player intent (navigate, confirm, pause), and frames the experience through menus and overlays. Game UI differs from application UI in several ways: it is drawn inside the frame budget alongside the game, must work with mouse, gamepad, and touch — often in the same session — must scale from a handheld screen to a television viewed from across a room, and must remain usable for players with a wide range of abilities.</p>
 
-<ul>
-  <li><strong>UI is per-frame, not event-driven.</strong> Game UI lives inside the render loop. Even “static” menus are rebuilt or re-evaluated every frame, so the cost model is throughput, not idle event handling.</li>
-  <li><strong>Screens are a state machine.</strong> Menus, pause, inventory, and dialogs form a stack of screens with clear transitions. Modeling them as a stack-based state machine prevents tangled input and focus bugs.</li>
-  <li><strong>Design for focus, not the cursor.</strong> A controller has no pointer. Every interactive element needs a defined focus order and directional neighbors, or the UI is simply unusable on a gamepad.</li>
-  <li><strong>Accessibility is core, not a toggle.</strong> Safe areas, scalable text, remappable input, and colorblind-safe coding are baseline requirements that also make the UI better for everyone.</li>
-</ul>
+<p>This page covers the two architectural paradigms (immediate and retained mode) and current engine frameworks; managing menus as a screen stack; HUD design and binding the HUD to game state; resolution scaling and safe areas; focus-based navigation for controllers; localization; UI performance; and accessibility.</p>
 
 <h2 id="immediate-mode-vs-retained-mode">Immediate Mode vs Retained Mode</h2>
 
-<p>The first architectural decision in any UI system is <em>who owns the widget state</em>. The two answers define the two dominant paradigms.</p>
+<p>The first architectural question for any UI system is <strong>who owns widget state</strong>.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    subgraph IM["Immediate Mode"]
-        A1["Game state"] --&gt; A2["UI() called every frame"]
-        A2 --&gt; A3["Widgets drawn + input handled inline"]
-        A3 --&gt; A4["Nothing persists between frames"]
+    subgraph IM["Immediate mode"]
+        direction TB
+        A1["Game state"] --&gt; A2["UI code runs every frame"]
+        A2 --&gt; A3["Each call draws a widget&lt;br/&gt;and returns its interaction"]
+        A3 --&gt; A4["Only small interaction state&lt;br/&gt;(hot / active IDs) persists"]
     end
-    subgraph RM["Retained Mode"]
+    subgraph RM["Retained mode"]
+        direction TB
         B1["Build widget tree once"] --&gt; B2["Tree persists in memory"]
-        B2 --&gt; B3["Mutate nodes on events"]
-        B3 --&gt; B4["Layout/paint only dirty parts"]
+        B2 --&gt; B3["Events and bindings&lt;br/&gt;mutate nodes"]
+        B3 --&gt; B4["Re-layout and repaint&lt;br/&gt;only dirty subtrees"]
     end
 </code></pre>
 
-<h3 id="retained-mode">Retained Mode</h3>
+<h3 id="retained-mode">Retained mode</h3>
 
-<p>In <strong>retained mode</strong>, the UI is a persistent tree of objects (a <em>scene graph</em> or <em>widget tree</em>). You construct buttons, panels, and labels once; the framework keeps them in memory, lays them out, and repaints only what changed (the <em>dirty</em> subtree). You interact with the UI by mutating that retained state — setting a label’s text, toggling a node’s visibility, attaching an event callback.</p>
+<p>In <strong>retained mode</strong> the UI is a persistent tree of widget objects. Buttons, panels, and labels are created once; the framework keeps them in memory, lays them out, and redraws only what has changed. Code interacts with the UI by mutating that tree — setting text, toggling visibility, binding a property, attaching a callback.</p>
 
 <ul>
-  <li><strong>Examples:</strong> Unity uGUI and UI Toolkit, Unreal UMG/Slate, the browser DOM, Godot’s <code class="language-plaintext highlighter-rouge">Control</code> node tree.</li>
-  <li><strong>Strengths:</strong> Efficient for largely static UI (only dirty regions repaint), natural data binding, designer-friendly visual editors, accessibility hooks attach to persistent nodes.</li>
-  <li><strong>Costs:</strong> State lives in two places (your game model <em>and</em> the widget tree), which must be kept in sync. The tree, layout caches, and event subscriptions consume memory and add structural complexity.</li>
+  <li><strong>Examples:</strong> Unity UI Toolkit and uGUI, Unreal UMG (built on Slate), Godot <code class="language-plaintext highlighter-rouge">Control</code> nodes, the browser DOM, and middleware such as Noesis GUI and Coherent Gameface.</li>
+  <li><strong>Strengths:</strong> efficient for mostly static screens; supports data binding, animation, and visual editors; persistent nodes give accessibility APIs something to describe.</li>
+  <li><strong>Costs:</strong> state exists in two places — the game model and the widget tree — and must be kept in sync; trees, layout caches, and subscriptions cost memory and structural complexity.</li>
 </ul>
 
-<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Retained mode (Unity uGUI-style): widgets persist, you mutate them</span>
-<span class="k">public</span> <span class="k">class</span> <span class="nc">HealthBar</span> <span class="p">:</span> <span class="n">MonoBehaviour</span> <span class="p">{</span>
-    <span class="p">[</span><span class="n">SerializeField</span><span class="p">]</span> <span class="n">Image</span> <span class="n">fill</span><span class="p">;</span>       <span class="c1">// created once in the editor</span>
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Retained mode (Unity uGUI): widgets persist; code mutates them on change.</span>
+<span class="k">public</span> <span class="k">class</span> <span class="nc">HealthBar</span> <span class="p">:</span> <span class="n">MonoBehaviour</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">SerializeField</span><span class="p">]</span> <span class="n">Image</span> <span class="n">fill</span><span class="p">;</span>         <span class="c1">// authored once in the editor</span>
     <span class="p">[</span><span class="n">SerializeField</span><span class="p">]</span> <span class="n">TMP_Text</span> <span class="n">label</span><span class="p">;</span>
 
-    <span class="c1">// Called only when health changes, NOT every frame</span>
-    <span class="k">public</span> <span class="k">void</span> <span class="nf">OnHealthChanged</span><span class="p">(</span><span class="kt">int</span> <span class="n">current</span><span class="p">,</span> <span class="kt">int</span> <span class="n">max</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">fill</span><span class="p">.</span><span class="n">fillAmount</span> <span class="p">=</span> <span class="p">(</span><span class="kt">float</span><span class="p">)</span><span class="n">current</span> <span class="p">/</span> <span class="n">max</span><span class="p">;</span>   <span class="c1">// mutate retained node</span>
+    <span class="k">public</span> <span class="k">void</span> <span class="nf">OnHealthChanged</span><span class="p">(</span><span class="kt">int</span> <span class="n">current</span><span class="p">,</span> <span class="kt">int</span> <span class="n">max</span><span class="p">)</span>   <span class="c1">// called on change, not per frame</span>
+    <span class="p">{</span>
+        <span class="n">fill</span><span class="p">.</span><span class="n">fillAmount</span> <span class="p">=</span> <span class="p">(</span><span class="kt">float</span><span class="p">)</span><span class="n">current</span> <span class="p">/</span> <span class="n">max</span><span class="p">;</span>
         <span class="n">label</span><span class="p">.</span><span class="n">text</span> <span class="p">=</span> <span class="s">$"</span><span class="p">{</span><span class="n">current</span><span class="p">}</span><span class="s">/</span><span class="p">{</span><span class="n">max</span><span class="p">}</span><span class="s">"</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="immediate-mode">Immediate Mode</h3>
+<h3 id="immediate-mode">Immediate mode</h3>
 
-<p>In <strong>immediate mode</strong>, there is no persistent widget tree. Every frame you <em>call</em> the UI into existence: <code class="language-plaintext highlighter-rouge">if (Button("Start")) StartGame();</code> both draws the button and reports whether it was clicked, in one call, this frame. The library holds almost no per-widget state between frames — interaction state (which widget is hovered/active) is keyed by an ID derived from call order or an explicit label.</p>
+<p>In <strong>immediate mode</strong> there is no persistent widget tree. Each frame the code calls the UI into existence: <code class="language-plaintext highlighter-rouge">if (Button("Start")) StartGame();</code> both draws the button and reports whether it was clicked this frame. The library keeps only minimal state between frames, such as which widget is hovered or active, keyed by an ID derived from labels or call position.</p>
 
 <ul>
-  <li><strong>Examples:</strong> Dear ImGui, Nuklear, Unity’s legacy <code class="language-plaintext highlighter-rouge">OnGUI</code>/IMGUI, most debug overlays and editor tooling.</li>
-  <li><strong>Strengths:</strong> UI code lives next to game code with no synchronization layer; trivial to add/remove elements conditionally; ideal for debug menus, tools, and rapidly changing data.</li>
-  <li><strong>Costs:</strong> Rebuilding and re-laying-out every frame costs CPU even when nothing changed; complex layout and animation are awkward; accessibility/screen-reader integration is hard because there is no stable node to expose.</li>
+  <li><strong>Examples:</strong> Dear ImGui, Nuklear, egui, Unity’s legacy IMGUI (<code class="language-plaintext highlighter-rouge">OnGUI</code>), and most debug overlays and editor tools.</li>
+  <li><strong>Strengths:</strong> UI code lives beside the data it shows, with no synchronization layer; conditional UI is trivial; ideal for debug menus, tools, and rapidly changing data.</li>
+  <li><strong>Costs:</strong> layout is rebuilt every frame even when nothing changed; rich layout, styling, and animation are awkward; screen-reader integration is difficult because there are no stable nodes to expose.</li>
 </ul>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Immediate mode (Dear ImGui-style): widget is "drawn" and queried in one call</span>
-<span class="kt">void</span> <span class="nf">DrawPauseMenu</span><span class="p">(</span><span class="n">GameState</span><span class="o">&amp;</span> <span class="n">gs</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">ImGui</span><span class="o">::</span><span class="n">Begin</span><span class="p">(</span><span class="s">"Pause"</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">ImGui</span><span class="o">::</span><span class="n">Button</span><span class="p">(</span><span class="s">"Resume"</span><span class="p">))</span>  <span class="n">gs</span><span class="p">.</span><span class="n">Resume</span><span class="p">();</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">ImGui</span><span class="o">::</span><span class="n">Button</span><span class="p">(</span><span class="s">"Options"</span><span class="p">))</span> <span class="n">gs</span><span class="p">.</span><span class="n">PushScreen</span><span class="p">(</span><span class="n">Screen</span><span class="o">::</span><span class="n">Options</span><span class="p">);</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">ImGui</span><span class="o">::</span><span class="n">Button</span><span class="p">(</span><span class="s">"Quit"</span><span class="p">))</span>    <span class="n">gs</span><span class="p">.</span><span class="n">QuitToMenu</span><span class="p">();</span>
-    <span class="n">ImGui</span><span class="o">::</span><span class="n">SliderFloat</span><span class="p">(</span><span class="s">"Volume"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">gs</span><span class="p">.</span><span class="n">settings</span><span class="p">.</span><span class="n">volume</span><span class="p">,</span> <span class="mf">0.0f</span><span class="p">,</span> <span class="mf">1.0f</span><span class="p">);</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Immediate mode (Dear ImGui): each call draws a widget and returns its state.</span>
+<span class="kt">void</span> <span class="nf">DrawDebugPanel</span><span class="p">(</span><span class="n">GameState</span><span class="o">&amp;</span> <span class="n">gs</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">ImGui</span><span class="o">::</span><span class="n">Begin</span><span class="p">(</span><span class="s">"Debug"</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">ImGui</span><span class="o">::</span><span class="n">Button</span><span class="p">(</span><span class="s">"Respawn player"</span><span class="p">))</span> <span class="n">gs</span><span class="p">.</span><span class="n">RespawnPlayer</span><span class="p">();</span>
+    <span class="n">ImGui</span><span class="o">::</span><span class="n">Checkbox</span><span class="p">(</span><span class="s">"God mode"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">gs</span><span class="p">.</span><span class="n">cheats</span><span class="p">.</span><span class="n">godMode</span><span class="p">);</span>
+    <span class="n">ImGui</span><span class="o">::</span><span class="n">SliderFloat</span><span class="p">(</span><span class="s">"Time scale"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">gs</span><span class="p">.</span><span class="n">timeScale</span><span class="p">,</span> <span class="mf">0.0f</span><span class="p">,</span> <span class="mf">4.0f</span><span class="p">);</span>
+    <span class="n">ImGui</span><span class="o">::</span><span class="n">Text</span><span class="p">(</span><span class="s">"Entities: %d"</span><span class="p">,</span> <span class="n">gs</span><span class="p">.</span><span class="n">EntityCount</span><span class="p">());</span>
     <span class="n">ImGui</span><span class="o">::</span><span class="n">End</span><span class="p">();</span>   <span class="c1">// no widget objects survive this function</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="choosing-between-them">Choosing Between Them</h3>
+<h3 id="choosing-between-them">Choosing between them</h3>
 
 <table>
   <thead>
     <tr>
       <th>Concern</th>
-      <th>Immediate Mode</th>
-      <th>Retained Mode</th>
+      <th>Immediate mode</th>
+      <th>Retained mode</th>
     </tr>
   </thead>
   <tbody>
@@ -3223,90 +3222,144 @@ document.addEventListener('DOMContentLoaded', function () {
     </tr>
     <tr>
       <td>Per-frame cost</td>
-      <td>Re-builds every frame</td>
-      <td>Repaints dirty regions only</td>
+      <td>Rebuilds every frame</td>
+      <td>Updates only dirty regions</td>
     </tr>
     <tr>
-      <td>Best for</td>
-      <td>Debug tools, fast-changing data, prototypes</td>
-      <td>Shipping player-facing UI, complex layouts</td>
+      <td>Best suited to</td>
+      <td>Debug tools, editors, prototypes</td>
+      <td>Shipping player-facing UI</td>
     </tr>
     <tr>
-      <td>Animation/transitions</td>
+      <td>Animation and transitions</td>
       <td>Manual</td>
-      <td>First-class</td>
+      <td>Built in</td>
     </tr>
     <tr>
       <td>Designer tooling</td>
       <td>Minimal</td>
-      <td>Strong (visual editors)</td>
+      <td>Visual editors, style sheets</td>
     </tr>
     <tr>
-      <td>Accessibility integration</td>
+      <td>Accessibility</td>
       <td>Difficult (no stable nodes)</td>
-      <td>Natural (persistent node = accessible element)</td>
+      <td>Natural (each node maps to an accessible element)</td>
     </tr>
   </tbody>
 </table>
 
-<p>A common production pattern is <strong>both</strong>: a retained-mode framework (UMG, uGUI, Godot <code class="language-plaintext highlighter-rouge">Control</code>) for the shipping player UI, and an immediate-mode overlay (ImGui) for developer debug menus and live tuning. The “cost” of immediate mode is amortized cheaply for a debug overlay but becomes significant for a large, animated, accessibility-rich main menu — which is why player-facing UI almost always uses retained mode.</p>
+<p>The usual production arrangement uses <strong>both</strong>: a retained-mode framework for everything the player sees, and an immediate-mode overlay (typically Dear ImGui) for developer menus, live tuning, and in-game inspectors that are compiled out of shipping builds.</p>
+
+<h3 id="engine-frameworks">Engine frameworks</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Engine</th>
+      <th>Player-facing UI</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Unity 6</strong></td>
+      <td><strong>UI Toolkit</strong> (UXML layout, USS styling, runtime data binding); uGUI (Canvas-based, still supported)</td>
+      <td>UI Toolkit is the recommended system for new runtime UI. Unity 6.2 added world-space UI Toolkit panels; Unity 6.3 added UI Shader Graph support, USS filters, and SVG import as a core module. uGUI remains common for world-space and heavily animated UI in existing projects.</td>
+    </tr>
+    <tr>
+      <td><strong>Unreal Engine 5</strong></td>
+      <td><strong>UMG</strong> widgets (on Slate); the <strong>CommonUI</strong> plugin; the <strong>UMG ViewModel</strong> (MVVM) plugin</td>
+      <td>CommonUI supplies activatable widget stacks, layered input routing, gamepad navigation, and platform-specific button icons — effectively a production implementation of the screen stack described below.</td>
+    </tr>
+    <tr>
+      <td><strong>Godot 4</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">Control</code> node tree with containers and themes</td>
+      <td>Godot 4.5 added experimental screen-reader support through AccessKit, a <code class="language-plaintext highlighter-rouge">FoldableContainer</code> node, and recursive overrides of mouse and focus behavior.</td>
+    </tr>
+    <tr>
+      <td><strong>Custom engines</strong></td>
+      <td>Dear ImGui (tools); RmlUi, Noesis GUI, Coherent Gameface, or in-house retained frameworks</td>
+      <td>HTML/CSS-based middleware lets UI artists use web tooling.</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="menu--screen-state-management">Menu &amp; Screen State Management</h2>
 
-<p>A game is rarely showing just one screen. It shows the HUD, then a pause menu over it, then an options sub-menu over that, then a “discard changes?” confirmation dialog over <em>that</em>. Modeling these as ad-hoc booleans (<code class="language-plaintext highlighter-rouge">isPaused</code>, <code class="language-plaintext highlighter-rouge">isOptionsOpen</code>) produces tangled input routing and focus bugs. The robust model is a <strong>screen stack</strong> — a stack-based state machine.</p>
+<p>A game rarely shows one screen at a time. It shows the HUD, then a pause menu over it, then an options menu over that, then a “discard changes?” dialog over the options menu. Tracking this with independent flags (<code class="language-plaintext highlighter-rouge">isPaused</code>, <code class="language-plaintext highlighter-rouge">isOptionsOpen</code>) produces tangled input routing and focus bugs. The robust model is a <strong>screen stack</strong>.</p>
 
 <pre><code class="language-mermaid">stateDiagram-v2
     [*] --&gt; MainMenu
     MainMenu --&gt; Gameplay: Start
-    Gameplay --&gt; Pause: Esc / Start
+    Gameplay --&gt; Pause: Menu button
     Pause --&gt; Gameplay: Resume
     Pause --&gt; Options: Options
+    Options --&gt; Confirm: Back with unsaved changes
+    Confirm --&gt; Options: Cancel
+    Confirm --&gt; Pause: Discard
     Options --&gt; Pause: Back
-    Pause --&gt; MainMenu: Quit
-    Gameplay --&gt; Inventory: Tab
+    Pause --&gt; MainMenu: Quit to title
+    Gameplay --&gt; Inventory: Inventory button
     Inventory --&gt; Gameplay: Close
 </code></pre>
 
-<h3 id="the-screen-stack">The Screen Stack</h3>
+<h3 id="the-screen-stack">The screen stack</h3>
 
-<p>Each screen is an object that can update, draw, and consume input. The stack defines layering and input routing:</p>
+<p>Each screen can update, draw, and handle input; the stack decides layering and routing:</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    subgraph Stack["Screen stack (top receives input first)"]
+        direction TB
+        D["ConfirmDialog: modal, consumes all input"]
+        O["OptionsMenu: opaque, blocks drawing below"]
+        P["PauseMenu: translucent, blocks update below"]
+        G["Gameplay + HUD: suspended, not drawn"]
+    end
+    D --&gt; O --&gt; P --&gt; G
+</code></pre>
 
 <ul>
-  <li><strong>Top of stack receives input first.</strong> A modal dialog at the top consumes input so screens beneath cannot act on it.</li>
-  <li><strong>Transparency controls drawing.</strong> A pause menu may request that the screen <em>below</em> it still draws (the frozen gameplay behind a dimming overlay), while a full main menu does not.</li>
-  <li><strong>Push / Pop / Replace</strong> are the core operations: <code class="language-plaintext highlighter-rouge">Push(Options)</code> opens a sub-menu, <code class="language-plaintext highlighter-rouge">Pop()</code> returns, <code class="language-plaintext highlighter-rouge">Replace(Gameplay)</code> swaps without growing the stack.</li>
+  <li><strong>The top screen receives input first.</strong> A modal dialog consumes input so screens beneath cannot react.</li>
+  <li><strong>Screens declare whether lower screens keep drawing and updating.</strong> A pause menu is translucent (the frozen game remains visible) but stops gameplay updates; a full-screen menu blocks drawing below it to save GPU time.</li>
+  <li><strong>Push, Pop, and Replace</strong> are the core operations. <code class="language-plaintext highlighter-rouge">Push(Options)</code> opens a submenu, <code class="language-plaintext highlighter-rouge">Pop()</code> returns to exactly the previous context, and <code class="language-plaintext highlighter-rouge">Replace(Gameplay)</code> swaps without growing the stack.</li>
 </ul>
 
 <div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="nc">Screen</span> <span class="p">{</span>
+    <span class="k">virtual</span> <span class="o">~</span><span class="n">Screen</span><span class="p">()</span> <span class="o">=</span> <span class="k">default</span><span class="p">;</span>
     <span class="k">virtual</span> <span class="kt">void</span> <span class="n">Update</span><span class="p">(</span><span class="kt">float</span> <span class="n">dt</span><span class="p">)</span> <span class="p">{}</span>
     <span class="k">virtual</span> <span class="kt">void</span> <span class="nf">Draw</span><span class="p">()</span> <span class="p">{}</span>
-    <span class="k">virtual</span> <span class="kt">bool</span> <span class="nf">HandleInput</span><span class="p">(</span><span class="k">const</span> <span class="n">Input</span><span class="o">&amp;</span> <span class="n">in</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nb">false</span><span class="p">;</span> <span class="p">}</span> <span class="c1">// true = consumed</span>
-    <span class="k">virtual</span> <span class="kt">bool</span> <span class="n">BlocksUpdateBelow</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span> <span class="k">return</span> <span class="nb">true</span><span class="p">;</span> <span class="p">}</span>     <span class="c1">// pause freezes gameplay</span>
-    <span class="k">virtual</span> <span class="kt">bool</span> <span class="n">BlocksDrawBelow</span><span class="p">()</span>  <span class="k">const</span> <span class="p">{</span> <span class="k">return</span> <span class="nb">false</span><span class="p">;</span> <span class="p">}</span>     <span class="c1">// overlay vs full screen</span>
+    <span class="k">virtual</span> <span class="kt">bool</span> <span class="nf">HandleInput</span><span class="p">(</span><span class="k">const</span> <span class="n">InputEvent</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nb">false</span><span class="p">;</span> <span class="p">}</span> <span class="c1">// true = consumed</span>
+    <span class="k">virtual</span> <span class="kt">bool</span> <span class="n">BlocksUpdateBelow</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span> <span class="k">return</span> <span class="nb">true</span><span class="p">;</span> <span class="p">}</span>         <span class="c1">// e.g. pause freezes gameplay</span>
+    <span class="k">virtual</span> <span class="kt">bool</span> <span class="n">BlocksDrawBelow</span><span class="p">()</span>   <span class="k">const</span> <span class="p">{</span> <span class="k">return</span> <span class="nb">false</span><span class="p">;</span> <span class="p">}</span>        <span class="c1">// overlay vs full screen</span>
+    <span class="k">virtual</span> <span class="kt">void</span> <span class="nf">OnEnter</span><span class="p">()</span> <span class="p">{}</span>   <span class="k">virtual</span> <span class="kt">void</span> <span class="nf">OnExit</span><span class="p">()</span> <span class="p">{}</span>
+    <span class="k">virtual</span> <span class="kt">void</span> <span class="nf">OnSuspend</span><span class="p">()</span> <span class="p">{}</span> <span class="k">virtual</span> <span class="kt">void</span> <span class="nf">OnResume</span><span class="p">()</span> <span class="p">{}</span>
 <span class="p">};</span>
 
 <span class="k">class</span> <span class="nc">ScreenStack</span> <span class="p">{</span>
     <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Screen</span><span class="o">&gt;&gt;</span> <span class="n">stack_</span><span class="p">;</span>
 <span class="nl">public:</span>
-    <span class="kt">void</span> <span class="n">Push</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Screen</span><span class="o">&gt;</span> <span class="n">s</span><span class="p">)</span> <span class="p">{</span> <span class="n">stack_</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">s</span><span class="p">));</span> <span class="p">}</span>
-    <span class="kt">void</span> <span class="nf">Pop</span><span class="p">()</span> <span class="p">{</span> <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">stack_</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span> <span class="n">stack_</span><span class="p">.</span><span class="n">pop_back</span><span class="p">();</span> <span class="p">}</span>
-
-    <span class="kt">void</span> <span class="nf">Update</span><span class="p">(</span><span class="kt">float</span> <span class="n">dt</span><span class="p">)</span> <span class="p">{</span>
-        <span class="c1">// Update from the top down; stop when a screen blocks those below.</span>
+    <span class="kt">void</span> <span class="n">Push</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">Screen</span><span class="o">&gt;</span> <span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">stack_</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span> <span class="n">stack_</span><span class="p">.</span><span class="n">back</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">OnSuspend</span><span class="p">();</span>
+        <span class="n">s</span><span class="o">-&gt;</span><span class="n">OnEnter</span><span class="p">();</span>
+        <span class="n">stack_</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">s</span><span class="p">));</span>
+    <span class="p">}</span>
+    <span class="kt">void</span> <span class="nf">Pop</span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">stack_</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span> <span class="k">return</span><span class="p">;</span>
+        <span class="n">stack_</span><span class="p">.</span><span class="n">back</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">OnExit</span><span class="p">();</span>
+        <span class="n">stack_</span><span class="p">.</span><span class="n">pop_back</span><span class="p">();</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">stack_</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span> <span class="n">stack_</span><span class="p">.</span><span class="n">back</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">OnResume</span><span class="p">();</span>
+    <span class="p">}</span>
+    <span class="kt">void</span> <span class="nf">Update</span><span class="p">(</span><span class="kt">float</span> <span class="n">dt</span><span class="p">)</span> <span class="p">{</span>               <span class="c1">// top down; stop at the first blocker</span>
         <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">stack_</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">;</span> <span class="o">--</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
             <span class="n">stack_</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">Update</span><span class="p">(</span><span class="n">dt</span><span class="p">);</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">stack_</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">BlocksUpdateBelow</span><span class="p">())</span> <span class="k">break</span><span class="p">;</span>
         <span class="p">}</span>
     <span class="p">}</span>
-
-    <span class="kt">void</span> <span class="nf">HandleInput</span><span class="p">(</span><span class="k">const</span> <span class="n">Input</span><span class="o">&amp;</span> <span class="n">in</span><span class="p">)</span> <span class="p">{</span>
-        <span class="c1">// Top screen gets first refusal; a consumed event stops propagation.</span>
+    <span class="kt">void</span> <span class="nf">HandleInput</span><span class="p">(</span><span class="k">const</span> <span class="n">InputEvent</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">)</span> <span class="p">{</span>
         <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">stack_</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">;</span> <span class="o">--</span><span class="n">i</span><span class="p">)</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">stack_</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">HandleInput</span><span class="p">(</span><span class="n">in</span><span class="p">))</span> <span class="k">break</span><span class="p">;</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">stack_</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">HandleInput</span><span class="p">(</span><span class="n">e</span><span class="p">))</span> <span class="k">break</span><span class="p">;</span>   <span class="c1">// consumed: stop propagation</span>
     <span class="p">}</span>
-
-    <span class="kt">void</span> <span class="nf">Draw</span><span class="p">()</span> <span class="p">{</span>
-        <span class="c1">// Find the lowest screen that must draw, then paint bottom-to-top.</span>
+    <span class="kt">void</span> <span class="nf">Draw</span><span class="p">()</span> <span class="p">{</span>                         <span class="c1">// find lowest visible screen, paint bottom-up</span>
         <span class="kt">int</span> <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
         <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">stack_</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">;</span> <span class="o">--</span><span class="n">i</span><span class="p">)</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">stack_</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">-&gt;</span><span class="n">BlocksDrawBelow</span><span class="p">())</span> <span class="p">{</span> <span class="n">start</span> <span class="o">=</span> <span class="n">i</span><span class="p">;</span> <span class="k">break</span><span class="p">;</span> <span class="p">}</span>
@@ -3316,203 +3369,257 @@ document.addEventListener('DOMContentLoaded', function () {
 <span class="p">};</span>
 </code></pre></div></div>
 
-<p>This single abstraction cleanly handles the recurring hard cases: a confirmation dialog <em>over</em> the options menu <em>over</em> a paused game all route input and draw correctly, and <code class="language-plaintext highlighter-rouge">Pop()</code> always returns to exactly the right previous context.</p>
+<p>In a real implementation, <code class="language-plaintext highlighter-rouge">Push</code> and <code class="language-plaintext highlighter-rouge">Pop</code> requested during <code class="language-plaintext highlighter-rouge">Update</code> or <code class="language-plaintext highlighter-rouge">HandleInput</code> should be <strong>deferred</strong> until the end of the frame, since modifying the vector while iterating over it invalidates the loop.</p>
 
-<h3 id="transitions-and-lifecycle">Transitions and Lifecycle</h3>
-
-<p>Screens need lifecycle hooks so they can allocate/free resources and animate:</p>
+<h3 id="lifecycle-and-transitions">Lifecycle and transitions</h3>
 
 <ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">OnEnter</code> / <code class="language-plaintext highlighter-rouge">OnExit</code></strong> — load assets, subscribe to events, start music; tear down on exit.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">OnSuspend</code> / <code class="language-plaintext highlighter-rouge">OnResume</code></strong> — fired when another screen is pushed on top or popped off. A pause menu pushed over gameplay <em>suspends</em> gameplay (stop accepting input) without exiting it.</li>
-  <li><strong>Transition animations</strong> — slide/fade screens in and out. A screen is briefly in a <code class="language-plaintext highlighter-rouge">TransitioningIn</code>/<code class="language-plaintext highlighter-rouge">TransitioningOut</code> state during which it ignores input, preventing a “double confirm” while a menu is still animating in.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">OnEnter</code> / <code class="language-plaintext highlighter-rouge">OnExit</code></strong> — load assets, subscribe to events, start music; release them on exit.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">OnSuspend</code> / <code class="language-plaintext highlighter-rouge">OnResume</code></strong> — fired when another screen is pushed above or popped off. Suspension differs from exit: the pause menu suspends gameplay without destroying it.</li>
+  <li><strong>Transition states</strong> — while a screen animates in or out it ignores input, preventing a double confirm from reaching a menu that is still sliding into view.</li>
+  <li><strong>Focus restoration</strong> — on resume, return focus to the element that was focused when the screen was suspended.</li>
 </ul>
+
+<p>Many games use several stacks or <strong>layers</strong> — for example Game, GameMenu, Menu, and Modal — so that a system notification or controller-disconnect prompt can appear above everything without disturbing the menu stack beneath. Unreal’s CommonUI and Lyra sample project are organized this way.</p>
 
 <h2 id="hud-design">HUD Design</h2>
 
-<p>The <strong>Heads-Up Display</strong> is the persistent, non-modal overlay that communicates live game state without interrupting play: health, ammo, minimap, objectives, reticle, damage indicators. Good HUD design is an exercise in <em>signal at a glance</em> — the player should absorb critical information through peripheral vision while focused on the action.</p>
+<p>The <strong>heads-up display</strong> is the persistent, non-modal overlay that reports live state without interrupting play: health, ammunition, minimap, objectives, reticle, damage indicators. Its goal is information at a glance, absorbed through peripheral vision while attention stays on the action.</p>
 
-<h3 id="diegetic-vs-non-diegetic">Diegetic vs Non-Diegetic</h3>
+<h3 id="diegetic-and-non-diegetic-ui">Diegetic and non-diegetic UI</h3>
 
-<p>UI elements are classified by their relationship to the game’s fiction. This framing (popularized by analyses of <em>Dead Space</em> and <em>Far Cry 2</em>) guides where information should live:</p>
+<p>UI elements are commonly classified by their relationship to the game world, a framework popularized by analyses of <em>Dead Space</em> and <em>Far Cry 2</em>:</p>
 
 <table>
   <thead>
     <tr>
       <th>Type</th>
-      <th>In the story world?</th>
-      <th>On the 2D screen plane?</th>
+      <th style="text-align: center">Exists in the game world?</th>
+      <th style="text-align: center">Drawn on the screen plane?</th>
       <th>Example</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Non-diegetic</td>
-      <td>No</td>
-      <td>Yes</td>
-      <td>Classic health bar in the corner</td>
+      <td style="text-align: center">No</td>
+      <td style="text-align: center">Yes</td>
+      <td>Health bar in a screen corner</td>
     </tr>
     <tr>
       <td>Diegetic</td>
-      <td>Yes</td>
-      <td>No</td>
-      <td>Ammo counter on the gun model (Dead Space)</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">No</td>
+      <td>Ammunition counter on the weapon model; health shown on the character’s suit</td>
     </tr>
     <tr>
       <td>Spatial</td>
-      <td>No</td>
-      <td>No (rendered in 3D space)</td>
+      <td style="text-align: center">No</td>
+      <td style="text-align: center">No (placed in 3D)</td>
       <td>Floating waypoint marker, enemy outline</td>
     </tr>
     <tr>
       <td>Meta</td>
-      <td>No</td>
-      <td>Yes</td>
-      <td>Blood splatter on the screen edges when hurt</td>
+      <td style="text-align: center">No</td>
+      <td style="text-align: center">Yes</td>
+      <td>Blood or frost on the screen edges when hurt</td>
     </tr>
   </tbody>
 </table>
 
-<p>Diegetic and spatial UI increase immersion by embedding information in the world; non-diegetic UI maximizes clarity and is easier to read at a glance. Most games mix them: a non-diegetic minimap, a meta damage vignette, and spatial objective markers.</p>
+<p>Diegetic and spatial UI improve immersion; non-diegetic UI is the clearest and fastest to read. Most games mix them. In VR, non-diegetic screen-space UI is uncomfortable and usually replaced by diegetic and spatial elements (see <a href="../vr-ar/">VR/AR Development</a>).</p>
 
-<h3 id="information-hierarchy-and-cost">Information Hierarchy and Cost</h3>
+<h3 id="information-hierarchy">Information hierarchy</h3>
 
-<p>Every HUD element competes for the player’s limited attention and a finite slice of screen real estate. Apply a strict hierarchy:</p>
+<p>Every element competes for limited attention and screen space:</p>
 
 <ul>
-  <li><strong>Always-on, glanceable:</strong> health, ammo, reticle — placed in stable, learned positions (corners, screen center).</li>
-  <li><strong>Contextual, transient:</strong> “Press E to open”, combo counters, pickup notifications — appear only when relevant, then fade.</li>
-  <li><strong>On-demand:</strong> full map, inventory, quest log — moved to dedicated screens (the menu stack), not the HUD.</li>
+  <li><strong>Always visible:</strong> health, ammunition, reticle — in stable, learned positions.</li>
+  <li><strong>Contextual:</strong> interaction prompts, combo counters, pickup notifications — shown when relevant, then faded.</li>
+  <li><strong>On demand:</strong> full map, inventory, quest log — moved to screens on the menu stack, not the HUD.</li>
 </ul>
 
-<p>A useful budget heuristic: the HUD should be <strong>legible when ignored</strong>. If the player has to stop and parse it, it has failed. Prefer position and color/shape changes (which the visual system processes pre-attentively) over text the player must read.</p>
+<p>A good HUD is <strong>legible when ignored</strong>. If the player must stop and read it, it has failed. Prefer changes in position, size, color, and shape — which the visual system processes pre-attentively — over text. Offer HUD customization (element opacity, scale, and toggles); it serves both preference and accessibility.</p>
 
-<h3 id="decoupling-hud-from-simulation">Decoupling HUD from Simulation</h3>
+<h3 id="binding-the-hud-to-game-state">Binding the HUD to game state</h3>
 
-<p>The HUD should <em>observe</em> game state, never drive it, and should update on change rather than poll every frame. An event/observer pattern keeps the HUD a thin presentation layer:</p>
+<p>The HUD should <strong>observe</strong> game state and never drive it, updating when values change rather than polling every frame. The model-view-viewmodel (MVVM) pattern — supported directly by Unity UI Toolkit runtime binding and Unreal’s UMG ViewModel plugin — formalizes this:</p>
 
-<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Publisher: the simulation raises events; it knows nothing about UI.</span>
-<span class="k">public</span> <span class="k">class</span> <span class="nc">Health</span> <span class="p">{</span>
-    <span class="k">public</span> <span class="k">event</span> <span class="n">Action</span><span class="p">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="kt">int</span><span class="p">&gt;</span> <span class="n">Changed</span><span class="p">;</span>   <span class="c1">// (current, max)</span>
+<pre><code class="language-mermaid">flowchart LR
+    M["Model&lt;br/&gt;(simulation: Health component)"] -- "change event" --&gt; VM["ViewModel&lt;br/&gt;(formatted, UI-ready values:&lt;br/&gt;HealthPercent, IsLow)"]
+    VM -- "bindings" --&gt; V["View&lt;br/&gt;(widgets: bar, label, warning pulse)"]
+    V -- "commands&lt;br/&gt;(button pressed)" --&gt; VM
+    VM -- "requests" --&gt; M
+</code></pre>
+
+<p>A minimal observer version in Unity:</p>
+
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Simulation raises events and knows nothing about UI.</span>
+<span class="k">public</span> <span class="k">class</span> <span class="nc">Health</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">event</span> <span class="n">Action</span><span class="p">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="kt">int</span><span class="p">&gt;</span> <span class="n">Changed</span><span class="p">;</span>       <span class="c1">// (current, max)</span>
     <span class="kt">int</span> <span class="n">current</span><span class="p">,</span> <span class="n">max</span><span class="p">;</span>
-    <span class="k">public</span> <span class="k">void</span> <span class="nf">Damage</span><span class="p">(</span><span class="kt">int</span> <span class="n">amount</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">current</span> <span class="p">=</span> <span class="n">Mathf</span><span class="p">.</span><span class="nf">Max</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="n">current</span> <span class="p">-</span> <span class="n">amount</span><span class="p">);</span>
-        <span class="n">Changed</span><span class="p">?.</span><span class="nf">Invoke</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">max</span><span class="p">);</span>       <span class="c1">// notify observers</span>
+
+    <span class="k">public</span> <span class="k">void</span> <span class="nf">Damage</span><span class="p">(</span><span class="kt">int</span> <span class="n">amount</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">current</span> <span class="p">=</span> <span class="n">Math</span><span class="p">.</span><span class="nf">Max</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="n">current</span> <span class="p">-</span> <span class="n">amount</span><span class="p">);</span>
+        <span class="n">Changed</span><span class="p">?.</span><span class="nf">Invoke</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">max</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">}</span>
 
-<span class="c1">// Subscriber: the HUD reacts. No per-frame polling of the model.</span>
-<span class="k">public</span> <span class="k">class</span> <span class="nc">HealthWidget</span> <span class="p">:</span> <span class="n">MonoBehaviour</span> <span class="p">{</span>
-    <span class="p">[</span><span class="n">SerializeField</span><span class="p">]</span> <span class="n">Health</span> <span class="n">health</span><span class="p">;</span>
+<span class="c1">// HUD subscribes; no per-frame polling of the model.</span>
+<span class="k">public</span> <span class="k">class</span> <span class="nc">HealthWidget</span> <span class="p">:</span> <span class="n">MonoBehaviour</span>
+<span class="p">{</span>
     <span class="p">[</span><span class="n">SerializeField</span><span class="p">]</span> <span class="n">Image</span> <span class="n">fill</span><span class="p">;</span>
-    <span class="k">void</span> <span class="nf">OnEnable</span><span class="p">()</span>  <span class="p">=&gt;</span> <span class="n">health</span><span class="p">.</span><span class="n">Changed</span> <span class="p">+=</span> <span class="n">Refresh</span><span class="p">;</span>
-    <span class="k">void</span> <span class="nf">OnDisable</span><span class="p">()</span> <span class="p">=&gt;</span> <span class="n">health</span><span class="p">.</span><span class="n">Changed</span> <span class="p">-=</span> <span class="n">Refresh</span><span class="p">;</span>
+    <span class="n">Health</span> <span class="n">health</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">void</span> <span class="nf">Bind</span><span class="p">(</span><span class="n">Health</span> <span class="n">h</span><span class="p">)</span> <span class="p">{</span> <span class="nf">Unbind</span><span class="p">();</span> <span class="n">health</span> <span class="p">=</span> <span class="n">h</span><span class="p">;</span> <span class="n">health</span><span class="p">.</span><span class="n">Changed</span> <span class="p">+=</span> <span class="n">Refresh</span><span class="p">;</span> <span class="p">}</span>
+    <span class="k">void</span> <span class="nf">Unbind</span><span class="p">()</span> <span class="p">{</span> <span class="k">if</span> <span class="p">(</span><span class="n">health</span> <span class="p">!=</span> <span class="k">null</span><span class="p">)</span> <span class="n">health</span><span class="p">.</span><span class="n">Changed</span> <span class="p">-=</span> <span class="n">Refresh</span><span class="p">;</span> <span class="p">}</span>
+    <span class="k">void</span> <span class="nf">OnDestroy</span><span class="p">()</span> <span class="p">=&gt;</span> <span class="nf">Unbind</span><span class="p">();</span>                <span class="c1">// avoid dangling subscriptions</span>
+
     <span class="k">void</span> <span class="nf">Refresh</span><span class="p">(</span><span class="kt">int</span> <span class="n">cur</span><span class="p">,</span> <span class="kt">int</span> <span class="n">max</span><span class="p">)</span> <span class="p">=&gt;</span> <span class="n">fill</span><span class="p">.</span><span class="n">fillAmount</span> <span class="p">=</span> <span class="p">(</span><span class="kt">float</span><span class="p">)</span><span class="n">cur</span> <span class="p">/</span> <span class="n">max</span><span class="p">;</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>This decoupling means the same simulation can drive a different HUD per platform (a denser PC HUD, a sparser controller HUD) and makes the HUD trivially testable in isolation.</p>
+<p>Decoupling lets the same simulation drive different HUD layouts per platform, allows the HUD to be tested in isolation with fake models, and keeps UI code out of gameplay code paths.</p>
 
 <h2 id="responsive-scaling--safe-areas">Responsive Scaling &amp; Safe Areas</h2>
 
-<p>A shipping game UI must look correct on a 16:9 monitor, a 21:9 ultrawide, a 4:3 retro display, a notched phone, and a TV that crops its edges. This is a layout problem with two distinct axes: <strong>resolution/density scaling</strong> and <strong>aspect-ratio adaptation</strong>.</p>
+<p>Shipping UI must look correct on 16:9 monitors, 21:9 and 32:9 ultrawides, 16:10 handhelds, notched and rounded phones, and televisions viewed at a distance. There are two separate problems: <strong>scaling</strong> to resolution and density, and <strong>adapting</strong> to aspect ratio.</p>
 
-<h3 id="anchors-and-reference-resolution">Anchors and Reference Resolution</h3>
+<h3 id="anchors-and-reference-resolution">Anchors and reference resolution</h3>
 
-<p>The foundational tool is <strong>anchor-based layout</strong>: each element is anchored to a point or edge of its parent rather than positioned with absolute pixels. A health bar anchored to the bottom-left corner stays in the corner at any resolution; a centered title stays centered. Stretch anchors let a panel grow with its parent.</p>
+<p><strong>Anchor-based layout</strong> attaches each element to a point or edge of its parent rather than absolute pixel coordinates: a health bar anchored bottom-left stays in that corner at any resolution, and stretch anchors let panels grow with their container.</p>
 
-<p>Most engines also use a <strong>reference (design) resolution</strong> — say 1920x1080 — and compute a uniform scale factor for the actual screen. The two common modes:</p>
-
-<ul>
-  <li><strong>Scale with screen size (uniform):</strong> multiply all UI by a single factor so a button is the same <em>fraction</em> of the screen everywhere. Preserves layout; can make text tiny on small/high-DPI screens.</li>
-  <li><strong>Constant physical/pixel size:</strong> keep UI a fixed pixel size, anchoring elements to edges. Keeps text crisp and tappable; leaves more or less empty space at different resolutions.</li>
-</ul>
-
-<p>A robust approach blends both: a uniform scale that <strong>matches width and height by a tunable weight</strong>, so neither dimension is starved on extreme aspect ratios. For a reference resolution $(W_r, H_r)$ and screen $(W_s, H_s)$, a log-blended match (as used by Unity’s Canvas Scaler) computes:</p>
-
-\[s = \exp\!\left( (1 - t)\,\ln\frac{W_s}{W_r} + t\,\ln\frac{H_s}{H_r} \right)\]
-
-<p>where $t \in [0,1]$ is the <strong>match</strong> weight: $t=0$ scales purely by width, $t=1$ purely by height, and $t=0.5$ balances the two. The DPI-aware pixel size of a UI element is then:</p>
-
-\[\text{px} = \text{ref\_px} \times s \times \frac{\text{dpi}}{96}\]
-
-<p>so the same design renders at a consistent <em>physical</em> size across displays of different pixel density.</p>
-
-<h3 id="aspect-ratio-and-pillarboxing">Aspect Ratio and Pillarboxing</h3>
-
-<p>When the screen is wider or taller than the design, you have three choices for the <em>content</em> (as opposed to the UI overlay):</p>
+<p>Engines scale layouts from a <strong>reference resolution</strong> (for example 1920×1080). Two common modes:</p>
 
 <ul>
-  <li><strong>Expand the view</strong> (show more world) — preferred for gameplay cameras so ultrawide players see more, not stretched.</li>
-  <li><strong>Letterbox/pillarbox</strong> — add bars to preserve a fixed aspect (common for cutscenes and fixed-camera puzzle games).</li>
-  <li><strong>Stretch</strong> — almost never acceptable; distorts circles into ellipses and breaks readability.</li>
+  <li><strong>Scale with screen size:</strong> a single factor keeps each element the same fraction of the screen everywhere. Layout is preserved, but text can become too small on small or distant screens.</li>
+  <li><strong>Constant physical size:</strong> elements keep a fixed physical size (points, dp, or inches), with edges anchored. Text stays readable and touch targets stay tappable; the amount of free space varies.</li>
 </ul>
 
-<p>UI overlays should generally <em>anchor to the visible edges</em> rather than the design rectangle, so the minimap stays pinned to the true corner on an ultrawide instead of floating inward.</p>
+<p>For screen-size scaling, blending the width and height ratios logarithmically keeps extreme aspect ratios from starving either axis. For reference resolution $(W_r, H_r)$, screen $(W_s, H_s)$, and match weight $t \in [0, 1]$:</p>
 
-<h3 id="safe-areas-notches-and-tv-overscan">Safe Areas: Notches and TV Overscan</h3>
+\[s = \exp\left( (1 - t)\,\ln\frac{W_s}{W_r} + t\,\ln\frac{H_s}{H_r} \right) = \left(\frac{W_s}{W_r}\right)^{1-t} \left(\frac{H_s}{H_r}\right)^{t}\]
 
-<p>Two physical realities crop the edges of the screen:</p>
+<p>$t = 0$ scales by width only, $t = 1$ by height only, and $t = 0.5$ takes the geometric mean. This is the computation behind Unity’s Canvas Scaler “Match Width Or Height” mode (implemented with base-2 logarithms, which gives the same result). For landscape games, a match weight near 1 (height) keeps vertical layouts stable as screens get wider.</p>
+
+<p>For constant physical size, the pixel size follows the display density. Using Android’s density-independent pixel (1 dp = 1/160 inch) as the unit:</p>
+
+\[\text{px} = \text{dp} \times \frac{\text{dpi}}{160}\]
+
+<p>Television UIs add a third factor: viewing distance. A 10-foot interface needs substantially larger minimum text than a desktop interface at the same resolution; many console guidelines specify minimum text heights at 1080p, and the <a href="https://learn.microsoft.com/en-us/gaming/accessibility/guidelines">Xbox Accessibility Guidelines</a> recommend a player-adjustable text size.</p>
+
+<h3 id="aspect-ratio">Aspect ratio</h3>
+
+<p>When the screen is wider or taller than the design, the game view can:</p>
 
 <ul>
-  <li><strong>TV overscan:</strong> historically TVs cropped 5–10% of the image; modern platform guidelines still mandate a <strong>title-safe area</strong> (typically the inner ~90%) for critical UI and an <strong>action-safe area</strong> (~93–95%) for important visuals. Console certification (TRC/TCR) checks this.</li>
-  <li><strong>Mobile notches and cutouts:</strong> phones report an <em>inset</em> rectangle (<code class="language-plaintext highlighter-rouge">Screen.safeArea</code> in Unity, <code class="language-plaintext highlighter-rouge">SafeAreaInsets</code> on iOS, <code class="language-plaintext highlighter-rouge">WindowInsets</code> on Android) describing the unobstructed region inside the notch, rounded corners, and home indicator.</li>
+  <li><strong>Expand</strong> — show more of the world; preferred for gameplay cameras, so ultrawide players see more rather than a stretched image (competitive games often cap horizontal field of view to limit the advantage).</li>
+  <li><strong>Letterbox or pillarbox</strong> — add bars to preserve a fixed aspect; common for cutscenes and fixed-camera games.</li>
+  <li><strong>Stretch</strong> — distorts shapes and is almost never acceptable.</li>
 </ul>
 
-<p>The rule is simple: <strong>anchor all interactive and critical elements inside the safe area; let only decorative backgrounds bleed to the physical edge.</strong></p>
+<p>UI overlays should anchor to the <strong>visible</strong> edges of the screen, not the design rectangle, so a minimap stays in the true corner on an ultrawide display. Many PC games also offer a “HUD aspect” option that confines the HUD to a centered 16:9 region on ultrawide monitors, which keeps critical information closer to the center of vision.</p>
 
-<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Reposition a panel to the device-reported safe area (Unity, mobile notches).</span>
-<span class="k">public</span> <span class="k">class</span> <span class="nc">SafeAreaFitter</span> <span class="p">:</span> <span class="n">MonoBehaviour</span> <span class="p">{</span>
+<h3 id="safe-areas">Safe areas</h3>
+
+<p>Two physical realities hide the edges of the screen:</p>
+
+<figure style="max-width:520px;margin:1em auto">
+<svg viewBox="0 0 400 225" role="img" aria-labelledby="safeTitle safeDesc" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:inherit">
+  <title id="safeTitle">Safe-area regions of a display</title>
+  <desc id="safeDesc">Nested rectangles: the full display, an action-safe area inset slightly, and a title-safe area inset further, with a phone-style camera cutout at the top.</desc>
+  <rect x="2" y="2" width="396" height="221" rx="10" fill="none" stroke="currentColor" stroke-width="2" />
+  <rect x="160" y="2" width="80" height="14" rx="7" fill="currentColor" opacity="0.35" />
+  <rect x="14" y="10" width="372" height="205" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.8" />
+  <rect x="22" y="24" width="356" height="178" fill="currentColor" fill-opacity="0.06" stroke="currentColor" stroke-width="1.5" />
+  <text x="200" y="100" text-anchor="middle" font-size="13" fill="currentColor">Title-safe: text, HUD, interactive UI</text>
+  <text x="200" y="120" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.8">(inside device safe-area insets and overscan margin)</text>
+  <text x="30" y="196" font-size="10" fill="currentColor" opacity="0.8">Action-safe (dashed): important visuals</text>
+  <text x="248" y="12" font-size="9" fill="currentColor" opacity="0.8">cutout / notch</text>
+  <text x="300" y="218" font-size="9" fill="currentColor" opacity="0.7">full display: backgrounds only</text>
+</svg>
+<figcaption style="font-size:0.85em;text-align:center">Only backgrounds and decorative art should extend to the physical edge.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>Television overscan.</strong> Televisions historically cropped several percent of the picture at each edge. The traditional broadcast convention reserves an <em>action-safe</em> area (about 93% of width and height) for important visuals and a <em>title-safe</em> area (about 90%) for text. Modern TVs often show the full image, so consoles let players calibrate the visible area in system settings and expose that calibration (or a recommended margin) to games; platform requirements check that critical UI respects it.</li>
+  <li><strong>Notches, cutouts, rounded corners, and system gestures.</strong> Phones and some handhelds report an unobstructed rectangle: <code class="language-plaintext highlighter-rouge">Screen.safeArea</code> in Unity, <code class="language-plaintext highlighter-rouge">safeAreaInsets</code> on iOS <code class="language-plaintext highlighter-rouge">UIView</code>, <code class="language-plaintext highlighter-rouge">WindowInsets</code> / <code class="language-plaintext highlighter-rouge">DisplayCutout</code> on Android. Android 15 made edge-to-edge drawing the default for apps targeting it, so games that previously relied on the system reserving space must now apply insets themselves.</li>
+</ul>
+
+<p>The rule: <strong>place interactive and critical elements inside the safe area; let only backgrounds bleed to the physical edge.</strong></p>
+
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Unity: fit a RectTransform to the device safe area, updating only on change.</span>
+<span class="p">[</span><span class="nf">RequireComponent</span><span class="p">(</span><span class="k">typeof</span><span class="p">(</span><span class="n">RectTransform</span><span class="p">))]</span>
+<span class="k">public</span> <span class="k">class</span> <span class="nc">SafeAreaFitter</span> <span class="p">:</span> <span class="n">MonoBehaviour</span>
+<span class="p">{</span>
     <span class="n">RectTransform</span> <span class="n">rt</span><span class="p">;</span>
-    <span class="k">void</span> <span class="nf">Awake</span><span class="p">()</span> <span class="p">=&gt;</span> <span class="n">rt</span> <span class="p">=</span> <span class="n">GetComponent</span><span class="p">&lt;</span><span class="n">RectTransform</span><span class="p">&gt;();</span>
-    <span class="k">void</span> <span class="nf">Update</span><span class="p">()</span> <span class="p">{</span>                       <span class="c1">// re-run on rotation / resolution change</span>
-        <span class="n">Rect</span> <span class="n">safe</span> <span class="p">=</span> <span class="n">Screen</span><span class="p">.</span><span class="n">safeArea</span><span class="p">;</span>      <span class="c1">// pixels of the unobstructed rectangle</span>
-        <span class="n">Vector2</span> <span class="n">min</span> <span class="p">=</span> <span class="n">safe</span><span class="p">.</span><span class="n">position</span><span class="p">;</span>
-        <span class="n">Vector2</span> <span class="n">max</span> <span class="p">=</span> <span class="n">safe</span><span class="p">.</span><span class="n">position</span> <span class="p">+</span> <span class="n">safe</span><span class="p">.</span><span class="n">size</span><span class="p">;</span>
-        <span class="n">min</span><span class="p">.</span><span class="n">x</span> <span class="p">/=</span> <span class="n">Screen</span><span class="p">.</span><span class="n">width</span><span class="p">;</span>  <span class="n">min</span><span class="p">.</span><span class="n">y</span> <span class="p">/=</span> <span class="n">Screen</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>   <span class="c1">// normalize to [0,1]</span>
-        <span class="n">max</span><span class="p">.</span><span class="n">x</span> <span class="p">/=</span> <span class="n">Screen</span><span class="p">.</span><span class="n">width</span><span class="p">;</span>  <span class="n">max</span><span class="p">.</span><span class="n">y</span> <span class="p">/=</span> <span class="n">Screen</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
-        <span class="n">rt</span><span class="p">.</span><span class="n">anchorMin</span> <span class="p">=</span> <span class="n">min</span><span class="p">;</span>               <span class="c1">// anchors now hug the safe rectangle</span>
-        <span class="n">rt</span><span class="p">.</span><span class="n">anchorMax</span> <span class="p">=</span> <span class="n">max</span><span class="p">;</span>
+    <span class="n">Rect</span> <span class="n">lastSafe</span><span class="p">;</span>
+    <span class="n">Vector2Int</span> <span class="n">lastSize</span><span class="p">;</span>
+
+    <span class="k">void</span> <span class="nf">Awake</span><span class="p">()</span> <span class="p">{</span> <span class="n">rt</span> <span class="p">=</span> <span class="n">GetComponent</span><span class="p">&lt;</span><span class="n">RectTransform</span><span class="p">&gt;();</span> <span class="nf">Apply</span><span class="p">();</span> <span class="p">}</span>
+
+    <span class="k">void</span> <span class="nf">Update</span><span class="p">()</span>   <span class="c1">// rotation, resolution, or window changes</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">Screen</span><span class="p">.</span><span class="n">safeArea</span> <span class="p">!=</span> <span class="n">lastSafe</span> <span class="p">||</span> <span class="n">lastSize</span> <span class="p">!=</span> <span class="k">new</span> <span class="nf">Vector2Int</span><span class="p">(</span><span class="n">Screen</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">Screen</span><span class="p">.</span><span class="n">height</span><span class="p">))</span>
+            <span class="nf">Apply</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">void</span> <span class="nf">Apply</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="n">lastSafe</span> <span class="p">=</span> <span class="n">Screen</span><span class="p">.</span><span class="n">safeArea</span><span class="p">;</span>
+        <span class="n">lastSize</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">Vector2Int</span><span class="p">(</span><span class="n">Screen</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">Screen</span><span class="p">.</span><span class="n">height</span><span class="p">);</span>
+        <span class="n">Vector2</span> <span class="n">min</span> <span class="p">=</span> <span class="n">lastSafe</span><span class="p">.</span><span class="n">position</span><span class="p">,</span> <span class="n">max</span> <span class="p">=</span> <span class="n">lastSafe</span><span class="p">.</span><span class="n">position</span> <span class="p">+</span> <span class="n">lastSafe</span><span class="p">.</span><span class="n">size</span><span class="p">;</span>
+        <span class="n">rt</span><span class="p">.</span><span class="n">anchorMin</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">Vector2</span><span class="p">(</span><span class="n">min</span><span class="p">.</span><span class="n">x</span> <span class="p">/</span> <span class="n">Screen</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">min</span><span class="p">.</span><span class="n">y</span> <span class="p">/</span> <span class="n">Screen</span><span class="p">.</span><span class="n">height</span><span class="p">);</span>
+        <span class="n">rt</span><span class="p">.</span><span class="n">anchorMax</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">Vector2</span><span class="p">(</span><span class="n">max</span><span class="p">.</span><span class="n">x</span> <span class="p">/</span> <span class="n">Screen</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">max</span><span class="p">.</span><span class="n">y</span> <span class="p">/</span> <span class="n">Screen</span><span class="p">.</span><span class="n">height</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
 <h2 id="input--focus-navigation">Input &amp; Focus Navigation</h2>
 
-<p>A mouse points anywhere; a controller or keyboard does not. Console and TV UIs (and accessibility on every platform) require a <strong>focus model</strong>: at all times exactly one element is <em>focused</em>, directional input moves focus between elements, and the confirm button activates the focused element. Designing for focus first — then layering pointer support on top — yields a UI that works everywhere.</p>
+<p>A mouse can point anywhere; a gamepad or keyboard cannot. Console and television UI — and accessible UI on every platform — needs a <strong>focus model</strong>: exactly one element is focused at any time, directional input moves focus between elements, and a confirm action activates the focused element. Designing for focus first and adding pointer support second produces a UI that works on every device.</p>
 
-<pre><code class="language-mermaid">flowchart TD
-    F["Focused element"] --&gt;|D-pad Up| U["Up neighbor"]
-    F --&gt;|D-pad Down| D["Down neighbor"]
-    F --&gt;|D-pad Left| L["Left neighbor"]
-    F --&gt;|D-pad Right| R["Right neighbor"]
-    F --&gt;|Confirm A| ACT["Activate / submit"]
-    F --&gt;|Cancel B| BACK["Pop screen / back"]
+<h3 id="the-focus-graph">The focus graph</h3>
+
+<p>Each focusable element has neighbors in each direction. A small options screen might form this graph:</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    T1["Tab: Video"] &lt;--&gt;|"left / right"| T2["Tab: Audio"]
+    T2 &lt;--&gt;|"left / right"| T3["Tab: Controls"]
+    T2 --&gt;|down| S1["Master volume"]
+    S1 --&gt;|up| T2
+    S1 &lt;--&gt;|"up / down"| S2["Music volume"]
+    S2 &lt;--&gt;|"up / down"| S3["Subtitles: On"]
+    S3 &lt;--&gt;|"up / down"| B["Apply"]
+    B --&gt;|"down (wrap)"| S1
 </code></pre>
 
-<h3 id="the-focus-graph">The Focus Graph</h3>
-
-<p>Each focusable widget stores explicit (or auto-computed) neighbors: <code class="language-plaintext highlighter-rouge">up</code>, <code class="language-plaintext highlighter-rouge">down</code>, <code class="language-plaintext highlighter-rouge">left</code>, <code class="language-plaintext highlighter-rouge">right</code>. Pressing a direction moves focus to that neighbor and visually highlights it.</p>
+<p>Neighbors are defined in two ways:</p>
 
 <ul>
-  <li><strong>Explicit links</strong> give designers full control over non-grid layouts but are tedious to maintain.</li>
-  <li><strong>Geometric auto-navigation</strong> picks the nearest focusable widget in the pressed direction. A robust heuristic scores candidates by combining axial distance with angular deviation so the “most directly in that direction” element wins. For moving right from a widget at the origin to a candidate at offset $(\Delta x, \Delta y)$ with $\Delta x &gt; 0$:</li>
+  <li><strong>Explicit links</strong> give designers exact control for irregular layouts but must be maintained when layouts change. Examples: uGUI <code class="language-plaintext highlighter-rouge">Navigation</code> set to <em>Explicit</em>, Godot <code class="language-plaintext highlighter-rouge">focus_neighbor_*</code> properties, Unreal widget navigation rules.</li>
+  <li><strong>Geometric auto-navigation</strong> chooses the nearest focusable element in the pressed direction. A common heuristic scores candidates by distance along the axis of travel plus a penalty for off-axis distance. Moving right from an element at the origin to a candidate at offset $(\Delta x, \Delta y)$ with $\Delta x &gt; 0$:</li>
 </ul>
 
-\[\text{cost} = \Delta x + k \cdot |\Delta y|\]
+\[\text{cost} = \Delta x + k \, |\Delta y|, \qquad k &gt; 1\]
 
-<p>with a penalty weight $k &gt; 1$ so the algorithm strongly prefers elements roughly aligned on the axis of travel over ones that are closer but far off-axis. The lowest-cost candidate becomes the new focus.</p>
+<p>The penalty weight $k$ makes a well-aligned element win over one that is closer but far off-axis. Production implementations also measure between element edges rather than centers, so large and small elements are compared fairly.</p>
 
-<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Geometric directional navigation: choose the best neighbor to the right.</span>
-<span class="n">Selectable</span> <span class="nf">FindRight</span><span class="p">(</span><span class="n">Selectable</span> <span class="k">from</span><span class="p">,</span> <span class="n">IEnumerable</span><span class="p">&lt;</span><span class="n">Selectable</span><span class="p">&gt;</span> <span class="n">all</span><span class="p">)</span> <span class="p">{</span>
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Geometric navigation: best focusable element to the right of 'from'.</span>
+<span class="n">Selectable</span> <span class="nf">FindRight</span><span class="p">(</span><span class="n">Selectable</span> <span class="k">from</span><span class="p">,</span> <span class="n">IEnumerable</span><span class="p">&lt;</span><span class="n">Selectable</span><span class="p">&gt;</span> <span class="n">candidates</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">k</span> <span class="p">=</span> <span class="m">2f</span><span class="p">;</span>                         <span class="c1">// off-axis penalty</span>
     <span class="n">Vector2</span> <span class="n">origin</span> <span class="p">=</span> <span class="nf">Center</span><span class="p">(</span><span class="k">from</span><span class="p">);</span>
     <span class="n">Selectable</span> <span class="n">best</span> <span class="p">=</span> <span class="k">null</span><span class="p">;</span>
     <span class="kt">float</span> <span class="n">bestCost</span> <span class="p">=</span> <span class="kt">float</span><span class="p">.</span><span class="n">MaxValue</span><span class="p">;</span>
-    <span class="k">const</span> <span class="kt">float</span> <span class="n">k</span> <span class="p">=</span> <span class="m">2f</span><span class="p">;</span>                       <span class="c1">// off-axis penalty</span>
-    <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">s</span> <span class="k">in</span> <span class="n">all</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">s</span> <span class="k">in</span> <span class="n">candidates</span><span class="p">)</span>
+    <span class="p">{</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="p">==</span> <span class="k">from</span> <span class="p">||</span> <span class="p">!</span><span class="n">s</span><span class="p">.</span><span class="nf">IsInteractable</span><span class="p">())</span> <span class="k">continue</span><span class="p">;</span>
         <span class="n">Vector2</span> <span class="n">d</span> <span class="p">=</span> <span class="nf">Center</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="p">-</span> <span class="n">origin</span><span class="p">;</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="p">.</span><span class="n">x</span> <span class="p">&lt;=</span> <span class="m">0f</span><span class="p">)</span> <span class="k">continue</span><span class="p">;</span>              <span class="c1">// must be to the right</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">d</span><span class="p">.</span><span class="n">x</span> <span class="p">&lt;=</span> <span class="m">0f</span><span class="p">)</span> <span class="k">continue</span><span class="p">;</span>                <span class="c1">// must lie to the right</span>
         <span class="kt">float</span> <span class="n">cost</span> <span class="p">=</span> <span class="n">d</span><span class="p">.</span><span class="n">x</span> <span class="p">+</span> <span class="n">k</span> <span class="p">*</span> <span class="n">Mathf</span><span class="p">.</span><span class="nf">Abs</span><span class="p">(</span><span class="n">d</span><span class="p">.</span><span class="n">y</span><span class="p">);</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">cost</span> <span class="p">&lt;</span> <span class="n">bestCost</span><span class="p">)</span> <span class="p">{</span> <span class="n">bestCost</span> <span class="p">=</span> <span class="n">cost</span><span class="p">;</span> <span class="n">best</span> <span class="p">=</span> <span class="n">s</span><span class="p">;</span> <span class="p">}</span>
     <span class="p">}</span>
@@ -3520,81 +3627,142 @@ document.addEventListener('DOMContentLoaded', function () {
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="cross-device-and-hardware-cursor-hand-off">Cross-Device and Hardware Cursor Hand-Off</h3>
+<h3 id="rules-for-mixed-input">Rules for mixed input</h3>
 
-<p>Modern UIs support all input devices <em>simultaneously</em> and switch the visible model on the fly: when the player touches the mouse, show a pointer and hover states; when they touch the stick or D-pad, hide the pointer and show the focus highlight. Key rules:</p>
+<p>Players switch devices mid-session, so the UI should switch presentation to match the most recent input: show a pointer and hover states after mouse movement; hide the pointer and show the focus highlight after stick or D-pad input; show button glyphs for the active controller type.</p>
 
 <ul>
-  <li><strong>Always keep a valid focus.</strong> When a screen opens, focus a sensible default (the primary action, or the last-selected item) so the controller has somewhere to start.</li>
-  <li><strong>Wrap or clamp at edges</strong> consistently — list menus often wrap top-to-bottom; grids usually clamp.</li>
-  <li><strong>Trap focus inside modals.</strong> A confirmation dialog must not let focus escape to widgets behind it (the same blocking the screen stack already enforces for input).</li>
-  <li><strong>Map confirm/cancel to platform conventions.</strong> The accept and back buttons differ by platform (the A/B swap on Nintendo vs Xbox); read them from a remappable binding, never hardcode.</li>
+  <li><strong>Always have a valid focus.</strong> When a screen opens, focus a sensible default (the primary action, or the previously selected item).</li>
+  <li><strong>Make the focus highlight unmistakable</strong> — not a subtle tint that disappears on some backgrounds.</li>
+  <li><strong>Wrap or clamp consistently.</strong> Vertical lists commonly wrap; grids usually clamp.</li>
+  <li><strong>Trap focus inside modals.</strong> Focus must not escape a dialog to widgets behind it.</li>
+  <li><strong>Follow platform confirm/cancel conventions.</strong> Nintendo platforms place confirm on the right face button, Xbox and PC on the bottom; PlayStation has used Cross as confirm worldwide since the PS5, whereas earlier Japanese releases used Circle. Read these from the input binding layer, never hard-code them.</li>
+  <li><strong>Support scrolling lists</strong> by keeping the focused item in view and virtualizing long lists.</li>
 </ul>
 
-<h3 id="input-abstraction">Input Abstraction</h3>
+<h3 id="input-abstraction">Input abstraction</h3>
 
-<p>Route everything through an <strong>input action layer</strong> rather than reading raw buttons in UI code. UI requests semantic actions — <code class="language-plaintext highlighter-rouge">Navigate</code>, <code class="language-plaintext highlighter-rouge">Submit</code>, <code class="language-plaintext highlighter-rouge">Cancel</code>, <code class="language-plaintext highlighter-rouge">TabLeft</code> — and the binding layer maps keyboard, gamepad, and touch to them. This is what makes remapping (an accessibility requirement, below) possible and keeps menu code identical across platforms.</p>
+<p>UI code should consume semantic <strong>actions</strong> — <code class="language-plaintext highlighter-rouge">Navigate</code>, <code class="language-plaintext highlighter-rouge">Submit</code>, <code class="language-plaintext highlighter-rouge">Cancel</code>, <code class="language-plaintext highlighter-rouge">TabLeft</code>, <code class="language-plaintext highlighter-rouge">TabRight</code> — rather than raw buttons. A binding layer (Unity Input System, Unreal Enhanced Input with CommonUI input actions, Godot <code class="language-plaintext highlighter-rouge">InputMap</code>) maps keyboard, gamepad, and touch onto these actions. This keeps menu code identical across platforms and makes full remapping possible.</p>
 
 <pre><code class="language-mermaid">flowchart LR
     KB["Keyboard"] --&gt; ACT
     PAD["Gamepad"] --&gt; ACT
     TOUCH["Touch"] --&gt; ACT
-    ACT["Action layer&lt;br/&gt;Navigate / Submit / Cancel"] --&gt; UI["Menu &amp; focus system"]
+    AT["Adaptive controllers,&lt;br/&gt;switch access"] --&gt; ACT
+    ACT["Action layer&lt;br/&gt;Navigate / Submit / Cancel / Tab"] --&gt; UI["Screen stack and&lt;br/&gt;focus system"]
 </code></pre>
+
+<h2 id="localization">Localization</h2>
+
+<p>UI layouts must survive translation. Designing for it from the start is far cheaper than retrofitting:</p>
+
+<ul>
+  <li><strong>Text expansion.</strong> Translations from English commonly run 20–35% longer (German, French, Russian), and short labels can double. Use auto-sizing containers, allow wrapping, and test with <strong>pseudo-localization</strong> (for example <code class="language-plaintext highlighter-rouge">[!!! Ŝéţţîñĝš !!!]</code>) to find truncation and hard-coded strings early.</li>
+  <li><strong>Scripts and fonts.</strong> CJK scripts need large glyph sets or dynamic font atlases; Arabic and Hebrew are right-to-left and require bidirectional layout and mirrored UI; Thai and Devanagari require complex shaping. Configure font fallback chains per language.</li>
+  <li><strong>No string concatenation.</strong> Word order differs between languages; use format strings with named arguments and plural rules (ICU MessageFormat or the engine’s localization system).</li>
+  <li><strong>Culture-aware formatting</strong> for numbers, dates, and currency.</li>
+  <li><strong>Images with baked-in text</strong> must be localized or avoided.</li>
+</ul>
+
+<h2 id="ui-performance">UI Performance</h2>
+
+<p>UI shares the frame budget with everything else, and a complex menu or a HUD with many dynamic elements can cost several milliseconds.</p>
+
+<ul>
+  <li><strong>Layout and rebuild cost.</strong> In Unity uGUI, changing any element marks its Canvas dirty and rebuilds that Canvas’s batches; split frequently changing elements (timers, health bars) onto separate canvases from static ones. UI Toolkit similarly benefits from avoiding per-frame style and layout changes.</li>
+  <li><strong>Overdraw.</strong> Full-screen translucent panels stacked on top of each other multiply fill cost, which matters most on mobile and at 4K. Screens that fully cover what is beneath should set <code class="language-plaintext highlighter-rouge">BlocksDrawBelow</code>.</li>
+  <li><strong>Text.</strong> Signed-distance-field text (TextMeshPro, UI Toolkit, Slate) stays sharp across scales; avoid reformatting strings every frame — update text only when the value changes.</li>
+  <li><strong>Hidden is not free.</strong> Invisible widgets may still tick, lay out, or receive events; deactivate or remove them instead.</li>
+  <li><strong>World-space UI</strong> (nameplates, damage numbers) needs pooling and culling like any other entity.</li>
+</ul>
+
+<p>See <a href="../optimization/gpu-optimization.html">GPU Optimization</a> for draw-call and overdraw analysis.</p>
 
 <h2 id="accessibility">Accessibility</h2>
 
-<p>Accessibility widens your audience and is increasingly a platform and legal requirement. The strongest accessibility work is <em>architectural</em> — built into the UI systems above — not a settings screen bolted on at the end. Map each feature to the systems it touches:</p>
+<p>Accessibility broadens the audience and is increasingly a platform and legal requirement. In the United States, the CVAA has applied to communication features in games (text and voice chat and their UI) since January 2019. The European Accessibility Act, applicable from 28 June 2025, covers e-commerce and electronic communications services, which can bring in-game stores and chat into scope. Established references include the <a href="https://gameaccessibilityguidelines.com/">Game Accessibility Guidelines</a>, Microsoft’s <a href="https://learn.microsoft.com/en-us/gaming/accessibility/guidelines">Xbox Accessibility Guidelines</a>, and the <a href="https://www.w3.org/TR/WCAG22/">WCAG 2.2</a> criteria for contrast and target size.</p>
 
-<ul>
-  <li><strong>Visual.</strong>
-    <ul>
-      <li><em>Scalable text and UI.</em> The reference-resolution scaler should also honor a player text-size multiplier; never bake text size into fixed pixels.</li>
-      <li><em>Colorblind-safe coding.</em> Never rely on color alone (red/green ~8% of men cannot distinguish). Pair color with shape, icon, or text; offer Protanopia/Deuteranopia/Tritanopia palettes. Maintain WCAG contrast — body text at a contrast ratio of at least 4.5:1, large text at 3:1.</li>
-      <li><em>High-contrast and reduced-motion modes.</em> Provide a high-contrast theme and a toggle that disables screen shake, parallax, and flashing (also a photosensitivity/seizure safeguard).</li>
-      <li><em>Screen-reader / UI narration.</em> This is far easier in <strong>retained mode</strong>: each persistent node exposes a name, role, and value to the platform accessibility API. Immediate-mode UIs struggle here precisely because they have no stable node to describe.</li>
-    </ul>
-  </li>
-  <li><strong>Motor.</strong>
-    <ul>
-      <li><em>Full input remapping</em>, enabled by the action layer above — every action rebindable, including UI navigation and confirm/cancel.</li>
-      <li><em>Hold-to-toggle and adjustable timing</em> — convert hold inputs to taps, lengthen or remove quick-time-event windows, slow auto-advancing dialog.</li>
-      <li><em>Generous, scalable hit targets</em> — keep interactive elements above a minimum tappable size (mobile guidelines suggest ~44–48 px), and snap the cursor/focus to them.</li>
-    </ul>
-  </li>
-  <li><strong>Cognitive.</strong>
-    <ul>
-      <li><em>Clear, consistent layout and learned positions</em> — the same action lives in the same place across screens; the focus highlight is always obvious.</li>
-      <li><em>Adjustable text speed, persistent objective reminders, and difficulty/assist modes</em> (see the <a href="./">Game Development overview</a>) reduce load without compromising the core experience.</li>
-    </ul>
-  </li>
-  <li><strong>Auditory.</strong>
-    <ul>
-      <li><em>Subtitles and closed captions</em> with adjustable size, background opacity, and speaker labels; <em>visualized audio cues</em> (directional damage indicators, on-screen icons for important sounds) so critical information is never audio-only.</li>
-    </ul>
-  </li>
-</ul>
+<p>The most effective accessibility work is architectural — built into the systems above — rather than a settings screen added at the end.</p>
 
-<p>A practical test: navigate the entire UI with a controller, with the pointer disabled, at maximum text size, in a colorblind palette, with audio muted. If every screen is fully operable under those constraints, the architecture is sound — and it will be more pleasant for <em>all</em> players as a result.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Feature</th>
+      <th>Implementation hook</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Vision</strong></td>
+      <td>Scalable text and UI</td>
+      <td>Player text-size multiplier applied by the scaling system; layouts must reflow, not clip</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Not relying on color alone</td>
+      <td>Pair color with shape, icon, pattern, or text; roughly 8% of men and 0.5% of women of Northern European ancestry have color-vision deficiency. Offer palettes or filters for protanopia, deuteranopia, and tritanopia.</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Contrast</td>
+      <td>WCAG AA: at least 4.5:1 for body text, 3:1 for large text and essential UI components; add optional background plates behind HUD text and subtitles</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Screen-reader and UI narration</td>
+      <td>Retained-mode nodes expose name, role, and value to platform APIs: Unity’s Accessibility module (iOS, Android, and — since Unity 6.3 — Windows Narrator and macOS VoiceOver), Godot 4.5 AccessKit support, platform text-to-speech on consoles</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Reduced motion and photosensitivity</td>
+      <td>Toggles for screen shake, camera bob, motion blur, and flashing effects; test cutscenes against photosensitive-epilepsy guidance (for example the Harding test)</td>
+    </tr>
+    <tr>
+      <td><strong>Motor</strong></td>
+      <td>Full remapping</td>
+      <td>Every action, including UI Navigate, Submit, and Cancel, rebindable through the action layer</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Timing</td>
+      <td>Hold-to-toggle options, adjustable or removable quick-time events, no time-limited menu interactions</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Target size</td>
+      <td>WCAG 2.2: at least 24×24 CSS px (AA) and 44×44 (AAA); Apple recommends 44×44 pt and Material Design 48×48 dp for touch</td>
+    </tr>
+    <tr>
+      <td><strong>Cognition</strong></td>
+      <td>Consistency</td>
+      <td>Same actions in the same places on every screen; clear focus highlight; objective reminders; adjustable text speed; assist and difficulty options</td>
+    </tr>
+    <tr>
+      <td><strong>Hearing</strong></td>
+      <td>Subtitles and captions</td>
+      <td>Adjustable size and background opacity, speaker names, captions for important sounds; see <a href="audio-design.html#accessibility">Audio Design</a></td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Visualized audio</td>
+      <td>Directional indicators for off-screen threats and sounds so no critical information is audio-only</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Retained for the game, immediate for tools.</strong> Ship player-facing UI in a retained-mode framework (UMG, uGUI, Godot Control) and use immediate mode (ImGui) for debug overlays. The choice is about who owns widget state.</li>
-  <li><strong>Screens are a stack.</strong> Model menus, pause, inventory, and dialogs as a screen stack with clear input routing and draw-below/update-below rules. It dissolves the hardest UI bugs.</li>
-  <li><strong>HUDs observe, never drive.</strong> Decouple the HUD from the simulation with events; keep it legible-when-ignored and classify elements as diegetic, spatial, meta, or non-diegetic by intent.</li>
-  <li><strong>Anchor to safe areas.</strong> Use anchors plus a reference resolution to scale across displays, and pin all critical UI inside the title-safe / device safe-area rectangle so notches and overscan never clip it.</li>
-  <li><strong>Design for focus first.</strong> Build a focus graph with directional navigation and route input through a semantic action layer so controller, keyboard, and touch all work — and remapping is possible.</li>
-  <li><strong>Accessibility is architecture.</strong> Scalable text, colorblind-safe coding, remappable input, captions, and screen-reader nodes belong in the core UI systems, not in a bolted-on options menu.</li>
-</ul>
+<p>A practical acceptance test: navigate every screen with a controller and the pointer disabled, at maximum text size, with a color-vision filter applied, with audio muted, and with a screen reader on. A UI that works under those constraints is usually better for every player.</p>
 
 <h2 id="see-also">See Also</h2>
+
 <ul>
-  <li><a href="./">Game Development</a> - The hub: engines, the game loop, ECS, and core systems</li>
-  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - How UI is composited into the frame each render pass</li>
-  <li><a href="../optimization/gpu-optimization.html">GPU Optimization</a> - Frame budgets and draw-call cost that per-frame UI shares</li>
-  <li><a href="../vr-ar/">VR/AR Development</a> - Spatial (world-space) UI and the strict comfort constraints of immersive interfaces</li>
-  <li><a href="../ai-ml/game-ai.html">Game AI</a> - State machines, the same pattern that underpins the menu screen stack</li>
+  <li><a href="./">Game Development</a> — engines, the game loop, ECS, and core systems</li>
+  <li><a href="audio-design.html">Audio Design</a> — captions, audio accessibility, and UI sound feedback</li>
+  <li><a href="testing-qa.html">Testing &amp; QA</a> — usability playtesting and certification checks on UI requirements</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> — how UI is composited into the frame</li>
+  <li><a href="../optimization/gpu-optimization.html">GPU Optimization</a> — frame budgets, draw calls, and overdraw that UI shares</li>
+  <li><a href="../vr-ar/">VR/AR Development</a> — spatial UI and comfort constraints in immersive interfaces</li>
+  <li><a href="../ai-ml/game-ai.html">Game AI</a> — state machines, the same pattern behind the screen stack</li>
 </ul>
 
       </section>

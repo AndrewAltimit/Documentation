@@ -3135,185 +3135,197 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Game Development</a> » Procedural Content Generation</p>
 
-<p>Procedural Content Generation (PCG) is the algorithmic creation of game content — terrain, dungeons, textures, vegetation, items, even quests — rather than authoring it by hand. PCG trades authored control for variety, replayability, and scale: a few kilobytes of code and a seed can expand into a planet’s worth of terrain. The craft is choosing algorithms whose <em>statistical</em> output is controllable enough to be fun while remaining unpredictable enough to be interesting.</p>
+<p>Procedural content generation (PCG) is the algorithmic creation of game content (terrain, dungeons, textures, vegetation, object placement, items, quests) instead of, or alongside, authoring it by hand. It trades direct control for variety, replayability, and scale: a seed and a few kilobytes of code can expand into a planet. The craft is choosing algorithms whose <em>statistical</em> output is controllable enough to be fun and varied enough to stay interesting. This page covers seeding and determinism, coherent noise and fractal terrain, erosion and biomes, point distribution, cellular automata, L-systems, wave function collapse, dungeon generation, techniques for steering randomness, machine-learning approaches, and production tooling.</p>
 
-<p><strong>Read this page as a pipeline.</strong> Most generators are a base signal (noise) shaped by <em>rules</em> (automata, grammars, constraints), then <em>interpreted</em> into playable space, all driven by a <em>seed</em> that makes the whole chain reproducible:</p>
+<p>Most generators follow the same pipeline: a seed drives a base signal (noise or random samples), rules shape it into structure, the result is interpreted as playable content, and a validation step rejects or repairs anything unplayable.</p>
 
-<ul>
-  <li><strong>Noise &amp; fractals.</strong> Coherent noise (Perlin, Simplex, value) and fractal summation are the raw material for natural-looking terrain and textures.</li>
-  <li><strong>Generative systems.</strong> Cellular automata, L-systems, and wave-function collapse turn local rules into coherent global structure.</li>
-  <li><strong>Determinism.</strong> Seeded PRNGs make generation reproducible — the same seed always yields the same world.</li>
-</ul>
+<pre><code class="language-mermaid">flowchart LR
+    S["Seed&lt;br/&gt;(world seed + coordinates)"] --&gt; B["Base signal&lt;br/&gt;noise, random samples"]
+    B --&gt; R["Rules and constraints&lt;br/&gt;fractals, automata, grammars, WFC"]
+    R --&gt; I["Interpretation&lt;br/&gt;heightmap to mesh, tiles to rooms,&lt;br/&gt;points to trees"]
+    I --&gt; V{"Validate&lt;br/&gt;reachable? fair? in budget?"}
+    V -- "pass" --&gt; O[Content]
+    V -- "fail: repair or reseed" --&gt; R
+</code></pre>
 
-<h2 id="why-generate-content">Why Generate Content?</h2>
-
-<p>Hand-authored content is precise but expensive: every cave, tree, and texture costs artist and designer time. Procedural generation shifts that cost into <em>code that runs once per playthrough</em>.</p>
+<h2 id="why-generate-content">Why Generate Content</h2>
 
 <table>
   <thead>
     <tr>
       <th>Goal</th>
-      <th>What PCG buys you</th>
+      <th>What PCG provides</th>
       <th>Examples</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Replayability</td>
-      <td>Fresh layouts each run</td>
-      <td><em>Spelunky</em>, <em>Hades</em>, roguelikes</td>
+      <td>A different layout every run</td>
+      <td><em>Spelunky</em>, <em>The Binding of Isaac</em>, <em>Dead Cells</em>, roguelikes generally</td>
     </tr>
     <tr>
       <td>Scale</td>
-      <td>Vastly more content than could be authored</td>
-      <td><em>Minecraft</em>, <em>No Man’s Sky</em>, <em>Elite: Dangerous</em></td>
+      <td>More content than could be authored</td>
+      <td><em>Minecraft</em>, <em>No Man’s Sky</em>, <em>Elite Dangerous</em></td>
     </tr>
     <tr>
       <td>Compression</td>
-      <td>Tiny data expands into huge worlds</td>
-      <td><em>.kkrieger</em> (96 KB 3D shooter), demoscene</td>
+      <td>Tiny data expands into large worlds</td>
+      <td><em>.kkrieger</em> (a 96 KB 3D shooter, 2004), the demoscene</td>
     </tr>
     <tr>
       <td>Variety</td>
       <td>Non-repeating textures, foliage, crowds</td>
-      <td>SpeedTree, substance materials</td>
+      <td>SpeedTree, Substance Designer, Houdini pipelines</td>
+    </tr>
+    <tr>
+      <td>Production speed</td>
+      <td>Artists direct generators instead of placing every asset</td>
+      <td>Unreal PCG Framework, Houdini Engine scattering</td>
     </tr>
     <tr>
       <td>Adaptivity</td>
       <td>Content tuned to the player at runtime</td>
-      <td>dynamic difficulty, mission generators</td>
+      <td>Director systems, mission generators</td>
     </tr>
   </tbody>
 </table>
 
-<p>The central tension — explored throughout this page — is <strong>control vs. randomness</strong>. Pure randomness is uniform noise: technically infinite variety, zero meaning. Pure authoring is a fixed level. PCG lives in between, using structured algorithms whose randomness is <em>shaped</em> by constraints.</p>
+<p>The central tension is <strong>control versus randomness</strong>. Pure randomness has unlimited variety and no meaning; pure authoring has meaning and no variety. PCG sits between them, shaping randomness with structure and constraints. Many successful games mix the two: <em>Spelunky</em> and <em>Dead Cells</em> assemble hand-authored rooms or tiles along procedurally chosen layouts, keeping local quality high while varying the whole.</p>
 
 <h2 id="seeding-and-determinism">Seeding and Determinism</h2>
 
-<p>Before any algorithm, decide your source of randomness. A <strong>pseudo-random number generator (PRNG)</strong> maps an integer <em>seed</em> deterministically to a stream of numbers. The same seed always reproduces the same stream — this is what makes a <em>seed code</em> sharable between players and what makes bugs reproducible.</p>
+<p>A <strong>pseudo-random number generator (PRNG)</strong> maps an integer seed deterministically to a stream of numbers. The same seed reproduces the same stream, which makes seed codes shareable between players and generation bugs reproducible.</p>
 
-<h3 id="why-rand-is-not-enough">Why <code class="language-plaintext highlighter-rouge">rand()</code> Is Not Enough</h3>
+<h3 id="choosing-a-prng">Choosing a PRNG</h3>
 
-<p>The C standard <code class="language-plaintext highlighter-rouge">rand()</code> and many language defaults are poor for PCG: short periods, weak low-bit randomness, and global hidden state shared with the rest of the program. For generation you want an explicit, fast, well-distributed generator. A common choice is a small <strong>counter-based / hash PRNG</strong> such as <strong>PCG</strong> (Permuted Congruential Generator), <strong>xorshift</strong>, or <strong>SplitMix64</strong>.</p>
+<p>C’s <code class="language-plaintext highlighter-rouge">rand()</code> and many language defaults are poor choices: short periods, weak low bits, and hidden global state shared with the rest of the program. Generators need an explicit, fast, well-distributed PRNG whose state you own. Common choices are the <strong>PCG</strong> family (permuted congruential generators), <strong>xoshiro256**</strong> / <strong>xoshiro128+</strong>, and <strong>SplitMix64</strong>, which is also used to seed the others:</p>
 
-<p>The core of SplitMix64 — fast, stateless enough to splat across threads, and good distribution:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">MASK64</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">64</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">splitmix64</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">One step of SplitMix64. Returns (random_u64, new_state).</span><span class="sh">"""</span>
-    <span class="n">state</span> <span class="o">=</span> <span class="p">(</span><span class="n">state</span> <span class="o">+</span> <span class="mh">0x9E3779B97F4A7C15</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFFFFFFFFFFFFFFFF</span>
+<span class="k">def</span> <span class="nf">splitmix64</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">One SplitMix64 step. Returns (random_u64, new_state).</span><span class="sh">"""</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="p">(</span><span class="n">state</span> <span class="o">+</span> <span class="mh">0x9E3779B97F4A7C15</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">MASK64</span>
     <span class="n">z</span> <span class="o">=</span> <span class="n">state</span>
-    <span class="n">z</span> <span class="o">=</span> <span class="p">((</span><span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">30</span><span class="p">))</span> <span class="o">*</span> <span class="mh">0xBF58476D1CE4E5B9</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFFFFFFFFFFFFFFFF</span>
-    <span class="n">z</span> <span class="o">=</span> <span class="p">((</span><span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">27</span><span class="p">))</span> <span class="o">*</span> <span class="mh">0x94D049BB133111EB</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFFFFFFFFFFFFFFFF</span>
-    <span class="n">z</span> <span class="o">=</span> <span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">31</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">z</span><span class="p">,</span> <span class="n">state</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">((</span><span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">30</span><span class="p">))</span> <span class="o">*</span> <span class="mh">0xBF58476D1CE4E5B9</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">MASK64</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">((</span><span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">27</span><span class="p">))</span> <span class="o">*</span> <span class="mh">0x94D049BB133111EB</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">MASK64</span>
+    <span class="k">return</span> <span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">31</span><span class="p">),</span> <span class="n">state</span>
 </code></pre></div></div>
 
-<h3 id="hierarchical-seeding">Hierarchical Seeding</h3>
+<p>The same algorithm must run on every platform. C++ <code class="language-plaintext highlighter-rouge">std::mt19937</code> is fully specified, but <code class="language-plaintext highlighter-rouge">std::uniform_int_distribution</code> and the other standard distributions are implementation-defined, so the same seed can give different results on different standard libraries. Write your own range mapping when results must match across platforms.</p>
 
-<p>Large worlds need <em>positional determinism</em>: chunk (10, 7) must generate identically regardless of which chunks were visited first or in what order. The standard trick is to derive a local seed by <strong>hashing the world seed together with coordinates</strong>, so each chunk/feature gets its own independent stream:</p>
+<h3 id="positional-hierarchical-seeding">Positional (Hierarchical) Seeding</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">chunk_seed</span><span class="p">(</span><span class="n">world_seed</span><span class="p">,</span> <span class="n">cx</span><span class="p">,</span> <span class="n">cy</span><span class="p">):</span>
-    <span class="n">h</span> <span class="o">=</span> <span class="n">world_seed</span>
-    <span class="n">h</span> <span class="o">=</span> <span class="nf">hash_combine</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">cx</span><span class="p">)</span>
-    <span class="n">h</span> <span class="o">=</span> <span class="nf">hash_combine</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">cy</span><span class="p">)</span>
+<p>Large worlds need <strong>positional determinism</strong>: chunk (10, 7) must generate identically whether it is visited first or last. Rather than drawing from one sequential stream, derive each chunk’s or feature’s seed by <strong>hashing the world seed together with its coordinates</strong>, then run a local PRNG from that seed:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">mix64</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">SplitMix64 finalizer: a strong 64-bit integer hash.</span><span class="sh">"""</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">((</span><span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">30</span><span class="p">))</span> <span class="o">*</span> <span class="mh">0xBF58476D1CE4E5B9</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">MASK64</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">((</span><span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">27</span><span class="p">))</span> <span class="o">*</span> <span class="mh">0x94D049BB133111EB</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">MASK64</span>
+    <span class="k">return</span> <span class="n">z</span> <span class="o">^</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;&gt;</span> <span class="mi">31</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">position_seed</span><span class="p">(</span><span class="n">world_seed</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">salt</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="nf">mix64</span><span class="p">(</span><span class="n">world_seed</span> <span class="o">^</span> <span class="n">salt</span><span class="p">)</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="nf">mix64</span><span class="p">(</span><span class="n">h</span> <span class="o">^</span> <span class="p">(</span><span class="n">x</span> <span class="o">&amp;</span> <span class="n">MASK64</span><span class="p">))</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="nf">mix64</span><span class="p">(</span><span class="n">h</span> <span class="o">^</span> <span class="p">(</span><span class="n">y</span> <span class="o">&amp;</span> <span class="n">MASK64</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">h</span>
-
-<span class="k">def</span> <span class="nf">hash_combine</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-    <span class="c1"># 64-bit mix (boost-style)
-</span>    <span class="n">h</span> <span class="o">^=</span> <span class="p">(</span><span class="n">v</span> <span class="o">+</span> <span class="mh">0x9E3779B97F4A7C15</span> <span class="o">+</span> <span class="p">((</span><span class="n">h</span> <span class="o">&lt;&lt;</span> <span class="mi">6</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFFFFFFFFFFFFFFFF</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">h</span> <span class="o">&gt;&gt;</span> <span class="mi">2</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">h</span> <span class="o">&amp;</span> <span class="mh">0xFFFFFFFFFFFFFFFF</span>
 </code></pre></div></div>
 
-<p>This gives <strong>order-independent, position-addressable</strong> randomness — the foundation of infinite open worlds. A feature at a location can be decided by hashing its coordinates without generating its neighbors first.</p>
+<p>The <code class="language-plaintext highlighter-rouge">salt</code> separates independent decisions at the same position (terrain, ore, vegetation), so changing how trees are placed does not reshuffle every ore deposit. This gives <strong>order-independent, position-addressable</strong> randomness: whether a feature exists at a location can be decided by hashing its coordinates, without generating its neighbors. Coordinate hashes are also the basis of the noise functions below.</p>
+
+<p>Avoid ad-hoc combiners such as <code class="language-plaintext highlighter-rouge">h ^= v + 0x9e3779b9 + (h &lt;&lt; 6) + (h &gt;&gt; 2)</code> (from Boost’s <code class="language-plaintext highlighter-rouge">hash_combine</code>) for this purpose: they are designed for hash tables, not statistical quality, and produce visible correlations between neighboring coordinates.</p>
 
 <h3 id="determinism-pitfalls">Determinism Pitfalls</h3>
 
 <ul>
-  <li><strong>Floating-point non-determinism.</strong> Results can differ across CPUs/compilers (x87 vs SSE, FMA contraction, <code class="language-plaintext highlighter-rouge">-ffast-math</code>). For lockstep multiplayer or shared seeds, prefer integer/fixed-point math or pin floating-point behavior.</li>
-  <li><strong>Iteration order.</strong> Iterating a hash map/set in nondeterministic order will desync generation. Sort or use ordered containers.</li>
-  <li><strong>Consuming the stream conditionally.</strong> If a branch consumes random numbers only sometimes, two runs diverge. Draw all randomness up front, or per-feature with hierarchical seeds.</li>
+  <li><strong>Floating point.</strong> Results can differ across CPUs, compilers, and flags (x87 versus SSE, fused multiply-add contraction, <code class="language-plaintext highlighter-rouge">-ffast-math</code>, transcendental functions in different math libraries). Where results must match exactly, such as lockstep multiplayer or shared seeds across platforms, use integer or fixed-point math, or pin compiler floating-point behavior and avoid platform <code class="language-plaintext highlighter-rouge">sin</code>/<code class="language-plaintext highlighter-rouge">exp</code>.</li>
+  <li><strong>Iteration order.</strong> Iterating a hash map or set in unspecified order desynchronizes generation. Sort, or use ordered containers.</li>
+  <li><strong>Conditional consumption.</strong> If one branch draws random numbers and another does not, every later draw shifts. Use a separate stream per feature (positional seeding makes this natural).</li>
+  <li><strong>Parallelism.</strong> Threads drawing from a shared generator produce schedule-dependent results. Give each job its own seeded stream.</li>
+  <li><strong>Version drift.</strong> Changing any generator code changes what existing seeds produce, which is why a <em>Minecraft</em> seed gives a different world after a major terrain update. Games that promise stable seeds must keep old generator versions available.</li>
 </ul>
 
 <h2 id="noise-functions">Noise Functions</h2>
 
-<p><strong>Coherent noise</strong> is the workhorse of PCG: a function <code class="language-plaintext highlighter-rouge">noise(x, y, ...)</code> that is <em>random-looking but smooth</em> — nearby inputs give nearby outputs. This smoothness is what makes it usable for terrain (no jagged single-pixel spikes) while still being unpredictable.</p>
+<p><strong>Coherent noise</strong> is a function $\text{noise}(x, y, \ldots)$ that looks random but is smooth: nearby inputs give nearby outputs. The smoothness makes it usable as terrain height, density, or texture without single-sample spikes.</p>
 
 <h3 id="value-noise">Value Noise</h3>
 
-<p>The simplest coherent noise. Assign a random value to each integer lattice point, then <strong>interpolate</strong> between them for fractional coordinates.</p>
+<p>Assign a pseudo-random value to each integer lattice point (by hashing its coordinates) and interpolate between them:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">value_noise_1d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
-    <span class="n">x0</span> <span class="o">=</span> <span class="nf">floor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-    <span class="n">x1</span> <span class="o">=</span> <span class="n">x0</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">math</span><span class="p">.</span><span class="nf">floor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">t</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">x0</span>
-    <span class="n">v0</span> <span class="o">=</span> <span class="nf">hash_to_unit</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>   <span class="c1"># random value in [0, 1]
-</span>    <span class="n">v1</span> <span class="o">=</span> <span class="nf">hash_to_unit</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="nf">smoothstep</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+    <span class="n">v0</span> <span class="o">=</span> <span class="nf">hash_to_unit</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>        <span class="c1"># deterministic value in [0, 1)
+</span>    <span class="n">v1</span> <span class="o">=</span> <span class="nf">hash_to_unit</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="nf">fade</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
 </code></pre></div></div>
 
-<p>The interpolation curve matters. Linear interpolation produces visible creases at lattice lines because the <em>derivative</em> is discontinuous. Use a smoothstep (Hermite) fade so the slope is continuous:</p>
+<p>The interpolation curve matters. Linear interpolation leaves visible creases at lattice lines because the derivative is discontinuous there. The cubic smoothstep makes the first derivative continuous:</p>
 
 \[s(t) = 3t^2 - 2t^3\]
 
-<p>Ken Perlin’s improved “quintic” fade goes further, making the <em>second</em> derivative continuous too (important for lighting/normals derived from the height):</p>
+<p>Perlin’s quintic fade also makes the second derivative continuous, which matters when normals or lighting are derived from the height field:</p>
 
 \[s(t) = 6t^5 - 15t^4 + 10t^3\]
 
-<p>Value noise is cheap but tends to look “blobby” and shows lattice-aligned artifacts.</p>
+<p>Value noise is cheap but blobby, with features visibly aligned to the grid.</p>
 
-<h3 id="perlin-noise-gradient-noise">Perlin Noise (Gradient Noise)</h3>
+<h3 id="perlin-gradient-noise">Perlin (Gradient) Noise</h3>
 
-<p>Perlin noise (Ken Perlin, 1985; improved 2002) stores a random <em>gradient vector</em> (not a value) at each lattice point. The contribution of a corner is the dot product of its gradient with the offset vector from the corner to the sample point, and these are interpolated with the quintic fade.</p>
+<p>Perlin noise (Ken Perlin, 1985; “improved noise,” 2002) stores a pseudo-random <strong>gradient vector</strong> at each lattice point instead of a value. Each corner contributes the dot product of its gradient with the offset from that corner to the sample point, and the contributions are blended with the fade curve. For a 2D sample $p$ in a cell with corners $c$:</p>
 
-<p>For a 2D sample at point <strong>p</strong> inside a unit cell with corner <strong>c</strong> holding gradient <strong>g(c)</strong>:</p>
-
-\[\text{contribution}(c) = g(c) \cdot (p - c)\]
-
-<p>The four corner contributions are blended with the fade function in x and y:</p>
+\[n_c = g(c) \cdot (p - c)\]
 
 \[n(p) = \text{lerp}\big(\text{lerp}(n_{00}, n_{10}, s(u)),\ \text{lerp}(n_{01}, n_{11}, s(u)),\ s(v)\big)\]
 
-<p>where $u, v$ are the fractional coordinates within the cell and $s$ is the quintic fade. Because the value at every lattice point is exactly zero (the offset vector is zero there), Perlin noise has no value-noise blobbiness, but it has a subtle <strong>axis-aligned directional bias</strong> — features line up with the grid.</p>
+<p>where $u, v$ are the fractional coordinates within the cell. Noise is exactly zero at every lattice point, which removes value noise’s blobs and gives features a more consistent size, but a slight <strong>axis-aligned bias</strong> remains.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">perlin2d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">perm</span><span class="p">,</span> <span class="n">grad</span><span class="p">):</span>
-    <span class="n">xi</span><span class="p">,</span> <span class="n">yi</span> <span class="o">=</span> <span class="nf">floor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">255</span><span class="p">,</span> <span class="nf">floor</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">255</span>
-    <span class="n">xf</span><span class="p">,</span> <span class="n">yf</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="nf">floor</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">y</span> <span class="o">-</span> <span class="nf">floor</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-    <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="nf">fade</span><span class="p">(</span><span class="n">xf</span><span class="p">),</span> <span class="nf">fade</span><span class="p">(</span><span class="n">yf</span><span class="p">)</span>          <span class="c1"># quintic fade
+    <span class="n">xi</span><span class="p">,</span> <span class="n">yi</span> <span class="o">=</span> <span class="n">math</span><span class="p">.</span><span class="nf">floor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">255</span><span class="p">,</span> <span class="n">math</span><span class="p">.</span><span class="nf">floor</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">255</span>
+    <span class="n">xf</span><span class="p">,</span> <span class="n">yf</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">math</span><span class="p">.</span><span class="nf">floor</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">y</span> <span class="o">-</span> <span class="n">math</span><span class="p">.</span><span class="nf">floor</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+    <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="nf">fade</span><span class="p">(</span><span class="n">xf</span><span class="p">),</span> <span class="nf">fade</span><span class="p">(</span><span class="n">yf</span><span class="p">)</span>                     <span class="c1"># quintic fade
 </span>
-    <span class="c1"># Hash the four corners into gradient indices
-</span>    <span class="n">aa</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">perm</span><span class="p">[</span><span class="n">xi</span><span class="p">]</span>     <span class="o">+</span> <span class="n">yi</span><span class="p">]</span>
-    <span class="n">ab</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">perm</span><span class="p">[</span><span class="n">xi</span><span class="p">]</span>     <span class="o">+</span> <span class="n">yi</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="c1"># perm is a shuffled 0..255 table repeated twice (512 entries)
+</span>    <span class="n">aa</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">perm</span><span class="p">[</span><span class="n">xi</span><span class="p">]</span> <span class="o">+</span> <span class="n">yi</span><span class="p">]</span>
+    <span class="n">ab</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">perm</span><span class="p">[</span><span class="n">xi</span><span class="p">]</span> <span class="o">+</span> <span class="n">yi</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
     <span class="n">ba</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">perm</span><span class="p">[</span><span class="n">xi</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">yi</span><span class="p">]</span>
     <span class="n">bb</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">perm</span><span class="p">[</span><span class="n">xi</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">yi</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
 
-    <span class="c1"># Dot each corner gradient with the offset to the sample point
-</span>    <span class="n">n00</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="n">aa</span><span class="p">],</span> <span class="p">(</span><span class="n">xf</span><span class="p">,</span>     <span class="n">yf</span><span class="p">))</span>
-    <span class="n">n10</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="n">ba</span><span class="p">],</span> <span class="p">(</span><span class="n">xf</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">yf</span><span class="p">))</span>
-    <span class="n">n01</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="n">ab</span><span class="p">],</span> <span class="p">(</span><span class="n">xf</span><span class="p">,</span>     <span class="n">yf</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
-    <span class="n">n11</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="n">bb</span><span class="p">],</span> <span class="p">(</span><span class="n">xf</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">yf</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">n00</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="n">aa</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">grad</span><span class="p">)],</span> <span class="p">(</span><span class="n">xf</span><span class="p">,</span>     <span class="n">yf</span><span class="p">))</span>
+    <span class="n">n10</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="n">ba</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">grad</span><span class="p">)],</span> <span class="p">(</span><span class="n">xf</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">yf</span><span class="p">))</span>
+    <span class="n">n01</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="n">ab</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">grad</span><span class="p">)],</span> <span class="p">(</span><span class="n">xf</span><span class="p">,</span>     <span class="n">yf</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">n11</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="n">bb</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">grad</span><span class="p">)],</span> <span class="p">(</span><span class="n">xf</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">yf</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
 
-    <span class="k">return</span> <span class="nf">lerp</span><span class="p">(</span><span class="nf">lerp</span><span class="p">(</span><span class="n">n00</span><span class="p">,</span> <span class="n">n10</span><span class="p">,</span> <span class="n">u</span><span class="p">),</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">n01</span><span class="p">,</span> <span class="n">n11</span><span class="p">,</span> <span class="n">u</span><span class="p">),</span> <span class="n">v</span><span class="p">)</span>
-</code></pre></div></div>
+    <span class="k">return</span> <span class="nf">lerp</span><span class="p">(</span><span class="nf">lerp</span><span class="p">(</span><span class="n">n00</span><span class="p">,</span> <span class="n">n10</span><span class="p">,</span> <span class="n">u</span><span class="p">),</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">n01</span><span class="p">,</span> <span class="n">n11</span><span class="p">,</span> <span class="n">u</span><span class="p">),</span> <span class="n">v</span><span class="p">)</span>   <span class="c1"># roughly in [-0.7, 0.7] in 2D
+</span></code></pre></div></div>
 
-<h3 id="simplex-noise">Simplex Noise</h3>
+<p>The permutation table repeats every 256 units; hashing coordinates with a function like <code class="language-plaintext highlighter-rouge">mix64</code> instead gives a non-repeating domain and lets the seed change the pattern.</p>
 
-<p>Simplex noise (Perlin, 2001) was designed to fix Perlin’s weaknesses. Instead of a hypercube grid it tessellates space into <strong>simplices</strong> (triangles in 2D, tetrahedra in 3D) — the simplest shapes that fill <em>n</em>-dimensional space. In <em>n</em> dimensions a hypercube has $2^n$ corners but a simplex has only $n + 1$, so the cost scales much better:</p>
+<h3 id="simplex-and-opensimplex2">Simplex and OpenSimplex2</h3>
 
-\[\text{corners}_{\text{Perlin}} = 2^n
-\qquad
-\text{corners}_{\text{Simplex}} = n + 1\]
+<p>Simplex noise (Perlin, 2001) tessellates space into <strong>simplices</strong> (triangles in 2D, tetrahedra in 3D) instead of hypercubes. An $n$-dimensional hypercube has $2^n$ corners; a simplex has $n + 1$:</p>
 
-<p>In 3D that is 8 corners vs. 4; in 4D, 16 vs. 5. Simplex also uses a <strong>radial summation</strong> with a smooth falloff per corner rather than separable interpolation, which removes Perlin’s axis-aligned bias and gives continuous gradients everywhere — better for normal mapping and animation. The summed contribution of the surrounding simplex corners is:</p>
+\[\text{corners}_{\text{Perlin}} = 2^n \qquad \text{corners}_{\text{simplex}} = n + 1\]
 
-\[n(p) = \sum_{i} \max\!\big(0,\ r^2 - |d_i|^2\big)^4 \,\big(g_i \cdot d_i\big)\]
+<p>That is 8 versus 4 corners in 3D and 16 versus 5 in 4D. Each corner’s contribution is a radially symmetric kernel rather than a separable interpolation, which removes the axis-aligned bias and gives a continuous gradient everywhere:</p>
 
-<p>where $d_i$ is the offset from corner $i$ to the sample, $g_i$ is that corner’s gradient, and $r^2$ is the squared radius of the kernel (commonly $0.5$). The fourth power gives a smooth falloff to zero at the kernel edge.</p>
+\[n(p) = \sum_{i} \max\!\big(0,\ r^2 - \lVert d_i \rVert^2\big)^4 \,\big(g_i \cdot d_i\big)\]
 
-<blockquote>
-  <p><strong>Patent note.</strong> Simplex noise in 3D+ was patented (now expired in most jurisdictions). To avoid any ambiguity many engines ship <strong>OpenSimplex</strong> / <strong>OpenSimplex2</strong>, which are unencumbered and have similar properties.</p>
-</blockquote>
+<p>where $d_i$ is the offset from corner $i$ to the sample, $g_i$ is that corner’s gradient, and $r^2$ is the kernel radius (0.5 in common 2D implementations).</p>
 
-<h3 id="noise-comparison">Noise Comparison</h3>
+<p>The US patent on simplex noise for 3D and higher texture synthesis (US 6,867,776) expired on 8 January 2022, so the old licensing concern is gone. <strong>OpenSimplex2</strong> (by K.jpg), created as an unencumbered alternative, remains a popular choice for its quality, and libraries such as <strong>FastNoiseLite</strong> provide Perlin, value, OpenSimplex2, cellular noise, fractals, and domain warping behind one API in many languages, including GPU shader ports.</p>
+
+<h3 id="worley-cellular-noise">Worley (Cellular) Noise</h3>
+
+<p>Worley noise scatters feature points, typically one jittered point per grid cell, and returns the distance from the sample to the nearest ones, searching the surrounding 3x3 cells in 2D:</p>
+
+\[F_1(p) = \min_{i} \lVert p - q_i \rVert\]
+
+<p>$F_1$ gives a cellular Voronoi look; $F_2 - F_1$ (second-nearest minus nearest) gives crack and vein patterns. It is used for stone, scales, caustics, cracked mud, and partitioning a world into regions such as biomes or territories.</p>
+
+<h3 id="comparison">Comparison</h3>
 
 <table>
   <thead>
@@ -3321,323 +3333,371 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Property</th>
       <th>Value</th>
       <th>Perlin</th>
-      <th>Simplex</th>
+      <th>Simplex / OpenSimplex2</th>
+      <th>Worley</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Cost per sample</td>
-      <td>Lowest</td>
-      <td>Medium ($2^n$ corners)</td>
-      <td>Lower in high-D ($n{+}1$ corners)</td>
+      <td>Corners or points per sample</td>
+      <td>$2^n$ values</td>
+      <td>$2^n$ gradients</td>
+      <td>$n+1$ gradients</td>
+      <td>$3^n$ cells searched</td>
     </tr>
     <tr>
-      <td>Visual quality</td>
-      <td>Blobby, lattice artifacts</td>
+      <td>Look</td>
+      <td>Blobby, grid-aligned</td>
       <td>Good, slight axis bias</td>
-      <td>Best, isotropic</td>
+      <td>Isotropic</td>
+      <td>Cellular, crystalline</td>
     </tr>
     <tr>
       <td>Gradient continuity</td>
       <td>Depends on fade</td>
-      <td>Continuous (quintic)</td>
+      <td>Continuous with quintic fade</td>
       <td>Continuous everywhere</td>
+      <td>Discontinuous at cell edges</td>
     </tr>
     <tr>
-      <td>Implementation</td>
-      <td>Trivial</td>
-      <td>Simple</td>
-      <td>More involved</td>
-    </tr>
-    <tr>
-      <td>Best use</td>
-      <td>Quick/cheap effects</td>
-      <td>General terrain, 2D</td>
-      <td>High-D, animated, normals</td>
+      <td>Typical use</td>
+      <td>Cheap effects</td>
+      <td>General 2D and 3D terrain</td>
+      <td>3D/4D, animated noise, normals</td>
+      <td>Stone, cracks, regions</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="worley-cellular-noise">Worley (Cellular) Noise</h3>
+<h2 id="fractal-noise-and-terrain">Fractal Noise and Terrain</h2>
 
-<p>A different family: scatter feature points, then for each sample compute the distance to the nearest point(s). Using the distance to the nearest point $F_1$ gives a “cellular” / Voronoi look; $F_2 - F_1$ gives crack/web patterns. Worley noise is ideal for stone, water caustics, scales, and biome/region partitioning.</p>
+<p>One octave of noise has a single characteristic feature size. Real terrain has detail at every scale, from mountain ranges down to gravel. <strong>Fractional Brownian motion (fBm)</strong> sums octaves of the same noise at increasing frequency and decreasing amplitude:</p>
 
-\[W(p) = \min_{i} \, \lVert p - q_i \rVert\]
-
-<p>where the $q_i$ are the scattered feature points (typically one per cell of a jittered grid, searched over the 3x3 neighborhood).</p>
-
-<h2 id="fractals-stacking-noise-into-terrain">Fractals: Stacking Noise into Terrain</h2>
-
-<p>A single octave of noise has one characteristic feature size. Real terrain has detail at <em>every</em> scale — mountain ranges, hills, boulders, gravel. <strong>Fractal Brownian motion (fBm)</strong> sums multiple <strong>octaves</strong> of the same noise, each at higher frequency and lower amplitude:</p>
-
-\[f(p) = \sum_{i=0}^{N-1} a^{\,i}\, \text{noise}\!\big(\,l^{\,i}\, p\big)\]
-
-<p>Two parameters control the look:</p>
+\[f(p) = \sum_{i=0}^{N-1} g^{\,i}\, \text{noise}\!\big(\ell^{\,i}\, p\big)\]
 
 <ul>
-  <li><strong>Lacunarity</strong> $l$ — how much the <em>frequency</em> multiplies per octave (typically 2.0). Higher lacunarity spreads detail across more distinct scales.</li>
-  <li><strong>Gain / persistence</strong> $a$ — how much the <em>amplitude</em> multiplies per octave (typically 0.5). Lower gain makes higher octaves fainter (smoother terrain); higher gain makes them rougher.</li>
+  <li><strong>Lacunarity</strong> $\ell$ multiplies frequency per octave (typically 2).</li>
+  <li><strong>Gain</strong> or persistence $g$ multiplies amplitude per octave (typically 0.5). Lower gain gives smoother terrain; higher gain gives rougher.</li>
 </ul>
 
+<p>Gain and lacunarity together set the self-similarity of the result. Writing $g = \ell^{-H}$ defines the Hurst exponent $H$; the common choice $\ell = 2, g = 0.5$ gives $H = 1$, which produces natural-looking terrain. The maximum amplitude is bounded by a geometric series, which is why implementations normalize by the sum of amplitudes:</p>
+
+\[\sum_{i=0}^{N-1} g^{\,i} = \frac{1 - g^N}{1 - g}\]
+
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">fbm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">lacunarity</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">gain</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
-    <span class="n">amplitude</span> <span class="o">=</span> <span class="mf">1.0</span>
-    <span class="n">frequency</span> <span class="o">=</span> <span class="mf">1.0</span>
-    <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="n">norm</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">octaves</span><span class="p">):</span>
-        <span class="n">total</span> <span class="o">+=</span> <span class="n">amplitude</span> <span class="o">*</span> <span class="nf">noise</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">frequency</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="n">frequency</span><span class="p">)</span>
-        <span class="n">norm</span>  <span class="o">+=</span> <span class="n">amplitude</span>
+    <span class="n">amplitude</span><span class="p">,</span> <span class="n">frequency</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">norm</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">octaves</span><span class="p">):</span>
+        <span class="c1"># Offset each octave so lattice artifacts do not line up.
+</span>        <span class="n">total</span> <span class="o">+=</span> <span class="n">amplitude</span> <span class="o">*</span> <span class="nf">noise</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">frequency</span> <span class="o">+</span> <span class="mf">17.3</span> <span class="o">*</span> <span class="n">i</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="n">frequency</span> <span class="o">-</span> <span class="mf">9.1</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">norm</span> <span class="o">+=</span> <span class="n">amplitude</span>
         <span class="n">amplitude</span> <span class="o">*=</span> <span class="n">gain</span>
         <span class="n">frequency</span> <span class="o">*=</span> <span class="n">lacunarity</span>
-    <span class="k">return</span> <span class="n">total</span> <span class="o">/</span> <span class="n">norm</span>    <span class="c1"># normalize to keep range stable
-</span></code></pre></div></div>
+    <span class="k">return</span> <span class="n">total</span> <span class="o">/</span> <span class="n">norm</span>
+</code></pre></div></div>
 
 <p>Variations give characteristic landforms:</p>
 
 <ul>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Ridged multifractal</strong> — apply $1 -</td>
-          <td>\,\text{noise}\,</td>
-          <td>$ per octave to turn smooth hills into sharp ridges and canyons. Great for mountain ranges.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Billowy / turbulence</strong> — use $</td>
-          <td>\,\text{noise}\,</td>
-          <td>$, producing puffy, cloud-like or rolling-dune shapes.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li><strong>Domain warping</strong> — feed the <em>output</em> of one noise field into the <em>input coordinates</em> of another: <code class="language-plaintext highlighter-rouge">fbm(x + fbm(x,y), y + fbm(x,y))</code>. This warps the field along itself, producing organic, flowing, marbled structure that pure fBm cannot.</li>
+  <li><strong>Ridged multifractal.</strong> Use $1 - \lvert \text{noise} \rvert$ per octave (often squared) to turn rounded hills into sharp ridges. Good for mountain ranges.</li>
+  <li><strong>Billow.</strong> Use $\lvert \text{noise} \rvert$ for puffy, rolling shapes such as clouds and dunes.</li>
+  <li><strong>Domain warping.</strong> Offset the input coordinates by another noise field, $f(p + k \cdot \text{fbm}(p))$, for flowing, folded, marbled structure that plain fBm cannot produce.</li>
 </ul>
 
-<p>The expected variance of fBm is geometric in the gain, so the sum stays bounded as long as $a &lt; 1$:</p>
+<h3 id="shaping-a-heightmap">Shaping a Heightmap</h3>
 
-\[\sum_{i=0}^{\infty} a^{\,i} = \frac{1}{1 - a}, \qquad 0 &lt; a &lt; 1\]
+<p>A heightmap $h(x, y)$ is usually built from several fields at different scales, each with a job:</p>
 
-<h2 id="cellular-automata">Cellular Automata</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">terrain_height</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="n">continent</span> <span class="o">=</span> <span class="nf">fbm</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="mf">0.0005</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="mf">0.0005</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>           <span class="c1"># land vs. ocean, large scale
+</span>    <span class="n">land</span> <span class="o">=</span> <span class="nf">smoothstep</span><span class="p">(</span><span class="o">-</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="n">continent</span><span class="p">)</span>                    <span class="c1"># coastline mask
+</span>    <span class="n">mountains</span> <span class="o">=</span> <span class="nf">ridged_fbm</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="mf">0.004</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="mf">0.004</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+    <span class="n">mountain_mask</span> <span class="o">=</span> <span class="nf">smoothstep</span><span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="nf">fbm</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="mf">0.001</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="mf">0.001</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+    <span class="n">detail</span> <span class="o">=</span> <span class="nf">fbm</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 
-<p>A <strong>cellular automaton</strong> (CA) is a grid of cells whose next state is a function of its current state and its neighbors’ states. Despite trivially simple local rules, CAs produce rich global structure — making them excellent, cheap shape generators for caves and organic regions.</p>
-
-<h3 id="cave-generation">Cave Generation</h3>
-
-<p>The classic recipe: randomly fill the grid with wall/floor, then run a <strong>smoothing</strong> rule for a few iterations. The rule is essentially “become a wall if surrounded by walls” — a majority vote over the 8 neighbors (a <em>Moore</em> neighborhood):</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">generate_cave</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">fill_prob</span><span class="p">,</span> <span class="n">iterations</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
-    <span class="c1"># 1. Random fill
-</span>    <span class="n">grid</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span> <span class="k">if</span> <span class="n">rng</span><span class="p">.</span><span class="nf">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">fill_prob</span> <span class="k">else</span> <span class="mi">0</span>
-             <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">width</span><span class="p">)]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">height</span><span class="p">)]</span>
-
-    <span class="c1"># 2. Smoothing iterations
-</span>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">iterations</span><span class="p">):</span>
-        <span class="n">new</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">width</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">height</span><span class="p">)]</span>
-        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">height</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">width</span><span class="p">):</span>
-                <span class="n">walls</span> <span class="o">=</span> <span class="nf">count_wall_neighbors</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>  <span class="c1"># 8-neighborhood
-</span>                <span class="k">if</span> <span class="n">walls</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>        <span class="n">new</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>   <span class="c1"># majority wall -&gt; wall
-</span>                <span class="k">elif</span> <span class="n">walls</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>      <span class="n">new</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>   <span class="c1"># majority floor -&gt; floor
-</span>                <span class="k">else</span><span class="p">:</span>                <span class="n">new</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span>  <span class="c1"># tie -&gt; hold
-</span>        <span class="n">grid</span> <span class="o">=</span> <span class="n">new</span>
-    <span class="k">return</span> <span class="n">grid</span>
-</code></pre></div></div>
-
-<p>A common choice is <code class="language-plaintext highlighter-rouge">fill_prob ~ 0.45</code> and 4-5 iterations. Treat the border as wall so caves are enclosed.</p>
-
-<p><strong>Post-processing is essential.</strong> Raw CA output often has disconnected pockets. Run a <strong>flood fill</strong> to find connected regions, keep the largest as the main cave (or carve corridors to connect smaller ones), and fill the rest. This guarantees a <em>traversable</em> level rather than just a pretty texture.</p>
-
-<h3 id="conways-game-of-life">Conway’s Game of Life</h3>
-
-<p>The famous CA with the rule set: a live cell survives with 2 or 3 live neighbors; a dead cell becomes alive with exactly 3. While not a level generator itself, it demonstrates that simple rules can be Turing-complete and is a useful mental model for CA-based generation. The general CA update is:</p>
-
-\[c_{t+1}(x) = R\big(c_t(x),\ \textstyle\sum_{j \in N(x)} c_t(j)\big)\]
-
-<p>where $N(x)$ is the neighborhood and $R$ the transition rule.</p>
-
-<h2 id="l-systems">L-Systems</h2>
-
-<p><strong>Lindenmayer systems</strong> (L-systems) are formal grammars for modeling growth — originally plant and algae development. You start with an <strong>axiom</strong> (initial string) and repeatedly apply <strong>production rules</strong> that rewrite symbols in parallel. The resulting string is then interpreted as <strong>turtle graphics</strong> commands to draw a structure.</p>
-
-<h3 id="anatomy">Anatomy</h3>
-
-<ul>
-  <li><strong>Alphabet</strong> — the symbols, e.g. <code class="language-plaintext highlighter-rouge">F</code> (draw forward), <code class="language-plaintext highlighter-rouge">+</code>/<code class="language-plaintext highlighter-rouge">-</code> (turn), <code class="language-plaintext highlighter-rouge">[</code>/<code class="language-plaintext highlighter-rouge">]</code> (push/pop turtle state).</li>
-  <li><strong>Axiom</strong> — the starting string.</li>
-  <li><strong>Productions</strong> — rewrite rules applied simultaneously each generation.</li>
-</ul>
-
-<p>A classic plant grammar:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Axiom:      X
-Rules:      X -&gt; F+[[X]-X]-F[-FX]+X
-            F -&gt; FF
-Angle:      25 degrees
-
-Turtle interpretation:
-  F  -&gt; move forward, drawing a segment
-  +  -&gt; turn left by angle
-  -  -&gt; turn right by angle
-  [  -&gt; push position + heading onto a stack
-  ]  -&gt; pop position + heading from the stack
-</code></pre></div></div>
-
-<p>Each <code class="language-plaintext highlighter-rouge">[ ... ]</code> pair is a branch: push state, draw a sub-branch, pop back to continue the trunk. After a few rewrite generations the string encodes a full bush; rendering the turtle path draws it.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">expand</span><span class="p">(</span><span class="n">axiom</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">generations</span><span class="p">):</span>
-    <span class="n">s</span> <span class="o">=</span> <span class="n">axiom</span>
-    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">generations</span><span class="p">):</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="sh">""</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">rules</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">ch</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">s</span><span class="p">)</span>  <span class="c1"># parallel rewrite
-</span>    <span class="k">return</span> <span class="n">s</span>
-</code></pre></div></div>
-
-<h3 id="variants">Variants</h3>
-
-<ul>
-  <li><strong>Stochastic L-systems</strong> — a symbol has several productions chosen by probability, so every plant is unique (seed the RNG for determinism).</li>
-  <li><strong>Context-sensitive</strong> — a rule fires only given specific neighbors, modeling signal propagation along the plant.</li>
-  <li><strong>Parametric</strong> — symbols carry numeric parameters (length, age), enabling continuous growth and realistic tapering.</li>
-</ul>
-
-<p>L-systems excel at <strong>self-similar branching structures</strong>: plants, trees, river networks, lightning, road/cave networks, and even some building/street layouts.</p>
-
-<h2 id="wave-function-collapse">Wave Function Collapse</h2>
-
-<p><strong>Wave Function Collapse</strong> (WFC, Maxim Gumin, 2016) is a constraint-solving generator that produces output <em>locally similar</em> to an example. It is borrowed-by-analogy from quantum mechanics: every cell starts in a <em>superposition</em> of all possible tiles, and the algorithm repeatedly <strong>collapses</strong> the most-constrained cell to a single tile, then <strong>propagates</strong> that decision to its neighbors.</p>
-
-<h3 id="the-algorithm">The Algorithm</h3>
-
-<ol>
-  <li><strong>Define tiles and adjacency.</strong> Either author tiles with edge-compatibility rules, or extract the rules automatically from an example bitmap (which N×N patterns appear, and which may sit next to which).</li>
-  <li><strong>Initialize.</strong> Every cell’s domain = all tiles (full superposition).</li>
-  <li><strong>Observe (collapse).</strong> Pick the cell with the <strong>lowest entropy</strong> (fewest remaining options — the most constrained) and collapse it to a single tile, chosen by weighted random from its domain.</li>
-  <li><strong>Propagate (constraint propagation).</strong> Remove from neighboring cells any tile that is now incompatible with the collapsed choice; cascade these removals outward until the grid is consistent.</li>
-  <li><strong>Repeat</strong> until all cells are collapsed, or <strong>backtrack/restart</strong> on a contradiction (a cell whose domain became empty).</li>
-</ol>
-
-<p>The entropy used for the “most constrained” heuristic is the Shannon entropy of the cell’s remaining tile probabilities (with the tile weights $w_t$ over the remaining domain $D$):</p>
-
-\[H = -\sum_{t \in D} p_t \log p_t,
-\qquad
-p_t = \frac{w_t}{\sum_{u \in D} w_u}\]
-
-<p>Collapsing low-entropy cells first minimizes the chance of painting yourself into a contradiction.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">wfc_step</span><span class="p">(</span><span class="n">grid</span><span class="p">):</span>
-    <span class="n">cell</span> <span class="o">=</span> <span class="nf">min_entropy_cell</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>        <span class="c1"># most constrained, undecided cell
-</span>    <span class="k">if</span> <span class="n">cell</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">DONE</span>                      <span class="c1"># everything collapsed
-</span>    <span class="n">tile</span> <span class="o">=</span> <span class="nf">weighted_choice</span><span class="p">(</span><span class="n">cell</span><span class="p">.</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># observe
-</span>    <span class="n">cell</span><span class="p">.</span><span class="nf">collapse_to</span><span class="p">(</span><span class="n">tile</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nf">propagate</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">cell</span><span class="p">):</span>        <span class="c1"># remove now-illegal neighbor options
-</span>        <span class="k">return</span> <span class="n">CONTRADICTION</span>             <span class="c1"># backtrack or restart
-</span>    <span class="k">return</span> <span class="n">CONTINUE</span>
-</code></pre></div></div>
-
-<h3 id="strengths-and-costs">Strengths and Costs</h3>
-
-<p>WFC is superb for <strong>tile-based</strong> content with strong local constraints: dungeon rooms, pipe/circuit layouts, texture synthesis, and stylized levels that must “look hand-made.” Its weaknesses:</p>
-
-<ul>
-  <li><strong>No global guarantees.</strong> WFC enforces <em>local</em> adjacency only. It will happily produce a level that is locally valid but globally unsolvable (no path to the exit). You typically add post-checks or extra constraints (pre-place start/exit, verify connectivity).</li>
-  <li><strong>Contradictions.</strong> Dense constraints can make the solver fail and restart. Mitigations: backtracking, careful tile/weight design, or constraint relaxation.</li>
-  <li><strong>Cost.</strong> Propagation can be expensive on large grids; chunked or hierarchical WFC helps.</li>
-</ul>
-
-<h2 id="procedural-terrain">Procedural Terrain</h2>
-
-<p>Terrain ties the pieces together: a <strong>heightmap</strong> $h(x, y)$ generated by fBm noise, then shaped and interpreted.</p>
-
-<h3 id="from-noise-to-landscape">From Noise to Landscape</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">terrain_height</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
-    <span class="c1"># Continent shape: low-frequency, large amplitude
-</span>    <span class="n">base</span> <span class="o">=</span> <span class="nf">fbm</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="mf">0.001</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="mf">0.001</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span>
-
-    <span class="c1"># Mountains: ridged noise, masked to the high-base regions
-</span>    <span class="n">mountains</span> <span class="o">=</span> <span class="nf">ridged_fbm</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="mf">0.005</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="mf">0.005</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="mi">800</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="nf">smoothstep</span><span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="nf">normalize</span><span class="p">(</span><span class="n">base</span><span class="p">))</span>
-    <span class="n">base</span> <span class="o">+=</span> <span class="n">mountains</span> <span class="o">*</span> <span class="n">mask</span>
-
-    <span class="c1"># Erosion / detail
-</span>    <span class="n">base</span> <span class="o">+=</span> <span class="nf">fbm</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">octaves</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="mi">20</span>
-    <span class="k">return</span> <span class="n">base</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="o">-</span><span class="mi">200</span> <span class="o">+</span> <span class="n">land</span> <span class="o">*</span> <span class="p">(</span><span class="mi">220</span> <span class="o">+</span> <span class="n">mountains</span> <span class="o">*</span> <span class="n">mountain_mask</span> <span class="o">*</span> <span class="mi">900</span><span class="p">)</span> <span class="o">+</span> <span class="n">detail</span> <span class="o">*</span> <span class="mi">8</span>
+    <span class="k">return</span> <span class="n">h</span>
 </code></pre></div></div>
 
 <p>Common shaping steps:</p>
 
 <ul>
-  <li><strong>Continent/ocean mask</strong> — a separate low-frequency field decides land vs. sea; multiply or threshold the height by it.</li>
-  <li><strong>Falloff map</strong> — for islands, subtract a radial gradient so edges drop into the ocean.</li>
-  <li><strong>Redistribution</strong> — raising the normalized height to a power $h^k$ flattens valleys and sharpens peaks: $h’ = h^k$.</li>
-  <li><strong>Hydraulic / thermal erosion</strong> — simulate water/sediment flow to carve realistic valleys and deposit sediment; the single biggest quality win for noise terrain.</li>
+  <li><strong>Masks.</strong> Low-frequency fields decide where land, mountains, or plateaus occur, so high-frequency detail is applied only where wanted.</li>
+  <li><strong>Falloff maps.</strong> For islands, subtract a radial gradient so edges drop into the ocean.</li>
+  <li><strong>Redistribution.</strong> Raising normalized height to a power, $h’ = h^k$ with $k &gt; 1$, flattens lowlands and sharpens peaks.</li>
+  <li><strong>Curves or splines.</strong> Map noise values through artist-edited curves instead of formulas. <em>Minecraft</em> has done this since version 1.18, driving terrain height from splines over several noise parameters.</li>
 </ul>
+
+<h3 id="erosion">Erosion</h3>
+
+<p>Noise terrain looks unweathered: slopes are uniform and there are no drainage networks. Erosion simulation is the single largest quality improvement.</p>
+
+<ul>
+  <li><strong>Hydraulic erosion.</strong> Simulate water picking up sediment on steep, fast descents and depositing it where it slows. The common particle (“droplet”) method releases many droplets that follow the gradient downhill, carrying sediment up to a capacity proportional to speed and slope, and depositing the excess. Grid-based pipe models simulate water flow per cell and parallelize well on GPUs.</li>
+  <li><strong>Thermal erosion.</strong> Material slides downhill wherever the slope exceeds a talus angle, producing scree slopes and softened cliffs.</li>
+</ul>
+
+<p>Erosion is expensive and non-local (a droplet can travel far), which conflicts with independent chunk generation. Games often erode a coarse world-scale map offline or at load time and add local detail on top, or approximate erosion with cheaper noise tricks such as analytical-derivative noise that dampens detail on steep slopes.</p>
 
 <h3 id="biomes">Biomes</h3>
 
-<p>Biomes are usually a 2D lookup on two more noise fields, <strong>temperature</strong> and <strong>moisture</strong> (the Whittaker-diagram approach):</p>
+<p>The classic approach is a lookup on two more noise fields, <strong>temperature</strong> and <strong>moisture</strong>, following the Whittaker diagram from ecology:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">biome</span><span class="p">(</span><span class="n">temperature</span><span class="p">,</span> <span class="n">moisture</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">moisture</span> <span class="o">&lt;</span> <span class="mf">0.2</span><span class="p">:</span>  <span class="k">return</span> <span class="n">DESERT</span> <span class="k">if</span> <span class="n">temperature</span> <span class="o">&gt;</span> <span class="mf">0.6</span> <span class="k">else</span> <span class="n">TUNDRA</span>
-    <span class="k">if</span> <span class="n">temperature</span> <span class="o">&gt;</span> <span class="mf">0.7</span><span class="p">:</span> <span class="k">return</span> <span class="n">RAINFOREST</span> <span class="k">if</span> <span class="n">moisture</span> <span class="o">&gt;</span> <span class="mf">0.6</span> <span class="k">else</span> <span class="n">SAVANNA</span>
-    <span class="k">if</span> <span class="n">temperature</span> <span class="o">&gt;</span> <span class="mf">0.4</span><span class="p">:</span> <span class="k">return</span> <span class="n">FOREST</span> <span class="k">if</span> <span class="n">moisture</span> <span class="o">&gt;</span> <span class="mf">0.4</span> <span class="k">else</span> <span class="n">GRASSLAND</span>
+    <span class="k">if</span> <span class="n">moisture</span> <span class="o">&lt;</span> <span class="mf">0.2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DESERT</span> <span class="k">if</span> <span class="n">temperature</span> <span class="o">&gt;</span> <span class="mf">0.6</span> <span class="k">else</span> <span class="n">TUNDRA</span>
+    <span class="k">if</span> <span class="n">temperature</span> <span class="o">&gt;</span> <span class="mf">0.7</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RAINFOREST</span> <span class="k">if</span> <span class="n">moisture</span> <span class="o">&gt;</span> <span class="mf">0.6</span> <span class="k">else</span> <span class="n">SAVANNA</span>
+    <span class="k">if</span> <span class="n">temperature</span> <span class="o">&gt;</span> <span class="mf">0.4</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">FOREST</span> <span class="k">if</span> <span class="n">moisture</span> <span class="o">&gt;</span> <span class="mf">0.4</span> <span class="k">else</span> <span class="n">GRASSLAND</span>
     <span class="k">return</span> <span class="n">TAIGA</span> <span class="k">if</span> <span class="n">moisture</span> <span class="o">&gt;</span> <span class="mf">0.4</span> <span class="k">else</span> <span class="n">SNOW</span>
 </code></pre></div></div>
 
-<h3 id="chunking-for-infinite-worlds">Chunking for Infinite Worlds</h3>
+<p><em>Minecraft</em> since 1.18 generalizes this into a <strong>multi-noise</strong> system. Each position samples several noise parameters: temperature, humidity, <strong>continentalness</strong> (ocean to inland), <strong>erosion</strong> (flat to mountainous), <strong>weirdness</strong> (which also yields a “peaks and valleys” value), and depth. Each biome is defined as a region in that parameter space, and the position takes the nearest biome. The terrain-shaping parameters also drive height, so biomes and landforms stay correlated (peaks biomes appear on peaks) without being rigidly coupled.</p>
 
-<p>Open worlds generate terrain in <strong>chunks</strong> on demand, seeded by chunk coordinates (see <a href="#hierarchical-seeding">Hierarchical Seeding</a>). Because the height function is <em>positional and deterministic</em>, chunk boundaries match seamlessly — neighboring chunks evaluate the same continuous field, so no edge-stitching is required.</p>
+<h3 id="chunking-and-infinite-worlds">Chunking and Infinite Worlds</h3>
 
-<h2 id="procedural-dungeons">Procedural Dungeons</h2>
+<p>Open worlds generate in <strong>chunks</strong> on demand, seeded by chunk coordinates (see <a href="#positional-hierarchical-seeding">Positional Seeding</a>). Because the height function is a deterministic function of world position, neighboring chunks evaluate the same continuous field and their edges match without stitching. Features that cross chunk borders, such as trees, structures, and rivers, are handled by generating them in a larger region than the chunk and keeping only the part inside, or by deciding them on a coarser grid that each chunk can query. Very large worlds also need <strong>floating-origin</strong> rendering or double-precision positions, because 32-bit floats lose centimeter precision a few tens of kilometers from the origin.</p>
 
-<p>Dungeon generation is a distinct discipline because the output must be <strong>playable</strong>: connected, fair, and paced. Several families dominate.</p>
+<h2 id="point-distribution-and-object-placement">Point Distribution and Object Placement</h2>
 
-<h3 id="room-and-corridor">Room-and-Corridor</h3>
+<p>Placing trees, rocks, and loot needs points that are random but not clumped. Independent uniform samples clump and leave gaps; a jittered grid looks regular. <strong>Poisson disk sampling</strong> produces points no closer than a minimum distance $r$ while filling space evenly, the “blue noise” distribution seen in natural spacing. Bridson’s algorithm (2007) does this in linear time:</p>
 
-<p>Place rectangular rooms (rejecting overlaps), then connect them with corridors. Connection strategy controls the feel:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">poisson_disk</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="n">cell</span> <span class="o">=</span> <span class="n">r</span> <span class="o">/</span> <span class="n">math</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>                     <span class="c1"># each grid cell holds at most one point
+</span>    <span class="n">grid</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">first</span> <span class="o">=</span> <span class="p">(</span><span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">width</span><span class="p">),</span> <span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">height</span><span class="p">))</span>
+    <span class="n">points</span><span class="p">,</span> <span class="n">active</span> <span class="o">=</span> <span class="p">[</span><span class="n">first</span><span class="p">],</span> <span class="p">[</span><span class="n">first</span><span class="p">]</span>
+    <span class="n">grid</span><span class="p">[(</span><span class="nf">int</span><span class="p">(</span><span class="n">first</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="n">cell</span><span class="p">),</span> <span class="nf">int</span><span class="p">(</span><span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="n">cell</span><span class="p">))]</span> <span class="o">=</span> <span class="n">first</span>
+    <span class="k">while</span> <span class="n">active</span><span class="p">:</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">randrange</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">active</span><span class="p">))</span>
+        <span class="n">px</span><span class="p">,</span> <span class="n">py</span> <span class="o">=</span> <span class="n">active</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>                      <span class="c1"># k candidates, typically 30
+</span>            <span class="n">a</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">r</span><span class="p">)</span>           <span class="c1"># annulus between r and 2r
+</span>            <span class="n">q</span> <span class="o">=</span> <span class="p">(</span><span class="n">px</span> <span class="o">+</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">py</span> <span class="o">+</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+            <span class="k">if</span> <span class="nf">in_bounds</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span> <span class="ow">and</span> <span class="nf">far_from_neighbors</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">grid</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+                <span class="n">points</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">q</span><span class="p">);</span> <span class="n">active</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+                <span class="n">grid</span><span class="p">[(</span><span class="nf">int</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="n">cell</span><span class="p">),</span> <span class="nf">int</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="n">cell</span><span class="p">))]</span> <span class="o">=</span> <span class="n">q</span>
+                <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">active</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>                       <span class="c1"># no valid candidate: retire this point
+</span>    <span class="k">return</span> <span class="n">points</span>
+</code></pre></div></div>
+
+<p>In production, placement is usually a chain of filters over candidate points: sample, reject by slope, altitude, or biome, thin by density maps painted by artists, then enforce spacing between asset types. Unreal’s PCG Framework and Houdini scattering tools are built around exactly this point-processing model.</p>
+
+<h2 id="cellular-automata">Cellular Automata</h2>
+
+<p>A <strong>cellular automaton</strong> (CA) is a grid of cells whose next state depends on its current state and its neighbors’. Simple local rules produce coherent global structure, which makes CAs cheap generators for caves and organic regions. The general update rule is</p>
+
+\[c_{t+1}(x) = R\Big(c_t(x),\ \sum_{j \in N(x)} c_t(j)\Big)\]
+
+<p>where $N(x)$ is the neighborhood and $R$ the transition rule. Conway’s Game of Life is the best-known example (a live cell survives with 2 or 3 live neighbors; a dead cell is born with exactly 3).</p>
+
+<h3 id="cave-generation">Cave Generation</h3>
+
+<p>Fill a grid randomly with wall and floor, then repeatedly apply a smoothing rule that takes a majority vote over the 8-cell Moore neighborhood:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">generate_cave</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">fill_prob</span><span class="p">,</span> <span class="n">iterations</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">1</span> <span class="k">if</span> <span class="n">rng</span><span class="p">.</span><span class="nf">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">fill_prob</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">width</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">height</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">iterations</span><span class="p">):</span>
+        <span class="n">new</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">width</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">height</span><span class="p">)]</span>
+        <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">height</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">width</span><span class="p">):</span>
+                <span class="n">walls</span> <span class="o">=</span> <span class="nf">count_wall_neighbors</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>   <span class="c1"># out-of-bounds counts as wall
+</span>                <span class="k">if</span> <span class="n">walls</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="n">new</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="k">elif</span> <span class="n">walls</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="n">new</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">new</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="n">y</span><span class="p">][</span><span class="n">x</span><span class="p">]</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">new</span>
+    <span class="k">return</span> <span class="n">grid</span>
+</code></pre></div></div>
+
+<p>A fill probability around 0.45 with 4 to 5 iterations is a common starting point. Raw output usually contains disconnected pockets, so <strong>post-processing is required</strong>: flood-fill to find connected regions, keep the largest (or carve tunnels to join the others), and fill the rest. Only then is the cave guaranteed to be traversable.</p>
+
+<h2 id="l-systems">L-Systems</h2>
+
+<p><strong>Lindenmayer systems</strong> are parallel rewriting grammars introduced by Aristid Lindenmayer (1968) to model plant growth. Start from an <strong>axiom</strong>, rewrite every symbol simultaneously using <strong>production rules</strong> for several generations, then interpret the resulting string as <strong>turtle-graphics</strong> commands:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Axiom:  X
+Rules:  X -&gt; F+[[X]-X]-F[-FX]+X
+        F -&gt; FF
+Angle:  25 degrees
+
+F  draw forward        +  turn left by the angle
+[  push position and heading onto a stack
+]  pop position and heading       -  turn right by the angle
+</code></pre></div></div>
+
+<p>Each <code class="language-plaintext highlighter-rouge">[ ... ]</code> pair is a branch: save the turtle state, draw the sub-branch, and return to the trunk.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">expand</span><span class="p">(</span><span class="n">axiom</span><span class="p">,</span> <span class="n">rules</span><span class="p">,</span> <span class="n">generations</span><span class="p">):</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">axiom</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">generations</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="sh">""</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">rules</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">ch</span><span class="p">,</span> <span class="n">ch</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">s</span><span class="p">)</span>   <span class="c1"># parallel rewrite
+</span>    <span class="k">return</span> <span class="n">s</span>
+</code></pre></div></div>
+
+<p>Variants increase realism:</p>
 
 <ul>
-  <li><strong>Random connections</strong> — chaotic, mazey.</li>
-  <li><strong>Minimum spanning tree (MST)</strong> — guarantees full connectivity with no redundancy; add a few extra edges back for loops so the dungeon isn’t a pure tree (loops make exploration less frustrating).</li>
-  <li><strong>Delaunay triangulation + MST</strong> — triangulate room centers, take the MST for guaranteed connectivity, then re-add a fraction of the remaining Delaunay edges for loops. This is the <em>Spelunky / TinyKeep</em> approach and gives natural-feeling layouts.</li>
+  <li><strong>Stochastic</strong> L-systems choose among several productions by probability, so every plant differs (seed the choice for determinism).</li>
+  <li><strong>Context-sensitive</strong> rules fire only given particular neighbors, modeling signals traveling through the plant.</li>
+  <li><strong>Parametric</strong> symbols carry values such as length, width, and age, allowing tapering and continuous growth.</li>
 </ul>
+
+<p>L-systems suit self-similar branching: plants, rivers, lightning, and road networks. For trees that respond to their surroundings, the <strong>space colonization</strong> algorithm (Runions et al., 2007) is a common alternative: scatter attraction points in the crown volume and grow branches toward them, which fills space naturally and avoids self-intersection. Production tools such as SpeedTree combine rule-based growth with artist control.</p>
+
+<h2 id="wave-function-collapse">Wave Function Collapse</h2>
+
+<p><strong>Wave function collapse</strong> (WFC) is a constraint-solving generator that produces output locally similar to an example or consistent with tile adjacency rules. Maxim Gumin published it in 2016, building on Paul Merrell’s earlier <strong>model synthesis</strong> (2007). The name is an analogy: every cell starts in a “superposition” of all possible tiles, and the algorithm repeatedly collapses one cell to a single tile and propagates the consequences.</p>
+
+<p>There are two common modes:</p>
+
+<ul>
+  <li><strong>Simple tiled model.</strong> Tiles and their allowed neighbors are authored explicitly.</li>
+  <li><strong>Overlapping model.</strong> All $N \times N$ patterns (commonly 3x3) are extracted from a sample image, and adjacency is inferred from how patterns overlap. One small bitmap is enough input.</li>
+</ul>
+
+<pre><code class="language-mermaid">flowchart TD
+    A["Initialize: every cell may be any tile"] --&gt; B{"Any undecided cells?"}
+    B -- "no" --&gt; Done[Output]
+    B -- "yes" --&gt; C["Observe: pick the lowest-entropy cell"]
+    C --&gt; D["Collapse it to one tile,&lt;br/&gt;chosen by weight"]
+    D --&gt; E["Propagate: remove now-incompatible&lt;br/&gt;tiles from neighbors, cascading"]
+    E --&gt; F{"Contradiction?&lt;br/&gt;(some cell has no options)"}
+    F -- "no" --&gt; B
+    F -- "yes" --&gt; G["Backtrack or restart"]
+    G --&gt; B
+</code></pre>
+
+<p>The “most constrained” cell is chosen by Shannon entropy over its remaining tiles $D$ with weights $w_t$:</p>
+
+\[H = -\sum_{t \in D} p_t \log p_t, \qquad p_t = \frac{w_t}{\sum_{u \in D} w_u}\]
+
+<p>Collapsing low-entropy cells first reduces the chance of contradictions, in the same way a Sudoku solver fills the most constrained square first.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">wfc_step</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="n">cell</span> <span class="o">=</span> <span class="nf">min_entropy_cell</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>            <span class="c1"># undecided cell with fewest options (ties broken randomly)
+</span>    <span class="k">if</span> <span class="n">cell</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">DONE</span>
+    <span class="n">cell</span><span class="p">.</span><span class="nf">collapse_to</span><span class="p">(</span><span class="nf">weighted_choice</span><span class="p">(</span><span class="n">cell</span><span class="p">.</span><span class="n">options</span><span class="p">,</span> <span class="n">rng</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">propagate</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">cell</span><span class="p">):</span>            <span class="c1"># arc-consistency style pruning
+</span>        <span class="k">return</span> <span class="n">CONTRADICTION</span>                 <span class="c1"># backtrack or restart
+</span>    <span class="k">return</span> <span class="n">CONTINUE</span>
+</code></pre></div></div>
+
+<p>WFC is used in <em>Townscaper</em>, <em>Bad North</em>, and <em>Caves of Qud</em>, and suits tile-based content with strong local rules: towns, dungeon rooms, pipe and circuit layouts, and texture synthesis. Its limitations:</p>
+
+<ul>
+  <li><strong>Only local guarantees.</strong> Adjacency rules do not ensure a path from entrance to exit. Pre-place key tiles (start, exit, paths) as fixed constraints, or verify connectivity afterwards.</li>
+  <li><strong>Contradictions.</strong> Dense rule sets make the solver fail and restart. Backtracking, better tile sets, and generating in overlapping chunks (as model synthesis does) help.</li>
+  <li><strong>Scale.</strong> Propagation over large grids is expensive and output tends to lack large-scale structure. Hierarchical or chunked WFC, or seeding the grid with a coarse layout from another method, addresses both.</li>
+</ul>
+
+<h2 id="dungeon-generation">Dungeon Generation</h2>
+
+<p>Dungeons must be <strong>playable</strong>: connected, fair, and paced. Several families of generators dominate.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Output character</th>
+      <th>Connectivity</th>
+      <th>Design control</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Room templates on a grid</td>
+      <td>Hand-made rooms, varied arrangement</td>
+      <td>Guaranteed by a solution path</td>
+      <td>High locally</td>
+    </tr>
+    <tr>
+      <td>Rooms plus graph (Delaunay, MST)</td>
+      <td>Scattered rooms, natural corridors</td>
+      <td>Guaranteed by the spanning tree</td>
+      <td>Medium</td>
+    </tr>
+    <tr>
+      <td>BSP partitioning</td>
+      <td>Evenly distributed rectangular rooms</td>
+      <td>Guaranteed by the tree</td>
+      <td>Medium</td>
+    </tr>
+    <tr>
+      <td>Random walk, cellular automata</td>
+      <td>Organic caves</td>
+      <td>Needs post-processing</td>
+      <td>Low</td>
+    </tr>
+    <tr>
+      <td>Mission graphs (graph grammars)</td>
+      <td>Structured progression</td>
+      <td>Guaranteed by construction</td>
+      <td>High globally</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="room-templates">Room Templates</h3>
+
+<p><em>Spelunky</em> divides each level into a 4x4 grid of rooms. It first walks a random path from a top-row entrance to a bottom-row exit, marking the rooms it passes through as types with the openings the path needs. Each room is then filled from a pool of hand-authored templates for that type, with random chunks varied inside. A solution path is guaranteed and each room still looks designed. <em>Dead Cells</em> and <em>The Binding of Isaac</em> use related template-over-layout approaches.</p>
+
+<h3 id="rooms-and-graphs">Rooms and Graphs</h3>
+
+<p>Scatter rectangular rooms and reject or separate overlaps, then decide connections as a graph problem:</p>
+
+<ol>
+  <li><strong>Delaunay-triangulate</strong> room centers to get candidate connections between neighboring rooms.</li>
+  <li>Take a <strong>minimum spanning tree</strong> of that graph, which guarantees every room is reachable.</li>
+  <li><strong>Add back</strong> a fraction (for example 10 to 15%) of the remaining Delaunay edges to create loops, so the dungeon is not a pure tree with only dead ends.</li>
+  <li>Carve L-shaped or pathfound corridors along the chosen edges.</li>
+</ol>
+
+<p>This approach was popularized by the developer of <em>TinyKeep</em>.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">generate_dungeon</span><span class="p">(</span><span class="n">rng</span><span class="p">):</span>
     <span class="n">rooms</span> <span class="o">=</span> <span class="nf">place_non_overlapping_rooms</span><span class="p">(</span><span class="n">rng</span><span class="p">)</span>
-    <span class="n">graph</span> <span class="o">=</span> <span class="nf">delaunay</span><span class="p">(</span><span class="nf">centers</span><span class="p">(</span><span class="n">rooms</span><span class="p">))</span>         <span class="c1"># candidate connections
-</span>    <span class="n">corridors</span> <span class="o">=</span> <span class="nf">mst</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>                   <span class="c1"># guaranteed connectivity
-</span>    <span class="n">corridors</span> <span class="o">+=</span> <span class="nf">sample</span><span class="p">(</span><span class="n">graph</span> <span class="o">-</span> <span class="n">corridors</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span>  <span class="c1"># add loops
+    <span class="n">candidates</span> <span class="o">=</span> <span class="nf">delaunay</span><span class="p">(</span><span class="nf">centers</span><span class="p">(</span><span class="n">rooms</span><span class="p">))</span>
+    <span class="n">corridors</span> <span class="o">=</span> <span class="nf">minimum_spanning_tree</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span>
+    <span class="n">extras</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">candidates</span> <span class="k">if</span> <span class="n">e</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">corridors</span><span class="p">]</span>
+    <span class="n">corridors</span> <span class="o">+=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="n">extras</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="nf">int</span><span class="p">(</span><span class="mf">0.15</span> <span class="o">*</span> <span class="nf">len</span><span class="p">(</span><span class="n">extras</span><span class="p">)))</span>   <span class="c1"># loops
 </span>    <span class="nf">carve</span><span class="p">(</span><span class="n">rooms</span><span class="p">,</span> <span class="n">corridors</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">rooms</span><span class="p">,</span> <span class="n">corridors</span>
 </code></pre></div></div>
 
-<h3 id="bsp-trees">BSP Trees</h3>
+<h3 id="bsp-partitioning">BSP Partitioning</h3>
 
-<p><strong>Binary Space Partitioning</strong> recursively splits the dungeon rectangle into sub-rectangles, placing one room per leaf and connecting sibling rooms back up the tree. The recursion guarantees connectivity and gives tunable room density. This is a classic <em>Rogue</em>-style approach.</p>
+<p><strong>Binary space partitioning</strong> recursively splits the map rectangle, alternating roughly between horizontal and vertical cuts, until cells reach a target size. Each leaf gets a room, and each internal node connects its two children, so the tree structure guarantees connectivity and spreads rooms evenly.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Split the map -&gt; two halves -&gt; recurse until cells are small enough
-Each leaf -&gt; place a room inside it
-Each internal node -&gt; connect the rooms/regions of its two children
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart TD
+    M["Whole map"] --&gt; L["Left half"]
+    M --&gt; R["Right half"]
+    L --&gt; L1["Leaf: room A"]
+    L --&gt; L2["Leaf: room B"]
+    R --&gt; R1["Leaf: room C"]
+    R --&gt; R2["Leaf: room D"]
+</code></pre>
 
-<h3 id="drunkards-walk-and-cellular-automata">Drunkard’s Walk and Cellular Automata</h3>
+<p>Siblings are joined first (A with B, C with D), then the two subtrees are joined through any pair of their rooms.</p>
 
-<p>For <strong>organic</strong> caves rather than rectilinear rooms, carve a path with a random walk (“drunkard’s walk”) until a target floor percentage is reached, or use the <a href="#cave-generation">cellular-automata cave</a> method above. Both produce natural, non-grid layouts; combine with connectivity post-processing.</p>
+<h3 id="random-walks-and-caves">Random Walks and Caves</h3>
 
-<h3 id="grammar--mission-graphs">Grammar / Mission Graphs</h3>
+<p>For organic layouts, carve floor with a <strong>drunkard’s walk</strong> (a random walk that turns cells to floor) until a target floor percentage is reached, or use the <a href="#cave-generation">cellular-automata method</a>. Both need connectivity post-processing, and multiple walkers or biased walks give more control over shape.</p>
 
-<p>The most <em>design-controllable</em> approach separates <strong>mission</strong> (the logical sequence — get key, fight boss, find treasure) from <strong>space</strong> (the physical layout). A graph grammar generates the mission graph; a separate step embeds it into geometry. This is how generators guarantee <strong>lock-and-key</strong> progression and pacing rather than leaving them to chance (<em>Unexplored</em> is the canonical example).</p>
+<h3 id="mission-graphs">Mission Graphs</h3>
 
-<h2 id="control-vs-randomness">Control vs. Randomness</h2>
+<p>The most controllable approach separates the <strong>mission</strong>, the logical sequence of goals (find the key, open the locked door, defeat the boss), from the <strong>space</strong> that realizes it. A graph grammar generates the mission graph, including lock-and-key dependencies; a second step embeds that graph into rooms and corridors. This guarantees solvability and pacing by construction. Joris Dormans formalized the approach in academic work and applied a related idea, <strong>cyclic dungeon generation</strong> (building levels from loops rather than trees), in <em>Unexplored</em> (2017).</p>
 
-<p>The recurring theme of PCG is steering a random process toward <em>good</em> content. The techniques:</p>
+<h2 id="steering-randomness">Steering Randomness</h2>
+
+<p>The recurring problem is steering a random process toward good content.</p>
 
 <table>
   <thead>
@@ -3649,65 +3709,96 @@ Each internal node -&gt; connect the rooms/regions of its two children
   <tbody>
     <tr>
       <td>Seeded determinism</td>
-      <td>Reproducibility; sharable/debuggable worlds</td>
+      <td>Reproducible, shareable, debuggable output</td>
     </tr>
     <tr>
-      <td>Constraints</td>
-      <td>Forbid invalid output (WFC adjacency, no-overlap, solvability checks)</td>
+      <td>Hard constraints</td>
+      <td>Forbid invalid output (WFC adjacency, no overlap, reachability)</td>
     </tr>
     <tr>
       <td>Weighting</td>
-      <td>Bias choices toward desirable outcomes (rare loot weights, biome frequency)</td>
+      <td>Bias choices toward desirable outcomes (loot rarity, biome frequency)</td>
     </tr>
     <tr>
-      <td>Authored set-pieces</td>
-      <td>Hand-made rooms/vistas dropped into procedural space (“set-piece injection”)</td>
+      <td>Authored pieces</td>
+      <td>Hand-made rooms, vistas, and set pieces placed inside procedural space</td>
     </tr>
     <tr>
-      <td>Grammars / templates</td>
-      <td>Guarantee structure and pacing (lock-and-key, mission graphs)</td>
+      <td>Grammars and templates</td>
+      <td>Guarantee structure and pacing (mission graphs, room templates)</td>
     </tr>
     <tr>
-      <td>Generate-and-test</td>
+      <td>Generate and test</td>
       <td>Produce many candidates, score them, keep the best</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="generate-and-test">Generate-and-Test</h3>
+<h3 id="generate-and-test">Generate and Test</h3>
 
-<p>When direct control is hard, generate many candidates and <strong>evaluate</strong> them against metrics (path length, difficulty, symmetry, reachability), keeping or evolving the best. The fitness function encodes “what good looks like”:</p>
+<p>When direct control is hard, generate candidates and <strong>evaluate</strong> them against metrics such as path length, difficulty, reachability, and item spread. A weighted sum is the simplest fitness function:</p>
 
 \[\text{fitness}(L) = \sum_{k} w_k \, m_k(L)\]
 
-<p>where each $m_k$ is a metric (e.g. solvability, branching factor, item spread) and $w_k$ its designer weight. <strong>Search-based PCG</strong> pushes this further with evolutionary algorithms or constraint solvers (ASP / answer-set programming) that generate <em>only</em> content satisfying hard constraints while optimizing soft ones.</p>
+<p>Candidates that fail a hard requirement are rejected outright; the rest are ranked by the soft metrics. <strong>Search-based PCG</strong> replaces blind sampling with optimization, using evolutionary algorithms or quality-diversity methods such as MAP-Elites, which keep the best candidate in each cell of a grid of behavioral features and so return a <em>range</em> of good but different levels. <strong>Constraint solvers</strong>, including answer-set programming (ASP) and SAT/SMT solvers, generate only content that satisfies the hard constraints by construction.</p>
 
-<h3 id="designer-facing-controls">Designer-Facing Controls</h3>
+<h3 id="designer-controls">Designer Controls</h3>
 
-<p>In production, PCG is rarely fully autonomous. Designers expose <strong>knobs</strong> — density sliders, biome weights, difficulty curves, “spice” parameters — and the generator maps them to its internal parameters. The goal is a generator a <em>designer</em> can direct, not a black box. A useful rule of thumb:</p>
+<p>In production, generators are rarely autonomous. Designers get <strong>controls</strong>: density maps, biome weights, difficulty curves, exclusion zones, and hand-placed anchors the generator must respect. A useful working rule: make the generator produce plausible content by default, give designers controls to bias it, validate hard requirements (solvability, fairness, performance budget) with automated checks, and tune soft qualities with weights and metrics. Run generators across thousands of seeds in CI to catch the rare seed that produces an unwinnable level; see <a href="testing-qa.html">Testing &amp; QA</a>.</p>
 
-<blockquote>
-  <p>Make the generator produce <em>plausible</em> content by default, then give designers controls to bias it. Validate hard requirements (solvability, fairness) with post-checks; tune soft qualities (variety, pacing) with weights and metrics.</p>
-</blockquote>
+<h2 id="machine-learning-and-pcg">Machine Learning and PCG</h2>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p>Machine-learned generation (often called PCGML) learns content distributions from examples instead of hand-writing rules. Research has applied Markov chains, LSTMs, GANs, and more recently diffusion models and transformers to levels, terrain, textures, and 3D assets; large language models are used to draft quest text, item descriptions, and dialogue under designer review. Generative “world models”, such as Google DeepMind’s Genie 3 (2025), produce interactive, explorable environments frame by frame from a text prompt.</p>
 
-<ul>
-  <li><strong>Seed everything.</strong> A PRNG seeded from a world seed plus hashed coordinates gives order-independent, reproducible, position-addressable worlds — the basis of infinite open worlds and sharable seed codes.</li>
-  <li><strong>Noise is the raw material.</strong> Value noise is cheapest; Perlin adds gradient quality; Simplex/OpenSimplex scale to higher dimensions without axis bias. Stack octaves with fBm (lacunarity + gain) to get multi-scale terrain.</li>
-  <li><strong>Local rules, global structure.</strong> Cellular automata grow organic caves, L-systems grow branching plants, and Wave Function Collapse solves local adjacency constraints into coherent tile maps.</li>
-  <li><strong>Playability is a separate problem.</strong> Dungeons need connectivity (MST + loops, BSP) and pacing (mission grammars). Always post-process for reachability — pretty is not the same as solvable.</li>
-  <li><strong>PCG is control over randomness,</strong> not the absence of it: constraints, weighting, grammars, set-piece injection, and generate-and-test steer a random process toward content that is both varied and fun.</li>
-</ul>
+<p>In shipped games, learned generators are used mostly offline in asset production (texture and material generation, terrain synthesis, concept iteration) rather than at runtime. Classical PCG remains dominant at runtime for practical reasons: it is deterministic from a seed, cheap to evaluate, easy to constrain, and explainable when a designer asks why a level looks the way it does. Learned models need training data, cost more per sample, and are harder to constrain to hard requirements such as solvability. Hybrids are common, with a classical generator guaranteeing structure and a learned model adding surface detail or scoring candidates.</p>
+
+<h2 id="tools-and-engines">Tools and Engines</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Unreal Engine PCG Framework</td>
+      <td>Node-graph point processing and scattering, introduced in UE 5.2; integrates with World Partition and can run in-editor or at runtime</td>
+    </tr>
+    <tr>
+      <td>Houdini (with Houdini Engine)</td>
+      <td>Industry-standard procedural modeling; tools packaged as digital assets and run inside Unreal or Unity</td>
+    </tr>
+    <tr>
+      <td>SpeedTree</td>
+      <td>Procedural vegetation modeling and wind animation</td>
+    </tr>
+    <tr>
+      <td>Substance Designer</td>
+      <td>Node-based procedural materials and textures</td>
+    </tr>
+    <tr>
+      <td>World Machine, Gaea</td>
+      <td>Terrain generation with erosion simulation</td>
+    </tr>
+    <tr>
+      <td>FastNoiseLite</td>
+      <td>Portable noise library (Perlin, value, OpenSimplex2, cellular, fractals, domain warp)</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="./">Game Development</a> - Engines, core systems, and design principles</li>
+  <li><a href="./">Game Development</a> - Section hub: engines, core systems, and design principles</li>
+  <li><a href="testing-qa.html">Testing &amp; QA</a> - Automated and determinism testing, useful for validating generators across seeds</li>
+  <li><a href="save-systems.html">Save Systems &amp; Persistence</a> - Storing seeds plus player-made changes instead of whole generated worlds</li>
   <li><a href="../ai-ml/game-ai.html">Game AI Systems</a> - Pathfinding and decision-making over generated worlds</li>
   <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - Rendering the meshes and textures PCG produces</li>
   <li><a href="../optimization/">Performance Optimization</a> - Keeping generation within frame and memory budgets</li>
-  <li><a href="../technology/unreal.html">Unreal Engine</a> - PCG framework, World Partition, and procedural tooling</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a> - PCG Framework, World Partition, and procedural tooling</li>
 </ul>
 
       </section>

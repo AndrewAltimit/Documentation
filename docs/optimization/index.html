@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Hub for profiling-driven performance work: frame and latency budgets, bottleneck classification, profilers, and guides to CPU, GPU, memory, algorithmic, plat...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Performance Optimization">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Hub for profiling-driven performance work: frame and latency budgets, bottleneck classification, profilers, and guides to CPU, GPU, memory, algorithmic, plat...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/optimization/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Performance Optimization">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Hub for profiling-driven performance work: frame and latency budgets, bottleneck classification, profilers, and guides to CPU, GPU, memory, algorithmic, plat...">
 
 <title>Performance Optimization | Andrews Notebook</title>
 
@@ -3133,185 +3133,200 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Performance Optimization</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Master profiling-driven development, eliminate bottlenecks, and build responsive applications that scale</p>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Profiling-driven techniques for faster, leaner, more responsive software</p>
 </div>
 
-<p>Performance optimization is the systematic process of identifying and eliminating bottlenecks to achieve target frame rates, reduce latency, minimize memory usage, and improve overall responsiveness. Effective optimization is profiling-driven, hardware-aware, and applies the right technique at the right level of the stack. Four principles run through every area:</p>
+<p><strong>Performance optimization</strong> is the practice of finding what limits a program’s speed, latency, memory use, or energy consumption, and removing that limit. This section treats it as an engineering loop: set a budget, measure against it, identify the bottleneck, apply a targeted change, and verify. The guides below cover each layer of the stack, from algorithm choice down to cache lines, GPU passes, network round trips, and compiler flags. Examples lean toward real-time applications (games, rendering, interactive tools) and backend services, the two settings where budgets are most explicit.</p>
 
-<ul>
-  <li><strong>Measure before you cut.</strong> Intuition about bottlenecks is usually wrong. Profile in a release build, on real workloads, before changing a line.</li>
-  <li><strong>Big O beats micro-tuning.</strong> An $O(n^2) \to O(n \log n)$ algorithmic fix dwarfs any amount of constant-factor hand-optimization.</li>
-  <li><strong>Memory is the modern bottleneck.</strong> A cache miss costs ~200 cycles. Data-oriented layout (SoA) often beats raw compute optimization.</li>
-  <li><strong>Budget, then defend it.</strong> Convert your FPS target to a millisecond budget per frame, then track regressions in CI so wins don’t erode.</li>
-</ul>
+<p>Four principles apply throughout:</p>
 
-<h2 id="explore-the-areas">Explore the Areas</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Principle</th>
+      <th>In practice</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Measure before changing anything</strong></td>
+      <td>Intuition about bottlenecks is frequently wrong. Profile an optimized build on representative, worst-case workloads.</td>
+    </tr>
+    <tr>
+      <td><strong>Fix the largest cost first</strong></td>
+      <td>An algorithmic change from $O(n^2)$ to $O(n \log n)$ outweighs any amount of constant-factor tuning; after that, work down the profile.</td>
+    </tr>
+    <tr>
+      <td><strong>Respect the memory hierarchy</strong></td>
+      <td>A DRAM access costs hundreds of cycles, so data layout and access order often matter more than instruction count.</td>
+    </tr>
+    <tr>
+      <td><strong>Set a budget and defend it</strong></td>
+      <td>Convert targets into milliseconds, bytes, or requests per second, and track them in CI so gains are not lost to gradual regressions.</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>This hub is a map. Each area below is a full guide with its own profilers, worked examples, and code — start with the one that matches your bottleneck, or follow a persona path below.</p>
+<h2 id="guides">Guides</h2>
 
 <div class="command-grid">
   <a href="cpu-optimization.html" class="nav-card">
     <h4><i class="fas fa-microchip"></i> CPU Optimization</h4>
-    <p>Profile hot paths, respect the cache hierarchy, vectorize the inner loop, pool allocations, and scale across cores without false sharing.</p>
+    <p>Profiling hot paths, cache behavior, branch prediction, SIMD vectorization, and multithreading without false sharing.</p>
   </a>
   <a href="gpu-optimization.html" class="nav-card">
     <h4><i class="fas fa-tv"></i> GPU Optimization</h4>
-    <p>Find your bound (fill-rate, geometry, bandwidth, or shader), batch draw calls, optimize shaders, and minimize CPU-GPU synchronization.</p>
+    <p>Identifying the bound (geometry, fill rate, bandwidth, or shader), reducing draw-call and state-change overhead, and avoiding CPU-GPU stalls.</p>
   </a>
   <a href="memory-optimization.html" class="nav-card">
     <h4><i class="fas fa-memory"></i> Memory Optimization</h4>
-    <p>Profile allocations, pool and arena-allocate to dodge the heap, fight fragmentation, stream assets within a budget, and lay out data for the cache.</p>
+    <p>Allocation profiling, arenas, pools and std::pmr, fragmentation, data-oriented layout, huge pages, and asset streaming within a budget.</p>
   </a>
   <a href="algorithmic-optimization.html" class="nav-card">
     <h4><i class="fas fa-superscript"></i> Algorithmic Optimization</h4>
-    <p>Complexity analysis in practice, choosing the right data structure, spatial partitioning, caching, memoization, and amortization.</p>
+    <p>Complexity analysis in practice, choosing data structures, spatial partitioning, caching, memoization, and amortization.</p>
   </a>
   <a href="platform-tuning.html" class="nav-card">
     <h4><i class="fas fa-mobile-alt"></i> Platform-Specific Tuning</h4>
-    <p>Mobile thermals and power, console fixed-hardware tuning, PC scalability presets, and compiler profile-guided optimization (PGO).</p>
+    <p>Mobile thermals and power, fixed console hardware, PC scalability and upscaling, and compiler optimizations: LTO, PGO, and BOLT.</p>
   </a>
   <a href="network-io-optimization.html" class="nav-card">
     <h4><i class="fas fa-network-wired"></i> Network &amp; I/O Optimization</h4>
-    <p>Tame latency and bandwidth, pick the right protocol, batch and pipeline round trips, pool connections, and move bytes with zero-copy.</p>
+    <p>Latency and bandwidth, TCP/QUIC/HTTP choice, batching and pooling, storage queue depth, the page cache, io_uring, and zero-copy.</p>
   </a>
 </div>
 
-<h2 id="learning-paths">Learning Paths</h2>
+<h3 id="where-to-start">Where to Start</h3>
 
-<h3 id="gamereal-time-developer-path">Game/Real-time Developer Path</h3>
-<p><strong>Goal</strong>: Achieve consistent 60/90/120 FPS for smooth gameplay</p>
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Likely bottleneck</th>
+      <th>Start with</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Main-thread frame time over budget; GPU partly idle</td>
+      <td>CPU</td>
+      <td><a href="cpu-optimization.html">CPU Optimization</a></td>
+    </tr>
+    <tr>
+      <td>GPU busy for the whole frame; lowering resolution helps</td>
+      <td>GPU (fill rate, bandwidth, or shaders)</td>
+      <td><a href="gpu-optimization.html">GPU Optimization</a></td>
+    </tr>
+    <tr>
+      <td>Runtime grows much faster than input size</td>
+      <td>Algorithm or data structure</td>
+      <td><a href="algorithmic-optimization.html">Algorithmic Optimization</a></td>
+    </tr>
+    <tr>
+      <td>High cache-miss rates, allocation hotspots, rising RSS, out-of-memory kills</td>
+      <td>Memory</td>
+      <td><a href="memory-optimization.html">Memory Optimization</a></td>
+    </tr>
+    <tr>
+      <td>Low CPU use but high latency; threads blocked in syscalls</td>
+      <td>Network or storage I/O</td>
+      <td><a href="network-io-optimization.html">Network &amp; I/O Optimization</a></td>
+    </tr>
+    <tr>
+      <td>Fast at first, slower after minutes; good on one device, poor on another</td>
+      <td>Thermal limits or hardware variance</td>
+      <td><a href="platform-tuning.html">Platform-Specific Tuning</a></td>
+    </tr>
+    <tr>
+      <td>Periodic hitches rather than uniformly slow frames</td>
+      <td>Garbage collection, shader compilation, streaming, or lock contention</td>
+      <td>Frame-timeline profiler, then the matching guide</td>
+    </tr>
+  </tbody>
+</table>
 
-<ol>
-  <li>Establish baselines with profiling (see <a href="#getting-started">Getting Started</a> below)</li>
-  <li>Master <a href="cpu-optimization.html">CPU Optimization</a> techniques (cache optimization, multithreading)</li>
-  <li>Deep dive into <a href="gpu-optimization.html">GPU Optimization</a> (draw calls, shader optimization)</li>
-  <li>Study <a href="memory-optimization.html">Memory Optimization</a> for streaming and asset management</li>
-  <li>Apply <a href="platform-tuning.html">Platform-Specific Tuning</a> for target consoles/mobile</li>
-</ol>
+<h2 id="budgets">Budgets</h2>
 
-<p><strong>Key Focus</strong>: Frame time budgets, low-level optimization, hardware awareness</p>
+<p>Performance work needs a numeric target. For real-time applications it is a frame-time budget:</p>
 
-<h3 id="backendserver-developer-path">Backend/Server Developer Path</h3>
-<p><strong>Goal</strong>: Maximize throughput and minimize latency under load</p>
+\[t_{\text{frame}} = \frac{1000 \ \text{ms}}{\text{target FPS}}\]
 
-<ol>
-  <li>Begin with <a href="algorithmic-optimization.html">Algorithmic Optimization</a> for Big O improvements</li>
-  <li>Study <a href="cpu-optimization.html">CPU Optimization</a> for concurrent request handling</li>
-  <li>Learn <a href="memory-optimization.html">Memory Optimization</a> for efficient data structures</li>
-  <li>Tame latency with <a href="network-io-optimization.html">Network &amp; I/O Optimization</a></li>
-  <li>Implement continuous performance testing in CI/CD</li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Target</th>
+      <th>Frame budget</th>
+      <th>Typical context</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>30 FPS</td>
+      <td>33.33 ms</td>
+      <td>Mobile battery-saver modes, cinematic console modes</td>
+    </tr>
+    <tr>
+      <td>60 FPS</td>
+      <td>16.67 ms</td>
+      <td>Standard for action games and smooth UI</td>
+    </tr>
+    <tr>
+      <td>90 FPS</td>
+      <td>11.11 ms</td>
+      <td>Minimum comfortable VR on many headsets</td>
+    </tr>
+    <tr>
+      <td>120 FPS</td>
+      <td>8.33 ms</td>
+      <td>High-refresh displays, performance modes, some VR</td>
+    </tr>
+    <tr>
+      <td>240 FPS</td>
+      <td>4.17 ms</td>
+      <td>Competitive esports titles</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Key Focus</strong>: Scalability, algorithmic complexity, distributed systems performance</p>
+<p>The budget is divided among subsystems (for example: simulation 4 ms, animation 2 ms, render submission 3 ms, with the GPU running in parallel), and each owner is accountable for their share. Aim below the budget: the worst frames, not the average, determine perceived smoothness, so track <strong>percentile frame times</strong> (p95, p99, “1% lows”) rather than average FPS.</p>
 
-<h3 id="mobile-developer-path">Mobile Developer Path</h3>
-<p><strong>Goal</strong>: Balance performance with battery life and thermal constraints</p>
+<p>Services use the same idea with different units: a <strong>latency SLO</strong> (for example, p99 below 200 ms), a throughput target, and a cost-per-request ceiling. As in frame budgets, tail percentiles matter more than means.</p>
 
-<ol>
-  <li>Understand power and thermal management in <a href="platform-tuning.html">Platform-Specific Tuning</a></li>
-  <li>Master <a href="memory-optimization.html">Memory Optimization</a> for constrained environments</li>
-  <li>Study <a href="gpu-optimization.html">GPU Optimization</a> for mobile GPUs (tile-based rendering)</li>
-  <li>Apply <a href="algorithmic-optimization.html">Algorithmic Optimization</a> to reduce computational load</li>
-  <li>Focus on asset compression and streaming within a memory budget</li>
-</ol>
+<h3 id="amdahls-law">Amdahl’s Law</h3>
 
-<p><strong>Key Focus</strong>: Power efficiency, memory constraints, thermal throttling</p>
+<p>The benefit of optimizing one part of a program is bounded by that part’s share of the total. If a fraction $p$ of the runtime is sped up by a factor $s$, the overall speedup is</p>
 
-<h3 id="gpugraphics-programmer-path">GPU/Graphics Programmer Path</h3>
-<p><strong>Goal</strong>: Push visual fidelity while maintaining performance</p>
+\[S = \frac{1}{(1 - p) + \dfrac{p}{s}}\]
 
-<ol>
-  <li>Deep dive into <a href="gpu-optimization.html">GPU Optimization</a> and profiling tools</li>
-  <li>Master shader optimization and GPU bottleneck analysis</li>
-  <li>Study draw-call batching and modern rendering techniques</li>
-  <li>Learn <a href="memory-optimization.html">Memory Optimization</a> for texture and mesh data</li>
-  <li>Explore advanced techniques in our <a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> guide</li>
-</ol>
+<p>Making a function that takes 10% of the frame infinitely fast gains at most about 11%. The same law limits parallel scaling: with 5% serial work, no number of cores yields more than a 20x speedup. Profiles show where $p$ is large enough to matter.</p>
 
-<p><strong>Key Focus</strong>: Rendering pipelines, GPU architecture, graphics APIs</p>
+<h2 id="the-optimization-loop">The Optimization Loop</h2>
 
-<h2 id="getting-started">Getting Started</h2>
-
-<h3 id="prerequisites">Prerequisites</h3>
-
-<p><strong>Essential Knowledge:</strong></p>
-<ul>
-  <li>Basic understanding of your target platform architecture (CPU/GPU)</li>
-  <li>Familiarity with your development environment’s debugging tools</li>
-  <li>Understanding of algorithmic complexity (Big O notation)</li>
-  <li>Basic statistics for interpreting profiling data</li>
-</ul>
-
-<p><strong>Recommended Background:</strong></p>
-<ul>
-  <li>Experience with the target language (C++, C#, Java, etc.)</li>
-  <li>Understanding of memory management concepts</li>
-  <li>Basic knowledge of multithreading and concurrency</li>
-  <li>Familiarity with graphics APIs (for graphics optimization)</li>
-</ul>
-
-<h3 id="first-steps-for-profiling">First Steps for Profiling</h3>
-
-<p><strong>1. Define Your Performance Budget:</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Frame Rate Target → Frame Time Budget
-- 30 FPS → 33.33 ms per frame
-- 60 FPS → 16.67 ms per frame
-- 90 FPS → 11.11 ms per frame (VR)
-- 120 FPS → 8.33 ms per frame
-</code></pre></div></div>
-
-<p><strong>2. Profile Before Optimizing:</strong></p>
-<ul>
-  <li>Run your application in Release/Production configuration</li>
-  <li>Identify the actual bottleneck (don’t assume)</li>
-  <li>Collect baseline metrics across multiple runs</li>
-  <li>Profile worst-case scenarios, not just average cases</li>
-</ul>
-
-<p><strong>3. Start with the Biggest Win:</strong></p>
-<ul>
-  <li>Fix algorithmic issues first (O(n²) → O(n log n))</li>
-  <li>Then optimize hot paths revealed by profiling</li>
-  <li>Avoid micro-optimizations until necessary</li>
-  <li>Always verify improvements with re-profiling</li>
-</ul>
-
-<p><strong>4. Document and Track:</strong></p>
-<ul>
-  <li>Record baseline performance metrics</li>
-  <li>Document each optimization attempt and result</li>
-  <li>Track performance over time in version control</li>
-  <li>Set up automated performance regression tests</li>
-</ul>
-
-<h2 id="optimization-philosophy">Optimization Philosophy</h2>
-
-<h3 id="the-golden-rules">The Golden Rules</h3>
-
-<ol>
-  <li><strong>Measure first, optimize second</strong>: Never optimize without profiling data</li>
-  <li><strong>Optimize the bottleneck</strong>: Find the actual constraint, not assumed ones</li>
-  <li><strong>Big O matters</strong>: Algorithmic improvements beat micro-optimizations</li>
-  <li><strong>Hardware awareness</strong>: Understand your target platform’s characteristics</li>
-  <li><strong>Trade-offs exist</strong>: Time vs space, quality vs performance, development time vs runtime</li>
-</ol>
-
-<h3 id="the-optimization-process">The Optimization Process</h3>
-
-<p>Optimization is a disciplined loop, not a one-shot effort. Each pass targets the current bottleneck, verifies the win, and repeats — because fixing the top bottleneck simply promotes the next one.</p>
+<p>Each pass targets the current bottleneck, verifies the gain, and repeats, because removing one bottleneck exposes the next.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    A["1. Define targets&lt;br/&gt;FPS, frame-time budget, memory, load times"] --&gt; B["2. Profile current state&lt;br/&gt;CPU / GPU / memory / I/O"]
-    B --&gt; C["3. Identify bottleneck&lt;br/&gt;CPU- or GPU-bound? which subsystem?"]
-    C --&gt; D["4. Apply targeted fix&lt;br/&gt;algorithm, data layout, caching, platform"]
-    D --&gt; E["5. Verify &amp; iterate&lt;br/&gt;re-profile, check regressions, document"]
-    E --&gt;|next bottleneck| B
-    E --&gt;|targets met| F["Ship"]
+    A["1. Set targets&lt;br/&gt;frame budget, latency SLO, memory, energy"] --&gt; B["2. Measure&lt;br/&gt;optimized build, representative and worst-case workloads"]
+    B --&gt; C["3. Classify the bottleneck&lt;br/&gt;CPU, GPU, memory, I/O, algorithm, platform"]
+    C --&gt; D["4. Apply one targeted change"]
+    D --&gt; E["5. Re-measure&lt;br/&gt;same workload, several runs"]
+    E --&gt;|"no gain or regression"| R["Revert"] --&gt; C
+    E --&gt;|"target not met"| B
+    E --&gt;|"target met"| F["Lock in: add a regression test to CI"]
 </code></pre>
 
-<h2 id="tools-overview">Tools Overview</h2>
+<p>Measurement practice:</p>
 
-<p>Profiling-driven development starts with the right instrument for the bottleneck you suspect. The table below maps the common, production-grade profilers to their category and platform; each area guide goes deeper on how to read their output and which metrics matter.</p>
+<ul>
+  <li><strong>Profile optimized builds.</strong> Unoptimized builds have different hotspots. Use release builds with debug symbols and frame pointers.</li>
+  <li><strong>Measure repeatedly.</strong> Run-to-run variance from clock boosting, thermal state, background processes, and caches can exceed the effect being measured. Report medians and percentiles over several runs; pin CPU frequency or control for it where possible.</li>
+  <li><strong>Profile worst cases</strong>, such as the densest scene, the largest customer, or cold caches after startup, not only the average path.</li>
+  <li><strong>Change one thing at a time</strong>, so each gain or regression is attributable.</li>
+  <li><strong>Automate regression detection.</strong> Run benchmarks in CI on consistent hardware and alert on statistically significant changes; continuous profiling in production (Grafana Pyroscope, Parca, Google Cloud Profiler, Datadog) catches regressions that synthetic benchmarks miss.</li>
+</ul>
+
+<h2 id="profiling-tools">Profiling Tools</h2>
+
+<p>Choose the instrument that matches the suspected bottleneck. Each guide explains how to read its tools’ output.</p>
 
 <table>
   <thead>
@@ -3325,156 +3340,189 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><strong>CPU</strong></td>
-      <td>Visual Studio Profiler</td>
+      <td><code class="language-plaintext highlighter-rouge">perf</code></td>
+      <td>Linux</td>
+      <td>Sampling with hardware counters; basis for flame graphs; <code class="language-plaintext highlighter-rouge">perf stat</code> for top-down metrics</td>
+    </tr>
+    <tr>
+      <td><strong>CPU</strong></td>
+      <td>Intel VTune Profiler</td>
+      <td>Windows, Linux</td>
+      <td>Microarchitecture and threading analysis</td>
+    </tr>
+    <tr>
+      <td><strong>CPU</strong></td>
+      <td>AMD uProf</td>
+      <td>Windows, Linux</td>
+      <td>Counter-based analysis on AMD CPUs</td>
+    </tr>
+    <tr>
+      <td><strong>CPU</strong></td>
+      <td>Visual Studio Profiler, Windows Performance Analyzer (ETW)</td>
       <td>Windows</td>
-      <td>CPU and memory analysis, integrated debugging</td>
+      <td>Sampling, instrumentation, and system-wide traces</td>
     </tr>
     <tr>
       <td><strong>CPU</strong></td>
       <td>Instruments</td>
-      <td>macOS / iOS</td>
-      <td>Time Profiler, system trace, allocations</td>
+      <td>macOS, iOS</td>
+      <td>Time Profiler, CPU counters, system trace</td>
     </tr>
     <tr>
       <td><strong>CPU</strong></td>
-      <td>perf</td>
-      <td>Linux</td>
-      <td>Hardware performance counters, flame graphs</td>
+      <td>Superluminal, samply</td>
+      <td>Windows / cross-platform</td>
+      <td>Low-overhead samplers with timeline views</td>
     </tr>
     <tr>
-      <td><strong>CPU</strong></td>
-      <td>Intel VTune</td>
-      <td>Windows / Linux</td>
-      <td>Microarchitectural and threading deep analysis</td>
+      <td><strong>Frame timeline</strong></td>
+      <td>Tracy</td>
+      <td>Cross-platform</td>
+      <td>Instrumented, nanosecond-resolution CPU/GPU timelines; widely used in games</td>
     </tr>
     <tr>
-      <td><strong>CPU</strong></td>
-      <td>Superluminal</td>
-      <td>Windows</td>
-      <td>Low-overhead sampling, multithreaded timelines</td>
+      <td><strong>Frame timeline</strong></td>
+      <td>Perfetto</td>
+      <td>Android, Linux, Chrome</td>
+      <td>System-wide tracing with scheduling, frequency, and thermal data</td>
+    </tr>
+    <tr>
+      <td><strong>Engine</strong></td>
+      <td>Unreal Insights, Unity Profiler</td>
+      <td>Engine-specific</td>
+      <td>Attribute cost to gameplay systems and assets</td>
     </tr>
     <tr>
       <td><strong>GPU</strong></td>
       <td>RenderDoc</td>
       <td>Cross-platform</td>
-      <td>Frame capture, draw-call and pipeline inspection</td>
+      <td>Frame capture and inspection (debugging rather than timing)</td>
     </tr>
     <tr>
       <td><strong>GPU</strong></td>
-      <td>NVIDIA Nsight</td>
+      <td>NVIDIA Nsight Graphics / Nsight Systems</td>
       <td>NVIDIA GPUs</td>
-      <td>Occupancy, memory bandwidth, shader profiling</td>
+      <td>GPU trace, shader profiling, CPU-GPU timeline</td>
     </tr>
     <tr>
       <td><strong>GPU</strong></td>
-      <td>AMD Radeon GPU Profiler</td>
+      <td>Radeon GPU Profiler</td>
       <td>AMD GPUs</td>
-      <td>Wavefront occupancy and pipeline analysis</td>
+      <td>Wavefront occupancy, barriers, pipeline analysis</td>
     </tr>
     <tr>
       <td><strong>GPU</strong></td>
       <td>PIX</td>
-      <td>Xbox / Windows</td>
-      <td>GPU and CPU capture for D3D12</td>
+      <td>Windows, Xbox</td>
+      <td>D3D12 GPU captures and timing</td>
     </tr>
     <tr>
       <td><strong>GPU</strong></td>
-      <td>Xcode GPU Debugger</td>
+      <td>Xcode Metal debugger</td>
       <td>Apple platforms</td>
-      <td>Metal frame capture and shader profiling</td>
+      <td>Metal frame capture, shader cost, GPU counters</td>
+    </tr>
+    <tr>
+      <td><strong>GPU</strong></td>
+      <td>Android GPU Inspector, Snapdragon Profiler, Arm Performance Studio</td>
+      <td>Android</td>
+      <td>Mobile GPU counters and render-pass analysis</td>
     </tr>
     <tr>
       <td><strong>Memory</strong></td>
-      <td>Valgrind (Massif/Memcheck)</td>
+      <td>heaptrack, Valgrind (Massif, DHAT)</td>
       <td>Linux</td>
-      <td>Heap profiling and leak/error detection</td>
+      <td>Allocation profiling and heap-over-time analysis</td>
     </tr>
     <tr>
       <td><strong>Memory</strong></td>
-      <td>AddressSanitizer (ASan)</td>
-      <td>Cross-platform</td>
-      <td>Compiler-instrumented use-after-free and overflow detection</td>
+      <td>AddressSanitizer / LeakSanitizer</td>
+      <td>Clang, GCC, MSVC</td>
+      <td>Leaks, overflows, use-after-free in CI</td>
     </tr>
     <tr>
       <td><strong>Memory</strong></td>
-      <td>Visual Studio Memory Profiler</td>
-      <td>Windows</td>
-      <td>Snapshot diffing and allocation tracking</td>
+      <td>Instruments (Allocations, Leaks), Visual Studio memory tools</td>
+      <td>macOS/iOS, Windows</td>
+      <td>Snapshot diffing and allocation call stacks</td>
     </tr>
     <tr>
-      <td><strong>Memory</strong></td>
-      <td>Instruments (Allocations/Leaks)</td>
-      <td>macOS / iOS</td>
-      <td>Allocation graphs and leak detection</td>
+      <td><strong>I/O and system</strong></td>
+      <td>bpftrace, BCC tools, <code class="language-plaintext highlighter-rouge">strace</code>, <code class="language-plaintext highlighter-rouge">perf trace</code></td>
+      <td>Linux</td>
+      <td>Syscall latency, block I/O latency, off-CPU time</td>
     </tr>
     <tr>
-      <td><strong>Network/I/O</strong></td>
-      <td>Wireshark</td>
-      <td>Cross-platform</td>
-      <td>Packet capture and protocol-level analysis</td>
+      <td><strong>Network</strong></td>
+      <td>Wireshark, <code class="language-plaintext highlighter-rouge">tcpdump</code>, <code class="language-plaintext highlighter-rouge">ss</code>, <code class="language-plaintext highlighter-rouge">iperf3</code></td>
+      <td>Cross-platform / Linux</td>
+      <td>Packet capture, socket state, throughput testing</td>
     </tr>
     <tr>
-      <td><strong>Network/I/O</strong></td>
-      <td>tcpdump</td>
-      <td>Linux / macOS</td>
-      <td>Lightweight CLI packet capture</td>
+      <td><strong>Storage</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">fio</code>, <code class="language-plaintext highlighter-rouge">iostat</code></td>
+      <td>Linux (fio is cross-platform)</td>
+      <td>Device IOPS, throughput, and latency at varying queue depths</td>
     </tr>
     <tr>
-      <td><strong>Network/I/O</strong></td>
-      <td>iperf3</td>
-      <td>Cross-platform</td>
-      <td>Throughput and bandwidth benchmarking</td>
-    </tr>
-    <tr>
-      <td><strong>Network/I/O</strong></td>
-      <td>strace / dtrace / eBPF</td>
-      <td>Linux / macOS</td>
-      <td>Syscall and I/O-latency tracing</td>
+      <td><strong>Microbenchmarks</strong></td>
+      <td>Google Benchmark, Criterion (Rust), BenchmarkDotNet, JMH</td>
+      <td>Language-specific</td>
+      <td>Statistically sound benchmarks of small units</td>
     </tr>
   </tbody>
 </table>
 
-<blockquote>
-  <p>Engine-integrated profilers — <strong>Unreal Insights</strong>, the <strong>Unity Profiler</strong>, and custom in-engine timing systems — complement these by attributing cost to gameplay systems rather than raw functions. Use them together: the platform profiler tells you <em>what</em> is slow, the engine profiler tells you <em>which feature</em> caused it.</p>
-</blockquote>
+<p>A platform profiler shows <em>which functions</em> are slow; an engine or application-level profiler shows <em>which feature</em> caused the work. Use both.</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="learning-paths">Learning Paths</h2>
 
-<ul>
-  <li><strong>Profile, don’t guess.</strong> Always measure in a release build on representative, worst-case workloads before optimizing anything.</li>
-  <li><strong>Fix the biggest win first.</strong> Algorithmic complexity, then the hottest path the profiler reveals. Defer micro-optimizations until they’re justified.</li>
-  <li><strong>Respect the memory hierarchy.</strong> Cache-friendly data-oriented layouts and pooling often beat raw compute changes by avoiding ~200-cycle misses.</li>
-  <li><strong>Know your bound.</strong> CPU- vs GPU-bound, fill-rate vs geometry vs bandwidth — the bottleneck class dictates which fixes matter.</li>
-  <li><strong>Optimize per platform.</strong> Mobile fights thermals and battery; consoles offer fixed hardware; PC demands scalable quality settings.</li>
-  <li><strong>Guard against regressions.</strong> Automated performance tests in CI catch the slow creep of frame-time and memory regressions over time.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Path</th>
+      <th>Goal</th>
+      <th>Suggested order</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Games and real-time</strong></td>
+      <td>Stable 60/90/120 FPS</td>
+      <td><a href="cpu-optimization.html">CPU</a> (cache, threading), then <a href="gpu-optimization.html">GPU</a> (draw calls, shaders), <a href="memory-optimization.html">Memory</a> (streaming, budgets), <a href="platform-tuning.html">Platform</a> (consoles, mobile, PC scaling)</td>
+    </tr>
+    <tr>
+      <td><strong>Backend and services</strong></td>
+      <td>Throughput and tail latency under load</td>
+      <td><a href="algorithmic-optimization.html">Algorithmic</a>, then <a href="network-io-optimization.html">Network &amp; I/O</a>, <a href="cpu-optimization.html">CPU</a> (concurrency), <a href="memory-optimization.html">Memory</a> (allocators, GC pressure)</td>
+    </tr>
+    <tr>
+      <td><strong>Mobile</strong></td>
+      <td>Sustained performance within power and memory limits</td>
+      <td><a href="platform-tuning.html">Platform</a> (thermals, power APIs), then <a href="memory-optimization.html">Memory</a>, <a href="gpu-optimization.html">GPU</a> (tile-based GPUs), <a href="algorithmic-optimization.html">Algorithmic</a></td>
+    </tr>
+    <tr>
+      <td><strong>Graphics programming</strong></td>
+      <td>Higher fidelity within the frame budget</td>
+      <td><a href="gpu-optimization.html">GPU</a>, then <a href="memory-optimization.html">Memory</a> (textures, meshes), <a href="platform-tuning.html">Platform</a> (upscaling), <a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Useful background for all paths: CPU and memory architecture basics, Big-O notation, basic statistics for reading noisy measurements, and the debugging and profiling tools of your development environment.</p>
 
 <h2 id="related-documentation">Related Documentation</h2>
 
-<h3 id="graphics-and-game-development">Graphics and Game Development</h3>
 <ul>
-  <li><a href="../gamedev/">Game Development</a> - Game development fundamentals and workflows</li>
-  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - Advanced rendering techniques and optimization</li>
-  <li><a href="../technology/unreal.html">Unreal Engine</a> - UE5 profiling tools and performance guidelines</li>
-  <li><a href="../vr-ar/">VR/AR Development</a> - VR performance requirements and optimization strategies</li>
+  <li><a href="../gamedev/">Game Development</a> - engine architecture and production workflows</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - rendering techniques and their costs</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a> - Unreal Insights, scalability settings, and platform profiling</li>
+  <li><a href="../vr-ar/">VR/AR Development</a> - frame-rate and latency requirements for head-mounted displays</li>
+  <li><a href="../observability/">Observability</a> - metrics, logs, and traces for production performance</li>
+  <li><a href="../technology/docker/">Docker</a> and <a href="../technology/kubernetes/">Kubernetes</a> - resource limits and container performance</li>
+  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> - latency, consistency, and coordination costs</li>
+  <li><a href="../advanced/">Advanced Topics</a> - complexity theory and other theoretical foundations</li>
 </ul>
-
-<h3 id="systems-and-infrastructure">Systems and Infrastructure</h3>
-<ul>
-  <li><a href="../technology/docker/">Docker</a> - Container performance optimization</li>
-  <li><a href="../technology/kubernetes/">Kubernetes</a> - Cluster performance and resource optimization</li>
-  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> - Theoretical foundations for distributed performance</li>
-</ul>
-
-<h3 id="cross-cutting-topics">Cross-Cutting Topics</h3>
-<ul>
-  <li><a href="../advanced/">Advanced Research Topics</a> - Graduate-level systems and theory</li>
-  <li><a href="../technology/quantumcomputing.html">Quantum Computing</a> - Quantum algorithm optimization</li>
-</ul>
-
-<hr />
-
-<p><em>This performance optimization guide combines theoretical foundations with practical, production-tested techniques. For suggestions or contributions, visit our <a href="https://github.com/AndrewAltimit/Documentation">GitHub repository</a>.</em></p>
 
       </section>
     </div>

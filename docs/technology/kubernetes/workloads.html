@@ -3133,595 +3133,836 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Kubernetes</a> » Workloads &amp; Storage</p>
 
-<p>Configure persistent storage, manage application resources, apply security best practices, and monitor your Kubernetes workloads. This page is the at-a-glance treatment; <a href="persistence.html">Stateful Workloads &amp; Persistence</a> is the storage deep dive and <a href="fundamentals-resources.html">Health &amp; Resource Management</a> covers probes and autoscaling in detail.</p>
+<p>Kubernetes runs applications through <strong>workload controllers</strong>: API objects that create and replace Pods to match a declared shape. This page covers the controllers beyond the Deployment (StatefulSet, DaemonSet, Job, CronJob, and native sidecar containers), gives an overview of volumes and persistent storage, and describes the machinery around a running workload: vertical and node autoscaling, Pod security, and health signals. Feature stages are given as of Kubernetes v1.37 (August 2026).</p>
 
-<h2 id="storage-persistent-data-in-an-ephemeral-world">Storage: Persistent Data in an Ephemeral World</h2>
+<p>Related pages go deeper: <a href="fundamentals.html">Fundamentals</a> covers Pods, ReplicaSets, and Deployments; <a href="persistence.html">Stateful Workloads &amp; Persistence</a> is the storage and StatefulSet reference; <a href="fundamentals-resources.html">Health &amp; Resource Management</a> covers probes, requests and limits, QoS, and the Horizontal Pod Autoscaler.</p>
 
-<p>Containers are ephemeral - when a pod dies, its local filesystem is lost. This creates a challenge: how do you run databases, store uploaded files, or maintain application state?</p>
+<h2 id="choosing-a-workload-controller">Choosing a Workload Controller</h2>
 
-<p>Kubernetes solves this with a storage abstraction layer that separates “what storage I need” from “how that storage is provided.” This separation lets you write portable applications that work across cloud providers and on-premises infrastructure.</p>
-
-<p><strong>Consider the following storage concepts</strong>:</p>
+<p>Every controller manages Pods from a template; they differ in <em>how many</em> Pods, <em>where</em>, and <em>for how long</em>.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Concept</th>
-      <th>What It Does</th>
-      <th>Analogy</th>
+      <th>Controller</th>
+      <th>Runs</th>
+      <th>Pod identity</th>
+      <th>Typical workloads</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>PersistentVolume (PV)</strong></td>
-      <td>A piece of storage in the cluster</td>
-      <td>A hard drive</td>
+      <td><strong>Deployment</strong></td>
+      <td>N interchangeable replicas, indefinitely</td>
+      <td>Random names, no per-Pod storage</td>
+      <td>Web services, APIs, stateless workers</td>
     </tr>
     <tr>
-      <td><strong>PersistentVolumeClaim (PVC)</strong></td>
-      <td>A request for storage</td>
-      <td>“I need 10GB of fast storage”</td>
+      <td><strong>StatefulSet</strong></td>
+      <td>N ordered replicas, indefinitely</td>
+      <td>Stable names (<code class="language-plaintext highlighter-rouge">db-0</code>, <code class="language-plaintext highlighter-rouge">db-1</code>) and per-Pod volumes</td>
+      <td>Databases, brokers, consensus systems</td>
     </tr>
     <tr>
-      <td><strong>StorageClass</strong></td>
-      <td>Defines types of storage available</td>
-      <td>“Premium SSD” vs “Standard HDD”</td>
+      <td><strong>DaemonSet</strong></td>
+      <td>One Pod per (selected) node</td>
+      <td>Tied to its node</td>
+      <td>Log shippers, metrics agents, CNI and CSI node plugins</td>
     </tr>
     <tr>
-      <td><strong>CSI Driver</strong></td>
-      <td>Connects Kubernetes to storage backends</td>
-      <td>A device driver for storage</td>
+      <td><strong>Job</strong></td>
+      <td>Pods until a number of completions succeed</td>
+      <td>Optional completion index</td>
+      <td>Batch processing, migrations, ML training</td>
+    </tr>
+    <tr>
+      <td><strong>CronJob</strong></td>
+      <td>A Job on a schedule</td>
+      <td>Per run</td>
+      <td>Backups, reports, periodic clean-up</td>
     </tr>
   </tbody>
 </table>
 
-<p>The typical workflow: you create a PVC requesting storage, Kubernetes finds or creates a matching PV, and your pod mounts the volume.</p>
-
-<pre><code class="language-mermaid">flowchart LR
-    Pod[Pod] --&gt;|references| PVC[PersistentVolumeClaim&lt;br/&gt;'I need 10Gi fast SSD']
-    PVC --&gt;|selects| SC[StorageClass&lt;br/&gt;fast-ssd]
-    SC --&gt;|provisions via| CSI[CSI Driver]
-    CSI --&gt;|creates| PV[(PersistentVolume&lt;br/&gt;real disk)]
-    PVC -.bound to.-&gt; PV
-    PV -.mounted into.-&gt; Pod
+<pre><code class="language-mermaid">flowchart TD
+    Q1{"Does it run to&lt;br/&gt;completion?"} -- yes --&gt; Q2{"On a schedule?"}
+    Q2 -- yes --&gt; CJ[CronJob]
+    Q2 -- no --&gt; J[Job]
+    Q1 -- no --&gt; Q3{"One copy on&lt;br/&gt;every node?"}
+    Q3 -- yes --&gt; DS[DaemonSet]
+    Q3 -- no --&gt; Q4{"Needs stable identity&lt;br/&gt;or per-replica storage?"}
+    Q4 -- yes --&gt; Q5{"A mature operator&lt;br/&gt;exists for it?"}
+    Q5 -- yes --&gt; OP["Operator&lt;br/&gt;(custom resource)"]
+    Q5 -- no --&gt; SS[StatefulSet]
+    Q4 -- no --&gt; D[Deployment]
 </code></pre>
 
-<p>With dynamic provisioning (the common case), you never create the PV by hand: the StorageClass and CSI driver create it on demand the moment a Pod claims the PVC.</p>
+<p>A bare Pod has no controller: if its node fails, nothing recreates it. Use bare Pods only for one-off debugging.</p>
 
-<h3 id="container-storage-interface-csi">Container Storage Interface (CSI)</h3>
+<h2 id="statefulsets">StatefulSets</h2>
 
-<p>CSI is a standard interface that allows any storage system to work with Kubernetes. You typically do not implement CSI drivers yourself - you use drivers provided by storage vendors (AWS EBS, Google PD, Azure Disk, etc.).</p>
+<p>A StatefulSet gives each replica a stable name, a stable DNS entry through a headless Service, and its own PersistentVolumeClaim created from a <code class="language-plaintext highlighter-rouge">volumeClaimTemplate</code>. Pods are created in ordinal order and, by default, updated one at a time from the highest ordinal down. Recent additions include <code class="language-plaintext highlighter-rouge">maxUnavailable</code> for faster rolling updates (beta, enabled by default in v1.37), automatic PVC clean-up on scale-down or deletion (<code class="language-plaintext highlighter-rouge">persistentVolumeClaimRetentionPolicy</code>, stable since v1.32), and a <code class="language-plaintext highlighter-rouge">Recreate</code> update strategy (alpha in v1.37).</p>
 
-<p><strong>How CSI works</strong> (simplified):</p>
-<ol>
-  <li>You create a PVC requesting storage</li>
-  <li>The CSI provisioner creates a volume in the storage backend</li>
-  <li>When a pod needs the volume, the CSI node plugin mounts it</li>
-  <li>When the pod is deleted, the volume is unmounted (but data persists)</li>
-</ol>
+<p>For production databases, prefer an <strong>operator</strong> (CloudNativePG, Strimzi, and similar) that understands the software’s failover and backup procedures; some of them manage Pods directly rather than through a StatefulSet. The full treatment, including ordering guarantees, stuck rollouts, headless Services, and backup, is in <a href="persistence.html#statefulsets-identity-storage-and-ordering">Stateful Workloads &amp; Persistence</a>.</p>
 
-<p><strong>Common CSI drivers</strong>:
-| Cloud Provider | CSI Driver |
-|—————-|————|
-| AWS | aws-ebs-csi-driver |
-| Google Cloud | gce-pd-csi-driver |
-| Azure | azuredisk-csi-driver |
-| On-premises | Rook-Ceph, Longhorn, OpenEBS |</p>
+<h2 id="daemonsets">DaemonSets</h2>
 
-<h3 id="volume-lifecycle">Volume Lifecycle</h3>
+<p>A <strong>DaemonSet</strong> runs one copy of a Pod on every node, or on every node matching a <code class="language-plaintext highlighter-rouge">nodeSelector</code> or node affinity. When a node joins the cluster it receives the Pod; when the node leaves, the Pod is garbage-collected. DaemonSets are how node-level infrastructure is deployed: log collectors, metrics exporters, the kube-proxy and CNI agents, CSI node plugins, and security sensors.</p>
 
-<p>Understanding how volumes move through states helps with troubleshooting:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DaemonSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">log-agent</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">logging</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">log-agent</span>
+  <span class="na">updateStrategy</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">RollingUpdate</span>
+    <span class="na">rollingUpdate</span><span class="pi">:</span>
+      <span class="na">maxUnavailable</span><span class="pi">:</span> <span class="s">10%</span>    <span class="c1"># update 10% of nodes at a time</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">log-agent</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">priorityClassName</span><span class="pi">:</span> <span class="s">system-node-critical</span>   <span class="c1"># evicted last under pressure</span>
+      <span class="na">tolerations</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">operator</span><span class="pi">:</span> <span class="s">Exists</span>                          <span class="c1"># run on tainted nodes too</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">fluent-bit</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">fluent/fluent-bit:5.1</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="na">requests</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">cpu</span><span class="pi">:</span> <span class="nv">50m</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">64Mi</span><span class="pi">}</span>
+          <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">memory</span><span class="pi">:</span> <span class="nv">256Mi</span><span class="pi">}</span>
+        <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">varlog</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log</span>
+          <span class="na">readOnly</span><span class="pi">:</span> <span class="kc">true</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">varlog</span>
+        <span class="na">hostPath</span><span class="pi">:</span>
+          <span class="na">path</span><span class="pi">:</span> <span class="s">/var/log</span>
+</code></pre></div></div>
+
+<p>Points specific to DaemonSets:</p>
+
+<ul>
+  <li><strong>Scheduling.</strong> DaemonSet Pods are placed by the default scheduler (with node affinity pinning each Pod to its node), and the controller automatically adds tolerations for conditions such as <code class="language-plaintext highlighter-rouge">not-ready</code>, <code class="language-plaintext highlighter-rouge">unreachable</code>, and <code class="language-plaintext highlighter-rouge">disk-pressure</code>, so agents keep running on unhealthy nodes. Tolerating <em>all</em> taints, as above, is appropriate for true infrastructure agents and wrong for ordinary applications.</li>
+  <li><strong>Updates.</strong> <code class="language-plaintext highlighter-rouge">RollingUpdate</code> replaces Pods node by node, governed by <code class="language-plaintext highlighter-rouge">maxUnavailable</code>. Setting <code class="language-plaintext highlighter-rouge">maxSurge</code> instead starts the new Pod before stopping the old one on each node, which avoids a gap in coverage for agents that can briefly run twice. <code class="language-plaintext highlighter-rouge">OnDelete</code> updates a node only when its Pod is deleted manually.</li>
+  <li><strong>Resource cost multiplies.</strong> A request of 100m CPU is 100m on <em>every</em> node. Keep agent requests small and set a memory limit, because a leaking agent on every node degrades the whole cluster at once.</li>
+  <li><strong>Priority.</strong> Give node-critical agents a high <code class="language-plaintext highlighter-rouge">priorityClassName</code> so the kubelet evicts them last under resource pressure.</li>
+</ul>
+
+<h2 id="jobs">Jobs</h2>
+
+<p>A <strong>Job</strong> runs Pods until a specified number complete successfully, retrying failures up to a limit. Where a Deployment keeps Pods running, a Job is done when its work is done.</p>
 
 <table>
   <thead>
     <tr>
-      <th>State</th>
+      <th>Field</th>
       <th>Meaning</th>
-      <th>What to Check</th>
+      <th>Default</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Pending</strong></td>
-      <td>PVC waiting for a matching PV</td>
-      <td>Is there a matching StorageClass?</td>
+      <td><code class="language-plaintext highlighter-rouge">completions</code></td>
+      <td>Successful Pods required for the Job to succeed</td>
+      <td>1</td>
     </tr>
     <tr>
-      <td><strong>Bound</strong></td>
-      <td>PVC connected to a PV</td>
-      <td>Normal state when in use</td>
+      <td><code class="language-plaintext highlighter-rouge">parallelism</code></td>
+      <td>Maximum Pods running at once</td>
+      <td>1</td>
     </tr>
     <tr>
-      <td><strong>Released</strong></td>
-      <td>PVC deleted but PV retains data</td>
-      <td>Check reclaim policy</td>
+      <td><code class="language-plaintext highlighter-rouge">completionMode</code></td>
+      <td><code class="language-plaintext highlighter-rouge">NonIndexed</code>, or <code class="language-plaintext highlighter-rouge">Indexed</code>: each Pod gets a completion index (0 to completions−1) in the <code class="language-plaintext highlighter-rouge">JOB_COMPLETION_INDEX</code> env var and a stable hostname</td>
+      <td><code class="language-plaintext highlighter-rouge">NonIndexed</code></td>
     </tr>
     <tr>
-      <td><strong>Failed</strong></td>
-      <td>Provisioning error</td>
-      <td>Check CSI driver logs</td>
+      <td><code class="language-plaintext highlighter-rouge">backoffLimit</code></td>
+      <td>Pod failures tolerated before the Job fails, with exponential back-off between retries</td>
+      <td>6</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">backoffLimitPerIndex</code></td>
+      <td>Retry budget per index in Indexed Jobs, so one bad shard cannot consume the whole budget (stable since v1.33)</td>
+      <td>unset</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">podFailurePolicy</code></td>
+      <td>Rules on exit codes and Pod conditions: <code class="language-plaintext highlighter-rouge">FailJob</code>, <code class="language-plaintext highlighter-rouge">FailIndex</code>, <code class="language-plaintext highlighter-rouge">Ignore</code>, or <code class="language-plaintext highlighter-rouge">Count</code> (stable since v1.31)</td>
+      <td>unset</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">successPolicy</code></td>
+      <td>Declare success early, for example when index 0 (a leader) succeeds (stable since v1.33)</td>
+      <td>all completions</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">podReplacementPolicy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Failed</code>: start a replacement only once the old Pod has fully terminated, avoiding two copies at once (stable since v1.34)</td>
+      <td><code class="language-plaintext highlighter-rouge">TerminatingOrFailed</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">activeDeadlineSeconds</code></td>
+      <td>Wall-clock limit for the whole Job</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ttlSecondsAfterFinished</code></td>
+      <td>Delete the finished Job and its Pods after this many seconds</td>
+      <td>none (kept forever)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">suspend</code></td>
+      <td>Pause the Job (no new Pods); used by batch queueing systems such as Kueue</td>
+      <td>false</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Common issues</strong>:</p>
-<ul>
-  <li>PVC stuck in Pending: Usually means no StorageClass or insufficient capacity</li>
-  <li>PVC stuck in Terminating: Often a finalizer issue; check for pods still using it</li>
-</ul>
+<p>An Indexed Job that processes 100 shards, ten at a time, fails fast on a known bad exit code, and does not count node disruptions against its retry budget:</p>
 
-<h3 id="storage-patterns-for-production">Storage Patterns for Production</h3>
-
-<p>Different applications need different storage strategies. Here are common patterns:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Pattern</th>
-      <th>Use Case</th>
-      <th>Implementation</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Single-node read-write</strong></td>
-      <td>Pods on one node mount it read-write</td>
-      <td>ReadWriteOnce access mode</td>
-    </tr>
-    <tr>
-      <td><strong>Shared storage</strong></td>
-      <td>Multiple pods read/write</td>
-      <td>ReadWriteMany (requires NFS or similar)</td>
-    </tr>
-    <tr>
-      <td><strong>Per-pod volumes</strong></td>
-      <td>Each replica has own storage</td>
-      <td>StatefulSet with volumeClaimTemplates</td>
-    </tr>
-    <tr>
-      <td><strong>Ephemeral storage</strong></td>
-      <td>Scratch space, caches</td>
-      <td>emptyDir volume</td>
-    </tr>
-  </tbody>
-</table>
-
-<p><strong>Choosing access modes</strong>:</p>
-<ul>
-  <li><strong>ReadWriteOnce (RWO)</strong>: Single node can mount read-write. Most common for databases.</li>
-  <li><strong>ReadOnlyMany (ROX)</strong>: Many nodes can mount read-only. Good for shared config.</li>
-  <li><strong>ReadWriteMany (RWX)</strong>: Many nodes can mount read-write. Requires special storage (NFS, CephFS).</li>
-</ul>
-
-<h3 id="storage-classes-defining-your-storage-tiers">Storage Classes: Defining Your Storage Tiers</h3>
-
-<p>Storage Classes let you define different tiers of storage (fast SSD, cheap HDD, replicated, etc.) so developers can request storage by characteristics without knowing infrastructure details.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Job</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">fast-ssd</span>
-<span class="na">provisioner</span><span class="pi">:</span> <span class="s">ebs.csi.aws.com</span>
-<span class="na">parameters</span><span class="pi">:</span>
-  <span class="na">type</span><span class="pi">:</span> <span class="s">gp3</span>
-  <span class="na">iops</span><span class="pi">:</span> <span class="s2">"</span><span class="s">3000"</span>
-<span class="na">reclaimPolicy</span><span class="pi">:</span> <span class="s">Delete</span>
-<span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="kc">true</span>
-<span class="na">volumeBindingMode</span><span class="pi">:</span> <span class="s">WaitForFirstConsumer</span>
-</code></pre></div></div>
-
-<p><strong>Key StorageClass settings</strong>:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Setting</th>
-      <th>Purpose</th>
-      <th>Common Values</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">reclaimPolicy</code></td>
-      <td>What happens when PVC deleted</td>
-      <td>Delete (default), Retain</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">allowVolumeExpansion</code></td>
-      <td>Can volumes grow?</td>
-      <td>true, false</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">volumeBindingMode</code></td>
-      <td>When to provision</td>
-      <td>Immediate, WaitForFirstConsumer</td>
-    </tr>
-  </tbody>
-</table>
-
-<p><strong>Tip</strong>: Use <code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> to ensure volumes are created in the same zone as the pod that will use them.</p>
-
-<h3 id="volume-snapshots-point-in-time-backups">Volume Snapshots: Point-in-Time Backups</h3>
-
-<p>Snapshots create point-in-time copies of volumes for backup and recovery. They require a CSI driver that supports snapshots.</p>
-
-<p><strong>Creating a snapshot</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">snapshot.storage.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeSnapshot</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">db-snapshot</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">reindex-shards</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">source</span><span class="pi">:</span>
-    <span class="na">persistentVolumeClaimName</span><span class="pi">:</span> <span class="s">database-pvc</span>
+  <span class="na">completions</span><span class="pi">:</span> <span class="m">100</span>
+  <span class="na">parallelism</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">completionMode</span><span class="pi">:</span> <span class="s">Indexed</span>
+  <span class="na">backoffLimitPerIndex</span><span class="pi">:</span> <span class="m">2</span>           <span class="c1"># each shard may fail twice</span>
+  <span class="na">maxFailedIndexes</span><span class="pi">:</span> <span class="m">5</span>               <span class="c1"># give up if more than 5 shards fail</span>
+  <span class="na">ttlSecondsAfterFinished</span><span class="pi">:</span> <span class="m">86400</span>
+  <span class="na">podFailurePolicy</span><span class="pi">:</span>
+    <span class="na">rules</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">action</span><span class="pi">:</span> <span class="s">FailIndex</span>             <span class="c1"># exit 42 = bad input; don't retry this shard</span>
+      <span class="na">onExitCodes</span><span class="pi">:</span>
+        <span class="na">containerName</span><span class="pi">:</span> <span class="s">worker</span>
+        <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
+        <span class="na">values</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">42</span><span class="pi">]</span>
+    <span class="pi">-</span> <span class="na">action</span><span class="pi">:</span> <span class="s">Ignore</span>                <span class="c1"># preemption, drain, eviction: retry for free</span>
+      <span class="na">onPodConditions</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">DisruptionTarget</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Never</span>          <span class="c1"># required by podFailurePolicy</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/reindexer:3.2</span>
+        <span class="na">args</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">--shard=$(JOB_COMPLETION_INDEX)"</span><span class="pi">]</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="na">requests</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">2Gi</span><span class="pi">}</span>
+          <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">memory</span><span class="pi">:</span> <span class="nv">2Gi</span><span class="pi">}</span>
 </code></pre></div></div>
 
-<p><strong>Restoring from a snapshot</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<p><code class="language-plaintext highlighter-rouge">restartPolicy: OnFailure</code> restarts failed containers in place instead of creating new Pods; it is simpler, but the Pod-level policies above require <code class="language-plaintext highlighter-rouge">Never</code>. For large-scale batch and ML training, projects such as <strong>Kueue</strong> (quota and queueing), <strong>JobSet</strong> (groups of related Jobs, e.g. leader plus workers), and the Kubeflow Trainer build on the Job API rather than replacing it.</p>
+
+<h2 id="cronjobs">CronJobs</h2>
+
+<p>A <strong>CronJob</strong> creates a Job on a cron schedule. The controller is simple, but most production incidents with CronJobs come from its concurrency and missed-run semantics.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">CronJob</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">restored-db</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">nightly-backup</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">dataSource</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">db-snapshot</span>
-    <span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeSnapshot</span>
-    <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">snapshot.storage.k8s.io</span>
-  <span class="na">accessModes</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">ReadWriteOnce</span>
-  <span class="na">resources</span><span class="pi">:</span>
-    <span class="na">requests</span><span class="pi">:</span>
-      <span class="na">storage</span><span class="pi">:</span> <span class="s">10Gi</span>
+  <span class="na">schedule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">30</span><span class="nv"> </span><span class="s">2</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*"</span>            <span class="c1"># 02:30 every day</span>
+  <span class="na">timeZone</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Europe/London"</span>          <span class="c1"># IANA zone; stable since v1.27</span>
+  <span class="na">concurrencyPolicy</span><span class="pi">:</span> <span class="s">Forbid</span>          <span class="c1"># skip a run if the previous is still going</span>
+  <span class="na">startingDeadlineSeconds</span><span class="pi">:</span> <span class="m">600</span>       <span class="c1"># a run more than 10 min late is skipped</span>
+  <span class="na">successfulJobsHistoryLimit</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">failedJobsHistoryLimit</span><span class="pi">:</span> <span class="m">5</span>
+  <span class="na">jobTemplate</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">backoffLimit</span><span class="pi">:</span> <span class="m">2</span>
+      <span class="na">activeDeadlineSeconds</span><span class="pi">:</span> <span class="m">3600</span>
+      <span class="na">template</span><span class="pi">:</span>
+        <span class="na">spec</span><span class="pi">:</span>
+          <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Never</span>
+          <span class="na">containers</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">backup</span>
+            <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/pg-backup:1.8</span>
 </code></pre></div></div>
-
-<p><strong>When to use snapshots</strong>: Before database migrations, major updates, or as part of a backup strategy. Note that snapshots are not backups - they often depend on the original storage and may not survive storage system failures.</p>
-
-<h2 id="configuration-management-fine-tuning-your-applications">Configuration Management: Fine-Tuning Your Applications</h2>
-
-<p>Getting resource allocation right is crucial: too little and your app crashes or gets throttled; too much and you waste money and prevent other workloads from scheduling.</p>
-
-<h3 id="resource-requests-and-limits">Resource Requests and Limits</h3>
-
-<p>Every container should specify resource requests and limits:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">resources</span><span class="pi">:</span>
-  <span class="na">requests</span><span class="pi">:</span>      <span class="c1"># Guaranteed minimum</span>
-    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
-    <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500m"</span>
-  <span class="na">limits</span><span class="pi">:</span>        <span class="c1"># Maximum allowed</span>
-    <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
-    <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000m"</span>
-</code></pre></div></div>
-
-<p><strong>Understanding the difference</strong>:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Type</th>
-      <th>Purpose</th>
-      <th>What Happens if Exceeded</th>
+      <th>Field</th>
+      <th>Options and behaviour</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Request</strong></td>
-      <td>Scheduling: “I need at least this much”</td>
-      <td>N/A - it is a minimum</td>
+      <td><code class="language-plaintext highlighter-rouge">concurrencyPolicy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Allow</code> (default): runs may overlap. <code class="language-plaintext highlighter-rouge">Forbid</code>: skip the new run while one is active. <code class="language-plaintext highlighter-rouge">Replace</code>: kill the running Job and start the new one</td>
     </tr>
     <tr>
-      <td><strong>Limit</strong></td>
-      <td>Protection: “Never use more than this”</td>
-      <td>CPU: throttled; Memory: OOMKilled</td>
+      <td><code class="language-plaintext highlighter-rouge">startingDeadlineSeconds</code></td>
+      <td>How late a run may start (after controller downtime, say). Without it, a controller that has missed more than 100 schedules stops scheduling and logs an error</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">timeZone</code></td>
+      <td>Interpret <code class="language-plaintext highlighter-rouge">schedule</code> in an IANA time zone instead of the controller’s local zone. Runs at times skipped or repeated by daylight-saving changes may be skipped or doubled; schedule around 01:00–03:00 local time with care</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">suspend</code></td>
+      <td>Stop creating new Jobs without deleting the CronJob</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Best practices</strong>:</p>
-<ul>
-  <li>Always set memory limits (OOM is harder to debug than CPU throttling)</li>
-  <li>Set requests based on actual usage (check with <code class="language-plaintext highlighter-rouge">kubectl top pods</code>)</li>
-  <li>Limits should be 1.5-2x requests for most workloads</li>
-  <li>Use Vertical Pod Autoscaler to get recommendations</li>
-</ul>
+<p>CronJobs guarantee <em>at least</em> one Job per schedule “most of the time”: in rare cases a run can be created twice or not at all. Make scheduled work <strong>idempotent</strong>.</p>
 
-<h3 id="autoscaling-hpa-vs-vpa">Autoscaling: HPA vs VPA</h3>
+<h2 id="sidecar-containers">Sidecar Containers</h2>
 
-<p>Kubernetes offers two autoscaling approaches:</p>
+<p>A <strong>sidecar</strong> is a helper container that runs alongside the main container for the Pod’s whole life: a log shipper, a service-mesh proxy, a secrets refresher. Before native support, sidecars were ordinary containers, which caused well-known bugs: a Job never completed because its proxy sidecar never exited, and the main container started before its proxy was ready.</p>
+
+<p><strong>Native sidecars</strong> (stable since v1.33) are declared as init containers with <code class="language-plaintext highlighter-rouge">restartPolicy: Always</code>:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">initContainers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">migrate</span>                  <span class="c1"># ordinary init container: runs to completion first</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/app:4.1</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">./migrate"</span><span class="pi">]</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">log-shipper</span>              <span class="c1"># native sidecar</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">fluent/fluent-bit:5.1</span>
+    <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+    <span class="na">startupProbe</span><span class="pi">:</span>                  <span class="c1"># main containers wait until this passes</span>
+      <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">path</span><span class="pi">:</span> <span class="nv">/api/v1/health</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">2020</span><span class="pi">}</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/app:4.1</span>
+</code></pre></div></div>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant I as init: migrate
+    participant S as sidecar: log-shipper
+    participant A as container: app
+    I-&gt;&gt;I: run to completion
+    Note over S: starts after earlier init containers
+    S-&gt;&gt;S: startup probe passes
+    Note over A: main containers start only now
+    A-&gt;&gt;A: runs, exits (Job) or is stopped
+    Note over S: sidecar stopped after main containers exit
+</code></pre>
+
+<p>Native sidecars start in order before the main containers, are restarted independently if they crash, do not block Job completion, and are terminated <em>after</em> the main containers during shutdown, so logs and proxied connections drain cleanly. Patterns built on sidecars (adapters, ambassadors, init-time configuration) are covered in <a href="operations.html#multi-container-pod-patterns">Operations</a>.</p>
+
+<h2 id="storage-at-a-glance">Storage at a Glance</h2>
+
+<p>Container filesystems are ephemeral: when a container restarts, anything it wrote to its own filesystem is gone. <strong>Volumes</strong> attach storage to a Pod with a defined lifetime.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Autoscaler</th>
-      <th>What It Scales</th>
-      <th>Best For</th>
+      <th>Volume type</th>
+      <th>Lifetime</th>
+      <th>Use for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>HPA</strong> (Horizontal)</td>
-      <td>Number of pods</td>
-      <td>Stateless apps that scale horizontally</td>
+      <td><code class="language-plaintext highlighter-rouge">emptyDir</code></td>
+      <td>The Pod (survives container restarts)</td>
+      <td>Scratch space, caches, sharing files between containers; <code class="language-plaintext highlighter-rouge">medium: Memory</code> for tmpfs</td>
     </tr>
     <tr>
-      <td><strong>VPA</strong> (Vertical)</td>
-      <td>CPU/memory per pod</td>
-      <td>Stateful apps, right-sizing resources</td>
+      <td><code class="language-plaintext highlighter-rouge">configMap</code>, <code class="language-plaintext highlighter-rouge">secret</code>, <code class="language-plaintext highlighter-rouge">downwardAPI</code>, <code class="language-plaintext highlighter-rouge">projected</code></td>
+      <td>The Pod; content updated from the API</td>
+      <td>Configuration files, credentials, Pod metadata, bound service-account tokens</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">image</code></td>
+      <td>The Pod; read-only</td>
+      <td>Mounting an OCI image or artifact (model weights, static data) without baking it into the app image (stable since v1.36)</td>
+    </tr>
+    <tr>
+      <td>Generic ephemeral volume</td>
+      <td>The Pod; provisioned through a StorageClass</td>
+      <td>Large per-Pod scratch space that the node disk cannot provide</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">persistentVolumeClaim</code></td>
+      <td>Independent of any Pod</td>
+      <td>Durable data: databases, uploads, queues</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hostPath</code></td>
+      <td>The node</td>
+      <td>Node agents only; a security risk for ordinary workloads</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>HPA Example</strong> - scale pods based on CPU:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling/v2</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">HorizontalPodAutoscaler</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-hpa</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">scaleTargetRef</span><span class="pi">:</span>
-    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
-    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
-  <span class="na">minReplicas</span><span class="pi">:</span> <span class="m">3</span>
-  <span class="na">maxReplicas</span><span class="pi">:</span> <span class="m">10</span>
-  <span class="na">metrics</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Resource</span>
-    <span class="na">resource</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
-      <span class="na">target</span><span class="pi">:</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">Utilization</span>
-        <span class="na">averageUtilization</span><span class="pi">:</span> <span class="m">70</span>
-</code></pre></div></div>
+<h3 id="persistent-volumes">Persistent Volumes</h3>
 
-<p><strong>VPA Example</strong> - automatically adjust resource requests:</p>
+<p>Durable storage uses three objects. A <strong>PersistentVolumeClaim (PVC)</strong> is a namespaced request (“20 GiB, ReadWriteOnce, class <code class="language-plaintext highlighter-rouge">fast-ssd</code>”). A <strong>StorageClass</strong> tells a <strong>CSI driver</strong> how to create a matching <strong>PersistentVolume (PV)</strong> on demand. The PVC binds to the PV, and the Pod mounts the PVC by name.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Pod[Pod] --&gt;|mounts by name| PVC["PVC&lt;br/&gt;20Gi RWO fast-ssd"]
+    PVC --&gt;|storageClassName| SC["StorageClass&lt;br/&gt;fast-ssd"]
+    SC --&gt;|provisions via| CSI[CSI driver]
+    CSI --&gt;|creates| PV[("PersistentVolume&lt;br/&gt;cloud disk")]
+    PVC -.-|bound| PV
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Access mode</th>
+      <th>Meaning</th>
+      <th>Backed by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ReadWriteOnce (RWO)</td>
+      <td>Read-write from one <strong>node</strong></td>
+      <td>Block storage (EBS, Persistent Disk, Azure Disk)</td>
+    </tr>
+    <tr>
+      <td>ReadWriteOncePod (RWOP)</td>
+      <td>Read-write from exactly one <strong>Pod</strong></td>
+      <td>CSI block storage</td>
+    </tr>
+    <tr>
+      <td>ReadOnlyMany (ROX)</td>
+      <td>Read-only from many nodes</td>
+      <td>File storage, cloned volumes</td>
+    </tr>
+    <tr>
+      <td>ReadWriteMany (RWX)</td>
+      <td>Read-write from many nodes</td>
+      <td>File storage (EFS, Azure Files, Filestore, NFS, CephFS)</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>CSI drivers</th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>AWS</td>
+      <td>EBS CSI (<code class="language-plaintext highlighter-rouge">ebs.csi.aws.com</code>), EFS CSI, FSx CSI</td>
+    </tr>
+    <tr>
+      <td>Google Cloud</td>
+      <td>Persistent Disk CSI (<code class="language-plaintext highlighter-rouge">pd.csi.storage.gke.io</code>), Filestore CSI</td>
+    </tr>
+    <tr>
+      <td>Azure</td>
+      <td>Azure Disk CSI (<code class="language-plaintext highlighter-rouge">disk.csi.azure.com</code>), Azure Files CSI</td>
+    </tr>
+    <tr>
+      <td>Self-managed</td>
+      <td>Rook-Ceph, Longhorn, OpenEBS, vendor arrays</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="troubleshooting-claims">Troubleshooting Claims</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Usual cause</th>
+      <th>Check</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>PVC <code class="language-plaintext highlighter-rouge">Pending</code></td>
+      <td>No default StorageClass; class name typo; RWX requested from block storage; <code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> waiting for a Pod (normal)</td>
+      <td><code class="language-plaintext highlighter-rouge">kubectl describe pvc</code>, events from the provisioner</td>
+    </tr>
+    <tr>
+      <td>Pod <code class="language-plaintext highlighter-rouge">ContainerCreating</code>, <code class="language-plaintext highlighter-rouge">FailedAttachVolume</code></td>
+      <td>Volume still attached to a failed node; zone mismatch; node’s volume-attachment limit reached</td>
+      <td><code class="language-plaintext highlighter-rouge">kubectl describe pod</code>, <code class="language-plaintext highlighter-rouge">kubectl get volumeattachment</code></td>
+    </tr>
+    <tr>
+      <td>PVC stuck <code class="language-plaintext highlighter-rouge">Terminating</code></td>
+      <td><code class="language-plaintext highlighter-rouge">kubernetes.io/pvc-protection</code> finalizer: a Pod still uses it</td>
+      <td>Find and delete the Pod using the claim</td>
+    </tr>
+    <tr>
+      <td>PV <code class="language-plaintext highlighter-rouge">Released</code></td>
+      <td>PVC deleted under a <code class="language-plaintext highlighter-rouge">Retain</code> policy; data kept on purpose</td>
+      <td>Reuse by clearing <code class="language-plaintext highlighter-rouge">spec.claimRef</code>, or delete deliberately</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Reclaim policies, volume expansion, VolumeAttributesClass, snapshots, and backup strategy are covered in <a href="persistence.html">Stateful Workloads &amp; Persistence</a>.</p>
+
+<h2 id="scaling-workloads">Scaling Workloads</h2>
+
+<p>Kubernetes scales at three layers, and production clusters usually combine them: more Pods, bigger Pods, and more nodes to put them on.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    M[Metrics:&lt;br/&gt;CPU, memory, custom, events] --&gt; HPA["HPA / KEDA&lt;br/&gt;changes replica count"]
+    M --&gt; VPA["VPA&lt;br/&gt;changes Pod requests"]
+    HPA --&gt; P["Pending Pods&lt;br/&gt;(no node fits)"]
+    VPA --&gt; P
+    P --&gt; NA["Cluster Autoscaler / Karpenter&lt;br/&gt;adds nodes"]
+    NA -.-&gt;|consolidation removes under-used nodes| NA
+</code></pre>
+
+<h3 id="horizontal-more-replicas">Horizontal: More Replicas</h3>
+
+<p>The <strong>HorizontalPodAutoscaler</strong> adjusts <code class="language-plaintext highlighter-rouge">replicas</code> on a Deployment or StatefulSet from observed metrics; its algorithm, metric types, and stabilisation behaviour are covered in <a href="fundamentals-resources.html#horizontal-pod-autoscaling">Health &amp; Resource Management</a>. Two recent changes: a per-HPA <strong>tolerance</strong> (<code class="language-plaintext highlighter-rouge">behavior.scaleUp.tolerance</code>, <code class="language-plaintext highlighter-rouge">behavior.scaleDown.tolerance</code>) replaces the fixed cluster-wide 10% dead band (stable in v1.37), and <code class="language-plaintext highlighter-rouge">minReplicas: 0</code> for HPAs driven by custom or external metrics is beta and enabled by default in v1.37. <strong>KEDA</strong> extends horizontal scaling to event sources such as queue depth, Kafka lag, or cron windows, and has long supported scale-to-zero.</p>
+
+<h3 id="vertical-bigger-pods">Vertical: Bigger Pods</h3>
+
+<p>The <strong>Vertical Pod Autoscaler</strong> (an add-on from the Kubernetes autoscaler project, not part of the core) watches actual usage and recommends or applies CPU and memory <em>requests</em>.</p>
+
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">VerticalPodAutoscaler</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-vpa</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">api-vpa</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">targetRef</span><span class="pi">:</span>
     <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
     <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">api</span>
   <span class="na">updatePolicy</span><span class="pi">:</span>
-    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Auto"</span>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s">InPlaceOrRecreate</span>   <span class="c1"># resize running Pods; evict only if that fails</span>
+  <span class="na">resourcePolicy</span><span class="pi">:</span>
+    <span class="na">containerPolicies</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">containerName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span>
+      <span class="na">controlledResources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">memory"</span><span class="pi">]</span>   <span class="c1"># leave CPU to the HPA</span>
+      <span class="na">minAllowed</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">memory</span><span class="pi">:</span> <span class="nv">128Mi</span><span class="pi">}</span>
+      <span class="na">maxAllowed</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">memory</span><span class="pi">:</span> <span class="nv">4Gi</span><span class="pi">}</span>
 </code></pre></div></div>
-
-<p><strong>Important</strong>: Do not use HPA and VPA together on the same metric (e.g., both scaling on CPU). They will fight each other.</p>
-
-<h2 id="security-protecting-your-cluster-and-applications">Security: Protecting Your Cluster and Applications</h2>
-
-<p>Kubernetes security operates at multiple layers. Understanding each layer helps you build defense in depth.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Layer</th>
-      <th>Protection</th>
-      <th>Kubernetes Feature</th>
+      <th><code class="language-plaintext highlighter-rouge">updateMode</code></th>
+      <th>Behaviour</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Cluster access</strong></td>
-      <td>Who can talk to the API</td>
-      <td>RBAC, authentication</td>
+      <td><code class="language-plaintext highlighter-rouge">Off</code></td>
+      <td>Recommendations only, in the VPA’s status. A safe way to right-size by hand</td>
     </tr>
     <tr>
-      <td><strong>Pod-to-pod</strong></td>
-      <td>Which pods can communicate</td>
-      <td>Network Policies</td>
+      <td><code class="language-plaintext highlighter-rouge">Initial</code></td>
+      <td>Apply requests only when Pods are created</td>
     </tr>
     <tr>
-      <td><strong>Container</strong></td>
-      <td>What containers can do</td>
-      <td>Security Context, PSS</td>
+      <td><code class="language-plaintext highlighter-rouge">Recreate</code></td>
+      <td>Evict Pods whose requests differ significantly from the recommendation (respecting PodDisruptionBudgets)</td>
     </tr>
     <tr>
-      <td><strong>Secrets</strong></td>
-      <td>Protecting sensitive data</td>
-      <td>Secrets, external vaults</td>
+      <td><code class="language-plaintext highlighter-rouge">InPlaceOrRecreate</code></td>
+      <td>Resize running Pods in place, falling back to eviction (generally available since VPA 1.6)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Auto</code></td>
+      <td>Deprecated; currently equivalent to <code class="language-plaintext highlighter-rouge">Recreate</code>. Use an explicit mode</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="role-based-access-control-rbac">Role-Based Access Control (RBAC)</h3>
+<p>Do not let an HPA and a VPA act on the same resource: the VPA raises CPU requests, which lowers utilisation, which makes the HPA scale in. A common split is HPA on CPU (or a custom metric) and VPA on memory.</p>
 
-<p>RBAC controls who can do what in your cluster. It uses Roles (what actions are allowed) and RoleBindings (who gets those permissions).</p>
+<h3 id="in-place-pod-resize">In-Place Pod Resize</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Role: defines what actions are allowed</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pod-reader</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">"</span><span class="pi">]</span>
-  <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">pods"</span><span class="pi">]</span>
-  <span class="na">verbs</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">get"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">watch"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">list"</span><span class="pi">]</span>
-<span class="nn">---</span>
-<span class="c1"># RoleBinding: grants the role to a user</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">RoleBinding</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">read-pods</span>
-<span class="na">subjects</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">User</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">jane</span>
-<span class="na">roleRef</span><span class="pi">:</span>
-  <span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pod-reader</span>
-  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+<p>Since v1.35, CPU and memory requests and limits of a <em>running</em> Pod can be changed without recreating it (in-place Pod vertical scaling, stable). The change is made through the Pod’s <code class="language-plaintext highlighter-rouge">resize</code> subresource, and each container’s <code class="language-plaintext highlighter-rouge">resizePolicy</code> states whether a change needs a container restart:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">api</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/api:2.7</span>
+    <span class="na">resizePolicy</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">resourceName</span><span class="pi">:</span> <span class="s">cpu</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">NotRequired</span>        <span class="c1"># CPU changes apply live via cgroups</span>
+    <span class="pi">-</span> <span class="na">resourceName</span><span class="pi">:</span> <span class="s">memory</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">RestartContainer</span>   <span class="c1"># e.g. a JVM that sizes its heap at start</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">requests</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">cpu</span><span class="pi">:</span> <span class="nv">500m</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">1Gi</span><span class="pi">}</span>
+      <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">memory</span><span class="pi">:</span> <span class="nv">1Gi</span><span class="pi">}</span>
 </code></pre></div></div>
 
-<p><strong>Role vs ClusterRole</strong>: Roles are namespace-scoped; ClusterRoles are cluster-wide. Use ClusterRoles for cluster-level resources (nodes, namespaces) or when you need the same permissions across all namespaces.</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl patch pod api-7d9c5 <span class="nt">--subresource</span> resize <span class="nt">--patch</span> <span class="se">\</span>
+  <span class="s1">'{"spec":{"containers":[{"name":"api","resources":{"requests":{"cpu":"1"}}}]}}'</span>
+kubectl get pod api-7d9c5 <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.containerStatuses[0].resources}'</span>
+</code></pre></div></div>
 
-<h3 id="pod-security-standards">Pod Security Standards</h3>
+<p>If the node lacks room, the resize is reported as <code class="language-plaintext highlighter-rouge">PodResizePending</code> (deferred or infeasible) rather than evicting anything. A resize cannot change the Pod’s QoS class. Editing a Deployment’s template still triggers a normal rollout; in-place resize acts on individual Pods and is mainly used by the VPA and by platform tooling. Pod-level <code class="language-plaintext highlighter-rouge">resources</code> (a budget shared by all containers in the Pod) is beta and enabled by default since v1.34.</p>
 
-<p>Pod Security Standards (PSS) replace the deprecated PodSecurityPolicy. They define three levels:</p>
+<h3 id="nodes-cluster-autoscaler-and-karpenter">Nodes: Cluster Autoscaler and Karpenter</h3>
+
+<p>When Pods are <code class="language-plaintext highlighter-rouge">Pending</code> because no node has room, a node autoscaler adds capacity; when nodes are under-used, it drains and removes them.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Level</th>
-      <th>Description</th>
-      <th>Use Case</th>
+      <th> </th>
+      <th>Cluster Autoscaler</th>
+      <th>Karpenter</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Model</td>
+      <td>Resizes predefined node groups (ASGs, managed node pools)</td>
+      <td>Launches individual instances chosen to fit the pending Pods</td>
+    </tr>
+    <tr>
+      <td>Instance choice</td>
+      <td>Fixed per node group</td>
+      <td>Any type allowed by a <code class="language-plaintext highlighter-rouge">NodePool</code> (families, sizes, Spot or On-Demand, architectures)</td>
+    </tr>
+    <tr>
+      <td>Scale-down</td>
+      <td>Removes nodes below a utilisation threshold</td>
+      <td><strong>Consolidation</strong>: replaces or removes nodes to pack workloads more cheaply</td>
+    </tr>
+    <tr>
+      <td>Availability</td>
+      <td>All major clouds</td>
+      <td>AWS (open source, v1 API since 2024); Azure as AKS node auto-provisioning; other providers through community integrations</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Both honour PodDisruptionBudgets when removing nodes, so every production workload that must stay available during node churn needs a PDB.</p>
+
+<h2 id="workload-security">Workload Security</h2>
+
+<h3 id="pod-security-standards">Pod Security Standards</h3>
+
+<p>The built-in <strong>Pod Security Admission</strong> controller (stable since v1.25, replacing the removed PodSecurityPolicy) enforces three profiles per namespace:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Profile</th>
+      <th>Allows</th>
+      <th>Intended for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Privileged</strong></td>
-      <td>No restrictions</td>
-      <td>System components, trusted workloads</td>
+      <td>Everything</td>
+      <td>System components, node agents, CNI and CSI plugins</td>
     </tr>
     <tr>
       <td><strong>Baseline</strong></td>
-      <td>Prevents known privilege escalations</td>
-      <td>Most workloads</td>
+      <td>Blocks known privilege escalations: host namespaces, privileged containers, <code class="language-plaintext highlighter-rouge">hostPath</code>, added dangerous capabilities</td>
+      <td>Most applications with little change</td>
     </tr>
     <tr>
       <td><strong>Restricted</strong></td>
-      <td>Heavily restricted, best practices</td>
-      <td>Security-sensitive workloads</td>
+      <td>Baseline plus: must run as non-root, drop all capabilities, no privilege escalation, seccomp <code class="language-plaintext highlighter-rouge">RuntimeDefault</code> or <code class="language-plaintext highlighter-rouge">Localhost</code></td>
+      <td>Security-sensitive and multi-tenant workloads</td>
     </tr>
   </tbody>
 </table>
 
-<p>Apply PSS at the namespace level:</p>
+<p>Each namespace can set a profile in three modes: <code class="language-plaintext highlighter-rouge">enforce</code> rejects violating Pods, <code class="language-plaintext highlighter-rouge">audit</code> records them in the audit log, and <code class="language-plaintext highlighter-rouge">warn</code> returns a warning to the client. Rolling out <code class="language-plaintext highlighter-rouge">warn</code> and <code class="language-plaintext highlighter-rouge">audit</code> first reveals offenders without breaking deployments.</p>
+
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">payments</span>
   <span class="na">labels</span><span class="pi">:</span>
     <span class="na">pod-security.kubernetes.io/enforce</span><span class="pi">:</span> <span class="s">restricted</span>
+    <span class="na">pod-security.kubernetes.io/enforce-version</span><span class="pi">:</span> <span class="s">v1.37</span>   <span class="c1"># pin the policy version</span>
+    <span class="na">pod-security.kubernetes.io/warn</span><span class="pi">:</span> <span class="s">restricted</span>
+    <span class="na">pod-security.kubernetes.io/audit</span><span class="pi">:</span> <span class="s">restricted</span>
 </code></pre></div></div>
 
-<p><strong>Essential security context settings</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">securityContext</span><span class="pi">:</span>
-  <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="kc">true</span>
-  <span class="na">readOnlyRootFilesystem</span><span class="pi">:</span> <span class="kc">true</span>
-  <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="kc">false</span>
+<p>A container spec that passes the <code class="language-plaintext highlighter-rouge">restricted</code> profile:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">securityContext</span><span class="pi">:</span>
+    <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="kc">true</span>
+    <span class="na">runAsUser</span><span class="pi">:</span> <span class="m">10001</span>
+    <span class="na">fsGroup</span><span class="pi">:</span> <span class="m">10001</span>
+    <span class="na">seccompProfile</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">api</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/api:2.7</span>
+    <span class="na">securityContext</span><span class="pi">:</span>
+      <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="kc">false</span>
+      <span class="na">readOnlyRootFilesystem</span><span class="pi">:</span> <span class="kc">true</span>      <span class="c1"># not required by the profile, but recommended</span>
+      <span class="na">capabilities</span><span class="pi">:</span>
+        <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ALL"</span><span class="pi">]</span>
 </code></pre></div></div>
 
-<h3 id="service-accounts">Service Accounts</h3>
+<p>For stronger isolation, <strong>user namespaces</strong> (<code class="language-plaintext highlighter-rouge">hostUsers: false</code> in the Pod spec, stable since v1.36) map the container’s root user to an unprivileged user on the host, so a container escape does not yield host root. Policy beyond the three profiles, such as required labels, allowed registries, or signed images, is enforced with <strong>ValidatingAdmissionPolicy</strong> (CEL expressions, built in since v1.30) or with Kyverno or OPA Gatekeeper.</p>
 
-<p>Service accounts provide identity for pods. Each pod automatically gets a service account, but you should create dedicated accounts with minimal permissions for each application.</p>
+<h3 id="service-accounts-and-api-access">Service Accounts and API Access</h3>
+
+<p>Every Pod runs as a <strong>ServiceAccount</strong>. Give each application its own, grant it the narrowest RBAC Role it needs, and turn off the API token for Pods that never call the Kubernetes API:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-service-account</span>
-<span class="nn">---</span>
-<span class="c1"># Use in deployment</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">template</span><span class="pi">:</span>
-    <span class="na">spec</span><span class="pi">:</span>
-      <span class="na">serviceAccountName</span><span class="pi">:</span> <span class="s">app-service-account</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">api</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">payments</span>
+<span class="na">automountServiceAccountToken</span><span class="pi">:</span> <span class="kc">false</span>
 </code></pre></div></div>
 
-<p><strong>Security tip</strong>: Disable automatic token mounting for pods that do not need to talk to the Kubernetes API:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">automountServiceAccountToken</span><span class="pi">:</span> <span class="kc">false</span>
-</code></pre></div></div>
+<p>Mounted tokens are short-lived, audience-bound, and rotated by the kubelet; long-lived Secret-based tokens are no longer created automatically. Cloud workload-identity features (EKS Pod Identity and IRSA, GKE Workload Identity Federation, AKS Workload Identity) exchange these tokens for cloud credentials, so no static cloud keys need to be stored in Secrets. Roles, bindings, and least-privilege design are covered in <a href="fundamentals-networking.html#rbac-and-serviceaccounts">Networking &amp; Configuration</a>.</p>
+
+<p><strong>Secrets are not encrypted by default.</strong> Base64 in a Secret manifest is an encoding, not encryption, and etcd stores Secrets in plain text unless encryption at rest is configured (KMS v2, stable since v1.29, or the managed equivalent enabled on the cluster). Restrict <code class="language-plaintext highlighter-rouge">get</code>/<code class="language-plaintext highlighter-rouge">list</code> on Secrets through RBAC, and consider an external store (a cloud secrets manager via the External Secrets Operator or the Secrets Store CSI driver) for high-value credentials.</p>
 
 <h2 id="observability-understanding-application-health">Observability: Understanding Application Health</h2>
 
-<p>Observability in Kubernetes has three pillars: health probes, metrics, and logs.</p>
-
-<h3 id="health-probes">Health Probes</h3>
-
-<p>Probes tell Kubernetes whether your application is healthy:</p>
+<p>Kubernetes acts on three health signals that each container can expose:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Probe Type</th>
-      <th>Purpose</th>
-      <th>What Happens on Failure</th>
+      <th>Probe</th>
+      <th>Question</th>
+      <th>On failure</th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <td><strong>Startup</strong></td>
+      <td>Has the application finished starting?</td>
+      <td>Other probes wait; after <code class="language-plaintext highlighter-rouge">failureThreshold</code> the container is restarted</td>
+    </tr>
+    <tr>
       <td><strong>Liveness</strong></td>
-      <td>Is the app alive?</td>
+      <td>Is the process stuck beyond recovery?</td>
       <td>Container restarted</td>
     </tr>
     <tr>
       <td><strong>Readiness</strong></td>
-      <td>Can the app accept traffic?</td>
-      <td>Removed from service endpoints</td>
-    </tr>
-    <tr>
-      <td><strong>Startup</strong></td>
-      <td>Has the app started?</td>
-      <td>Liveness/readiness delayed</td>
+      <td>Can it serve traffic right now?</td>
+      <td>Removed from Service endpoints; not restarted</td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">livenessProbe</span><span class="pi">:</span>
-  <span class="na">httpGet</span><span class="pi">:</span>
-    <span class="na">path</span><span class="pi">:</span> <span class="s">/health</span>
-    <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
-  <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">30</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">startupProbe</span><span class="pi">:</span>
+  <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">path</span><span class="pi">:</span> <span class="nv">/healthz</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">8080</span><span class="pi">}</span>
+  <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
+  <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">30</span>        <span class="c1"># allow up to 150 s to boot</span>
+<span class="na">livenessProbe</span><span class="pi">:</span>
+  <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">path</span><span class="pi">:</span> <span class="nv">/healthz</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">8080</span><span class="pi">}</span>
   <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">timeoutSeconds</span><span class="pi">:</span> <span class="m">2</span>
+  <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">3</span>
 <span class="na">readinessProbe</span><span class="pi">:</span>
-  <span class="na">httpGet</span><span class="pi">:</span>
-    <span class="na">path</span><span class="pi">:</span> <span class="s">/ready</span>
-    <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
-  <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">5</span>
+  <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">path</span><span class="pi">:</span> <span class="nv">/ready</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">8080</span><span class="pi">}</span>
   <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
 </code></pre></div></div>
 
-<p><strong>Common mistake</strong>: Making liveness probes too aggressive. If your app occasionally takes 10 seconds to respond, a 5-second timeout will cause unnecessary restarts.</p>
+<p>Keep liveness checks shallow (the process itself, not its database) so that a slow dependency does not trigger restarts across every replica; express dependency health through readiness instead. Probe mechanics and design guidance are covered in <a href="fundamentals-resources.html#probes">Health &amp; Resource Management</a>.</p>
 
-<h3 id="monitoring-with-prometheus">Monitoring with Prometheus</h3>
-
-<p>Prometheus is the standard for Kubernetes metrics. Applications expose metrics at <code class="language-plaintext highlighter-rouge">/metrics</code>, and Prometheus scrapes them.</p>
+<p>Beyond probes, workloads expose metrics for Prometheus. With the Prometheus Operator, a <code class="language-plaintext highlighter-rouge">ServiceMonitor</code> declares what to scrape:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.coreos.com/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceMonitor</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-metrics</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">api</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">release</span><span class="pi">:</span> <span class="s">prometheus</span>        <span class="c1"># must match the Prometheus instance's selector</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">selector</span><span class="pi">:</span>
     <span class="na">matchLabels</span><span class="pi">:</span>
-      <span class="na">app</span><span class="pi">:</span> <span class="s">myapp</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">api</span>
   <span class="na">endpoints</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="s">metrics</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="s">metrics</span>              <span class="c1"># a named port on the Service</span>
     <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
 </code></pre></div></div>
 
-<p><strong>What to monitor</strong>: Request rate, error rate, latency (the “RED” method), plus resource usage (CPU, memory, network).</p>
+<p>For request-driven services, alert on the <strong>RED</strong> signals (request rate, error rate, duration); for resources such as nodes and queues, on the <strong>USE</strong> signals (utilisation, saturation, errors). Metrics pipelines, logging, tracing with OpenTelemetry, and alerting are covered in <a href="operations.html#observability">Operations</a>.</p>
 
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>No memory limit:</strong> A pod without a memory limit can consume the node and trigger system-level OOM kills that take neighbors down with it. Always set a memory limit.</li>
-    <li><strong>CPU limits causing latency:</strong> Tight CPU limits throttle the container even when the node is idle. Set CPU <em>requests</em> for scheduling; be cautious with CPU <em>limits</em> on latency-sensitive services.</li>
-    <li><strong>Treating Secrets as encrypted:</strong> Kubernetes Secrets are only base64-encoded at rest by default. Enable encryption at rest (or an external vault) and restrict access with RBAC.</li>
-    <li><strong>ReadWriteMany on block storage:</strong> EBS/PD-backed volumes are ReadWriteOnce. RWX needs a file-based backend (EFS, NFS, CephFS) — a PVC requesting RWX against a block StorageClass stays Pending.</li>
-    <li><strong>Default StorageClass reclaim policy:</strong> A <code>Delete</code> reclaim policy destroys the underlying volume when the PVC is deleted. Use <code>Retain</code> for data you cannot afford to lose.</li>
-  </ul>
-</div>
+<h2 id="common-pitfalls">Common Pitfalls</h2>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Decouple storage from pods.</strong> A PVC requests storage; a StorageClass provisions it; the data outlives the pod. Use <code class="language-plaintext highlighter-rouge">volumeClaimTemplates</code> in StatefulSets for per-replica disks.</li>
-  <li><strong>Always set limits.</strong> Requests drive scheduling; limits cap usage. Set memory limits to avoid hard-to-debug OOM kills, and right-size from real <code class="language-plaintext highlighter-rouge">kubectl top</code> data.</li>
-  <li><strong>Least-privilege RBAC.</strong> Give each app a dedicated ServiceAccount with the narrowest Role, run as non-root, and apply the Restricted Pod Security Standard where you can.</li>
-  <li><strong>Probes reflect real health.</strong> Readiness gates traffic; liveness restarts. Keep liveness timeouts generous and use startup probes for slow-booting apps.</li>
-</ul>
-
-<hr />
+<table>
+  <thead>
+    <tr>
+      <th>Pitfall</th>
+      <th>Consequence</th>
+      <th>Remedy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>No memory limit</td>
+      <td>One leaking Pod pushes the node into memory pressure and evictions</td>
+      <td>Set memory limits (commonly equal to requests)</td>
+    </tr>
+    <tr>
+      <td>Tight CPU limits on latency-sensitive services</td>
+      <td>Throttling even when the node is idle</td>
+      <td>Set CPU requests; use CPU limits sparingly</td>
+    </tr>
+    <tr>
+      <td>CronJob work that is not idempotent</td>
+      <td>Duplicate or missed runs corrupt data</td>
+      <td>Design for at-least-once; use <code class="language-plaintext highlighter-rouge">concurrencyPolicy: Forbid</code></td>
+    </tr>
+    <tr>
+      <td>Jobs without <code class="language-plaintext highlighter-rouge">ttlSecondsAfterFinished</code></td>
+      <td>Thousands of finished Jobs and Pods clutter the API</td>
+      <td>Set a TTL or history limits</td>
+    </tr>
+    <tr>
+      <td>Proxy sidecar as a regular container in a Job</td>
+      <td>Job never completes</td>
+      <td>Use a native sidecar (<code class="language-plaintext highlighter-rouge">restartPolicy: Always</code> init container)</td>
+    </tr>
+    <tr>
+      <td>HPA and VPA on the same resource</td>
+      <td>Autoscalers fight</td>
+      <td>Split resources, or use VPA in <code class="language-plaintext highlighter-rouge">Off</code> mode for recommendations</td>
+    </tr>
+    <tr>
+      <td>No PodDisruptionBudget</td>
+      <td>Node drains and autoscaler consolidation take down all replicas</td>
+      <td>Define a PDB for every service that must stay available</td>
+    </tr>
+    <tr>
+      <td>Assuming Secrets are encrypted</td>
+      <td>Credentials readable from etcd or backups</td>
+      <td>Enable encryption at rest; restrict RBAC; use an external store</td>
+    </tr>
+    <tr>
+      <td>Deep liveness checks</td>
+      <td>Dependency outage restarts every replica</td>
+      <td>Liveness checks the process only; readiness checks dependencies</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="fundamentals.html">Fundamentals</a> - Pods, Deployments, Services, and cluster architecture</li>
-  <li><a href="operations.html">Operations</a> - kubectl, Helm, and a systematic troubleshooting guide</li>
-  <li><a href="advanced.html">Advanced Topics</a> - CRDs, Operators, service mesh, and GitOps</li>
-  <li><a href="../docker/storage-security.html">Docker Storage &amp; Security</a> - Volumes and hardening at the container level</li>
-  <li><a href="../aws/compute.html">AWS EKS</a> - Managed Kubernetes on AWS</li>
+  <li><a href="fundamentals.html">Fundamentals</a>: Pods, ReplicaSets, Deployments, and cluster architecture</li>
+  <li><a href="fundamentals-networking.html">Networking &amp; Configuration</a>: Services, Ingress, network policies, ConfigMaps, Secrets, and RBAC</li>
+  <li><a href="fundamentals-resources.html">Health &amp; Resource Management</a>: probes, requests and limits, QoS, scheduling, and the HPA</li>
+  <li><a href="persistence.html">Stateful Workloads &amp; Persistence</a>: storage in depth, StatefulSets, and backup</li>
+  <li><a href="operations.html">Operations</a>: kubectl, Helm, observability, and troubleshooting</li>
+  <li><a href="advanced.html">Advanced Topics</a>: CRDs, operators, service mesh, and GitOps</li>
+  <li><a href="../docker/storage-security.html">Docker Storage &amp; Security</a>: volumes and hardening at the container level</li>
+  <li><a href="../aws/compute.html">AWS Compute</a>: EKS and managed node groups</li>
 </ul>
-
 
       </section>
     </div>

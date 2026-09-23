@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="A concise introduction to databases — the relational model, core SQL, keys and constraints, indexes, transactions and isolation, and when to reach for NoSQL.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Database Crash Course">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="A concise introduction to databases — the relational model, core SQL, keys and constraints, indexes, transactions and isolation, and when to reach for NoSQL.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/database-crash-course.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Database Crash Course">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="A concise introduction to databases — the relational model, core SQL, keys and constraints, indexes, transactions and isolation, and when to reach for NoSQL.">
 
 <title>Database Crash Course | Andrews Notebook</title>
 
@@ -3133,183 +3133,303 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <h1 id="database-crash-course">Database Crash Course</h1>
 
-<p>This is the <strong>fast on-ramp</strong> to databases: what they are, how relational data is structured, and the handful of SQL statements that do most of the work. It is deliberately concise — read it top to bottom. When you need depth (normalization theory, indexing internals, distributed databases, query planning), head to the comprehensive <a href="database-design/">Database Design</a> reference.</p>
+<p>This page is a compact introduction to databases: what a database management system does, how relational data is structured, the SQL you will write most often, and the three mechanisms that make databases fast and safe (indexes, constraints and transactions). It closes with when a non-relational store is the better fit. Examples use PostgreSQL syntax unless noted. For depth on normalization, index internals, query planning and distributed databases, see the <a href="database-design/">Database Design</a> reference.</p>
 
-<h2 id="what-is-a-database">What is a database?</h2>
+<h2 id="what-a-database-is">What a database is</h2>
 
-<p>A <strong>database</strong> is an organized, persistent collection of structured data. A <strong>database management system (DBMS)</strong> — PostgreSQL, MySQL, SQLite, MongoDB — is the software that stores it, answers queries, enforces rules, and coordinates many users reading and writing at once without corrupting each other’s data. Three properties distinguish a database from a pile of files:</p>
-
-<ul>
-  <li><strong>Structure</strong> — data lives in defined shapes (tables or documents), not loose files.</li>
-  <li><strong>Integrity</strong> — constraints and transactions keep data valid and consistent.</li>
-  <li><strong>Speed at scale</strong> — indexes make finding one row among millions near-instant.</li>
-</ul>
-
-<h2 id="two-big-families-sql-vs-nosql">Two big families: SQL vs NoSQL</h2>
-
-<p>The first decision is which kind of database fits your data and access patterns.</p>
+<p>A <strong>database</strong> is an organized, persistent collection of data. A <strong>database management system (DBMS)</strong> such as PostgreSQL, MySQL, SQLite or MongoDB is the software that stores it and provides four things a directory of files does not:</p>
 
 <table>
   <thead>
     <tr>
-      <th> </th>
-      <th>Relational (SQL)</th>
-      <th>NoSQL</th>
+      <th>Capability</th>
+      <th>What it means in practice</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Model</strong></td>
-      <td>Tables of rows and columns</td>
-      <td>Documents, key-value, wide-column, or graph</td>
+      <td><strong>Declarative querying</strong></td>
+      <td>You describe <em>what</em> you want (SQL); the query planner decides <em>how</em> to fetch it.</td>
     </tr>
     <tr>
-      <td><strong>Schema</strong></td>
-      <td>Fixed, defined up front</td>
-      <td>Flexible / schema-less</td>
+      <td><strong>Integrity</strong></td>
+      <td>Types, keys and constraints reject invalid data before it is stored.</td>
     </tr>
     <tr>
-      <td><strong>Query language</strong></td>
-      <td>SQL (standardized)</td>
-      <td>Varies per product</td>
+      <td><strong>Concurrency control</strong></td>
+      <td>Many clients read and write at once without corrupting each other’s work.</td>
     </tr>
     <tr>
-      <td><strong>Consistency</strong></td>
-      <td>Strong (ACID transactions)</td>
-      <td>Often eventual; tunable</td>
-    </tr>
-    <tr>
-      <td><strong>Best for</strong></td>
-      <td>Structured data with relationships</td>
-      <td>High write volume, evolving or hierarchical data</td>
-    </tr>
-    <tr>
-      <td><strong>Examples</strong></td>
-      <td>PostgreSQL, MySQL, SQLite</td>
-      <td>MongoDB, Redis, Cassandra, Neo4j</td>
+      <td><strong>Durability and recovery</strong></td>
+      <td>Committed data survives crashes, via a write-ahead log (WAL) replayed on restart.</td>
     </tr>
   </tbody>
 </table>
 
-<blockquote>
-  <p><strong>Rule of thumb.</strong> Start with a relational database (PostgreSQL is an excellent default). Reach for NoSQL when a concrete requirement — huge scale, a document-shaped data model, sub-millisecond key lookups, or graph traversal — actually demands it.</p>
-</blockquote>
+<h3 id="the-database-landscape">The database landscape</h3>
 
-<h2 id="the-relational-model-in-one-picture">The relational model in one picture</h2>
+<p>“SQL vs NoSQL” is a useful first split, but in 2026 the landscape is better described by data model, and many products blur the lines (PostgreSQL stores JSON documents and, via the <code class="language-plaintext highlighter-rouge">pgvector</code> extension, vector embeddings; MongoDB supports multi-document ACID transactions).</p>
 
-<p>Relational data is organized into <strong>tables</strong>. Tables connect to each other through keys: a <strong>primary key</strong> uniquely identifies each row, and a <strong>foreign key</strong> in one table points to a primary key in another.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Shape of data</th>
+      <th>Typical products</th>
+      <th>Reach for it when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Relational</strong></td>
+      <td>Tables of typed rows, joined by keys</td>
+      <td>PostgreSQL, MySQL, SQLite, SQL Server</td>
+      <td>Default choice: structured data, relationships, ad-hoc queries</td>
+    </tr>
+    <tr>
+      <td><strong>Distributed SQL</strong></td>
+      <td>Relational, sharded and replicated across nodes</td>
+      <td>CockroachDB, YugabyteDB, Google Spanner</td>
+      <td>You need SQL and transactions beyond one machine</td>
+    </tr>
+    <tr>
+      <td><strong>Document</strong></td>
+      <td>JSON-like nested documents</td>
+      <td>MongoDB, Couchbase</td>
+      <td>Data is read and written as whole aggregates</td>
+    </tr>
+    <tr>
+      <td><strong>Key-value</strong></td>
+      <td>Opaque value per key, often in memory</td>
+      <td>Redis, Valkey, DynamoDB</td>
+      <td>Caches, sessions, counters, sub-millisecond lookups</td>
+    </tr>
+    <tr>
+      <td><strong>Wide-column</strong></td>
+      <td>Rows partitioned by key across a cluster</td>
+      <td>Cassandra, ScyllaDB, Bigtable</td>
+      <td>Very high write throughput with known query patterns</td>
+    </tr>
+    <tr>
+      <td><strong>Graph</strong></td>
+      <td>Nodes and edges</td>
+      <td>Neo4j, Amazon Neptune</td>
+      <td>Queries are multi-hop traversals</td>
+    </tr>
+    <tr>
+      <td><strong>Analytical (OLAP)</strong></td>
+      <td>Columnar storage for scans and aggregates</td>
+      <td>DuckDB, ClickHouse, Snowflake, BigQuery</td>
+      <td>Reporting and analytics over large datasets</td>
+    </tr>
+    <tr>
+      <td><strong>Vector</strong></td>
+      <td>High-dimensional embeddings with similarity search</td>
+      <td>pgvector, Qdrant, Milvus</td>
+      <td>Semantic search and retrieval for ML applications</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Rule of thumb:</strong> start with a relational database; PostgreSQL is an excellent default and SQLite is ideal for embedded or single-user use. Move to a specialised store when a concrete requirement (scale, an aggregate-shaped access pattern, latency, traversal) demands it.</p>
+
+<h2 id="the-relational-model">The relational model</h2>
+
+<p>Relational data lives in <strong>tables</strong> (relations). Each <strong>row</strong> is one entity and each <strong>column</strong> one typed attribute. Tables reference each other through keys:</p>
+
+<ul>
+  <li>A <strong>primary key</strong> (PK) uniquely identifies each row of its table.</li>
+  <li>A <strong>foreign key</strong> (FK) is a column whose value must match a primary key in another table, so the database itself guarantees that an order cannot point to a customer that does not exist.</li>
+</ul>
 
 <pre><code class="language-mermaid">erDiagram
     CUSTOMER ||--o{ ORDER : places
     ORDER ||--|{ ORDER_ITEM : contains
     PRODUCT ||--o{ ORDER_ITEM : "appears in"
     CUSTOMER {
-        int id PK
-        string name
-        string email
+        bigint id PK
+        text name
+        text email UK
+        timestamptz created_at
     }
     ORDER {
-        int id PK
-        int customer_id FK
-        timestamp created_at
+        bigint id PK
+        bigint customer_id FK
+        numeric total
+        timestamptz created_at
     }
     PRODUCT {
-        int id PK
-        string name
-        decimal price
+        bigint id PK
+        text name
+        numeric price
     }
     ORDER_ITEM {
-        int order_id FK
-        int product_id FK
+        bigint order_id FK
+        bigint product_id FK
         int quantity
     }
 </code></pre>
 
+<p>The crow’s-foot notation reads as cardinality: one customer places zero or more orders; each order contains one or more items. <code class="language-plaintext highlighter-rouge">ORDER_ITEM</code> is a <strong>junction table</strong> resolving the many-to-many relationship between orders and products; its primary key is the composite <code class="language-plaintext highlighter-rouge">(order_id, product_id)</code>.</p>
+
+<p><strong>Normalization</strong> is the discipline of storing each fact exactly once (a customer’s email lives only in <code class="language-plaintext highlighter-rouge">customers</code>, never copied into <code class="language-plaintext highlighter-rouge">orders</code>) so that updates cannot leave contradictory copies behind. In practice, aim for third normal form and denormalize deliberately when measurements justify it; see <a href="database-design/modeling.html#database-normalization-avoiding-data-disasters">Database Design → Normalization</a>.</p>
+
+<h2 id="sql-essentials">SQL essentials</h2>
+
+<p>SQL is standardized (ISO/IEC 9075) but every engine has dialect differences. Its statements fall into a few groups:</p>
+
 <table>
   <thead>
     <tr>
-      <th>Term</th>
-      <th>Meaning</th>
+      <th>Group</th>
+      <th>Purpose</th>
+      <th>Statements</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Table</td>
-      <td>A collection of related rows (e.g. <code class="language-plaintext highlighter-rouge">customers</code>)</td>
+      <td><strong>DDL</strong> (definition)</td>
+      <td>Create and change structure</td>
+      <td><code class="language-plaintext highlighter-rouge">CREATE</code>, <code class="language-plaintext highlighter-rouge">ALTER</code>, <code class="language-plaintext highlighter-rouge">DROP</code>, <code class="language-plaintext highlighter-rouge">TRUNCATE</code></td>
     </tr>
     <tr>
-      <td>Row (record)</td>
-      <td>One entity instance (one customer)</td>
+      <td><strong>DML</strong> (manipulation)</td>
+      <td>Read and change rows</td>
+      <td><code class="language-plaintext highlighter-rouge">SELECT</code>, <code class="language-plaintext highlighter-rouge">INSERT</code>, <code class="language-plaintext highlighter-rouge">UPDATE</code>, <code class="language-plaintext highlighter-rouge">DELETE</code>, <code class="language-plaintext highlighter-rouge">MERGE</code></td>
     </tr>
     <tr>
-      <td>Column (field)</td>
-      <td>One attribute (<code class="language-plaintext highlighter-rouge">email</code>)</td>
+      <td><strong>TCL</strong> (transaction control)</td>
+      <td>Group statements atomically</td>
+      <td><code class="language-plaintext highlighter-rouge">BEGIN</code>, <code class="language-plaintext highlighter-rouge">COMMIT</code>, <code class="language-plaintext highlighter-rouge">ROLLBACK</code>, <code class="language-plaintext highlighter-rouge">SAVEPOINT</code></td>
     </tr>
     <tr>
-      <td>Primary key</td>
-      <td>Column(s) uniquely identifying a row</td>
-    </tr>
-    <tr>
-      <td>Foreign key</td>
-      <td>A column referencing another table’s primary key</td>
+      <td><strong>DCL</strong> (access control)</td>
+      <td>Grant and revoke privileges</td>
+      <td><code class="language-plaintext highlighter-rouge">GRANT</code>, <code class="language-plaintext highlighter-rouge">REVOKE</code></td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="sql-essentials">SQL essentials</h2>
-
-<p>SQL splits into a few sublanguages. You will use <strong>DDL</strong> to shape tables and <strong>DML</strong> to work with data.</p>
-
-<h3 id="defining-tables-ddl">Defining tables (DDL)</h3>
+<h3 id="defining-tables-and-constraints">Defining tables and constraints</h3>
 
 <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">customers</span> <span class="p">(</span>
-    <span class="n">id</span>          <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span>        <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="n">email</span>       <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="k">UNIQUE</span><span class="p">,</span>
-    <span class="n">created_at</span>  <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span>
+    <span class="n">id</span>          <span class="nb">bigint</span>      <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">name</span>        <span class="nb">text</span>        <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">email</span>       <span class="nb">text</span>        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">UNIQUE</span><span class="p">,</span>
+    <span class="n">created_at</span>  <span class="n">timestamptz</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">()</span>
 <span class="p">);</span>
 
-<span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">customers</span> <span class="k">ADD</span> <span class="k">COLUMN</span> <span class="n">phone</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">);</span>
-<span class="k">DROP</span> <span class="k">TABLE</span> <span class="n">customers</span><span class="p">;</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">id</span>          <span class="nb">bigint</span>        <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">customer_id</span> <span class="nb">bigint</span>        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">customers</span> <span class="p">(</span><span class="n">id</span><span class="p">)</span> <span class="k">ON</span> <span class="k">DELETE</span> <span class="k">RESTRICT</span><span class="p">,</span>
+    <span class="n">total</span>       <span class="nb">numeric</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">total</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">created_at</span>  <span class="n">timestamptz</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">()</span>
+<span class="p">);</span>
+
+<span class="c1">-- PostgreSQL does not index foreign-key columns automatically</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">orders_customer_id_idx</span> <span class="k">ON</span> <span class="n">orders</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">);</span>
+
+<span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">customers</span> <span class="k">ADD</span> <span class="k">COLUMN</span> <span class="n">phone</span> <span class="nb">text</span><span class="p">;</span>
 </code></pre></div></div>
 
-<h3 id="reading-and-writing-data-dml">Reading and writing data (DML)</h3>
+<p>Constraints are the cheapest data-quality tool available: they are checked on every write, by every client, forever.</p>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Create</span>
+<table>
+  <thead>
+    <tr>
+      <th>Constraint</th>
+      <th>Guarantees</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PRIMARY KEY</code></td>
+      <td>Unique and non-null; identifies the row</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FOREIGN KEY</code> / <code class="language-plaintext highlighter-rouge">REFERENCES</code></td>
+      <td>The value exists in the referenced table; <code class="language-plaintext highlighter-rouge">ON DELETE</code> decides what happens when the parent row goes (<code class="language-plaintext highlighter-rouge">RESTRICT</code>, <code class="language-plaintext highlighter-rouge">CASCADE</code>, <code class="language-plaintext highlighter-rouge">SET NULL</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">UNIQUE</code></td>
+      <td>No two rows share the value (enforced with an index)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">NOT NULL</code></td>
+      <td>A value is always present</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CHECK</code></td>
+      <td>An arbitrary boolean condition holds</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">DEFAULT</code></td>
+      <td>Value used when an insert omits the column</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Type choices worth getting right from the start: use <code class="language-plaintext highlighter-rouge">timestamptz</code> (a point in time) rather than <code class="language-plaintext highlighter-rouge">timestamp</code> for events, <code class="language-plaintext highlighter-rouge">numeric</code> rather than floating point for money, and <code class="language-plaintext highlighter-rouge">GENERATED ... AS IDENTITY</code> (standard SQL) rather than the older PostgreSQL-specific <code class="language-plaintext highlighter-rouge">SERIAL</code>. When you need UUID keys (for example, so that services can mint IDs without a round trip), prefer time-ordered UUIDv7 over random UUIDv4: new values land at the end of the B-tree instead of scattering writes across it. PostgreSQL 18 adds a built-in <code class="language-plaintext highlighter-rouge">uuidv7()</code> function.</p>
+
+<h3 id="reading-and-writing-rows">Reading and writing rows</h3>
+
+<p>The four core DML statements map onto the CRUD operations (Create, Read, Update, Delete):</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Create; RETURNING hands back generated values without a second query</span>
 <span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">customers</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">email</span><span class="p">)</span>
-<span class="k">VALUES</span> <span class="p">(</span><span class="s1">'Ada Lovelace'</span><span class="p">,</span> <span class="s1">'ada@example.com'</span><span class="p">);</span>
+<span class="k">VALUES</span> <span class="p">(</span><span class="s1">'Ada Lovelace'</span><span class="p">,</span> <span class="s1">'ada@example.com'</span><span class="p">)</span>
+<span class="n">RETURNING</span> <span class="n">id</span><span class="p">;</span>
 
 <span class="c1">-- Read</span>
 <span class="k">SELECT</span> <span class="n">name</span><span class="p">,</span> <span class="n">email</span>
 <span class="k">FROM</span> <span class="n">customers</span>
-<span class="k">WHERE</span> <span class="n">created_at</span> <span class="o">&gt;=</span> <span class="s1">'2024-01-01'</span>
+<span class="k">WHERE</span> <span class="n">created_at</span> <span class="o">&gt;=</span> <span class="s1">'2026-01-01'</span>
 <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">name</span>
 <span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
 
-<span class="c1">-- Update</span>
+<span class="c1">-- Update: always scope with WHERE</span>
 <span class="k">UPDATE</span> <span class="n">customers</span> <span class="k">SET</span> <span class="n">phone</span> <span class="o">=</span> <span class="s1">'555-0100'</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
 
 <span class="c1">-- Delete</span>
 <span class="k">DELETE</span> <span class="k">FROM</span> <span class="n">customers</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+
+<span class="c1">-- Upsert: insert, or update the existing row on a key conflict</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">customers</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">email</span><span class="p">)</span>
+<span class="k">VALUES</span> <span class="p">(</span><span class="s1">'Ada King'</span><span class="p">,</span> <span class="s1">'ada@example.com'</span><span class="p">)</span>
+<span class="k">ON</span> <span class="n">CONFLICT</span> <span class="p">(</span><span class="n">email</span><span class="p">)</span> <span class="k">DO</span> <span class="k">UPDATE</span> <span class="k">SET</span> <span class="n">name</span> <span class="o">=</span> <span class="n">EXCLUDED</span><span class="p">.</span><span class="n">name</span><span class="p">;</span>
 </code></pre></div></div>
 
-<blockquote>
-  <p>The four DML verbs map to the classic <strong>CRUD</strong> operations: <code class="language-plaintext highlighter-rouge">INSERT</code> = Create, <code class="language-plaintext highlighter-rouge">SELECT</code> = Read, <code class="language-plaintext highlighter-rouge">UPDATE</code> = Update, <code class="language-plaintext highlighter-rouge">DELETE</code> = Delete.</p>
-</blockquote>
+<p><code class="language-plaintext highlighter-rouge">ON CONFLICT</code> is shared by PostgreSQL and SQLite; MySQL uses <code class="language-plaintext highlighter-rouge">ON DUPLICATE KEY UPDATE</code>, and the standard <code class="language-plaintext highlighter-rouge">MERGE</code> statement is available in PostgreSQL 15+, SQL Server and Oracle.</p>
 
-<h3 id="joining-tables">Joining tables</h3>
+<h3 id="how-a-query-is-evaluated">How a query is evaluated</h3>
 
-<p>Relationships become useful when you combine tables in one query.</p>
+<p>A <code class="language-plaintext highlighter-rouge">SELECT</code> is written in one order but logically evaluated in another. Knowing the evaluation order explains most “why can’t I use that alias here?” errors: <code class="language-plaintext highlighter-rouge">WHERE</code> runs before <code class="language-plaintext highlighter-rouge">SELECT</code>, so it cannot see column aliases, and it runs before <code class="language-plaintext highlighter-rouge">GROUP BY</code>, so filters on aggregates belong in <code class="language-plaintext highlighter-rouge">HAVING</code>.</p>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Every order with its customer's name (only matching rows)</span>
-<span class="k">SELECT</span> <span class="n">o</span><span class="p">.</span><span class="n">id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="n">o</span><span class="p">.</span><span class="n">created_at</span>
+<pre><code class="language-mermaid">flowchart LR
+    A["FROM / JOIN&lt;br/&gt;build rows"] --&gt; B["WHERE&lt;br/&gt;filter rows"]
+    B --&gt; C["GROUP BY&lt;br/&gt;form groups"]
+    C --&gt; D["HAVING&lt;br/&gt;filter groups"]
+    D --&gt; E["SELECT&lt;br/&gt;compute columns"]
+    E --&gt; F["DISTINCT"]
+    F --&gt; G["ORDER BY"]
+    G --&gt; H["LIMIT / OFFSET"]
+</code></pre>
+
+<p>This is the <em>logical</em> order that defines the result; the planner is free to execute the query physically in any order that produces the same answer.</p>
+
+<h3 id="joins">Joins</h3>
+
+<p>Joins combine rows from related tables in a single query.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Orders with their customer's name (only rows that match)</span>
+<span class="k">SELECT</span> <span class="n">o</span><span class="p">.</span><span class="n">id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="n">o</span><span class="p">.</span><span class="n">total</span>
 <span class="k">FROM</span> <span class="n">orders</span> <span class="n">o</span>
-<span class="k">INNER</span> <span class="k">JOIN</span> <span class="n">customers</span> <span class="k">c</span> <span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">id</span><span class="p">;</span>
+<span class="k">JOIN</span> <span class="n">customers</span> <span class="k">c</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span><span class="p">;</span>
 
-<span class="c1">-- Every customer, with a count of their orders (including zero)</span>
+<span class="c1">-- Every customer with an order count, including customers with none</span>
 <span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">COUNT</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">id</span><span class="p">)</span> <span class="k">AS</span> <span class="n">order_count</span>
 <span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
-<span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">LEFT</span> <span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">id</span>
 <span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">;</span>
 </code></pre></div></div>
 
@@ -3322,55 +3442,153 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">INNER JOIN</code></td>
-      <td>Only rows that match in both tables</td>
+      <td><code class="language-plaintext highlighter-rouge">INNER JOIN</code> (plain <code class="language-plaintext highlighter-rouge">JOIN</code>)</td>
+      <td>Only row pairs that satisfy the <code class="language-plaintext highlighter-rouge">ON</code> condition</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">LEFT JOIN</code></td>
-      <td>All left-table rows; nulls where no match</td>
+      <td>Every left-table row; right-side columns are <code class="language-plaintext highlighter-rouge">NULL</code> where nothing matches</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">RIGHT JOIN</code></td>
-      <td>All right-table rows; nulls where no match</td>
+      <td>Mirror image of <code class="language-plaintext highlighter-rouge">LEFT JOIN</code> (rarely used; swap the tables instead)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">FULL JOIN</code></td>
-      <td>All rows from both, matched where possible</td>
+      <td>Every row from both sides, matched where possible</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CROSS JOIN</code></td>
+      <td>Every combination of rows (Cartesian product)</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="indexes-the-speed-dial">Indexes: the speed dial</h2>
+<p>Note <code class="language-plaintext highlighter-rouge">COUNT(o.id)</code> rather than <code class="language-plaintext highlighter-rouge">COUNT(*)</code> in the second query: <code class="language-plaintext highlighter-rouge">COUNT(*)</code> counts rows, so a customer with no orders would report 1 (the <code class="language-plaintext highlighter-rouge">NULL</code>-padded row), while <code class="language-plaintext highlighter-rouge">COUNT(column)</code> ignores <code class="language-plaintext highlighter-rouge">NULL</code>s.</p>
 
-<p>An index is a separate data structure that lets the database find rows without scanning the whole table — the difference between a query taking milliseconds versus seconds.</p>
+<h3 id="aggregates-ctes-and-window-functions">Aggregates, CTEs and window functions</h3>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_customers_email</span> <span class="k">ON</span> <span class="n">customers</span><span class="p">(</span><span class="n">email</span><span class="p">);</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Aggregate per group, then filter the groups</span>
+<span class="k">SELECT</span> <span class="n">customer_id</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="k">AS</span> <span class="n">spent</span>
+<span class="k">FROM</span> <span class="n">orders</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="n">customer_id</span>
+<span class="k">HAVING</span> <span class="k">SUM</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">;</span>
+
+<span class="c1">-- A common table expression (CTE) names an intermediate result</span>
+<span class="k">WITH</span> <span class="n">big_spenders</span> <span class="k">AS</span> <span class="p">(</span>
+    <span class="k">SELECT</span> <span class="n">customer_id</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="k">AS</span> <span class="n">spent</span>
+    <span class="k">FROM</span> <span class="n">orders</span>
+    <span class="k">GROUP</span> <span class="k">BY</span> <span class="n">customer_id</span>
+    <span class="k">HAVING</span> <span class="k">SUM</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span>
+<span class="p">)</span>
+<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="n">b</span><span class="p">.</span><span class="n">spent</span>
+<span class="k">FROM</span> <span class="n">big_spenders</span> <span class="n">b</span>
+<span class="k">JOIN</span> <span class="n">customers</span> <span class="k">c</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">b</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">b</span><span class="p">.</span><span class="n">spent</span> <span class="k">DESC</span><span class="p">;</span>
+
+<span class="c1">-- A window function computes across related rows without collapsing them</span>
+<span class="k">SELECT</span> <span class="n">customer_id</span><span class="p">,</span> <span class="n">created_at</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span>
+       <span class="k">SUM</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">created_at</span><span class="p">)</span> <span class="k">AS</span> <span class="n">running_total</span><span class="p">,</span>
+       <span class="n">ROW_NUMBER</span><span class="p">()</span> <span class="n">OVER</span> <span class="p">(</span><span class="k">PARTITION</span> <span class="k">BY</span> <span class="n">customer_id</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">created_at</span> <span class="k">DESC</span><span class="p">)</span> <span class="k">AS</span> <span class="n">recency</span>
+<span class="k">FROM</span> <span class="n">orders</span><span class="p">;</span>
 </code></pre></div></div>
 
-<p>Indexes are a trade-off:</p>
+<p><code class="language-plaintext highlighter-rouge">GROUP BY</code> collapses each group to one row; a window function (<code class="language-plaintext highlighter-rouge">OVER (...)</code>) keeps every row and attaches a per-group calculation to it. Window functions are the standard tool for running totals, rankings and “latest row per group” queries.</p>
+
+<h3 id="null-and-three-valued-logic">NULL and three-valued logic</h3>
+
+<p><code class="language-plaintext highlighter-rouge">NULL</code> means “unknown”, not zero or empty string, and any comparison with it yields <code class="language-plaintext highlighter-rouge">UNKNOWN</code> rather than true or false. <code class="language-plaintext highlighter-rouge">WHERE</code> keeps only rows where the condition is true, which produces several classic bugs:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Expression</th>
+      <th>Result</th>
+      <th>Use instead</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">phone = NULL</code></td>
+      <td>Never true</td>
+      <td><code class="language-plaintext highlighter-rouge">phone IS NULL</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">phone &lt;&gt; '555-0100'</code></td>
+      <td>Skips rows where <code class="language-plaintext highlighter-rouge">phone</code> is <code class="language-plaintext highlighter-rouge">NULL</code></td>
+      <td><code class="language-plaintext highlighter-rouge">phone IS DISTINCT FROM '555-0100'</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">id NOT IN (SELECT customer_id FROM ...)</code></td>
+      <td>Returns no rows if the subquery yields any <code class="language-plaintext highlighter-rouge">NULL</code></td>
+      <td><code class="language-plaintext highlighter-rouge">NOT EXISTS (...)</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SUM(x)</code> over zero rows</td>
+      <td><code class="language-plaintext highlighter-rouge">NULL</code>, not 0</td>
+      <td><code class="language-plaintext highlighter-rouge">COALESCE(SUM(x), 0)</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="indexes">Indexes</h2>
+
+<p>Without an index, finding rows that match a condition means reading the whole table (a <strong>sequential scan</strong>). An <strong>index</strong> is a separate, sorted structure (usually a B-tree) that maps column values to row locations, turning a scan of millions of rows into a handful of page reads.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">orders_customer_created_idx</span> <span class="k">ON</span> <span class="n">orders</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">created_at</span><span class="p">);</span>
+
+<span class="c1">-- Ask the planner what it will do, and (with ANALYZE) what it actually did</span>
+<span class="k">EXPLAIN</span> <span class="k">ANALYZE</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">WHERE</span> <span class="n">customer_id</span> <span class="o">=</span> <span class="mi">42</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">created_at</span> <span class="k">DESC</span> <span class="k">LIMIT</span> <span class="mi">5</span><span class="p">;</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Indexes help</th>
+      <th>Indexes cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">WHERE</code>, <code class="language-plaintext highlighter-rouge">JOIN</code> and <code class="language-plaintext highlighter-rouge">ORDER BY</code> on the indexed columns</td>
+      <td>Disk space and memory</td>
+    </tr>
+    <tr>
+      <td>Enforcing uniqueness (<code class="language-plaintext highlighter-rouge">UNIQUE</code> and <code class="language-plaintext highlighter-rouge">PRIMARY KEY</code> create one automatically)</td>
+      <td>Every <code class="language-plaintext highlighter-rouge">INSERT</code>, <code class="language-plaintext highlighter-rouge">UPDATE</code> and <code class="language-plaintext highlighter-rouge">DELETE</code> must also maintain the index</td>
+    </tr>
+    <tr>
+      <td>Index-only scans, when the index contains every column the query needs</td>
+      <td>Planner overhead; unused indexes are pure cost</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Practical guidance:</p>
 
 <ul>
-  <li><strong>They help:</strong> speed up <code class="language-plaintext highlighter-rouge">WHERE</code>, <code class="language-plaintext highlighter-rouge">JOIN</code>, and <code class="language-plaintext highlighter-rouge">ORDER BY</code> on the indexed columns, and can enforce uniqueness (a unique index).</li>
-  <li><strong>They cost:</strong> extra disk space, and slower writes — every <code class="language-plaintext highlighter-rouge">INSERT</code>/<code class="language-plaintext highlighter-rouge">UPDATE</code> must update the index too.</li>
+  <li>Index columns you filter, join or sort on frequently, including foreign keys.</li>
+  <li>In a composite index, column order matters: <code class="language-plaintext highlighter-rouge">(customer_id, created_at)</code> serves “orders for a customer, newest first” but is much less useful for a filter on <code class="language-plaintext highlighter-rouge">created_at</code> alone. (PostgreSQL 18’s <em>skip scan</em> can use such an index when a leading column is missing, but only efficiently when that column has few distinct values.)</li>
+  <li>Wrapping an indexed column in a function (<code class="language-plaintext highlighter-rouge">WHERE lower(email) = ...</code>) prevents the index from being used unless you create an index on that expression.</li>
+  <li>Confirm with <code class="language-plaintext highlighter-rouge">EXPLAIN</code> rather than guessing.</li>
 </ul>
 
-<p>Index the columns you frequently filter or join on; don’t index everything. See <a href="database-design/indexing-and-queries.html#indexing-making-queries-lightning-fast">Database Design → Indexing</a> for B-tree internals and composite-index ordering.</p>
+<p>See <a href="database-design/indexing-and-queries.html#indexing-making-queries-lightning-fast">Database Design → Indexing</a> for B-tree internals, other index types and reading query plans.</p>
 
-<h2 id="transactions-all-or-nothing">Transactions: all-or-nothing</h2>
+<h2 id="transactions-and-acid">Transactions and ACID</h2>
 
-<p>A <strong>transaction</strong> groups operations so they either all succeed or all fail. The textbook example is moving money between two bank accounts: the debit and the credit are two separate <code class="language-plaintext highlighter-rouge">UPDATE</code>s, but the bank must never end up in a state where one ran and the other didn’t.</p>
+<p>A <strong>transaction</strong> groups statements into one all-or-nothing unit. The canonical example is a bank transfer, which is two separate updates that must never be observed half-done:</p>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Transfer $100 from Alice (id 1) to Bob (id 2)</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Transfer 100 from account 1 to account 2</span>
 <span class="k">BEGIN</span><span class="p">;</span>
-  <span class="k">UPDATE</span> <span class="n">accounts</span> <span class="k">SET</span> <span class="n">balance</span> <span class="o">=</span> <span class="n">balance</span> <span class="o">-</span> <span class="mi">100</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-  <span class="c1">-- Imagine the server crashes RIGHT HERE.</span>
-  <span class="k">UPDATE</span> <span class="n">accounts</span> <span class="k">SET</span> <span class="n">balance</span> <span class="o">=</span> <span class="n">balance</span> <span class="o">+</span> <span class="mi">100</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
-<span class="k">COMMIT</span><span class="p">;</span>     <span class="c1">-- or ROLLBACK; to undo everything</span>
+<span class="k">UPDATE</span> <span class="n">accounts</span> <span class="k">SET</span> <span class="n">balance</span> <span class="o">=</span> <span class="n">balance</span> <span class="o">-</span> <span class="mi">100</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="c1">-- a crash here must not lose the money</span>
+<span class="k">UPDATE</span> <span class="n">accounts</span> <span class="k">SET</span> <span class="n">balance</span> <span class="o">=</span> <span class="n">balance</span> <span class="o">+</span> <span class="mi">100</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+<span class="k">COMMIT</span><span class="p">;</span>   <span class="c1">-- or ROLLBACK to discard both changes</span>
 </code></pre></div></div>
 
-<p>Without a transaction, a crash after the first <code class="language-plaintext highlighter-rouge">UPDATE</code> would vaporize $100: Alice is debited, Bob is never credited, and the missing money simply ceases to exist. Wrapped in <code class="language-plaintext highlighter-rouge">BEGIN ... COMMIT</code>, the two updates are one indivisible unit. If anything fails before <code class="language-plaintext highlighter-rouge">COMMIT</code> — a crash, a constraint violation, a deadlock — the database performs a <code class="language-plaintext highlighter-rouge">ROLLBACK</code> and the accounts look exactly as they did before <code class="language-plaintext highlighter-rouge">BEGIN</code>.</p>
-
-<p>That money transfer also illustrates each <strong>ACID</strong> guarantee concretely:</p>
+<p>If anything fails before <code class="language-plaintext highlighter-rouge">COMMIT</code> (a crash, a constraint violation, a deadlock), the database rolls back and both accounts are exactly as they were before <code class="language-plaintext highlighter-rouge">BEGIN</code>. The guarantees are summarised as <strong>ACID</strong>:</p>
 
 <table>
   <thead>
@@ -3382,50 +3600,126 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>A</strong>tomicity</td>
-      <td>All steps complete, or none do</td>
-      <td>Both the debit and credit apply, or neither does — never just one</td>
+      <td><strong>Atomicity</strong></td>
+      <td>All statements take effect, or none do</td>
+      <td>Never a debit without the matching credit</td>
     </tr>
     <tr>
-      <td><strong>C</strong>onsistency</td>
-      <td>The database moves between valid states only</td>
-      <td>The total balance across all accounts is unchanged; a <code class="language-plaintext highlighter-rouge">CHECK (balance &gt;= 0)</code> constraint stops an overdraft and aborts the whole transfer</td>
+      <td><strong>Consistency</strong></td>
+      <td>Each commit moves the database from one valid state to another</td>
+      <td>A <code class="language-plaintext highlighter-rouge">CHECK (balance &gt;= 0)</code> violation aborts the whole transfer</td>
     </tr>
     <tr>
-      <td><strong>I</strong>solation</td>
-      <td>Concurrent transactions don’t corrupt each other</td>
-      <td>A second transfer reading Alice’s balance at the same time sees either the pre-transfer or post-transfer amount, never the in-between state where $100 has vanished</td>
+      <td><strong>Isolation</strong></td>
+      <td>Concurrent transactions do not see each other’s partial work</td>
+      <td>Another session sees the balances before or after the transfer, never in between</td>
     </tr>
     <tr>
-      <td><strong>D</strong>urability</td>
-      <td>Once committed, data survives a crash</td>
-      <td>After <code class="language-plaintext highlighter-rouge">COMMIT</code> returns, the transfer is on disk; pulling the power cord one millisecond later does not undo it</td>
+      <td><strong>Durability</strong></td>
+      <td>Once <code class="language-plaintext highlighter-rouge">COMMIT</code> returns, the change survives a crash</td>
+      <td>The commit record is flushed to the write-ahead log before the client is told it succeeded</td>
     </tr>
   </tbody>
 </table>
 
-<blockquote>
-  <p>Isolation is the subtle one. Run two transfers against the same account simultaneously and a naive read-then-write can lose an update. Databases offer <strong>isolation levels</strong> (<code class="language-plaintext highlighter-rouge">READ COMMITTED</code>, <code class="language-plaintext highlighter-rouge">REPEATABLE READ</code>, <code class="language-plaintext highlighter-rouge">SERIALIZABLE</code>) that trade concurrency for stronger guarantees. See <a href="database-design/transactions-and-concurrency.html">Database Design → Transactions &amp; Concurrency</a> for the anomalies each level prevents.</p>
-</blockquote>
+<h3 id="isolation-levels">Isolation levels</h3>
 
-<h2 id="a-glimpse-of-nosql">A glimpse of NoSQL</h2>
+<p>Full isolation (every transaction behaving as if it ran alone) is expensive, so SQL defines weaker <strong>isolation levels</strong> that permit specific anomalies in exchange for concurrency:</p>
 
-<p>NoSQL is not “SQL with different syntax” — it’s a different bet about what matters. Relational databases optimize for <strong>flexible, ad-hoc queries</strong> over normalized data: you can join any tables and ask questions you never anticipated, and the database enforces consistency for you. NoSQL stores trade some of that flexibility away in exchange for <strong>scale and a particular access pattern</strong>. You reach for one when you can answer “yes” to a concrete question about how the data is actually read and written, not just because it sounds modern.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th style="text-align: center">Dirty read</th>
+      <th style="text-align: center">Non-repeatable read</th>
+      <th style="text-align: center">Phantom read</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Read uncommitted</td>
+      <td style="text-align: center">possible</td>
+      <td style="text-align: center">possible</td>
+      <td style="text-align: center">possible</td>
+      <td>PostgreSQL treats it as read committed</td>
+    </tr>
+    <tr>
+      <td><strong>Read committed</strong></td>
+      <td style="text-align: center">prevented</td>
+      <td style="text-align: center">possible</td>
+      <td style="text-align: center">possible</td>
+      <td>PostgreSQL default</td>
+    </tr>
+    <tr>
+      <td><strong>Repeatable read</strong></td>
+      <td style="text-align: center">prevented</td>
+      <td style="text-align: center">prevented</td>
+      <td style="text-align: center">possible in the standard</td>
+      <td>MySQL InnoDB default; PostgreSQL implements it as snapshot isolation, which also prevents phantoms</td>
+    </tr>
+    <tr>
+      <td><strong>Serializable</strong></td>
+      <td style="text-align: center">prevented</td>
+      <td style="text-align: center">prevented</td>
+      <td style="text-align: center">prevented</td>
+      <td>Result is equivalent to some serial order; transactions may abort with a serialization failure and must be retried</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The motivation almost always comes down to <strong>access patterns and scale</strong>:</p>
+<p>The most common real-world concurrency bug is not in that table: it is the <strong>lost update</strong>, caused by application code that reads a value, computes in the application, and writes it back.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant A as Session A
+    participant DB as Database (balance = 500)
+    participant B as Session B
+    A-&gt;&gt;DB: SELECT balance → 500
+    B-&gt;&gt;DB: SELECT balance → 500
+    A-&gt;&gt;DB: UPDATE balance = 400 (500 - 100)
+    B-&gt;&gt;DB: UPDATE balance = 450 (500 - 50)
+    Note over DB: Final balance 450, so A's withdrawal is lost
+</code></pre>
+
+<p>Fixes, in order of preference: let the database do the arithmetic atomically (<code class="language-plaintext highlighter-rouge">SET balance = balance - 100</code>), lock the row while you work (<code class="language-plaintext highlighter-rouge">SELECT ... FOR UPDATE</code>), or run at <code class="language-plaintext highlighter-rouge">SERIALIZABLE</code> and retry on failure. See <a href="database-design/transactions-and-concurrency.html#isolation-levels-choosing-your-guarantees">Database Design → Isolation Levels</a> for MVCC, locking and write skew.</p>
+
+<h2 id="querying-from-application-code">Querying from application code</h2>
+
+<p>Never build SQL by concatenating user input into a string; that is how <strong>SQL injection</strong> happens. Pass values as <strong>parameters</strong> so the driver sends them separately from the query text:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">psycopg</span>  <span class="c1"># psycopg 3
+</span>
+<span class="k">with</span> <span class="n">psycopg</span><span class="p">.</span><span class="nf">connect</span><span class="p">(</span><span class="sh">"</span><span class="s">dbname=app user=app</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="n">row</span> <span class="o">=</span> <span class="n">conn</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">SELECT id, name FROM customers WHERE email = %s</span><span class="sh">"</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">email</span><span class="p">,),</span>                     <span class="c1"># a value, never spliced into the SQL text
+</span>    <span class="p">).</span><span class="nf">fetchone</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Other habits that pay off in production code:</p>
 
 <ul>
-  <li><strong>You read the data the same way every time.</strong> If 99% of requests are “give me this user’s whole profile and recent orders by user ID,” a document store lets you fetch that entire object in one lookup, with no joins. The relational version would join three or four tables on every page load.</li>
-  <li><strong>You need to scale writes horizontally.</strong> A single relational primary node has a ceiling. Wide-column stores like Cassandra spread writes across many nodes by a partition key, accepting eventual consistency so that a node failure or a traffic spike doesn’t stall the whole system.</li>
-  <li><strong>The data is hierarchical or schema-variable.</strong> Catalog items where every category has different attributes, or event payloads that change shape over time, fight against a fixed table schema but fit naturally into documents.</li>
-  <li><strong>The lookup must be sub-millisecond.</strong> An in-memory key-value store answers “what’s in this session/cart/rate-limit counter” far faster than any disk-backed table.</li>
+  <li><strong>Use a connection pool</strong> (built into most frameworks, or PgBouncer in front of PostgreSQL); opening a connection per request is slow and exhausts server limits.</li>
+  <li><strong>Keep transactions short</strong>; an idle open transaction holds locks and, in PostgreSQL, prevents <code class="language-plaintext highlighter-rouge">VACUUM</code> from reclaiming dead rows.</li>
+  <li><strong>Watch for the N+1 pattern</strong> in ORMs, where loading a list issues one extra query per item; fetch related rows with a join or a batched query instead.</li>
+  <li><strong>Manage schema changes as versioned migrations</strong> (Alembic, Flyway, Liquibase, framework migrations) rather than ad-hoc <code class="language-plaintext highlighter-rouge">ALTER</code> statements; see <a href="database-design/schema-evolution-and-migrations.html">Schema Evolution and Migrations</a>.</li>
+</ul>
+
+<h2 id="when-to-use-nosql">When to use NoSQL</h2>
+
+<p>Relational databases optimise for <strong>flexible, ad-hoc queries</strong> over normalized data: you can join any tables and ask questions nobody anticipated. Non-relational stores trade some of that flexibility for <strong>scale or a specific access pattern</strong>. The case for one is usually one of these:</p>
+
+<ul>
+  <li><strong>The data is always read the same way.</strong> If nearly every request is “load this user’s profile with recent orders”, a document store returns that whole aggregate in one lookup, with no joins.</li>
+  <li><strong>Writes must scale horizontally.</strong> A single relational primary has a ceiling; wide-column stores such as Cassandra partition writes across many nodes by key, typically with tunable consistency.</li>
+  <li><strong>The shape varies by record.</strong> Catalog items with category-specific attributes or evolving event payloads fit documents naturally (though a PostgreSQL <code class="language-plaintext highlighter-rouge">jsonb</code> column often suffices).</li>
+  <li><strong>Latency must be sub-millisecond.</strong> An in-memory key-value store answers session, cache and rate-limit lookups faster than any disk-backed table.</li>
 </ul>
 
 <div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Document store (MongoDB): the customer and their orders are stored</span>
-<span class="c1">// together because the app ALWAYS reads them together — one lookup by</span>
-<span class="c1">// _id returns the whole object, no JOIN required.</span>
+<span class="c1">// together because the application always reads them together.</span>
 <span class="p">{</span>
-  <span class="dl">"</span><span class="s2">_id</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">...</span><span class="dl">"</span><span class="p">,</span>
+  <span class="dl">"</span><span class="s2">_id</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">c-1000</span><span class="dl">"</span><span class="p">,</span>
   <span class="dl">"</span><span class="s2">name</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Ada Lovelace</span><span class="dl">"</span><span class="p">,</span>
   <span class="dl">"</span><span class="s2">email</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">ada@example.com</span><span class="dl">"</span><span class="p">,</span>
   <span class="dl">"</span><span class="s2">orders</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span>
@@ -3434,56 +3728,56 @@ document.addEventListener('DOMContentLoaded', function () {
 <span class="p">}</span>
 </code></pre></div></div>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Key-value store (Redis): direct, in-memory, sub-millisecond lookups by</span>
-<span class="c"># key — ideal for sessions, caches, and counters, not ad-hoc queries.</span>
-SET   user:1000:name  <span class="s2">"Ada Lovelace"</span>
-HSET  user:1000:prefs theme <span class="s2">"dark"</span> lang <span class="s2">"en"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Key-value store (Redis/Valkey): in-memory lookups by key,</span>
+<span class="c"># with optional expiry; ideal for sessions, caches and counters</span>
+SET  session:8f3a <span class="s2">"user:1000"</span> EX 3600
+HSET user:1000:prefs theme dark lang en
+INCR ratelimit:user:1000
 </code></pre></div></div>
 
-<p>The cost of embedding orders inside the customer document is the flip side of the benefit: there is no cheap way to ask “which customers bought a widget?” without scanning every document. That query is trivial in SQL and awkward in a document store — which is exactly why the rule of thumb is to model NoSQL around your known access patterns, and to default to relational when your queries are still evolving. See <a href="database-design/nosql-data-models.html">Database Design → NoSQL Data Models</a> for document, key-value, wide-column, and graph stores in depth.</p>
+<p>The benefit of embedding orders in the customer document is also its cost: “which customers bought a widget?” now requires scanning or separately indexing every document, while in SQL it is a simple join. Model non-relational stores around known access patterns, and default to relational while your queries are still evolving. See <a href="database-design/nosql-data-models.html">Database Design → NoSQL Data Models</a>.</p>
 
-<h2 id="getting-hands-on">Getting hands-on</h2>
+<h2 id="running-a-database-locally">Running a database locally</h2>
 
-<p>The fastest way to learn is to run a database locally. With Docker it is one command:</p>
+<p>With Docker, a disposable PostgreSQL server is one command. PostgreSQL 18 images expect the data volume at <code class="language-plaintext highlighter-rouge">/var/lib/postgresql</code> (earlier major versions used <code class="language-plaintext highlighter-rouge">/var/lib/postgresql/data</code>):</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Spin up PostgreSQL, then connect with psql</span>
-docker run <span class="nt">-d</span> <span class="nt">--name</span> pg <span class="nt">-e</span> <span class="nv">POSTGRES_PASSWORD</span><span class="o">=</span>dev <span class="nt">-p</span> 5432:5432 postgres:16
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker run <span class="nt">-d</span> <span class="nt">--name</span> pg <span class="se">\</span>
+  <span class="nt">-e</span> <span class="nv">POSTGRES_PASSWORD</span><span class="o">=</span>dev <span class="se">\</span>
+  <span class="nt">-p</span> 5432:5432 <span class="se">\</span>
+  <span class="nt">-v</span> pgdata:/var/lib/postgresql <span class="se">\</span>
+  postgres:18
+
 docker <span class="nb">exec</span> <span class="nt">-it</span> pg psql <span class="nt">-U</span> postgres
 </code></pre></div></div>
 
-<p>Or use <strong>SQLite</strong>, which needs no server at all — perfect for learning:</p>
+<p>For learning and single-user work, <strong>SQLite</strong> needs no server at all; the whole database is one file:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sqlite3 practice.db
-sqlite&gt; CREATE TABLE notes <span class="o">(</span><span class="nb">id </span>INTEGER PRIMARY KEY, body TEXT<span class="o">)</span><span class="p">;</span>
+sqlite&gt; CREATE TABLE notes <span class="o">(</span><span class="nb">id </span>INTEGER PRIMARY KEY, body TEXT NOT NULL<span class="o">)</span><span class="p">;</span>
+sqlite&gt; .tables
 </code></pre></div></div>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p><strong>DuckDB</strong> plays a similar embedded role for analytics: it runs SQL directly over CSV and Parquet files (<code class="language-plaintext highlighter-rouge">SELECT * FROM 'events.parquet'</code>), which makes it a convenient way to practise aggregates and window functions on real data.</p>
+
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><strong>Relational databases store data in linked tables;</strong> primary and foreign keys define the relationships.</li>
-  <li><strong>SQL’s core is CRUD:</strong> <code class="language-plaintext highlighter-rouge">SELECT</code>, <code class="language-plaintext highlighter-rouge">INSERT</code>, <code class="language-plaintext highlighter-rouge">UPDATE</code>, <code class="language-plaintext highlighter-rouge">DELETE</code>, plus <code class="language-plaintext highlighter-rouge">JOIN</code> to combine tables.</li>
-  <li><strong>Indexes trade write speed and space for dramatically faster reads</strong> — add them to columns you filter on.</li>
-  <li><strong>Transactions give all-or-nothing safety</strong> with ACID guarantees.</li>
-  <li><strong>Default to relational (PostgreSQL); choose NoSQL</strong> only when a specific requirement justifies it.</li>
-</ul>
-
-<h2 id="see-also">See Also</h2>
-
-<ul>
-  <li><a href="database-design/">Database Design</a> — the full reference: normalization, indexing internals, query execution, distributed databases, and tuning</li>
-  <li><a href="aws/databases.html">AWS Databases</a> — managed RDS, DynamoDB, and Aurora</li>
-  <li><a href="docker-essentials.html">Docker Essentials</a> — run databases locally for development</li>
-  <li><a href="../distributed-systems/">Distributed Systems</a> — consistency, replication, and the CAP theorem in depth</li>
+  <li><a href="database-design/">Database Design</a> — normalization, indexing internals, query execution, replication and tuning</li>
+  <li><a href="aws/databases.html">AWS Databases</a> — managed RDS, Aurora and DynamoDB</li>
+  <li><a href="docker-essentials.html">Docker Essentials</a> — running databases locally</li>
+  <li><a href="../distributed-systems/">Distributed Systems</a> — consistency models, replication and the CAP theorem</li>
 </ul>
 
 <h2 id="references">References</h2>
 
 <ul>
-  <li><a href="https://www.postgresql.org/docs/">PostgreSQL Documentation</a></li>
-  <li><a href="https://dev.mysql.com/doc/">MySQL Documentation</a></li>
+  <li><a href="https://www.postgresql.org/docs/current/">PostgreSQL Documentation</a></li>
+  <li><a href="https://www.postgresql.org/about/news/postgresql-18-released-3142/">PostgreSQL 18 release announcement</a></li>
+  <li><a href="https://dev.mysql.com/doc/">MySQL Reference Manual</a></li>
   <li><a href="https://www.sqlite.org/docs.html">SQLite Documentation</a></li>
-  <li><a href="https://docs.mongodb.com/">MongoDB Documentation</a></li>
+  <li><a href="https://www.mongodb.com/docs/">MongoDB Documentation</a></li>
   <li><a href="https://use-the-index-luke.com/">Use The Index, Luke!</a> — a practical guide to SQL indexing</li>
+  <li><a href="https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html">OWASP SQL Injection Prevention Cheat Sheet</a></li>
 </ul>
 
       </section>

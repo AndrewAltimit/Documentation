@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="FLUX.1 and FLUX.2 from Black Forest Labs: rectified-flow transformer architecture, guidance distillation, model variants and licenses, recommended settings, ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AI/ML: FLUX Guide">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="FLUX.1 and FLUX.2 from Black Forest Labs: rectified-flow transformer architecture, guidance distillation, model variants and licenses, recommended settings, ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/ai-ml/flux-guide.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AI/ML: FLUX Guide">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="FLUX.1 and FLUX.2 from Black Forest Labs: rectified-flow transformer architecture, guidance distillation, model variants and licenses, recommended settings, ...">
 
 <title>AI/ML: FLUX Guide | Andrews Notebook</title>
 
@@ -3135,295 +3135,445 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI/ML Documentation</a> » FLUX Guide</p>
 
-<p>A deep dive into FLUX.1 — Black Forest Labs’ transformer-based diffusion family. How flow matching and guidance distillation work, the differences between dev / schnell / pro, optimal settings, and the surrounding ecosystem of LoRAs, ControlNets, and quantized builds.</p>
+<p><strong>FLUX</strong> is a family of text-to-image and image-editing models from <strong>Black Forest Labs (BFL)</strong>, a Freiburg-based lab founded in 2024 by several of the original Stable Diffusion researchers. Every FLUX model is a <strong>rectified-flow transformer</strong>: a Diffusion Transformer (DiT) trained with flow matching instead of a U-Net trained to predict noise. This page covers the architecture, the two open-weight generations (FLUX.1, August 2024; FLUX.2, November 2025), how guidance distillation changes the settings you use, the variant and license matrix, and practical ComfyUI and diffusers workflows.</p>
 
-<h2 id="overview">Overview</h2>
+<h2 id="release-history">Release History</h2>
 
-<p>FLUX represents the current state-of-the-art in open diffusion models, with revolutionary architecture changes and significantly improved capabilities. Built by <strong>Black Forest Labs</strong> (founded by several of the original Stable Diffusion researchers), the FLUX.1 family abandons the U-Net entirely in favor of a large <strong>rectified-flow transformer</strong> trained with <strong>flow matching</strong> and shipped with <strong>guidance distillation</strong> baked in.</p>
-
-<p>The practical consequences are dramatic: FLUX rarely botches hands, holds spatial and physical consistency far better than prior open models, renders legible text, and follows long natural-language prompts faithfully — at the cost of higher VRAM requirements and slower inference than SDXL.</p>
-
-<ul>
-  <li><strong>Flow Matching, Not DDPM.</strong> FLUX learns a velocity field that transports noise to data along near-straight paths, so it needs fewer steps than classic noise-prediction diffusion.</li>
-  <li><strong>Guidance Is Distilled In.</strong> Classifier-free guidance is baked into the weights. You keep <code class="language-plaintext highlighter-rouge">cfg = 1.0</code> and steer with a separate <code class="language-plaintext highlighter-rouge">guidance</code> scalar instead.</li>
-  <li><strong>Three Tiers, One Architecture.</strong> schnell (fast, Apache-2.0), dev (open-weights, high quality), and pro (API-only, best quality) share the same backbone.</li>
-</ul>
-
-<h2 id="technical-specifications">Technical Specifications</h2>
+<p>FLUX has shipped in two open-weight generations plus a steady stream of specialised models. The table lists what is relevant to local use as of September 2026.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Property</th>
-      <th>Value</th>
+      <th>Date</th>
+      <th>Release</th>
+      <th>Params</th>
+      <th>Weights / license</th>
+      <th>What it adds</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Architecture</td>
-      <td>Transformer-based (DiT), flow matching</td>
+      <td>Aug 2024</td>
+      <td>FLUX.1 [pro]</td>
+      <td>12B</td>
+      <td>API only</td>
+      <td>Flagship text-to-image</td>
     </tr>
     <tr>
-      <td>Parameters</td>
-      <td>~12B</td>
+      <td>Aug 2024</td>
+      <td>FLUX.1 [dev]</td>
+      <td>12B</td>
+      <td>Open, FLUX.1 Non-Commercial</td>
+      <td>Guidance-distilled from pro</td>
     </tr>
     <tr>
-      <td>Text encoders</td>
-      <td>T5-XXL + CLIP ViT-L (256 tokens)</td>
+      <td>Aug 2024</td>
+      <td>FLUX.1 [schnell]</td>
+      <td>12B</td>
+      <td>Open, Apache-2.0</td>
+      <td>1-4 step timestep-distilled model</td>
     </tr>
     <tr>
-      <td>Guidance</td>
-      <td>Distilled guidance (no traditional CFG)</td>
+      <td>Oct-Nov 2024</td>
+      <td>FLUX1.1 [pro], Ultra and Raw modes</td>
+      <td>—</td>
+      <td>API only</td>
+      <td>Faster flagship; up to 4 MP (Ultra); candid photographic look (Raw)</td>
     </tr>
     <tr>
-      <td>Resolution</td>
-      <td>1024×1024 to 2048×2048</td>
+      <td>Nov 2024</td>
+      <td>FLUX.1 Tools: Fill, Canny, Depth, Redux</td>
+      <td>12B</td>
+      <td>dev versions open, non-commercial</td>
+      <td>Inpaint/outpaint, structural conditioning, image variation</td>
     </tr>
     <tr>
-      <td>File size</td>
-      <td>~24 GB (fp16); ~12 GB (fp8)</td>
+      <td>May-Jun 2025</td>
+      <td>FLUX.1 Kontext [pro]/[max]/[dev]</td>
+      <td>12B (dev)</td>
+      <td>dev open, non-commercial</td>
+      <td>Instruction-based, in-context image editing</td>
     </tr>
     <tr>
-      <td>Developer</td>
-      <td>Black Forest Labs</td>
+      <td>Jul 2025</td>
+      <td>FLUX.1 Krea [dev]</td>
+      <td>12B</td>
+      <td>Open, non-commercial</td>
+      <td>Drop-in FLUX.1 [dev] replacement tuned with Krea AI for a less “AI-looking” aesthetic</td>
+    </tr>
+    <tr>
+      <td>Nov 2025</td>
+      <td>FLUX.2 [pro]/[flex]/[dev], FLUX.2 VAE</td>
+      <td>32B (dev)</td>
+      <td>dev open, non-commercial; VAE Apache-2.0</td>
+      <td>Unified generation + multi-reference editing, 4 MP output, VLM text encoder</td>
+    </tr>
+    <tr>
+      <td>Jan 2026</td>
+      <td>FLUX.2 [klein] 4B / 9B</td>
+      <td>4B, 9B</td>
+      <td>4B Apache-2.0; 9B non-commercial</td>
+      <td>Step-distilled small models, sub-second generation</td>
+    </tr>
+    <tr>
+      <td>Jul 2026</td>
+      <td>FLUX 3 (announced)</td>
+      <td>—</td>
+      <td>Early access / partners only</td>
+      <td>Joint image, video and audio model</td>
     </tr>
   </tbody>
 </table>
 
+<p><strong>FLUX 3</strong> was unveiled on 23 July 2026 as a single multimodal model trained jointly on images, video (up to 20 s with synchronised audio) and audio, with a robotics offshoot. At the time of writing it is in limited API/partner access; BFL has said an open-weight FLUX 3 [dev] is planned for later in 2026. Everything below concerns FLUX.1 and FLUX.2, which are what run locally today.</p>
+
 <h2 id="architecture">Architecture</h2>
 
-<p>FLUX belongs to the <strong>transformer / flow-matching lineage</strong> of diffusion models (alongside SD3), not the U-Net lineage of SD 1.5, SD 2.x, and SDXL. Instead of a convolutional encoder/decoder with cross-attention to the text, FLUX uses a <strong>Diffusion Transformer (DiT)</strong> that processes image and text tokens together.</p>
+<p>FLUX belongs to the transformer / flow-matching lineage (alongside SD3), not the U-Net lineage of SD 1.5 and SDXL. Instead of a convolutional encoder/decoder that reads the prompt through cross-attention, FLUX turns the latent image into a sequence of tokens and processes image and text tokens together in one transformer.</p>
 
 <table>
   <thead>
     <tr>
       <th>Aspect</th>
       <th>U-Net line (SD 1.5 / SDXL)</th>
-      <th>FLUX (transformer line)</th>
+      <th>FLUX</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Backbone</td>
       <td>Convolutional U-Net</td>
-      <td>Diffusion Transformer (DiT)</td>
+      <td>Diffusion Transformer with double- and single-stream blocks</td>
     </tr>
     <tr>
-      <td>Text injected via</td>
-      <td>Cross-attention layers</td>
-      <td>Joint image+text attention (tokens mixed)</td>
+      <td>Text injection</td>
+      <td>Cross-attention from image to text</td>
+      <td>Joint attention over concatenated image and text tokens</td>
     </tr>
     <tr>
       <td>Training objective</td>
-      <td>Noise prediction (DDPM)</td>
-      <td>Velocity / rectified flow matching</td>
+      <td>Noise ($\epsilon$) prediction</td>
+      <td>Velocity prediction (rectified flow)</td>
+    </tr>
+    <tr>
+      <td>Guidance at inference</td>
+      <td>Classifier-free guidance, scale ~5-9, two passes per step</td>
+      <td>Distilled guidance scalar, one pass per step</td>
+    </tr>
+    <tr>
+      <td>Positional encoding</td>
+      <td>Implicit in convolutions</td>
+      <td>Rotary embeddings (RoPE) on image tokens</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="flux1-specifications">FLUX.1 Specifications</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>FLUX.1 [dev] / [schnell]</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Transformer</td>
+      <td>~12B parameters: 19 double-stream + 38 single-stream blocks</td>
+    </tr>
+    <tr>
+      <td>Text encoders</td>
+      <td>T5-XXL encoder (sequence length 512 for dev, 256 for schnell) + CLIP ViT-L/14 (pooled vector)</td>
+    </tr>
+    <tr>
+      <td>Autoencoder</td>
+      <td>16-channel latent, 8x spatial downsampling; latents patchified 2x2 into tokens</td>
+    </tr>
+    <tr>
+      <td>Native resolution</td>
+      <td>~1 megapixel; works from ~0.25 to ~2 MP at many aspect ratios</td>
+    </tr>
+    <tr>
+      <td>Transformer file size</td>
+      <td>~23.8 GB (bf16), ~12 GB (fp8)</td>
+    </tr>
+    <tr>
+      <td>T5-XXL file size</td>
+      <td>~9.5 GB (fp16), ~4.9 GB (fp8)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="how-a-forward-pass-is-organised">How a Forward Pass Is Organised</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+    P["Prompt"] --&gt; T5["T5-XXL&lt;br/&gt;(token sequence)"]
+    P --&gt; CL["CLIP-L&lt;br/&gt;(pooled vector)"]
+    Z["Noisy latent&lt;br/&gt;16 x H/8 x W/8"] --&gt; PT["2x2 patchify&lt;br/&gt;+ RoPE positions"]
+    t["Timestep t"] --&gt; MOD["Modulation vector"]
+    g["Guidance scalar"] --&gt; MOD
+    CL --&gt; MOD
+    T5 --&gt; DS["Double-stream blocks x19&lt;br/&gt;separate weights,&lt;br/&gt;joint attention"]
+    PT --&gt; DS
+    MOD --&gt; DS
+    DS --&gt; SS["Single-stream blocks x38&lt;br/&gt;concatenated tokens,&lt;br/&gt;shared weights"]
+    MOD --&gt; SS
+    SS --&gt; V["Predicted velocity&lt;br/&gt;(image tokens only)"]
+</code></pre>
+
+<ul>
+  <li><strong>Double-stream blocks</strong> keep text and image tokens in separate streams with their own weights but compute attention over both together, so each modality can read the other. This is the MM-DiT design from SD3 and is where most prompt-to-layout binding happens.</li>
+  <li><strong>Single-stream blocks</strong> concatenate the two token sets and process them with shared weights. They are cheaper per parameter and make up the bulk of the depth.</li>
+  <li><strong>Modulation.</strong> The timestep, the pooled CLIP vector and (in dev) the guidance value are embedded into one vector that scales and shifts the normalisation layers of every block (adaLN-style). This is why the CLIP encoder mostly influences global style while T5 carries the detailed content.</li>
+</ul>
+
+<p>Because image tokens carry RoPE positions rather than living on a fixed convolutional grid, FLUX generalises across resolutions and aspect ratios better than SDXL, though quality still degrades well above ~2 MP for FLUX.1.</p>
+
+<h3 id="flux2-changes">FLUX.2 Changes</h3>
+
+<p>FLUX.2 keeps the rectified-flow transformer design but scales and rewires the conditioning:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>FLUX.2 [dev]</th>
+      <th>FLUX.2 [klein]</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Transformer</td>
+      <td>32B</td>
+      <td>4B or 9B, step-distilled</td>
+    </tr>
+    <tr>
+      <td>Text encoder</td>
+      <td>Mistral Small 3.x (24B) vision-language model, replacing T5 + CLIP</td>
+      <td>Qwen3-4B (4B model) or Qwen3-8B (9B model)</td>
+    </tr>
+    <tr>
+      <td>Autoencoder</td>
+      <td>New FLUX.2 VAE (Apache-2.0)</td>
+      <td>Same VAE</td>
+    </tr>
+    <tr>
+      <td>Tasks</td>
+      <td>Text-to-image and editing in one checkpoint, up to 10 reference images</td>
+      <td>Text-to-image, editing, multi-reference</td>
+    </tr>
+    <tr>
+      <td>Output</td>
+      <td>Up to ~4 MP</td>
+      <td>Smaller budgets; aimed at interactive use</td>
+    </tr>
+    <tr>
+      <td>Typical steps</td>
+      <td>28-50, guidance ~4</td>
+      <td>~4</td>
     </tr>
     <tr>
       <td>Guidance</td>
-      <td>CFG scale (~5-9)</td>
-      <td>Distilled/embedded guidance (CFG pinned at 1.0)</td>
-    </tr>
-    <tr>
-      <td>Practical effect</td>
-      <td>Mature add-on ecosystem, fast on low VRAM</td>
-      <td>Stronger prompt adherence and text rendering, heavier</td>
+      <td>Distilled, like FLUX.1 [dev]</td>
+      <td>Distilled (undistilled “base” checkpoints are also published for fine-tuning)</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="double-stream-and-single-stream-blocks">Double-Stream and Single-Stream Blocks</h3>
+<p>The vision-language encoder gives FLUX.2 far better handling of long, structured prompts (layouts, infographics, UI mockups, several lines of text) and lets reference images and text share one understanding of the scene. BFL’s reference inference code can also <em>upsample</em> a terse prompt into a detailed one with the same Mistral model before encoding.</p>
 
-<p>FLUX’s transformer is organized into two kinds of blocks:</p>
-
-<ul>
-  <li><strong>Double-stream (MM-DiT) blocks</strong> keep image tokens and text tokens in <em>separate</em> streams with their own weights, but let them attend to each other through a joint attention operation. This mirrors the multimodal design of SD3’s MM-DiT and is where most cross-modal reasoning (“put the red cube <em>on top of</em> the blue sphere”) happens.</li>
-  <li><strong>Single-stream blocks</strong> concatenate the image and text tokens into one sequence processed by shared weights. These come later in the network and refine the merged representation more cheaply.</li>
-</ul>
-
-<p>This double-then-single arrangement is a key efficiency choice: the expensive separate-stream processing is reserved for the layers that benefit most from it, while the bulk of refinement happens in the cheaper shared-weight blocks.</p>
-
-<h3 id="latent-space-and-positional-encoding">Latent Space and Positional Encoding</h3>
-
-<p>Like the rest of the Stable Diffusion family, FLUX operates in the <strong>latent space</strong> of a VAE rather than on raw pixels, which is why a 1024×1024 image is only a modest token sequence. FLUX uses <strong>rotary position embeddings (RoPE)</strong> on the image tokens, which is part of why it generalizes across resolutions and aspect ratios more gracefully than fixed-grid U-Nets.</p>
-
-<h3 id="text-conditioning-t5--clip">Text Conditioning: T5 + CLIP</h3>
-
-<p>FLUX reads the prompt with <strong>two</strong> encoders working together:</p>
-
-<ul>
-  <li><strong>T5-XXL</strong> — a large natural-language encoder (up to 256 tokens here) that handles long, compositional, sentence-style prompts. This is the workhorse behind FLUX’s prompt adherence and its ability to render specified words as legible text.</li>
-  <li><strong>CLIP ViT-L</strong> — provides a pooled global embedding that conditions the overall style/aesthetic.</li>
-</ul>
-
-<p>If you understand the <a href="stable-diffusion-fundamentals.html">forward/reverse diffusion process and flow matching</a>, the rest of this page is the detailed “why FLUX behaves differently” story.</p>
+<p>FLUX.2 is a new network: <strong>FLUX.1 LoRAs, ControlNets and fine-tunes do not load on it</strong>.</p>
 
 <h2 id="flow-matching">Flow Matching</h2>
 
-<p>Classic diffusion models (DDPM, the SD 1.5/SDXL line) are trained to <strong>predict the noise</strong> added to an image at a randomly chosen timestep, then iteratively subtract it. FLUX is trained with <strong>flow matching</strong> under a <strong>rectified-flow</strong> formulation, which reframes generation as solving an ordinary differential equation (ODE).</p>
+<p>Classic diffusion models (DDPM, the SD 1.5/SDXL line) are trained to predict the noise added to an image at a random timestep. FLUX uses <strong>flow matching</strong> with a <strong>rectified-flow</strong> path, which frames generation as integrating an ordinary differential equation (ODE) from noise to data.</p>
 
-<h3 id="the-core-idea">The Core Idea</h3>
+<h3 id="training-objective">Training Objective</h3>
 
-<p>Define an interpolation between a data sample $x_1$ (a clean latent) and a noise sample $x_0 \sim \mathcal{N}(0, I)$:</p>
+<p>Let $x_0 \sim \mathcal{N}(0, I)$ be noise and $x_1$ a clean latent. Rectified flow uses the straight-line interpolation</p>
 
-\[x_t = (1 - t)\, x_0 + t\, x_1, \qquad t \in [0, 1]\]
+\[x_t = (1 - t)\, x_0 + t\, x_1, \qquad t \in [0, 1],\]
 
-<p>The model learns a <strong>velocity field</strong> $v_\theta(x_t, t)$ that predicts the direction of travel along this path. The target velocity for this linear interpolation is simply the constant displacement:</p>
+<p>whose velocity is constant along the path:</p>
 
-\[\frac{d x_t}{d t} = x_1 - x_0\]
+\[\frac{d x_t}{d t} = x_1 - x_0 .\]
 
-<p>So the training objective is a plain regression of the network’s predicted velocity onto that target:</p>
+<p>The network $v_\theta(x_t, t, c)$, conditioned on the prompt $c$, is trained by plain regression onto that target:</p>
 
-\[\mathcal{L} = \mathbb{E}_{t, x_0, x_1} \left[ \left\| v_\theta(x_t, t) - (x_1 - x_0) \right\|^2 \right]\]
+\[\mathcal{L}(\theta) = \mathbb{E}_{t,\, x_0,\, x_1} \left[ \left\| v_\theta(x_t, t, c) - (x_1 - x_0) \right\|^2 \right].\]
 
-<h3 id="why-this-helps">Why This Helps</h3>
+<p>In practice $t$ is not drawn uniformly: SD3 and FLUX sample it from a logit-normal distribution that concentrates training on intermediate noise levels, where the prediction problem is hardest. (BFL’s own code uses the reverse convention, with $t = 1$ as pure noise; the mathematics is identical.)</p>
 
-<p>Because the training paths are (close to) <strong>straight lines</strong> in latent space, the learned ODE can be integrated in relatively few steps without much curvature error. Generation is then just <strong>numerical ODE integration</strong> — start from pure noise $x_0$ and step the velocity field from $t = 0$ to $t = 1$:</p>
+<h3 id="sampling">Sampling</h3>
 
-\[x_{t + \Delta t} = x_t + v_\theta(x_t, t)\, \Delta t\]
+<p>Generation integrates the learned ODE from $t = 0$ (noise) to $t = 1$ (image). The simplest solver is Euler’s method:</p>
 
-<p>This is why FLUX produces good results at 20-25 steps (and the distilled <strong>schnell</strong> variant at just 1-4), where the straighter the transport path, the fewer the integration steps needed for a given fidelity.</p>
+\[x_{t + \Delta t} = x_t + \Delta t \; v_\theta(x_t, t, c).\]
 
-<h3 id="the-shift--timestep-schedule">The Shift / Timestep Schedule</h3>
+<p>If the learned paths were perfectly straight, a single Euler step would be exact. They are not (many images are plausible from one noise sample, so the marginal flow curves), but they are straight enough that 20-30 Euler steps give good results, and distillation can reduce that to 1-4. This is why the default FLUX sampler is plain <code class="language-plaintext highlighter-rouge">euler</code>.</p>
 
-<p>Flow-matching models expose a <strong>shift</strong> parameter that warps the timestep schedule to spend more steps in the high-noise region where the image’s coarse structure is decided. FLUX (and SD3) are sensitive to this, and many FLUX workflows apply a resolution-dependent shift automatically. This is the analogue of choosing a Karras vs. uniform sigma schedule in the U-Net world.</p>
+<h3 id="timestep-shift">Timestep Shift</h3>
+
+<p>Coarse structure is decided at high noise levels, so flow-matching models spend more of their step budget there by warping the schedule. With $\sigma \in [0, 1]$ the noise level of a step, a shift $s &gt; 1$ maps it to</p>
+
+\[\sigma' = \frac{s\, \sigma}{1 + (s - 1)\, \sigma},\]
+
+<p>which pushes steps toward the noisy end. Larger images need more shift because they have more tokens and hold more signal at a given noise level. FLUX.1 [dev] makes the shift resolution-dependent: ComfyUI’s <code class="language-plaintext highlighter-rouge">ModelSamplingFlux</code> node interpolates between <code class="language-plaintext highlighter-rouge">base_shift</code> (0.5) and <code class="language-plaintext highlighter-rouge">max_shift</code> (1.15) according to image size, and diffusers does the same inside <code class="language-plaintext highlighter-rouge">FluxPipeline</code>.</p>
 
 <h2 id="guidance-distillation">Guidance Distillation</h2>
 
-<p>The single biggest practical difference between FLUX and SDXL is how prompt strength is applied.</p>
+<p>The practical difference that trips up most newcomers is how prompt adherence is controlled.</p>
 
-<h3 id="classifier-free-guidance-the-old-way">Classifier-Free Guidance, the Old Way</h3>
+<h3 id="classifier-free-guidance">Classifier-Free Guidance</h3>
 
-<p>Traditional diffusion uses <strong>classifier-free guidance (CFG)</strong>: each step runs the model <strong>twice</strong> — once with the prompt and once unconditioned — and extrapolates away from the unconditioned prediction:</p>
+<p>U-Net models use classifier-free guidance (CFG): at each step the model runs twice, with and without the prompt, and extrapolates away from the unconditional prediction:</p>
 
-\[\epsilon_{\text{guided}} = \epsilon_{\text{uncond}} + s \left( \epsilon_{\text{cond}} - \epsilon_{\text{uncond}} \right)\]
+\[\hat{v} = v_{\text{uncond}} + s \left( v_{\text{cond}} - v_{\text{uncond}} \right).\]
 
-<p>Here $s$ is the CFG scale (~7.5 on SDXL). This doubles compute per step and, pushed too high, oversaturates and distorts the image.</p>
+<p>The scale $s$ is the familiar “CFG” (~7 on SDXL). It doubles compute per step, and the negative prompt works by replacing $v_{\text{uncond}}$ with a prediction conditioned on the negative text.</p>
 
 <h3 id="what-flux-does-instead">What FLUX Does Instead</h3>
 
-<p>FLUX.1-dev is produced by <strong>guidance distillation</strong>: a student model is trained to reproduce the <em>output of a CFG-guided teacher</em> directly, taking the desired guidance strength as an <strong>input conditioning value</strong> rather than computing it from two forward passes. The result is that FLUX:</p>
+<p>FLUX.1 [dev] was trained to reproduce the <em>output</em> of a CFG-guided teacher (FLUX.1 [pro]) in a single pass, with the desired guidance strength fed in as an extra conditioning input. Consequences:</p>
 
 <ul>
-  <li>Runs <strong>one</strong> forward pass per step (not two), so a given step count is cheaper than CFG would be.</li>
-  <li>Takes a <code class="language-plaintext highlighter-rouge">guidance</code> scalar (typically <strong>~3.5</strong>) that plays the role the CFG scale used to, fed in through a dedicated <strong>FluxGuidance</strong> node.</li>
-  <li>Must keep the sampler’s traditional <strong><code class="language-plaintext highlighter-rouge">cfg = 1.0</code></strong>. Setting CFG above 1.0 stacks real CFG on top of the baked-in guidance and <strong>wrecks the output</strong> — this is the single most common first-time FLUX mistake.</li>
+  <li>One forward pass per step instead of two.</li>
+  <li>Prompt strength is set by a <strong><code class="language-plaintext highlighter-rouge">guidance</code></strong> value (default <strong>3.5</strong>), applied in ComfyUI with the <strong>FluxGuidance</strong> node and in diffusers with <code class="language-plaintext highlighter-rouge">guidance_scale</code>.</li>
+  <li>The sampler’s <strong><code class="language-plaintext highlighter-rouge">cfg</code> must stay at 1.0</strong>. At 1.0 ComfyUI skips the unconditional pass entirely; raising it runs real CFG on top of the distilled guidance, doubles the cost and usually burns the image.</li>
+  <li><strong>Negative prompts do nothing</strong> at <code class="language-plaintext highlighter-rouge">cfg = 1.0</code>, because there is no unconditional pass for them to replace.</li>
 </ul>
-
-<blockquote>
-  <p><strong>Rule of thumb:</strong> On FLUX, <code class="language-plaintext highlighter-rouge">cfg</code> is not a dial you turn. Leave it at 1.0 and adjust <code class="language-plaintext highlighter-rouge">guidance</code> (~2.0-5.0) instead.</p>
-</blockquote>
-
-<h3 id="schnell-and-step-distillation">schnell and Step Distillation</h3>
-
-<p><strong>FLUX.1-schnell</strong> goes a step further with <strong>step (latent) distillation</strong> (a timestep-distillation approach in the same family as LCM/Turbo). It is trained so that a handful of large ODE steps reproduce what the full trajectory would have produced, enabling <strong>1-4 step</strong> generation. schnell is released under <strong>Apache-2.0</strong>, making it the permissive, commercially friendly member of the family. Because guidance is distilled away in schnell, you typically do <strong>not</strong> vary its guidance value.</p>
-
-<h2 id="model-variants">Model Variants</h2>
-
-<p>Choosing the right FLUX build is mostly a quality-vs-VRAM (and licensing) trade:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Variant</th>
-      <th>What it is</th>
-      <th>Licensing</th>
-      <th>When to use</th>
+      <th>Guidance</th>
+      <th>Typical effect on FLUX.1 [dev]</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>FLUX.1-dev</td>
-      <td>Full-quality open-weights model</td>
-      <td>Non-commercial community license</td>
-      <td>Default for local high-quality work</td>
+      <td>1.5-2.5</td>
+      <td>More natural, photographic, varied; weaker prompt adherence</td>
     </tr>
     <tr>
-      <td>FLUX.1-schnell</td>
-      <td>Distilled, 1-4 step generation</td>
-      <td>Apache-2.0 (commercial OK)</td>
-      <td>Fast iteration, previews, commercial use</td>
+      <td>3.0-3.5</td>
+      <td>Default balance</td>
     </tr>
     <tr>
-      <td>FLUX.1-pro</td>
-      <td>API-only premium tier</td>
-      <td>Hosted / API only</td>
-      <td>Best quality without local hardware</td>
-    </tr>
-    <tr>
-      <td>FLUX fp8</td>
-      <td>Quantized weights</td>
-      <td>Inherits base license</td>
-      <td>Fits ~12 GB cards with little quality loss</td>
-    </tr>
-    <tr>
-      <td>FLUX GGUF (Q4-Q8)</td>
-      <td>Further quantized</td>
-      <td>Inherits base license</td>
-      <td>Squeezing onto smaller VRAM budgets</td>
+      <td>4.0-5.0</td>
+      <td>Stronger adherence and contrast, more “plastic” skin and saturated colour</td>
     </tr>
   </tbody>
 </table>
 
-<p>Black Forest Labs has also shipped specialized members of the family — <strong>FLUX.1 Fill</strong> (inpainting/outpainting), <strong>FLUX.1 Canny</strong> and <strong>FLUX.1 Depth</strong> (structural ControlNet-style conditioning built in), and <strong>FLUX.1 Redux</strong> (image variation / IP-Adapter-like reference) — plus newer editing-focused releases. These reuse the same flow-matching backbone, so the architectural intuition above carries over.</p>
+<p>Some community workflows re-enable true CFG (for example “de-distilled” fine-tunes, or running <code class="language-plaintext highlighter-rouge">cfg</code> around 1.5-3 with a low guidance value) to get working negative prompts. They cost twice the compute and are outside the officially supported configuration.</p>
 
-<h3 id="choosing-a-variant">Choosing a Variant</h3>
+<h3 id="step-distillation-schnell-and-klein">Step Distillation: schnell and klein</h3>
+
+<p><strong>FLUX.1 [schnell]</strong> and <strong>FLUX.2 [klein]</strong> are additionally <em>timestep-distilled</em> (schnell with latent adversarial diffusion distillation): trained so that a handful of large ODE steps land where the full trajectory would, allowing 1-4 steps. Guidance is baked in completely; the guidance input is ignored.</p>
+
+<h2 id="choosing-a-model">Choosing a Model</h2>
 
 <pre><code class="language-mermaid">flowchart TD
-    Start["Need FLUX output"] --&gt; Local{"Run locally?"}
-    Local --&gt;|No| Pro["FLUX.1-pro (API)"]
-    Local --&gt;|Yes| Comm{"Commercial use?"}
-    Comm --&gt;|Yes| Schnell["FLUX.1-schnell (Apache-2.0)"]
-    Comm --&gt;|No| VRAM{"VRAM available?"}
-    VRAM --&gt;|24 GB+| Dev["FLUX.1-dev fp16"]
-    VRAM --&gt;|~12-16 GB| Fp8["FLUX.1-dev fp8"]
-    VRAM --&gt;|&lt; 12 GB| GGUF["FLUX.1-dev GGUF (Q4-Q6)"]
-    classDef dit fill:#f3e5f5,stroke:#7b1fa2;
-    class Pro,Schnell,Dev,Fp8,GGUF dit;
+    Start["Need a FLUX image"] --&gt; Edit{"Editing an existing&lt;br/&gt;image by instruction?"}
+    Edit --&gt;|Yes| EditC{"Several reference&lt;br/&gt;images or 4 MP?"}
+    EditC --&gt;|Yes| F2["FLUX.2 [dev] or [klein]"]
+    EditC --&gt;|No| Kontext["FLUX.1 Kontext [dev]"]
+    Edit --&gt;|No| Comm{"Self-hosted&lt;br/&gt;commercial use?"}
+    Comm --&gt;|Yes| Apache["FLUX.2 [klein] 4B or&lt;br/&gt;FLUX.1 [schnell]&lt;br/&gt;(Apache-2.0)"]
+    Comm --&gt;|No| VRAM{"GPU VRAM?"}
+    VRAM --&gt;|"24 GB+"| Big["FLUX.2 [dev] (fp8/4-bit)&lt;br/&gt;or FLUX.1 [dev] bf16"]
+    VRAM --&gt;|"12-16 GB"| Mid["FLUX.1 [dev] / Krea fp8&lt;br/&gt;or FLUX.2 [klein]"]
+    VRAM --&gt;|"8-12 GB"| Small["FLUX.1 [dev] GGUF Q4-Q6&lt;br/&gt;or FLUX.2 [klein] 4B"]
 </code></pre>
 
-<h2 id="what-makes-flux-different">What Makes FLUX Different</h2>
+<p>If you have no suitable GPU, the [pro] and [max] tiers are available through BFL’s API and third-party hosts.</p>
 
-<ul>
-  <li><strong>No traditional CFG.</strong> FLUX bakes guidance into the model, so <code class="language-plaintext highlighter-rouge">cfg</code> is held at <strong>1.0</strong> and a separate <code class="language-plaintext highlighter-rouge">guidance</code> value (~3.5) controls prompt strength. Setting CFG above 1.0 breaks FLUX output — a common first-time mistake.</li>
-  <li><strong>T5 text understanding.</strong> Like SD3, the T5 encoder handles long natural-language prompts far better than CLIP, so you can describe scenes in full sentences.</li>
-  <li><strong>Coherence and anatomy.</strong> FLUX rarely botches hands and holds spatial/physical consistency better than prior open models, and it renders legible text.</li>
-  <li><strong>Resolution flexibility.</strong> RoPE positional encoding lets FLUX handle a range of resolutions and aspect ratios from 1024×1024 up to ~2048×2048 with fewer tiling artifacts than fixed-grid U-Nets.</li>
-</ul>
-
-<h2 id="strengths-and-weaknesses">Strengths and Weaknesses</h2>
+<h3 id="variant-reference">Variant Reference</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Strengths</th>
-      <th>Weaknesses</th>
+      <th>Model</th>
+      <th>Use it for</th>
+      <th>Steps</th>
+      <th>Guidance</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>State-of-the-art open-model quality</td>
-      <td>12 GB+ VRAM minimum (fp8); ~24 GB at fp16</td>
+      <td>FLUX.1 [dev]</td>
+      <td>General local text-to-image</td>
+      <td>20-30</td>
+      <td>3.5</td>
+      <td>The base most FLUX.1 LoRAs target</td>
     </tr>
     <tr>
-      <td>Readable text, strong prompt adherence</td>
-      <td>2-3x slower than SDXL</td>
+      <td>FLUX.1 Krea [dev]</td>
+      <td>Photographic, less stylised output</td>
+      <td>20-30</td>
+      <td>~3.5-4.5</td>
+      <td>Same architecture as dev; FLUX.1 LoRAs usually transfer</td>
     </tr>
     <tr>
-      <td>Reliable anatomy and physics</td>
-      <td>dev license is non-commercial (use schnell for commercial work)</td>
+      <td>FLUX.1 [schnell]</td>
+      <td>Fast drafts, permissive license</td>
+      <td>1-4</td>
+      <td>ignored</td>
+      <td>Lower detail than dev</td>
     </tr>
     <tr>
-      <td>Trained on recent data</td>
-      <td>Single forward pass means no negative-prompt CFG steering</td>
+      <td>FLUX.1 Fill [dev]</td>
+      <td>Inpainting and outpainting</td>
+      <td>20-30</td>
+      <td>high (~30 in reference code)</td>
+      <td>Separate full model; takes image + mask</td>
     </tr>
     <tr>
-      <td>Graceful across resolutions/aspect ratios</td>
-      <td>Heavier T5 encoder adds setup/VRAM overhead</td>
+      <td>FLUX.1 Canny / Depth [dev]</td>
+      <td>Structural control</td>
+      <td>20-30</td>
+      <td>10-30 (reference code)</td>
+      <td>Full models, also shipped as LoRAs on top of dev</td>
+    </tr>
+    <tr>
+      <td>FLUX.1 Redux [dev]</td>
+      <td>Image variation / image prompting</td>
+      <td>20-30</td>
+      <td>2.5-3.5</td>
+      <td>Adapter that feeds a SigLIP image embedding into the prompt tokens</td>
+    </tr>
+    <tr>
+      <td>FLUX.1 Kontext [dev]</td>
+      <td>“Change X, keep everything else” edits</td>
+      <td>20-30</td>
+      <td>~2.5</td>
+      <td>Input image tokens are appended to the sequence</td>
+    </tr>
+    <tr>
+      <td>FLUX.2 [dev]</td>
+      <td>Highest open quality, multi-reference editing</td>
+      <td>28-50</td>
+      <td>~4</td>
+      <td>Needs aggressive quantisation or offload on consumer GPUs</td>
+    </tr>
+    <tr>
+      <td>FLUX.2 [klein] 4B / 9B</td>
+      <td>Real-time generation and editing</td>
+      <td>~4</td>
+      <td>ignored</td>
+      <td>4B runs in roughly 13 GB VRAM</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="optimal-settings">Optimal Settings</h2>
+<p>Guidance values for the Tools models are taken from BFL’s reference examples; they are much higher than dev’s because those models were distilled at a different guidance range.</p>
+
+<h2 id="settings-and-workflows">Settings and Workflows</h2>
+
+<h3 id="recommended-settings-flux1-dev">Recommended Settings (FLUX.1 [dev])</h3>
 
 <table>
   <thead>
@@ -3435,148 +3585,269 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td>Resolution</td>
-      <td>1024×1024</td>
+      <td>~1 MP (1024x1024, 832x1216, 1216x832, …), dimensions divisible by 16</td>
     </tr>
     <tr>
       <td>Steps</td>
-      <td>20-25 (1-4 for schnell)</td>
-    </tr>
-    <tr>
-      <td>CFG</td>
-      <td><strong>1.0</strong> (must not change)</td>
-    </tr>
-    <tr>
-      <td>Guidance</td>
-      <td>~3.5 (via FluxGuidance node)</td>
+      <td>20-30 (25 is a good default)</td>
     </tr>
     <tr>
       <td>Sampler / scheduler</td>
-      <td><code class="language-plaintext highlighter-rouge">euler</code> / <code class="language-plaintext highlighter-rouge">simple</code></td>
+      <td><code class="language-plaintext highlighter-rouge">euler</code> / <code class="language-plaintext highlighter-rouge">simple</code> (or <code class="language-plaintext highlighter-rouge">beta</code>); <code class="language-plaintext highlighter-rouge">dpmpp_2m</code> / <code class="language-plaintext highlighter-rouge">sgm_uniform</code> also works</td>
     </tr>
     <tr>
-      <td>Model</td>
-      <td><code class="language-plaintext highlighter-rouge">flux-fp8</code> for lower-VRAM cards</td>
+      <td><code class="language-plaintext highlighter-rouge">cfg</code></td>
+      <td><strong>1.0</strong></td>
+    </tr>
+    <tr>
+      <td>Guidance</td>
+      <td>3.5 (range 2-5)</td>
+    </tr>
+    <tr>
+      <td>Negative prompt</td>
+      <td>None (ignored)</td>
+    </tr>
+    <tr>
+      <td>Prompt style</td>
+      <td>Full natural-language sentences; describe composition, lighting, and any text in quotes</td>
     </tr>
   </tbody>
 </table>
 
-<blockquote>
-  <p><strong>Tuning guidance.</strong> Lower values (~2.0-2.5) look more photographic and natural; higher values (~4.0-5.0) push the prompt harder at the cost of some realism. Sweep guidance, not CFG.</p>
-</blockquote>
+<h3 id="comfyui-graph">ComfyUI Graph</h3>
 
-<h2 id="flux-workflow">FLUX Workflow</h2>
-
-<p>FLUX inserts a <strong>FluxGuidance</strong> node before sampling and keeps CFG pinned at 1.0:</p>
+<p>FLUX.1 is normally distributed as separate files (transformer, two text encoders, VAE) rather than a single checkpoint, so the graph loads each explicitly:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    Ckpt["FLUX checkpoint"] --&gt; Enc["CLIP/T5 Encode"]
-    Enc --&gt; FG["FluxGuidance (~3.5)"]
-    FG --&gt; KS["KSampler (cfg = 1.0)"]
-    KS --&gt; Dec["VAE Decode"] --&gt; Img["Final image"]
+    UL["Load Diffusion Model&lt;br/&gt;flux1-dev (fp8/bf16)"] --&gt; MS["ModelSamplingFlux&lt;br/&gt;(resolution shift)"]
+    DC["DualCLIPLoader&lt;br/&gt;clip_l + t5xxl, type: flux"] --&gt; TE["CLIPTextEncode"]
+    TE --&gt; FG["FluxGuidance 3.5"]
+    MS --&gt; KS["KSampler&lt;br/&gt;euler / simple&lt;br/&gt;cfg 1.0"]
+    FG --&gt;|positive| KS
+    EL["EmptySD3LatentImage&lt;br/&gt;1024 x 1024"] --&gt; KS
+    KS --&gt; VD["VAE Decode"]
+    VL["Load VAE&lt;br/&gt;ae.safetensors"] --&gt; VD
+    VD --&gt; SI["Save Image"]
 </code></pre>
 
-<p>In ComfyUI, the dual-encoder requirement means you load a <strong>DualCLIPLoader</strong> (CLIP-L + T5-XXL) rather than a single CLIP, and FLUX’s weights, VAE, and text encoders are often distributed as separate files you wire together. See the <a href="comfyui-guide.html">ComfyUI Guide</a> for the node-graph mechanics.</p>
+<ul>
+  <li>Files go in <code class="language-plaintext highlighter-rouge">models/diffusion_models/</code> (transformer), <code class="language-plaintext highlighter-rouge">models/text_encoders/</code> (T5 and CLIP-L) and <code class="language-plaintext highlighter-rouge">models/vae/</code> (<code class="language-plaintext highlighter-rouge">ae.safetensors</code>). GGUF transformers load through the <code class="language-plaintext highlighter-rouge">ComfyUI-GGUF</code> custom node’s <code class="language-plaintext highlighter-rouge">Unet Loader (GGUF)</code>.</li>
+  <li>Single-file “all-in-one” fp8 checkpoints also exist and load with the ordinary <code class="language-plaintext highlighter-rouge">Load Checkpoint</code> node.</li>
+  <li>Kontext adds the input image through a <code class="language-plaintext highlighter-rouge">ReferenceLatent</code> node; FLUX.2 uses its own text-encoder loader and accepts several reference latents. ComfyUI’s built-in templates are the quickest correct starting point for both.</li>
+</ul>
 
-<h3 id="lowering-vram">Lowering VRAM</h3>
+<p>See the <a href="comfyui-guide.html">ComfyUI Guide</a> for node-graph mechanics.</p>
+
+<h3 id="diffusers">diffusers</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">from</span> <span class="n">diffusers</span> <span class="kn">import</span> <span class="n">FluxPipeline</span>
+
+<span class="n">pipe</span> <span class="o">=</span> <span class="n">FluxPipeline</span><span class="p">.</span><span class="nf">from_pretrained</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">black-forest-labs/FLUX.1-dev</span><span class="sh">"</span><span class="p">,</span> <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">bfloat16</span>
+<span class="p">)</span>
+<span class="n">pipe</span><span class="p">.</span><span class="nf">enable_model_cpu_offload</span><span class="p">()</span>  <span class="c1"># keep only the active component on the GPU
+</span>
+<span class="n">image</span> <span class="o">=</span> <span class="nf">pipe</span><span class="p">(</span>
+    <span class="n">prompt</span><span class="o">=</span><span class="sh">'</span><span class="s">A weathered lighthouse at dusk, a hand-painted sign reading </span><span class="sh">"</span><span class="s">OPEN</span><span class="sh">"'</span><span class="p">,</span>
+    <span class="n">height</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+    <span class="n">width</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+    <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span>
+    <span class="n">guidance_scale</span><span class="o">=</span><span class="mf">3.5</span><span class="p">,</span>          <span class="c1"># distilled guidance, not CFG
+</span>    <span class="n">max_sequence_length</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>     <span class="c1"># T5 tokens; use 256 for schnell
+</span>    <span class="n">generator</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="nc">Generator</span><span class="p">(</span><span class="sh">"</span><span class="s">cpu</span><span class="sh">"</span><span class="p">).</span><span class="nf">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span>
+<span class="p">).</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">image</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="sh">"</span><span class="s">lighthouse.png</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>For schnell, use <code class="language-plaintext highlighter-rouge">num_inference_steps=4</code>, <code class="language-plaintext highlighter-rouge">guidance_scale=0.0</code>, <code class="language-plaintext highlighter-rouge">max_sequence_length=256</code>. FLUX.2 uses <code class="language-plaintext highlighter-rouge">Flux2Pipeline</code>, and BFL publishes pre-quantised 4-bit (bitsandbytes) builds of the transformer and text encoder for 24-32 GB cards. Kontext uses <code class="language-plaintext highlighter-rouge">FluxKontextPipeline</code> with an <code class="language-plaintext highlighter-rouge">image=</code> argument.</p>
+
+<h3 id="fitting-flux-in-less-vram">Fitting FLUX in Less VRAM</h3>
 
 <table>
   <thead>
     <tr>
       <th>Technique</th>
       <th>Effect</th>
+      <th>Cost</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>fp8 weights</td>
-      <td>~halves model VRAM with minimal quality loss</td>
+      <td>fp8 transformer (<code class="language-plaintext highlighter-rouge">e4m3fn</code>)</td>
+      <td>Roughly halves transformer memory (~12 GB for FLUX.1)</td>
+      <td>Slight detail loss; fast on RTX 40/50 series</td>
     </tr>
     <tr>
-      <td>GGUF Q4-Q6</td>
-      <td>Fits dev onto 8-12 GB cards at some quality cost</td>
+      <td>fp8 or GGUF T5 encoder</td>
+      <td>Saves ~5 GB; encoder can also run on CPU</td>
+      <td>Negligible quality loss</td>
     </tr>
     <tr>
-      <td>Sequential CPU offload</td>
-      <td>Streams encoders/VAE off-GPU; slower but fits tiny cards</td>
+      <td>GGUF Q8 / Q6 / Q4</td>
+      <td>FLUX.1 [dev] in ~12 / ~10 / ~7 GB</td>
+      <td>Progressive detail loss below Q5; slower than fp8</td>
     </tr>
     <tr>
-      <td>schnell + low steps</td>
-      <td>1-4 steps slashes total compute for iteration</td>
+      <td>SVDQuant 4-bit (Nunchaku)</td>
+      <td>INT4 (most RTX cards) or NVFP4 (RTX 50-series) weights and activations; several times faster</td>
+      <td>Needs the Nunchaku kernels and pre-quantised models</td>
+    </tr>
+    <tr>
+      <td>Model CPU offload</td>
+      <td>Moves idle components (encoders, VAE) off the GPU</td>
+      <td>Some latency per image</td>
+    </tr>
+    <tr>
+      <td>Sequential offload</td>
+      <td>Streams layers from system RAM</td>
+      <td>Fits very small cards; much slower</td>
+    </tr>
+    <tr>
+      <td>Step-distilled model (schnell, klein)</td>
+      <td>4 steps instead of ~25</td>
+      <td>Lower detail ceiling</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="ecosystem">Ecosystem</h2>
+<p>The <a href="optimization-guide.html">Optimization &amp; Performance</a> guide covers these techniques in general.</p>
 
-<p>When FLUX launched, its thin add-on ecosystem was a real reason to prefer SDXL. That is <strong>no longer true</strong> — the surrounding tooling has matured rapidly:</p>
+<h2 id="licensing">Licensing</h2>
 
-<ul>
-  <li><strong>LoRAs.</strong> Training and inference for FLUX LoRAs is well supported (e.g., via the <a href="lora-training.html">LoRA training</a> tooling discussed elsewhere in these docs). Because FLUX is a transformer, its LoRAs target attention/MLP projections in the DiT blocks and are <strong>not</strong> interchangeable with U-Net (SD 1.5 / SDXL) LoRAs.</li>
-  <li><strong>ControlNet / structural conditioning.</strong> Both community ControlNets and Black Forest Labs’ native <strong>FLUX.1 Canny / Depth / Fill / Redux</strong> variants provide structural and reference-image control. See <a href="controlnet.html">ControlNet</a> for the general technique.</li>
-  <li><strong>Quantization.</strong> fp8 and GGUF builds make dev practical on consumer cards, and these are widely shared on model hubs.</li>
-  <li><strong>Tooling.</strong> ComfyUI, the diffusers library, and most popular front-ends ship first-class FLUX support.</li>
-</ul>
-
-<h3 id="lineage-caveat">Lineage Caveat</h3>
-
-<p>Remember that FLUX sits in the <strong>transformer flow-matching lineage</strong>, so its LoRAs and ControlNets <strong>do not cross over</strong> to the U-Net models. If you are coming from SDXL, you will rebuild your add-on collection for FLUX rather than reusing it. For the full cross-family picture, see the <a href="base-models-comparison.html">Base Models Comparison</a>.</p>
-
-<h2 id="migrating-from-sdxl-to-flux">Migrating from SDXL to FLUX</h2>
-
-<p>The trap is <strong>settings, not prompts</strong>. SDXL uses <code class="language-plaintext highlighter-rouge">cfg_scale ≈ 7.5</code> at ~30 steps. FLUX must run at <strong><code class="language-plaintext highlighter-rouge">cfg = 1.0</code></strong> with a separate <code class="language-plaintext highlighter-rouge">guidance ≈ 3.5</code> at ~25 steps — leaving CFG at an SDXL-style value will wreck FLUX output. Prompts can stay natural-language, which FLUX’s T5 encoder handles well; in fact long, descriptive sentences work <em>better</em> on FLUX than the terse quality-tag spam that SD 1.5 rewarded.</p>
+<p>License terms, not quality, are often the deciding factor.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Coming from SDXL</th>
-      <th>On FLUX</th>
+      <th>License</th>
+      <th>Applies to</th>
+      <th>Commercial self-hosting</th>
+      <th>Commercial use of outputs</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">cfg_scale ≈ 7.5</code></td>
-      <td><code class="language-plaintext highlighter-rouge">cfg = 1.0</code> + <code class="language-plaintext highlighter-rouge">guidance ≈ 3.5</code></td>
+      <td>Apache-2.0</td>
+      <td>FLUX.1 [schnell], FLUX.2 [klein] 4B, FLUX.2 VAE</td>
+      <td>Yes</td>
+      <td>Yes</td>
     </tr>
     <tr>
-      <td>Negative prompt does real work</td>
-      <td>No CFG, so negatives have limited/no effect</td>
+      <td>FLUX Non-Commercial (FLUX.1 [dev] and FLUX.2 [dev] variants)</td>
+      <td>FLUX.1 [dev], Tools, Kontext [dev], Krea [dev], FLUX.2 [dev], FLUX.2 [klein] 9B</td>
+      <td>No, without a paid BFL license</td>
+      <td>Yes: the license claims no rights in outputs and permits their commercial use, subject to its restrictions</td>
     </tr>
     <tr>
-      <td>~30 steps</td>
-      <td>~20-25 steps (1-4 for schnell)</td>
-    </tr>
-    <tr>
-      <td>Reuse SDXL LoRAs/ControlNets</td>
-      <td>Rebuild with FLUX-native add-ons</td>
-    </tr>
-    <tr>
-      <td>Tags + short phrases</td>
-      <td>Full natural-language descriptions</td>
+      <td>API terms</td>
+      <td>[pro], [max], [flex], FLUX 3</td>
+      <td>n/a (hosted)</td>
+      <td>Per provider terms</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p>The non-commercial licenses therefore restrict <em>running</em> the model in a commercial service or product, not what you do with an image you generated for yourself. BFL sells self-serve commercial licenses for the dev models. Read the current license text before relying on this summary.</p>
+
+<h2 id="ecosystem">Ecosystem</h2>
 
 <ul>
-  <li><strong>FLUX is a flow-matching transformer</strong>, not a U-Net — it learns a velocity field and generates by integrating an ODE, which is why it needs fewer steps.</li>
-  <li><strong>Guidance is distilled into the weights.</strong> Keep <code class="language-plaintext highlighter-rouge">cfg = 1.0</code> and steer with the <code class="language-plaintext highlighter-rouge">guidance</code> scalar (~3.5); raising CFG breaks the output.</li>
-  <li><strong>Pick the variant for your constraints:</strong> schnell for fast/commercial (Apache-2.0), dev for top-quality local work, pro for API-only best quality, fp8/GGUF to fit smaller cards.</li>
-  <li><strong>Strengths:</strong> state-of-the-art quality, reliable anatomy, legible text, excellent natural-language prompt adherence.</li>
-  <li><strong>Costs:</strong> 12 GB+ VRAM, 2-3x slower than SDXL, and a non-commercial license on dev.</li>
-  <li><strong>The ecosystem has matured</strong> — LoRAs, ControlNets, and quantized builds are all available, but they live in the transformer lineage and do not interchange with SDXL add-ons.</li>
+  <li><strong>LoRAs.</strong> FLUX.1 [dev] has a large LoRA ecosystem; training is supported by ai-toolkit, kohya’s sd-scripts, SimpleTuner and others (see <a href="lora-training.html">LoRA Training</a>). FLUX LoRAs adapt the attention and MLP projections of the transformer blocks and are not interchangeable with SD 1.5/SDXL LoRAs, nor with FLUX.2.</li>
+  <li><strong>Structural control.</strong> Community ControlNets (XLabs, InstantX, Shakker Labs’ Union Pro 2.0) coexist with BFL’s own Canny and Depth models; see <a href="controlnet.html">ControlNet</a>.</li>
+  <li><strong>Editing.</strong> Kontext and FLUX.2 perform many edits that previously needed masks, ControlNets or IP-Adapters: relighting, changing clothing, reading a character from a reference, style transfer. See <a href="inpainting-editing.html">Inpainting &amp; Editing</a>.</li>
+  <li><strong>Tooling.</strong> ComfyUI, diffusers, Forge and InvokeAI support FLUX.1; ComfyUI and diffusers had day-one FLUX.2 support.</li>
 </ul>
+
+<h2 id="strengths-and-limitations">Strengths and Limitations</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Strengths</th>
+      <th>Limitations</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Strong prompt adherence from long natural-language prompts</td>
+      <td>Heavy: 12B (FLUX.1) and 32B (FLUX.2) transformers plus large text encoders</td>
+    </tr>
+    <tr>
+      <td>Legible text rendering; FLUX.2 handles multi-line typography</td>
+      <td>FLUX.1 [dev] is slower per image than SDXL at similar resolution</td>
+    </tr>
+    <tr>
+      <td>Reliable anatomy and spatial relationships</td>
+      <td>No working negative prompt in the default configuration</td>
+    </tr>
+    <tr>
+      <td>Unified generation and editing (Kontext, FLUX.2)</td>
+      <td>Dev-tier licenses forbid commercial hosting without a paid license</td>
+    </tr>
+    <tr>
+      <td>Good behaviour across aspect ratios</td>
+      <td>FLUX.1 [dev] has a recognisable default look (shallow depth of field, waxy skin) that needs prompting, Krea [dev] or LoRAs to avoid</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="migrating-from-sdxl">Migrating from SDXL</h2>
+
+<p>The main trap is settings, not prompts.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>SDXL habit</th>
+      <th>FLUX equivalent</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cfg</code> ~7</td>
+      <td><code class="language-plaintext highlighter-rouge">cfg = 1.0</code> plus <code class="language-plaintext highlighter-rouge">guidance</code> ~3.5</td>
+    </tr>
+    <tr>
+      <td>Negative prompt to remove defects</td>
+      <td>Describe what you want positively; use a de-distilled workflow if a negative is essential</td>
+    </tr>
+    <tr>
+      <td>Comma-separated tags, <code class="language-plaintext highlighter-rouge">masterpiece, best quality</code></td>
+      <td>Descriptive sentences; quality tags do little</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">(word:1.3)</code> weighting</td>
+      <td>Weighting syntax has little effect on T5; rephrase instead</td>
+    </tr>
+    <tr>
+      <td>~30 steps with DPM++ 2M Karras</td>
+      <td>~25 steps with <code class="language-plaintext highlighter-rouge">euler</code> / <code class="language-plaintext highlighter-rouge">simple</code></td>
+    </tr>
+    <tr>
+      <td>SDXL LoRAs and ControlNets</td>
+      <td>FLUX-specific add-ons (and separate ones again for FLUX.2)</td>
+    </tr>
+    <tr>
+      <td>Inpainting checkpoint + mask</td>
+      <td>FLUX.1 Fill, or Kontext/FLUX.2 instruction edits without a mask</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For how FLUX compares with SDXL, SD3.5, Qwen-Image and other families, see the <a href="base-models-comparison.html">Base Models Comparison</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - Where FLUX fits among SD 1.5, SDXL, SD3, and Pony</li>
-  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Diffusion, flow matching, and the latent space</li>
-  <li><a href="model-types.html">Model Types</a> - Checkpoints, LoRAs, VAEs, and how they combine</li>
-  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Building the FLUX node graph</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Training custom FLUX LoRAs</li>
-  <li><a href="controlnet.html">ControlNet</a> - Structural control, including FLUX-native variants</li>
-  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Cutting-edge workflows</li>
+  <li><a href="base-models-comparison.html">Base Models Comparison</a> - Where FLUX fits among SD 1.5, SDXL, SD3 and Pony</li>
+  <li><a href="sd3-guide.html">SD3 Guide</a> - The other MM-DiT flow-matching family</li>
+  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Diffusion, latents and sampling basics</li>
+  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Flow matching and distillation in more depth</li>
+  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Building node graphs</li>
+  <li><a href="lora-training.html">LoRA Training</a> - Training FLUX LoRAs</li>
+  <li><a href="controlnet.html">ControlNet</a> - Structural control, including FLUX-native options</li>
+  <li><a href="inpainting-editing.html">Inpainting &amp; Editing</a> - Fill, Kontext and mask-based editing</li>
   <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
 </ul>
 

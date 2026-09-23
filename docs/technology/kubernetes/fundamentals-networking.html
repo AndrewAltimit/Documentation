@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="The Kubernetes network model, Services and kube-proxy, cluster DNS, Ingress and the Gateway API, NetworkPolicies, ConfigMaps and Secrets, and RBAC with Servi...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Kubernetes: Networking & Configuration">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="The Kubernetes network model, Services and kube-proxy, cluster DNS, Ingress and the Gateway API, NetworkPolicies, ConfigMaps and Secrets, and RBAC with Servi...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/kubernetes/fundamentals-networking.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Kubernetes: Networking & Configuration">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="The Kubernetes network model, Services and kube-proxy, cluster DNS, Ingress and the Gateway API, NetworkPolicies, ConfigMaps and Secrets, and RBAC with Servi...">
 
 <title>Kubernetes: Networking & Configuration | Andrews Notebook</title>
 
@@ -3133,650 +3133,889 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Kubernetes Fundamentals</a> » Networking &amp; Configuration</p>
 
-<p>Connect, expose, secure, and configure your workloads: Services and kube-proxy, Ingress, NetworkPolicies, ConfigMaps and Secrets, and RBAC. Once you can <a href="fundamentals.html">deploy Pods and Deployments</a>, the next questions are practical: How do clients find your pods when their IPs keep changing? How does HTTP traffic from the internet reach the right service? How do you stop every pod from talking to every other pod? And how do you inject configuration and credentials without baking them into images? This page covers the networking and configuration layer that turns a pile of pods into a functioning, secured application.</p>
+<p>This page covers the layer that turns a set of <a href="fundamentals.html">Pods and Deployments</a> into a working, secured application: how Pods get addresses, how Services give them stable names, how traffic enters the cluster through Ingress or the Gateway API, how NetworkPolicies restrict which Pods may talk to each other, how configuration and credentials reach a container, and how RBAC controls access to the Kubernetes API. Version notes are current as of Kubernetes v1.37 (August 2026).</p>
 
-<h2 id="networking-connecting-your-applications">Networking: Connecting Your Applications</h2>
+<h2 id="the-kubernetes-network-model">The Kubernetes Network Model</h2>
 
-<p>Kubernetes networking follows a simple principle: every pod gets its own IP address, and all pods can communicate with each other without NAT. This flat network model makes it easy to reason about connectivity.</p>
+<p>Every conformant cluster implements three rules:</p>
 
-<p><strong>Consider the following networking layers</strong>:</p>
+<ol>
+  <li>Every Pod gets its own IP address (or one per IP family in a dual-stack cluster), shared by all containers in the Pod.</li>
+  <li>Pods on any node can reach Pods on any other node directly, without NAT.</li>
+  <li>Agents on a node, such as the kubelet, can reach every Pod on that node.</li>
+</ol>
+
+<p>Kubernetes defines this contract but does not implement it. A <strong>CNI (Container Network Interface) plugin</strong>, installed when the cluster is built, allocates Pod IPs and makes cross-node routing work, either by encapsulating traffic in an overlay (VXLAN, Geneve) or by routing Pod CIDRs natively through the underlying network.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Layer</th>
-      <th>Purpose</th>
-      <th>Kubernetes Object</th>
+      <th>Plugin</th>
+      <th>Data path</th>
+      <th style="text-align: center">Enforces NetworkPolicy</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Pod-to-Pod</td>
-      <td>Direct communication</td>
-      <td>Flat network (automatic)</td>
+      <td><strong>Cilium</strong></td>
+      <td>eBPF</td>
+      <td style="text-align: center">Yes, plus L7 and FQDN rules in its own CRDs</td>
+      <td>Can replace kube-proxy; Hubble for flow visibility</td>
     </tr>
     <tr>
-      <td>Pod-to-Service</td>
-      <td>Stable endpoint for pods</td>
-      <td>Service</td>
+      <td><strong>Calico</strong></td>
+      <td>iptables, nftables, eBPF or Windows HNS</td>
+      <td style="text-align: center">Yes, plus global policies in its own CRDs</td>
+      <td>BGP for routed, non-overlay networks</td>
     </tr>
     <tr>
-      <td>External-to-Service</td>
-      <td>Traffic from outside cluster</td>
-      <td>Ingress, LoadBalancer</td>
+      <td><strong>Flannel</strong></td>
+      <td>VXLAN or host routing</td>
+      <td style="text-align: center">No</td>
+      <td>Minimal; often paired with a separate policy engine</td>
     </tr>
     <tr>
-      <td>Service-to-External</td>
-      <td>Outbound connections</td>
-      <td>NetworkPolicy (egress)</td>
+      <td><strong>Cloud VPC CNIs</strong> (AWS VPC CNI, Azure CNI, GKE Dataplane V2)</td>
+      <td>Pod IPs taken from the cloud network</td>
+      <td style="text-align: center">Varies; often via an eBPF engine or an add-on</td>
+      <td>Pods are first-class addresses in the VPC</td>
     </tr>
   </tbody>
 </table>
 
-<p>The diagram below shows how external traffic reaches a pod: an Ingress routes by host/path to a Service, which load-balances across the matching pods (selected by label) managed by a Deployment.</p>
+<p>Pod IPs are routable but <strong>ephemeral</strong>: a restart, reschedule or scale event gives a Pod a new address. Nothing should depend on a Pod IP. The Service object exists to provide a stable address in front of a changing set of Pods.</p>
 
-<pre><code class="language-mermaid">flowchart TB
-    Ext([External Traffic]) --&gt; Ing[Ingress&lt;br/&gt;host/path rules]
-    Ing --&gt; Svc[Service&lt;br/&gt;ClusterIP + label selector]
-    Svc --&gt; P1[Pod&lt;br/&gt;app=web]
-    Svc --&gt; P2[Pod&lt;br/&gt;app=web]
-    Svc --&gt; P3[Pod&lt;br/&gt;app=web]
-    Deploy[Deployment] -. manages .-&gt; P1
-    Deploy -. manages .-&gt; P2
-    Deploy -. manages .-&gt; P3
+<p>The diagram shows the path a request typically takes into and through a cluster; each hop is covered in a section below.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Client([External client]) --&gt; LB["Cloud load balancer"]
+    LB --&gt; GW["Gateway or Ingress controller&lt;br/&gt;host and path routing"]
+    GW --&gt; SVC["Service&lt;br/&gt;stable virtual IP and DNS name"]
+    SVC --&gt;|"kube-proxy or eBPF rules&lt;br/&gt;pick one endpoint"| P1["Pod app=web"]
+    SVC --&gt; P2["Pod app=web"]
+    P1 --&gt;|"NetworkPolicy checked&lt;br/&gt;by the CNI"| DB["Service db"]
 </code></pre>
 
-<h3 id="the-kubernetes-networking-model">The Kubernetes Networking Model</h3>
+<h2 id="services">Services</h2>
 
-<p>Three rules define the model that every conformant cluster implements:</p>
-
-<ol>
-  <li>Every pod gets a unique, cluster-routable IP address.</li>
-  <li>Pods on any node can reach pods on any other node directly, without NAT.</li>
-  <li>Agents on a node (such as the kubelet) can reach all pods on that node.</li>
-</ol>
-
-<p>These rules are not provided by Kubernetes itself but by a <strong>CNI (Container Network Interface) plugin</strong> — Calico, Cilium, Flannel, Weave Net, or a cloud-native plugin such as the AWS VPC CNI. The plugin is responsible for handing each pod an IP and ensuring cross-node routing works. Kubernetes only defines the contract; the CNI fulfills it.</p>
-
-<p>Because pod IPs are flat and routable, a pod can in principle reach any other pod by IP. The problem is that pod IPs are <strong>ephemeral</strong> — every restart, rescheduling, or scale event produces new IPs. Hardcoding a pod IP is futile. The Service object exists to solve exactly this.</p>
-
-<h2 id="services-stable-endpoints-for-ephemeral-pods">Services: Stable Endpoints for Ephemeral Pods</h2>
-
-<p>A <strong>Service</strong> provides a single, stable virtual IP (the <em>ClusterIP</em>) and DNS name in front of a dynamic set of pods. Clients talk to the Service; the Service load-balances across whichever healthy pods currently match its label selector.</p>
+<p>A <strong>Service</strong> gives a set of Pods a single stable virtual IP (the <em>ClusterIP</em>) and DNS name, and load-balances connections across whichever of those Pods are currently ready.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">nginx-service</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">selector</span><span class="pi">:</span>
-    <span class="na">app</span><span class="pi">:</span> <span class="s">nginx</span>          <span class="c1"># Selects pods carrying this label</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">web</span>              <span class="c1"># route to ready Pods carrying this label</span>
   <span class="na">ports</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>            <span class="c1"># Port the Service listens on</span>
-    <span class="na">targetPort</span><span class="pi">:</span> <span class="m">80</span>      <span class="c1"># Port on the pod to forward to</span>
-  <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterIP</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>              <span class="c1"># port clients connect to on the ClusterIP</span>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="m">8080</span>      <span class="c1"># port the container listens on (a number or a named port)</span>
 </code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">selector</code> is the linchpin: the Service continuously watches for pods labeled <code class="language-plaintext highlighter-rouge">app: nginx</code> and maintains the set of their IPs. When a pod dies and a Deployment replaces it, the new pod’s IP automatically joins the set and the dead one drops out — all without the client noticing.</p>
+<h3 id="endpointslices-and-readiness">EndpointSlices and Readiness</h3>
 
-<h3 id="services-and-endpoints">Services and Endpoints</h3>
+<p>The Service controller continuously matches the <code class="language-plaintext highlighter-rouge">selector</code> against Pod labels and writes the resulting Pod IPs and ports into <strong>EndpointSlice</strong> objects (at most 100 endpoints per slice by default, so large Services are split across several slices). kube-proxy and other data planes program traffic from the EndpointSlices, not from the Service itself. The older <code class="language-plaintext highlighter-rouge">Endpoints</code> API has been deprecated since v1.33: it cannot represent dual-stack addresses or newer routing hints and is truncated at 1,000 endpoints.</p>
 
-<p>Behind every selector-based Service, Kubernetes maintains an <strong>EndpointSlice</strong> (the modern, scalable successor to the older Endpoints object). It is simply the list of pod IP:port pairs the Service should route to.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># See which pods a Service currently routes to</span>
-kubectl get endpointslices <span class="nt">-l</span> kubernetes.io/service-name<span class="o">=</span>nginx-service
-kubectl describe service nginx-service     <span class="c"># Endpoints listed near the bottom</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl get endpointslices <span class="nt">-n</span> shop <span class="nt">-l</span> kubernetes.io/service-name<span class="o">=</span>web
+kubectl describe service web <span class="nt">-n</span> shop
 </code></pre></div></div>
 
-<p>This is the single most useful troubleshooting fact about Services: <strong>if the endpoint list is empty, the Service silently drops all traffic.</strong> An empty list almost always means the selector and the pods’ labels disagree, or no pod is passing its readiness probe. A failing readiness probe removes a pod from the endpoint list without restarting it, which is precisely how rolling updates avoid sending traffic to pods that are not yet ready.</p>
+<p><strong>If a Service has no ready endpoints, connections to it fail.</strong> That almost always has one of two causes: the selector does not match the Pods’ labels, or no Pod is passing its readiness probe. A failing readiness probe removes a Pod from the endpoints without restarting it, which is how rolling updates avoid sending traffic to Pods that are still starting. See <a href="fundamentals-resources.html">Health &amp; Resource Management</a> for probe design.</p>
 
-<h3 id="service-dns-and-discovery">Service DNS and Discovery</h3>
+<p>A Service without a selector is also valid. You then manage the EndpointSlices yourself, which is a way to give an external database or a service in another cluster an in-cluster name.</p>
 
-<p>The cluster DNS service (CoreDNS) gives every Service a predictable name. Within the same namespace, a pod reaches <code class="language-plaintext highlighter-rouge">nginx-service</code> simply at <code class="language-plaintext highlighter-rouge">nginx-service</code>. The fully qualified form is:</p>
+<h3 id="service-dns">Service DNS</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local
-</code></pre></div></div>
+<p>The cluster DNS server (CoreDNS in almost every distribution) serves records derived from Services:</p>
 
-<p>So <code class="language-plaintext highlighter-rouge">api-service</code> in the <code class="language-plaintext highlighter-rouge">production</code> namespace resolves at <code class="language-plaintext highlighter-rouge">api-service.production.svc.cluster.local</code>. This name-based discovery is what makes microservices portable — code references a name, not an IP, and the same manifest works in every environment.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Record</th>
+      <th>Name</th>
+      <th>Resolves to</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A / AAAA</td>
+      <td><code class="language-plaintext highlighter-rouge">web.shop.svc.cluster.local</code></td>
+      <td>The ClusterIP</td>
+    </tr>
+    <tr>
+      <td>A / AAAA (headless Service)</td>
+      <td><code class="language-plaintext highlighter-rouge">db.shop.svc.cluster.local</code></td>
+      <td>The IPs of all ready Pods</td>
+    </tr>
+    <tr>
+      <td>A / AAAA (StatefulSet Pod)</td>
+      <td><code class="language-plaintext highlighter-rouge">db-0.db.shop.svc.cluster.local</code></td>
+      <td>One specific Pod, via its headless Service</td>
+    </tr>
+    <tr>
+      <td>SRV</td>
+      <td><code class="language-plaintext highlighter-rouge">_http._tcp.web.shop.svc.cluster.local</code></td>
+      <td>Port number and host for each named port</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Each Pod’s <code class="language-plaintext highlighter-rouge">/etc/resolv.conf</code> lists search domains (<code class="language-plaintext highlighter-rouge">shop.svc.cluster.local svc.cluster.local cluster.local</code>), so a Pod in namespace <code class="language-plaintext highlighter-rouge">shop</code> can use the short name <code class="language-plaintext highlighter-rouge">web</code>, and any Pod can use <code class="language-plaintext highlighter-rouge">web.shop</code>. The same file sets <code class="language-plaintext highlighter-rouge">options ndots:5</code>: any name with fewer than five dots is first tried against every search domain. A lookup of <code class="language-plaintext highlighter-rouge">api.example.com</code> therefore produces several failed queries before the real one. For latency-sensitive workloads that call external hosts, use fully qualified names with a trailing dot (<code class="language-plaintext highlighter-rouge">api.example.com.</code>), lower <code class="language-plaintext highlighter-rouge">ndots</code> through the Pod’s <code class="language-plaintext highlighter-rouge">dnsConfig</code>, or run NodeLocal DNSCache to answer repeated queries on the node.</p>
 
 <h3 id="service-types">Service Types</h3>
 
-<p><strong>Choosing a Service Type</strong>: The right service type depends on how your application needs to be accessed:</p>
-
 <table>
   <thead>
     <tr>
-      <th>Service Type</th>
-      <th>Accessible From</th>
-      <th>Use Case</th>
-      <th>Cost</th>
+      <th>Type</th>
+      <th>Reachable from</th>
+      <th>How it works</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>ClusterIP</strong></td>
-      <td>Inside cluster only</td>
-      <td>Internal microservices</td>
-      <td>Free</td>
+      <td><strong>ClusterIP</strong> (default)</td>
+      <td>Inside the cluster</td>
+      <td>Virtual IP programmed on every node</td>
+      <td>Internal services</td>
     </tr>
     <tr>
       <td><strong>NodePort</strong></td>
-      <td>Node IP + port (30000-32767)</td>
-      <td>Development, testing</td>
-      <td>Free</td>
+      <td>Every node’s IP on a port in 30000-32767</td>
+      <td>A ClusterIP plus a port opened on every node</td>
+      <td>Behind an external load balancer you manage; development</td>
     </tr>
     <tr>
       <td><strong>LoadBalancer</strong></td>
-      <td>External IP via cloud LB</td>
-      <td>Production web apps</td>
-      <td>Cloud provider charges</td>
+      <td>An external IP</td>
+      <td>A NodePort plus a load balancer provisioned by the cloud controller (or MetalLB and similar on bare metal)</td>
+      <td>Exposing a single non-HTTP service, or the Gateway or Ingress controller itself</td>
     </tr>
     <tr>
       <td><strong>ExternalName</strong></td>
-      <td>DNS alias</td>
-      <td>Accessing external services</td>
-      <td>Free</td>
+      <td>Inside the cluster</td>
+      <td>A DNS CNAME to an external hostname; no proxying</td>
+      <td>Giving an external dependency an in-cluster name</td>
+    </tr>
+    <tr>
+      <td><strong>Headless</strong> (<code class="language-plaintext highlighter-rouge">clusterIP: None</code>)</td>
+      <td>Inside the cluster</td>
+      <td>No virtual IP; DNS returns Pod IPs directly</td>
+      <td>StatefulSets, client-side load balancing, peer discovery</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>When to use each</strong>: Start with ClusterIP for internal services. Use LoadBalancer for production internet-facing services. NodePort is useful for development but rarely appropriate for production due to port limitations.</p>
+<p>The first three types are layered: a NodePort Service also has a ClusterIP, and a LoadBalancer Service also has a NodePort (unless <code class="language-plaintext highlighter-rouge">allocateLoadBalancerNodePorts: false</code> and the load balancer can target Pods directly). On a local cluster such as kind or minikube, a LoadBalancer Service stays <code class="language-plaintext highlighter-rouge">&lt;pending&gt;</code> unless a load-balancer implementation is installed (for example <code class="language-plaintext highlighter-rouge">minikube tunnel</code> or cloud-provider-kind).</p>
 
-<p>The types build on one another. A <code class="language-plaintext highlighter-rouge">NodePort</code> is a <code class="language-plaintext highlighter-rouge">ClusterIP</code> plus a port opened on every node; a <code class="language-plaintext highlighter-rouge">LoadBalancer</code> is a <code class="language-plaintext highlighter-rouge">NodePort</code> plus a cloud load balancer provisioned in front of it. <code class="language-plaintext highlighter-rouge">ExternalName</code> is the odd one out — it creates no proxying at all, just a CNAME-style DNS alias to an external hostname, useful for pointing in-cluster code at a managed database without changing the code.</p>
+<p>The <code class="language-plaintext highlighter-rouge">spec.externalIPs</code> field, which let a Service claim arbitrary external addresses, is deprecated as of v1.36 because any user able to create Services could use it to intercept traffic.</p>
 
-<blockquote>
-  <p><strong>Note:</strong> <code class="language-plaintext highlighter-rouge">type: LoadBalancer</code> provisions an external IP only on a cloud provider. On a local cluster (minikube, kind, k3s) the service stays <code class="language-plaintext highlighter-rouge">&lt;pending&gt;</code> — run <code class="language-plaintext highlighter-rouge">minikube tunnel</code>, or use <code class="language-plaintext highlighter-rouge">type: NodePort</code> instead.</p>
-</blockquote>
+<p>Headless Services and the stable per-Pod DNS names they give StatefulSets are covered in <a href="persistence.html#headless-services-dns-for-peers">Stateful Workloads &amp; Persistence</a>.</p>
 
-<h3 id="headless-services">Headless Services</h3>
+<h3 id="traffic-policies-and-topology">Traffic Policies and Topology</h3>
 
-<p>Setting <code class="language-plaintext highlighter-rouge">clusterIP: None</code> creates a <strong>headless Service</strong>: no virtual IP and no load-balancing proxy. Instead, DNS returns the individual pod IPs directly. This is what StatefulSets use so each pod gets a stable, individually addressable DNS name like <code class="language-plaintext highlighter-rouge">postgres-0.postgres.default.svc.cluster.local</code> — essential for clustered databases where clients must reach a specific member.</p>
+<p>By default a Service spreads connections across all ready endpoints in the cluster, including those in other zones. Three fields change that:</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">clusterIP</span><span class="pi">:</span> <span class="s">None</span>        <span class="c1"># Headless: DNS returns each pod IP</span>
-  <span class="na">selector</span><span class="pi">:</span>
-    <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
-  <span class="na">ports</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">5432</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Values</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">externalTrafficPolicy</code> (NodePort, LoadBalancer)</td>
+      <td><code class="language-plaintext highlighter-rouge">Cluster</code> (default), <code class="language-plaintext highlighter-rouge">Local</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Local</code> sends external traffic only to Pods on the node that received it. The client source IP is preserved and the extra hop disappears, but nodes without a local Pod fail the load balancer’s health check and must be taken out of rotation</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">internalTrafficPolicy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Cluster</code> (default), <code class="language-plaintext highlighter-rouge">Local</code></td>
+      <td><code class="language-plaintext highlighter-rouge">Local</code> restricts in-cluster traffic to endpoints on the same node, for node-local agents such as a logging DaemonSet</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">trafficDistribution</code></td>
+      <td><code class="language-plaintext highlighter-rouge">PreferSameZone</code>, <code class="language-plaintext highlighter-rouge">PreferSameNode</code></td>
+      <td>A preference, not a rule: route to endpoints in the client’s zone (or on its node) when any exist, otherwise fall back to the rest. Reduces cross-zone latency and data-transfer charges. <code class="language-plaintext highlighter-rouge">PreferClose</code> is a deprecated alias for <code class="language-plaintext highlighter-rouge">PreferSameZone</code></td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="how-kube-proxy-implements-services">How kube-proxy Implements Services</h2>
 
-<p>A ClusterIP is a <em>virtual</em> IP — no network interface anywhere actually owns it. So how does traffic to that IP reach a real pod? The answer is <strong>kube-proxy</strong>, a component that runs on every node (usually as a DaemonSet). It watches the API server for Services and EndpointSlices and programs the node’s kernel networking so that packets destined for a ClusterIP are transparently rewritten to a real pod IP.</p>
+<p>A ClusterIP is not assigned to any network interface. <strong>kube-proxy</strong>, which runs on every node (usually as a DaemonSet), watches Services and EndpointSlices and programs the node’s kernel so that a packet addressed to <code class="language-plaintext highlighter-rouge">ClusterIP:port</code> is rewritten (DNAT) to a chosen Pod’s <code class="language-plaintext highlighter-rouge">IP:port</code>. kube-proxy is not in the data path; the kernel does the rewriting, which is why Services add almost no latency.</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    C[Client pod] --&gt;|"packet to&lt;br/&gt;ClusterIP:80"| KP{kube-proxy&lt;br/&gt;rules in kernel}
-    KP --&gt;|DNAT to| P1[Pod 10.1.1.4:80]
-    KP -.-&gt;|or| P2[Pod 10.1.2.7:80]
-    KP -.-&gt;|or| P3[Pod 10.1.3.9:80]
-    EP[(EndpointSlice)] -. programs .-&gt; KP
+<pre><code class="language-mermaid">sequenceDiagram
+    participant App as Client Pod
+    participant DNS as CoreDNS
+    participant K as Node kernel (kube-proxy rules)
+    participant Pod as Backend Pod 10.1.2.7
+    App-&gt;&gt;DNS: A? web.shop.svc.cluster.local
+    DNS--&gt;&gt;App: 10.96.14.20 (ClusterIP)
+    App-&gt;&gt;K: SYN to 10.96.14.20:80
+    Note over K: match Service rule, pick an endpoint,&lt;br/&gt;DNAT to 10.1.2.7:8080, record in conntrack
+    K-&gt;&gt;Pod: SYN to 10.1.2.7:8080
+    Pod--&gt;&gt;App: replies are un-NATed via conntrack
 </code></pre>
-
-<p>kube-proxy has several backend modes:</p>
 
 <table>
   <thead>
     <tr>
       <th>Mode</th>
       <th>Mechanism</th>
-      <th>Characteristics</th>
+      <th>Status (v1.37)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>iptables</strong> (default)</td>
-      <td>Adds DNAT rules; picks a backend pseudo-randomly</td>
-      <td>Simple, ubiquitous; rule evaluation is O(n) so it slows with thousands of Services</td>
-    </tr>
-    <tr>
-      <td><strong>IPVS</strong></td>
-      <td>Uses the kernel’s in-built load balancer (hash tables)</td>
-      <td>O(1) lookup, more LB algorithms (round-robin, least-conn); better at large scale</td>
+      <td><strong>iptables</strong></td>
+      <td>Chains of DNAT rules; a random endpoint per connection</td>
+      <td>Default when no mode is configured. Rule updates and matching slow down with tens of thousands of endpoints</td>
     </tr>
     <tr>
       <td><strong>nftables</strong></td>
-      <td>Newer kernel framework replacing iptables</td>
-      <td>Better performance than iptables mode; default-eligible on recent clusters</td>
+      <td>The same model on the newer nftables kernel API, using maps and sets for lookups</td>
+      <td>Stable since v1.33 and the recommended mode on Linux; planned to become the default. Needs kernel 5.13 or newer</td>
+    </tr>
+    <tr>
+      <td><strong>ipvs</strong></td>
+      <td>The kernel’s IPVS load balancer with hash-table lookups</td>
+      <td>Deprecated in v1.35; migrate to nftables</td>
+    </tr>
+    <tr>
+      <td><strong>kernelspace</strong></td>
+      <td>Windows HNS</td>
+      <td>The only mode on Windows nodes</td>
+    </tr>
+    <tr>
+      <td><em>(none)</em></td>
+      <td>CNI replaces kube-proxy (Cilium, Calico eBPF)</td>
+      <td>eBPF programs attached at the socket or interface handle Service translation</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>The crucial mental model</strong>: kube-proxy does <em>not</em> sit in the data path as a proxy process for every packet. It only <em>programs</em> kernel rules; the kernel does the actual packet rewriting. This is why Services add almost no latency. Many modern CNIs (notably Cilium) can replace kube-proxy entirely with eBPF, programming the same load-balancing logic more efficiently.</p>
+<p>Because the default may change in a future release, set <code class="language-plaintext highlighter-rouge">mode</code> explicitly in the kube-proxy configuration so an upgrade does not silently switch the backend.</p>
 
-<p>A subtle but important setting is <code class="language-plaintext highlighter-rouge">externalTrafficPolicy</code> on NodePort/LoadBalancer Services. The default, <code class="language-plaintext highlighter-rouge">Cluster</code>, lets any node accept external traffic and forward it to a pod on any node — even handling, but at the cost of masking the client’s source IP (SNAT) and an extra hop. Setting it to <code class="language-plaintext highlighter-rouge">Local</code> routes only to pods on the receiving node, preserving the real client IP and removing the hop, but requires the load balancer’s health checks to avoid nodes with no local pod.</p>
+<h2 id="ingress-and-the-gateway-api">Ingress and the Gateway API</h2>
 
-<h2 id="ingress-your-clusters-front-door">Ingress: Your Cluster’s Front Door</h2>
+<p>Services of type LoadBalancer give one external IP per Service and work at layer 4. HTTP applications usually need one entry point that routes by hostname and path, terminates TLS and applies policies such as redirects or header matching. Kubernetes has two APIs for that: the original <strong>Ingress</strong> and its successor, the <strong>Gateway API</strong>.</p>
 
-<p>While Services handle internal routing, Ingress manages external HTTP/HTTPS traffic. Instead of creating multiple LoadBalancer services (each with its own IP and cost), Ingress provides a single entry point that routes to different services based on hostnames and paths.</p>
+<p>Both APIs are only configuration. Nothing happens until a <strong>controller</strong> that implements them is running in the cluster: a proxy (typically Envoy, NGINX, HAProxy or Traefik based) or a cloud load-balancer integration that watches the objects and configures itself.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Ingress</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-ingress</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">rules</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">host</span><span class="pi">:</span> <span class="s">app.example.com</span>
-    <span class="na">http</span><span class="pi">:</span>
-      <span class="na">paths</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/api</span>
-        <span class="na">pathType</span><span class="pi">:</span> <span class="s">Prefix</span>
-        <span class="na">backend</span><span class="pi">:</span>
-          <span class="na">service</span><span class="pi">:</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">api-service</span>
-            <span class="na">port</span><span class="pi">:</span>
-              <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Ingress (<code class="language-plaintext highlighter-rouge">networking.k8s.io/v1</code>)</th>
+      <th>Gateway API (<code class="language-plaintext highlighter-rouge">gateway.networking.k8s.io/v1</code>)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Status</strong></td>
+      <td>Stable but frozen: no new features</td>
+      <td>Actively developed; v1.6 (August 2026) is current</td>
+    </tr>
+    <tr>
+      <td><strong>Protocols</strong></td>
+      <td>HTTP and HTTPS</td>
+      <td>HTTP, HTTPS, gRPC, TLS passthrough, TCP and UDP</td>
+    </tr>
+    <tr>
+      <td><strong>Ownership model</strong></td>
+      <td>One object mixes infrastructure and routing</td>
+      <td>Split by role: <code class="language-plaintext highlighter-rouge">GatewayClass</code> (provider), <code class="language-plaintext highlighter-rouge">Gateway</code> (cluster operator), routes (application teams)</td>
+    </tr>
+    <tr>
+      <td><strong>Traffic splitting, header matching, mirroring, retries</strong></td>
+      <td>Only through controller-specific annotations</td>
+      <td>Part of the portable spec</td>
+    </tr>
+    <tr>
+      <td><strong>Cross-namespace routing</strong></td>
+      <td>Not supported</td>
+      <td>Explicit, with <code class="language-plaintext highlighter-rouge">allowedRoutes</code> on the Gateway and <code class="language-plaintext highlighter-rouge">ReferenceGrant</code> for backends</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>When to use Ingress vs LoadBalancer</strong>:</p>
-<ul>
-  <li>Use <strong>Ingress</strong> when you have multiple services that need HTTP/HTTPS routing</li>
-  <li>Use <strong>LoadBalancer</strong> for non-HTTP traffic or single services</li>
-  <li>Ingress typically requires an Ingress Controller (nginx, traefik, or cloud-provided)</li>
-</ul>
-
-<h3 id="the-ingress-resource-vs-the-ingress-controller">The Ingress Resource vs the Ingress Controller</h3>
-
-<p>A common point of confusion: the Ingress <em>object</em> is just a set of routing rules stored in the API server. By itself it does nothing. You also need an <strong>Ingress Controller</strong> — a real running workload (typically NGINX, Traefik, HAProxy, or a cloud provider’s controller) that watches Ingress objects and configures itself to actually serve traffic according to those rules.</p>
-
-<pre><code class="language-mermaid">flowchart TB
-    Ext([Internet]) --&gt; LB[Cloud LoadBalancer&lt;br/&gt;single external IP]
-    LB --&gt; IC[Ingress Controller&lt;br/&gt;e.g. ingress-nginx pods]
-    Rules[(Ingress objects&lt;br/&gt;host/path rules)] -. configures .-&gt; IC
-    IC --&gt;|app.example.com/api| S1[api-service]
-    IC --&gt;|app.example.com/web| S2[web-service]
-    IC --&gt;|shop.example.com| S3[shop-service]
-</code></pre>
-
-<p>The economic win is clear: one cloud load balancer and one external IP fan out to dozens of backend Services, instead of one expensive LoadBalancer per service.</p>
-
-<h3 id="host--and-path-based-routing">Host- and Path-Based Routing</h3>
-
-<p>A single Ingress can multiplex many backends by hostname (virtual hosting) and URL path:</p>
+<h3 id="ingress">Ingress</h3>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Ingress</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">multi-host-ingress</span>
-  <span class="na">annotations</span><span class="pi">:</span>
-    <span class="na">nginx.ingress.kubernetes.io/rewrite-target</span><span class="pi">:</span> <span class="s">/</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">shop</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">ingressClassName</span><span class="pi">:</span> <span class="s">nginx</span>
+  <span class="na">ingressClassName</span><span class="pi">:</span> <span class="s">example-controller</span>   <span class="c1"># which installed controller handles this Ingress</span>
+  <span class="na">tls</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">hosts</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">shop.example.com"</span><span class="pi">]</span>
+    <span class="na">secretName</span><span class="pi">:</span> <span class="s">shop-tls</span>                 <span class="c1"># kubernetes.io/tls Secret, often managed by cert-manager</span>
   <span class="na">rules</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">host</span><span class="pi">:</span> <span class="s">app.example.com</span>
-    <span class="na">http</span><span class="pi">:</span>
-      <span class="na">paths</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/api</span>
-        <span class="na">pathType</span><span class="pi">:</span> <span class="s">Prefix</span>
-        <span class="na">backend</span><span class="pi">:</span>
-          <span class="na">service</span><span class="pi">:</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">api-service</span>
-            <span class="na">port</span><span class="pi">:</span>
-              <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
-      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/</span>
-        <span class="na">pathType</span><span class="pi">:</span> <span class="s">Prefix</span>
-        <span class="na">backend</span><span class="pi">:</span>
-          <span class="na">service</span><span class="pi">:</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">web-service</span>
-            <span class="na">port</span><span class="pi">:</span>
-              <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
   <span class="pi">-</span> <span class="na">host</span><span class="pi">:</span> <span class="s">shop.example.com</span>
     <span class="na">http</span><span class="pi">:</span>
       <span class="na">paths</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/api</span>
+        <span class="na">pathType</span><span class="pi">:</span> <span class="s">Prefix</span>                 <span class="c1"># matches /api and /api/v1, not /apiary</span>
+        <span class="na">backend</span><span class="pi">:</span>
+          <span class="na">service</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">api</span>
+            <span class="na">port</span><span class="pi">:</span>
+              <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
       <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/</span>
         <span class="na">pathType</span><span class="pi">:</span> <span class="s">Prefix</span>
         <span class="na">backend</span><span class="pi">:</span>
           <span class="na">service</span><span class="pi">:</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">shop-service</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
             <span class="na">port</span><span class="pi">:</span>
               <span class="na">number</span><span class="pi">:</span> <span class="m">80</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">pathType</code> matters: <code class="language-plaintext highlighter-rouge">Prefix</code> matches by URL path segments (<code class="language-plaintext highlighter-rouge">/api</code> matches <code class="language-plaintext highlighter-rouge">/api/v1</code>), while <code class="language-plaintext highlighter-rouge">Exact</code> matches the path literally. <code class="language-plaintext highlighter-rouge">ImplementationSpecific</code> defers to the controller. The <code class="language-plaintext highlighter-rouge">ingressClassName</code> selects which controller handles this Ingress when several are installed.</p>
+<p><code class="language-plaintext highlighter-rouge">pathType: Exact</code> matches the path literally, and <code class="language-plaintext highlighter-rouge">ImplementationSpecific</code> leaves matching to the controller. Anything beyond host, path and TLS (rewrites, rate limits, authentication) is expressed through annotations that differ from one controller to the next, which is the main reason Ingress manifests are not portable.</p>
 
-<h3 id="tls-termination">TLS Termination</h3>
+<p><strong>The community <code class="language-plaintext highlighter-rouge">ingress-nginx</code> controller has been retired.</strong> Kubernetes SIG Network ended its best-effort maintenance in March 2026; existing installations keep working but receive no further releases or security fixes. Clusters that still use it should move to another Ingress controller or, preferably, to a Gateway API implementation. The <code class="language-plaintext highlighter-rouge">ingress2gateway</code> tool (v1.0, March 2026) converts Ingress resources, including much of the <code class="language-plaintext highlighter-rouge">ingress-nginx</code>-specific annotation behaviour, into Gateway API objects. Commercially maintained NGINX-based controllers are separate projects and are not affected.</p>
 
-<p>Ingress is the natural place to terminate HTTPS. Reference a Secret holding the certificate and key, and the controller serves TLS for the listed hosts:</p>
+<h3 id="gateway-api">Gateway API</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
-  <span class="na">tls</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">hosts</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">app.example.com</span>
-    <span class="na">secretName</span><span class="pi">:</span> <span class="s">app-tls-cert</span>     <span class="c1"># kubernetes.io/tls Secret</span>
+<p>The Gateway API separates the three concerns an Ingress mixes together:</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    GC["GatewayClass&lt;br/&gt;which controller implements it&lt;br/&gt;owned by infrastructure provider"]
+    GW["Gateway&lt;br/&gt;listeners, ports, TLS certificates&lt;br/&gt;owned by cluster operators"]
+    R1["HTTPRoute shop&lt;br/&gt;namespace shop"]
+    R2["GRPCRoute payments&lt;br/&gt;namespace payments"]
+    S1["Service store-v1"]
+    S2["Service store-v2"]
+    S3["Service payments"]
+    GC --&gt; GW
+    R1 --&gt;|parentRef| GW
+    R2 --&gt;|parentRef| GW
+    R1 --&gt;|"weight 90"| S1
+    R1 --&gt;|"weight 10"| S2
+    R2 --&gt; S3
+</code></pre>
+
+<p>A platform team defines the shared Gateway once and chooses which namespaces may attach routes to it:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">gateway.networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Gateway</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prod</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">infra</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">gatewayClassName</span><span class="pi">:</span> <span class="s">example-gateway-class</span>
+  <span class="na">listeners</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">https</span>
+    <span class="na">protocol</span><span class="pi">:</span> <span class="s">HTTPS</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">443</span>
+    <span class="na">hostname</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*.example.com"</span>
+    <span class="na">tls</span><span class="pi">:</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="s">Terminate</span>
+      <span class="na">certificateRefs</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">wildcard-example-com</span>
+    <span class="na">allowedRoutes</span><span class="pi">:</span>
+      <span class="na">namespaces</span><span class="pi">:</span>
+        <span class="na">from</span><span class="pi">:</span> <span class="s">Selector</span>
+        <span class="na">selector</span><span class="pi">:</span>
+          <span class="na">matchLabels</span><span class="pi">:</span>
+            <span class="na">gateway-access</span><span class="pi">:</span> <span class="s">prod</span>
 </code></pre></div></div>
 
-<p>In production the certificate Secret is usually managed automatically by <strong>cert-manager</strong>, which obtains and renews certificates from Let’s Encrypt and writes them into the Secret the Ingress references.</p>
+<p>Application teams then attach routes from their own namespaces without touching the Gateway. This route sends 10% of <code class="language-plaintext highlighter-rouge">/api</code> traffic to a canary:</p>
 
-<h3 id="the-gateway-api">The Gateway API</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">gateway.networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HTTPRoute</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">shop</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>                 <span class="c1"># namespace labelled gateway-access=prod</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">parentRefs</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">prod</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">infra</span>
+  <span class="na">hostnames</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">shop.example.com"</span><span class="pi">]</span>
+  <span class="na">rules</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">matches</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">PathPrefix</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="s">/api</span>
+    <span class="na">backendRefs</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">store-v1</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+      <span class="na">weight</span><span class="pi">:</span> <span class="m">90</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">store-v2</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+      <span class="na">weight</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="pi">-</span> <span class="na">backendRefs</span><span class="pi">:</span>                  <span class="c1"># everything else</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+</code></pre></div></div>
 
-<p>The Ingress resource has well-known limitations — its expressiveness is thin and vendors paper over gaps with non-portable annotations. The <strong>Gateway API</strong> (<code class="language-plaintext highlighter-rouge">gateway.networking.k8s.io</code>) is the successor: a richer, role-oriented, and portable model splitting responsibilities across <code class="language-plaintext highlighter-rouge">GatewayClass</code>, <code class="language-plaintext highlighter-rouge">Gateway</code>, and route resources (<code class="language-plaintext highlighter-rouge">HTTPRoute</code>, <code class="language-plaintext highlighter-rouge">TCPRoute</code>, <code class="language-plaintext highlighter-rouge">GRPCRoute</code>). New clusters increasingly adopt it for advanced traffic management; Ingress remains common and fully supported for straightforward HTTP routing.</p>
+<p>Implementations include Envoy Gateway, Istio, Cilium, NGINX Gateway Fabric, Traefik, Kong and the major cloud providers’ load-balancer controllers; each publishes the conformance profiles it passes. The same <code class="language-plaintext highlighter-rouge">HTTPRoute</code> resource is also used by service meshes for east-west traffic, by attaching it to a Service instead of a Gateway (see <a href="advanced.html">Advanced Topics</a>).</p>
 
-<h2 id="network-policies-microsegmentation-for-security">Network Policies: Microsegmentation for Security</h2>
+<h3 id="tls-certificates">TLS Certificates</h3>
 
-<p>By default, all pods can communicate freely. Network Policies let you restrict this, implementing defense-in-depth by controlling which pods can talk to each other.</p>
+<p>Both APIs reference certificates stored in <code class="language-plaintext highlighter-rouge">kubernetes.io/tls</code> Secrets. In practice those Secrets are created and renewed by <strong>cert-manager</strong>, which obtains certificates from ACME issuers such as Let’s Encrypt or from an internal CA, and can read Gateway and Ingress objects directly to decide which certificates to request.</p>
+
+<h2 id="networkpolicies">NetworkPolicies</h2>
+
+<p>By default every Pod accepts traffic from every other Pod in the cluster. A <strong>NetworkPolicy</strong> restricts that for the Pods it selects. Policies are enforced by the CNI plugin: with a plugin that does not implement them (Flannel on its own, for example), NetworkPolicy objects are accepted by the API server and silently have no effect.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">api-allow-frontend-only</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">api-from-frontend</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">podSelector</span><span class="pi">:</span>
     <span class="na">matchLabels</span><span class="pi">:</span>
-      <span class="na">app</span><span class="pi">:</span> <span class="s">api</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">api</span>                <span class="c1"># the Pods this policy protects</span>
+  <span class="na">policyTypes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">Ingress</span><span class="pi">]</span>
   <span class="na">ingress</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span>
         <span class="na">matchLabels</span><span class="pi">:</span>
-          <span class="na">app</span><span class="pi">:</span> <span class="s">frontend</span>
+          <span class="na">app</span><span class="pi">:</span> <span class="s">frontend</span>       <span class="c1"># only frontend Pods in the same namespace</span>
     <span class="na">ports</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
 </code></pre></div></div>
 
-<p>This policy says: “Only allow traffic to the API pods from frontend pods on port 8080.”</p>
-
-<p><strong>Important</strong>: Network Policies require a CNI plugin that supports them (Calico, Cilium, Weave Net). The default kubenet does not enforce policies. Without a policy-aware CNI, NetworkPolicy objects are accepted but silently ignored — giving a false sense of isolation.</p>
-
-<h3 id="default-deny-and-additive-policies">Default-Deny and Additive Policies</h3>
-
-<p>NetworkPolicies are <strong>additive and allow-only</strong> — there is no explicit “deny” rule. The model works by switching pods from “allow all” to “deny all except what is permitted”:</p>
+<h3 id="semantics">Semantics</h3>
 
 <ul>
-  <li>A pod with <strong>no</strong> NetworkPolicy selecting it accepts all traffic (the default).</li>
-  <li>The moment <strong>any</strong> policy selects a pod for a direction (ingress or egress), that pod becomes default-deny for that direction, and only traffic matching some policy is allowed.</li>
+  <li>NetworkPolicies are <strong>allow lists that add up</strong>. There is no deny rule.</li>
+  <li>A Pod that no policy selects allows all traffic.</li>
+  <li>As soon as any policy selects a Pod for a direction (<code class="language-plaintext highlighter-rouge">Ingress</code> or <code class="language-plaintext highlighter-rouge">Egress</code>), that direction becomes default-deny for the Pod, and only traffic that matches at least one policy is allowed.</li>
+  <li>Replies to allowed connections are always permitted; policies act on new connections.</li>
 </ul>
 
-<p>The canonical hardening pattern is to apply a namespace-wide default-deny, then layer narrow allow policies on top:</p>
+<pre><code class="language-mermaid">flowchart TD
+    A["New connection to Pod P"] --&gt; B{"Does any policy select P&lt;br/&gt;for Ingress?"}
+    B --&gt;|No| ALLOW["Allowed"]
+    B --&gt;|Yes| C{"Does any of those policies&lt;br/&gt;have a matching rule?"}
+    C --&gt;|Yes| ALLOW
+    C --&gt;|No| DENY["Dropped"]
+</code></pre>
+
+<p>The standard hardening pattern is a namespace-wide default-deny, followed by narrow allow policies:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">default-deny-all</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">default-deny</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>              <span class="c1"># Selects every pod in the namespace</span>
-  <span class="na">policyTypes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Ingress</span>
-  <span class="pi">-</span> <span class="s">Egress</span>
+  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>              <span class="c1"># every Pod in the namespace</span>
+  <span class="na">policyTypes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">Ingress</span><span class="pi">,</span> <span class="nv">Egress</span><span class="pi">]</span>
 </code></pre></div></div>
 
-<p>An empty <code class="language-plaintext highlighter-rouge">podSelector: {}</code> matches all pods, and listing a <code class="language-plaintext highlighter-rouge">policyType</code> with no matching rules denies all traffic for that direction. With this in place, every allowed flow must be explicitly granted.</p>
+<h3 id="selectors-and-versus-or">Selectors: AND versus OR</h3>
 
-<h3 id="selecting-sources-pods-namespaces-and-ip-blocks">Selecting Sources: pods, namespaces, and IP blocks</h3>
-
-<p>Allow rules can match traffic by pod label, namespace label, or CIDR block. Note the important distinction between two YAML forms:</p>
+<p>Peers can be selected by Pod labels, namespace labels or CIDR blocks. The YAML structure decides whether selectors combine with AND or OR, and getting it wrong usually produces a policy that is more permissive than intended:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">ingress</span><span class="pi">:</span>
 <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
-  <span class="c1"># Form 1: pods in namespaces labeled tier=frontend</span>
+  <span class="c1"># Two list items: OR. Any Pod in a namespace labelled team=web,</span>
+  <span class="c1"># or any Pod labelled app=monitor in this policy's namespace.</span>
   <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
       <span class="na">matchLabels</span><span class="pi">:</span>
-        <span class="na">tier</span><span class="pi">:</span> <span class="s">frontend</span>
-  <span class="c1"># Form 2 (single list item with both): pods labeled app=web</span>
-  <span class="c1">#         that ALSO live in namespaces labeled tier=frontend</span>
+        <span class="na">team</span><span class="pi">:</span> <span class="s">web</span>
+  <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span>
+      <span class="na">matchLabels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">monitor</span>
+<span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
+  <span class="c1"># One list item with both selectors: AND.</span>
+  <span class="c1"># Only Pods labelled app=gateway in namespaces labelled team=web.</span>
   <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
       <span class="na">matchLabels</span><span class="pi">:</span>
-        <span class="na">tier</span><span class="pi">:</span> <span class="s">frontend</span>
+        <span class="na">team</span><span class="pi">:</span> <span class="s">web</span>
     <span class="na">podSelector</span><span class="pi">:</span>
       <span class="na">matchLabels</span><span class="pi">:</span>
-        <span class="na">app</span><span class="pi">:</span> <span class="s">web</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">gateway</span>
 </code></pre></div></div>
 
-<p>Two selectors as <strong>separate list items</strong> are OR’d together; two selectors <strong>inside one list item</strong> are AND’d. This is a frequent source of policies that are accidentally too permissive.</p>
+<p>Every namespace automatically carries the label <code class="language-plaintext highlighter-rouge">kubernetes.io/metadata.name: &lt;name&gt;</code>, which makes it easy to select one namespace by name.</p>
 
-<p>A common egress policy is to allow DNS (so name resolution still works) plus the specific external CIDR your app needs:</p>
+<h3 id="allowing-dns">Allowing DNS</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">egress</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">to</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span> <span class="pi">{}</span>
-  <span class="na">ports</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">UDP</span>
-    <span class="na">port</span><span class="pi">:</span> <span class="m">53</span>                   <span class="c1"># Allow DNS to CoreDNS</span>
-<span class="pi">-</span> <span class="na">to</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">ipBlock</span><span class="pi">:</span>
-      <span class="na">cidr</span><span class="pi">:</span> <span class="s">203.0.113.0/24</span>     <span class="c1"># Allow a specific external range</span>
+<p>A default-deny egress policy also blocks DNS, so every Service lookup starts failing. Allow queries to the cluster DNS Pods on both UDP and TCP port 53 (TCP is used for large responses):</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-dns</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">policyTypes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">Egress</span><span class="pi">]</span>
+  <span class="na">egress</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">to</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
+        <span class="na">matchLabels</span><span class="pi">:</span>
+          <span class="na">kubernetes.io/metadata.name</span><span class="pi">:</span> <span class="s">kube-system</span>
+      <span class="na">podSelector</span><span class="pi">:</span>
+        <span class="na">matchLabels</span><span class="pi">:</span>
+          <span class="na">k8s-app</span><span class="pi">:</span> <span class="s">kube-dns</span>    <span class="c1"># label used by CoreDNS in most distributions</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">UDP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">53</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">53</span>
 </code></pre></div></div>
 
-<p>Forgetting to allow DNS is the single most common NetworkPolicy mistake — pods can suddenly no longer resolve any Service name and fail in confusing ways.</p>
+<h3 id="limits-of-the-built-in-api">Limits of the Built-in API</h3>
 
-<h2 id="configmaps-and-secrets-managing-application-configuration">ConfigMaps and Secrets: Managing Application Configuration</h2>
+<p>The <code class="language-plaintext highlighter-rouge">NetworkPolicy</code> API is deliberately small:</p>
 
-<p>As your applications grow, you’ll need to manage configuration separately from your container images. This separation allows you to deploy the same image across different environments (development, staging, production) with different configurations. ConfigMaps handle non-sensitive data, while Secrets manage sensitive information like passwords and API keys.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Not supported</th>
+      <th>Common workaround</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Explicit deny rules, or policies that override namespace owners</td>
+      <td>Cluster-scoped admin policies: SIG Network’s <code class="language-plaintext highlighter-rouge">ClusterNetworkPolicy</code> (still alpha; it merges the earlier AdminNetworkPolicy and BaselineAdminNetworkPolicy drafts), or CNI-specific CRDs such as Calico <code class="language-plaintext highlighter-rouge">GlobalNetworkPolicy</code> and Cilium <code class="language-plaintext highlighter-rouge">CiliumClusterwideNetworkPolicy</code></td>
+    </tr>
+    <tr>
+      <td>Rules based on domain names (FQDN)</td>
+      <td>Cilium and Calico FQDN policies, or an egress gateway</td>
+    </tr>
+    <tr>
+      <td>Layer 7 rules (HTTP methods, paths)</td>
+      <td>Cilium L7 policies or a service mesh authorization policy</td>
+    </tr>
+    <tr>
+      <td>Logging of dropped traffic</td>
+      <td>CNI tooling (Hubble, Calico flow logs)</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>This separation is a direct application of the <a href="../../technology/">Twelve-Factor App</a> principle “store config in the environment”: the image is an immutable artifact, and configuration is injected at runtime.</p>
+<h2 id="configmaps-and-secrets">ConfigMaps and Secrets</h2>
 
-<h3 id="configmaps">ConfigMaps</h3>
+<p>Configuration is kept out of container images so the same image can run unchanged in every environment. <strong>ConfigMaps</strong> hold non-sensitive settings; <strong>Secrets</strong> hold credentials and keys. Both are limited to 1 MiB per object.</p>
 
-<p><strong>ConfigMap Example:</strong></p>
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">app-config</span>
 <span class="na">data</span><span class="pi">:</span>
-  <span class="na">database_url</span><span class="pi">:</span> <span class="s2">"</span><span class="s">postgres://localhost:5432/mydb"</span>
-  <span class="na">api_key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">public-api-key"</span>
-  <span class="c1"># A whole config file as a value:</span>
-  <span class="na">app.properties</span><span class="pi">:</span> <span class="pi">|</span>
-    <span class="s">log.level=info</span>
+  <span class="na">LOG_LEVEL</span><span class="pi">:</span> <span class="s">info</span>
+  <span class="na">FEATURE_CHECKOUT_V2</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+  <span class="na">app.properties</span><span class="pi">:</span> <span class="pi">|</span>           <span class="c1"># a whole file as one key</span>
     <span class="s">cache.size=256</span>
+    <span class="s">cache.ttl=60s</span>
+<span class="s">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Secret</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">db-credentials</span>
+<span class="na">type</span><span class="pi">:</span> <span class="s">Opaque</span>
+<span class="na">stringData</span><span class="pi">:</span>                   <span class="c1"># plain text in; stored base64-encoded under data:</span>
+  <span class="na">username</span><span class="pi">:</span> <span class="s">app</span>
+  <span class="na">password</span><span class="pi">:</span> <span class="s">change-me</span>
 </code></pre></div></div>
 
-<p>There are two ways to surface a ConfigMap into a pod, each suited to different needs:</p>
+<h3 id="consuming-configuration">Consuming Configuration</h3>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
   <span class="na">containers</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:1.4</span>
-    <span class="c1"># 1. As environment variables</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/shop/app:1.4.2</span>
     <span class="na">envFrom</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">configMapRef</span><span class="pi">:</span>
-        <span class="na">name</span><span class="pi">:</span> <span class="s">app-config</span>
-    <span class="c1"># 2. As files in a mounted volume</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">app-config</span>               <span class="c1"># every key becomes an environment variable</span>
+    <span class="na">env</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DB_PASSWORD</span>
+      <span class="na">valueFrom</span><span class="pi">:</span>
+        <span class="na">secretKeyRef</span><span class="pi">:</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">db-credentials</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">password</span>
     <span class="na">volumeMounts</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">config-vol</span>
-      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/etc/app</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">config</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/etc/app</span>              <span class="c1"># each key becomes a file</span>
+      <span class="na">readOnly</span><span class="pi">:</span> <span class="kc">true</span>
   <span class="na">volumes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">config-vol</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">config</span>
     <span class="na">configMap</span><span class="pi">:</span>
       <span class="na">name</span><span class="pi">:</span> <span class="s">app-config</span>
 </code></pre></div></div>
 
-<p>Use <strong>environment variables</strong> for simple scalar settings, and <strong>volume mounts</strong> for whole config files. A key practical difference: values injected as environment variables are fixed for the life of the pod, whereas values mounted as a volume are updated in place (after a short delay) when the ConfigMap changes — though your application must re-read the file to notice. To force a rollout when config changes, teams often add a checksum of the ConfigMap as a pod annotation so the Deployment’s pod template changes and triggers a rolling update.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th style="text-align: center">Picks up changes to the ConfigMap or Secret?</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Environment variables (<code class="language-plaintext highlighter-rouge">env</code>, <code class="language-plaintext highlighter-rouge">envFrom</code>)</td>
+      <td style="text-align: center">No, fixed when the container starts</td>
+      <td>Simple; values can leak into crash dumps and child processes</td>
+    </tr>
+    <tr>
+      <td>Volume mount</td>
+      <td style="text-align: center">Yes, after the kubelet’s sync delay (typically under a minute)</td>
+      <td>The application must notice and re-read the file</td>
+    </tr>
+    <tr>
+      <td>Volume mount with <code class="language-plaintext highlighter-rouge">subPath</code></td>
+      <td style="text-align: center">No</td>
+      <td>A common surprise: the single file is copied, not linked</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="secrets">Secrets</h3>
+<p>To roll out a configuration change deliberately, change something in the Pod template. Helm charts conventionally add a checksum of the rendered ConfigMap as a Pod-template annotation, and Kustomize’s ConfigMap generator appends a content hash to the ConfigMap’s name, so any change produces a new rollout. Setting <code class="language-plaintext highlighter-rouge">immutable: true</code> on a ConfigMap or Secret prevents edits and lets the kubelet stop watching it, which reduces API server load in large clusters.</p>
 
-<p><strong>Secret Example:</strong></p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Secret</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">db-secret</span>
-<span class="na">type</span><span class="pi">:</span> <span class="s">Opaque</span>
-<span class="na">data</span><span class="pi">:</span>
-  <span class="na">username</span><span class="pi">:</span> <span class="s">YWRtaW4=</span>          <span class="c1"># base64 encoded "admin"</span>
-  <span class="na">password</span><span class="pi">:</span> <span class="s">cGFzc3dvcmQ=</span>      <span class="c1"># base64 encoded "password"</span>
-</code></pre></div></div>
+<h3 id="securing-secrets">Securing Secrets</h3>
 
-<p>A Secret is consumed exactly like a ConfigMap — as environment variables or mounted files:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="na">env</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DB_PASSWORD</span>
-      <span class="na">valueFrom</span><span class="pi">:</span>
-        <span class="na">secretKeyRef</span><span class="pi">:</span>
-          <span class="na">name</span><span class="pi">:</span> <span class="s">db-secret</span>
-          <span class="na">key</span><span class="pi">:</span> <span class="s">password</span>
-</code></pre></div></div>
-
-<p><strong>Critical caveat: base64 is encoding, not encryption.</strong> Anyone who can read the Secret object can trivially decode it. Secrets provide value through <em>access control</em>, not obfuscation. To use them safely:</p>
+<p>A Secret’s value is only base64-encoded. Anyone who can read the object, or an etcd backup, can read the credential. Protection comes from controlling access:</p>
 
 <ul>
-  <li><strong>Restrict access with RBAC</strong> (covered below) so only the workloads and people who need a Secret can <code class="language-plaintext highlighter-rouge">get</code> it.</li>
-  <li><strong>Enable encryption at rest</strong> so etcd stores Secrets encrypted rather than as plain base64. Without it, anyone with access to an etcd backup has every credential.</li>
-  <li><strong>Never commit Secret manifests to Git</strong> in plaintext. Use a sealed/encrypted approach — Sealed Secrets, SOPS, or an external store like HashiCorp Vault or a cloud secrets manager via the External Secrets Operator or the Secrets Store CSI Driver.</li>
+  <li><strong>RBAC.</strong> Grant <code class="language-plaintext highlighter-rouge">get</code> on Secrets only to the workloads that need them. Note that <code class="language-plaintext highlighter-rouge">list</code> and <code class="language-plaintext highlighter-rouge">watch</code> return full Secret contents too, and that anyone who can create Pods in a namespace can mount any Secret in it.</li>
+  <li><strong>Encryption at rest.</strong> Configure the API server to encrypt Secrets in etcd, preferably with a KMS v2 provider so the key lives in an external key-management service rather than on the control-plane disk. Managed services (EKS, GKE, AKS) offer this as a setting.</li>
+  <li><strong>External secret stores.</strong> Keep the source of truth in Vault or a cloud secrets manager and sync it into the cluster with the External Secrets Operator, or mount it directly with the Secrets Store CSI Driver.</li>
+  <li><strong>Nothing in plain text in Git.</strong> When Secrets must live in a GitOps repository, encrypt them with Sealed Secrets or SOPS.</li>
 </ul>
 
-<p>Kubernetes also defines typed Secrets that other components understand, such as <code class="language-plaintext highlighter-rouge">kubernetes.io/tls</code> for the certificate/key pair an Ingress references, and <code class="language-plaintext highlighter-rouge">kubernetes.io/dockerconfigjson</code> for pulling images from a private registry (referenced via <code class="language-plaintext highlighter-rouge">imagePullSecrets</code>).</p>
+<table>
+  <thead>
+    <tr>
+      <th>Secret type</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Opaque</code></td>
+      <td>Arbitrary key-value data (the default)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kubernetes.io/tls</code></td>
+      <td>A certificate and private key for Ingress, Gateway or application TLS</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kubernetes.io/dockerconfigjson</code></td>
+      <td>Registry credentials, referenced from <code class="language-plaintext highlighter-rouge">imagePullSecrets</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kubernetes.io/basic-auth</code>, <code class="language-plaintext highlighter-rouge">kubernetes.io/ssh-auth</code></td>
+      <td>Structured credentials with required keys</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kubernetes.io/service-account-token</code></td>
+      <td>Legacy long-lived ServiceAccount tokens; avoid in favour of bound tokens</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="rbac-and-serviceaccounts">RBAC and ServiceAccounts</h2>
 
-<p>So far everything has been about traffic and config between <em>workloads</em>. RBAC is about authorization: who — whether a human or a pod — is allowed to perform which actions against the Kubernetes API itself.</p>
+<p>NetworkPolicies control traffic between workloads. <strong>RBAC</strong> controls who may do what through the Kubernetes API, whether the caller is a person, a CI system or a Pod.</p>
 
-<h3 id="serviceaccounts-identities-for-pods">ServiceAccounts: Identities for Pods</h3>
+<h3 id="serviceaccounts">ServiceAccounts</h3>
 
-<p>Every pod runs as a <strong>ServiceAccount</strong>, which is its identity to the API server. If you do not specify one, the pod uses the namespace’s <code class="language-plaintext highlighter-rouge">default</code> ServiceAccount. Kubernetes mounts a short-lived, automatically-rotated token for that ServiceAccount into the pod, which client libraries use to authenticate to the API.</p>
+<p>Every Pod runs as a <strong>ServiceAccount</strong>, its identity towards the API server; if none is specified, it runs as the namespace’s <code class="language-plaintext highlighter-rouge">default</code> ServiceAccount. The kubelet mounts a <strong>bound token</strong> into the Pod through a projected volume. The token is a short-lived JWT (one hour by default, refreshed automatically), tied to the specific Pod, and invalid as soon as the Pod is deleted. Since v1.24, Kubernetes no longer creates the long-lived, Secret-based tokens that older tutorials describe.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">backup-runner</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
+<span class="na">automountServiceAccountToken</span><span class="pi">:</span> <span class="kc">false</span>     <span class="c1"># opt in per Pod instead</span>
 <span class="nn">---</span>
 <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">backup-job</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">backup</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
 <span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">backup</span>
   <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">backup</span>
     <span class="na">spec</span><span class="pi">:</span>
-      <span class="na">serviceAccountName</span><span class="pi">:</span> <span class="s">backup-runner</span>       <span class="c1"># Pod's API identity</span>
-      <span class="na">automountServiceAccountToken</span><span class="pi">:</span> <span class="kc">true</span>       <span class="c1"># Set false if the pod never calls the API</span>
+      <span class="na">serviceAccountName</span><span class="pi">:</span> <span class="s">backup-runner</span>
+      <span class="na">automountServiceAccountToken</span><span class="pi">:</span> <span class="kc">true</span>  <span class="c1"># this Pod does call the API</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">backup</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/ops/backup:2.3.0</span>
 </code></pre></div></div>
 
-<p>A security best practice is to give each application its own dedicated ServiceAccount rather than letting it inherit <code class="language-plaintext highlighter-rouge">default</code>, and to set <code class="language-plaintext highlighter-rouge">automountServiceAccountToken: false</code> for any pod that does not actually need to talk to the Kubernetes API — which is most application pods. A leaked token for an over-privileged ServiceAccount is a direct path to cluster compromise.</p>
+<p>Give each application its own ServiceAccount and disable token mounting for Pods that never call the Kubernetes API, which is most application Pods. Bound tokens can also be projected with a custom audience for workload identity federation, which is how Pods authenticate to cloud APIs (EKS Pod Identity or IRSA, GKE Workload Identity, Azure Workload Identity) without static cloud credentials.</p>
 
-<h3 id="roles-clusterroles-and-bindings">Roles, ClusterRoles, and Bindings</h3>
-
-<p>RBAC is built from four object types that compose cleanly:</p>
+<h3 id="roles-and-bindings">Roles and Bindings</h3>
 
 <table>
   <thead>
     <tr>
       <th>Object</th>
       <th>Scope</th>
-      <th>Defines</th>
+      <th>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Role</strong></td>
       <td>One namespace</td>
-      <td>A set of allowed verbs on resources</td>
+      <td>A set of allowed verbs on resources in that namespace</td>
     </tr>
     <tr>
       <td><strong>ClusterRole</strong></td>
-      <td>Cluster-wide</td>
-      <td>Same, but cluster-scoped (nodes, namespaces) or reusable across namespaces</td>
+      <td>Cluster</td>
+      <td>The same for cluster-scoped resources (nodes, namespaces), or a reusable permission set</td>
     </tr>
     <tr>
       <td><strong>RoleBinding</strong></td>
       <td>One namespace</td>
-      <td>Grants a Role (or ClusterRole) to a subject in that namespace</td>
+      <td>Grants a Role or ClusterRole to subjects, within that namespace only</td>
     </tr>
     <tr>
       <td><strong>ClusterRoleBinding</strong></td>
-      <td>Cluster-wide</td>
-      <td>Grants a ClusterRole to a subject across the whole cluster</td>
+      <td>Cluster</td>
+      <td>Grants a ClusterRole to subjects in every namespace</td>
     </tr>
   </tbody>
 </table>
 
-<p>A <strong>Role</strong> is a pure list of permissions — it grants no access until a binding attaches it to a subject (a user, group, or ServiceAccount). RBAC is <strong>purely additive</strong>: there are no deny rules, so a subject’s effective permissions are the union of every Role and ClusterRole bound to it.</p>
+<p>RBAC is <strong>additive only</strong>: there are no deny rules, and a subject’s permissions are the union of everything bound to it.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A Role permitting read-only access to pods in the production namespace</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">pod-reader</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
 <span class="na">rules</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">"</span><span class="pi">]</span>                 <span class="c1"># "" is the core API group</span>
+<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">"</span><span class="pi">]</span>                        <span class="c1"># "" is the core API group</span>
   <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">pods"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">pods/log"</span><span class="pi">]</span>
   <span class="na">verbs</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">get"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">list"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">watch"</span><span class="pi">]</span>
 <span class="nn">---</span>
-<span class="c1"># Bind that Role to the backup-runner ServiceAccount</span>
 <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">RoleBinding</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">read-pods</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">backup-runner-reads-pods</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
 <span class="na">subjects</span><span class="pi">:</span>
 <span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">backup-runner</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">shop</span>
 <span class="na">roleRef</span><span class="pi">:</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
   <span class="na">kind</span><span class="pi">:</span> <span class="s">Role</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">pod-reader</span>
-  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
 </code></pre></div></div>
-
-<p>The relationship between these pieces is worth picturing:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    SA[ServiceAccount&lt;br/&gt;backup-runner] --&gt;|subject of| RB[RoleBinding&lt;br/&gt;read-pods]
-    RB --&gt;|roleRef| R[Role&lt;br/&gt;pod-reader]
-    R --&gt;|grants verbs| API[(API: pods,&lt;br/&gt;pods/log)]
+    U["User or Group&lt;br/&gt;from the authenticator"] --&gt; RB["RoleBinding&lt;br/&gt;namespace shop"]
+    SA["ServiceAccount&lt;br/&gt;backup-runner"] --&gt; RB
+    RB --&gt;|roleRef| R["Role pod-reader"]
+    RB -.-&gt;|"or roleRef"| CR["ClusterRole view"]
+    R --&gt; P["get, list, watch on&lt;br/&gt;pods in shop"]
+    CR -.-&gt; P2["view permissions,&lt;br/&gt;limited to shop"]
 </code></pre>
 
-<p>A useful pattern is binding a <strong>ClusterRole with a RoleBinding</strong>: the ClusterRole defines a reusable permission set once (say, “read-only across common resources”), and a RoleBinding in each namespace grants it there — keeping the permission <em>scoped</em> to that namespace while avoiding duplicated Role definitions.</p>
+<p>Binding a <strong>ClusterRole through a RoleBinding</strong> is a common pattern: the ClusterRole defines a permission set once, and each RoleBinding applies it within one namespace only. The built-in <code class="language-plaintext highlighter-rouge">view</code>, <code class="language-plaintext highlighter-rouge">edit</code> and <code class="language-plaintext highlighter-rouge">admin</code> ClusterRoles are intended for exactly this, and are <em>aggregated</em>, so CRD authors can extend them by labelling their own ClusterRoles.</p>
 
-<h3 id="designing-for-least-privilege">Designing for Least Privilege</h3>
-
-<p>The guiding principle is <strong>least privilege</strong>: grant the narrowest set of verbs on the fewest resources needed, scoped to a single namespace wherever possible. Practical guidance:</p>
+<h3 id="least-privilege">Least Privilege</h3>
 
 <ul>
-  <li>Avoid the built-in <code class="language-plaintext highlighter-rouge">cluster-admin</code> ClusterRole for anything but actual administrators; it is a full bypass of RBAC.</li>
-  <li>Never use wildcards (<code class="language-plaintext highlighter-rouge">resources: ["*"]</code>, <code class="language-plaintext highlighter-rouge">verbs: ["*"]</code>) in application roles.</li>
-  <li>Prefer namespaced <code class="language-plaintext highlighter-rouge">Role</code> + <code class="language-plaintext highlighter-rouge">RoleBinding</code> over cluster-scoped grants.</li>
-  <li>Verify a binding does what you expect before trusting it.</li>
+  <li>Reserve <code class="language-plaintext highlighter-rouge">cluster-admin</code> for break-glass administration.</li>
+  <li>Avoid wildcards (<code class="language-plaintext highlighter-rouge">"*"</code>) in <code class="language-plaintext highlighter-rouge">resources</code> and <code class="language-plaintext highlighter-rouge">verbs</code> for workload roles.</li>
+  <li>Treat some permissions as equivalent to administrator access: <code class="language-plaintext highlighter-rouge">escalate</code>, <code class="language-plaintext highlighter-rouge">bind</code> and <code class="language-plaintext highlighter-rouge">impersonate</code>; creating Pods or workloads (which can mount any Secret or ServiceAccount in the namespace); <code class="language-plaintext highlighter-rouge">create</code> on <code class="language-plaintext highlighter-rouge">serviceaccounts/token</code>; and <code class="language-plaintext highlighter-rouge">update</code> on RBAC objects.</li>
+  <li>Prefer namespaced Roles and RoleBindings over cluster-wide grants.</li>
+  <li>Verify the result instead of reading YAML:</li>
 </ul>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Test exactly what a ServiceAccount is (and is not) allowed to do</span>
-kubectl auth can-i list pods <span class="se">\</span>
-  <span class="nt">--as</span><span class="o">=</span>system:serviceaccount:production:backup-runner <span class="nt">-n</span> production   <span class="c"># -&gt; yes</span>
-
-kubectl auth can-i delete deployments <span class="se">\</span>
-  <span class="nt">--as</span><span class="o">=</span>system:serviceaccount:production:backup-runner <span class="nt">-n</span> production   <span class="c"># -&gt; no</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl auth can-i list pods <span class="nt">-n</span> shop <span class="se">\</span>
+  <span class="nt">--as</span><span class="o">=</span>system:serviceaccount:shop:backup-runner        <span class="c"># yes</span>
+kubectl auth can-i delete deployments <span class="nt">-n</span> shop <span class="se">\</span>
+  <span class="nt">--as</span><span class="o">=</span>system:serviceaccount:shop:backup-runner        <span class="c"># no</span>
+kubectl auth can-i <span class="nt">--list</span> <span class="nt">-n</span> shop <span class="se">\</span>
+  <span class="nt">--as</span><span class="o">=</span>system:serviceaccount:shop:backup-runner        <span class="c"># everything it can do</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">kubectl auth can-i</code> is the fastest way to confirm an RBAC setup grants the access you intended and nothing more.</p>
+<h2 id="common-pitfalls">Common Pitfalls</h2>
 
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>Mismatched labels:</strong> A Service routes to pods by label selector. If the selector and pod labels disagree, the Service has zero endpoints and silently drops traffic.</li>
-    <li><strong>Empty endpoints from failed readiness:</strong> A pod failing its readiness probe is pulled from the Service's endpoint list — check probe status before blaming the network.</li>
-    <li><strong>Assuming NetworkPolicies are enforced:</strong> Without a policy-aware CNI, NetworkPolicy objects are accepted but ignored — giving a false sense of isolation.</li>
-    <li><strong>Forgetting DNS in egress policies:</strong> A default-deny egress policy that omits UDP/53 to CoreDNS breaks all Service name resolution.</li>
-    <li><strong>One LoadBalancer per service:</strong> Each cloud LoadBalancer costs money and consumes an IP. Use a single Ingress to fan out to many services instead.</li>
-    <li><strong>Ingress object without a controller:</strong> An Ingress with no matching Ingress Controller installed is inert and routes nothing.</li>
-    <li><strong>Treating Secrets as encrypted:</strong> base64 is encoding, not encryption. Lock Secrets down with RBAC and enable encryption at rest.</li>
-    <li><strong>Over-privileged ServiceAccounts:</strong> Leaving pods on the <code>default</code> account or granting <code>cluster-admin</code> turns a single pod compromise into a cluster compromise.</li>
-  </ul>
-</div>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Services decouple from pod IPs.</strong> A stable ClusterIP and DNS name front a label-selected set of pods; the endpoint list updates as pods come and go, and clients reference the name.</li>
-  <li><strong>kube-proxy programs the kernel</strong> rather than sitting in the data path — it writes iptables/IPVS/nftables rules so the kernel rewrites ClusterIP traffic to a real pod with near-zero overhead.</li>
-  <li><strong>Ingress needs a controller.</strong> The Ingress object is just rules; a running controller turns them into real HTTP routing, fanning one external IP out to many Services.</li>
-  <li><strong>NetworkPolicies are allow-only.</strong> They require a policy-aware CNI, flip selected pods to default-deny, and grant only explicit flows — remember to allow DNS.</li>
-  <li><strong>Secrets need RBAC, not faith.</strong> base64 is not encryption; restrict Secrets with RBAC, encrypt etcd at rest, and keep them out of plaintext Git.</li>
-  <li><strong>Least-privilege RBAC.</strong> Give each app a dedicated ServiceAccount and the narrowest namespaced Role; verify with <code class="language-plaintext highlighter-rouge">kubectl auth can-i</code>.</li>
-</ul>
-
-<hr />
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Likely cause</th>
+      <th>Check</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Service times out or refuses connections</td>
+      <td>Selector does not match Pod labels, or no Pod is ready</td>
+      <td><code class="language-plaintext highlighter-rouge">kubectl get endpointslices -l kubernetes.io/service-name=&lt;svc&gt;</code></td>
+    </tr>
+    <tr>
+      <td>NetworkPolicy has no effect</td>
+      <td>CNI does not enforce policies</td>
+      <td>Check the CNI; test with a Pod that should be blocked</td>
+    </tr>
+    <tr>
+      <td>Everything breaks after a default-deny egress policy</td>
+      <td>DNS is blocked</td>
+      <td>Allow UDP and TCP 53 to the cluster DNS Pods</td>
+    </tr>
+    <tr>
+      <td>LoadBalancer stays <code class="language-plaintext highlighter-rouge">&lt;pending&gt;</code></td>
+      <td>No load-balancer implementation (local or bare-metal cluster)</td>
+      <td>Install MetalLB or use a Gateway behind a NodePort</td>
+    </tr>
+    <tr>
+      <td>Ingress or Gateway exists but routes nothing</td>
+      <td>No controller installed, or wrong <code class="language-plaintext highlighter-rouge">ingressClassName</code> or <code class="language-plaintext highlighter-rouge">gatewayClassName</code></td>
+      <td><code class="language-plaintext highlighter-rouge">kubectl get ingressclass,gatewayclass</code>; check the route’s status conditions</td>
+    </tr>
+    <tr>
+      <td>Client IPs appear as node IPs in logs</td>
+      <td><code class="language-plaintext highlighter-rouge">externalTrafficPolicy: Cluster</code> SNATs external traffic</td>
+      <td>Use <code class="language-plaintext highlighter-rouge">Local</code>, or the PROXY protocol or <code class="language-plaintext highlighter-rouge">X-Forwarded-For</code> at the load balancer</td>
+    </tr>
+    <tr>
+      <td>Config change not picked up</td>
+      <td>Values consumed as environment variables or through <code class="language-plaintext highlighter-rouge">subPath</code></td>
+      <td>Restart the rollout, or mount as a volume without <code class="language-plaintext highlighter-rouge">subPath</code></td>
+    </tr>
+    <tr>
+      <td>A single compromised Pod leads to cluster compromise</td>
+      <td>Over-privileged ServiceAccount or <code class="language-plaintext highlighter-rouge">cluster-admin</code> binding</td>
+      <td><code class="language-plaintext highlighter-rouge">kubectl auth can-i --list --as=system:serviceaccount:&lt;ns&gt;:&lt;sa&gt;</code></td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="fundamentals.html">Fundamentals</a> - Pods, Deployments, cluster architecture, and the reconciliation loop</li>
-  <li><a href="workloads.html">Workloads &amp; Storage</a> - StatefulSets, persistent volumes, autoscaling, and Pod Security</li>
-  <li><a href="operations.html">Operations</a> - kubectl, Helm, and a systematic troubleshooting guide</li>
-  <li><a href="advanced.html">Advanced Topics</a> - CRDs, Operators, service mesh, and GitOps</li>
-  <li><a href="../docker/">Docker</a> - The container fundamentals Kubernetes builds on</li>
-  <li><a href="../aws/compute.html">AWS EKS</a> - Managed Kubernetes on AWS</li>
+  <li><a href="fundamentals.html">Fundamentals</a>: Pods, Deployments, cluster architecture and the reconciliation loop</li>
+  <li><a href="fundamentals-resources.html">Health &amp; Resource Management</a>: probes, which decide whether a Pod receives Service traffic</li>
+  <li><a href="persistence.html">Stateful Workloads &amp; Persistence</a>: StatefulSets and headless Services</li>
+  <li><a href="workloads.html">Workloads &amp; Storage</a>: Pod Security Standards and autoscaling</li>
+  <li><a href="operations.html">Operations</a>: kubectl, Helm and troubleshooting</li>
+  <li><a href="advanced.html">Advanced Topics</a>: service mesh, GitOps, multi-tenancy and extending the API</li>
+  <li><a href="../networking/">Networking fundamentals</a>: the TCP/IP, DNS and load-balancing concepts this page builds on</li>
+  <li><a href="../../distributed-systems/service-discovery.html">Service Discovery</a>: discovery patterns beyond a single cluster</li>
+  <li><a href="../aws/compute.html">AWS compute</a>: managed Kubernetes with EKS</li>
 </ul>
 
       </section>

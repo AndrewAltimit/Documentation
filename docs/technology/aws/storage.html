@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Reference for AWS storage: S3 object storage and its storage classes, EBS block volumes, EFS and FSx file systems, with selection guidance, data protection, ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AWS Storage Services">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Reference for AWS storage: S3 object storage and its storage classes, EBS block volumes, EFS and FSx file systems, with selection guidance, data protection, ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/storage.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AWS Storage Services">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Reference for AWS storage: S3 object storage and its storage classes, EBS block volumes, EFS and FSx file systems, with selection guidance, data protection, ...">
 
 <title>AWS Storage Services | Andrews Notebook</title>
 
@@ -3131,442 +3131,715 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>AWS storage falls into three shapes: S3 object storage, EBS block storage, and EFS shared file systems. This page covers when to use each and how to operate them well, from static websites to high-performance databases.</p>
+        <p>AWS storage comes in three access models: <strong>object</strong> storage reached over an HTTP API (Amazon S3), <strong>block</strong> volumes attached to a single instance (Amazon EBS), and <strong>file</strong> systems mounted by many clients at once (Amazon EFS and the Amazon FSx family). This page describes each model, the storage classes and volume types within it, how to protect and cost-optimize the data, and how to choose between them. Figures are as of 2026 and quoted for US East (N. Virginia) where prices appear; check the service pricing pages before relying on them.</p>
 
-<h2 id="why-storage-services-matter">Why Storage Services Matter</h2>
-
-<p>Every application needs to store data somewhere. The question is: what kind of data, how much, how often do you access it, and how fast does access need to be? AWS offers different storage services optimized for different answers to these questions.</p>
-
-<p>Understanding the three main storage types will help you make the right choice:</p>
+<h2 id="storage-models-at-a-glance">Storage models at a glance</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Storage Type</th>
-      <th>What It Is</th>
-      <th>AWS Service</th>
-      <th>Best For</th>
+      <th> </th>
+      <th>Object (S3)</th>
+      <th>Block (EBS)</th>
+      <th>File (EFS / FSx)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Object Storage</strong></td>
-      <td>Files stored as objects with metadata</td>
-      <td>S3</td>
-      <td>Images, videos, backups, static websites</td>
+      <td><strong>Access</strong></td>
+      <td>HTTPS API (<code class="language-plaintext highlighter-rouge">GetObject</code>, <code class="language-plaintext highlighter-rouge">PutObject</code>)</td>
+      <td>Raw device; you create the file system</td>
+      <td>NFS or SMB mount (FSx Lustre: Lustre client)</td>
     </tr>
     <tr>
-      <td><strong>Block Storage</strong></td>
-      <td>Raw storage volumes (like hard drives)</td>
-      <td>EBS</td>
-      <td>Databases, boot volumes, high-IOPS workloads</td>
+      <td><strong>Attached to</strong></td>
+      <td>Nothing; any authorized client anywhere</td>
+      <td>One EC2 instance (io2 Multi-Attach excepted) in one AZ</td>
+      <td>Many instances, containers, and on-premises hosts</td>
     </tr>
     <tr>
-      <td><strong>File Storage</strong></td>
-      <td>Shared file systems (like NAS)</td>
-      <td>EFS</td>
-      <td>Shared content across multiple servers</td>
+      <td><strong>Scope</strong></td>
+      <td>Regional (most classes span 3+ AZs)</td>
+      <td>Single Availability Zone</td>
+      <td>Regional (Multi-AZ) or One Zone</td>
+    </tr>
+    <tr>
+      <td><strong>Capacity</strong></td>
+      <td>Unlimited; objects up to 50 TB</td>
+      <td>Provisioned per volume, up to 64 TiB</td>
+      <td>Elastic (EFS) or provisioned (FSx)</td>
+    </tr>
+    <tr>
+      <td><strong>Latency</strong></td>
+      <td>Tens of ms first byte (single-digit ms for Express One Zone)</td>
+      <td>Sub-ms (io2) to single-digit ms</td>
+      <td>About 1 ms reads on EFS Standard</td>
+    </tr>
+    <tr>
+      <td><strong>Billing</strong></td>
+      <td>GB-month stored + requests + retrieval + egress</td>
+      <td>GB-month provisioned (+ provisioned IOPS/throughput)</td>
+      <td>GB-month used (EFS) or provisioned (FSx) + throughput</td>
+    </tr>
+    <tr>
+      <td><strong>Typical use</strong></td>
+      <td>Data lakes, media, backups, static assets, ML datasets</td>
+      <td>Boot volumes, databases, single-node applications</td>
+      <td>Shared content, home directories, HPC scratch, lift-and-shift apps</td>
     </tr>
   </tbody>
 </table>
 
-<p>Consider the following before choosing: How often will you access this data? Does it need to be shared across servers? What latency can your application tolerate?</p>
+<pre><code class="language-mermaid">flowchart TD
+    Start([Where should this data live?]) --&gt; Q1{Accessed through an API&lt;br/&gt;rather than a mounted path?}
+    Q1 --&gt;|Yes| Q1a{Tabular analytics&lt;br/&gt;or vector search?}
+    Q1a --&gt;|Iceberg tables| TB[(S3 Tables)]
+    Q1a --&gt;|Embeddings| VB[(S3 Vectors)]
+    Q1a --&gt;|General objects| S3[(S3 general&lt;br/&gt;purpose bucket)]
+    Q1 --&gt;|No, needs a file system| Q2{Shared by&lt;br/&gt;multiple clients?}
+    Q2 --&gt;|No, one instance| EBS[(EBS volume)]
+    Q2 --&gt;|Yes| Q3{Protocol or&lt;br/&gt;workload?}
+    Q3 --&gt;|Linux NFS, elastic| EFS[(EFS)]
+    Q3 --&gt;|Windows SMB / AD| FSxW[(FSx for&lt;br/&gt;Windows File Server)]
+    Q3 --&gt;|HPC / ML training| FSxL[(FSx for Lustre)]
+    Q3 --&gt;|NetApp features,&lt;br/&gt;multiprotocol| FSxN[(FSx for NetApp ONTAP)]
+</code></pre>
 
-<hr />
+<h2 id="amazon-s3">Amazon S3</h2>
 
-<h2 id="amazon-s3---object-storage">Amazon S3 - Object Storage</h2>
+<p>S3 stores <strong>objects</strong> (data plus metadata) under <strong>keys</strong> in <strong>buckets</strong>. There is no directory hierarchy; the <code class="language-plaintext highlighter-rouge">/</code> in <code class="language-plaintext highlighter-rouge">logs/2026/09/app.log</code> is just part of the key, which the console presents as folders. S3 is designed for 99.999999999% (eleven nines) durability by storing data redundantly across at least three Availability Zones for most storage classes.</p>
 
-<p>S3 (Simple Storage Service) stores files (called objects) in buckets. Unlike traditional file systems, S3 is designed for the internet age: accessible from anywhere, virtually unlimited capacity, and extremely durable (99.999999999%, often called “eleven 9s”).</p>
-
-<p><strong>Real-world example</strong>: Netflix stores its entire video library in S3. When you stream a movie, it is delivered from S3 through CloudFront (CDN) to your device.</p>
-
-<h3 id="when-to-use-s3">When to Use S3</h3>
-
-<ul>
-  <li><strong>Static website hosting</strong>: HTML, CSS, JavaScript, images</li>
-  <li><strong>Application assets</strong>: User uploads, media files, documents</li>
-  <li><strong>Data lakes</strong>: Raw data for analytics pipelines</li>
-  <li><strong>Backups and archives</strong>: Database dumps, log files, compliance data</li>
-  <li><strong>Software distribution</strong>: Application packages, updates</li>
-</ul>
-
-<h3 id="choosing-the-right-s3-storage-class">Choosing the Right S3 Storage Class</h3>
-
-<p>S3 offers multiple storage classes at different price points. The key question: how often will you access this data?</p>
+<h3 id="core-behavior">Core behavior</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Storage Class</th>
-      <th>Access Pattern</th>
-      <th>Retrieval Time</th>
-      <th>Cost per GB/month*</th>
-      <th>Best For</th>
+      <th>Property</th>
+      <th>Current behavior</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Consistency</td>
+      <td>Strong read-after-write consistency for all PUT, DELETE and LIST operations (since December 2020)</td>
+    </tr>
+    <tr>
+      <td>Object size</td>
+      <td>Up to 50 TB via multipart upload; 5 GB maximum for a single <code class="language-plaintext highlighter-rouge">PUT</code></td>
+    </tr>
+    <tr>
+      <td>Request rate</td>
+      <td>At least 3,500 writes and 5,500 reads per second <strong>per prefix</strong>; spread hot keys over prefixes to scale further</td>
+    </tr>
+    <tr>
+      <td>Default encryption</td>
+      <td>Every new object encrypted with SSE-S3 (since January 2023)</td>
+    </tr>
+    <tr>
+      <td>Default access</td>
+      <td>New buckets have Block Public Access on and ACLs disabled (Object Ownership = bucket owner enforced) since April 2023</td>
+    </tr>
+    <tr>
+      <td>Conditional writes</td>
+      <td><code class="language-plaintext highlighter-rouge">If-None-Match: *</code> (create only if absent) and <code class="language-plaintext highlighter-rouge">If-Match: &lt;etag&gt;</code> (compare-and-swap) on <code class="language-plaintext highlighter-rouge">PutObject</code> and <code class="language-plaintext highlighter-rouge">CompleteMultipartUpload</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Conditional writes let S3 act as a coordination point: several writers can race to create a lock or manifest object and exactly one succeeds, without a separate database.</p>
+
+<h3 id="bucket-types">Bucket types</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Bucket type</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>General purpose</strong></td>
+      <td>The standard S3 bucket; all storage classes except Express One Zone</td>
+    </tr>
+    <tr>
+      <td><strong>Directory bucket</strong></td>
+      <td>Holds S3 Express One Zone data in a single AZ (or Local Zone) you choose; hierarchical namespace, session-based auth, single-digit-ms latency</td>
+    </tr>
+    <tr>
+      <td><strong>Table bucket (S3 Tables)</strong></td>
+      <td>Apache Iceberg tables with automatic compaction, snapshot expiry and unreferenced-file cleanup; queried by Athena, Redshift, EMR, Spark</td>
+    </tr>
+    <tr>
+      <td><strong>Vector bucket (S3 Vectors)</strong></td>
+      <td>Stores vector embeddings in indexes with similarity queries (sub-second, down to ~100 ms for frequent queries); backs Bedrock Knowledge Bases and can offload OpenSearch vector storage</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Table and vector buckets use their own IAM namespaces (<code class="language-plaintext highlighter-rouge">s3tables</code>, <code class="language-plaintext highlighter-rouge">s3vectors</code>) and always have Block Public Access enabled.</p>
+
+<h3 id="storage-classes">Storage classes</h3>
+
+<p>Pick a class by how often data is read and how quickly it must be available.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Class</th>
+      <th>Access pattern</th>
+      <th>First-byte latency</th>
+      <th>Min. duration</th>
+      <th>Approx. storage USD per GB-month</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Standard</strong></td>
       <td>Frequent</td>
-      <td>Instant</td>
-      <td>~$0.023</td>
-      <td>Active application data</td>
+      <td>Milliseconds</td>
+      <td>None</td>
+      <td>0.023</td>
+    </tr>
+    <tr>
+      <td><strong>Express One Zone</strong></td>
+      <td>Very frequent, latency-sensitive, single AZ</td>
+      <td>Single-digit ms</td>
+      <td>None</td>
+      <td>Higher than Standard; much cheaper requests</td>
     </tr>
     <tr>
       <td><strong>Intelligent-Tiering</strong></td>
-      <td>Unknown</td>
-      <td>Instant</td>
-      <td>~$0.023 + monitoring fee</td>
-      <td>Unpredictable access</td>
+      <td>Unknown or changing</td>
+      <td>Milliseconds (optional archive tiers: minutes to hours)</td>
+      <td>None</td>
+      <td>0.023 down to archive rates, plus per-object monitoring fee</td>
     </tr>
     <tr>
       <td><strong>Standard-IA</strong></td>
-      <td>Monthly</td>
-      <td>Instant</td>
-      <td>~$0.0125</td>
-      <td>Backups accessed occasionally</td>
+      <td>About monthly</td>
+      <td>Milliseconds</td>
+      <td>30 days</td>
+      <td>0.0125 + retrieval fee</td>
     </tr>
     <tr>
       <td><strong>One Zone-IA</strong></td>
-      <td>Monthly</td>
-      <td>Instant</td>
-      <td>~$0.01</td>
-      <td>Reproducible data, secondary backups</td>
+      <td>About monthly, re-creatable data</td>
+      <td>Milliseconds</td>
+      <td>30 days</td>
+      <td>0.01 + retrieval fee</td>
     </tr>
     <tr>
       <td><strong>Glacier Instant Retrieval</strong></td>
-      <td>Quarterly</td>
-      <td>Instant</td>
-      <td>~$0.004</td>
-      <td>Archives needing immediate access</td>
+      <td>About quarterly</td>
+      <td>Milliseconds</td>
+      <td>90 days</td>
+      <td>0.004 + retrieval fee</td>
     </tr>
     <tr>
       <td><strong>Glacier Flexible Retrieval</strong></td>
-      <td>Yearly</td>
-      <td>1-12 hours</td>
-      <td>~$0.0036</td>
-      <td>Compliance archives</td>
+      <td>About yearly</td>
+      <td>Minutes (expedited) to 12 hours (bulk) after restore</td>
+      <td>90 days</td>
+      <td>0.0036</td>
     </tr>
     <tr>
       <td><strong>Glacier Deep Archive</strong></td>
-      <td>Rarely</td>
-      <td>12-48 hours</td>
-      <td>~$0.00099</td>
-      <td>Long-term retention (7+ years)</td>
+      <td>Less than yearly</td>
+      <td>Within 12 hours (standard) or 48 hours (bulk) after restore</td>
+      <td>180 days</td>
+      <td>0.00099</td>
     </tr>
   </tbody>
 </table>
 
-<p>*Prices are approximate for US East. Actual prices vary by region.</p>
+<p>Points that change the arithmetic:</p>
 
-<h3 id="s3-best-practices">S3 Best Practices</h3>
+<ul>
+  <li>The IA and Glacier Instant Retrieval classes bill a <strong>minimum 128 KB</strong> per object and charge <strong>per-GB retrieval</strong>; small or frequently read objects can cost more there than in Standard.</li>
+  <li><strong>Intelligent-Tiering</strong> moves each object between Frequent, Infrequent (after 30 days without access) and Archive Instant (after 90 days) tiers with no retrieval fees. Objects under 128 KB are not monitored and stay in the Frequent tier. It is the safe default when access patterns are unknown.</li>
+  <li>Glacier Flexible Retrieval and Deep Archive objects must be <strong>restored</strong> (<code class="language-plaintext highlighter-rouge">RestoreObject</code>) before they can be read, and each archived object carries about 40 KB of billable metadata, so archive large objects or bundles, not millions of tiny files.</li>
+  <li>One Zone-IA and Express One Zone keep data in a single AZ and do not survive the loss of that AZ. Use them only for data you can re-create or that is replicated elsewhere.</li>
+  <li>Reduced Redundancy Storage is deprecated in practice; AWS recommends against it and Standard is cheaper.</li>
+</ul>
 
-<p><strong>1. Use Lifecycle Policies for Cost Optimization</strong></p>
+<h3 id="lifecycle-rules">Lifecycle rules</h3>
 
-<p>Automatically move data to cheaper storage classes as it ages:</p>
+<p>Lifecycle configuration transitions or expires objects automatically. A common pattern for logs, plus two rules every versioned bucket should have:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Example: Move logs to IA after 30 days, Glacier after 90, delete after 1 year</span>
-aws s3api put-bucket-lifecycle-configuration <span class="se">\</span>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"Rules"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"ID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"logs-tiering"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Filter"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"Prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"logs/"</span><span class="w"> </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"Status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Enabled"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Transitions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w"> </span><span class="nl">"Days"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="nl">"StorageClass"</span><span class="p">:</span><span class="w"> </span><span class="s2">"STANDARD_IA"</span><span class="w"> </span><span class="p">},</span><span class="w">
+        </span><span class="p">{</span><span class="w"> </span><span class="nl">"Days"</span><span class="p">:</span><span class="w"> </span><span class="mi">90</span><span class="p">,</span><span class="w"> </span><span class="nl">"StorageClass"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GLACIER"</span><span class="w"> </span><span class="p">}</span><span class="w">
+      </span><span class="p">],</span><span class="w">
+      </span><span class="nl">"Expiration"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"Days"</span><span class="p">:</span><span class="w"> </span><span class="mi">365</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"ID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"expire-old-versions"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Filter"</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span><span class="w">
+      </span><span class="nl">"Status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Enabled"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"NoncurrentVersionExpiration"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"NoncurrentDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="nl">"NewerNoncurrentVersions"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"ID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abort-incomplete-mpu"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Filter"</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span><span class="w">
+      </span><span class="nl">"Status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Enabled"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"AbortIncompleteMultipartUpload"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"DaysAfterInitiation"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws s3api put-bucket-lifecycle-configuration <span class="se">\</span>
   <span class="nt">--bucket</span> my-bucket <span class="nt">--lifecycle-configuration</span> file://lifecycle.json
 </code></pre></div></div>
 
-<p><strong>2. Enable Versioning for Important Data</strong></p>
+<pre><code class="language-mermaid">flowchart LR
+    Put([PUT]) --&gt; Std["Standard&lt;br/&gt;day 0-30"]
+    Std --&gt;|day 30| IA["Standard-IA&lt;br/&gt;day 30-90"]
+    IA --&gt;|day 90| GFR["Glacier Flexible&lt;br/&gt;Retrieval"]
+    GFR --&gt;|day 365| Del([Expired])
+</code></pre>
 
-<p>Versioning protects against accidental deletions and overwrites:</p>
+<p>Transitions only move data “down” the waterfall toward colder classes, and objects smaller than 128 KB are by default not transitioned, because the per-object overhead would exceed the savings. Use <strong>S3 Storage Lens</strong> and <strong>Storage Class Analysis</strong> to find prefixes worth tiering.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws s3api put-bucket-versioning <span class="nt">--bucket</span> my-bucket <span class="se">\</span>
-  <span class="nt">--versioning-configuration</span> <span class="nv">Status</span><span class="o">=</span>Enabled
-</code></pre></div></div>
-
-<p><strong>3. Enable Encryption by Default</strong></p>
-
-<p>All new objects are automatically encrypted:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws s3api put-bucket-encryption <span class="nt">--bucket</span> my-bucket <span class="se">\</span>
-  <span class="nt">--server-side-encryption-configuration</span> <span class="se">\</span>
-  <span class="s1">'{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'</span>
-</code></pre></div></div>
-
-<p><strong>4. Block Public Access (Unless You Need It)</strong></p>
-
-<p>Most buckets should not be publicly accessible:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws s3api put-public-access-block <span class="nt">--bucket</span> my-bucket <span class="se">\</span>
-  <span class="nt">--public-access-block-configuration</span> <span class="se">\</span>
-  <span class="nv">BlockPublicAcls</span><span class="o">=</span><span class="nb">true</span>,IgnorePublicAcls<span class="o">=</span><span class="nb">true</span>,BlockPublicPolicy<span class="o">=</span><span class="nb">true</span>,RestrictPublicBuckets<span class="o">=</span><span class="nb">true</span>
-</code></pre></div></div>
-
-<h3 id="static-website-hosting">Static Website Hosting</h3>
-
-<p>S3 can host static websites without servers:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Enable static website hosting</span>
-aws s3 website s3://my-bucket <span class="se">\</span>
-  <span class="nt">--index-document</span> index.html <span class="se">\</span>
-  <span class="nt">--error-document</span> error.html
-
-<span class="c"># Upload website files</span>
-aws s3 <span class="nb">sync</span> ./dist s3://my-bucket <span class="nt">--delete</span>
-
-<span class="c"># Access at: http://my-bucket.s3-website-region.amazonaws.com</span>
-</code></pre></div></div>
-
-<hr />
-
-<h2 id="amazon-ebs---block-storage">Amazon EBS - Block Storage</h2>
-
-<p>EBS (Elastic Block Store) provides persistent block storage for EC2 instances. Think of EBS volumes as virtual hard drives that you attach to your servers. Unlike the instance’s local storage, EBS volumes persist independently of the EC2 instance lifecycle.</p>
-
-<p><strong>When to use EBS over S3</strong>: Use EBS when you need a filesystem that your application can mount and use like a regular disk (databases, application data directories, boot volumes). Use S3 for files accessed via HTTP/API.</p>
-
-<h3 id="choosing-the-right-ebs-volume-type">Choosing the Right EBS Volume Type</h3>
-
-<p>Consider the following: Does your workload need high IOPS (database transactions), high throughput (large file processing), or just general storage?</p>
+<h3 id="data-protection">Data protection</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Volume Type</th>
-      <th>Best For</th>
-      <th>Max IOPS</th>
-      <th>Max Throughput</th>
-      <th>Cost</th>
+      <th>Mechanism</th>
+      <th>Protects against</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>gp3</strong> (General Purpose SSD)</td>
-      <td>Most workloads, boot volumes</td>
-      <td>16,000</td>
-      <td>1,000 MB/s</td>
-      <td>Lowest SSD</td>
+      <td><strong>Versioning</strong></td>
+      <td>Overwrites and deletes</td>
+      <td>A delete adds a delete marker; prior versions remain and are billed until expired</td>
     </tr>
     <tr>
-      <td><strong>gp2</strong> (General Purpose SSD)</td>
-      <td>Legacy, burst-based</td>
-      <td>16,000</td>
-      <td>250 MB/s</td>
-      <td>Moderate</td>
+      <td><strong>Object Lock</strong></td>
+      <td>Deletion or overwrite by anyone, including admins (ransomware, insider)</td>
+      <td>WORM retention in <em>governance</em> or <em>compliance</em> mode, plus legal holds; requires versioning</td>
     </tr>
     <tr>
-      <td><strong>io2 Block Express</strong> (Provisioned IOPS SSD)</td>
-      <td>Databases requiring consistent IOPS (base io2 caps at 64,000)</td>
-      <td>256,000</td>
-      <td>4,000 MB/s</td>
-      <td>Highest</td>
+      <td><strong>Replication (CRR / SRR)</strong></td>
+      <td>Regional outage, account compromise</td>
+      <td>Replicate to another Region or account; S3 Replication Time Control adds a 15-minute SLA</td>
     </tr>
     <tr>
-      <td><strong>st1</strong> (Throughput HDD)</td>
-      <td>Big data, log processing</td>
-      <td>500</td>
-      <td>500 MB/s</td>
-      <td>Low</td>
+      <td><strong>AWS Backup for S3</strong></td>
+      <td>Logical corruption; centralized retention</td>
+      <td>Point-in-time restores, backup vaults with Vault Lock</td>
     </tr>
     <tr>
-      <td><strong>sc1</strong> (Cold HDD)</td>
-      <td>Infrequently accessed archives</td>
-      <td>250</td>
-      <td>250 MB/s</td>
-      <td>Lowest</td>
+      <td><strong>MFA Delete</strong></td>
+      <td>Version deletion with stolen credentials</td>
+      <td>Root-only to enable; Object Lock is usually the more practical control</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Recommendation</strong>: Start with gp3 for most workloads. It offers the best price-to-performance ratio and lets you configure IOPS and throughput independently.</p>
+<h3 id="access-control-and-encryption">Access control and encryption</h3>
 
-<h3 id="ebs-best-practices">EBS Best Practices</h3>
+<p>Since 2023 a new bucket is private by default. Keep it that way:</p>
 
-<p><strong>1. Always Create Snapshots</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Account-wide guardrail: no bucket in this account can become public</span>
+aws s3control put-public-access-block <span class="nt">--account-id</span> 111122223333 <span class="se">\</span>
+  <span class="nt">--public-access-block-configuration</span> <span class="se">\</span>
+  <span class="nv">BlockPublicAcls</span><span class="o">=</span><span class="nb">true</span>,IgnorePublicAcls<span class="o">=</span><span class="nb">true</span>,BlockPublicPolicy<span class="o">=</span><span class="nb">true</span>,RestrictPublicBuckets<span class="o">=</span><span class="nb">true</span>
 
-<p>Snapshots are incremental backups stored in S3. They protect against data loss:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ec2 create-snapshot <span class="nt">--volume-id</span> vol-xxx <span class="nt">--description</span> <span class="s2">"Daily backup"</span>
+<span class="c"># Use SSE-KMS with an S3 Bucket Key instead of the SSE-S3 default</span>
+aws s3api put-bucket-encryption <span class="nt">--bucket</span> my-bucket <span class="se">\</span>
+  <span class="nt">--server-side-encryption-configuration</span> <span class="s1">'{
+    "Rules": [{
+      "ApplyServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "aws:kms",
+        "KMSMasterKeyID": "arn:aws:kms:us-east-1:111122223333:key/EXAMPLE-KEY-ID"
+      },
+      "BucketKeyEnabled": true
+    }]
+  }'</span>
 </code></pre></div></div>
 
-<p><strong>2. Encrypt Everything</strong></p>
+<p>Grant access with IAM and bucket policies, not ACLs. For many consumers of one bucket, <strong>S3 Access Points</strong> give each application its own policy and optional VPC-only restriction. <strong>VPC gateway endpoints</strong> for S3 are free and keep traffic from private subnets off NAT gateways, which otherwise charge per GB processed. See <a href="security.html">Security &amp; Identity</a> for policy evaluation and KMS.</p>
 
-<p>Enable encryption for data at rest:</p>
+<h3 id="serving-static-websites">Serving static websites</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ec2 create-volume <span class="nt">--availability-zone</span> us-east-1a <span class="se">\</span>
-  <span class="nt">--size</span> 100 <span class="nt">--volume-type</span> gp3 <span class="nt">--encrypted</span>
+<p>The S3 <em>website endpoint</em> (<code class="language-plaintext highlighter-rouge">aws s3 website</code>) serves only HTTP and requires a publicly readable bucket. The current pattern keeps the bucket private and serves it through <strong>CloudFront with Origin Access Control (OAC)</strong>, which adds HTTPS, custom domains via ACM, caching, and WAF:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    User([Browser]) --&gt;|HTTPS| CF[CloudFront distribution&lt;br/&gt;ACM certificate, WAF]
+    CF --&gt;|SigV4-signed via OAC| B[(Private S3 bucket&lt;br/&gt;Block Public Access on)]
+</code></pre>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Build output is uploaded with sync; --delete removes files no longer in the build</span>
+aws s3 <span class="nb">sync</span> ./dist s3://my-site-bucket <span class="nt">--delete</span>
+aws cloudfront create-invalidation <span class="nt">--distribution-id</span> E123EXAMPLE <span class="nt">--paths</span> <span class="s2">"/index.html"</span>
 </code></pre></div></div>
 
-<p><strong>3. Right-Size Your Volumes</strong></p>
+<p>The bucket policy allows <code class="language-plaintext highlighter-rouge">s3:GetObject</code> only to the <code class="language-plaintext highlighter-rouge">cloudfront.amazonaws.com</code> service principal with an <code class="language-plaintext highlighter-rouge">aws:SourceArn</code> condition naming the distribution. The older Origin Access Identity (OAI) mechanism is legacy; use OAC for new distributions.</p>
 
-<p>You can resize volumes without downtime. Start small and grow as needed:</p>
+<h3 id="performance">Performance</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ec2 modify-volume <span class="nt">--volume-id</span> vol-xxx <span class="nt">--size</span> 200
+<ul>
+  <li>Use <strong>multipart upload</strong> for objects over roughly 100 MB and parallelize parts; the AWS CLI and SDK transfer managers (built on the AWS Common Runtime) do this automatically.</li>
+  <li>Use <strong>byte-range GETs</strong> to read large objects in parallel.</li>
+  <li><strong>Transfer Acceleration</strong> routes long-distance uploads through CloudFront edge locations.</li>
+  <li>For request-heavy analytics, ML training data loaders, and checkpointing, <strong>Express One Zone</strong> in the same AZ as compute reduces both latency and request cost. <strong>Mountpoint for Amazon S3</strong> exposes a bucket as a read-heavy local file system for such workloads (it is not fully POSIX-compliant; for example, existing files cannot be modified in place).</li>
+</ul>
+
+<h2 id="amazon-ebs">Amazon EBS</h2>
+
+<p>EBS provides network-attached block volumes for EC2. A volume lives in one Availability Zone, attaches to an instance in that AZ, and persists independently of the instance. Instance store (local NVMe on some instance types) is faster but ephemeral: its data is lost when the instance stops or terminates.</p>
+
+<h3 id="volume-types">Volume types</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Media</th>
+      <th>Max IOPS</th>
+      <th>Max throughput</th>
+      <th>Size</th>
+      <th>Use for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>gp3</strong></td>
+      <td>SSD</td>
+      <td>80,000 (3,000 baseline included)</td>
+      <td>2,000 MiB/s (125 baseline included)</td>
+      <td>1 GiB - 64 TiB</td>
+      <td>Default for boot volumes and most workloads</td>
+    </tr>
+    <tr>
+      <td><strong>gp2</strong></td>
+      <td>SSD</td>
+      <td>16,000 (3 IOPS/GiB, burst to 3,000 below 1 TiB)</td>
+      <td>250 MiB/s</td>
+      <td>1 GiB - 16 TiB</td>
+      <td>Legacy; migrate to gp3</td>
+    </tr>
+    <tr>
+      <td><strong>io2 Block Express</strong></td>
+      <td>SSD</td>
+      <td>256,000 (1,000 IOPS/GiB)</td>
+      <td>4,000 MiB/s</td>
+      <td>4 GiB - 64 TiB</td>
+      <td>Latency-critical databases; 99.999% durability; sub-500 µs average latency</td>
+    </tr>
+    <tr>
+      <td><strong>io1</strong></td>
+      <td>SSD</td>
+      <td>64,000 (50 IOPS/GiB)</td>
+      <td>1,000 MiB/s</td>
+      <td>4 GiB - 16 TiB</td>
+      <td>Legacy; io2 is more durable at similar cost</td>
+    </tr>
+    <tr>
+      <td><strong>st1</strong></td>
+      <td>HDD</td>
+      <td>500</td>
+      <td>500 MiB/s</td>
+      <td>125 GiB - 16 TiB</td>
+      <td>Large sequential reads/writes: log processing, data warehouses</td>
+    </tr>
+    <tr>
+      <td><strong>sc1</strong></td>
+      <td>HDD</td>
+      <td>250</td>
+      <td>250 MiB/s</td>
+      <td>125 GiB - 16 TiB</td>
+      <td>Cold, rarely read sequential data</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>gp3 decouples performance from size: you provision IOPS (up to 500 per GiB) and throughput (up to 0.25 MiB/s per provisioned IOPS) independently, and it is about 20% cheaper per GB than gp2. The top limits need a 160 GiB volume for 80,000 IOPS and 8,000 IOPS for 2,000 MiB/s. Every existing io2 volume became io2 Block Express as of April 2025. The highest io2 figures require a Nitro-based instance, and every instance type also has its own <strong>EBS bandwidth and IOPS cap</strong>, which is often the real bottleneck.</p>
+
+<h3 id="changing-volumes">Changing volumes</h3>
+
+<p>Elastic Volumes lets you increase size, change type, or adjust IOPS and throughput while the volume is in use:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ec2 modify-volume <span class="nt">--volume-id</span> vol-0abc123 <span class="nt">--volume-type</span> gp3 <span class="nt">--size</span> 200 <span class="nt">--iops</span> 6000 <span class="nt">--throughput</span> 250
+aws ec2 describe-volumes-modifications <span class="nt">--volume-ids</span> vol-0abc123   <span class="c"># wait for "optimizing" or "completed"</span>
 </code></pre></div></div>
 
-<hr />
+<p>Two constraints catch people out: after a modification you must wait <strong>six hours</strong> before modifying the same volume again, and growing a volume does not grow the file system. Extend the partition and file system inside the guest:</p>
 
-<h2 id="amazon-efs---elastic-file-system">Amazon EFS - Elastic File System</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>growpart /dev/nvme0n1 1        <span class="c"># if the file system sits on a partition</span>
+<span class="nb">sudo </span>xfs_growfs <span class="nt">-d</span> /                <span class="c"># XFS</span>
+<span class="nb">sudo </span>resize2fs /dev/nvme0n1p1       <span class="c"># ext4</span>
+</code></pre></div></div>
 
-<p>EFS provides scalable, elastic file storage that can be mounted by multiple EC2 instances simultaneously. Unlike EBS, which attaches to a single instance, EFS is a shared filesystem accessible from anywhere in your VPC.</p>
+<p>Volumes cannot be shrunk; to reduce size, copy the data to a new, smaller volume.</p>
 
-<p><strong>When to use EFS</strong>: When multiple servers need to read/write the same files. Think shared application code, user uploads, or configuration files that need to be consistent across a fleet of servers.</p>
+<h3 id="snapshots-and-encryption">Snapshots and encryption</h3>
 
-<h3 id="efs-vs-ebs-quick-comparison">EFS vs EBS: Quick Comparison</h3>
+<p>Snapshots are incremental, block-level backups stored in S3 (managed by AWS, not visible in your buckets). Only changed blocks are stored after the first snapshot, yet each snapshot can restore a complete volume.</p>
 
 <table>
   <thead>
     <tr>
       <th>Feature</th>
-      <th>EBS</th>
-      <th>EFS</th>
+      <th>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Attachment</td>
-      <td>Single EC2 instance</td>
-      <td>Multiple EC2 instances</td>
+      <td><strong>Data Lifecycle Manager / AWS Backup</strong></td>
+      <td>Scheduled snapshots with retention; AWS Backup adds cross-account and cross-Region copies and vault locking</td>
     </tr>
     <tr>
-      <td>Capacity</td>
-      <td>Fixed (you choose size)</td>
-      <td>Automatic (grows/shrinks with usage)</td>
+      <td><strong>Multi-volume snapshots</strong></td>
+      <td>Crash-consistent snapshots of all volumes on an instance at one point in time</td>
     </tr>
     <tr>
-      <td>Performance</td>
-      <td>Higher IOPS possible</td>
-      <td>Lower latency for shared access</td>
+      <td><strong>Snapshot Archive tier</strong></td>
+      <td>About 75% cheaper storage for snapshots kept 90+ days; restores take up to 72 hours</td>
     </tr>
     <tr>
-      <td>Cost</td>
-      <td>Per GB provisioned</td>
-      <td>Per GB used</td>
+      <td><strong>Recycle Bin</strong></td>
+      <td>Retention rules that let you recover accidentally deleted snapshots and AMIs</td>
     </tr>
     <tr>
-      <td>Use case</td>
-      <td>Databases, boot volumes</td>
-      <td>Shared content, home directories</td>
+      <td><strong>Fast Snapshot Restore</strong></td>
+      <td>Volumes created from the snapshot deliver full performance immediately, avoiding lazy-loading latency</td>
+    </tr>
+    <tr>
+      <td><strong>Snapshot Lock</strong></td>
+      <td>WORM protection for snapshots against deletion</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="when-to-use-efs">When to Use EFS</h3>
+<p>Volumes restored from a snapshot load blocks lazily from S3 on first read; without Fast Snapshot Restore, a database on a freshly restored volume can be slow until the data is read once (or pre-warmed with <code class="language-plaintext highlighter-rouge">fio</code> or <code class="language-plaintext highlighter-rouge">dd</code>).</p>
 
-<ul>
-  <li><strong>Web serving</strong>: Shared content across multiple web servers</li>
-  <li><strong>Content management</strong>: Shared media files accessed by multiple app servers</li>
-  <li><strong>Big data and analytics</strong>: Shared datasets for processing clusters</li>
-  <li><strong>Development environments</strong>: Shared code repositories and tools</li>
-  <li><strong>Container storage</strong>: Persistent storage for ECS/EKS containers</li>
-</ul>
+<p>Turn on <strong>EBS encryption by default</strong> in every Region you use so every new volume and snapshot copy is encrypted with KMS; encryption has no measurable performance cost on Nitro instances.</p>
 
-<h3 id="mounting-efs">Mounting EFS</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Mount EFS on EC2 (with encryption in transit)</span>
-<span class="nb">sudo </span>mount <span class="nt">-t</span> efs <span class="nt">-o</span> tls fs-12345678:/ /mnt/efs
-
-<span class="c"># Add to /etc/fstab for automatic mounting on reboot</span>
-<span class="c"># fs-12345678:/ /mnt/efs efs _netdev,tls 0 0</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ec2 enable-ebs-encryption-by-default <span class="nt">--region</span> us-east-1
+aws ec2 create-snapshot <span class="nt">--volume-id</span> vol-0abc123 <span class="nt">--description</span> <span class="s2">"pre-upgrade"</span> <span class="se">\</span>
+  <span class="nt">--tag-specifications</span> <span class="s1">'ResourceType=snapshot,Tags=[{Key=purpose,Value=pre-upgrade}]'</span>
 </code></pre></div></div>
 
-<hr />
+<h2 id="amazon-efs">Amazon EFS</h2>
 
-<h2 id="storage-selection-guide">Storage Selection Guide</h2>
-
-<p>Use this decision tree to choose the right storage service:</p>
-
-<pre><code class="language-mermaid">flowchart TD
-    Start([Where should this data live?]) --&gt; Q1{Mount as a filesystem&lt;br/&gt;on EC2?}
-    Q1 --&gt;|No, HTTP/API is fine| S3[(S3&lt;br/&gt;object storage)]
-    Q1 --&gt;|Yes| Q2{Shared across&lt;br/&gt;multiple instances?}
-    Q2 --&gt;|No, single instance| EBS[(EBS&lt;br/&gt;block storage)]
-    Q2 --&gt;|Yes| EFS[(EFS&lt;br/&gt;shared file system)]
-</code></pre>
-
-<p><strong>Question 1: Do you need to mount this as a filesystem on EC2?</strong></p>
-<ul>
-  <li>No, accessing via API is fine: <strong>Use S3</strong></li>
-  <li>Yes, I need a mounted drive: Continue to Question 2</li>
-</ul>
-
-<p><strong>Question 2: Do multiple servers need to access the same files?</strong></p>
-<ul>
-  <li>No, single server only: <strong>Use EBS</strong></li>
-  <li>Yes, shared access needed: <strong>Use EFS</strong></li>
-</ul>
-
-<h3 id="quick-reference-by-use-case">Quick Reference by Use Case</h3>
+<p>EFS is a managed NFSv4.1 file system that grows and shrinks automatically. Thousands of EC2 instances, ECS tasks, EKS pods, Lambda functions and on-premises hosts (over VPN or Direct Connect) can mount it concurrently.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Use Case</th>
-      <th>Recommended Service</th>
+      <th>Setting</th>
+      <th>Options</th>
+      <th>Guidance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>File system type</td>
+      <td><strong>Regional</strong> (data in multiple AZs) or <strong>One Zone</strong></td>
+      <td>Regional for production; One Zone is cheaper for dev or re-creatable data</td>
+    </tr>
+    <tr>
+      <td>Throughput mode</td>
+      <td><strong>Elastic</strong> (default), Provisioned, Bursting</td>
+      <td>Elastic scales automatically and bills per GB transferred; Provisioned suits steady high throughput</td>
+    </tr>
+    <tr>
+      <td>Performance mode</td>
+      <td><strong>General Purpose</strong>, Max I/O</td>
+      <td>Always General Purpose; Max I/O is previous generation, has higher latency, and does not work with Elastic throughput</td>
+    </tr>
+    <tr>
+      <td>Storage classes</td>
+      <td><strong>Standard</strong>, <strong>Infrequent Access</strong>, <strong>Archive</strong></td>
+      <td>Lifecycle policies move files not accessed for N days to IA and then Archive, and back on access if configured</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Regional file systems with Elastic throughput reach roughly 1 ms read and 2.7 ms write latency, up to tens of GiB/s aggregate read throughput, and 1,500 MiB/s per client when mounted with a recent <code class="language-plaintext highlighter-rouge">amazon-efs-utils</code> (2.0 or later) or the EFS CSI driver; other clients are limited to 500 MiB/s. Because every operation crosses the network, EFS is slow for workloads dominated by small-file metadata operations (such as <code class="language-plaintext highlighter-rouge">npm install</code> or large Git checkouts) compared with a local EBS volume.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Mount with the EFS mount helper: TLS in transit and IAM authorization</span>
+<span class="nb">sudo </span>mount <span class="nt">-t</span> efs <span class="nt">-o</span> tls,iam fs-0123456789abcdef0:/ /mnt/efs
+
+<span class="c"># /etc/fstab entry</span>
+<span class="c"># fs-0123456789abcdef0:/ /mnt/efs efs _netdev,tls,iam 0 0</span>
+</code></pre></div></div>
+
+<p><strong>Access points</strong> give each application a fixed POSIX user and root directory within a shared file system, which is how containers and Lambda functions should mount EFS.</p>
+
+<h2 id="amazon-fsx">Amazon FSx</h2>
+
+<p>FSx runs full-featured third-party file systems as a managed service when EFS’s NFS semantics are not the right fit.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>Protocols</th>
+      <th>Strengths</th>
+      <th>Typical workloads</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>FSx for Windows File Server</strong></td>
+      <td>SMB</td>
+      <td>Active Directory integration, NTFS ACLs, DFS namespaces, shadow copies</td>
+      <td>Windows applications, user shares, SQL Server on SMB</td>
+    </tr>
+    <tr>
+      <td><strong>FSx for Lustre</strong></td>
+      <td>Lustre (POSIX)</td>
+      <td>Hundreds of GB/s, millions of IOPS, sub-ms latency; links to an S3 bucket as a data repository</td>
+      <td>HPC, ML training, media rendering</td>
+    </tr>
+    <tr>
+      <td><strong>FSx for NetApp ONTAP</strong></td>
+      <td>NFS, SMB, iSCSI, NVMe/TCP</td>
+      <td>Snapshots, clones, SnapMirror replication, deduplication and compression, automatic tiering</td>
+      <td>Migrating NetApp estates, multiprotocol shares, VMware Cloud on AWS</td>
+    </tr>
+    <tr>
+      <td><strong>FSx for OpenZFS</strong></td>
+      <td>NFS</td>
+      <td>ZFS snapshots and clones, very low latency, Intelligent-Tiering storage option</td>
+      <td>Linux workloads moving from ZFS or NAS appliances</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="moving-and-bridging-data">Moving and bridging data</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>Service</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>One-time or scheduled online transfer between on-premises storage, other clouds, and S3/EFS/FSx</td>
+      <td><strong>DataSync</strong></td>
+    </tr>
+    <tr>
+      <td>On-premises applications reading and writing cloud storage through a local cache</td>
+      <td><strong>Storage Gateway</strong> (S3 File Gateway, FSx File Gateway, Volume Gateway, Tape Gateway)</td>
+    </tr>
+    <tr>
+      <td>SFTP/FTPS/AS2 endpoints in front of S3 or EFS</td>
+      <td><strong>Transfer Family</strong></td>
+    </tr>
+    <tr>
+      <td>Petabyte-scale offline transfer</td>
+      <td><strong>Snowball Edge</strong> devices (availability has been narrowed; check current offerings)</td>
+    </tr>
+    <tr>
+      <td>Centralized backup policies across services and accounts</td>
+      <td><strong>AWS Backup</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="use-case-reference">Use case reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Use case</th>
+      <th>Recommended</th>
       <th>Why</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Static website assets</td>
-      <td>S3 + CloudFront</td>
-      <td>Global delivery, no servers to manage</td>
+      <td>Static website or SPA</td>
+      <td>S3 + CloudFront (OAC)</td>
+      <td>Private bucket, HTTPS, global caching, no servers</td>
     </tr>
     <tr>
-      <td>Database storage</td>
-      <td>EBS (io2 or gp3)</td>
-      <td>Low latency, consistent IOPS</td>
+      <td>Relational database on EC2</td>
+      <td>EBS gp3, or io2 Block Express for strict latency</td>
+      <td>Low-latency block I/O; consider RDS/Aurora instead of self-managing</td>
     </tr>
     <tr>
       <td>Application logs</td>
-      <td>S3 with lifecycle policies</td>
-      <td>Cost-effective, easy archival</td>
+      <td>S3 with lifecycle rules</td>
+      <td>Cheap, durable, queryable with Athena</td>
     </tr>
     <tr>
-      <td>Shared web content</td>
-      <td>EFS</td>
-      <td>Multiple servers, automatic scaling</td>
+      <td>Shared web or CMS content</td>
+      <td>EFS with access points</td>
+      <td>Many writers, elastic capacity</td>
     </tr>
     <tr>
-      <td>Backup and disaster recovery</td>
-      <td>S3 Glacier</td>
-      <td>Low cost, high durability</td>
+      <td>Kubernetes persistent volumes</td>
+      <td>EBS CSI for single-pod volumes; EFS CSI for <code class="language-plaintext highlighter-rouge">ReadWriteMany</code></td>
+      <td>Matches single-writer vs shared semantics</td>
     </tr>
     <tr>
-      <td>Container persistent storage</td>
-      <td>EFS or EBS (via CSI)</td>
-      <td>Depends on sharing requirements</td>
+      <td>Analytics data lake</td>
+      <td>S3 (Parquet/Iceberg), or S3 Tables for managed Iceberg</td>
+      <td>Decouples storage from Athena, EMR, Redshift, Spark</td>
     </tr>
     <tr>
-      <td>Big data processing</td>
-      <td>S3 (source) + EBS (compute)</td>
-      <td>S3 for data lake, EBS for processing nodes</td>
+      <td>ML training data</td>
+      <td>S3, fronted by FSx for Lustre or Express One Zone for throughput</td>
+      <td>Keeps GPUs fed without copying to local disk</td>
+    </tr>
+    <tr>
+      <td>RAG embeddings at low query volume</td>
+      <td>S3 Vectors</td>
+      <td>Far cheaper than an always-on vector database for infrequent queries</td>
+    </tr>
+    <tr>
+      <td>Long-term compliance archive</td>
+      <td>S3 Glacier Deep Archive with Object Lock</td>
+      <td>Lowest cost per GB, WORM retention</td>
+    </tr>
+    <tr>
+      <td>Windows file shares</td>
+      <td>FSx for Windows File Server</td>
+      <td>Native SMB and Active Directory</td>
     </tr>
   </tbody>
 </table>
 
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>Accidentally public buckets:</strong> A misconfigured bucket policy or ACL is a leading cause of data leaks. Enable S3 Block Public Access at the account level and only relax it deliberately.</li>
-    <li><strong>Underestimating the cost of versioning:</strong> Versioning keeps every overwrite and delete marker, so storage grows silently. Pair it with a lifecycle rule to expire noncurrent versions.</li>
-    <li><strong>One Zone-IA for irreplaceable data:</strong> One Zone-IA stores data in a single AZ. Use it only for data you can regenerate; an AZ loss destroys it.</li>
-    <li><strong>Deleting EBS volumes with the instance:</strong> Root volumes default to <code>DeleteOnTermination=true</code>. Set it to false (or snapshot first) for volumes holding data you need to keep.</li>
-    <li><strong>EFS for low-latency single-instance workloads:</strong> EFS adds network latency versus a local EBS volume. Reach for it only when files genuinely must be shared across instances.</li>
-  </ul>
-</div>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="common-pitfalls">Common pitfalls</h2>
 
 <ul>
-  <li><strong>Three shapes of storage.</strong> Object (S3) for anything reached over HTTP/API, block (EBS) for a single instance’s mounted disk, file (EFS) for a filesystem shared across many instances.</li>
-  <li><strong>S3 classes track access frequency.</strong> Pay for the access pattern you actually have; lifecycle policies move aging data from Standard to IA to Glacier automatically.</li>
-  <li><strong>gp3 is the sensible EBS default.</strong> Best price-to-performance for most workloads; reserve io2 for databases needing guaranteed high IOPS, and resize without downtime as you grow.</li>
-  <li><strong>Encrypt and snapshot by default.</strong> Turn on default encryption, block public access on S3, and back EBS volumes with regular snapshots — cheap insurance against the worst days.</li>
+  <li><strong>Public buckets.</strong> Keep account-level Block Public Access on and serve public content through CloudFront. Treat any request to disable Block Public Access as a design smell.</li>
+  <li><strong>Unbounded versioning costs.</strong> Every overwrite keeps the old version. Pair versioning with <code class="language-plaintext highlighter-rouge">NoncurrentVersionExpiration</code>.</li>
+  <li><strong>Incomplete multipart uploads.</strong> Abandoned parts are billed indefinitely and invisible in normal listings; add an <code class="language-plaintext highlighter-rouge">AbortIncompleteMultipartUpload</code> rule.</li>
+  <li><strong>Lifecycle transitions of tiny objects.</strong> Transition and minimum-size charges can exceed the savings for objects under 128 KB.</li>
+  <li><strong>One Zone classes for irreplaceable data.</strong> An AZ loss destroys it.</li>
+  <li><strong>Root volumes deleted with the instance.</strong> Root volumes default to <code class="language-plaintext highlighter-rouge">DeleteOnTermination=true</code>; other volumes default to <code class="language-plaintext highlighter-rouge">false</code>. Know which you have, and snapshot before terminating.</li>
+  <li><strong>Staying on gp2.</strong> gp3 is cheaper and faster for almost every volume; migrate in place with <code class="language-plaintext highlighter-rouge">modify-volume</code>.</li>
+  <li><strong>Instance limits hiding behind volume limits.</strong> A 64,000 IOPS volume on an instance capped at 20,000 EBS IOPS delivers 20,000.</li>
+  <li><strong>NAT gateway charges for S3 traffic.</strong> Add a free S3 gateway endpoint to VPCs with private subnets.</li>
 </ul>
 
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
-  <li><a href="compute.html">Compute Services</a> - EBS with EC2, S3 with Lambda</li>
-  <li><a href="databases.html">Databases</a> - Database storage considerations</li>
-  <li><a href="iac.html">Infrastructure as Code</a> - Storage IaC and cost optimization</li>
-  <li><a href="security.html">Security</a> - S3 bucket policies and encryption</li>
+  <li><a href="./">AWS Hub</a> - overview of all AWS documentation</li>
+  <li><a href="compute.html">Compute Services</a> - EC2 instance storage, Lambda with S3 and EFS</li>
+  <li><a href="databases.html">Databases</a> - managed alternatives to databases on EBS</li>
+  <li><a href="security.html">Security &amp; Identity</a> - bucket policies, KMS, and data perimeters</li>
+  <li><a href="cost.html">Cost Optimization</a> - storage cost analysis</li>
+  <li><a href="iac.html">Infrastructure as Code</a> - defining storage resources as code</li>
 </ul>
 
       </section>

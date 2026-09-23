@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Production techniques layered on a Git branching strategy: branch naming, feature flags, rulesets and merge queues, stacked pull requests, release and hotfix...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Advanced Branching Techniques">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Production techniques layered on a Git branching strategy: branch naming, feature flags, rulesets and merge queues, stacked pull requests, release and hotfix...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/advanced-branching-techniques.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Advanced Branching Techniques">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Production techniques layered on a Git branching strategy: branch naming, feature flags, rulesets and merge queues, stacked pull requests, release and hotfix...">
 
 <title>Advanced Branching Techniques | Andrews Notebook</title>
 
@@ -3135,314 +3135,632 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Technology</a> » <a href="branching.html">Git Branching Strategies</a> » Advanced Branching Techniques</p>
 
-<p>Once you have picked a <a href="branching.html">branching strategy</a>, the day-to-day quality of life on a team comes from the patterns layered on top of it: feature flags that decouple deploy from release, branch protection rules that enforce review and CI, consistent naming so branches are self-documenting, a disciplined release-branch flow for versioned products, and automation that stops bad practices before they reach the remote. This page collects those production techniques and the common pitfalls they solve.</p>
+<p>A branching strategy (GitHub Flow, GitLab Flow, Git Flow, or trunk-based development) says <em>which</em> branches exist. This page covers the techniques that make a strategy work on a real team: naming conventions, feature flags that separate deploying from releasing, server-side rulesets and merge queues that enforce review and CI, stacked pull requests for large changes, release and hotfix branches for versioned products, and the automation that keeps all of it honest.</p>
 
-<p>This is the companion to <a href="branching.html">Git Branching Strategies</a>, which compares the four core workflows. Start there to choose a model; come here for the tooling that makes it work in practice. For command syntax see the <a href="git-reference.html">Git Command Reference</a>; for pipeline wiring see <a href="ci-cd/">CI/CD</a>.</p>
+<p>It is the companion to <a href="branching.html">Git Branching Strategies</a>, which compares the core workflows. For command syntax see the <a href="git-reference.html">Git Command Reference</a>; for pipeline wiring see <a href="ci-cd/">CI/CD</a>.</p>
+
+<h2 id="how-the-pieces-fit">How the Pieces Fit</h2>
+
+<p>The techniques on this page act at different points in a change’s life. Local hooks give fast feedback, server-side rules are the authoritative gate, and feature flags control exposure after the code is already in production.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Branch created&lt;br/&gt;(naming convention)"] --&gt; B["Local commits&lt;br/&gt;(pre-commit hooks)"]
+    B --&gt; C["Pull request&lt;br/&gt;(CI, review, CODEOWNERS)"]
+    C --&gt; D["Merge queue&lt;br/&gt;(test against latest main)"]
+    D --&gt; E["main&lt;br/&gt;(ruleset-protected)"]
+    E --&gt; F["Deploy&lt;br/&gt;(code dormant behind flag)"]
+    F --&gt; G["Release&lt;br/&gt;(flag rollout 1% to 100%)"]
+    G --&gt; H["Cleanup&lt;br/&gt;(delete branch and flag)"]
+</code></pre>
 
 <h2 id="feature-branch-workflow">Feature Branch Workflow</h2>
 
-<p>The Feature Branch Workflow is the foundation that every strategy on the <a href="branching.html">strategies page</a> builds upon. Every feature is developed in a dedicated branch, isolated from <code class="language-plaintext highlighter-rouge">main</code> until it is reviewed and ready.</p>
+<p>Every strategy builds on the same unit of work: a short-lived branch, isolated from <code class="language-plaintext highlighter-rouge">main</code> until it is reviewed. The shorter the branch lives, the smaller the merge; most teams practicing continuous delivery aim to merge within a day or two.</p>
 
-<h3 id="basic-workflow">Basic Workflow</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git switch main
+git pull <span class="nt">--ff-only</span>                          <span class="c"># refuse to create a merge commit locally</span>
+git switch <span class="nt">-c</span> feature/PROJ-123-shopping-cart
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Start from main</span>
-git checkout main
-git pull origin main
+<span class="c"># ...work, commit in small logical steps...</span>
+git add <span class="nt">-p</span>                                  <span class="c"># stage hunks deliberately</span>
+git commit <span class="nt">-m</span> <span class="s2">"Add cart line-item model"</span>
 
-<span class="c"># Create feature branch</span>
-git checkout <span class="nt">-b</span> feature/shopping-cart
-
-<span class="c"># Make changes</span>
-git add <span class="nb">.</span>
-git commit <span class="nt">-m</span> <span class="s2">"Add shopping cart functionality"</span>
-
-<span class="c"># Push to remote</span>
-git push <span class="nt">-u</span> origin feature/shopping-cart
-
-<span class="c"># Create pull request and merge after review</span>
+git push <span class="nt">-u</span> origin HEAD                     <span class="c"># push the current branch and track it</span>
+gh <span class="nb">pr </span>create <span class="nt">--fill</span>                         <span class="c"># open a PR (GitHub CLI), or use the web UI</span>
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">git switch</code> and <code class="language-plaintext highlighter-rouge">git restore</code> (Git 2.23+) replace the overloaded <code class="language-plaintext highlighter-rouge">git checkout</code> for changing branches and discarding changes, and are what current Git documentation uses.</p>
 
 <h3 id="naming-conventions">Naming Conventions</h3>
 
-<p>Consistent prefixes make a branch’s purpose obvious at a glance and let automation route branches (for example, deploying <code class="language-plaintext highlighter-rouge">feature/*</code> to ephemeral preview environments). Common prefixes:</p>
+<p>Consistent prefixes make a branch’s purpose obvious and let automation act on it, for example deploying <code class="language-plaintext highlighter-rouge">feature/*</code> to preview environments or skipping heavy test suites on <code class="language-plaintext highlighter-rouge">docs/*</code>.</p>
 
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">feature/</code> — New features</li>
-  <li><code class="language-plaintext highlighter-rouge">bugfix/</code> — Bug fixes</li>
-  <li><code class="language-plaintext highlighter-rouge">hotfix/</code> — Urgent production fixes</li>
-  <li><code class="language-plaintext highlighter-rouge">chore/</code> — Maintenance tasks</li>
-  <li><code class="language-plaintext highlighter-rouge">docs/</code> — Documentation updates</li>
-  <li><code class="language-plaintext highlighter-rouge">test/</code> — Test additions or modifications</li>
-  <li><code class="language-plaintext highlighter-rouge">refactor/</code> — Code refactoring</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Prefix</th>
+      <th>Purpose</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">feature/</code> (or <code class="language-plaintext highlighter-rouge">feat/</code>)</td>
+      <td>New functionality</td>
+      <td><code class="language-plaintext highlighter-rouge">feature/PROJ-123-user-auth</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fix/</code> (or <code class="language-plaintext highlighter-rouge">bugfix/</code>)</td>
+      <td>Non-urgent bug fix</td>
+      <td><code class="language-plaintext highlighter-rouge">fix/PROJ-456-null-cart-total</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hotfix/</code></td>
+      <td>Urgent fix to a released version</td>
+      <td><code class="language-plaintext highlighter-rouge">hotfix/2.3.1-payment-timeout</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">release/</code></td>
+      <td>Stabilizing a versioned release</td>
+      <td><code class="language-plaintext highlighter-rouge">release/2.4</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">chore/</code></td>
+      <td>Build, dependencies, tooling</td>
+      <td><code class="language-plaintext highlighter-rouge">chore/bump-node-22</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">docs/</code></td>
+      <td>Documentation only</td>
+      <td><code class="language-plaintext highlighter-rouge">docs/api-pagination</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">refactor/</code></td>
+      <td>Behaviour-preserving restructuring</td>
+      <td><code class="language-plaintext highlighter-rouge">refactor/extract-pricing</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">test/</code></td>
+      <td>Tests only</td>
+      <td><code class="language-plaintext highlighter-rouge">test/cart-edge-cases</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<p>A widely used pattern embeds the issue tracker ID so the branch links back to its ticket: <code class="language-plaintext highlighter-rouge">feature/JIRA-123-user-authentication</code>. Keep names lowercase and hyphen-separated for shell- and URL-friendliness.</p>
+<p>Keep names lowercase and hyphen-separated, and embed the issue key (<code class="language-plaintext highlighter-rouge">PROJ-123</code>) so platforms such as Jira and Linear link the branch to its ticket automatically. Teams that use <a href="https://www.conventionalcommits.org/">Conventional Commits</a> often reuse the same type vocabulary (<code class="language-plaintext highlighter-rouge">feat</code>, <code class="language-plaintext highlighter-rouge">fix</code>, <code class="language-plaintext highlighter-rouge">chore</code>, <code class="language-plaintext highlighter-rouge">docs</code>, <code class="language-plaintext highlighter-rouge">refactor</code>, <code class="language-plaintext highlighter-rouge">test</code>) for branch prefixes so that branches, commit messages, and changelogs agree.</p>
 
 <h2 id="feature-flags-with-branching">Feature Flags with Branching</h2>
 
-<p>Feature flags (a.k.a. feature toggles) decouple <strong>deploy</strong> from <strong>release</strong>: code can ship to production dormant, then be turned on for some or all users by flipping a switch — no redeploy required. Combined with short-lived branches, they are what make trunk-based development and continuous delivery viable even when a feature is not finished.</p>
+<p>Feature flags (feature toggles) decouple <strong>deploy</strong> from <strong>release</strong>. Unfinished or risky code merges to <code class="language-plaintext highlighter-rouge">main</code> and ships to production switched off; it is then enabled for a subset of users, and eventually everyone, without another deploy. Flags are what make trunk-based development workable: the long-lived branch that would otherwise hold an unfinished feature becomes a short-lived branch plus a flag.</p>
 
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if </span><span class="p">(</span><span class="nx">featureFlags</span><span class="p">.</span><span class="nf">isEnabled</span><span class="p">(</span><span class="dl">'</span><span class="s1">new-checkout-flow</span><span class="dl">'</span><span class="p">))</span> <span class="p">{</span>
-    <span class="c1">// New implementation</span>
-<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-    <span class="c1">// Existing implementation</span>
-<span class="p">}</span>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// OpenFeature JavaScript server SDK; the provider (LaunchDarkly, Unleash,</span>
+<span class="c1">// flagd, ...) is configured once at startup and can be swapped without</span>
+<span class="c1">// changing call sites.</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">OpenFeature</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@openfeature/server-sdk</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">client</span> <span class="o">=</span> <span class="nx">OpenFeature</span><span class="p">.</span><span class="nf">getClient</span><span class="p">();</span>
+
+<span class="kd">const</span> <span class="nx">useNewCheckout</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">client</span><span class="p">.</span><span class="nf">getBooleanValue</span><span class="p">(</span>
+  <span class="dl">'</span><span class="s1">new-checkout-flow</span><span class="dl">'</span><span class="p">,</span>       <span class="c1">// flag key</span>
+  <span class="kc">false</span><span class="p">,</span>                     <span class="c1">// default if the flag service is unreachable</span>
+  <span class="p">{</span> <span class="na">targetingKey</span><span class="p">:</span> <span class="nx">user</span><span class="p">.</span><span class="nx">id</span> <span class="p">}</span>  <span class="c1">// evaluation context used for targeting and % rollouts</span>
+<span class="p">);</span>
+
+<span class="k">return</span> <span class="nx">useNewCheckout</span> <span class="p">?</span> <span class="nf">newCheckout</span><span class="p">(</span><span class="nx">cart</span><span class="p">)</span> <span class="p">:</span> <span class="nf">legacyCheckout</span><span class="p">(</span><span class="nx">cart</span><span class="p">);</span>
 </code></pre></div></div>
 
-<p>This allows:</p>
+<p>What flags buy you:</p>
 
 <ul>
-  <li>Deploying incomplete features safely (the unfinished path stays behind an off flag)</li>
-  <li>A/B testing in production</li>
-  <li>Gradual rollouts (1% → 10% → 100%)</li>
-  <li>Quick rollbacks without redeployment — just flip the flag off</li>
+  <li><strong>Merge incomplete work safely.</strong> The unfinished path is dead code until the flag turns on.</li>
+  <li><strong>Progressive delivery.</strong> Roll out to internal users, then 1%, 10%, 50%, 100%, watching error rates at each step.</li>
+  <li><strong>Instant rollback.</strong> Turning a flag off is faster and less risky than reverting and redeploying.</li>
+  <li><strong>Experimentation.</strong> A/B tests use the same targeting machinery.</li>
 </ul>
 
-<p><strong>Flags are not free:</strong> every flag is a branch in your runtime code, and stale flags accumulate into the same kind of complexity that long-lived Git branches create. Treat flags as temporary — track them, set a removal date, and delete the dead code path once a feature is fully rolled out.</p>
+<h3 id="flag-lifecycle">Flag lifecycle</h3>
 
-<p><strong>Popular Feature Flag Services:</strong></p>
+<p>Every flag is a conditional branch in runtime code, and stale flags accumulate the same kind of complexity that long-lived Git branches do. Treat release flags as temporary, and distinguish them from flags that are meant to stay:</p>
 
-<ul>
-  <li><strong>LaunchDarkly</strong> — Enterprise-grade feature management</li>
-  <li><strong>Unleash</strong> — Open-source feature toggle service</li>
-  <li><strong>Split.io</strong> — Feature flags with built-in experimentation</li>
-  <li><strong>Flipper</strong> — Simple, open-source feature flipping (Ruby/Rails ecosystem)</li>
-  <li><strong>AWS AppConfig</strong> — Native AWS feature flag service</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Flag type</th>
+      <th>Lifetime</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Release toggle</td>
+      <td>Days to weeks; delete after 100% rollout</td>
+      <td><code class="language-plaintext highlighter-rouge">new-checkout-flow</code></td>
+    </tr>
+    <tr>
+      <td>Experiment toggle</td>
+      <td>Duration of the experiment</td>
+      <td><code class="language-plaintext highlighter-rouge">pricing-page-variant-b</code></td>
+    </tr>
+    <tr>
+      <td>Ops toggle / kill switch</td>
+      <td>Long-lived</td>
+      <td><code class="language-plaintext highlighter-rouge">disable-recommendations-under-load</code></td>
+    </tr>
+    <tr>
+      <td>Permission toggle</td>
+      <td>Long-lived</td>
+      <td><code class="language-plaintext highlighter-rouge">beta-features-enabled</code> for a customer tier</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="branch-protection-rules">Branch Protection Rules</h2>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Created: flag added, default off
+    Created --&gt; Internal: enable for staff
+    Internal --&gt; Rollout: percentage rollout
+    Rollout --&gt; Internal: errors detected, dial back
+    Rollout --&gt; Full: 100% of users
+    Full --&gt; Removed: delete flag and dead code path
+    Removed --&gt; [*]
+</code></pre>
 
-<p>Branch protection turns your chosen workflow from a convention into an enforced rule. Configure it in your Git platform so that the protected branches (typically <code class="language-plaintext highlighter-rouge">main</code>, and <code class="language-plaintext highlighter-rouge">develop</code>/<code class="language-plaintext highlighter-rouge">production</code> where they exist) cannot be pushed to directly and cannot be merged into without passing review and CI.</p>
+<p>Give each release flag an owner and an expiry date, and open the cleanup ticket when the flag is created.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example GitHub branch protection</span>
-<span class="na">main</span><span class="pi">:</span>
-  <span class="na">required_reviews</span><span class="pi">:</span> <span class="m">2</span>
-  <span class="na">dismiss_stale_reviews</span><span class="pi">:</span> <span class="kc">true</span>
-  <span class="na">require_code_owner_reviews</span><span class="pi">:</span> <span class="kc">true</span>
-  <span class="na">required_status_checks</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">continuous-integration/travis-ci</span>
-    <span class="pi">-</span> <span class="s">security/snyk</span>
-  <span class="na">enforce_admins</span><span class="pi">:</span> <span class="kc">true</span>
-  <span class="na">restrictions</span><span class="pi">:</span>
-    <span class="na">users</span><span class="pi">:</span> <span class="pi">[]</span>
-    <span class="na">teams</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">release-managers"</span><span class="pi">]</span>
+<h3 id="tooling">Tooling</h3>
+
+<p><a href="https://openfeature.dev/">OpenFeature</a>, a CNCF incubating project, defines a vendor-neutral evaluation API with SDKs for most major languages, so application code does not bind to one vendor. Common backends:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Model</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LaunchDarkly</td>
+      <td>Commercial SaaS</td>
+      <td>Mature targeting, experimentation, and flag-lifecycle tooling</td>
+    </tr>
+    <tr>
+      <td>Unleash</td>
+      <td>Open source, self-hosted or SaaS</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Flagsmith</td>
+      <td>Open source, self-hosted or SaaS</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>GrowthBook</td>
+      <td>Open source</td>
+      <td>Emphasis on experimentation and statistics</td>
+    </tr>
+    <tr>
+      <td>flagd</td>
+      <td>Open source (OpenFeature project)</td>
+      <td>Lightweight flag daemon driven by files or Kubernetes resources</td>
+    </tr>
+    <tr>
+      <td>AWS AppConfig</td>
+      <td>Managed AWS service</td>
+      <td>Feature flags plus validated configuration rollout</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="branch-protection-and-rulesets">Branch Protection and Rulesets</h2>
+
+<p>Protection turns a workflow from a convention into an enforced rule: protected branches cannot be pushed to directly, deleted, or force-pushed, and merges require review and passing checks.</p>
+
+<p>On GitHub, <strong>repository rulesets</strong> are the current mechanism and are generally preferred over classic branch protection rules. Unlike classic rules, several rulesets can apply to the same branch and their rules are layered; rulesets can target branches or tags by pattern, can be set to <em>evaluate</em> mode to see what they would block before enforcing, are visible to anyone with read access, and can be defined once at the organization level. They can be exported and imported as JSON, which makes them easy to keep in version control:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"protect-main"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"branch"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"enforcement"</span><span class="p">:</span><span class="w"> </span><span class="s2">"active"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"conditions"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"ref_name"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"include"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"~DEFAULT_BRANCH"</span><span class="p">],</span><span class="w"> </span><span class="nl">"exclude"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"bypass_actors"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"actor_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">123456</span><span class="p">,</span><span class="w"> </span><span class="nl">"actor_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Team"</span><span class="p">,</span><span class="w"> </span><span class="nl">"bypass_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pull_request"</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+  </span><span class="nl">"rules"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deletion"</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"non_fast_forward"</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"required_linear_history"</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pull_request"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"parameters"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"required_approving_review_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"dismiss_stale_reviews_on_push"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"require_code_owner_review"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"require_last_push_approval"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"required_review_thread_resolution"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"required_status_checks"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"parameters"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"strict_required_status_checks_policy"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"required_status_checks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+          </span><span class="p">{</span><span class="w"> </span><span class="nl">"context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"build"</span><span class="w"> </span><span class="p">},</span><span class="w">
+          </span><span class="p">{</span><span class="w"> </span><span class="nl">"context"</span><span class="p">:</span><span class="w"> </span><span class="s2">"test"</span><span class="w"> </span><span class="p">}</span><span class="w">
+        </span><span class="p">]</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Apply it with <code class="language-plaintext highlighter-rouge">gh api --method POST repos/OWNER/REPO/rulesets --input protect-main.json</code>, or manage it with the Terraform GitHub provider’s <code class="language-plaintext highlighter-rouge">github_repository_ruleset</code> resource.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">deletion</code>, <code class="language-plaintext highlighter-rouge">non_fast_forward</code></td>
+      <td>Block deleting the branch and force-pushing to it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pull_request</code></td>
+      <td>All changes arrive through a PR with the required approvals</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dismiss_stale_reviews_on_push</code></td>
+      <td>New commits invalidate earlier approvals, so approval always covers the final diff</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">require_code_owner_review</code></td>
+      <td>Owners listed in <code class="language-plaintext highlighter-rouge">CODEOWNERS</code> for the touched paths must approve</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">require_last_push_approval</code></td>
+      <td>Someone other than the last pusher must approve, closing the “push after approval” gap</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">required_status_checks</code></td>
+      <td>Named CI jobs must pass; <code class="language-plaintext highlighter-rouge">strict_required_status_checks_policy</code> also requires the branch to be up to date with the base</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">required_linear_history</code></td>
+      <td>Only squash or rebase merges, no merge commits</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">bypass_actors</code></td>
+      <td>Explicit, audited exceptions instead of blanket admin bypass</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>GitLab offers the equivalent through <strong>protected branches</strong>, <strong>approval rules</strong>, and <strong>push rules</strong>; Bitbucket through <strong>branch restrictions</strong> and <strong>merge checks</strong>.</p>
+
+<h3 id="merge-queues">Merge Queues</h3>
+
+<p>Required status checks prove that a PR passed against the base it was tested on, not against <code class="language-plaintext highlighter-rouge">main</code> as it will be after the PRs ahead of it land. On a busy repository, two PRs that each pass independently can break <code class="language-plaintext highlighter-rouge">main</code> together. Requiring branches to be up to date (<code class="language-plaintext highlighter-rouge">strict</code> mode) fixes this but forces every author to rebase and re-run CI after each merge.</p>
+
+<p>A <strong>merge queue</strong> automates that: approved PRs enter a queue, the platform builds a temporary branch containing <code class="language-plaintext highlighter-rouge">main</code> plus every PR ahead in the queue, runs CI on it, and fast-forwards <code class="language-plaintext highlighter-rouge">main</code> only if it passes.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Dev as Author
+    participant Q as Merge queue
+    participant CI
+    participant Main as main
+    Dev-&gt;&gt;Q: PR 1 approved, add to queue
+    Dev-&gt;&gt;Q: PR 2 approved, add to queue
+    Q-&gt;&gt;CI: test main + PR 1
+    Q-&gt;&gt;CI: test main + PR 1 + PR 2 (in parallel)
+    CI--&gt;&gt;Q: main + PR 1 passes
+    Q-&gt;&gt;Main: fast-forward to include PR 1
+    CI--&gt;&gt;Q: main + PR 1 + PR 2 fails
+    Q--&gt;&gt;Dev: remove PR 2 from queue, notify author
+</code></pre>
+
+<p>GitHub’s merge queue is enabled with a <code class="language-plaintext highlighter-rouge">merge_queue</code> ruleset rule (CI workflows must also trigger on the <code class="language-plaintext highlighter-rouge">merge_group</code> event); GitLab calls the feature <strong>merge trains</strong>. Queues let you drop <code class="language-plaintext highlighter-rouge">strict</code> mode while still guaranteeing that <code class="language-plaintext highlighter-rouge">main</code> is always green.</p>
+
+<h2 id="stacked-pull-requests">Stacked Pull Requests</h2>
+
+<p>A large change reviewed as a single PR is slow to review and slow to merge. <strong>Stacking</strong> splits it into a chain of small, dependent branches, each reviewed separately, while the author keeps working on the next layer:</p>
+
+<pre><code class="language-mermaid">gitGraph
+    commit id: "main"
+    branch api/schema
+    commit id: "schema"
+    branch api/endpoints
+    commit id: "endpoints"
+    branch api/client
+    commit id: "client"
+</code></pre>
+
+<p>Each PR targets the branch below it (<code class="language-plaintext highlighter-rouge">api/endpoints</code> into <code class="language-plaintext highlighter-rouge">api/schema</code>), so reviewers see only one layer’s diff. The difficulty is keeping the stack consistent when a lower branch changes; Git 2.38 added <code class="language-plaintext highlighter-rouge">--update-refs</code>, which moves every branch in the stack during a single rebase:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git switch api/client                     <span class="c"># top of the stack</span>
+git rebase <span class="nt">--update-refs</span> origin/main      <span class="c"># rebases all three branches at once</span>
+git push <span class="nt">--force-with-lease</span> origin api/schema api/endpoints api/client
+
+<span class="c"># make it the default</span>
+git config <span class="nt">--global</span> rebase.updateRefs <span class="nb">true</span>
 </code></pre></div></div>
 
-<p>Key settings and what they buy you:</p>
-
-<ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">required_reviews</code></strong> — minimum approvals before merge; <code class="language-plaintext highlighter-rouge">require_code_owner_reviews</code> additionally demands sign-off from the owners of the touched files.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">dismiss_stale_reviews</code></strong> — re-requires approval when new commits land, so a review always reflects the final diff.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">required_status_checks</code></strong> — the merge button stays disabled until named CI/security checks are green.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">enforce_admins</code></strong> — applies the rules to admins too, closing the “I’ll just bypass it” loophole.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">restrictions</code></strong> — limits who may push to or merge into the branch.</li>
-</ul>
-
-<p>For high-traffic repositories, pair this with a <strong>merge queue</strong> (see references) so that PRs are tested against the exact state of <code class="language-plaintext highlighter-rouge">main</code> they will land on, eliminating the “passed in isolation, broke on merge” race.</p>
+<p>Dedicated tools (Graphite, <code class="language-plaintext highlighter-rouge">ghstack</code>, <code class="language-plaintext highlighter-rouge">spr</code>, git-town, Sapling) automate creating, syncing, and landing stacks. When the bottom PR merges (particularly as a squash), the next PR must be retargeted to <code class="language-plaintext highlighter-rouge">main</code> and rebased; these tools handle that step.</p>
 
 <h2 id="release-branching-strategy">Release Branching Strategy</h2>
 
-<p>For projects with scheduled, versioned releases (the Git Flow case), a dedicated release branch lets you stabilize a release while new feature work continues on the mainline.</p>
+<p>For products that ship numbered versions and support more than one of them (installed software, SDKs, mobile apps), a release branch lets a version stabilize while development continues on the mainline. Web services deployed continuously from <code class="language-plaintext highlighter-rouge">main</code> usually do not need release branches.</p>
 
 <h3 id="release-branch-workflow">Release Branch Workflow</h3>
 
-<p>A release branch is cut from the mainline, stabilized with only fixes (no new features), tagged at release, then merged back so those fixes are not lost:</p>
+<p>A release branch is cut from the mainline, receives only fixes, and is tagged at release. Fixes flow back to the mainline so they are not lost.</p>
 
 <pre><code class="language-mermaid">gitGraph
-    commit
-    commit
+    commit id: "A"
+    commit id: "B"
     branch release/1.0
     checkout release/1.0
-    commit id: "stabilize"
-    commit id: "v1.0" tag: "v1.0"
+    commit id: "bump 1.0.0" tag: "v1.0.0"
     checkout main
-    merge release/1.0
-    commit id: "more features"
-    branch hotfix/1.0.1
-    checkout hotfix/1.0.1
-    commit id: "patch"
+    commit id: "feature C"
+    commit id: "fix-42"
+    checkout release/1.0
+    cherry-pick id: "fix-42"
     checkout main
-    merge hotfix/1.0.1 tag: "v1.0.1"
+    commit id: "feature D"
 </code></pre>
+
+<p>The diagram shows the upstream-first variant: <code class="language-plaintext highlighter-rouge">fix-42</code> lands on <code class="language-plaintext highlighter-rouge">main</code>, is cherry-picked onto <code class="language-plaintext highlighter-rouge">release/1.0</code>, and the cherry-picked commit is tagged <code class="language-plaintext highlighter-rouge">v1.0.1</code>. Features C and D never reach the release branch.</p>
+
+<p>There are two ways to keep fixes consistent between a release branch and the mainline:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>How</th>
+      <th>Used by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Upstream first</strong></td>
+      <td>Fix lands on <code class="language-plaintext highlighter-rouge">main</code> first, then is cherry-picked to each supported release branch</td>
+      <td>Trunk-based teams, Chromium, the Linux kernel stable trees</td>
+    </tr>
+    <tr>
+      <td><strong>Merge back</strong></td>
+      <td>Fix lands on the release branch, which is later merged into <code class="language-plaintext highlighter-rouge">main</code> (and <code class="language-plaintext highlighter-rouge">develop</code>)</td>
+      <td>Git Flow</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Upstream-first is harder to get wrong: a fix can never be lost by forgetting to merge back, and the cherry-pick (<code class="language-plaintext highlighter-rouge">git cherry-pick -x &lt;sha&gt;</code> records the source commit) is easy to audit.</p>
 
 <h3 id="managing-releases">Managing Releases</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create release branch</span>
-git checkout <span class="nt">-b</span> release/2.0 develop
+<p>Git Flow style, with <code class="language-plaintext highlighter-rouge">develop</code> as the integration branch:</p>
 
-<span class="c"># Make release-specific changes (version bumps, changelog — no new features)</span>
-git commit <span class="nt">-m</span> <span class="s2">"Bump version to 2.0"</span>
-git commit <span class="nt">-m</span> <span class="s2">"Update changelog"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git switch <span class="nt">-c</span> release/2.0 develop
 
-<span class="c"># Merge to main and tag the release</span>
-git checkout main
+<span class="c"># only release preparation: version bump, changelog, fixes</span>
+git commit <span class="nt">-am</span> <span class="s2">"Bump version to 2.0.0"</span>
+
+git switch main
 git merge <span class="nt">--no-ff</span> release/2.0
-git tag <span class="nt">-a</span> v2.0 <span class="nt">-m</span> <span class="s2">"Version 2.0"</span>
+git tag <span class="nt">-a</span> v2.0.0 <span class="nt">-m</span> <span class="s2">"Release 2.0.0"</span>
+git push origin main v2.0.0
 
-<span class="c"># Merge back to develop so stabilization fixes are not lost</span>
-git checkout develop
-git merge <span class="nt">--no-ff</span> release/2.0
+git switch develop
+git merge <span class="nt">--no-ff</span> release/2.0             <span class="c"># carry stabilization fixes back</span>
+git branch <span class="nt">-d</span> release/2.0
 </code></pre></div></div>
+
+<p>Trunk-based style, cutting from <code class="language-plaintext highlighter-rouge">main</code> and patching upstream first:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git switch <span class="nt">-c</span> release/2.0 main <span class="o">&amp;&amp;</span> git push <span class="nt">-u</span> origin release/2.0
+git tag <span class="nt">-a</span> v2.0.0 <span class="nt">-m</span> <span class="s2">"Release 2.0.0"</span> <span class="o">&amp;&amp;</span> git push origin v2.0.0
+
+<span class="c"># later: a fix merged to main as abc1234 is back-ported</span>
+git switch release/2.0
+git cherry-pick <span class="nt">-x</span> abc1234
+git tag <span class="nt">-a</span> v2.0.1 <span class="nt">-m</span> <span class="s2">"Release 2.0.1"</span> <span class="o">&amp;&amp;</span> git push origin release/2.0 v2.0.1
+</code></pre></div></div>
+
+<p>Annotated tags (<code class="language-plaintext highlighter-rouge">-a</code>) carry an author, date, and message and are what <code class="language-plaintext highlighter-rouge">git describe</code> uses; sign them (<code class="language-plaintext highlighter-rouge">-s</code>) if consumers verify releases.</p>
 
 <h3 id="semantic-versioning-with-branches">Semantic Versioning with Branches</h3>
 
-<p>Align your branching with <a href="https://semver.org/">semantic versioning</a> (<code class="language-plaintext highlighter-rouge">MAJOR.MINOR.PATCH</code>) so a branch name signals the kind of change it carries:</p>
+<p><a href="https://semver.org/">Semantic Versioning</a> (<code class="language-plaintext highlighter-rouge">MAJOR.MINOR.PATCH</code>) maps naturally onto branch and tag names:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Major version (breaking changes)</span>
-release/2.0.0
+<table>
+  <thead>
+    <tr>
+      <th>Change</th>
+      <th>Version bump</th>
+      <th>Where it happens</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Breaking API change</td>
+      <td>MAJOR (<code class="language-plaintext highlighter-rouge">1.4.2</code> to <code class="language-plaintext highlighter-rouge">2.0.0</code>)</td>
+      <td>New <code class="language-plaintext highlighter-rouge">release/2.0</code> branch</td>
+    </tr>
+    <tr>
+      <td>Backward-compatible feature</td>
+      <td>MINOR (<code class="language-plaintext highlighter-rouge">1.4.2</code> to <code class="language-plaintext highlighter-rouge">1.5.0</code>)</td>
+      <td>New <code class="language-plaintext highlighter-rouge">release/1.5</code> branch</td>
+    </tr>
+    <tr>
+      <td>Backward-compatible fix</td>
+      <td>PATCH (<code class="language-plaintext highlighter-rouge">1.4.2</code> to <code class="language-plaintext highlighter-rouge">1.4.3</code>)</td>
+      <td>Commit or cherry-pick on existing <code class="language-plaintext highlighter-rouge">release/1.4</code>; tag <code class="language-plaintext highlighter-rouge">v1.4.3</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c"># Minor version (new, backward-compatible features)</span>
-release/1.1.0
-
-<span class="c"># Patch version (backward-compatible bug fixes)</span>
-hotfix/1.0.1
-</code></pre></div></div>
-
-<p>This makes the impact of a release legible from the branch name alone and lets automation derive the next version and changelog from merged branch prefixes.</p>
+<p>Name release branches by <code class="language-plaintext highlighter-rouge">MAJOR.MINOR</code> (<code class="language-plaintext highlighter-rouge">release/1.4</code>) and let tags carry the patch number; one branch then serves every patch release in that line. Tools such as semantic-release, release-please, and changesets derive the next version and changelog from Conventional Commit messages, removing manual version bumps.</p>
 
 <h2 id="common-pitfalls-and-solutions">Common Pitfalls and Solutions</h2>
 
-<h3 id="merge-conflicts">Merge Conflicts</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Problem</th>
+      <th>Cause</th>
+      <th>Remedy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Frequent, painful merge conflicts</td>
+      <td>Long-lived branches drifting from <code class="language-plaintext highlighter-rouge">main</code></td>
+      <td>Merge small PRs daily; hide unfinished work behind flags; sync often (below)</td>
+    </tr>
+    <tr>
+      <td>Re-resolving the same conflict repeatedly</td>
+      <td>Repeated rebases of a long branch</td>
+      <td>Enable <code class="language-plaintext highlighter-rouge">rerere</code> (<code class="language-plaintext highlighter-rouge">git config --global rerere.enabled true</code>) to replay recorded resolutions</td>
+    </tr>
+    <tr>
+      <td>Hundreds of stale branches</td>
+      <td>No cleanup after merge</td>
+      <td>Turn on “automatically delete head branches”; prune locally (below)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">main</code> broken by two individually green PRs</td>
+      <td>Semantic conflict between PRs tested in isolation</td>
+      <td>Merge queue</td>
+    </tr>
+    <tr>
+      <td>Teammate’s commits overwritten</td>
+      <td>Plain <code class="language-plaintext highlighter-rouge">git push --force</code> on a shared branch</td>
+      <td>Use <code class="language-plaintext highlighter-rouge">--force-with-lease</code>; forbid force-push on shared branches by rule</td>
+    </tr>
+    <tr>
+      <td>Team members following different workflows</td>
+      <td>Undocumented or unenforced conventions</td>
+      <td>Document the strategy in <code class="language-plaintext highlighter-rouge">CONTRIBUTING.md</code>; enforce with rulesets and CI</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Problem:</strong> Frequent conflicts when merging long-lived branches.</p>
+<p>Keeping a feature branch current:</p>
 
-<p><strong>Solutions:</strong></p>
-
-<ul>
-  <li>Keep branches short-lived.</li>
-  <li>Regularly sync with the base branch.</li>
-  <li>Use smaller, focused commits.</li>
-</ul>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Regularly update feature branch onto the latest main</span>
-git checkout feature/my-feature
-git fetch origin
-git rebase origin/main
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fetch origin
+git rebase origin/main          <span class="c"># your own branch only; merge origin/main if others share it</span>
+git push <span class="nt">--force-with-lease</span>
 </code></pre></div></div>
 
-<p>(Only rebase branches that are exclusively yours — see the <a href="branching.html#integrating-merge-vs-rebase">golden rule of rebasing</a>.)</p>
+<p>Only rebase branches that nobody else has based work on; see the <a href="branching.html#integrating-merge-vs-rebase">golden rule of rebasing</a>.</p>
 
-<h3 id="branch-proliferation">Branch Proliferation</h3>
+<p>Cleaning up local branches:</p>
 
-<p><strong>Problem:</strong> Too many stale branches cluttering the repository.</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> fetch.prune <span class="nb">true</span>      <span class="c"># drop deleted remote-tracking refs on every fetch</span>
 
-<p><strong>Solutions:</strong></p>
+<span class="c"># delete local branches already merged into main</span>
+git branch <span class="nt">--merged</span> main | <span class="nb">grep</span> <span class="nt">-vE</span> <span class="s1">'^\*|^\+|\bmain$|\bdevelop$'</span> | xargs <span class="nt">-r</span> git branch <span class="nt">-d</span>
 
-<ul>
-  <li>Automated branch deletion after merge (most platforms offer a “delete branch on merge” toggle).</li>
-  <li>Regular branch cleanup scripts.</li>
-  <li>Clear branch lifecycle policies.</li>
-</ul>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Delete local branches already merged into the current branch</span>
-git branch <span class="nt">--merged</span> | <span class="nb">grep</span> <span class="nt">-v</span> <span class="s2">"</span><span class="se">\*\|</span><span class="s2">main</span><span class="se">\|</span><span class="s2">develop"</span> | xargs <span class="nt">-n</span> 1 git branch <span class="nt">-d</span>
-
-<span class="c"># Prune remote-tracking branches that no longer exist on the remote</span>
-git remote prune origin
+<span class="c"># list local branches whose upstream was deleted (typical after a squash merge,</span>
+<span class="c"># which "git branch --merged" cannot detect)</span>
+git <span class="k">for</span><span class="nt">-each-ref</span> <span class="nt">--format</span><span class="o">=</span><span class="s1">'%(refname:short) %(upstream:track)'</span> refs/heads <span class="se">\</span>
+  | <span class="nb">awk</span> <span class="s1">'$2 == "[gone]" {print $1}'</span>
 </code></pre></div></div>
-
-<h3 id="inconsistent-practices">Inconsistent Practices</h3>
-
-<p><strong>Problem:</strong> Team members using different workflows.</p>
-
-<p><strong>Solutions:</strong></p>
-
-<ul>
-  <li>Document your chosen strategy (and link it from the repo README).</li>
-  <li>Provide team training.</li>
-  <li>Use automation to enforce practices.</li>
-  <li>Hold regular team reviews of the workflow itself.</li>
-</ul>
 
 <h2 id="tools-and-automation">Tools and Automation</h2>
 
-<p>Documentation alone does not enforce a workflow — automation does. The two most effective layers are local Git hooks (fast feedback before a push) and CI checks (the authoritative gate).</p>
+<p>Documentation alone does not enforce a workflow. Local hooks provide fast feedback but are optional (any developer can skip them with <code class="language-plaintext highlighter-rouge">--no-verify</code>); server-side rules and CI are the authoritative gate.</p>
 
 <h3 id="git-hooks">Git Hooks</h3>
 
-<p>Enforce branching rules with Git hooks:</p>
+<p>A <code class="language-plaintext highlighter-rouge">pre-push</code> hook receives each ref being pushed on standard input, so it can check the <em>destination</em> branch rather than whichever branch happens to be checked out:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/bash</span>
-<span class="c"># .git/hooks/pre-push</span>
-<span class="c"># Prevent direct pushes to main</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/usr/bin/env bash</span>
+<span class="c"># .git/hooks/pre-push  (chmod +x)</span>
+<span class="c"># Refuse direct pushes to protected branches.</span>
+<span class="nv">protected</span><span class="o">=</span><span class="s1">'^refs/heads/(main|develop)$'</span>
 
-<span class="nv">protected_branch</span><span class="o">=</span><span class="s1">'main'</span>
-<span class="nv">current_branch</span><span class="o">=</span><span class="si">$(</span>git symbolic-ref HEAD | <span class="nb">sed</span> <span class="nt">-e</span> <span class="s1">'s,.*/\(.*\),\1,'</span><span class="si">)</span>
-
-<span class="k">if</span> <span class="o">[</span> <span class="nv">$protected_branch</span> <span class="o">=</span> <span class="nv">$current_branch</span> <span class="o">]</span><span class="p">;</span> <span class="k">then
-    </span><span class="nb">echo</span> <span class="s2">"Direct push to </span><span class="nv">$protected_branch</span><span class="s2"> branch is not allowed"</span>
+<span class="k">while </span><span class="nb">read</span> <span class="nt">-r</span> local_ref local_sha remote_ref remote_sha<span class="p">;</span> <span class="k">do
+  if</span> <span class="o">[[</span> <span class="s2">"</span><span class="nv">$remote_ref</span><span class="s2">"</span> <span class="o">=</span>~ <span class="nv">$protected</span> <span class="o">]]</span><span class="p">;</span> <span class="k">then
+    </span><span class="nb">echo</span> <span class="s2">"pre-push: direct push to </span><span class="k">${</span><span class="nv">remote_ref</span><span class="p">#refs/heads/</span><span class="k">}</span><span class="s2"> is not allowed; open a pull request."</span> <span class="o">&gt;</span>&amp;2
     <span class="nb">exit </span>1
-<span class="k">fi</span>
+  <span class="k">fi
+done
+</span><span class="nb">exit </span>0
 </code></pre></div></div>
 
-<p>Local hooks are easy to bypass (<code class="language-plaintext highlighter-rouge">--no-verify</code>) and live only on each developer’s machine, so treat them as convenience, not enforcement. For a shareable, version-controlled version, use the <strong>pre-commit framework</strong>:</p>
+<p>Hooks in <code class="language-plaintext highlighter-rouge">.git/hooks</code> are not version controlled. To share them, either commit a directory and point Git at it (<code class="language-plaintext highlighter-rouge">git config core.hooksPath .githooks</code>), or use the <a href="https://pre-commit.com/">pre-commit</a> framework, which installs pinned hook versions from a checked-in config:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .pre-commit-config.yaml</span>
 <span class="na">repos</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">repo</span><span class="pi">:</span> <span class="s">https://github.com/pre-commit/pre-commit-hooks</span>
-    <span class="na">rev</span><span class="pi">:</span> <span class="s">v4.5.0</span>
+    <span class="na">rev</span><span class="pi">:</span> <span class="s">v6.0.0</span>
     <span class="na">hooks</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">no-commit-to-branch</span>
-        <span class="na">args</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">--branch'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">main'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">--branch'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">production'</span><span class="pi">]</span>
+        <span class="na">args</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">--branch'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">main'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">--branch'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">develop'</span><span class="pi">]</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">check-merge-conflict</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">check-added-large-files</span>
 </code></pre></div></div>
+
+<p>Run <code class="language-plaintext highlighter-rouge">pre-commit install</code> once per clone, and <code class="language-plaintext highlighter-rouge">pre-commit autoupdate</code> to bump the pinned <code class="language-plaintext highlighter-rouge">rev</code> values.</p>
 
 <h3 id="cicd-integration">CI/CD Integration</h3>
 
-<p>The authoritative gate runs server-side in CI, where it cannot be skipped. This example rejects any PR whose branch name does not match the agreed prefixes:</p>
+<p>Server-side checks cannot be skipped. This GitHub Actions workflow rejects PRs whose branch names do not follow the convention. It needs no checkout, and it passes the branch name through an environment variable rather than interpolating it into the script, because branch names are attacker-controlled input and expressions interpolated directly into a <code class="language-plaintext highlighter-rouge">run:</code> block are expanded into the script text before the shell parses it, which is a known script-injection vector.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">Branch Protection</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">Branch name</span>
 <span class="na">on</span><span class="pi">:</span>
   <span class="na">pull_request</span><span class="pi">:</span>
     <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">,</span> <span class="nv">develop</span><span class="pi">]</span>
+
+<span class="na">permissions</span><span class="pi">:</span> <span class="pi">{}</span>
 
 <span class="na">jobs</span><span class="pi">:</span>
   <span class="na">validate</span><span class="pi">:</span>
     <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
     <span class="na">steps</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v2</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Validate branch name</span>
+        <span class="na">env</span><span class="pi">:</span>
+          <span class="na">BRANCH</span><span class="pi">:</span> <span class="s">${{ github.head_ref }}</span>
         <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">if [[ ! "${{ github.head_ref }}" =~ ^(feature|bugfix|hotfix|chore)/.+ ]]; then</span>
-            <span class="s">echo "Branch name must start with feature/, bugfix/, hotfix/, or chore/"</span>
+          <span class="s">if [[ ! "$BRANCH" =~ ^(feature|fix|bugfix|hotfix|release|chore|docs|refactor|test)/[a-z0-9._-]+$ ]]; then</span>
+            <span class="s">echo "::error::Branch '$BRANCH' must match &lt;type&gt;/&lt;lowercase-name&gt;"</span>
             <span class="s">exit 1</span>
           <span class="s">fi</span>
 </code></pre></div></div>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Feature flags decouple deploy from release,</strong> enabling continuous delivery even with incomplete features — but track and retire flags like any other technical debt.</li>
-  <li><strong>Enforce the workflow with automation</strong> — branch protection rules, naming checks, and required CI status checks beat documentation alone.</li>
-  <li><strong>Server-side checks are authoritative;</strong> local hooks are convenience that developers can bypass.</li>
-  <li><strong>Short-lived branches</strong> and frequent integration remain the single biggest lever against merge conflicts.</li>
-  <li><strong>Align release branches with semantic versioning</strong> so a branch’s name signals the impact of its change.</li>
-</ul>
+<p>Add the job’s check name (<code class="language-plaintext highlighter-rouge">validate</code>) to the ruleset’s required status checks so it gates merges. A workflow that must also run inside a merge queue additionally needs <code class="language-plaintext highlighter-rouge">merge_group:</code> in its <code class="language-plaintext highlighter-rouge">on:</code> triggers.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="branching.html">Git Branching Strategies</a> — the four core workflows and how to choose between them</li>
-  <li><a href="git-reference.html">Git Command Reference</a> — command syntax for branch, merge, and rebase operations</li>
-  <li><a href="git/">Git Version Control</a> — internals, architecture, and distributed VCS fundamentals</li>
-  <li><a href="ci-cd/">CI/CD</a> — wiring branching strategies into continuous integration pipelines</li>
+  <li><a href="branching.html">Git Branching Strategies</a> — the core workflows and how to choose between them</li>
+  <li><a href="git-reference.html">Git Command Reference</a> — command syntax for branch, merge, rebase, and tag</li>
+  <li><a href="git/">Git Version Control</a> — internals, object model, and distributed VCS fundamentals</li>
+  <li><a href="git/conflict-and-recovery.html">Git Conflict Resolution and Recovery</a> — resolving conflicts and recovering lost work</li>
+  <li><a href="ci-cd/">CI/CD</a> — wiring branching strategies into continuous integration and delivery</li>
 </ul>
 
 <h2 id="references">References</h2>
 
-<h3 id="essential-documentation">Essential Documentation</h3>
 <ul>
-  <li><a href="https://git-scm.com/doc">Git Documentation</a></li>
-  <li><a href="https://www.atlassian.com/git/tutorials/comparing-workflows">Atlassian Git Tutorials</a></li>
-  <li><a href="https://semver.org/">Semantic Versioning</a></li>
+  <li><a href="https://git-scm.com/doc">Git documentation</a> — including <code class="language-plaintext highlighter-rouge">git-rebase</code> (<code class="language-plaintext highlighter-rouge">--update-refs</code>) and <code class="language-plaintext highlighter-rouge">githooks</code></li>
+  <li><a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets">GitHub Docs: About rulesets</a></li>
+  <li><a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue">GitHub Docs: Managing a merge queue</a></li>
+  <li><a href="https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions">GitHub Docs: Secure use reference for GitHub Actions</a> — script injection</li>
+  <li><a href="https://docs.gitlab.com/ci/pipelines/merge_trains/">GitLab Docs: Merge trains</a></li>
+  <li><a href="https://openfeature.dev/">OpenFeature</a> — vendor-neutral feature flag specification</li>
+  <li><a href="https://martinfowler.com/articles/feature-toggles.html">Martin Fowler / Pete Hodgson: Feature Toggles</a> — toggle categories and lifecycle</li>
+  <li><a href="https://martinfowler.com/articles/ship-show-ask.html">Martin Fowler / Rouan Wilsenach: Ship / Show / Ask</a></li>
+  <li><a href="https://semver.org/">Semantic Versioning</a> and <a href="https://www.conventionalcommits.org/">Conventional Commits</a></li>
   <li><a href="https://pre-commit.com/">pre-commit framework</a></li>
-</ul>
-
-<h3 id="recent-developments">Recent Developments</h3>
-<ul>
-  <li><a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue">GitHub’s Merge Queue</a> — Automated merging at scale</li>
-  <li><a href="https://graphite.dev/blog/stacked-prs">Stacked Diffs/PRs</a> — Managing dependent changes</li>
-  <li><a href="https://martinfowler.com/articles/ship-show-ask.html">Ship/Show/Ask</a> — Branching strategy for continuous delivery</li>
-  <li><a href="https://argo-cd.readthedocs.io/en/stable/">GitOps with ArgoCD</a> — Git as single source of truth</li>
 </ul>
 
       </section>

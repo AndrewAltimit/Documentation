@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Resolving merge, rebase and cherry-pick conflicts; undoing bad rebases and force-pushes; recovering commits, branches and stashes with the reflog and fsck; r...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Git: Conflict Resolution & Recovery">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Resolving merge, rebase and cherry-pick conflicts; undoing bad rebases and force-pushes; recovering commits, branches and stashes with the reflog and fsck; r...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git/conflict-and-recovery.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Git: Conflict Resolution & Recovery">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Resolving merge, rebase and cherry-pick conflicts; undoing bad rebases and force-pushes; recovering commits, branches and stashes with the reflog and fsck; r...">
 
 <title>Git: Conflict Resolution & Recovery | Andrews Notebook</title>
 
@@ -3135,74 +3135,122 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Git Internals</a> ›</p>
 
-<p>Git almost never loses work — but it is easy to <em>misplace</em> it. A conflicted rebase, a force-push over a colleague’s commits, a <code class="language-plaintext highlighter-rouge">git reset --hard</code> on the wrong branch, or a deleted branch can all leave a repository that <em>looks</em> broken. The good news: as long as the objects still live in the object store, the reflog and <code class="language-plaintext highlighter-rouge">fsck</code> can almost always get them back. This page is the recovery playbook: how to resolve conflicts methodically, how to undo history rewrites safely, and how to dig commits out of the object database when every visible reference to them is gone.</p>
+<p>Git rarely loses committed work, but it is easy to misplace it. A conflicted rebase, a force-push over a colleague’s commits, a <code class="language-plaintext highlighter-rouge">reset --hard</code> on the wrong branch or a deleted branch can all leave a repository that looks broken while every object is still on disk. This page covers resolving conflicts methodically, undoing history rewrites, finding commits that no reference points to, and repairing a damaged repository. It assumes the <a href="object-model.html">object model</a> (objects, refs, <code class="language-plaintext highlighter-rouge">HEAD</code>) and the <a href="algorithms-and-operations.html">merge and rebase algorithms</a>.</p>
 
-<p>This page assumes familiarity with the <a href="object-model.html">object model</a> (commits, refs, the <code class="language-plaintext highlighter-rouge">HEAD</code> pointer) and the <a href="algorithms-and-operations.html">three-way merge and rebase algorithms</a>. If a term like “merge base”, “dangling object”, or “reflog” is unfamiliar, read those pages first.</p>
+<h2 id="why-committed-work-is-rarely-lost">Why committed work is rarely lost</h2>
 
-<h2 id="the-mental-model-why-almost-nothing-is-ever-lost">The Mental Model: Why Almost Nothing Is Ever Lost</h2>
-
-<p>Git is a content-addressable object store layered under a thin set of mutable pointers. Three facts make recovery possible:</p>
+<p>Git is an immutable, content-addressed object store under a thin layer of mutable pointers. Three properties make recovery possible:</p>
 
 <ol>
-  <li><strong>Commits are immutable and content-addressed.</strong> A commit is named by the SHA-1/SHA-256 hash of its content. “Rewriting history” never edits a commit in place — it creates <em>new</em> commits and moves a <em>pointer</em> to them. The old commits still exist in <code class="language-plaintext highlighter-rouge">.git/objects</code>.</li>
-  <li><strong>Every pointer move is logged.</strong> Whenever <code class="language-plaintext highlighter-rouge">HEAD</code> or a branch ref changes, Git appends a line to its <strong>reflog</strong> (<code class="language-plaintext highlighter-rouge">.git/logs/</code>). The reflog records where a ref <em>used to point</em>, even after the branch label is gone from the visible graph.</li>
-  <li><strong>Unreferenced objects survive until garbage collection.</strong> A commit with no ref or reflog entry pointing at it becomes <strong>dangling</strong>, but it stays on disk until <code class="language-plaintext highlighter-rouge">git gc</code> prunes it — by default 90 days for reachable-via-reflog objects and 2 weeks for truly unreachable ones (<code class="language-plaintext highlighter-rouge">gc.reflogExpire</code>, <code class="language-plaintext highlighter-rouge">gc.pruneExpire</code>).</li>
+  <li><strong>Commits are never edited.</strong> Amending, rebasing or resetting creates new commits and moves a pointer; the old commits stay in <code class="language-plaintext highlighter-rouge">.git/objects</code>.</li>
+  <li><strong>Pointer moves are logged.</strong> Every update to <code class="language-plaintext highlighter-rouge">HEAD</code> or a branch appends an entry to that ref’s <strong>reflog</strong>, recording where it pointed before.</li>
+  <li><strong>Unreferenced objects survive until pruned.</strong> An object that nothing references stays on disk until <code class="language-plaintext highlighter-rouge">git gc</code> (or <code class="language-plaintext highlighter-rouge">git maintenance</code>) prunes it, and pruning only removes loose objects older than <code class="language-plaintext highlighter-rouge">gc.pruneExpire</code>.</li>
 </ol>
 
 <pre><code class="language-mermaid">flowchart LR
     subgraph Pointers["Mutable pointers"]
-        HEAD[HEAD] --&gt; main[(main)]
-        reflog[[reflog]]
+        HEAD["HEAD"] --&gt; main["main"]
+        reflog[["reflog: main@{1}"]]
     end
-    subgraph Store["Immutable object store (.git/objects)"]
+    subgraph Store["Object store"]
         c1((C1)) --&gt; c2((C2)) --&gt; c3((C3))
-        c2 --&gt; d1((dangling D1)) --&gt; d2((dangling D2))
+        c2 --&gt; d1((D1)) --&gt; d2((D2))
     end
     main --&gt; c3
-    reflog -.remembers.-&gt; d2
+    reflog -. "still references" .-&gt; d2
 </code></pre>
 
-<p>The practical consequence: <strong>recovery is almost always “find the hash of the lost commit, then point a ref at it.”</strong> The reflog finds it when a ref recently pointed there; <code class="language-plaintext highlighter-rouge">git fsck</code> finds it when nothing does.</p>
-
-<h2 id="resolving-merge-conflicts">Resolving Merge Conflicts</h2>
-
-<p>A conflict occurs when the three-way merge cannot reconcile overlapping changes to the same region of a file (see <a href="algorithms-and-operations.html#three-way-merge-algorithm">the merge algorithm</a>). Git pauses, writes conflict markers into the working tree, and records all three versions in the index.</p>
-
-<h3 id="the-conflicted-index">The Conflicted Index</h3>
-
-<p>During a conflict the index holds up to three <em>stages</em> of each conflicted path, instead of the usual single stage 0:</p>
+<p>In the diagram, <code class="language-plaintext highlighter-rouge">main</code> was reset from <code class="language-plaintext highlighter-rouge">D2</code> back to <code class="language-plaintext highlighter-rouge">C2</code> and then moved on to <code class="language-plaintext highlighter-rouge">C3</code>. <code class="language-plaintext highlighter-rouge">D1</code> and <code class="language-plaintext highlighter-rouge">D2</code> are no longer on any branch, but the reflog still references <code class="language-plaintext highlighter-rouge">D2</code>, so they are safe until that reflog entry expires.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Stage</th>
-      <th>Meaning</th>
+      <th>Setting</th>
+      <th>Default</th>
+      <th>Controls</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>1</td>
-      <td>The <strong>base</strong> (merge-base / common ancestor) version</td>
+      <td><code class="language-plaintext highlighter-rouge">gc.reflogExpire</code></td>
+      <td>90 days</td>
+      <td>Age at which reflog entries still reachable from the ref’s tip are expired</td>
     </tr>
     <tr>
-      <td>2</td>
-      <td><strong>Ours</strong> (the current branch, <code class="language-plaintext highlighter-rouge">HEAD</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">gc.reflogExpireUnreachable</code></td>
+      <td>30 days</td>
+      <td>Age at which reflog entries <em>not</em> reachable from the tip (typical after <code class="language-plaintext highlighter-rouge">amend</code>, <code class="language-plaintext highlighter-rouge">rebase</code>, <code class="language-plaintext highlighter-rouge">reset</code>) are expired</td>
     </tr>
     <tr>
-      <td>3</td>
-      <td><strong>Theirs</strong> (the branch being merged in)</td>
+      <td><code class="language-plaintext highlighter-rouge">gc.pruneExpire</code></td>
+      <td>2 weeks</td>
+      <td>Minimum age before an unreferenced loose object is deleted</td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git ls-files <span class="nt">-u</span>            <span class="c"># List unmerged paths with their stages</span>
-git status                 <span class="c"># "Unmerged paths:" section lists conflicts</span>
-git diff <span class="nt">--name-only</span> <span class="nt">--diff-filter</span><span class="o">=</span>U   <span class="c"># Just the conflicted file names</span>
+<p>So the practical window for a commit abandoned by a rebase is about 30 days via the reflog, plus up to two more weeks during which <code class="language-plaintext highlighter-rouge">fsck</code> can still find it. Recovery almost always comes down to one step: <strong>find the hash of the lost commit, then point a ref at it.</strong> The reflog finds it if a ref recently pointed there; <code class="language-plaintext highlighter-rouge">git fsck</code> finds it if nothing did.</p>
+
+<p>Uncommitted edits are the exception. Changes that were never staged exist only in the working tree, and <code class="language-plaintext highlighter-rouge">reset --hard</code>, <code class="language-plaintext highlighter-rouge">checkout -- file</code> or <code class="language-plaintext highlighter-rouge">restore file</code> destroy them permanently. Changes that were staged at some point left blobs behind that <code class="language-plaintext highlighter-rouge">fsck</code> can sometimes find.</p>
+
+<h2 id="resolving-merge-conflicts">Resolving merge conflicts</h2>
+
+<p>A conflict occurs when a three-way merge cannot reconcile changes to the same region of a file, or when the two sides made incompatible changes to the tree (see the <a href="algorithms-and-operations.html#three-way-merge-algorithm">merge algorithm</a>). Git stops, writes markers into conflicted files, and records every version of each conflicted path in the index.</p>
+
+<h3 id="previewing-before-merging">Previewing before merging</h3>
+
+<p><code class="language-plaintext highlighter-rouge">git merge-tree --write-tree</code> computes a merge in memory without touching the working tree, so you can check for conflicts first:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge-tree <span class="nt">--write-tree</span> <span class="nt">--name-only</span> main feature
+<span class="c"># exit status 1 plus a list of conflicted paths means the real merge will stop</span>
 </code></pre></div></div>
 
-<h3 id="conflict-markers">Conflict Markers</h3>
+<h3 id="the-conflicted-index">The conflicted index</h3>
 
-<p>Git rewrites each conflicted hunk with markers. With <code class="language-plaintext highlighter-rouge">merge.conflictStyle = diff3</code> (or <code class="language-plaintext highlighter-rouge">zdiff3</code>, recommended) you also get the merge-base section, which makes intent much clearer:</p>
+<p>For a conflicted path the index holds up to three <strong>stages</strong> instead of the usual single stage 0:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center">Stage</th>
+      <th>Contents</th>
+      <th>Read it with</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center">1</td>
+      <td>Merge base</td>
+      <td><code class="language-plaintext highlighter-rouge">git show :1:path</code></td>
+    </tr>
+    <tr>
+      <td style="text-align: center">2</td>
+      <td>Ours (<code class="language-plaintext highlighter-rouge">HEAD</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">git show :2:path</code></td>
+    </tr>
+    <tr>
+      <td style="text-align: center">3</td>
+      <td>Theirs (the incoming commit)</td>
+      <td><code class="language-plaintext highlighter-rouge">git show :3:path</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A missing stage indicates a structural conflict: no stage 1 means both sides added the path (add/add); a missing stage 2 or 3 means one side deleted it (modify/delete).</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git status                               <span class="c"># "Unmerged paths" section</span>
+git diff <span class="nt">--name-only</span> <span class="nt">--diff-filter</span><span class="o">=</span>U     <span class="c"># just the conflicted paths</span>
+git ls-files <span class="nt">-u</span>                          <span class="c"># stages and blob IDs per path</span>
+git diff                                 <span class="c"># combined diff of the conflicts</span>
+git log <span class="nt">--merge</span> <span class="nt">-p</span> <span class="nt">--</span> path               <span class="c"># commits on either side that touched path</span>
+</code></pre></div></div>
+
+<h3 id="conflict-markers">Conflict markers</h3>
+
+<p>Set the <code class="language-plaintext highlighter-rouge">zdiff3</code> style once; the base section it adds shows what both sides started from, which usually reveals whether a change was a deliberate edit or incidental:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> merge.conflictStyle zdiff3
+</code></pre></div></div>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
 timeout = 30
@@ -3213,441 +3261,464 @@ timeout = 60
 &gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/raise-timeout
 </code></pre></div></div>
 
-<p>The base section (<code class="language-plaintext highlighter-rouge">||||||| merge base</code>) shows what <em>both</em> sides started from — invaluable for deciding whether a side’s change was additive or a true disagreement. Enable it once:</p>
+<p>Both sides raised the timeout from 10, to different values, so this is a genuine disagreement to settle by hand rather than a case where one side’s edit can simply be kept.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> merge.conflictStyle zdiff3
-</code></pre></div></div>
+<h3 id="resolving-step-by-step">Resolving step by step</h3>
 
-<h3 id="resolving-step-by-step">Resolving Step by Step</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. See what conflicts</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. List conflicts</span>
 git status
 
-<span class="c"># 2. Edit each file: remove the markers, keep the intended result.</span>
-<span class="c">#    Or accept one side wholesale:</span>
-git checkout <span class="nt">--ours</span>   path/to/file     <span class="c"># keep HEAD's version</span>
-git checkout <span class="nt">--theirs</span> path/to/file     <span class="c"># keep the incoming version</span>
+<span class="c"># 2. Edit each file into its intended final state and remove the markers,</span>
+<span class="c">#    or take one side for a whole file:</span>
+git restore <span class="nt">--ours</span>   path/to/file        <span class="c"># same as: git checkout --ours path/to/file</span>
+git restore <span class="nt">--theirs</span> path/to/file
+<span class="c">#    Start over on a file, re-creating the conflict markers:</span>
+git restore <span class="nt">--merge</span>  path/to/file        <span class="c"># same as: git checkout -m path/to/file</span>
 
-<span class="c"># 3. Mark each file resolved by staging it</span>
+<span class="c"># 3. Mark it resolved (for a modify/delete conflict, use git rm to accept the deletion)</span>
 git add path/to/file
 
-<span class="c"># 4. Finish the merge (reuses the prepared merge message)</span>
-git commit                             <span class="c"># or: git merge --continue</span>
+<span class="c"># 4. Conclude</span>
+git merge <span class="nt">--continue</span>                     <span class="c"># or: git commit</span>
 
-<span class="c"># Abort entirely and return to the pre-merge state</span>
+<span class="c"># Or give up and return to the pre-merge state</span>
 git merge <span class="nt">--abort</span>
 </code></pre></div></div>
 
-<blockquote>
-  <p><strong>“ours” and “theirs” flip during rebase.</strong> During a <em>merge</em>, <code class="language-plaintext highlighter-rouge">--ours</code> is your current branch. During a <em>rebase</em>, the meaning inverts: <code class="language-plaintext highlighter-rouge">--ours</code> refers to the branch you are rebasing <em>onto</em> (the new base), and <code class="language-plaintext highlighter-rouge">--theirs</code> is the commit being replayed. This trips up nearly everyone — when in doubt, inspect with <code class="language-plaintext highlighter-rouge">git diff</code> and resolve by content rather than by side.</p>
-</blockquote>
+<p><code class="language-plaintext highlighter-rouge">git diff --check</code> before committing catches leftover conflict markers and whitespace errors.</p>
 
-<h3 id="tools-that-reduce-conflict-toil">Tools That Reduce Conflict Toil</h3>
+<h3 id="what-ours-and-theirs-mean">What “ours” and “theirs” mean</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Launch a configured 3-way merge tool (vimdiff, meld, kdiff3, vscode, ...)</span>
-git mergetool
+<p>The labels refer to positions in the underlying three-way merge, not to who wrote the code, so they swap depending on the operation:</p>
 
-<span class="c"># rerere: "reuse recorded resolution" — remembers how you resolved a</span>
-<span class="c"># given conflict and replays it automatically next time it recurs.</span>
-git config <span class="nt">--global</span> rerere.enabled <span class="nb">true</span>
+<table>
+  <thead>
+    <tr>
+      <th>Operation</th>
+      <th><code class="language-plaintext highlighter-rouge">--ours</code> / stage 2</th>
+      <th><code class="language-plaintext highlighter-rouge">--theirs</code> / stage 3</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git merge feature</code></td>
+      <td>Your current branch</td>
+      <td><code class="language-plaintext highlighter-rouge">feature</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git rebase main</code></td>
+      <td><code class="language-plaintext highlighter-rouge">main</code> plus the commits already replayed</td>
+      <td>The commit of yours being replayed</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git cherry-pick X</code></td>
+      <td>Your current branch</td>
+      <td>Commit <code class="language-plaintext highlighter-rouge">X</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git revert X</code></td>
+      <td>Your current branch</td>
+      <td>The inverse of <code class="language-plaintext highlighter-rouge">X</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git stash pop</code> / <code class="language-plaintext highlighter-rouge">apply</code></td>
+      <td>Your current branch</td>
+      <td>The stashed changes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Rebase is the one that surprises people: your own work is “theirs”. When in doubt, look at the stages with <code class="language-plaintext highlighter-rouge">git show :2:path</code> and <code class="language-plaintext highlighter-rouge">:3:path</code> and resolve by content rather than by label.</p>
+
+<h3 id="tools-that-reduce-conflict-work">Tools that reduce conflict work</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git mergetool                             <span class="c"># open each conflict in the configured tool</span>
+git config <span class="nt">--global</span> merge.tool vscode     <span class="c"># or meld, kdiff3, vimdiff, ...</span>
+
+git config <span class="nt">--global</span> rerere.enabled <span class="nb">true</span>   <span class="c"># record and reuse resolutions</span>
+git config <span class="nt">--global</span> rerere.autoUpdate <span class="nb">true</span>   <span class="c"># also stage reused resolutions</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">rerere</code> is especially valuable when a long-lived branch is repeatedly rebased or merged against a moving target: you resolve each unique conflict once, and Git auto-applies the recorded resolution on every subsequent encounter.</p>
+<p><strong>rerere</strong> (“reuse recorded resolution”) stores each resolved conflict, keyed by its conflicting hunks, under <code class="language-plaintext highlighter-rouge">.git/rr-cache/</code>. When the identical conflict appears again (the typical case when a long-lived branch is repeatedly rebased or test-merged against a moving <code class="language-plaintext highlighter-rouge">main</code>) Git applies the recorded resolution automatically. Inspect what it did with <code class="language-plaintext highlighter-rouge">git rerere diff</code>, and discard a bad recording with <code class="language-plaintext highlighter-rouge">git rerere forget path</code>.</p>
 
-<h2 id="rebasing-through-conflicts">Rebasing Through Conflicts</h2>
+<h2 id="rebasing-through-conflicts">Rebasing through conflicts</h2>
 
-<p>A rebase replays each of your commits onto a new base, one at a time. Any commit can conflict, so the rebase <strong>pauses mid-replay</strong> and hands you a partially-rebased branch in a detached state.</p>
+<p>A rebase replays commits one at a time, so any of them can conflict. The rebase then stops with <code class="language-plaintext highlighter-rouge">HEAD</code> detached on the partially rebased history.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git rebase main                 <span class="c"># replay current branch onto main</span>
-<span class="c"># ... conflict in commit 2 of 5 ...</span>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant U as You
+    participant G as git rebase
+    U-&gt;&gt;G: git rebase main
+    G-&gt;&gt;G: replay commit 1 of 5 (clean)
+    G--&gt;&gt;U: CONFLICT in commit 2
+    U-&gt;&gt;U: edit files, git add
+    U-&gt;&gt;G: git rebase --continue
+    G-&gt;&gt;G: commit resolved 2, replay 3 to 5
+    G--&gt;&gt;U: done, branch moved to new tip
+    Note over U,G: at any stop: --skip drops the current commit,&lt;br/&gt;--abort restores the original branch from ORIG_HEAD
+</code></pre>
 
-<span class="c"># Resolve the working tree, then stage the resolution:</span>
-git add path/to/file
-
-git rebase <span class="nt">--continue</span>           <span class="c"># replay the next commit</span>
-<span class="c"># (repeat resolve + continue for each conflicting commit)</span>
-
-git rebase <span class="nt">--skip</span>               <span class="c"># drop the current commit entirely</span>
-git rebase <span class="nt">--abort</span>              <span class="c"># bail out; restore the original branch tip</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git rebase main
+<span class="c"># CONFLICT in commit 2 of 5 ...</span>
+git status                      <span class="c"># shows which commit is being replayed</span>
+git add path/to/file            <span class="c"># after resolving</span>
+git rebase <span class="nt">--continue</span>           <span class="c"># commit the resolution and keep going</span>
+git rebase <span class="nt">--skip</span>               <span class="c"># drop the commit being replayed</span>
+git rebase <span class="nt">--abort</span>              <span class="c"># return the branch to where it started</span>
 </code></pre></div></div>
 
-<h3 id="what-continue-actually-does">What “continue” Actually Does</h3>
+<p><code class="language-plaintext highlighter-rouge">--continue</code> commits the staged resolution as the rewritten version of the current commit and carries on with the todo list in <code class="language-plaintext highlighter-rouge">.git/rebase-merge/</code>. <code class="language-plaintext highlighter-rouge">--abort</code> resets the branch to the tip recorded when the rebase began; your original commits are also still in the reflog, so an abort never loses them.</p>
 
-<p>At each pause, Git has applied commits up to the current one onto the new base, leaving <code class="language-plaintext highlighter-rouge">HEAD</code> detached on the partial result. <code class="language-plaintext highlighter-rouge">--continue</code> commits your staged resolution as the replayed version of the current commit, then resumes cherry-picking the remaining todo entries. <code class="language-plaintext highlighter-rouge">--abort</code> reads <code class="language-plaintext highlighter-rouge">ORIG_HEAD</code> (saved at the start) and resets the branch back to exactly where it began — the cleanest escape hatch when a rebase has gone wrong.</p>
-
-<p><strong>Make conflict-heavy rebases survivable:</strong></p>
+<p>Ways to make conflict-heavy rebases manageable:</p>
 
 <ul>
-  <li><strong>Enable <code class="language-plaintext highlighter-rouge">rerere</code></strong> so a conflict resolved on attempt one is replayed automatically on later attempts.</li>
-  <li><strong>Rebase in smaller hops.</strong> Rebasing onto an intermediate commit, then onto the final base, can turn one giant conflict into two small ones.</li>
-  <li><strong>Know the abort.</strong> <code class="language-plaintext highlighter-rouge">git rebase --abort</code> is always safe; it never loses your original commits because they are still referenced by <code class="language-plaintext highlighter-rouge">ORIG_HEAD</code> and the reflog.</li>
+  <li><strong>Enable <code class="language-plaintext highlighter-rouge">rerere</code></strong>, so a conflict resolved once is reapplied when the same hunk conflicts again, including after an abort and retry.</li>
+  <li><strong>Squash first, then rebase.</strong> A branch whose commits edit the same lines repeatedly conflicts once per commit; <code class="language-plaintext highlighter-rouge">git rebase -i --keep-base main</code> to squash those commits in place, followed by a normal rebase, resolves them once.</li>
+  <li><strong>Rebase in smaller hops</strong> onto an intermediate commit of the target, so each step has fewer upstream changes to absorb.</li>
+  <li><strong>Consider merging instead.</strong> A single merge resolves the combined conflict once; a rebase may ask you to resolve the same region at every commit that touches it.</li>
 </ul>
 
-<h2 id="undoing-a-pushed-rebase-or-force-push">Undoing a Pushed Rebase (or Force-Push)</h2>
+<h2 id="undoing-a-pushed-rebase-or-force-push">Undoing a pushed rebase or force-push</h2>
 
-<p>This is the highest-stakes recovery scenario. You rebased a branch, force-pushed it, and now realize the rebase was wrong — or it discarded a collaborator’s commits. Because the rebase only <em>moved a pointer</em>, the original commits are still recoverable.</p>
+<p>Because a rebase only moves a branch pointer, the pre-rebase commits still exist after a bad rebase or force-push, even one that has already been pushed.</p>
 
-<h3 id="recover-your-own-bad-rebase-locally">Recover Your Own Bad Rebase Locally</h3>
+<h3 id="on-the-machine-that-did-the-rebase">On the machine that did the rebase</h3>
 
-<p>If you are on the machine that did the rebase, the reflog still remembers the pre-rebase tip:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reflog show feature          <span class="c"># entries like "feature@{3}: rebase (finish): ..."</span>
+git log <span class="nt">--oneline</span> feature@<span class="o">{</span>4<span class="o">}</span>    <span class="c"># inspect the pre-rebase tip before trusting it</span>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reflog                       <span class="c"># find the line BEFORE the rebase started,</span>
-                                 <span class="c"># e.g. "abc1234 HEAD@{5}: commit: ..."</span>
-
-<span class="c"># Inspect to confirm it is the right state</span>
-git log <span class="nt">--oneline</span> abc1234
-
-<span class="c"># Hard-reset the branch back to the pre-rebase tip...</span>
-git reset <span class="nt">--hard</span> abc1234
-<span class="c"># ...or, equivalently, use the saved ORIG_HEAD from the rebase:</span>
-git reset <span class="nt">--hard</span> ORIG_HEAD
+git reset <span class="nt">--hard</span> feature@<span class="o">{</span>4<span class="o">}</span>     <span class="c"># put the branch back</span>
+<span class="c"># or, straight after the rebase: git reset --hard ORIG_HEAD</span>
 </code></pre></div></div>
 
-<p>Then re-publish with a <em>lease</em> so you do not clobber anyone else again:</p>
+<p>Then publish the corrected branch without overwriting anything you have not seen:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git push <span class="nt">--force-with-lease</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git push <span class="nt">--force-with-lease</span> <span class="nt">--force-if-includes</span>
 </code></pre></div></div>
 
-<h3 id="recover-from-a-force-push-that-erased-a-teammates-work">Recover From a Force-Push That Erased a Teammate’s Work</h3>
+<h3 id="when-a-teammates-commits-were-overwritten">When a teammate’s commits were overwritten</h3>
 
-<p>If someone else’s commits were overwritten on the remote and your local reflog does not have them, you can still recover from any clone that has them, or from the remote’s own reflog if you control the server:</p>
+<p>If someone force-pushed over commits you or a teammate had fetched, any clone that fetched the old tip still has it:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># On a teammate's machine that fetched the old tip:</span>
-git reflog show origin/feature   <span class="c"># find the old remote tip hash</span>
-git branch rescue &lt;old-tip-sha&gt;  <span class="c"># save it to a ref</span>
-git push origin rescue           <span class="c"># publish the rescued commits</span>
-
-<span class="c"># If you run the Git server, the bare repo has its own reflog:</span>
-<span class="c">#   on the server, in the bare repo:</span>
-git reflog refs/heads/feature
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reflog show origin/feature   <span class="c"># remote-tracking refs have reflogs too</span>
+git branch rescue &lt;old-tip-sha&gt;
+git push origin rescue
 </code></pre></div></div>
 
-<blockquote>
-  <p><strong>Always prefer <code class="language-plaintext highlighter-rouge">--force-with-lease</code> over <code class="language-plaintext highlighter-rouge">--force</code>.</strong> <code class="language-plaintext highlighter-rouge">git push --force</code> overwrites the remote branch unconditionally, silently discarding any commits pushed since your last fetch. <code class="language-plaintext highlighter-rouge">git push --force-with-lease</code> refuses the push if the remote tip is not what you last saw — turning a silent data-loss bug into a safe, explicit rejection. Make it the default for any force-push.</p>
-</blockquote>
+<p>A server-side bare repository normally has reflogs disabled (<code class="language-plaintext highlighter-rouge">core.logAllRefUpdates</code> defaults to false in bare repositories), so the server may not help unless it was configured to keep them. Hosted forges record force-pushes in their audit logs and pull-request timelines; GitHub, for example, shows the before and after SHAs of a force-push on the pull request, and the old commits usually remain fetchable by SHA for a while.</p>
 
-<h2 id="interactive-rebase--squashing">Interactive Rebase &amp; Squashing</h2>
-
-<p>Interactive rebase (<code class="language-plaintext highlighter-rouge">git rebase -i &lt;base&gt;</code>) opens a <strong>todo list</strong> of commits and lets you reorder, edit, combine, or drop them before they are replayed. It is the primary tool for cleaning up a messy feature branch before it merges.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git rebase <span class="nt">-i</span> HEAD~5          <span class="c"># edit the last 5 commits</span>
-git rebase <span class="nt">-i</span> main            <span class="c"># edit every commit since main diverged</span>
-</code></pre></div></div>
-
-<p>The editor presents one line per commit, oldest first:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pick a1b2c3d Add login form
-pick b2c3d4e Fix typo in login form          # &lt;- squash into previous
-pick c3d4e5f Add password validation
-pick d4e5f6a WIP debugging                    # &lt;- drop
-pick e5f6a7b Wire up auth backend
-</code></pre></div></div>
-
-<h3 id="the-todo-commands">The Todo Commands</h3>
+<h3 id="force-push-safely">Force-push safely</h3>
 
 <table>
   <thead>
     <tr>
       <th>Command</th>
+      <th>Behaviour</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git push --force</code></td>
+      <td>Overwrites the remote branch unconditionally</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git push --force-with-lease</code></td>
+      <td>Refuses if the remote tip differs from your remote-tracking ref (<code class="language-plaintext highlighter-rouge">origin/feature</code>), i.e. someone pushed since your last fetch</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git push --force-with-lease --force-if-includes</code></td>
+      <td>Additionally refuses if the remote tip was fetched but never integrated into your local branch; closes the hole where a background <code class="language-plaintext highlighter-rouge">git fetch</code> updated <code class="language-plaintext highlighter-rouge">origin/feature</code> and made the lease pass</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Set <code class="language-plaintext highlighter-rouge">git config --global push.useForceIfIncludes true</code> (Git 2.30+) so every <code class="language-plaintext highlighter-rouge">--force-with-lease</code> push gets the extra check.</p>
+
+<h2 id="interactive-rebase-and-squashing">Interactive rebase and squashing</h2>
+
+<p>Interactive rebase is the usual way to turn a messy feature branch into reviewable commits before merging. The todo commands (<code class="language-plaintext highlighter-rouge">pick</code>, <code class="language-plaintext highlighter-rouge">reword</code>, <code class="language-plaintext highlighter-rouge">edit</code>, <code class="language-plaintext highlighter-rouge">squash</code>, <code class="language-plaintext highlighter-rouge">fixup</code>, <code class="language-plaintext highlighter-rouge">drop</code>, <code class="language-plaintext highlighter-rouge">exec</code>, <code class="language-plaintext highlighter-rouge">break</code>) are listed in <a href="algorithms-and-operations.html#interactive-rebase">Interactive rebase</a>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git rebase <span class="nt">-i</span> main               <span class="c"># every commit since the branch left main</span>
+git rebase <span class="nt">-i</span> <span class="nt">--keep-base</span> main   <span class="c"># same commits, but do not move onto newer main</span>
+</code></pre></div></div>
+
+<p>Given this todo list (oldest first):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pick a1b2c3d Add login form
+pick b2c3d4e Fix typo in login form
+pick c3d4e5f Add password validation
+pick d4e5f6a WIP debugging
+pick e5f6a7b Wire up auth backend
+</code></pre></div></div>
+
+<p>rewriting it as</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pick  a1b2c3d Add login form
+fixup b2c3d4e Fix typo in login form
+pick  c3d4e5f Add password validation
+fixup e5f6a7b Wire up auth backend
+drop  d4e5f6a WIP debugging
+</code></pre></div></div>
+
+<p>produces two commits. The typo fix and backend wiring are folded into their predecessors without prompting for a message, and the WIP commit disappears. Moving a line reorders commits; if reordered commits touch the same lines, expect conflicts.</p>
+
+<h3 id="autosquash">Autosquash</h3>
+
+<p>Rather than editing the todo list by hand, record the target of each fix as you commit it:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git commit <span class="nt">--fixup</span><span class="o">=</span>a1b2c3d            <span class="c"># "fixup! Add login form"</span>
+git commit <span class="nt">--squash</span><span class="o">=</span>c3d4e5f           <span class="c"># "squash! Add password validation"</span>
+git commit <span class="nt">--fixup</span><span class="o">=</span>reword:a1b2c3d     <span class="c"># amend only the message of a1b2c3d (Git 2.32+)</span>
+
+git rebase <span class="nt">-i</span> <span class="nt">--autosquash</span> main       <span class="c"># entries are pre-sorted and pre-marked</span>
+git config <span class="nt">--global</span> rebase.autoSquash <span class="nb">true</span>
+</code></pre></div></div>
+
+<p>For a single edit to an older commit on a linear branch, the experimental <code class="language-plaintext highlighter-rouge">git history reword</code> and <code class="language-plaintext highlighter-rouge">git history fixup</code> commands do the same without an editor or a working-tree replay; see <a href="algorithms-and-operations.html#rewriting-without-a-working-tree-replay-and-history"><code class="language-plaintext highlighter-rouge">replay</code> and <code class="language-plaintext highlighter-rouge">history</code></a>.</p>
+
+<h2 id="cherry-pick-with-conflicts">Cherry-pick with conflicts</h2>
+
+<p>A cherry-pick is a three-way merge of one commit’s change, so it conflicts in the same way. For a range, the sequencer stops on each conflicting commit.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick abc1234
+<span class="c"># CONFLICT (content): Merge conflict in src/app.py</span>
+git add src/app.py
+git cherry-pick <span class="nt">--continue</span>       <span class="c"># commit with the original message</span>
+git cherry-pick <span class="nt">--skip</span>           <span class="c"># drop this commit, continue with the range</span>
+git cherry-pick <span class="nt">--abort</span>          <span class="c"># restore the pre-cherry-pick state</span>
+</code></pre></div></div>
+
+<p>When you find yourself cherry-picking a long contiguous run of commits, <code class="language-plaintext highlighter-rouge">git rebase --onto</code> is usually the better tool; it computes the range for you and records the original tip in <code class="language-plaintext highlighter-rouge">ORIG_HEAD</code> and the reflog.</p>
+
+<h2 id="reflog-recovering-lost-commits">Reflog: recovering lost commits</h2>
+
+<p>The reflog is the first place to look after a <code class="language-plaintext highlighter-rouge">reset --hard</code>, a bad rebase, an <code class="language-plaintext highlighter-rouge">amend</code>, a mistaken merge, or a deleted branch. It records every position <code class="language-plaintext highlighter-rouge">HEAD</code> and each branch has held, locally.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reflog                       <span class="c"># HEAD's history</span>
+git reflog show feature          <span class="c"># one branch's history</span>
+git reflog <span class="nt">--date</span><span class="o">=</span>iso            <span class="c"># absolute timestamps</span>
+git log <span class="nt">-g</span> <span class="nt">--oneline</span> <span class="nt">--grep</span><span class="o">=</span>wip  <span class="c"># search reflog entries like a log</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>e5f6a7b HEAD@{0}: reset: moving to HEAD~3
+1a2b3c4 HEAD@{1}: commit: Add password validation   &lt;- the work to get back
+b2c3d4e HEAD@{2}: commit: Add login form
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">HEAD@{2}</code> means “two moves ago”. Time-based forms such as <code class="language-plaintext highlighter-rouge">main@{yesterday}</code> and <code class="language-plaintext highlighter-rouge">HEAD@{2.hours.ago}</code> resolve a ref to where it pointed at that time.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git show HEAD@<span class="o">{</span>1<span class="o">}</span>                <span class="c"># inspect before acting</span>
+
+git branch recovered HEAD@<span class="o">{</span>1<span class="o">}</span>    <span class="c"># safest: give it a new branch</span>
+git reset <span class="nt">--hard</span> HEAD@<span class="o">{</span>1<span class="o">}</span>        <span class="c"># or move the current branch back (discards later work)</span>
+git cherry-pick HEAD@<span class="o">{</span>1<span class="o">}</span>         <span class="c"># or copy just that commit onto the current branch</span>
+</code></pre></div></div>
+
+<p>The reflog has limits:</p>
+
+<ul>
+  <li>It is <strong>local</strong>. Reflogs are never pushed or fetched, and a fresh clone starts with an empty one.</li>
+  <li>Entries <strong>expire</strong> (see the <a href="#why-committed-work-is-rarely-lost">defaults above</a>), after which <code class="language-plaintext highlighter-rouge">gc</code> can prune the objects.</li>
+  <li>Deleting a branch with the default <code class="language-plaintext highlighter-rouge">files</code> ref backend also deletes that branch’s own reflog; <code class="language-plaintext highlighter-rouge">HEAD</code>’s reflog, which usually recorded the same commits, survives.</li>
+</ul>
+
+<p>Move anything you recover onto a named branch promptly.</p>
+
+<h2 id="fsck-finding-commits-the-reflog-forgot">fsck: finding commits the reflog forgot</h2>
+
+<p>When the reflog has expired, or a commit was never on a ref (a dropped stash, a commit made on a detached <code class="language-plaintext highlighter-rouge">HEAD</code> long ago), <code class="language-plaintext highlighter-rouge">git fsck</code> walks the whole object database and reports objects that nothing references.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fsck <span class="nt">--full</span>                  <span class="c"># verify every object</span>
+git fsck <span class="nt">--unreachable</span>           <span class="c"># list objects unreachable from any ref or reflog</span>
+git fsck <span class="nt">--no-reflogs</span>            <span class="c"># also treat reflog-only objects as unreachable</span>
+git fsck <span class="nt">--lost-found</span>            <span class="c"># write dangling objects to .git/lost-found/</span>
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dangling commit 1a2b3c4d...      &lt;- a commit nothing points to
+dangling blob   9f8e7d6c...      &lt;- file contents, e.g. from a staged-then-discarded change
+</code></pre></div></div>
+
+<p>A <em>dangling</em> object has no referrer at all; an <em>unreachable</em> object may be referenced only by other unreachable objects. Dangling commits are the tips of lost chains, so they are the ones to look at:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fsck <span class="nt">--no-reflogs</span> <span class="nt">--dangling</span> 2&gt;/dev/null |
+  <span class="nb">awk</span> <span class="s1">'$2 == "commit" {print $3}'</span> |
+  xargs <span class="nt">-r</span> git log <span class="nt">--no-walk</span> <span class="nt">--format</span><span class="o">=</span><span class="s1">'%h %ci %s'</span>
+
+git branch recovered &lt;sha&gt;       <span class="c"># give the right one a home</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">--lost-found</code> writes dangling commits to <code class="language-plaintext highlighter-rouge">.git/lost-found/commit/</code> and other objects (usually blobs) to <code class="language-plaintext highlighter-rouge">.git/lost-found/other/</code>, where you can <code class="language-plaintext highlighter-rouge">grep</code> through recovered file contents.</p>
+
+<h3 id="recovering-a-dropped-stash">Recovering a dropped stash</h3>
+
+<p>A stash entry is a commit (see <a href="algorithms-and-operations.html#stash">Stash</a>), and <code class="language-plaintext highlighter-rouge">git stash drop</code> or <code class="language-plaintext highlighter-rouge">clear</code> only removes its reflog entry. Dropped stashes show up as dangling commits whose message starts with <code class="language-plaintext highlighter-rouge">WIP on</code> or <code class="language-plaintext highlighter-rouge">On &lt;branch&gt;:</code>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fsck <span class="nt">--no-reflogs</span> <span class="nt">--dangling</span> 2&gt;/dev/null | <span class="nb">awk</span> <span class="s1">'$2 == "commit" {print $3}'</span> |
+  xargs <span class="nt">-r</span> git log <span class="nt">--no-walk</span> <span class="nt">--format</span><span class="o">=</span><span class="s1">'%h %s'</span> | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">' (WIP on|On) '</span>
+git stash apply &lt;sha&gt;
+</code></pre></div></div>
+
+<h2 id="recovering-a-deleted-branch">Recovering a deleted branch</h2>
+
+<p>Deleting a branch removes only the ref; its commits remain until pruned.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># The deletion message itself contains the hash:</span>
+<span class="c">#   Deleted branch feature (was a1b2c3d).</span>
+git branch feature a1b2c3d
+
+<span class="c"># Otherwise, HEAD's reflog recorded time spent on the branch:</span>
+git reflog | <span class="nb">grep</span> <span class="nt">-m1</span> <span class="s1">'checkout: moving from feature'</span>
+git branch feature &lt;sha&gt;
+
+<span class="c"># Otherwise, look for a dangling tip:</span>
+git fsck <span class="nt">--no-reflogs</span> <span class="nt">--dangling</span> | <span class="nb">grep </span>commit
+</code></pre></div></div>
+
+<p>If the branch was pushed, <code class="language-plaintext highlighter-rouge">git branch feature origin/feature</code> works as long as <code class="language-plaintext highlighter-rouge">origin/feature</code> has not been pruned by <code class="language-plaintext highlighter-rouge">git fetch --prune</code>; its reflog (<code class="language-plaintext highlighter-rouge">git reflog show origin/feature</code>) may still have the hash even if it has.</p>
+
+<h2 id="repairing-a-corrupted-repository">Repairing a corrupted repository</h2>
+
+<p>Corruption from a crash mid-write, a full disk, a faulty filesystem or a cloud-sync tool rewriting <code class="language-plaintext highlighter-rouge">.git</code> typically appears as <code class="language-plaintext highlighter-rouge">error: object file ... is empty</code>, <code class="language-plaintext highlighter-rouge">fatal: loose object ... is corrupt</code>, <code class="language-plaintext highlighter-rouge">bad object HEAD</code> or <code class="language-plaintext highlighter-rouge">fatal: bad index file</code>. <strong>Copy the repository before attempting any repair.</strong></p>
+
+<h3 id="diagnose">Diagnose</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cp</span> <span class="nt">-a</span> .git ../git-backup          <span class="c"># back up first</span>
+git fsck <span class="nt">--full</span>                   <span class="c"># which objects are missing or corrupt</span>
+git count-objects <span class="nt">-vH</span>             <span class="c"># object and pack counts, garbage</span>
+</code></pre></div></div>
+
+<h3 id="common-repairs">Common repairs</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Repair</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Empty loose object files</td>
+      <td><code class="language-plaintext highlighter-rouge">find .git/objects -type f -empty -delete</code>, then <code class="language-plaintext highlighter-rouge">git fsck --full</code> again. Empty files contain nothing, so removing them loses nothing; the objects may still exist in a pack or on a remote.</td>
+    </tr>
+    <tr>
+      <td>Missing or corrupt objects that a remote has</td>
+      <td><code class="language-plaintext highlighter-rouge">git fetch origin</code> retrieves any objects the remote has. For objects Git believes it already has, fetch from a fresh clone and copy its pack into <code class="language-plaintext highlighter-rouge">.git/objects/pack/</code>, or add the clone as an alternate.</td>
+    </tr>
+    <tr>
+      <td>Corrupt branch ref</td>
+      <td><code class="language-plaintext highlighter-rouge">git update-ref refs/heads/main &lt;good-sha&gt;</code> (works with both the <code class="language-plaintext highlighter-rouge">files</code> and <code class="language-plaintext highlighter-rouge">reftable</code> backends; do not write ref files by hand)</td>
+    </tr>
+    <tr>
+      <td>Broken <code class="language-plaintext highlighter-rouge">HEAD</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git symbolic-ref HEAD refs/heads/main</code></td>
+    </tr>
+    <tr>
+      <td>Corrupt index</td>
+      <td><code class="language-plaintext highlighter-rouge">rm .git/index &amp;&amp; git reset</code>; the index is derived data and is rebuilt from <code class="language-plaintext highlighter-rouge">HEAD</code> without touching the working tree</td>
+    </tr>
+    <tr>
+      <td>Corrupt pack file</td>
+      <td>Move the pack and its <code class="language-plaintext highlighter-rouge">.idx</code> out of <code class="language-plaintext highlighter-rouge">.git/objects/pack/</code>, then <code class="language-plaintext highlighter-rouge">git unpack-objects -r &lt; moved.pack</code> to salvage every readable object, and fetch the rest from a remote</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="re-clone-when-a-healthy-copy-exists">Re-clone when a healthy copy exists</h3>
+
+<p>If a remote holds everything you have committed, a fresh clone is the most reliable fix. Rescue uncommitted work first:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>broken-repo
+git diff HEAD <span class="o">&gt;</span> ../uncommitted.patch 2&gt;/dev/null <span class="o">||</span> <span class="nb">true</span>   <span class="c"># may fail if HEAD is unreadable</span>
+git ls-files <span class="nt">--others</span> <span class="nt">--exclude-standard</span> <span class="nt">-z</span> | xargs <span class="nt">-0</span> <span class="nb">tar </span>czf ../untracked.tgz
+
+<span class="nb">cd</span> ..
+git clone &lt;remote-url&gt; repo-fresh
+<span class="nb">cd </span>repo-fresh
+git apply ../uncommitted.patch <span class="o">&amp;&amp;</span> <span class="nb">tar </span>xzf ../untracked.tgz
+</code></pre></div></div>
+
+<p>If <code class="language-plaintext highlighter-rouge">git diff</code> fails, copy the working-tree files over the fresh clone instead and let <code class="language-plaintext highlighter-rouge">git status</code> show the differences. Local branches that were never pushed can be recovered from the broken repository with <code class="language-plaintext highlighter-rouge">git bundle create ../rescue.bundle --all</code> if its objects are still readable, or by fetching from it directly (<code class="language-plaintext highlighter-rouge">git fetch ../broken-repo 'refs/heads/*:refs/remotes/broken/*'</code>).</p>
+
+<p>Recovery tools only work on objects that are still intact. If an object is corrupt and no other copy (remote, clone, backup) exists, its content is gone, which is the strongest practical argument for pushing often and for periodic <code class="language-plaintext highlighter-rouge">git bundle create backup.bundle --all</code> snapshots of repositories without a remote.</p>
+
+<h2 id="preventing-the-next-incident">Preventing the next incident</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Setting or habit</th>
       <th>Effect</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">pick</code></td>
-      <td>Keep the commit as-is</td>
+      <td><code class="language-plaintext highlighter-rouge">push.useForceIfIncludes=true</code> and always <code class="language-plaintext highlighter-rouge">--force-with-lease</code></td>
+      <td>Force-pushes refuse to overwrite commits you have not seen or integrated</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">reword</code></td>
-      <td>Keep the commit, but stop to edit its message</td>
+      <td>Protected branches on the forge</td>
+      <td>Force-push and deletion of <code class="language-plaintext highlighter-rouge">main</code> and release branches are rejected server-side</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">edit</code></td>
-      <td>Stop <em>after</em> applying it so you can amend the snapshot (<code class="language-plaintext highlighter-rouge">git commit --amend</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">merge.conflictStyle=zdiff3</code></td>
+      <td>Conflict hunks show the merge base</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">squash</code> (<code class="language-plaintext highlighter-rouge">s</code>)</td>
-      <td>Combine into the previous commit; <strong>merge both messages</strong> in an editor</td>
+      <td><code class="language-plaintext highlighter-rouge">rerere.enabled=true</code></td>
+      <td>Repeated conflicts are resolved once</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">fixup</code> (<code class="language-plaintext highlighter-rouge">f</code>)</td>
-      <td>Like squash, but <strong>discard this commit’s message</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">rebase.updateRefs=true</code></td>
+      <td>Rebasing a stack of branches keeps all of them consistent</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">drop</code> (<code class="language-plaintext highlighter-rouge">d</code>)</td>
-      <td>Remove the commit entirely</td>
+      <td><code class="language-plaintext highlighter-rouge">transfer.fsckObjects=true</code></td>
+      <td>Objects are checked for corruption and malformed data on fetch and receive</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">exec</code> (<code class="language-plaintext highlighter-rouge">x</code>)</td>
-      <td>Run a shell command (e.g. tests) at this point</td>
+      <td><code class="language-plaintext highlighter-rouge">git maintenance start</code></td>
+      <td>Scheduled background maintenance (commit-graph, prefetch, incremental repack) instead of large synchronous <code class="language-plaintext highlighter-rouge">gc</code> runs</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">break</code></td>
-      <td>Stop here unconditionally, then <code class="language-plaintext highlighter-rouge">git rebase --continue</code> to resume</td>
+      <td>Never keep <code class="language-plaintext highlighter-rouge">.git</code> in Dropbox, OneDrive or similar sync folders</td>
+      <td>Sync tools that rewrite files mid-operation are a common source of corruption</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git branch backup/&lt;name&gt;</code> before risky operations</td>
+      <td>Any reset, rebase or filter can be undone with one <code class="language-plaintext highlighter-rouge">reset --hard</code></td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="squashing-a-cluster-of-commits">Squashing a Cluster of Commits</h3>
+<p>The last habit is the cheapest. A branch costs one small ref, and it turns “where did my work go?” into <code class="language-plaintext highlighter-rouge">git reset --hard backup/&lt;name&gt;</code>.</p>
 
-<p>To fold the four commits above into two clean ones — “Add login form” and “Add auth” — rewrite the todo list:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pick   a1b2c3d Add login form
-fixup  b2c3d4e Fix typo in login form
-pick   c3d4e5f Add password validation
-fixup  e5f6a7b Wire up auth backend
-drop   d4e5f6a WIP debugging
-</code></pre></div></div>
-
-<p><code class="language-plaintext highlighter-rouge">fixup</code> absorbs the typo fix and the backend wiring into their preceding commits without prompting for a message; <code class="language-plaintext highlighter-rouge">drop</code> deletes the WIP commit.</p>
-
-<h3 id="autosquash-mark-fixups-as-you-go">Autosquash: Mark Fixups As You Go</h3>
-
-<p>You do not have to hand-edit the todo list. Create fixup/squash commits while working, then let <code class="language-plaintext highlighter-rouge">--autosquash</code> reorder them automatically:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># While developing, target an earlier commit by hash:</span>
-git commit <span class="nt">--fixup</span><span class="o">=</span>a1b2c3d        <span class="c"># creates "fixup! Add login form"</span>
-git commit <span class="nt">--squash</span><span class="o">=</span>c3d4e5f       <span class="c"># creates "squash! Add password validation"</span>
-
-<span class="c"># Later, autosquash slots them next to their targets and pre-fills</span>
-<span class="c"># the todo list with the right fixup/squash actions:</span>
-git rebase <span class="nt">-i</span> <span class="nt">--autosquash</span> main
-</code></pre></div></div>
-
-<p>Enable it permanently with <code class="language-plaintext highlighter-rouge">git config --global rebase.autosquash true</code>. This is the cleanest squashing workflow: keep committing small, mark each commit’s target as you go, and let the final rebase assemble a tidy history.</p>
-
-<h2 id="cherry-pick-with-conflicts">Cherry-Pick With Conflicts</h2>
-
-<p><code class="language-plaintext highlighter-rouge">git cherry-pick</code> applies the <em>diff introduced by a commit</em> onto your current branch as a new commit. Because the surrounding context may differ, cherry-picks conflict just like merges and rebases.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick &lt;sha&gt;            <span class="c"># apply one commit</span>
-git cherry-pick &lt;sha1&gt;^..&lt;sha2&gt;  <span class="c"># apply an inclusive range</span>
-git cherry-pick <span class="nt">-x</span> &lt;sha&gt;         <span class="c"># append "(cherry picked from commit ...)"</span>
-git cherry-pick <span class="nt">-n</span> &lt;sha&gt;         <span class="c"># apply to working tree, do NOT commit</span>
-</code></pre></div></div>
-
-<h3 id="driving-a-conflicted-cherry-pick">Driving a Conflicted Cherry-Pick</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick abc1234
-<span class="c"># CONFLICT (content): Merge conflict in src/app.py</span>
-
-<span class="c"># Resolve the file, then stage it:</span>
-git add src/app.py
-
-git cherry-pick <span class="nt">--continue</span>       <span class="c"># finish; reuses the original message</span>
-git cherry-pick <span class="nt">--skip</span>           <span class="c"># drop this commit, move to the next in a range</span>
-git cherry-pick <span class="nt">--abort</span>          <span class="c"># restore the pre-cherry-pick state</span>
-</code></pre></div></div>
-
-<p>The resolution mechanics are identical to a merge: the index carries stages 1/2/3, <code class="language-plaintext highlighter-rouge">--ours</code> is your current branch, <code class="language-plaintext highlighter-rouge">--theirs</code> is the commit being picked. For a <em>range</em> of commits, Git pauses on each conflicting commit, and <code class="language-plaintext highlighter-rouge">--continue</code>/<code class="language-plaintext highlighter-rouge">--skip</code> advance through the sequence just like a rebase.</p>
-
-<p><strong>Cherry-pick vs. rebase:</strong> a cherry-pick is a single commit’s worth of the same replay machinery a rebase uses for the whole branch. If you find yourself cherry-picking a long contiguous run of commits, an interactive rebase (or <code class="language-plaintext highlighter-rouge">git rebase --onto</code>) is usually the better tool — it tracks the original branch point and the reflog for you.</p>
-
-<h2 id="reflog-recovering-lost-commits">Reflog: Recovering Lost Commits</h2>
-
-<p>The <strong>reflog</strong> is the first place to look whenever a commit “disappears” after a <code class="language-plaintext highlighter-rouge">reset --hard</code>, a bad <code class="language-plaintext highlighter-rouge">rebase</code>, an <code class="language-plaintext highlighter-rouge">amend</code>, a botched <code class="language-plaintext highlighter-rouge">merge</code>, or an accidental branch deletion. It records every position <code class="language-plaintext highlighter-rouge">HEAD</code> and each branch has occupied, with timestamps.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reflog                       <span class="c"># HEAD's movement history</span>
-git reflog show &lt;branch&gt;         <span class="c"># a specific branch's history</span>
-git reflog <span class="nt">--date</span><span class="o">=</span>iso           <span class="c"># absolute timestamps instead of "2 hours ago"</span>
-</code></pre></div></div>
-
-<p>Typical output:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>e5f6a7b HEAD@{0}: reset: moving to HEAD~3
-1a2b3c4 HEAD@{1}: commit: Add password validation   &lt;- the work I want back
-b2c3d4e HEAD@{2}: commit: Add login form
-</code></pre></div></div>
-
-<h3 id="recovering-a-specific-lost-state">Recovering a Specific Lost State</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Look at the lost commit before committing to it</span>
-git show HEAD@<span class="o">{</span>1<span class="o">}</span>
-git log <span class="nt">--oneline</span> 1a2b3c4
-
-<span class="c"># Option A: jump back onto it (detached HEAD), inspect, branch off</span>
-git checkout 1a2b3c4
-git switch <span class="nt">-c</span> recovered
-
-<span class="c"># Option B: reset the current branch back to it (DESTROYS work after it)</span>
-git reset <span class="nt">--hard</span> 1a2b3c4
-
-<span class="c"># Option C: bring just that commit forward without moving the branch</span>
-git cherry-pick 1a2b3c4
-</code></pre></div></div>
-
-<p>The reflog uses <code class="language-plaintext highlighter-rouge">ref@{n}</code> and time-based syntax: <code class="language-plaintext highlighter-rouge">HEAD@{2}</code> is two moves ago; <code class="language-plaintext highlighter-rouge">main@{yesterday}</code> and <code class="language-plaintext highlighter-rouge">HEAD@{2.days.ago}</code> resolve a ref to where it pointed at that time — useful for “the repo was fine this morning” recovery.</p>
-
-<blockquote>
-  <p><strong>The reflog is local and expirable.</strong> Reflogs live in <code class="language-plaintext highlighter-rouge">.git/logs/</code> and are <strong>never pushed or fetched</strong> — a fresh clone has an empty reflog. Entries also expire (90 days for reachable, 30 days for unreachable, by default) and <code class="language-plaintext highlighter-rouge">git gc</code> can prune the objects afterward. For long-term safety, move recovered commits onto a real branch promptly.</p>
-</blockquote>
-
-<h2 id="fsck-finding-commits-the-reflog-forgot">fsck: Finding Commits the Reflog Forgot</h2>
-
-<p>When the reflog has been pruned, or the lost commit was never on a ref the reflog tracked (e.g. a stash dropped long ago, or objects salvaged after corruption), <code class="language-plaintext highlighter-rouge">git fsck</code> walks the entire object database and reports objects that nothing references.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fsck <span class="nt">--full</span>                  <span class="c"># full integrity check of all objects</span>
-git fsck <span class="nt">--lost-found</span>            <span class="c"># write dangling blobs/commits to .git/lost-found/</span>
-git fsck <span class="nt">--no-reflogs</span>            <span class="c"># treat reflog-only objects as dangling too</span>
-</code></pre></div></div>
-
-<p>Relevant output lines:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dangling commit  1a2b3c4d...      &lt;- a commit nothing points to
-dangling blob    9f8e7d6c...      &lt;- file content from a dropped change
-dangling tree    5a4b3c2d...
-</code></pre></div></div>
-
-<h3 id="salvaging-a-dangling-commit">Salvaging a Dangling Commit</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Inspect candidates — list dangling commits with their subject lines</span>
-git fsck <span class="nt">--no-reflogs</span> <span class="nt">--unreachable</span> |
-  <span class="nb">awk</span> <span class="s1">'/commit/ {print $3}'</span> |
-  <span class="k">while </span><span class="nb">read </span>sha<span class="p">;</span> <span class="k">do </span>git log <span class="nt">-1</span> <span class="nt">--oneline</span> <span class="s2">"</span><span class="nv">$sha</span><span class="s2">"</span><span class="p">;</span> <span class="k">done</span>
-
-<span class="c"># Once you have identified the right hash, give it a home:</span>
-git branch recovered &lt;dangling-sha&gt;     <span class="c"># or: git merge / git cherry-pick it</span>
-</code></pre></div></div>
-
-<p><code class="language-plaintext highlighter-rouge">--lost-found</code> materializes every dangling object under <code class="language-plaintext highlighter-rouge">.git/lost-found/</code> (<code class="language-plaintext highlighter-rouge">commit/</code> and <code class="language-plaintext highlighter-rouge">other/</code>), which is handy when you need to <code class="language-plaintext highlighter-rouge">grep</code> through recovered file contents to find the one you want.</p>
-
-<p><strong>Recovering a dropped stash:</strong> a stash is a commit (a merge of your index and working tree). <code class="language-plaintext highlighter-rouge">git stash drop</code> only removes the <code class="language-plaintext highlighter-rouge">refs/stash</code> entry, leaving the commit dangling. Recover it with <code class="language-plaintext highlighter-rouge">git fsck --no-reflogs</code>, find the dangling commit whose message starts with <code class="language-plaintext highlighter-rouge">WIP on</code>, and run <code class="language-plaintext highlighter-rouge">git stash apply &lt;sha&gt;</code> or <code class="language-plaintext highlighter-rouge">git cherry-pick -m1 &lt;sha&gt;</code>.</p>
-
-<h2 id="recovering-a-deleted-branch">Recovering a Deleted Branch</h2>
-
-<p>Deleting a branch (<code class="language-plaintext highlighter-rouge">git branch -D feature</code>) only removes the <em>ref</em>; the commits and the branch’s reflog entry persist. Recovery is therefore trivial if you act before garbage collection.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Fastest path: HEAD's reflog recorded where you last were on the branch</span>
-git reflog
-<span class="c">#   ... a1b2c3d HEAD@{4}: checkout: moving from feature to main</span>
-git branch feature a1b2c3d        <span class="c"># recreate the branch at its old tip</span>
-
-<span class="c"># If you remember the branch name, its own reflog may still exist briefly:</span>
-git reflog show feature           <span class="c"># works until the ref-specific log is gone</span>
-
-<span class="c"># Last resort: fsck for the dangling tip</span>
-git fsck <span class="nt">--no-reflogs</span> | <span class="nb">grep </span>commit
-git branch feature &lt;dangling-sha&gt;
-</code></pre></div></div>
-
-<p>The deletion message Git prints — <code class="language-plaintext highlighter-rouge">Deleted branch feature (was a1b2c3d).</code> — <em>is</em> the recovery hash; if it is still in your terminal scrollback, you can <code class="language-plaintext highlighter-rouge">git branch feature a1b2c3d</code> immediately.</p>
-
-<h2 id="repairing-a-corrupted-repository">Repairing a Corrupted Repository</h2>
-
-<p>Corruption — from a crash mid-write, a full disk, or a bad filesystem — typically surfaces as <code class="language-plaintext highlighter-rouge">error: object file ... is empty</code>, <code class="language-plaintext highlighter-rouge">fatal: loose object ... is corrupt</code>, or <code class="language-plaintext highlighter-rouge">bad object HEAD</code>. Work on a <strong>copy</strong> of <code class="language-plaintext highlighter-rouge">.git</code> before attempting repairs.</p>
-
-<h3 id="diagnose">Diagnose</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cp</span> <span class="nt">-r</span> .git /tmp/git-backup        <span class="c"># ALWAYS back up first</span>
-git fsck <span class="nt">--full</span>                   <span class="c"># identify corrupt/missing objects</span>
-git count-objects <span class="nt">-v</span>              <span class="c"># sanity-check object counts</span>
-</code></pre></div></div>
-
-<h3 id="common-repairs">Common Repairs</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Empty/corrupt loose objects: delete them so Git can re-fetch or</span>
-<span class="c">#    rebuild from packs. (They are zero-length, so nothing is lost.)</span>
-find .git/objects <span class="nt">-type</span> f <span class="nt">-empty</span> <span class="nt">-delete</span>
-
-<span class="c"># 2. Re-fetch missing objects from a remote that still has them.</span>
-git fetch <span class="nt">--all</span>
-<span class="c">#    or rebuild a branch tip from a known-good remote ref:</span>
-git fetch origin main
-git reset <span class="nt">--hard</span> origin/main
-
-<span class="c"># 3. Corrupt ref or HEAD: rewrite it from a known-good hash.</span>
-<span class="nb">echo</span> &lt;good-sha&gt; <span class="o">&gt;</span> .git/refs/heads/main
-git symbolic-ref HEAD refs/heads/main     <span class="c"># if HEAD itself is broken</span>
-
-<span class="c"># 4. Corrupt index: it is derivable; delete and rebuild from HEAD.</span>
-<span class="nb">rm</span> <span class="nt">-f</span> .git/index
-git reset                                 <span class="c"># rebuilds index from HEAD</span>
-
-<span class="c"># 5. Corrupt pack: unpack salvageable objects, then drop the bad pack.</span>
-git unpack-objects <span class="nt">-r</span> &lt; .git/objects/pack/pack-&lt;good&gt;.pack
-</code></pre></div></div>
-
-<h3 id="the-nuclear-and-safest-option-re-clone">The Nuclear (and Safest) Option: Re-Clone</h3>
-
-<p>If a healthy remote exists, the most reliable repair is to re-clone and move your uncommitted work across:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Save anything uncommitted from the broken checkout first</span>
-git diff HEAD <span class="o">&gt;</span> /tmp/uncommitted.patch    <span class="c"># may fail if HEAD is unreadable</span>
-<span class="nb">cp</span> <span class="nt">-r</span> src /tmp/working-copy               <span class="c"># or just copy the files</span>
-
-<span class="c"># Fresh clone, then re-apply</span>
-git clone &lt;remote-url&gt; repo-fresh
-<span class="nb">cd </span>repo-fresh
-git apply /tmp/uncommitted.patch
-</code></pre></div></div>
-
-<blockquote>
-  <p><strong>Object-store corruption can be permanent.</strong> The reflog and <code class="language-plaintext highlighter-rouge">fsck</code> recover commits that <em>still exist</em> as intact objects. If the underlying object files themselves are corrupted and no other copy (remote, clone, backup) holds them, that content is genuinely gone. This is the strongest argument for the distributed model: <strong>every clone is a full backup</strong>. Keep at least one healthy remote, and consider periodic <code class="language-plaintext highlighter-rouge">git bundle create backup.bundle --all</code> snapshots for repositories without one.</p>
-</blockquote>
-
-<h2 id="preventing-the-next-disaster">Preventing the Next Disaster</h2>
-
-<table>
-  <thead>
-    <tr>
-      <th>Practice</th>
-      <th>Why it helps</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">push.default = simple</code> and <code class="language-plaintext highlighter-rouge">--force-with-lease</code></td>
-      <td>Force-pushes refuse to silently overwrite others’ work</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">merge.conflictStyle = zdiff3</code></td>
-      <td>Conflict markers show the merge base, clarifying intent</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">rerere.enabled = true</code></td>
-      <td>Repeated conflicts are resolved once and replayed</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">fetch.prune = true</code></td>
-      <td>Stale remote-tracking refs do not mislead recovery</td>
-    </tr>
-    <tr>
-      <td>Periodic <code class="language-plaintext highlighter-rouge">git bundle --all</code> backups</td>
-      <td>A single-file full backup for repos without a remote</td>
-    </tr>
-    <tr>
-      <td>Branch before risky operations</td>
-      <td>A throwaway <code class="language-plaintext highlighter-rouge">git branch safety</code> makes any reset/rebase trivially reversible</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>The single most valuable habit: <strong>before any <code class="language-plaintext highlighter-rouge">reset --hard</code>, <code class="language-plaintext highlighter-rouge">rebase</code>, or force-push, create a marker</strong> — <code class="language-plaintext highlighter-rouge">git branch wip-backup</code>. It costs nothing (a 40-byte ref), and it turns “where did my work go?” into “<code class="language-plaintext highlighter-rouge">git reset --hard wip-backup</code>”.</p>
-
-<h2 id="quick-reference-decision-tree">Quick-Reference Decision Tree</h2>
+<h2 id="decision-guide">Decision guide</h2>
 
 <pre><code class="language-mermaid">flowchart TD
-    A[Work seems lost] --&gt; B{Did a ref recently point at it?}
-    B -- "Yes (reset/rebase/amend/branch -D)" --&gt; C[git reflog -&gt; reset/branch/cherry-pick]
-    B -- "No / reflog pruned" --&gt; D[git fsck --lost-found -&gt; branch the dangling commit]
-    A2[History rewritten &amp;amp; pushed] --&gt; E{Have local reflog/ORIG_HEAD?}
-    E -- Yes --&gt; F[reset --hard ORIG_HEAD; push --force-with-lease]
-    E -- No --&gt; G[Recover from a teammate's clone or server reflog]
-    A3[Repo won't open] --&gt; H[Back up .git; git fsck --full]
-    H --&gt; I{Remote available?}
-    I -- Yes --&gt; J[Re-fetch / re-clone, re-apply uncommitted work]
-    I -- No --&gt; K[Delete empty objects; rebuild index/refs; unpack good packs]
+    A["Commits seem lost"] --&gt; B{"Did a local ref point at them&lt;br/&gt;in the last ~30 days?"}
+    B -- "Yes: reset, rebase, amend, branch -D" --&gt; C["git reflog, then git branch rescue SHA"]
+    B -- "No, or reflog expired" --&gt; D["git fsck --no-reflogs --dangling,&lt;br/&gt;then git branch rescue SHA"]
+    E["Bad history was force-pushed"] --&gt; F{"Local reflog or ORIG_HEAD&lt;br/&gt;has the old tip?"}
+    F -- Yes --&gt; G["git reset --hard old-tip,&lt;br/&gt;push --force-with-lease"]
+    F -- No --&gt; H["Take the old tip from a teammate's&lt;br/&gt;origin/branch reflog or the forge's PR history"]
+    I["Repository will not open"] --&gt; J["Back up .git, run git fsck --full"]
+    J --&gt; K{"Healthy remote or clone?"}
+    K -- Yes --&gt; L["Fetch missing objects or re-clone,&lt;br/&gt;re-apply uncommitted work"]
+    K -- No --&gt; M["Remove empty objects, rebuild index and refs,&lt;br/&gt;salvage packs with unpack-objects -r"]
 </code></pre>
 
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a> — the three-way merge, rebase, and bisect algorithms these recovery techniques build on.</li>
-  <li><a href="object-model.html">Object Model &amp; Storage</a> — commits, refs, the reflog, and the object store that makes recovery possible.</li>
-  <li><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a> — pack files, <code class="language-plaintext highlighter-rouge">gc</code>, and pruning, which govern how long dangling objects survive.</li>
-  <li><a href="../branching.html">Branching Strategies</a> — workflow choices that reduce how often you face hard conflicts.</li>
-  <li><a href="../git-reference.html">Git Command Reference</a> — full syntax for <code class="language-plaintext highlighter-rouge">reflog</code>, <code class="language-plaintext highlighter-rouge">rebase</code>, <code class="language-plaintext highlighter-rouge">cherry-pick</code>, <code class="language-plaintext highlighter-rouge">fsck</code>, and <code class="language-plaintext highlighter-rouge">reset</code>.</li>
+  <li><a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a>: the merge, rebase and stash mechanics behind these procedures</li>
+  <li><a href="object-model.html">Object Model &amp; Storage</a>: objects, refs and the reflog</li>
+  <li><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a>: packs, <code class="language-plaintext highlighter-rouge">gc</code> and pruning, which decide how long unreferenced objects survive</li>
+  <li><a href="../branching.html">Branching Strategies</a>: workflows that reduce hard conflicts</li>
+  <li><a href="../git-reference.html">Git Command Reference</a>: syntax for <code class="language-plaintext highlighter-rouge">reflog</code>, <code class="language-plaintext highlighter-rouge">rebase</code>, <code class="language-plaintext highlighter-rouge">cherry-pick</code>, <code class="language-plaintext highlighter-rouge">fsck</code> and <code class="language-plaintext highlighter-rouge">reset</code></li>
 </ul>
+
+<p><strong>Previous:</strong> <a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a> · <strong>Next:</strong> <a href="auth-and-access-control.html">Authentication &amp; Access Control</a></p>
 
       </section>
     </div>

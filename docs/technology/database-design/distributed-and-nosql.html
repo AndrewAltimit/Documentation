@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Sub-hub for distributed databases: partitioning and sharding, the CAP and PACELC trade-offs, consistency models, consensus in brief, choosing a database, whe...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Database Design: Distributed & NoSQL Databases">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Sub-hub for distributed databases: partitioning and sharding, the CAP and PACELC trade-offs, consistency models, consensus in brief, choosing a database, whe...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/database-design/distributed-and-nosql.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Database Design: Distributed & NoSQL Databases">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Sub-hub for distributed databases: partitioning and sharding, the CAP and PACELC trade-offs, consistency models, consensus in brief, choosing a database, whe...">
 
 <title>Database Design: Distributed & NoSQL Databases | Andrews Notebook</title>
 
@@ -3135,508 +3135,580 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="distributed--nosql-databases">Distributed &amp; NoSQL Databases</h1>
 
-<h2 id="scaling-beyond-one-machine">Scaling Beyond One Machine</h2>
+<p>A database is distributed when its data or its work is spread over more than one machine — to hold more data than one server can, to serve more traffic, to survive the loss of a machine or a datacenter, or to sit closer to users. Distribution brings back problems that a single node hides: machines fail independently, networks partition, and clocks disagree. This page is the entry point for that material. It covers the two basic techniques (replication and partitioning), the trade-offs every distributed store must make (CAP, PACELC and the spectrum of consistency models), consensus in brief, how to choose a database, where the field is heading, and several published case studies. The mechanisms have their own pages:</p>
 
-<p>Eventually a database outgrows a single server. Maybe there is too much data, too many users, or a need for geographic distribution. This is where distributed databases come in — and where the easy guarantees of a single node start to fray. Once data lives on more than one machine, three forces dominate every design decision: the <strong>CAP</strong> trade-off that any partition forces on you, the <strong>consensus</strong> protocols that let nodes agree despite failures, and the <strong>data model</strong> you choose for the access patterns you actually have.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Deep dive</th>
+      <th>Covers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="replication-and-consensus.html">Replication &amp; Consensus</a></td>
+      <td>Leader-based and leaderless replication, streaming and logical replication, replication lag, Raft and Paxos, failover, quorums</td>
+    </tr>
+    <tr>
+      <td><a href="distributed-transactions.html">Distributed Transactions</a></td>
+      <td>Two- and three-phase commit, commit over consensus, sagas, the outbox pattern, idempotency, exactly-once processing</td>
+    </tr>
+    <tr>
+      <td><a href="nosql-data-models.html">NoSQL Data Models</a></td>
+      <td>Document, key-value, wide-column, graph, time-series and vector stores, and how to model for each</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>This page is the <strong>hub</strong> for that material. It frames the trade-offs and points you at the deep dives:</p>
+<h2 id="replication-and-partitioning">Replication and Partitioning</h2>
+
+<p>Every distributed database combines two independent techniques:</p>
 
 <ul>
-  <li><strong><a href="replication-and-consensus.html">Replication &amp; Consensus</a></strong> — how copies of data are kept in sync, and how Raft/Paxos let a cluster agree on a leader and an ordered log even when machines crash.</li>
-  <li><strong><a href="distributed-transactions.html">Distributed Transactions</a></strong> — making <code class="language-plaintext highlighter-rouge">N</code> independent participants all-commit-or-all-abort: 2PC/3PC, sagas, the outbox pattern, and idempotency.</li>
-  <li><strong><a href="nosql-data-models.html">NoSQL Data Models</a></strong> — document, key-value, wide-column, graph, and time-series stores, and how to model for each.</li>
+  <li><strong>Replication</strong> keeps <em>copies of the same data</em> on several nodes. It provides fault tolerance and read scaling, and lets data sit near users. It does not increase write capacity or total storage, because every replica holds everything.</li>
+  <li><strong>Partitioning</strong> (also called <strong>sharding</strong>) splits the data into <em>disjoint subsets</em> and places each on different nodes. It increases storage and write capacity, but on its own it reduces availability: losing any partition loses that part of the data.</li>
 </ul>
 
-<h2 id="the-cap-theorem-pick-two">The CAP Theorem: Pick Two</h2>
+<p>Real systems do both — each partition is replicated, typically three times — so a cluster of nodes holds many partition replicas, and each node is a leader for some partitions and a follower for others:</p>
 
-<p>In 2000, Eric Brewer observed that distributed systems face a fundamental trade-off. You can have at most two of:</p>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph N1["Node 1"]
+        P1L["Partition 1&lt;br/&gt;leader"]
+        P2F1["Partition 2&lt;br/&gt;follower"]
+        P3F1["Partition 3&lt;br/&gt;follower"]
+    end
+    subgraph N2["Node 2"]
+        P1F1["Partition 1&lt;br/&gt;follower"]
+        P2L["Partition 2&lt;br/&gt;leader"]
+        P3F2["Partition 3&lt;br/&gt;follower"]
+    end
+    subgraph N3["Node 3"]
+        P1F2["Partition 1&lt;br/&gt;follower"]
+        P2F2["Partition 2&lt;br/&gt;follower"]
+        P3L["Partition 3&lt;br/&gt;leader"]
+    end
+    P1L -.-&gt;|replicate| P1F1
+    P1L -.-&gt;|replicate| P1F2
+    P2L -.-&gt;|replicate| P2F1
+    P2L -.-&gt;|replicate| P2F2
+    P3L -.-&gt;|replicate| P3F1
+    P3L -.-&gt;|replicate| P3F2
+</code></pre>
 
-<p><strong>Consistency</strong>: Everyone sees the same data</p>
+<p>Replication is covered in <a href="replication-and-consensus.html">Replication &amp; Consensus</a>. The rest of this section covers partitioning.</p>
+
+<h3 id="partitioning-strategies">Partitioning strategies</h3>
+
+<p>The partitioning function decides which partition owns a key. The choice determines whether range queries are efficient and whether load spreads evenly.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Strategy</th>
+      <th>How keys map to partitions</th>
+      <th>Range scans</th>
+      <th>Load balance</th>
+      <th>Used by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Range</strong></td>
+      <td>Contiguous key ranges, split automatically when a range grows too large</td>
+      <td>Efficient: adjacent keys are together</td>
+      <td>Sequential keys (timestamps, auto-increment ids) all hit the last range</td>
+      <td>Bigtable, HBase, CockroachDB, TiDB, Spanner, YugabyteDB (optional)</td>
+    </tr>
+    <tr>
+      <td><strong>Hash</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">hash(key) mod N</code>, or hash space divided into ranges</td>
+      <td>Scatter to every partition</td>
+      <td>Even, for well-distributed keys</td>
+      <td>MongoDB hashed shard keys, Redis Cluster (16,384 hash slots), YugabyteDB default</td>
+    </tr>
+    <tr>
+      <td><strong>Consistent hashing</strong></td>
+      <td>Keys and nodes placed on a ring; each key belongs to the next node clockwise, usually with many virtual nodes per server</td>
+      <td>Scatter</td>
+      <td>Even; adding a node moves only about $1/N$ of the keys</td>
+      <td>Cassandra, ScyllaDB, DynamoDB (internally), Riak</td>
+    </tr>
+    <tr>
+      <td><strong>Directory / lookup</strong></td>
+      <td>A metadata service maps each key or tenant to a partition</td>
+      <td>Depends on placement</td>
+      <td>Explicit control, e.g. move a large tenant to its own shard</td>
+      <td>Vitess, Citus (distribution column plus metadata), many multi-tenant SaaS designs</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Naive <code class="language-plaintext highlighter-rouge">hash(key) mod N</code> is a trap: changing $N$ moves almost every key. Systems that hash either use consistent hashing or pre-split the hash space into many more partitions than nodes (Redis Cluster’s fixed 16,384 slots, for example) and move whole partitions when nodes join.</p>
+
+<h3 id="partitioning-pitfalls">Partitioning pitfalls</h3>
+
 <ul>
-  <li>Example: a bank account balance is identical at all branches</li>
-  <li>Cost: might need to wait for all nodes to agree</li>
+  <li><strong>Hot partitions.</strong> A skewed key (a celebrity account, a popular product, “today” in a time-keyed table) concentrates traffic on one partition however many nodes you add. Mitigations: add a random or hashed prefix to spread writes (and fan out reads), split hot keys into several sub-keys, or cache the hottest reads.</li>
+  <li><strong>Monotonic keys on range partitioning.</strong> Auto-increment ids and timestamps always append to the last range. Use hash-sharded keys or random identifiers (for example UUIDv4) when write distribution matters more than ordering.</li>
+  <li><strong>Cross-partition operations.</strong> Queries that do not include the partition key are sent to every partition (<em>scatter-gather</em>); their latency is that of the slowest partition. Transactions that touch several partitions need a <a href="distributed-transactions.html">distributed commit</a>. Choose the partition key so the most frequent reads and writes touch one partition.</li>
+  <li><strong>Secondary indexes.</strong> A <em>local</em> index (each partition indexes only its own rows) makes writes cheap but secondary-key reads scatter-gather. A <em>global</em> index (partitioned by the indexed value) makes those reads targeted but makes each write touch several partitions, and it is often updated asynchronously (DynamoDB global secondary indexes, for example).</li>
+  <li><strong>Rebalancing.</strong> Moving data between nodes competes with foreground traffic. Automatic rebalancing is convenient but should be rate-limited; many operators prefer to approve large moves.</li>
 </ul>
 
-<p><strong>Availability</strong>: the system always responds</p>
+<h2 id="the-cap-theorem">The CAP Theorem</h2>
+
+<p><span id="the-cap-theorem-pick-two"></span></p>
+
+<p>Eric Brewer conjectured in 2000, and Seth Gilbert and Nancy Lynch proved in 2002, that a distributed data store cannot simultaneously guarantee all three of:</p>
+
 <ul>
-  <li>Example: a shopping cart always works, even during Black Friday</li>
-  <li>Cost: might show slightly outdated data</li>
+  <li><strong>Consistency</strong> — in the theorem’s precise sense, <em>linearizability</em>: every read returns the most recent completed write, as if there were a single copy of the data.</li>
+  <li><strong>Availability</strong> — every request received by a non-failed node eventually gets a non-error response.</li>
+  <li><strong>Partition tolerance</strong> — the system keeps operating even when the network drops or delays arbitrary messages between nodes.</li>
 </ul>
 
-<p><strong>Partition Tolerance</strong>: the system survives network failures</p>
+<p>The popular “pick two of three” summary is misleading. Network partitions are not optional in a system that spans more than one machine, so partition tolerance cannot be traded away. The real choice is <strong>what the system does while a partition lasts</strong>:</p>
+
 <ul>
-  <li>Example: an East-Coast datacenter loses connection to the West Coast</li>
-  <li>Cost: must choose between C and A when the split happens</li>
+  <li><strong>CP</strong> — keep consistency and give up availability on the side that cannot reach a quorum. Nodes in the minority partition refuse writes (and usually linearizable reads) rather than risk diverging. Consensus-based systems — etcd, ZooKeeper, Spanner, CockroachDB — behave this way.</li>
+  <li><strong>AP</strong> — keep answering on both sides and reconcile later, using last-write-wins timestamps, version vectors or CRDTs (conflict-free replicated data types). Dynamo-style stores such as Cassandra and Riak in their default configurations behave this way.</li>
 </ul>
 
-<div class="notice--warning">
-  <p><strong>"Pick two" is a simplification.</strong> In any real distributed system, network partitions <em>will</em> happen, so partition tolerance (P) is not optional — you cannot trade it away. The genuine choice is therefore <strong>what to do during a partition: stay Consistent (CP) or stay Available (AP)</strong>. The "CA" corner only describes a single-node or single-datacenter system that simply isn't distributed.</p>
-</div>
+<p>A so-called “CA” system is simply one that is not distributed across a network that can partition, such as a single-node database.</p>
 
-<h3 id="cp-vs-ap-in-practice">CP vs. AP in Practice</h3>
+<pre><code class="language-mermaid">flowchart TB
+    START["Network partition splits the cluster"] --&gt; Q{"Can this node reach&lt;br/&gt;a majority / quorum?"}
+    Q --&gt;|Yes| SERVE["Serve reads and writes normally"]
+    Q --&gt;|No| CHOICE{"System's design choice"}
+    CHOICE --&gt;|CP| REFUSE["Return errors or time out&lt;br/&gt;until the partition heals"]
+    CHOICE --&gt;|AP| ACCEPT["Accept reads and writes locally,&lt;br/&gt;reconcile divergent versions later"]
+</code></pre>
 
-<p>The interesting decision is what a system does the moment a partition cuts it in half.</p>
+<p>Two sketches of the choice in application terms:</p>
 
-<p><strong>CP — refuse to diverge.</strong> A bank ledger or a configuration store would rather return an error than risk two halves disagreeing. During a partition, the minority side stops accepting writes (it cannot reach a majority), so no contradictory state can be committed. Better to say “ATM temporarily unavailable” than to allow an overdraft.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># CP: a withdrawal must confirm against a quorum before deducting
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># CP: a withdrawal must be confirmed by a majority of replicas
 </span><span class="k">def</span> <span class="nf">withdraw</span><span class="p">(</span><span class="n">account_id</span><span class="p">,</span> <span class="n">amount</span><span class="p">):</span>
-    <span class="c1"># Reaching a majority of replicas may fail during a partition
-</span>    <span class="k">if</span> <span class="nf">quorum_balance</span><span class="p">(</span><span class="n">account_id</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">amount</span><span class="p">:</span>
-        <span class="nf">deduct_on_quorum</span><span class="p">(</span><span class="n">account_id</span><span class="p">,</span> <span class="n">amount</span><span class="p">)</span>
-        <span class="k">return</span> <span class="sh">"</span><span class="s">Success</span><span class="sh">"</span>
-    <span class="k">return</span> <span class="sh">"</span><span class="s">Unavailable: could not reach a quorum</span><span class="sh">"</span>
-</code></pre></div></div>
-
-<p><strong>AP — stay up, reconcile later.</strong> A social feed or a shopping cart would rather serve slightly stale data than go dark. Each side keeps accepting reads and writes during the partition and reconciles the divergence afterward (last-write-wins, vector clocks, or CRDTs).</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># AP: always answer, even if the freshest copy is unreachable
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nf">quorum_transaction</span><span class="p">(</span><span class="n">account_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">tx</span><span class="p">:</span>        <span class="c1"># fails if no majority is reachable
+</span>            <span class="k">if</span> <span class="n">tx</span><span class="p">.</span><span class="nf">balance</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">amount</span><span class="p">:</span>
+                <span class="k">return</span> <span class="sh">"</span><span class="s">Insufficient funds</span><span class="sh">"</span>
+            <span class="n">tx</span><span class="p">.</span><span class="nf">debit</span><span class="p">(</span><span class="n">amount</span><span class="p">)</span>
+            <span class="k">return</span> <span class="sh">"</span><span class="s">OK</span><span class="sh">"</span>
+    <span class="k">except</span> <span class="n">QuorumUnavailable</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sh">"</span><span class="s">Service unavailable, try again later</span><span class="sh">"</span>     <span class="c1"># refuse rather than risk an overdraft
+</span>
+<span class="c1"># AP: always answer, even if the freshest copy is unreachable
 </span><span class="k">def</span> <span class="nf">get_feed</span><span class="p">(</span><span class="n">user_id</span><span class="p">):</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">return</span> <span class="nf">latest_feed</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
-    <span class="k">except</span> <span class="n">NetworkPartition</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nf">cached_feed</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>   <span class="c1"># may be a few minutes old
+    <span class="k">except</span> <span class="n">ReplicaUnreachable</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">local_replica_feed</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>                <span class="c1"># possibly a few seconds stale
 </span></code></pre></div></div>
 
-<p>The mechanics behind both choices — quorum tuning for AP, leader election and replicated logs for CP — are the subject of <a href="replication-and-consensus.html">Replication &amp; Consensus</a>.</p>
+<p>Most real systems are tunable rather than purely CP or AP: Cassandra’s per-query consistency levels, MongoDB’s read and write concerns, and DynamoDB’s choice between eventually consistent and strongly consistent reads let an application choose per operation.</p>
 
-<div class="notice--info">
-  <p>"CA" really means "not partition-tolerant." A config service whose nodes all live in one rack behaves like CA only because it assumes the network never splits. The instant it spans datacenters, the partition becomes inevitable and you must pick CP or AP.</p>
-</div>
+<h3 id="pacelc-the-trade-off-when-nothing-is-broken">PACELC: the trade-off when nothing is broken</h3>
 
-<h2 id="consensus-in-one-paragraph">Consensus in One Paragraph</h2>
+<p>CAP only describes behaviour during a partition, which is rare. Daniel Abadi’s <strong>PACELC</strong> formulation (2012) adds the trade-off that applies the rest of the time: <strong>if</strong> there is a <strong>P</strong>artition, choose <strong>A</strong>vailability or <strong>C</strong>onsistency; <strong>e</strong>lse, choose <strong>L</strong>atency or <strong>C</strong>onsistency. Keeping replicas strongly consistent requires coordination on every write, which costs round trips even when the network is healthy.</p>
 
-<p>The hard core of a CP system is <strong>consensus</strong>: getting a set of nodes to agree on a single value — or a single <em>ordered log</em> of values — even though some may crash and messages may be delayed or reordered. Databases use it for two jobs: <strong>leader election</strong> (pick exactly one leader so a partitioned-away old leader can’t keep writing) and <strong>state-machine replication</strong> (agree on the order of writes so every replica applies them identically). Both <strong>Raft</strong> and <strong>Paxos</strong> achieve this by requiring a <strong>majority</strong> to act: because any two majorities of the same node set must overlap in at least one node, two conflicting decisions can never both be committed. That single overlap argument is why consensus clusters run an <strong>odd number of nodes (3 or 5)</strong> — and why a minority partition simply stops, rather than diverging.</p>
+<table>
+  <thead>
+    <tr>
+      <th>System (default configuration)</th>
+      <th>During a partition</th>
+      <th>Normal operation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Cassandra, ScyllaDB, Riak</td>
+      <td>Availability (PA)</td>
+      <td>Latency (EL)</td>
+    </tr>
+    <tr>
+      <td>DynamoDB (eventually consistent reads)</td>
+      <td>Availability (PA)</td>
+      <td>Latency (EL)</td>
+    </tr>
+    <tr>
+      <td>Spanner, CockroachDB, YugabyteDB, etcd</td>
+      <td>Consistency (PC)</td>
+      <td>Consistency (EC)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These labels describe defaults; most systems can be configured toward the other end.</p>
+
+<h3 id="consistency-models">Consistency models</h3>
+
+<p>“Consistency” is a spectrum, not a switch. From strongest to weakest, the models most often encountered are:</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    SS["Strict serializability&lt;br/&gt;(serializable transactions + real-time order)"] --&gt; LIN["Linearizability&lt;br/&gt;(single-object, real-time order)"]
+    SS --&gt; SER["Serializability&lt;br/&gt;(transactions, some serial order)"]
+    LIN --&gt; SEQ["Sequential consistency"]
+    SEQ --&gt; CAU["Causal consistency"]
+    CAU --&gt; SESS["Session guarantees&lt;br/&gt;read-your-writes, monotonic reads"]
+    SESS --&gt; EV["Eventual consistency"]
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Guarantee</th>
+      <th>Example systems</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Strict serializability</strong> (external consistency)</td>
+      <td>Transactions appear to run one at a time, in an order consistent with real time</td>
+      <td>Spanner, FoundationDB, CockroachDB (for single-key operations; serializable across keys)</td>
+    </tr>
+    <tr>
+      <td><strong>Linearizability</strong></td>
+      <td>Each single-object operation appears to take effect instantaneously between its start and end</td>
+      <td>etcd, ZooKeeper writes, consensus-replicated stores</td>
+    </tr>
+    <tr>
+      <td><strong>Causal consistency</strong></td>
+      <td>Operations that are causally related are seen by everyone in the same order; concurrent ones may be seen in different orders</td>
+      <td>MongoDB causally consistent sessions</td>
+    </tr>
+    <tr>
+      <td><strong>Read-your-writes / monotonic reads</strong></td>
+      <td>A client sees its own writes and never sees time go backwards</td>
+      <td>Sticky sessions, reading from the leader after a write</td>
+    </tr>
+    <tr>
+      <td><strong>Eventual consistency</strong></td>
+      <td>If writes stop, all replicas eventually converge</td>
+      <td>Dynamo-style stores at low consistency levels, DNS, asynchronous replicas</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Stronger models are easier to program against and cost more coordination, and therefore latency. Anomalies caused by replication lag, and how to avoid them, are catalogued in <a href="replication-and-consensus.html">Replication &amp; Consensus</a>.</p>
+
+<h2 id="consensus-in-brief">Consensus in Brief</h2>
+
+<p>A CP system rests on <strong>consensus</strong>: getting a set of nodes to agree on a value, or on an ordered log of values, even though some may crash and messages may be delayed or reordered. Databases use it for <strong>leader election</strong> (exactly one leader per term, so a partitioned former leader cannot keep accepting writes) and <strong>state-machine replication</strong> (every replica applies the same writes in the same order). Raft and Paxos both require a <strong>majority</strong> to act. Any two majorities of the same set of nodes share at least one member, so two conflicting decisions can never both be accepted. That argument is why consensus clusters run an odd number of nodes (three or five) and why a minority partition stops rather than diverging.</p>
 
 <table>
   <thead>
     <tr>
       <th>Protocol</th>
-      <th>Reputation</th>
+      <th>Characteristics</th>
       <th>Used by</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Raft</strong></td>
-      <td>Same guarantees as Paxos, far easier to implement and operate</td>
-      <td>etcd (Kubernetes), Consul, CockroachDB, TiKV, MongoDB elections</td>
+      <td>Same safety guarantees as Multi-Paxos; designed to be understandable, with strong leadership and a simple log</td>
+      <td>etcd (Kubernetes), Consul, CockroachDB, TiKV/TiDB, YugabyteDB, Kafka KRaft, MongoDB replica sets (a Raft-derived protocol)</td>
     </tr>
     <tr>
       <td><strong>Paxos / Multi-Paxos</strong></td>
-      <td>The original; notoriously subtle to get right</td>
-      <td>Google Chubby, Spanner per-shard replication</td>
+      <td>The original formulation (Lamport); many variants</td>
+      <td>Google Chubby and Spanner, DynamoDB partitions, Cassandra lightweight transactions</td>
     </tr>
   </tbody>
 </table>
 
-<p>That is the whole story at hub altitude. Leader election, log replication, terms-as-a-clock, the safety arguments, and Dynamo-style quorums all live in <strong><a href="replication-and-consensus.html">Replication &amp; Consensus</a></strong>. Making a <em>transaction</em> atomic across several such systems — a different and harder problem — lives in <strong><a href="distributed-transactions.html">Distributed Transactions</a></strong>.</p>
+<p>Leader election, log replication, terms, the safety argument and Dynamo-style quorums are explained in <a href="replication-and-consensus.html">Replication &amp; Consensus</a>. Making a <em>transaction</em> atomic across several consensus groups is a separate problem, covered in <a href="distributed-transactions.html#commit-over-consensus">Distributed Transactions</a>.</p>
 
-<h2 id="when-to-use-what-a-decision-guide">When to Use What: A Decision Guide</h2>
+<h2 id="choosing-a-database">Choosing a Database</h2>
 
-<p>There is no universally best database; there is only the database whose trade-offs match your workload. Use the questions below as a triage, then follow the deep dives for the details.</p>
+<p>There is no best database, only the one whose trade-offs match the workload. Start from the data’s shape and the access patterns, not from the product.</p>
 
-<h3 id="decision-tree">Decision Tree</h3>
+<pre><code class="language-mermaid">flowchart TD
+    A["What are the dominant access patterns?"] --&gt; B{"Relational data with&lt;br/&gt;ad-hoc queries and joins?"}
+    B --&gt;|Yes| C{"Fits on one primary&lt;br/&gt;(plus read replicas)?"}
+    C --&gt;|Yes| PG["PostgreSQL or MySQL"]
+    C --&gt;|"No: write volume, data size,&lt;br/&gt;or multi-region writes"| D{"Need cross-shard&lt;br/&gt;ACID transactions?"}
+    D --&gt;|Yes| NS["Distributed SQL: CockroachDB,&lt;br/&gt;Spanner, YugabyteDB, TiDB, Aurora DSQL"]
+    D --&gt;|"No, shard by tenant/key"| SH["Sharded Postgres/MySQL:&lt;br/&gt;Citus, Vitess"]
+    B --&gt;|No| E{"Data shape"}
+    E --&gt;|"Self-contained aggregates"| DOC["Document: MongoDB, Firestore"]
+    E --&gt;|"Lookups by key, caching"| KV["Key-value: Redis/Valkey, DynamoDB"]
+    E --&gt;|"Huge write-heavy tables,&lt;br/&gt;known queries"| WC["Wide-column: Cassandra, ScyllaDB, Bigtable"]
+    E --&gt;|"Many-hop relationships"| GR["Graph: Neo4j, Neptune"]
+    E --&gt;|"Timestamped measurements"| TS["Time-series: TimescaleDB, InfluxDB, ClickHouse"]
+    A --&gt; F{"Specialised workload?"}
+    F --&gt;|"Analytics / OLAP"| OLAP["ClickHouse, BigQuery, Snowflake,&lt;br/&gt;DuckDB (embedded)"]
+    F --&gt;|"Full-text search"| FTS["Elasticsearch, OpenSearch,&lt;br/&gt;Postgres full-text"]
+    F --&gt;|"Vector similarity"| VEC["pgvector, dedicated vector stores"]
+    F --&gt;|"Embedded / edge"| EMB["SQLite, DuckDB, RocksDB"]
+</code></pre>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Start Here
-    |
-    v
-Is your data naturally relational (fixed schema, rich queries, joins)?
-    |                                        \
-   Yes                                        No
-    |                                          |
-    v                                          v
-Need strict ACID across the dataset?     What shape is the data / access?
-    |                  \                      |  nested aggregate -&gt; Document (MongoDB)
-   Yes                  No                    |  pure key lookup   -&gt; Key-Value (Redis, DynamoDB)
-    |                    |                     |  huge write-heavy  -&gt; Wide-Column (Cassandra)
-    v                    v                     |  many-hop links    -&gt; Graph (Neo4j, Neptune)
-Scale needs?         Consider NoSQL           |  time-stamped feed -&gt; Time-Series (TimescaleDB)
-    |          \      (see the right branch)
- Single        Multi-region
- server         |
-    |           v
-    v       CockroachDB / Spanner (NewSQL: SQL + ACID at scale)
-PostgreSQL / MySQL
-
-Special cases:
-  Full-text search -&gt; Elasticsearch, OpenSearch
-  Analytics / OLAP -&gt; ClickHouse, Apache Druid, BigQuery
-  Vector / similarity (AI) -&gt; pgvector, Pinecone, Weaviate, Qdrant
-  Embedded / edge -&gt; SQLite, RocksDB, Cloudflare D1
-</code></pre></div></div>
-
-<h3 id="database-comparison-matrix">Database Comparison Matrix</h3>
+<h3 id="comparison">Comparison</h3>
 
 <table>
   <thead>
     <tr>
       <th>Database</th>
-      <th>Type</th>
-      <th>Best For</th>
-      <th>Avoid When</th>
-      <th>Scale Limit</th>
+      <th>Model</th>
+      <th>Strong at</th>
+      <th>Weak at</th>
+      <th>How it scales</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>PostgreSQL</td>
+      <td><strong>PostgreSQL</strong></td>
       <td>Relational</td>
-      <td>General purpose, complex queries</td>
-      <td>Petabyte scale</td>
-      <td>~10TB comfortable</td>
+      <td>General-purpose OLTP, complex queries, extensions (PostGIS, pgvector, TimescaleDB)</td>
+      <td>Write scale beyond one primary without sharding extensions</td>
+      <td>Vertical, read replicas; horizontal via Citus</td>
     </tr>
     <tr>
-      <td>MySQL</td>
+      <td><strong>MySQL</strong></td>
       <td>Relational</td>
-      <td>Web apps, simple queries</td>
-      <td>Complex analytics</td>
-      <td>~5TB comfortable</td>
+      <td>Simple high-throughput OLTP, very mature replication</td>
+      <td>Complex analytical SQL</td>
+      <td>Vertical, replicas; horizontal via Vitess</td>
     </tr>
     <tr>
-      <td>MongoDB</td>
+      <td><strong>MongoDB</strong></td>
       <td>Document</td>
-      <td>Flexible schema, rapid development</td>
-      <td>Strong cross-document consistency</td>
-      <td>~100TB</td>
+      <td>Aggregate-shaped data, flexible schema</td>
+      <td>Workloads needing many cross-document joins</td>
+      <td>Built-in hash or range sharding</td>
     </tr>
     <tr>
-      <td>Cassandra</td>
-      <td>Wide Column</td>
-      <td>Time-series, write-heavy</td>
-      <td>Complex ad-hoc queries</td>
-      <td>Petabytes</td>
+      <td><strong>Cassandra / ScyllaDB</strong></td>
+      <td>Wide-column</td>
+      <td>Very high write throughput, multi-datacenter, always-on</td>
+      <td>Ad-hoc queries, joins, strong consistency on every operation</td>
+      <td>Consistent hashing, linear node addition</td>
     </tr>
     <tr>
-      <td>Redis</td>
-      <td>Key-Value</td>
-      <td>Caching, real-time</td>
-      <td>Primary system of record</td>
-      <td>RAM size</td>
+      <td><strong>Redis / Valkey</strong></td>
+      <td>Key-value (in-memory)</td>
+      <td>Caching, counters, queues, leaderboards, rate limiting</td>
+      <td>Datasets larger than memory; system of record without careful persistence setup</td>
+      <td>Redis Cluster hash slots</td>
     </tr>
     <tr>
-      <td>Neo4j</td>
+      <td><strong>DynamoDB</strong></td>
+      <td>Key-value and document (managed)</td>
+      <td>Predictable single-digit-millisecond key access at any scale, serverless operation</td>
+      <td>Ad-hoc queries; access patterns not designed up front</td>
+      <td>Automatic partitioning</td>
+    </tr>
+    <tr>
+      <td><strong>Neo4j</strong></td>
       <td>Graph</td>
-      <td>Relationship traversal</td>
-      <td>Tabular/aggregate workloads</td>
-      <td>~10B nodes</td>
+      <td>Deep, variable-length relationship traversal</td>
+      <td>Bulk aggregation over all data</td>
+      <td>Primarily vertical, with read replicas</td>
     </tr>
     <tr>
-      <td>ClickHouse</td>
-      <td>Column</td>
-      <td>Analytics, aggregations</td>
-      <td>OLTP workloads</td>
-      <td>Petabytes</td>
+      <td><strong>ClickHouse</strong></td>
+      <td>Columnar OLAP</td>
+      <td>Fast aggregations over billions of rows</td>
+      <td>Frequent single-row updates and deletes; OLTP</td>
+      <td>Sharded and replicated clusters</td>
     </tr>
     <tr>
-      <td>CockroachDB / Spanner</td>
-      <td>NewSQL</td>
-      <td>Global ACID at scale</td>
-      <td>Single-node simplicity is enough</td>
-      <td>Petabytes</td>
+      <td><strong>CockroachDB / Spanner / YugabyteDB</strong></td>
+      <td>Distributed SQL</td>
+      <td>ACID transactions and SQL across regions</td>
+      <td>Latency-sensitive workloads that fit on one node</td>
+      <td>Automatic range partitioning over consensus groups</td>
     </tr>
     <tr>
-      <td>SQLite</td>
-      <td>Embedded</td>
-      <td>Mobile, desktop, edge apps</td>
-      <td>Concurrent writers</td>
-      <td>~100GB</td>
+      <td><strong>SQLite</strong></td>
+      <td>Embedded relational</td>
+      <td>Local and edge storage, zero administration</td>
+      <td>Many concurrent writers (one writer at a time)</td>
+      <td>Single file; replicated variants exist (libSQL, LiteFS)</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="rules-of-thumb">Rules of Thumb</h3>
+<h3 id="rules-of-thumb">Rules of thumb</h3>
 
 <ul>
-  <li><strong>Start relational.</strong> PostgreSQL or MySQL is the right default for most applications; reach for NoSQL only when a specific access pattern or scale requirement forces it.</li>
-  <li><strong>Model the queries, not the data.</strong> In most NoSQL stores there are no joins at read time — decide your access patterns first, then shape (and often duplicate) the data so each pattern is one cheap lookup. See <a href="nosql-data-models.html">NoSQL Data Models</a>.</li>
-  <li><strong>Need ACID <em>and</em> horizontal scale?</strong> That is the NewSQL niche (CockroachDB, Spanner) — SQL semantics on a consensus-replicated, sharded core.</li>
-  <li><strong>Polyglot persistence is normal.</strong> Large systems mix engines: Postgres for the system of record, Redis for caching, Cassandra for the firehose, Elasticsearch for search. Use each where it is strong.</li>
+  <li><strong>Start relational.</strong> PostgreSQL or MySQL is the right default for most applications. A single well-tuned server with replicas handles far more than most products ever need, and the relational model accommodates access patterns you have not thought of yet.</li>
+  <li><strong>Model the queries in NoSQL.</strong> Most NoSQL stores have no joins at read time: decide the access patterns first, then shape and duplicate data so each is one cheap lookup. See <a href="nosql-data-models.html">NoSQL Data Models</a>.</li>
+  <li><strong>Need ACID and horizontal write scale?</strong> That is the distributed SQL niche. Expect higher per-transaction latency than a single node, and retries on contention.</li>
+  <li><strong>Polyglot persistence is normal, but has a cost.</strong> Large systems commonly combine a relational system of record, a cache, a search index and an analytics store. Each additional engine brings its own operations, backups and consistency questions, and data moving between them usually needs <a href="distributed-transactions.html#the-outbox-pattern">CDC or an outbox</a>.</li>
 </ul>
 
-<h2 id="the-future-of-databases">The Future of Databases</h2>
+<h2 id="where-databases-are-heading">Where Databases Are Heading</h2>
 
-<p>Database technology continues to evolve rapidly. A few of the directions worth watching:</p>
+<p>The main directions visible as of 2026:</p>
 
-<h3 id="newsql-best-of-both-worlds">NewSQL: Best of Both Worlds</h3>
+<p><strong>Distributed SQL has matured.</strong> Systems that put SQL and serializable transactions on top of consensus-replicated, automatically partitioned storage — Spanner, CockroachDB, YugabyteDB, TiDB — are now established choices, and Amazon Aurora DSQL (generally available in 2025) brought a serverless, PostgreSQL-compatible variant that uses optimistic concurrency control. Licensing has shifted too: CockroachDB retired its open-source Core edition in November 2024 in favour of a single Enterprise licence with a free tier for small companies.</p>
 
-<p>NewSQL databases provide SQL and ACID guarantees at massive scale, putting a familiar relational interface on top of the consensus and replication machinery covered in the deep dives.</p>
-
-<p><strong>Google Spanner</strong>: the pioneer</p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Looks like regular SQL</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Spanner: ordinary-looking DDL; rows of a child table can be</span>
+<span class="c1">-- stored physically with their parent ("interleaving")</span>
 <span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-    <span class="n">user_id</span> <span class="n">INT64</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="n">email</span> <span class="n">STRING</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+    <span class="n">user_id</span>    <span class="n">INT64</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">email</span>      <span class="n">STRING</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
     <span class="n">created_at</span> <span class="nb">TIMESTAMP</span>
 <span class="p">)</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">user_id</span><span class="p">);</span>
 
-<span class="c1">-- But runs across continents:</span>
-<span class="c1">-- synchronous replication globally,</span>
-<span class="c1">-- external consistency via TrueTime.</span>
-</code></pre></div></div>
-
-<p>Spanner uses atomic clocks and GPS to bound clock uncertainty globally (TrueTime), enabling externally-consistent transactions across the planet.</p>
-
-<p><strong>CockroachDB</strong>: Spanner for mortals</p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Familiar PostgreSQL syntax</span>
 <span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="n">UUID</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">gen_random_uuid</span><span class="p">(),</span>
-    <span class="n">customer_id</span> <span class="n">UUID</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="n">total</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
-    <span class="n">region</span> <span class="n">STRING</span> <span class="k">AS</span> <span class="p">(</span><span class="k">CASE</span>
-        <span class="k">WHEN</span> <span class="n">country</span> <span class="k">IN</span> <span class="p">(</span><span class="s1">'US'</span><span class="p">,</span> <span class="s1">'CA'</span><span class="p">)</span> <span class="k">THEN</span> <span class="s1">'NA'</span>
-        <span class="k">WHEN</span> <span class="n">country</span> <span class="k">IN</span> <span class="p">(</span><span class="s1">'GB'</span><span class="p">,</span> <span class="s1">'FR'</span><span class="p">,</span> <span class="s1">'DE'</span><span class="p">)</span> <span class="k">THEN</span> <span class="s1">'EU'</span>
-        <span class="k">ELSE</span> <span class="s1">'OTHER'</span>
-    <span class="k">END</span><span class="p">)</span> <span class="n">STORED</span>  <span class="c1">-- computed column for partitioning</span>
-<span class="p">);</span>
-
-<span class="c1">-- Automatically distributed, survives datacenter failures.</span>
+    <span class="n">user_id</span>  <span class="n">INT64</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">order_id</span> <span class="n">INT64</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">total</span>    <span class="nb">NUMERIC</span>
+<span class="p">)</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">order_id</span><span class="p">),</span>
+  <span class="n">INTERLEAVE</span> <span class="k">IN</span> <span class="n">PARENT</span> <span class="n">users</span> <span class="k">ON</span> <span class="k">DELETE</span> <span class="k">CASCADE</span><span class="p">;</span>
 </code></pre></div></div>
 
-<h3 id="machine-learning-in-databases">Machine Learning in Databases</h3>
-
-<p>Databases are beginning to use ML to optimize themselves.</p>
-
-<p><strong>Learned indexes</strong>: replacing B+ trees with a model that predicts a record’s position directly.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Traditional B+ tree: follow pointers
-</span><span class="k">def</span> <span class="nf">btree_lookup</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
-    <span class="n">node</span> <span class="o">=</span> <span class="n">root</span>
-    <span class="k">while</span> <span class="ow">not</span> <span class="n">node</span><span class="p">.</span><span class="n">is_leaf</span><span class="p">:</span>
-        <span class="n">node</span> <span class="o">=</span> <span class="n">node</span><span class="p">.</span><span class="nf">find_child</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">node</span><span class="p">.</span><span class="nf">find_position</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-
-<span class="c1"># Learned index: predict position, then search a small window
-</span><span class="k">def</span> <span class="nf">learned_lookup</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
-    <span class="n">predicted_pos</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">*</span> <span class="n">num_records</span>   <span class="c1"># learns the CDF
-</span>    <span class="n">lo</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">predicted_pos</span> <span class="o">-</span> <span class="n">error_bound</span><span class="p">)</span>
-    <span class="n">hi</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">num_records</span><span class="p">,</span> <span class="n">predicted_pos</span> <span class="o">+</span> <span class="n">error_bound</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nf">binary_search</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">lo</span><span class="p">:</span><span class="n">hi</span><span class="p">],</span> <span class="n">key</span><span class="p">)</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- CockroachDB: pin each row to a home region for low-latency local access</span>
+<span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">shop</span> <span class="k">PRIMARY</span> <span class="n">REGION</span> <span class="nv">"us-east1"</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">DATABASE</span> <span class="n">shop</span> <span class="k">ADD</span> <span class="n">REGION</span> <span class="nv">"europe-west1"</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="k">SET</span> <span class="n">LOCALITY</span> <span class="n">REGIONAL</span> <span class="k">BY</span> <span class="k">ROW</span><span class="p">;</span>   <span class="c1">-- adds a hidden crdb_region column</span>
 </code></pre></div></div>
 
-<p>For some read-heavy workloads this has shown large memory savings and faster lookups, though it remains an active research area rather than a default.</p>
+<p><strong>PostgreSQL as a platform.</strong> Much innovation now ships as Postgres extensions or Postgres-compatible services rather than new engines: vector search (pgvector), time-series (TimescaleDB), sharding (Citus), analytics accelerators, and many “Postgres-compatible” distributed databases. PostgreSQL 18 (September 2025) added an asynchronous I/O subsystem, B-tree skip scan, virtual generated columns and a built-in <code class="language-plaintext highlighter-rouge">uuidv7()</code> function.</p>
 
-<p><strong>Self-tuning</strong> systems observe the live query mix and automatically create or drop indexes, and <strong>learned query optimizers</strong> (often graph neural networks over the query plan) produce better cardinality estimates than static statistics — both already used in production at Microsoft and Google.</p>
+<p><strong>Separated storage and compute.</strong> Cloud databases increasingly store data in a shared, replicated storage layer (often backed by object storage) and run stateless compute nodes on top: Amazon Aurora, Neon, Snowflake, and the lakehouse model built on open table formats such as Apache Iceberg and Delta Lake. This enables instant branching and scale-to-zero. Neon’s serverless Postgres, which popularised database branching, agreed to be acquired by Databricks in 2025.</p>
 
-<h3 id="ai-native-and-new-architectures">AI-Native and New Architectures</h3>
+<p><strong>Vector search moves into general-purpose databases.</strong> Dedicated vector databases (Pinecone, Weaviate, Qdrant, Milvus) remain, but most mainstream engines now offer approximate nearest-neighbour indexes alongside ordinary data — pgvector for PostgreSQL, vector search in MongoDB Atlas, Cassandra 5.0 and Redis — so embeddings can be filtered and joined with the rest of the data. See <a href="indexing-and-queries.html#index-types">Indexing &amp; Query Execution</a>.</p>
 
-<ul>
-  <li><strong>Vector databases</strong> (pgvector, Pinecone, Weaviate, Qdrant) index high-dimensional embeddings for similarity search, the storage backbone of retrieval-augmented generation.</li>
-  <li><strong>Natural-language-to-SQL</strong> (Text2SQL with LLMs) lowers the barrier to ad-hoc querying.</li>
-  <li><strong>Disaggregated storage and compute</strong> (Snowflake, Databricks) and <strong>serverless databases</strong> (Neon, PlanetScale, Fauna) decouple capacity from cost.</li>
-  <li><strong>Edge databases</strong> (Cloudflare D1, Fly.io, Turso) push data close to users for low latency.</li>
-</ul>
+<p><strong>Embedded and edge databases.</strong> SQLite continues to spread to servers and the edge (Cloudflare D1, Turso’s libSQL), and DuckDB has become the default embedded engine for analytics, querying Parquet and Iceberg data in-process.</p>
 
-<h2 id="real-world-case-studies">Real-World Case Studies</h2>
+<p><strong>Learned components.</strong> <em>Learned indexes</em> (Kraska et al., 2018) replace tree traversal with a model of the key distribution — the model predicts a key’s position from its cumulative distribution, and a small bounded search corrects the error:</p>
 
-<h3 id="case-study-1-instagrams-cassandra-migration">Case Study 1: Instagram’s Cassandra Migration</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">learned_lookup</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">max_error</span><span class="p">):</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">model</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">*</span> <span class="nf">len</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>      <span class="c1"># approximate CDF(key) * N
+</span>    <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">pos</span> <span class="o">-</span> <span class="n">max_error</span><span class="p">),</span> <span class="nf">min</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="n">pos</span> <span class="o">+</span> <span class="n">max_error</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">binary_search</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
+</code></pre></div></div>
 
-<p><strong>The challenge</strong>: PostgreSQL couldn’t keep up with Instagram’s growth — billions of photos, likes, and follows, plus a need for geographic distribution.</p>
+<p>Results on read-only data are strong, but updates and worst-case guarantees remain difficult, and mainstream engines still use B+ trees and LSM trees. Machine-learning-assisted plan steering (deployed, for example, in Microsoft’s SCOPE big-data system; research prototypes such as Bao) and automatic index tuning in managed services are in limited production use. Natural-language-to-SQL with large language models is useful for exploration, but generated queries must be reviewed like any other code — they can be subtly wrong while looking plausible.</p>
 
-<p><strong>The solution</strong>: a wide-column schema designed around the dominant query (“show me user X’s feed, newest first”).</p>
+<h2 id="case-studies">Case Studies</h2>
 
-<pre><code class="language-cql">CREATE TABLE user_feed (
-    user_id BIGINT,
-    post_timestamp TIMESTAMP,
-    post_id BIGINT,
-    author_id BIGINT,
-    post_data TEXT,
-    PRIMARY KEY (user_id, post_timestamp, post_id)
-) WITH CLUSTERING ORDER BY (post_timestamp DESC);
-</code></pre>
+<p>The following are drawn from engineering blog posts published by the companies involved.</p>
 
-<p><strong>Lessons learned</strong>:</p>
-<ul>
-  <li>NoSQL isn’t always better — Instagram kept PostgreSQL for user data.</li>
-  <li>Design the schema around query patterns, not entities.</li>
-  <li>Denormalization is fine when you need scale.</li>
-</ul>
+<h3 id="discord-cassandra-to-scylladb">Discord: Cassandra to ScyllaDB</h3>
 
-<h3 id="case-study-2-ubers-schemaless">Case Study 2: Uber’s Schemaless</h3>
+<p>Discord stores messages in a wide-column store partitioned by channel and a time bucket, so that the dominant query — recent messages in a channel — reads one partition:</p>
 
-<p><strong>The challenge</strong>: hundreds of microservices with different data needs, rapid development requiring schema flexibility, and strong consistency in some cases.</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- CQL</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">messages</span> <span class="p">(</span>
+    <span class="n">channel_id</span> <span class="nb">BIGINT</span><span class="p">,</span>
+    <span class="n">bucket</span>     <span class="nb">INT</span><span class="p">,</span>         <span class="c1">-- fixed time window derived from the message id</span>
+    <span class="n">message_id</span> <span class="nb">BIGINT</span><span class="p">,</span>
+    <span class="n">author_id</span>  <span class="nb">BIGINT</span><span class="p">,</span>
+    <span class="n">content</span>    <span class="nb">TEXT</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">((</span><span class="n">channel_id</span><span class="p">,</span> <span class="n">bucket</span><span class="p">),</span> <span class="n">message_id</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">WITH</span> <span class="n">CLUSTERING</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="p">(</span><span class="n">message_id</span> <span class="k">DESC</span><span class="p">);</span>
+</code></pre></div></div>
 
-<p><strong>The solution</strong>: “Schemaless” — a MySQL backend exposed through a JSON-like, append-only, per-cell-versioned interface.</p>
+<p>Discord moved its messages from MongoDB to Cassandra early in its history (described publicly in 2017). By early 2022 the cluster had grown to 177 nodes holding trillions of messages and suffered from unpredictable latency, hot partitions in large servers, and garbage-collection pauses. In 2022 it migrated to ScyllaDB (a C++ reimplementation of Cassandra), placing Rust <em>data services</em> in front of the database that coalesce concurrent requests for the same partition. The cluster shrank to 72 nodes, and p99 latency for fetching historical messages fell from 40–125 ms to about 15 ms.</p>
+
+<p><strong>Lessons:</strong> the partition key must bound partition size (hence the time bucket); hot partitions are an application-level problem that a proxy layer can absorb; and tail latency, not average latency, drove the migration.</p>
+
+<h3 id="uber-schemaless-to-docstore">Uber: Schemaless to Docstore</h3>
+
+<p>Uber built <strong>Schemaless</strong> (2014) as an append-only, versioned cell store on top of sharded MySQL, trading SQL for easy horizontal scale:</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
-  </span><span class="nl">"row_key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rider:123:profile"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"cells"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
-    </span><span class="p">{</span><span class="w"> </span><span class="nl">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"name"</span><span class="p">,</span><span class="w">   </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span><span class="w"> </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1234567890</span><span class="w"> </span><span class="p">},</span><span class="w">
-    </span><span class="p">{</span><span class="w"> </span><span class="nl">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rating"</span><span class="p">,</span><span class="w"> </span><span class="nl">"value"</span><span class="p">:</span><span class="w"> </span><span class="mf">4.8</span><span class="p">,</span><span class="w">           </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1234567891</span><span class="w"> </span><span class="p">}</span><span class="w">
-  </span><span class="p">]</span><span class="w">
+  </span><span class="nl">"row_key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"trip:8f2c"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"column"</span><span class="p">:</span><span class="w">  </span><span class="s2">"BASE"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"ref_key"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"body"</span><span class="p">:</span><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"completed"</span><span class="p">,</span><span class="w"> </span><span class="nl">"fare"</span><span class="p">:</span><span class="w"> </span><span class="mf">17.40</span><span class="w"> </span><span class="p">}</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p><strong>Benefits</strong>: schema changes without migrations, per-cell versioning for consistency, and MySQL’s operational reliability under a NoSQL-flavored API.</p>
+<p>Its restrictive API made it awkward as a general-purpose database, and in 2021 Uber described its successor, <strong>Docstore</strong>: a distributed database that still uses MySQL as the storage engine, but replicates each partition with Raft, offers strict serializability within a partition, supports transactions, schemas that can evolve, materialized views and change data capture.</p>
 
-<h3 id="case-study-3-discords-message-storage">Case Study 3: Discord’s Message Storage</h3>
+<p><strong>Lessons:</strong> a mature single-node engine (MySQL) is a good building block for a distributed store; and “schemaless” systems tend to grow schemas and transactions back as their user base widens.</p>
 
-<p><strong>The challenge</strong>: billions of messages across millions of channels, queryable by channel and time, where old messages are accessed rarely but must remain available.</p>
+<h3 id="instagram-postgresql-plus-cassandra">Instagram: PostgreSQL plus Cassandra</h3>
 
-<p><strong>The solution</strong>: a wide-column store partitioned by channel and time bucket, with a hot/cold tiering strategy.</p>
+<p>Instagram kept its core data (users, media, relationships) in horizontally sharded PostgreSQL, using logical shards mapped to physical servers so that shards can be moved without re-keying. It adopted Cassandra for high-volume, append-heavy workloads such as feeds and activity inboxes, and in 2018 described <strong>Rocksandra</strong>, a Cassandra fork using RocksDB as its storage engine, built to reduce tail latency from JVM garbage collection.</p>
 
-<pre><code class="language-cql">CREATE TABLE messages (
-    channel_id BIGINT,
-    bucket INT,            -- time bucket (e.g. a day)
-    message_id BIGINT,
-    author_id BIGINT,
-    content TEXT,
-    PRIMARY KEY ((channel_id, bucket), message_id)
-);
--- Cassandra, later ScyllaDB for better tail latency;
--- cold messages migrate to object storage.
-</code></pre>
+<p><strong>Lessons:</strong> use a relational store where relationships and correctness matter and a wide-column store where the access pattern is a known, append-heavy timeline; and many logical shards on fewer physical servers make later rebalancing cheap.</p>
 
-<p><strong>Architecture</strong>: write to the wide-column store immediately; after a retention window, migrate cold data to object storage; a query router checks both tiers.</p>
+<h2 id="design-practices-that-scale">Design Practices That Scale</h2>
 
-<h2 id="best-practices-from-the-trenches">Best Practices from the Trenches</h2>
+<p>Choices that are free on day one and expensive to change later:</p>
 
-<h3 id="design-principles-that-scale">Design Principles That Scale</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Choice</th>
+      <th>Prefer</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Surrogate key type</td>
+      <td><code class="language-plaintext highlighter-rouge">BIGINT</code> or a UUID, not <code class="language-plaintext highlighter-rouge">INT</code></td>
+      <td>A 32-bit signed integer runs out at about 2.1 billion rows; widening a primary key on a large table is a major migration</td>
+    </tr>
+    <tr>
+      <td>UUID version</td>
+      <td>On a single node, UUIDv7 (time-ordered; <code class="language-plaintext highlighter-rouge">uuidv7()</code> in PostgreSQL 18). On range-partitioned distributed SQL, random UUIDv4 or hash-sharded keys</td>
+      <td>Random keys scatter inserts across a B-tree, causing page splits and poor cache locality; time-ordered keys on a range-partitioned cluster all land on the newest range</td>
+    </tr>
+    <tr>
+      <td>Timestamps</td>
+      <td><code class="language-plaintext highlighter-rouge">timestamptz</code> (PostgreSQL) or UTC <code class="language-plaintext highlighter-rouge">TIMESTAMP</code>; convert only for display</td>
+      <td>Mixing local times makes ordering and arithmetic wrong across time zones and DST changes</td>
+    </tr>
+    <tr>
+      <td>Money</td>
+      <td><code class="language-plaintext highlighter-rouge">NUMERIC</code>/<code class="language-plaintext highlighter-rouge">DECIMAL</code>, or integer minor units</td>
+      <td>Binary floating point cannot represent most decimal fractions exactly</td>
+    </tr>
+    <tr>
+      <td>Partition key (if sharding)</td>
+      <td>A key present in almost every query, with high cardinality and even load (tenant id, user id)</td>
+      <td>Queries without it scatter to every shard; skewed keys create hot partitions</td>
+    </tr>
+    <tr>
+      <td>Optimistic concurrency</td>
+      <td>A <code class="language-plaintext highlighter-rouge">version</code> column checked on update</td>
+      <td>Lets retries and concurrent edits be detected without long-held locks</td>
+    </tr>
+    <tr>
+      <td>Deletes</td>
+      <td>Hard deletes plus an audit or history table, or soft deletes with partial indexes</td>
+      <td>Soft deletes (<code class="language-plaintext highlighter-rouge">deleted_at</code>) complicate every query and unique constraint; use them deliberately</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>1. Design for 10x growth</strong></p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: works today, fails at scale</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>  <span class="c1">-- runs out near 2 billion</span>
-    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>    <span class="c1">-- some emails are longer</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- PostgreSQL</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">id</span>          <span class="n">uuid</span>        <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">uuidv7</span><span class="p">(),</span>   <span class="c1">-- PostgreSQL 18+</span>
+    <span class="n">customer_id</span> <span class="nb">bigint</span>      <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">customers</span> <span class="p">(</span><span class="n">id</span><span class="p">),</span>
+    <span class="n">total</span>       <span class="nb">numeric</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">total</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">status</span>      <span class="nb">text</span>        <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="s1">'pending'</span><span class="p">,</span>
+    <span class="k">version</span>     <span class="nb">integer</span>     <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">created_at</span>  <span class="n">timestamptz</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
+    <span class="n">updated_at</span>  <span class="n">timestamptz</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">()</span>
 <span class="p">);</span>
-
-<span class="c1">-- Good: room to grow</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">BIGINT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
-    <span class="n">created_at</span> <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span><span class="p">,</span>
-    <span class="k">INDEX</span> <span class="n">idx_email</span> <span class="p">(</span><span class="n">email</span><span class="p">),</span>
-    <span class="k">INDEX</span> <span class="n">idx_created</span> <span class="p">(</span><span class="n">created_at</span><span class="p">)</span>
-<span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_customer_created</span> <span class="k">ON</span> <span class="n">orders</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">created_at</span> <span class="k">DESC</span><span class="p">);</span>
 </code></pre></div></div>
 
-<p><strong>2. Make schemas self-documenting</strong></p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: cryptic names</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">usr_prch_hist</span> <span class="p">(</span><span class="n">u_id</span> <span class="nb">INT</span><span class="p">,</span> <span class="n">p_id</span> <span class="nb">INT</span><span class="p">,</span> <span class="n">ts</span> <span class="nb">INT</span><span class="p">);</span>
-
-<span class="c1">-- Good: clear intent</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">user_purchase_history</span> <span class="p">(</span>
-    <span class="n">user_id</span> <span class="nb">BIGINT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="n">product_id</span> <span class="nb">BIGINT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="n">purchased_at</span> <span class="nb">TIMESTAMP</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="n">quantity</span> <span class="nb">INT</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">unit_price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">user_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
-    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">product_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">products</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
-    <span class="k">INDEX</span> <span class="n">idx_user_purchases</span> <span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">purchased_at</span> <span class="k">DESC</span><span class="p">)</span>
-<span class="p">);</span>
-</code></pre></div></div>
+<p>PostgreSQL has no <code class="language-plaintext highlighter-rouge">ON UPDATE CURRENT_TIMESTAMP</code> column option (that is MySQL syntax); maintain <code class="language-plaintext highlighter-rouge">updated_at</code> with a trigger or in the application. Index foreign-key columns you join or delete through (see <a href="indexing-and-queries.html#unindexed-foreign-keys">Indexing &amp; Query Execution</a>).</p>
 
 <blockquote>
-  <p><strong>Dialect note: inline index syntax.</strong> The inline <code class="language-plaintext highlighter-rouge">INDEX idx_name (cols)</code> clause inside <code class="language-plaintext highlighter-rouge">CREATE TABLE</code> above is MySQL-only and is invalid in PostgreSQL. In PostgreSQL, create the table without those clauses and add each index with a separate <code class="language-plaintext highlighter-rouge">CREATE INDEX</code> statement.</p>
-</blockquote>
-
-<p><strong>3. Plan for maintenance</strong></p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">BIGINT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="c1">-- Business columns</span>
-    <span class="n">customer_id</span> <span class="nb">BIGINT</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="n">total</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-
-    <span class="c1">-- Maintenance columns</span>
-    <span class="n">created_at</span> <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span><span class="p">,</span>
-    <span class="n">updated_at</span> <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span> <span class="k">ON</span> <span class="k">UPDATE</span> <span class="k">CURRENT_TIMESTAMP</span><span class="p">,</span>
-    <span class="k">version</span> <span class="nb">INT</span> <span class="k">DEFAULT</span> <span class="mi">1</span><span class="p">,</span>            <span class="c1">-- optimistic locking</span>
-    <span class="n">is_deleted</span> <span class="nb">BOOLEAN</span> <span class="k">DEFAULT</span> <span class="k">FALSE</span>  <span class="c1">-- soft deletes</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<h3 id="common-pitfalls-to-avoid">Common Pitfalls to Avoid</h3>
-
-<ol>
-  <li><strong>N+1 queries</strong>: load related data in one query, not one per row.</li>
-  <li><strong>Missing indexes on foreign keys</strong>: every FK that you filter or join on should have an index.</li>
-  <li><strong>Storing calculated values</strong>: use generated columns or views instead of duplicating derivable data.</li>
-  <li><strong>Ignoring time zones</strong>: store UTC, convert for display.</li>
-  <li><strong>Not planning for deletes</strong>: soft deletes are often better than hard deletes for auditability.</li>
-</ol>
-
-<h2 id="build-your-own-database">Build Your Own Database</h2>
-
-<p>The best way to understand databases is to build one. A practical progression:</p>
-
-<h3 id="project-1-key-value-store-a-weekend">Project 1: Key-Value Store (a weekend)</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SimpleKVStore</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">log</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># for durability
-</span>
-    <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">log</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">SET </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s"> </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-
-    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">snapshot</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">snapshot.db</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">w</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="n">json</span><span class="p">.</span><span class="nf">dump</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="project-2-b-tree-index-12-weeks">Project 2: B+ Tree Index (1–2 weeks)</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">BPlusTree</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">root</span> <span class="o">=</span> <span class="nc">LeafNode</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">order</span> <span class="o">=</span> <span class="n">order</span>
-
-    <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="c1"># find the leaf, split if full, push splits up to parents
-</span>        <span class="k">pass</span>
-
-    <span class="k">def</span> <span class="nf">range_query</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">):</span>
-        <span class="c1"># find the start leaf, scan linked leaves until end
-</span>        <span class="k">pass</span>
-</code></pre></div></div>
-
-<h3 id="project-3-simple-sql-engine-a-month">Project 3: Simple SQL Engine (a month)</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MiniSQL</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
-        <span class="n">ast</span> <span class="o">=</span> <span class="nf">parse_sql</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">ast</span><span class="p">.</span><span class="nb">type</span> <span class="o">==</span> <span class="sh">"</span><span class="s">SELECT</span><span class="sh">"</span><span class="p">:</span>
-            <span class="n">table</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">scan_table</span><span class="p">(</span><span class="n">ast</span><span class="p">.</span><span class="n">table</span><span class="p">)</span>
-            <span class="n">filtered</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">apply_where</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">ast</span><span class="p">.</span><span class="n">where</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">project</span><span class="p">(</span><span class="n">filtered</span><span class="p">,</span> <span class="n">ast</span><span class="p">.</span><span class="n">columns</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">ast</span><span class="p">.</span><span class="nb">type</span> <span class="o">==</span> <span class="sh">"</span><span class="s">CREATE TABLE</span><span class="sh">"</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="nf">create_table</span><span class="p">(</span><span class="n">ast</span><span class="p">.</span><span class="n">table_name</span><span class="p">,</span> <span class="n">ast</span><span class="p">.</span><span class="n">columns</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="project-4-add-transactions-a-couple-of-months">Project 4: Add Transactions (a couple of months)</h3>
-
-<ul>
-  <li>Implement write-ahead logging.</li>
-  <li>Add simple two-phase locking (2PL) for isolation.</li>
-  <li>Build a recovery manager.</li>
-  <li>Handle concurrent access.</li>
-</ul>
-
-<p>Each project builds on the last, gradually introducing the complexity real databases manage.</p>
-
-<blockquote>
-  <p><strong>Code Reference</strong>: For working implementations of the distributed algorithms referenced here, see <a href="../../../code-examples/technology/database-design/distributed_systems.py"><code class="language-plaintext highlighter-rouge">distributed_systems.py</code></a> and <a href="../../../code-examples/technology/database-design/modern_databases.py"><code class="language-plaintext highlighter-rouge">modern_databases.py</code></a>.</p>
+  <p><strong>Code reference:</strong> Working implementations of the distributed algorithms referenced here are in <a href="../../../code-examples/technology/database-design/distributed_systems.py"><code class="language-plaintext highlighter-rouge">distributed_systems.py</code></a> and <a href="../../../code-examples/technology/database-design/modern_databases.py"><code class="language-plaintext highlighter-rouge">modern_databases.py</code></a>.</p>
 </blockquote>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong>Mechanics:</strong> <a href="replication-and-consensus.html">Replication &amp; Consensus</a> — how copies stay in sync and how Raft/Paxos agree under failure.</li>
-  <li><strong>Atomicity at scale:</strong> <a href="distributed-transactions.html">Distributed Transactions</a> — 2PC/3PC, sagas, outbox, and idempotency.</li>
-  <li><strong>Data models:</strong> <a href="nosql-data-models.html">NoSQL Data Models</a> — document, key-value, wide-column, graph, and time-series stores.</li>
-  <li><strong>Foundations:</strong> <a href="storage-internals.html">Storage Engines &amp; Recovery</a> and <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — the single-node story distribution must preserve.</li>
+  <li><a href="replication-and-consensus.html">Replication &amp; Consensus</a> — how copies stay in sync and how Raft and Paxos agree under failure.</li>
+  <li><a href="distributed-transactions.html">Distributed Transactions</a> — 2PC, commit over consensus, sagas, outbox and idempotency.</li>
+  <li><a href="nosql-data-models.html">NoSQL Data Models</a> — document, key-value, wide-column, graph, time-series and vector stores.</li>
+  <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> and <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — the single-node guarantees that distribution must preserve.</li>
   <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-  <li>See also: <a href="../aws/">AWS</a> for managed and serverless database services, and <a href="../networking/">Networking</a> for the protocols behind distributed systems.</li>
+  <li>Related: <a href="../aws/">AWS</a> for managed and serverless database services, and <a href="../networking/">Networking</a> for the protocols beneath distributed systems.</li>
 </ul>
 
       </section>

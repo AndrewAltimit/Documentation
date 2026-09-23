@@ -3133,540 +3133,584 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Distributed Systems Hub</a> » Observability</p>
 
-<p>Tracing, metrics, structured logs, and SLOs — seeing inside emergent multi-node behavior.</p>
+<p>In a distributed system a single user request crosses many processes, hosts, and queues, each with its own clock and logs, and the failure is often in the <em>interaction</em> between components rather than inside any one of them. This page covers observability from the distributed-systems angle: how request context is propagated across synchronous and asynchronous boundaries, how traces are collected and sampled at scale, how the OpenTelemetry pipeline is structured, how the signals are joined together, and how SLOs and error budgets turn telemetry into reliability decisions across chains of dependent services.</p>
 
-<h2 id="why-observability-is-a-first-class-concern">Why Observability Is a First-Class Concern</h2>
+<p>Per-signal depth (PromQL and Alertmanager, log pipelines, tracing backends) is in the <a href="../observability/">Observability</a> section: <a href="../observability/metrics.html">Metrics</a>, <a href="../observability/logging.html">Logging</a>, and <a href="../observability/tracing.html">Tracing</a>.</p>
 
-<p>In a single-process program you can attach a debugger, set a breakpoint, and read the entire state of the world. In a distributed system that luxury is gone. A single user request fans out across dozens of services, each on a different host, each with its own clock, logs, and failure modes. When something is slow or wrong, no one node holds the answer — the <em>interaction</em> between nodes is the bug. You cannot debug what you cannot see, so observability is a design concern, not an afterthought.</p>
+<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
-<p>It is useful to separate two terms that are often conflated:</p>
+<ol id="markdown-toc">
+  <li><a href="#monitoring-vs-observability" id="markdown-toc-monitoring-vs-observability">Monitoring vs Observability</a>    <ol>
+      <li><a href="#the-signals" id="markdown-toc-the-signals">The Signals</a></li>
+    </ol>
+  </li>
+  <li><a href="#the-opentelemetry-pipeline" id="markdown-toc-the-opentelemetry-pipeline">The OpenTelemetry Pipeline</a></li>
+  <li><a href="#distributed-tracing" id="markdown-toc-distributed-tracing">Distributed Tracing</a>    <ol>
+      <li><a href="#the-span-data-model" id="markdown-toc-the-span-data-model">The Span Data Model</a></li>
+    </ol>
+  </li>
+  <li><a href="#context-propagation" id="markdown-toc-context-propagation">Context Propagation</a>    <ol>
+      <li><a href="#w3c-trace-context" id="markdown-toc-w3c-trace-context">W3C Trace Context</a></li>
+      <li><a href="#propagation-in-code" id="markdown-toc-propagation-in-code">Propagation in Code</a></li>
+    </ol>
+  </li>
+  <li><a href="#sampling-at-scale" id="markdown-toc-sampling-at-scale">Sampling at Scale</a></li>
+  <li><a href="#metrics-for-distributed-services" id="markdown-toc-metrics-for-distributed-services">Metrics for Distributed Services</a></li>
+  <li><a href="#structured-logs-and-correlation" id="markdown-toc-structured-logs-and-correlation">Structured Logs and Correlation</a></li>
+  <li><a href="#slis-slos-and-error-budgets" id="markdown-toc-slis-slos-and-error-budgets">SLIs, SLOs, and Error Budgets</a>    <ol>
+      <li><a href="#definitions" id="markdown-toc-definitions">Definitions</a></li>
+      <li><a href="#the-error-budget" id="markdown-toc-the-error-budget">The Error Budget</a></li>
+      <li><a href="#slos-across-dependency-chains" id="markdown-toc-slos-across-dependency-chains">SLOs Across Dependency Chains</a></li>
+      <li><a href="#burn-rate-alerting" id="markdown-toc-burn-rate-alerting">Burn-Rate Alerting</a></li>
+    </ol>
+  </li>
+  <li><a href="#putting-it-together" id="markdown-toc-putting-it-together">Putting It Together</a></li>
+  <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
+</ol>
+
+<hr />
+
+<h2 id="monitoring-vs-observability">Monitoring vs Observability</h2>
 
 <ul>
-  <li><strong>Monitoring</strong> answers <em>known</em> questions you decided to ask in advance: “Is CPU above 90%? Is the error rate above 1%?” You build dashboards and alerts for failure modes you already anticipated.</li>
-  <li><strong>Observability</strong> is the property of a system that lets you ask <em>new</em> questions about its behavior — questions you did not anticipate — without shipping new code. It is measured by how well you can explain <em>any</em> state the system gets into from its external outputs alone.</li>
+  <li><strong>Monitoring</strong> answers questions decided in advance: is the error rate above 1%, is the disk 90% full? It covers failure modes you have already imagined.</li>
+  <li><strong>Observability</strong> is the property of a system that lets you answer <em>new</em> questions about its behaviour from the telemetry it already emits, without shipping new code. The term comes from control theory, where a system is observable if its internal state can be reconstructed from its outputs.</li>
 </ul>
 
-<p>Observability rests on three complementary signals, often called the <strong>three pillars</strong>:</p>
+<p>Distributed systems need the second, because their failures are emergent: a retry storm, a slow shard, a noisy neighbour, a version skew between two services during a rolling deploy. Nobody writes a dashboard for those in advance.</p>
+
+<h3 id="the-signals">The Signals</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Pillar</th>
-      <th>Question it answers</th>
+      <th>Signal</th>
+      <th>Answers</th>
       <th>Cardinality</th>
       <th>Cost profile</th>
+      <th>Maturity in OpenTelemetry</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Traces</strong></td>
-      <td><em>Where</em> did the time go / the error happen, across services, for one request?</td>
-      <td>High (per-request)</td>
+      <td>Where did the time go, and where did the error start, for one request across services?</td>
+      <td>Per request</td>
       <td>Sampled; storage-heavy</td>
+      <td>Stable</td>
     </tr>
     <tr>
       <td><strong>Metrics</strong></td>
-      <td><em>How much / how often</em> is happening, aggregated over time?</td>
-      <td>Low (aggregated)</td>
-      <td>Cheap, constant-size</td>
+      <td>How much and how often, aggregated over time?</td>
+      <td>Low (aggregated series)</td>
+      <td>Cheap and roughly constant regardless of traffic</td>
+      <td>Stable</td>
     </tr>
     <tr>
       <td><strong>Logs</strong></td>
-      <td><em>What exactly</em> happened in this event, with full detail?</td>
+      <td>Exactly what happened in this event, in full detail?</td>
       <td>Very high</td>
       <td>Expensive at volume</td>
+      <td>Stable data model; bridges from existing log libraries</td>
+    </tr>
+    <tr>
+      <td><strong>Profiles</strong></td>
+      <td>Which functions consumed CPU or memory?</td>
+      <td>Per stack sample</td>
+      <td>Low with continuous sampling (often eBPF)</td>
+      <td>Public alpha since March 2026</td>
     </tr>
   </tbody>
 </table>
 
-<p>They are complementary, not redundant. Metrics tell you <em>that</em> the p99 latency spiked; a trace tells you <em>which</em> downstream call caused it; the logs on that span tell you <em>why</em> (a specific exception, a malformed payload). The connective tissue that lets you pivot between all three for a single request is the <strong>correlation ID</strong> / <strong>trace ID</strong>, discussed throughout this page.</p>
+<p>The signals are complementary. A metric shows <em>that</em> p99 latency rose; a trace shows <em>which</em> downstream call caused it; that span’s logs show <em>why</em> (a specific exception or payload); a profile shows <em>which code</em> burned the CPU. What lets you move between them for one request is a shared <strong>trace ID</strong>.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    Alert["Metric alert&lt;br/&gt;p99 latency up"] --&gt; Trace["Open a trace&lt;br/&gt;find slow span"]
-    Trace --&gt; Log["Read span logs&lt;br/&gt;find root cause"]
-    Log --&gt; Fix["Fix / mitigate"]
-    Trace -. trace_id .-&gt; Log
-    Alert -. exemplar .-&gt; Trace
+    Alert["Metric alert&lt;br/&gt;SLO burn rate high"] --&gt;|exemplar| Trace["Representative trace&lt;br/&gt;find the slow span"]
+    Trace --&gt;|trace_id / span_id| Log["Logs from that span&lt;br/&gt;find the error"]
+    Trace --&gt;|span-to-profile link| Prof["Profile&lt;br/&gt;find the hot code"]
+    Log --&gt; Fix["Mitigate and fix"]
+    Prof --&gt; Fix
 </code></pre>
+
+<h2 id="the-opentelemetry-pipeline">The OpenTelemetry Pipeline</h2>
+
+<p><strong>OpenTelemetry (OTel)</strong> is the CNCF standard for producing and moving telemetry. It is not a backend. It provides:</p>
+
+<ul>
+  <li><strong>APIs and SDKs</strong> in the major languages, so instrumentation is written once and is independent of the storage backend.</li>
+  <li><strong>Automatic instrumentation</strong>: language agents that instrument common HTTP, gRPC, database, and messaging libraries with no code changes, and <strong>OpenTelemetry eBPF Instrumentation (OBI)</strong>, donated by Grafana Labs from its Beyla project in 2025, which observes HTTP and gRPC traffic from the kernel without touching the process.</li>
+  <li><strong>Semantic conventions</strong>: standard attribute names such as <code class="language-plaintext highlighter-rouge">http.request.method</code>, <code class="language-plaintext highlighter-rouge">http.response.status_code</code>, <code class="language-plaintext highlighter-rouge">server.address</code>, <code class="language-plaintext highlighter-rouge">db.system.name</code>, and <code class="language-plaintext highlighter-rouge">messaging.system</code>, so that dashboards and queries work across services written in different languages.</li>
+  <li><strong>OTLP</strong>, the wire protocol, and the <strong>OpenTelemetry Collector</strong>, a standalone process that receives, processes, and exports telemetry.</li>
+</ul>
+
+<p>A production pipeline usually has two tiers of Collectors:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Node["Each node / pod"]
+      App1["Service A&lt;br/&gt;OTel SDK"]
+      App2["Service B&lt;br/&gt;auto-instrumented"]
+      eBPF["OBI eBPF&lt;br/&gt;instrumentation"]
+      Agent["Collector (agent)&lt;br/&gt;batch · k8s metadata"]
+      App1 --&gt;|OTLP| Agent
+      App2 --&gt;|OTLP| Agent
+      eBPF --&gt;|OTLP| Agent
+    end
+    Agent --&gt;|"loadbalancing exporter&lt;br/&gt;(route by trace ID)"| GW1["Collector (gateway) 1&lt;br/&gt;tail sampling · redaction"]
+    Agent --&gt; GW2["Collector (gateway) 2"]
+    GW1 --&gt; Traces[("Trace store&lt;br/&gt;Jaeger, Tempo")]
+    GW1 --&gt; Metrics[("Metrics store&lt;br/&gt;Prometheus, Mimir")]
+    GW1 --&gt; Logs[("Log store&lt;br/&gt;Loki, OpenSearch")]
+    GW2 --&gt; Traces
+    GW2 --&gt; Metrics
+    GW2 --&gt; Logs
+</code></pre>
+
+<ul>
+  <li>The <strong>agent</strong> tier runs next to workloads (a DaemonSet or sidecar). It batches data, adds resource attributes such as pod, node, and namespace, and offloads export and retry logic from the application.</li>
+  <li>The <strong>gateway</strong> tier is a horizontally scaled pool that does whole-trace work (tail sampling), enforces redaction and filtering policy, and fans out to backends. Changing backends means changing Collector configuration, not application code.</li>
+</ul>
+
+<p>Backends have converged on OTLP. <strong>Jaeger v2</strong> (released November 2024) is built on the OpenTelemetry Collector framework and accepts OTLP natively; Jaeger v1 reached end of life on 31 December 2025. <strong>Prometheus 3</strong> can ingest OTLP metrics directly (enabled with <code class="language-plaintext highlighter-rouge">--web.enable-otlp-receiver</code>), and Grafana Tempo, Loki, and most commercial vendors accept OTLP as well.</p>
 
 <h2 id="distributed-tracing">Distributed Tracing</h2>
 
-<p>A <strong>trace</strong> captures the full lifecycle of a single request as it propagates through a distributed system. It is a tree (more precisely a directed acyclic graph) of <strong>spans</strong>, where each span is one unit of work — an HTTP handler, a database query, a call to a downstream service.</p>
+<p>A <strong>trace</strong> records one request’s path through the system as a tree of <strong>spans</strong>. Each span is one unit of work: an HTTP handler, a database query, a message being processed.</p>
 
 <h3 id="the-span-data-model">The Span Data Model</h3>
 
-<p>Every span carries, at minimum:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Trace ID (16 bytes)</td>
+      <td>Shared by every span in the request; the join key for the whole picture</td>
+    </tr>
+    <tr>
+      <td>Span ID (8 bytes)</td>
+      <td>Identifies this span</td>
+    </tr>
+    <tr>
+      <td>Parent span ID</td>
+      <td>The span that caused this one; empty for the root. Parent links form the tree</td>
+    </tr>
+    <tr>
+      <td>Name and kind</td>
+      <td>For example <code class="language-plaintext highlighter-rouge">GET /checkout</code>; kind is <code class="language-plaintext highlighter-rouge">SERVER</code>, <code class="language-plaintext highlighter-rouge">CLIENT</code>, <code class="language-plaintext highlighter-rouge">PRODUCER</code>, <code class="language-plaintext highlighter-rouge">CONSUMER</code>, or <code class="language-plaintext highlighter-rouge">INTERNAL</code></td>
+    </tr>
+    <tr>
+      <td>Start time and duration</td>
+      <td>Measured with the local clock of the host that recorded the span</td>
+    </tr>
+    <tr>
+      <td>Attributes</td>
+      <td>Key/value pairs, following semantic conventions where they exist</td>
+    </tr>
+    <tr>
+      <td>Events</td>
+      <td>Timestamped annotations within the span, such as a recorded exception</td>
+    </tr>
+    <tr>
+      <td>Links</td>
+      <td>References to spans in <em>other</em> traces or other branches (used for batching and fan-in)</td>
+    </tr>
+    <tr>
+      <td>Status</td>
+      <td>Unset, OK, or Error</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li>A <strong>trace ID</strong> — a globally unique identifier shared by <em>every</em> span in the request. This is the join key that stitches the distributed picture together.</li>
-  <li>A <strong>span ID</strong> — unique to this span.</li>
-  <li>A <strong>parent span ID</strong> — the span that caused this one (empty for the root span). Parent links are what turn a flat list of spans into a tree.</li>
-  <li>A <strong>start time</strong> and <strong>duration</strong>.</li>
-  <li><strong>Attributes</strong> (key/value tags) — <code class="language-plaintext highlighter-rouge">http.method</code>, <code class="language-plaintext highlighter-rouge">db.statement</code>, <code class="language-plaintext highlighter-rouge">peer.service</code>, etc.</li>
-  <li><strong>Events</strong> — timestamped log lines scoped to the span (“cache miss”, “retrying”).</li>
-  <li>A <strong>status</strong> — OK or ERROR.</li>
-</ul>
+<p>A trace viewer draws the spans as a waterfall, with wall-clock time on the horizontal axis and nesting showing causality:</p>
 
-<p>Visualized, a trace becomes a waterfall (flame graph) where the horizontal axis is wall-clock time and nesting shows the call hierarchy:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>trace_id = 4bf92f3577b34da6
-[ frontend: GET /checkout ........................................ 220ms ]
-   [ auth: verify_token ...... 18ms ]
-   [ cart: get_items .......................... 95ms ]
-       [ db: SELECT items ........... 60ms ]
-       [ cache: GET cart:42 .. 5ms ]
-   [ payment: charge ........................... 90ms ]   &lt;-- critical path
-       [ stripe: POST /charges ............ 82ms ]
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>trace_id = 4bf92f3577b34da6a3ce929d0e0e4736
+[ frontend  GET /checkout ........................................ 220 ms ]
+   [ auth  verify_token ..... 18 ms ]
+   [ cart  get_items ........................ 95 ms ]
+      [ db  SELECT items .......... 60 ms ]
+      [ cache  GET cart:42 .. 5 ms ]
+   [ payment  charge ........................... 90 ms ]   &lt;- critical path
+      [ psp  POST /charges ................ 82 ms ]
 </code></pre></div></div>
 
-<p>The <strong>critical path</strong> — the chain of spans whose sum dictates total latency — is what you optimize. A span that runs in parallel and finishes early does not lengthen the request even if it is individually slow.</p>
+<p>The <strong>critical path</strong> is the chain of sequential spans that determines total latency. Optimizing a span that is not on it (for example, one running in parallel that finishes early) does not make the request faster.</p>
 
-<h3 id="context-propagation">Context Propagation</h3>
+<p>Because each span is timed by its own host’s clock, <strong>clock skew</strong> between hosts can make a child appear to start before its parent. Keep hosts synchronized with NTP or PTP, and interpret small cross-host offsets with care; some backends apply a skew adjustment when rendering.</p>
 
-<p>The single hardest part of tracing is <strong>context propagation</strong>: making the trace ID and parent span ID flow from one service to the next, including across process and network boundaries. Within a process this is carried in a thread-local / async-local “current span”. Across a network call it must be <strong>injected</strong> into the outgoing request and <strong>extracted</strong> on the receiving side, almost always via headers.</p>
+<h2 id="context-propagation">Context Propagation</h2>
 
-<p>The vendor-neutral standard is <strong>W3C Trace Context</strong>, which defines two HTTP headers:</p>
+<p>A trace only exists if every hop passes the trace context along. Within a process, the current span lives in a context object (thread-local or async-local storage). Across a process boundary it must be <strong>injected</strong> into the outgoing request and <strong>extracted</strong> on the receiving side. Any hop that fails to do this splits the trace into disconnected fragments.</p>
+
+<h3 id="w3c-trace-context">W3C Trace Context</h3>
+
+<p>The vendor-neutral format is the W3C Trace Context recommendation, which defines two HTTP headers:</p>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
-             │  └── trace-id (16 bytes) ─────┘ └ parent-id (8B) ┘ │
-             version                                         trace-flags (01 = sampled)
-tracestate:  vendorA=opaque,vendorB=opaque   (per-vendor key/value continuation)
+             |  |                                |                |
+             |  trace-id (16 bytes, hex)         parent-id        trace-flags
+             version                             (8 bytes, hex)   (01 = sampled)
+
+tracestate:  vendorA=opaque,vendorB=opaque      # optional vendor-specific data
 </code></pre></div></div>
 
-<p>For message queues the same IDs are stamped into message headers/metadata so the consumer can continue the trace asynchronously. The golden rule: <strong>propagate context everywhere a request crosses a boundary</strong> — HTTP clients, gRPC, Kafka producers/consumers, background jobs — or the trace breaks into disconnected fragments.</p>
+<p>A third header, <code class="language-plaintext highlighter-rouge">baggage</code>, defined by the W3C Baggage specification, carries application key/value pairs (for example a tenant ID) to every downstream service. Baggage is sent on every hop and is visible to every service and proxy, so keep it small and never put credentials or personal data in it.</p>
 
 <pre><code class="language-mermaid">sequenceDiagram
     participant C as Client
     participant F as Frontend
     participant P as Payment
+    participant K as Kafka
+    participant W as Fulfilment worker
     C-&gt;&gt;F: GET /checkout
-    Note over F: extract context (none) → start root span&lt;br/&gt;trace_id=T, span=A
+    Note over F: no incoming context:&lt;br/&gt;start root span A in trace T
     F-&gt;&gt;P: POST /charge&lt;br/&gt;traceparent: 00-T-A-01
-    Note over P: extract context → child span&lt;br/&gt;trace_id=T, span=B, parent=A
+    Note over P: extract, start child span B (parent A)
     P--&gt;&gt;F: 200
+    F-&gt;&gt;K: produce OrderPlaced&lt;br/&gt;header traceparent: 00-T-A-01
     F--&gt;&gt;C: 200
-    Note over F,P: both spans share trace_id=T → one trace
+    K-&gt;&gt;W: consume, possibly minutes later
+    Note over W: extract, start CONSUMER span D&lt;br/&gt;in trace T (or link to it)
 </code></pre>
 
-<h3 id="sampling">Sampling</h3>
+<h3 id="propagation-in-code">Propagation in Code</h3>
 
-<p>Tracing every request at high volume is expensive in CPU, network, and storage. <strong>Sampling</strong> keeps a representative subset:</p>
-
-<ul>
-  <li><strong>Head-based sampling</strong> decides at the root span (e.g. keep 1%). Cheap and simple, but you may discard the rare slow/error traces you most want.</li>
-  <li><strong>Tail-based sampling</strong> buffers all spans and decides <em>after</em> the trace completes, so you can keep 100% of error traces and slow traces while sampling the boring fast ones. More accurate, but requires a collector that holds spans in memory until the trace finishes.</li>
-</ul>
-
-<p>A common production setup is head-based sampling at a low rate plus tail-based rules that force-keep any trace containing an error or exceeding a latency threshold. The sampling decision itself propagates in the <code class="language-plaintext highlighter-rouge">traceparent</code> trace-flags so all services in a trace agree to keep or drop it consistently.</p>
-
-<h3 id="opentelemetry-and-jaeger">OpenTelemetry and Jaeger</h3>
-
-<p><strong>OpenTelemetry (OTel)</strong> is the CNCF standard that unifies the instrumentation layer. It provides:</p>
-
-<ul>
-  <li>A <strong>vendor-neutral API and SDK</strong> for traces, metrics, and logs, so you instrument once and can switch backends without touching application code.</li>
-  <li>The <strong>OTLP</strong> wire protocol and the <strong>OpenTelemetry Collector</strong>, a standalone process that receives, batches, processes, and exports telemetry to one or more backends (Jaeger, Tempo, Prometheus, a vendor SaaS).</li>
-</ul>
-
-<p><strong>Jaeger</strong> is a popular open-source tracing backend: it ingests spans, stores them, and provides a UI to search by trace ID / service / tags and view the waterfall.</p>
-
-<p>The snippet below — moved and expanded from the hub — wires OpenTelemetry to export spans, and shows nested spans on the critical path:</p>
+<p>Most HTTP and gRPC client and server libraries propagate context automatically once the OTel instrumentation package for them is installed. Messaging clients often need it done explicitly. The example below propagates context through Kafka record headers with <code class="language-plaintext highlighter-rouge">aiokafka</code>:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">opentelemetry</span> <span class="kn">import</span> <span class="n">trace</span>
-<span class="kn">from</span> <span class="n">opentelemetry.sdk.trace</span> <span class="kn">import</span> <span class="n">TracerProvider</span>
-<span class="kn">from</span> <span class="n">opentelemetry.sdk.trace.export</span> <span class="kn">import</span> <span class="n">BatchSpanProcessor</span>
-<span class="kn">from</span> <span class="n">opentelemetry.sdk.resources</span> <span class="kn">import</span> <span class="n">Resource</span>
-<span class="c1"># Modern OTel exports via OTLP to a Collector, which fans out to Jaeger/Tempo/etc.
-</span><span class="kn">from</span> <span class="n">opentelemetry.exporter.otlp.proto.grpc.trace_exporter</span> <span class="kn">import</span> <span class="n">OTLPSpanExporter</span>
+<span class="kn">from</span> <span class="n">opentelemetry.propagate</span> <span class="kn">import</span> <span class="n">inject</span><span class="p">,</span> <span class="n">extract</span>
+<span class="kn">from</span> <span class="n">opentelemetry.trace</span> <span class="kn">import</span> <span class="n">SpanKind</span><span class="p">,</span> <span class="n">Link</span>
 
-<span class="c1"># Identify this service so spans are attributed correctly in the backend
-</span><span class="n">resource</span> <span class="o">=</span> <span class="n">Resource</span><span class="p">.</span><span class="nf">create</span><span class="p">({</span><span class="sh">"</span><span class="s">service.name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">order-service</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">service.version</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1.4.0</span><span class="sh">"</span><span class="p">})</span>
-<span class="n">trace</span><span class="p">.</span><span class="nf">set_tracer_provider</span><span class="p">(</span><span class="nc">TracerProvider</span><span class="p">(</span><span class="n">resource</span><span class="o">=</span><span class="n">resource</span><span class="p">))</span>
-<span class="n">tracer</span> <span class="o">=</span> <span class="n">trace</span><span class="p">.</span><span class="nf">get_tracer</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+<span class="n">tracer</span> <span class="o">=</span> <span class="n">trace</span><span class="p">.</span><span class="nf">get_tracer</span><span class="p">(</span><span class="sh">"</span><span class="s">order-service</span><span class="sh">"</span><span class="p">)</span>
 
-<span class="c1"># Export spans in batches to the local OTel Collector (which forwards to Jaeger)
-</span><span class="n">otlp_exporter</span> <span class="o">=</span> <span class="nc">OTLPSpanExporter</span><span class="p">(</span><span class="n">endpoint</span><span class="o">=</span><span class="sh">"</span><span class="s">http://otel-collector:4317</span><span class="sh">"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="n">trace</span><span class="p">.</span><span class="nf">get_tracer_provider</span><span class="p">().</span><span class="nf">add_span_processor</span><span class="p">(</span><span class="nc">BatchSpanProcessor</span><span class="p">(</span><span class="n">otlp_exporter</span><span class="p">))</span>
+<span class="c1"># Producer: inject the current context into the record headers
+</span><span class="k">async</span> <span class="k">def</span> <span class="nf">publish</span><span class="p">(</span><span class="n">producer</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">order-events publish</span><span class="sh">"</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">SpanKind</span><span class="p">.</span><span class="n">PRODUCER</span><span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+        <span class="n">span</span><span class="p">.</span><span class="nf">set_attribute</span><span class="p">(</span><span class="sh">"</span><span class="s">messaging.system</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">kafka</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">span</span><span class="p">.</span><span class="nf">set_attribute</span><span class="p">(</span><span class="sh">"</span><span class="s">messaging.destination.name</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">order-events</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">carrier</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="nf">inject</span><span class="p">(</span><span class="n">carrier</span><span class="p">)</span>  <span class="c1"># adds traceparent (and tracestate, baggage if set)
+</span>        <span class="n">headers</span> <span class="o">=</span> <span class="p">[(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">.</span><span class="nf">encode</span><span class="p">())</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">carrier</span><span class="p">.</span><span class="nf">items</span><span class="p">()]</span>
+        <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">send_and_wait</span><span class="p">(</span><span class="sh">"</span><span class="s">order-events</span><span class="sh">"</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
 
+<span class="k">def</span> <span class="nf">context_from</span><span class="p">(</span><span class="n">msg</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nf">extract</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">msg</span><span class="p">.</span><span class="n">headers</span> <span class="ow">or</span> <span class="p">[])})</span>
 
-<span class="k">async</span> <span class="k">def</span> <span class="nf">process_request</span><span class="p">(</span><span class="n">request_id</span><span class="p">):</span>
-    <span class="c1"># start_as_current_span sets the active span; child spans auto-link as parent→child
-</span>    <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">process_request</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
-        <span class="n">span</span><span class="p">.</span><span class="nf">set_attribute</span><span class="p">(</span><span class="sh">"</span><span class="s">request.id</span><span class="sh">"</span><span class="p">,</span> <span class="n">request_id</span><span class="p">)</span>
+<span class="c1"># Consumer, one record at a time: continue the producer's trace
+</span><span class="k">async</span> <span class="k">def</span> <span class="nf">process_one</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">order-events process</span><span class="sh">"</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="nf">context_from</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="n">kind</span><span class="o">=</span><span class="n">SpanKind</span><span class="p">.</span><span class="n">CONSUMER</span>
+    <span class="p">):</span>
+        <span class="k">await</span> <span class="nf">handle</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">validate</span><span class="sh">"</span><span class="p">):</span>
-            <span class="k">await</span> <span class="nf">validate_request</span><span class="p">(</span><span class="n">request_id</span><span class="p">)</span>
-
-        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">process</span><span class="sh">"</span><span class="p">):</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">process_data</span><span class="p">(</span><span class="n">request_id</span><span class="p">)</span>
-
-        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">persist</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">persist_span</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="k">await</span> <span class="nf">save_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-            <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                <span class="c1"># Record the error on the span so it surfaces in the trace UI
-</span>                <span class="n">persist_span</span><span class="p">.</span><span class="nf">record_exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-                <span class="n">persist_span</span><span class="p">.</span><span class="nf">set_status</span><span class="p">(</span><span class="n">trace</span><span class="p">.</span><span class="nc">Status</span><span class="p">(</span><span class="n">trace</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ERROR</span><span class="p">))</span>
-                <span class="k">raise</span>
-
-        <span class="k">return</span> <span class="n">result</span>
+<span class="c1"># Consumer, batch: one span cannot have many parents, so link to each producer
+</span><span class="k">async</span> <span class="k">def</span> <span class="nf">process_batch</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">links</span> <span class="o">=</span> <span class="p">[</span><span class="nc">Link</span><span class="p">(</span><span class="n">trace</span><span class="p">.</span><span class="nf">get_current_span</span><span class="p">(</span><span class="nf">context_from</span><span class="p">(</span><span class="n">m</span><span class="p">)).</span><span class="nf">get_span_context</span><span class="p">())</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">msgs</span><span class="p">]</span>
+    <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">order-events process</span><span class="sh">"</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">SpanKind</span><span class="p">.</span><span class="n">CONSUMER</span><span class="p">,</span> <span class="n">links</span><span class="o">=</span><span class="n">links</span>
+    <span class="p">):</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">msgs</span><span class="p">:</span>
+            <span class="k">await</span> <span class="nf">handle</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>Cross-service propagation uses OTel’s <code class="language-plaintext highlighter-rouge">inject</code>/<code class="language-plaintext highlighter-rouge">extract</code> on the W3C headers. Most HTTP and gRPC libraries do this automatically once the OTel instrumentation is installed; the manual form makes the mechanism explicit:</p>
+<p>Asynchronous hops raise a modelling question: should a consumer that runs hours later really be part of the same trace? For short, request-driven pipelines, a parent-child relationship produces one readable trace. For batch processing, fan-in, and long-delayed work, OpenTelemetry’s messaging conventions recommend <strong>span links</strong>, which keep traces bounded while preserving the causal connection.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">opentelemetry.propagate</span> <span class="kn">import</span> <span class="n">inject</span><span class="p">,</span> <span class="n">extract</span>
+<h2 id="sampling-at-scale">Sampling at Scale</h2>
 
-<span class="c1"># --- Caller side: inject current context into outgoing headers ---
-</span><span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="nf">inject</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>                       <span class="c1"># adds 'traceparent' / 'tracestate'
-</span><span class="k">await</span> <span class="n">http_client</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
-
-<span class="c1"># --- Callee side: extract context, continue the same trace ---
-</span><span class="n">ctx</span> <span class="o">=</span> <span class="nf">extract</span><span class="p">(</span><span class="n">incoming_request</span><span class="p">.</span><span class="n">headers</span><span class="p">)</span>
-<span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">handle_charge</span><span class="sh">"</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">ctx</span><span class="p">):</span>
-    <span class="bp">...</span>
-</code></pre></div></div>
-
-<h2 id="metrics">Metrics</h2>
-
-<p>Metrics are numeric measurements aggregated over time. Unlike traces and logs, their cost is roughly <em>constant</em> regardless of request volume — a counter is the same size whether it counted ten events or ten billion — which makes them the cheapest signal and the right basis for dashboards and alerts.</p>
-
-<h3 id="metric-types">Metric Types</h3>
+<p>Recording every span of every request at high volume is expensive in CPU, network, and storage. <strong>Sampling</strong> keeps a representative subset.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Type</th>
-      <th>Semantics</th>
-      <th>Example</th>
+      <th>Strategy</th>
+      <th>Where the decision is made</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Counter</strong></td>
-      <td>Monotonically increasing total; you query its <em>rate</em></td>
-      <td><code class="language-plaintext highlighter-rouge">http_requests_total</code></td>
+      <td><strong>Head-based</strong> (e.g. <code class="language-plaintext highlighter-rouge">ParentBased(TraceIdRatioBased(0.01))</code>)</td>
+      <td>At the root span, then propagated in <code class="language-plaintext highlighter-rouge">trace-flags</code></td>
+      <td>Cheap; no buffering; downstream services honour the parent’s decision</td>
+      <td>Blind to outcome: most rare errors and slow requests are discarded</td>
     </tr>
     <tr>
-      <td><strong>Gauge</strong></td>
-      <td>A value that goes up and down; sampled instantaneously</td>
-      <td><code class="language-plaintext highlighter-rouge">active_connections</code>, <code class="language-plaintext highlighter-rouge">queue_depth</code></td>
+      <td><strong>Tail-based</strong> (Collector <code class="language-plaintext highlighter-rouge">tail_sampling</code> processor)</td>
+      <td>After the whole trace has been collected</td>
+      <td>Keep 100% of errors and slow traces, a small fraction of the rest</td>
+      <td>Must buffer spans in memory; all spans of a trace must reach the same Collector</td>
     </tr>
     <tr>
-      <td><strong>Histogram</strong></td>
-      <td>Bucketed distribution; lets you compute quantiles (p50/p99)</td>
-      <td><code class="language-plaintext highlighter-rouge">http_request_duration_seconds</code></td>
-    </tr>
-    <tr>
-      <td><strong>Summary</strong></td>
-      <td>Client-side computed quantiles (cannot be aggregated across instances)</td>
-      <td>request latency per instance</td>
+      <td><strong>Hybrid</strong></td>
+      <td>Generous head sampling, then tail rules</td>
+      <td>Bounds cost at the source while keeping interesting traces</td>
+      <td>Two places to configure and reason about</td>
     </tr>
   </tbody>
 </table>
 
-<p>A subtle but critical point: <strong>average latency lies</strong>. If 99 requests take 10ms and one takes 5s, the mean (~60ms) hides the disaster. Always alert on <strong>tail percentiles</strong> (p95, p99, p99.9), which histograms make possible by bucketing durations and letting the backend interpolate quantiles across all instances.</p>
+<p>Tail sampling has an architectural consequence. Because the decision needs the complete trace, spans from many services must converge on <strong>one</strong> gateway Collector per trace. The agent tier does this with the <code class="language-plaintext highlighter-rouge">loadbalancing</code> exporter, which routes by trace ID (the fan-out shown in the pipeline diagram above). The gateway waits a configured decision period for late spans, so choose it to cover the latency of your slowest normal request.</p>
 
-<p>Beware <strong>cardinality</strong>: every unique combination of label values is a separate time series. Putting an unbounded value (user ID, full URL with IDs, trace ID) in a metric label can explode memory and bankrupt your metrics backend. Keep labels low-cardinality (method, route <em>template</em>, status class) and push high-cardinality detail into traces and logs instead.</p>
+<p>Sampling also biases metrics derived from traces. Compute request rates, error ratios, and latency percentiles from <strong>metrics</strong>, which see every request, not from sampled spans. Use traces to explain, not to count.</p>
 
-<h3 id="instrumenting-metrics-prometheus">Instrumenting Metrics (Prometheus)</h3>
+<h2 id="metrics-for-distributed-services">Metrics for Distributed Services</h2>
 
-<p>This middleware — moved and expanded from the hub — emits the three core HTTP metrics. Note that <code class="language-plaintext highlighter-rouge">request_duration</code> is a <strong>histogram</strong> (so we get percentiles), <code class="language-plaintext highlighter-rouge">request_count</code> is a <strong>counter</strong>, and <code class="language-plaintext highlighter-rouge">active_connections</code> is a <strong>gauge</strong>:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">prometheus_client</span> <span class="kn">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">Histogram</span><span class="p">,</span> <span class="n">Gauge</span>
-<span class="kn">import</span> <span class="n">time</span>
-
-<span class="c1"># Counter: total requests, labelled by method/route/status class
-</span><span class="n">request_count</span> <span class="o">=</span> <span class="nc">Counter</span><span class="p">(</span>
-    <span class="sh">"</span><span class="s">http_requests_total</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Total HTTP requests</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">[</span><span class="sh">"</span><span class="s">method</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">route</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">],</span>
-<span class="p">)</span>
-<span class="c1"># Histogram: request duration with explicit buckets tuned to SLO thresholds
-</span><span class="n">request_duration</span> <span class="o">=</span> <span class="nc">Histogram</span><span class="p">(</span>
-    <span class="sh">"</span><span class="s">http_request_duration_seconds</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">HTTP request duration</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">[</span><span class="sh">"</span><span class="s">method</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">route</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">buckets</span><span class="o">=</span><span class="p">(</span><span class="mf">0.005</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">2.5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
-<span class="p">)</span>
-<span class="c1"># Gauge: in-flight requests (saturation signal)
-</span><span class="n">active_connections</span> <span class="o">=</span> <span class="nc">Gauge</span><span class="p">(</span><span class="sh">"</span><span class="s">active_connections</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">In-flight HTTP requests</span><span class="sh">"</span><span class="p">)</span>
-
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">metrics_middleware</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">handler</span><span class="p">):</span>
-    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">perf_counter</span><span class="p">()</span>
-    <span class="n">active_connections</span><span class="p">.</span><span class="nf">inc</span><span class="p">()</span>
-    <span class="n">status</span> <span class="o">=</span> <span class="sh">"</span><span class="s">5xx</span><span class="sh">"</span>  <span class="c1"># default so we record errors even if the handler raises
-</span>    <span class="k">try</span><span class="p">:</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">handler</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">response</span><span class="p">.</span><span class="n">status</span> <span class="o">//</span> <span class="mi">100</span><span class="si">}</span><span class="s">xx</span><span class="sh">"</span>
-        <span class="k">return</span> <span class="n">response</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="c1"># Use the ROUTE TEMPLATE (/orders/{id}), never the raw path, to bound cardinality
-</span>        <span class="n">route</span> <span class="o">=</span> <span class="n">request</span><span class="p">.</span><span class="n">match_info</span><span class="p">.</span><span class="n">route</span><span class="p">.</span><span class="n">resource</span><span class="p">.</span><span class="n">canonical</span>
-        <span class="n">request_count</span><span class="p">.</span><span class="nf">labels</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">method</span><span class="p">,</span> <span class="n">route</span><span class="p">,</span> <span class="n">status</span><span class="p">).</span><span class="nf">inc</span><span class="p">()</span>
-        <span class="n">request_duration</span><span class="p">.</span><span class="nf">labels</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">method</span><span class="p">,</span> <span class="n">route</span><span class="p">).</span><span class="nf">observe</span><span class="p">(</span><span class="n">time</span><span class="p">.</span><span class="nf">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
-        <span class="n">active_connections</span><span class="p">.</span><span class="nf">dec</span><span class="p">()</span>
-</code></pre></div></div>
-
-<h3 id="the-red-method-request-driven-services">The RED Method (request-driven services)</h3>
-
-<p>For any <strong>request-driven</strong> service (an API, a web server, an RPC handler), the <strong>RED method</strong> prescribes exactly three metrics to track per endpoint:</p>
+<p>Metrics are the right basis for dashboards and alerts because their cost does not grow with traffic: a counter is the same size after ten events or ten billion. Two complementary checklists cover most needs; both are developed in <a href="../observability/metrics.html#the-red-and-use-methods">Metrics &amp; Monitoring</a>.</p>
 
 <ul>
-  <li><strong>R</strong>ate — requests per second.</li>
-  <li><strong>E</strong>rrors — failed requests per second (or as a fraction of rate).</li>
-  <li><strong>D</strong>uration — the distribution of request latencies (track percentiles, not averages).</li>
+  <li><strong>RED</strong>, for every request-driven service and endpoint: <strong>R</strong>ate, <strong>E</strong>rrors, <strong>D</strong>uration (as a distribution, never an average).</li>
+  <li><strong>USE</strong>, for every resource (CPU, memory, disk, network, connection pools, thread pools, queues): <strong>U</strong>tilization, <strong>S</strong>aturation, <strong>E</strong>rrors. Saturation (queued work) is the most predictive: a resource at 70% utilization with a growing queue is about to fail.</li>
 </ul>
 
-<p>RED is <em>workload-centric</em>: it describes what your users experience. The three metrics emitted by the middleware above are precisely RED. A typical PromQL dashboard:</p>
+<p>In a microservice system, RED tells you <em>which</em> service is unhealthy, and USE tells you <em>which resource</em> inside it is the bottleneck. For consumers of a message broker, add <strong>consumer lag</strong> (how far the group is behind the head of each partition): a queue that grows faster than it drains is the asynchronous equivalent of rising latency.</p>
 
-<pre><code class="language-promql"># Rate: requests/sec per route
+<pre><code class="language-promql"># Rate: requests per second per route
 sum by (route) (rate(http_requests_total[5m]))
 
-# Errors: fraction of requests that are 5xx
-sum by (route) (rate(http_requests_total{status="5xx"}[5m]))
+# Errors: fraction of requests returning 5xx
+sum by (route) (rate(http_requests_total{status=~"5.."}[5m]))
   / sum by (route) (rate(http_requests_total[5m]))
 
-# Duration: p99 latency, computed across all instances from the histogram
+# Duration: fleet-wide p99, aggregated from histogram buckets across instances
 histogram_quantile(0.99,
   sum by (route, le) (rate(http_request_duration_seconds_bucket[5m])))
 </code></pre>
 
-<h3 id="the-use-method-resources">The USE Method (resources)</h3>
-
-<p>Where RED watches <em>requests</em>, the <strong>USE method</strong> watches <em>resources</em> — CPUs, disks, memory, network links, connection pools, thread pools. For every resource track:</p>
+<p>Three details matter more in distributed systems than on a single host:</p>
 
 <ul>
-  <li><strong>U</strong>tilization — the fraction of time the resource was busy (or fraction of capacity used).</li>
-  <li><strong>S</strong>aturation — the degree to which work is queued waiting for the resource (run-queue length, queue depth, swap).</li>
-  <li><strong>E</strong>rrors — error events from the resource (disk I/O errors, dropped packets, pool-exhaustion rejections).</li>
+  <li><strong>Percentiles do not average.</strong> You cannot average per-instance p99 values to get a fleet p99. Export <strong>histograms</strong> and aggregate the buckets, as the query above does. Prometheus <strong>native histograms</strong> (stable since Prometheus 3.8, enabled per scrape with <code class="language-plaintext highlighter-rouge">scrape_native_histograms</code>) use exponential buckets chosen automatically, giving much better quantile accuracy in a single series.</li>
+  <li><strong>Tail latency amplifies with fan-out.</strong> If a request calls 100 backends in parallel and waits for all, and each backend is slow 1% of the time, the request is slow with probability $1 - 0.99^{100} \approx 63\%$. Service-level p99 matters because it becomes the median one level up.</li>
+  <li><strong>Cardinality is the main cost driver.</strong> Every unique combination of label values is a separate time series. Never use unbounded values (user ID, raw URL, trace ID) as labels; use route templates and status classes, and put high-cardinality detail in traces and logs. See <a href="../observability/metrics.html#cardinality-pitfalls">Cardinality Pitfalls</a>.</li>
 </ul>
 
-<p>USE is <em>resource-centric</em>: it finds the bottleneck. The two methods are complementary — RED tells you a service is slow; USE tells you <em>which exhausted resource</em> is making it slow. Saturation is the most predictive signal: a resource at 70% utilization with a growing queue is about to fall over even though it is “not yet full.”</p>
+<h2 id="structured-logs-and-correlation">Structured Logs and Correlation</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Resource</th>
-      <th>Utilization</th>
-      <th>Saturation</th>
-      <th>Errors</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>CPU</td>
-      <td><code class="language-plaintext highlighter-rouge">% busy</code></td>
-      <td>run-queue length</td>
-      <td>(n/a)</td>
-    </tr>
-    <tr>
-      <td>Memory</td>
-      <td><code class="language-plaintext highlighter-rouge">% used</code></td>
-      <td>swap rate, OOM kills</td>
-      <td>alloc failures</td>
-    </tr>
-    <tr>
-      <td>Disk</td>
-      <td><code class="language-plaintext highlighter-rouge">% I/O time</code></td>
-      <td>I/O queue depth</td>
-      <td>I/O errors</td>
-    </tr>
-    <tr>
-      <td>Network</td>
-      <td><code class="language-plaintext highlighter-rouge">bytes/s ÷ link capacity</code></td>
-      <td>dropped/retransmitted packets</td>
-      <td>NIC errors</td>
-    </tr>
-    <tr>
-      <td>Conn pool</td>
-      <td><code class="language-plaintext highlighter-rouge">in-use ÷ size</code></td>
-      <td>waiters blocked on checkout</td>
-      <td>checkout timeouts</td>
-    </tr>
-  </tbody>
-</table>
+<p>Free-text logs spread across hundreds of pods are close to useless. Two disciplines make them usable: <strong>structure</strong> (emit JSON or another key/value format so the backend can index and filter by field) and <strong>correlation</strong> (stamp every line with the active trace and span IDs so that a log line can be joined to its trace and vice versa).</p>
 
-<h2 id="structured-logging-and-correlation-ids">Structured Logging and Correlation IDs</h2>
+<p>The filter below adds service identity and the current OTel trace context to every record. It uses <code class="language-plaintext highlighter-rouge">python-json-logger</code>, whose formatter moved to <code class="language-plaintext highlighter-rouge">pythonjsonlogger.json</code> in version 3 (the old <code class="language-plaintext highlighter-rouge">pythonjsonlogger.jsonlogger</code> import is a deprecated shim):</p>
 
-<p>Logs are the highest-fidelity, highest-cost signal: a record of discrete events with arbitrary detail. In a distributed system, <strong>unstructured free-text logs are nearly useless</strong> — you cannot reliably grep across machines, filter by field, or join a request’s journey. The fix is two disciplines: structure and correlation.</p>
-
-<h3 id="structured-json-logging">Structured (JSON) Logging</h3>
-
-<p>Emit logs as machine-parseable key/value records (typically JSON) rather than prose. This lets your log backend (ELK/OpenSearch, Loki, a SaaS) index fields and run queries like <code class="language-plaintext highlighter-rouge">service="payment" AND status="error" AND latency_ms&gt;500</code>.</p>
-
-<h3 id="correlation-ids">Correlation IDs</h3>
-
-<p>A <strong>correlation ID</strong> (often the trace ID itself, sometimes a separate <code class="language-plaintext highlighter-rouge">request_id</code>) is a single identifier attached to <em>every</em> log line emitted while handling one request, across <em>every</em> service it touches. It is what turns scattered logs into a coherent story: given one ID, you retrieve the complete, ordered narrative of a request no matter how many hosts it crossed. The ID is propagated by exactly the same mechanism as trace context (headers in, async-local storage within a process, headers out).</p>
-
-<p>The crucial integration: <strong>emit the active trace and span IDs on every log line.</strong> Once your logs carry <code class="language-plaintext highlighter-rouge">trace_id</code>, you can pivot directly from a slow span in Jaeger to every log line that span produced, and from an error log back to the full trace — the three pillars become one navigable surface.</p>
-
-<p>This logger — moved and expanded from the hub — auto-injects service identity and the <em>current</em> trace/span IDs from the active OpenTelemetry context, so callers never have to thread IDs by hand:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">logging</span><span class="p">,</span> <span class="n">time</span>
-<span class="kn">from</span> <span class="n">pythonjsonlogger</span> <span class="kn">import</span> <span class="n">jsonlogger</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">logging</span>
+<span class="kn">from</span> <span class="n">pythonjsonlogger.json</span> <span class="kn">import</span> <span class="n">JsonFormatter</span>
 <span class="kn">from</span> <span class="n">opentelemetry</span> <span class="kn">import</span> <span class="n">trace</span>
 
-<span class="c1"># Emit JSON so the log backend can index every field
-</span><span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nc">StreamHandler</span><span class="p">()</span>
-<span class="n">handler</span><span class="p">.</span><span class="nf">setFormatter</span><span class="p">(</span><span class="n">jsonlogger</span><span class="p">.</span><span class="nc">JsonFormatter</span><span class="p">())</span>
-<span class="n">root</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nf">getLogger</span><span class="p">()</span>
-<span class="n">root</span><span class="p">.</span><span class="nf">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
-<span class="n">root</span><span class="p">.</span><span class="nf">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="p">.</span><span class="n">INFO</span><span class="p">)</span>
-
-
 <span class="k">class</span> <span class="nc">TraceContextFilter</span><span class="p">(</span><span class="n">logging</span><span class="p">.</span><span class="n">Filter</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Stamp the active trace_id/span_id onto every record automatically.</span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">service_name</span><span class="p">,</span> <span class="n">node_id</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Stamp service identity and the active trace/span IDs on every record.</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">service</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">instance</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">service_name</span> <span class="o">=</span> <span class="n">service_name</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">node_id</span> <span class="o">=</span> <span class="n">node_id</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">service</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">instance</span> <span class="o">=</span> <span class="n">service</span><span class="p">,</span> <span class="n">instance</span>
 
-    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
-        <span class="n">record</span><span class="p">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">service_name</span>
-        <span class="n">record</span><span class="p">.</span><span class="n">node_id</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">node_id</span>
+    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">record</span><span class="p">:</span> <span class="n">logging</span><span class="p">.</span><span class="n">LogRecord</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">record</span><span class="p">.</span><span class="n">service</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">service</span>
+        <span class="n">record</span><span class="p">.</span><span class="n">instance</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">instance</span>
         <span class="n">ctx</span> <span class="o">=</span> <span class="n">trace</span><span class="p">.</span><span class="nf">get_current_span</span><span class="p">().</span><span class="nf">get_span_context</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">ctx</span><span class="p">.</span><span class="n">is_valid</span><span class="p">:</span>
-            <span class="c1"># 32-/16-hex-char IDs that match exactly what Jaeger shows
-</span>            <span class="n">record</span><span class="p">.</span><span class="n">trace_id</span> <span class="o">=</span> <span class="nf">format</span><span class="p">(</span><span class="n">ctx</span><span class="p">.</span><span class="n">trace_id</span><span class="p">,</span> <span class="sh">"</span><span class="s">032x</span><span class="sh">"</span><span class="p">)</span>
-            <span class="n">record</span><span class="p">.</span><span class="n">span_id</span> <span class="o">=</span> <span class="nf">format</span><span class="p">(</span><span class="n">ctx</span><span class="p">.</span><span class="n">span_id</span><span class="p">,</span> <span class="sh">"</span><span class="s">016x</span><span class="sh">"</span><span class="p">)</span>
+            <span class="n">record</span><span class="p">.</span><span class="n">trace_id</span> <span class="o">=</span> <span class="nf">format</span><span class="p">(</span><span class="n">ctx</span><span class="p">.</span><span class="n">trace_id</span><span class="p">,</span> <span class="sh">"</span><span class="s">032x</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># same hex form the trace UI shows
+</span>            <span class="n">record</span><span class="p">.</span><span class="n">span_id</span> <span class="o">=</span> <span class="nf">format</span><span class="p">(</span><span class="n">ctx</span><span class="p">.</span><span class="n">span_id</span><span class="p">,</span> <span class="sh">"</span><span class="s">016x</span><span class="sh">"</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">True</span>
 
+<span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nc">StreamHandler</span><span class="p">()</span>
+<span class="n">handler</span><span class="p">.</span><span class="nf">setFormatter</span><span class="p">(</span><span class="nc">JsonFormatter</span><span class="p">(</span><span class="sh">"</span><span class="s">{asctime}{levelname}{name}{message}</span><span class="sh">"</span><span class="p">,</span> <span class="n">style</span><span class="o">=</span><span class="sh">"</span><span class="s">{</span><span class="sh">"</span><span class="p">))</span>
+<span class="n">handler</span><span class="p">.</span><span class="nf">addFilter</span><span class="p">(</span><span class="nc">TraceContextFilter</span><span class="p">(</span><span class="sh">"</span><span class="s">order-service</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">order-7c9f</span><span class="sh">"</span><span class="p">))</span>
+<span class="n">logging</span><span class="p">.</span><span class="nf">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="p">.</span><span class="n">INFO</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="p">[</span><span class="n">handler</span><span class="p">])</span>
 
-<span class="n">handler</span><span class="p">.</span><span class="nf">addFilter</span><span class="p">(</span><span class="nc">TraceContextFilter</span><span class="p">(</span><span class="sh">"</span><span class="s">order-service</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">node-1</span><span class="sh">"</span><span class="p">))</span>
 <span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nf">getLogger</span><span class="p">(</span><span class="sh">"</span><span class="s">order</span><span class="sh">"</span><span class="p">)</span>
-
-<span class="c1"># Usage: structured fields, correlation IDs added automatically
-</span><span class="n">log</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sh">"</span><span class="s">Order processed</span><span class="sh">"</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">12345</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">user_id</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">user-789</span><span class="sh">"</span><span class="p">})</span>
-<span class="c1"># -&gt; {"message": "Order processed", "service": "order-service", "node_id": "node-1",
-#     "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "span_id": "00f067aa0ba902b7",
-#     "order_id": "12345", "user_id": "user-789", ...}
+<span class="n">log</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sh">"</span><span class="s">order processed</span><span class="sh">"</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">12345</span><span class="sh">"</span><span class="p">})</span>
+<span class="c1"># {"asctime": "...", "levelname": "INFO", "name": "order", "message": "order processed",
+#  "service": "order-service", "instance": "order-7c9f",
+#  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "span_id": "00f067aa0ba902b7",
+#  "order_id": "12345"}
 </span></code></pre></div></div>
 
-<p>Operational guidance for logs at scale:</p>
+<p>Alternatively, the OTel logging instrumentation or a log bridge can attach trace context and export logs over OTLP through the same Collector pipeline as traces and metrics.</p>
+
+<p>Operational rules at scale:</p>
 
 <ul>
-  <li><strong>Sample or rate-limit</strong> high-volume info/debug logs; always keep errors.</li>
-  <li><strong>Never log secrets or PII</strong> — tokens, passwords, full card numbers. Redact at the logging layer.</li>
-  <li><strong>Use leveled logging</strong> (DEBUG/INFO/WARN/ERROR) and ship structured fields, not interpolated strings, so the backend can aggregate by field.</li>
+  <li>Sample or rate-limit high-volume debug and info logs; always keep warnings and errors.</li>
+  <li>Redact secrets and personal data at the source or in the Collector, never downstream.</li>
+  <li>Log structured fields rather than interpolated strings, so the backend can aggregate by field.</li>
 </ul>
+
+<p>Collection pipelines, retention, and PII handling are covered in <a href="../observability/logging.html">Logging</a>.</p>
 
 <h2 id="slis-slos-and-error-budgets">SLIs, SLOs, and Error Budgets</h2>
 
-<p>Metrics and traces tell you <em>what is happening</em>; <strong>SLOs</strong> tell you <em>what good enough means</em> and turn reliability into a number you can manage against. This is the language of Site Reliability Engineering.</p>
+<p>Telemetry says what is happening. <strong>Service level objectives</strong> say what “good enough” means, and turn reliability into a quantity that can be managed and traded against feature velocity.</p>
 
 <h3 id="definitions">Definitions</h3>
 
 <ul>
-  <li><strong>SLI — Service Level Indicator:</strong> a carefully chosen quantitative measure of the service’s behavior, expressed as a ratio of good events to total events. Example: <em>the fraction of HTTP requests that return non-5xx in under 300ms</em>. Good SLIs measure what the <em>user</em> experiences (success and latency at the edge), not internal proxies like CPU.</li>
+  <li><strong>SLI (service level indicator)</strong>: a measure of user-visible behaviour, expressed as the ratio of good events to valid events. Example: the fraction of checkout requests that return a non-5xx response in under 300 ms, measured at the load balancer.</li>
 </ul>
 
-\[\text{SLI} = \frac{\text{good events}}{\text{total valid events}}\]
+\[\text{SLI} = \frac{\text{good events}}{\text{valid events}}\]
 
 <ul>
-  <li>
-    <p><strong>SLO — Service Level Objective:</strong> the target value for an SLI over a rolling window. Example: <em>99.9% of requests succeed under 300ms, measured over 28 days</em>. The SLO is an internal goal, deliberately set somewhat tighter than what you promise customers.</p>
-  </li>
-  <li>
-    <p><strong>SLA — Service Level Agreement:</strong> a <em>contractual</em> promise to customers with financial or legal consequences if breached. The SLA is looser than the SLO so that crossing the SLO is an early warning, not yet a contract breach.</p>
-  </li>
+  <li><strong>SLO (service level objective)</strong>: a target for an SLI over a window. Example: 99.9% of checkout requests are good over a rolling 28 days. It is an internal goal.</li>
+  <li><strong>SLA (service level agreement)</strong>: a contractual promise with financial consequences. It is set looser than the SLO, so that missing the SLO is an early warning rather than a breach.</li>
 </ul>
+
+<p>Measure SLIs as close to the user as possible (the edge load balancer, gateway, or client), because internal metrics miss failures that happen before a request reaches your service.</p>
 
 <h3 id="the-error-budget">The Error Budget</h3>
 
-<p>The most useful consequence of an SLO is the <strong>error budget</strong>: the amount of unreliability you are <em>allowed</em> before breaching the objective. If the SLO is 99.9% over 28 days, the budget is the remaining 0.1%:</p>
+<p>The error budget is the unreliability the SLO permits:</p>
 
-\[\text{Error budget} = 1 - \text{SLO} = 1 - 0.999 = 0.001\]
-
-<p>Translated to allowed downtime/failures, “number of nines” maps to concrete time per period:</p>
+\[\text{error budget} = 1 - \text{SLO}, \qquad \text{e.g. } 1 - 0.999 = 0.001\]
 
 <table>
   <thead>
     <tr>
-      <th>SLO (availability)</th>
+      <th>SLO</th>
       <th>Error budget</th>
-      <th>Allowed unavailability / 30 days</th>
+      <th>Allowed full unavailability per 30 days</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>99% (two nines)</td>
+      <td>99%</td>
       <td>1%</td>
-      <td>~7h 18m</td>
+      <td>7 h 12 min</td>
     </tr>
     <tr>
-      <td>99.9% (three nines)</td>
+      <td>99.5%</td>
+      <td>0.5%</td>
+      <td>3 h 36 min</td>
+    </tr>
+    <tr>
+      <td>99.9%</td>
       <td>0.1%</td>
-      <td>~43m 12s</td>
+      <td>43 min 12 s</td>
     </tr>
     <tr>
       <td>99.95%</td>
       <td>0.05%</td>
-      <td>~21m 36s</td>
+      <td>21 min 36 s</td>
     </tr>
     <tr>
-      <td>99.99% (four nines)</td>
+      <td>99.99%</td>
       <td>0.01%</td>
-      <td>~4m 19s</td>
+      <td>4 min 19 s</td>
     </tr>
     <tr>
-      <td>99.999% (five nines)</td>
+      <td>99.999%</td>
       <td>0.001%</td>
-      <td>~26s</td>
+      <td>26 s</td>
     </tr>
   </tbody>
 </table>
 
-<p>The error budget reframes reliability as a <em>resource to spend</em>, resolving the eternal tension between feature velocity and stability:</p>
+<p>The budget reframes reliability as a resource to spend. While budget remains, the team ships features and takes risks. When it is exhausted, risky changes pause and effort shifts to reliability until it recovers. A service that never spends its budget is probably over-engineered for its SLO, and the unused budget is velocity that was never used.</p>
+
+<h3 id="slos-across-dependency-chains">SLOs Across Dependency Chains</h3>
+
+<p>Availabilities multiply along synchronous chains, so a service cannot be more reliable than the product of its hard dependencies. If a checkout path depends synchronously on four services at 99.95% each, the best achievable availability is about $0.9995^4 \approx 99.8\%$ before counting its own failures. Consequences:</p>
 
 <ul>
-  <li><strong>Budget remaining</strong> → ship features, take risks, deploy faster. Reliability is “good enough”; spending the budget on velocity is rational.</li>
-  <li><strong>Budget exhausted</strong> → freeze risky changes, redirect effort to reliability until the budget recovers.</li>
+  <li><strong>Hard dependencies need tighter SLOs than their callers.</strong> A common rule of thumb is roughly an order of magnitude less unreliability (one extra “nine”) for critical dependencies.</li>
+  <li><strong>Soft dependencies need graceful degradation.</strong> If recommendations are down, show the page without them. Make optional calls asynchronous, cached, or time-boxed so they do not consume the caller’s budget.</li>
+  <li><strong>Retries trade budget for load.</strong> Retrying can hide transient failures from the SLI, but uncoordinated retries across layers multiply load during an incident. Budget retries and apply them at one layer; see <a href="resilience-patterns.html#retries-backoff-and-jitter">Resilience Patterns</a>.</li>
 </ul>
 
-<p>This makes the dev-vs-ops conflict a data-driven decision instead of an argument. A service that <em>never</em> spends its budget is over-engineered for its SLO — that surplus reliability is wasted velocity.</p>
+<pre><code class="language-mermaid">flowchart LR
+    U["User"] --&gt; GW["Gateway&lt;br/&gt;SLO 99.9%"]
+    GW --&gt;|hard| Cart["Cart&lt;br/&gt;99.95%"]
+    GW --&gt;|hard| Pay["Payment&lt;br/&gt;99.95%"]
+    GW -. "soft, degrade if down" .-&gt; Rec["Recommendations&lt;br/&gt;99%"]
+    Pay --&gt;|hard| PSP["Payment processor&lt;br/&gt;99.95% (external)"]
+</code></pre>
 
 <h3 id="burn-rate-alerting">Burn-Rate Alerting</h3>
 
-<p>The naive alert “fire when the SLI dips below the SLO” is bad: it is noisy on brief blips and slow on slow bleeds. The SRE-standard approach alerts on the <strong>burn rate</strong> — how fast you are consuming the error budget relative to the rate that would exhaust it exactly at the window’s end. A burn rate of 1 spends the whole budget precisely over the SLO window; a burn rate of 14.4 spends it in ~2% of the window.</p>
+<p>Alerting whenever the SLI dips below the SLO is both noisy (it fires on brief blips) and slow (it tolerates a steady leak that quietly exhausts the budget). The approach in Google’s <em>Site Reliability Workbook</em> alerts on the <strong>burn rate</strong>, the rate of budget consumption relative to the rate that would use it up exactly at the end of the SLO window:</p>
 
-<p>Use <strong>multi-window, multi-burn-rate</strong> alerts: a <em>fast</em> page on a high burn rate over a short window (catches outages quickly) combined with a <em>slow</em> ticket on a moderate burn rate over a long window (catches gradual erosion), each confirmed by a shorter sub-window to suppress flapping.</p>
+\[\text{burn rate} = \frac{\text{observed error ratio}}{1 - \text{SLO}}, \qquad
+\text{budget consumed} = \text{burn rate} \times \frac{\text{alert window}}{\text{SLO window}}\]
 
-<pre><code class="language-promql"># Fast burn: consuming budget 14.4x too fast over 1h (with a 5m confirmation window)
-# fires when ~2% of a 30d budget is spent in 1h → page immediately
-(
-  sum(rate(http_requests_total{status="5xx"}[1h]))
-    / sum(rate(http_requests_total[1h]))            &gt; (14.4 * 0.001)
+<p>A burn rate of 1 spends the budget exactly over the window. A burn rate of 14.4 sustained for 1 hour spends $14.4 \times 1/720 = 2\%$ of a 30-day budget. The workbook’s recommended multi-window, multi-burn-rate set for a 30-day SLO:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Severity</th>
+      <th>Long window</th>
+      <th>Short window</th>
+      <th>Burn rate</th>
+      <th>Budget consumed when it fires</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Page</td>
+      <td>1 h</td>
+      <td>5 min</td>
+      <td>14.4</td>
+      <td>2%</td>
+    </tr>
+    <tr>
+      <td>Page</td>
+      <td>6 h</td>
+      <td>30 min</td>
+      <td>6</td>
+      <td>5%</td>
+    </tr>
+    <tr>
+      <td>Ticket</td>
+      <td>3 d</td>
+      <td>6 h</td>
+      <td>1</td>
+      <td>10%</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Each alert requires both windows to exceed the threshold: the long window proves the burn is significant, and the short window proves it is still happening, so the alert resets quickly after recovery. For a 99.9% SLO, the fast-burn page is:</p>
+
+<pre><code class="language-promql">(
+  sum(rate(http_requests_total{job="checkout", status=~"5.."}[1h]))
+    / sum(rate(http_requests_total{job="checkout"}[1h]))
+  &gt; (14.4 * 0.001)
 )
 and
 (
-  sum(rate(http_requests_total{status="5xx"}[5m]))
-    / sum(rate(http_requests_total[5m]))            &gt; (14.4 * 0.001)
+  sum(rate(http_requests_total{job="checkout", status=~"5.."}[5m]))
+    / sum(rate(http_requests_total{job="checkout"}[5m]))
+  &gt; (14.4 * 0.001)
 )
 </code></pre>
 
-<h3 id="putting-it-together">Putting It Together</h3>
+<p>In practice the error ratios are precomputed as Prometheus recording rules, and tools such as Sloth or Pyrra, or the OpenSLO specification, generate the whole rule set from a short SLO definition.</p>
 
-<p>A mature observability setup connects all four topics on this page into one loop:</p>
+<h2 id="putting-it-together">Putting It Together</h2>
+
+<p>A working setup connects everything on this page into one incident loop:</p>
 
 <ol>
-  <li><strong>SLIs</strong> are computed from <strong>RED metrics</strong> (success ratio and latency at the edge).</li>
-  <li><strong>Burn-rate alerts</strong> on the SLO budget page an engineer when reliability is at risk.</li>
-  <li>The engineer pivots from the alerting <strong>metric</strong> to a representative <strong>trace</strong> (via exemplars or by querying error traces in Jaeger).</li>
-  <li>The slow/failing <strong>span</strong> links to the <strong>structured logs</strong> it produced (joined by <code class="language-plaintext highlighter-rouge">trace_id</code>), revealing the root cause.</li>
-  <li><strong>USE metrics</strong> confirm whether an exhausted resource is the underlying bottleneck.</li>
+  <li><strong>SLIs</strong> are computed from edge <strong>RED metrics</strong>, which see every request.</li>
+  <li><strong>Burn-rate alerts</strong> page an engineer when the error budget is at risk.</li>
+  <li>An <strong>exemplar</strong> on the latency histogram, or a query for error traces, leads from the metric to a representative <strong>trace</strong>, kept by <strong>tail sampling</strong>.</li>
+  <li>The trace’s <strong>critical path</strong> identifies the slow or failing span, even when it sits behind a queue, thanks to <strong>context propagation</strong> through message headers.</li>
+  <li>The span’s <code class="language-plaintext highlighter-rouge">trace_id</code> joins it to its <strong>structured logs</strong>, which show the exception, and to a <strong>profile</strong>, which shows the hot code.</li>
+  <li><strong>USE metrics</strong> and consumer lag confirm whether an exhausted resource or a backlog is the underlying cause.</li>
 </ol>
 
-<p>That pivot — metric → trace → log, anchored by a shared trace ID and governed by an SLO — is the whole point of observability.</p>
+<p>The shared trace ID and a consistent OpenTelemetry pipeline make this possible. The SLO decides whether it is worth waking someone up.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">Distributed Systems Hub</a></strong> — architecture patterns, consensus, and consistency models</li>
-  <li><strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — formal foundations behind the failures observability surfaces</li>
-  <li><strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — where most of these services run; native metrics and health probes</li>
-  <li><strong><a href="../technology/networking/">Networking</a></strong> — the latency and failure modes traces and the USE method expose</li>
-  <li><strong><a href="../technology/database-design/">Database Design</a></strong> — instrumenting and tracing data-tier calls</li>
-  <li><strong><a href="../technology/ci-cd/">CI/CD Pipelines</a></strong> — wiring SLO gates and burn-rate checks into deployment</li>
+  <li><a href="../observability/">Observability</a>: the section hub, with dedicated pages on <a href="../observability/metrics.html">Metrics</a>, <a href="../observability/logging.html">Logging</a>, and <a href="../observability/tracing.html">Tracing</a></li>
+  <li><a href="resilience-patterns.html">Resilience Patterns</a>: the mechanisms whose behaviour SLOs and burn rates measure</li>
+  <li><a href="microservices-and-event-driven.html">Microservices &amp; Event-Driven</a>: the synchronous and asynchronous hops that context propagation must cross</li>
+  <li><a href="testing-distributed-systems.html">Testing &amp; Chaos Engineering</a>: using telemetry to verify hypotheses during fault injection</li>
+  <li><a href="../technology/kubernetes/">Kubernetes</a>: where most of these services and Collectors run</li>
+  <li><a href="../technology/ci-cd/">CI/CD Pipelines</a>: gating rollouts on SLOs and burn rates</li>
 </ul>
 
       </section>

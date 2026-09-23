@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Multi-container composition patterns (sidecar, ambassador, adapter, init) in Compose and Kubernetes, plus image-hardening and runtime-security patterns for p...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Docker: Design Patterns">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Multi-container composition patterns (sidecar, ambassador, adapter, init) in Compose and Kubernetes, plus image-hardening and runtime-security patterns for p...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/docker/docker-design-patterns.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Docker: Design Patterns">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Multi-container composition patterns (sidecar, ambassador, adapter, init) in Compose and Kubernetes, plus image-hardening and runtime-security patterns for p...">
 
 <title>Docker: Design Patterns | Andrews Notebook</title>
 
@@ -3133,361 +3133,602 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Docker</a> » Design Patterns</p>
 
-<p>A single container rarely lives alone in production. Once you move past a lone web server, recurring shapes emerge for how containers are composed: a main application paired with helpers that handle logging, proxying, format translation, or one-time setup. These are the classic <strong>multi-container design patterns</strong> — Sidecar, Ambassador, Adapter, and Init — and they keep your application image focused while pushing cross-cutting concerns into reusable companions. This page covers those patterns, then turns to <strong>image and runtime security patterns</strong> (distroless images, non-root execution, runtime threat detection) that make the resulting deployments safe at scale.</p>
+<p>A production workload is rarely one container. Operational concerns such as log shipping, TLS, protocol translation, and one-time setup are usually handled by <strong>helper containers</strong> that run beside the application and share some of its resources. The recurring arrangements have names: <strong>sidecar</strong>, <strong>ambassador</strong>, <strong>adapter</strong>, and <strong>init</strong>. They were catalogued by Burns and Oppenheimer in <em>Design Patterns for Container-based Distributed Systems</em> (USENIX HotCloud 2016) and are now built into Kubernetes and approximated in Docker Compose. This page describes each pattern and how to express it in both, then covers the <strong>image and runtime security patterns</strong> (minimal base images, least privilege, runtime detection) that production containers are expected to follow.</p>
 
-<h2 id="why-multi-container-patterns-exist">Why Multi-Container Patterns Exist</h2>
+<h2 id="why-helper-containers">Why Helper Containers</h2>
 
-<p>The single-responsibility principle applies to containers as much as to code. An application container should run <em>one</em> concern — your business logic — and nothing else. But real deployments need logging, metrics, TLS termination, secret fetching, and protocol translation. You have two choices:</p>
+<p>An application image should contain the application. When cross-cutting tooling is baked into it instead, every change to the log shipper or proxy configuration forces an application rebuild, the image grows (with more CVEs), and the application’s release cycle becomes coupled to the platform team’s. Running the concern in a separate container keeps each image single-purpose and lets the helper be reused across many applications and upgraded independently.</p>
 
-<ol>
-  <li><strong>Bake everything into the application image.</strong> This couples your app to its operational tooling. Every time you change the log shipper or rotate the proxy config, you rebuild and redeploy the application.</li>
-  <li><strong>Run the cross-cutting concern in a separate container</strong> that shares resources with the application. The app image stays minimal; the helper evolves independently.</li>
-</ol>
+<p>What makes this possible is that containers can <strong>share namespaces and volumes</strong>:</p>
 
-<p>The patterns below are all instances of the second choice. They differ in <em>what</em> the helper does and <em>how</em> it couples to the main container. The shared substrate that makes them possible is the container runtime’s ability to let multiple containers share a network namespace, a volume, or a process namespace.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Shared resource</th>
+      <th>Enables</th>
+      <th>Compose</th>
+      <th>Kubernetes Pod</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Network namespace</td>
+      <td>Helper reachable on <code class="language-plaintext highlighter-rouge">localhost</code>; can intercept traffic</td>
+      <td><code class="language-plaintext highlighter-rouge">network_mode: "service:&lt;name&gt;"</code></td>
+      <td>Always shared by all containers in a Pod</td>
+    </tr>
+    <tr>
+      <td>Volume</td>
+      <td>Helper reads files the app writes (logs, sockets, config)</td>
+      <td>Named volume mounted in both services</td>
+      <td><code class="language-plaintext highlighter-rouge">emptyDir</code> or other volume mounted in both</td>
+    </tr>
+    <tr>
+      <td>PID namespace</td>
+      <td>Helper can see and signal the app’s processes</td>
+      <td><code class="language-plaintext highlighter-rouge">pid: "service:&lt;name&gt;"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">shareProcessNamespace: true</code></td>
+    </tr>
+    <tr>
+      <td>Lifecycle</td>
+      <td>Helper starts before / stops after the app</td>
+      <td>Approximated with <code class="language-plaintext highlighter-rouge">depends_on</code></td>
+      <td>Native: init containers and sidecar containers</td>
+    </tr>
+  </tbody>
+</table>
 
-<pre><code class="language-mermaid">flowchart TB
-    subgraph Pod["Shared context (Pod / Compose service group)"]
-        App["Main container&lt;br/&gt;(business logic)"]
-        Helper["Helper container&lt;br/&gt;(sidecar / ambassador / adapter)"]
-        App &lt;--&gt;|shared volume / localhost / IPC| Helper
+<p>Kubernetes has a unit for co-scheduled containers, the <strong>Pod</strong>. Compose does not: each service is scheduled separately, and the grouping is expressed through the sharing options above. On a single host this is close enough; across a Swarm cluster, services that share a volume or namespace must also be constrained to the same node.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Pod["Pod / group of Compose services"]
+        Init["init&lt;br/&gt;(runs first, exits)"]
+        App["application"]
+        Side["sidecar&lt;br/&gt;(augments)"]
+        Amb["ambassador&lt;br/&gt;(proxies out)"]
+        Adp["adapter&lt;br/&gt;(normalizes)"]
+        Init -.-&gt;|then| App
+        App --&gt;|writes files| Side
+        App --&gt;|localhost| Amb
+        Adp --&gt;|polls| App
     end
-    Helper &lt;--&gt;|external systems| Ext[("Log store · Proxy&lt;br/&gt;Registry · Metrics")]
+    Side --&gt; Logs[("Log backend")]
+    Amb --&gt; Deps[("Remote services")]
+    Mon["Monitoring"] --&gt;|scrapes| Adp
 </code></pre>
-
-<blockquote>
-  <p><strong>Compose vs. Kubernetes.</strong> In Docker Compose the “shared context” is a set of services wired together with a shared volume or <code class="language-plaintext highlighter-rouge">network_mode: "service:..."</code>. In Kubernetes it is a <strong>Pod</strong> — multiple containers that always co-schedule and share a network namespace and volumes. The patterns are identical in spirit; only the manifest syntax differs. Examples below show both where it clarifies the pattern.</p>
-</blockquote>
 
 <h2 id="sidecar-pattern">Sidecar Pattern</h2>
 
-<p>The <strong>sidecar</strong> runs alongside the main container and augments it without the application being aware. The classic example is log forwarding: the application writes logs to a shared volume, and a sidecar tails that volume and ships the logs elsewhere. The application never learns where its logs go.</p>
+<p>A <strong>sidecar</strong> extends the application without the application knowing about it, typically by sharing a volume. The canonical example is log forwarding: the application writes log files, and the sidecar tails them and ships each line to a backend.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Logging sidecar example (compose.yaml)</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># compose.yaml</span>
 <span class="na">services</span><span class="pi">:</span>
   <span class="na">app</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">my-app:latest</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">my-app:1.4.0</span>
     <span class="na">volumes</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="s">logs:/var/log/app</span>
 
   <span class="na">log-forwarder</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">fluent/fluent-bit:latest</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">fluent/fluent-bit:4.0</span>
     <span class="na">volumes</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="s">logs:/var/log/app:ro</span>
-      <span class="pi">-</span> <span class="s">./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf</span>
-    <span class="na">environment</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">ELASTICSEARCH_HOST=elasticsearch</span>
+      <span class="pi">-</span> <span class="s">./fluent-bit.yaml:/fluent-bit/etc/fluent-bit.yaml:ro</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">-c"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">/fluent-bit/etc/fluent-bit.yaml"</span><span class="pi">]</span>
+    <span class="na">depends_on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">app</span><span class="pi">]</span>
 
 <span class="na">volumes</span><span class="pi">:</span>
   <span class="na">logs</span><span class="pi">:</span>
 </code></pre></div></div>
 
-<p><strong>How it works.</strong> Both containers mount the named volume <code class="language-plaintext highlighter-rouge">logs</code>. The app mounts it read-write at <code class="language-plaintext highlighter-rouge">/var/log/app</code> and writes log files there. The <code class="language-plaintext highlighter-rouge">log-forwarder</code> mounts the same volume read-only (<code class="language-plaintext highlighter-rouge">:ro</code>), tails the files, and forwards each line to Elasticsearch. Because the volume is shared, no network round-trip or log API is needed between them.</p>
+<p>The application mounts the volume read-write; the forwarder mounts it read-only. No network hop or logging API is involved.</p>
 
-<p><strong>When to use it.</strong> Reach for a sidecar when the helper needs to <em>read from</em> or <em>write to</em> the same files or local sockets as the application, and when the helper’s lifecycle is tied to the app’s. Common sidecars:</p>
+<h3 id="native-sidecars-in-kubernetes">Native sidecars in Kubernetes</h3>
 
-<ul>
-  <li><strong>Log shippers</strong> — Fluent Bit, Vector, Promtail tailing a shared volume.</li>
-  <li><strong>Metrics agents</strong> — a Prometheus exporter scraping the app over <code class="language-plaintext highlighter-rouge">localhost</code>.</li>
-  <li><strong>Config/secret reloaders</strong> — a process watching a config source and rewriting a file the app reads.</li>
-  <li><strong>Service-mesh proxies</strong> — Envoy injected as a sidecar to intercept all traffic (this is the Ambassador pattern specialized for meshes).</li>
-</ul>
+<p>Historically, a Kubernetes sidecar was just another entry in <code class="language-plaintext highlighter-rouge">containers</code>, which caused two problems: the sidecar could start <em>after</em> the app (a proxy not yet ready when the app made its first call), and a Job never completed because the sidecar kept running after the main container exited. Kubernetes 1.28 introduced <strong>native sidecar containers</strong>, stable since 1.33: an entry in <code class="language-plaintext highlighter-rouge">initContainers</code> with <code class="language-plaintext highlighter-rouge">restartPolicy: Always</code>.</p>
 
-<p><strong>Trade-offs.</strong> A sidecar doubles the container count and consumes its own CPU and memory. Keep sidecar images tiny and resource-limited; a leaky log shipper should never starve the application it serves.</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-log-shipper</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">initContainers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">log-shipper</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">fluent/fluent-bit:4.0</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Always</span>          <span class="c1"># makes this a sidecar, not a one-shot init</span>
+      <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">logs</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
+          <span class="na">readOnly</span><span class="pi">:</span> <span class="kc">true</span>
+  <span class="na">containers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">my-app:1.4.0</span>
+      <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">logs</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
+  <span class="na">volumes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">logs</span>
+      <span class="na">emptyDir</span><span class="pi">:</span> <span class="pi">{}</span>
+</code></pre></div></div>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant K as kubelet
+    participant I as init: migrate
+    participant S as sidecar: log-shipper
+    participant A as app
+    K-&gt;&gt;I: start
+    I--&gt;&gt;K: exit 0
+    K-&gt;&gt;S: start
+    S--&gt;&gt;K: started (startupProbe passes)
+    K-&gt;&gt;A: start
+    Note over A,S: both run; sidecar restarts independently if it crashes
+    K-&gt;&gt;A: SIGTERM (Pod deleted)
+    A--&gt;&gt;K: exited
+    K-&gt;&gt;S: SIGTERM (after app has stopped)
+</code></pre>
+
+<p>A native sidecar starts before the main containers, in declaration order with other init containers, restarts on failure, does not block Job completion, and is terminated only after the main containers have exited, so it can ship the application’s last log lines or proxy its final requests.</p>
+
+<p>Common sidecars: log shippers (Fluent Bit, Vector, the OpenTelemetry Collector), configuration and secret reloaders (Vault Agent, config watchers), certificate rotators, and service-mesh proxies. Give each sidecar explicit CPU and memory limits; a leaking helper should not starve the application.</p>
 
 <h2 id="ambassador-pattern">Ambassador Pattern</h2>
 
-<p>An <strong>ambassador</strong> is a proxy container that brokers the main container’s <em>outbound</em> (or inbound) network communication. The application connects to <code class="language-plaintext highlighter-rouge">localhost</code> as if the dependency were local; the ambassador handles the real work — TLS, retries, service discovery, load balancing, circuit breaking — transparently.</p>
+<p>An <strong>ambassador</strong> is a proxy that brokers the application’s network connections. The application talks to <code class="language-plaintext highlighter-rouge">localhost</code> as if the dependency were local; the ambassador handles discovery, TLS, retries, timeouts, and circuit breaking.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Service mesh ambassador</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># compose.yaml</span>
 <span class="na">services</span><span class="pi">:</span>
-  <span class="na">app</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">my-app:latest</span>
-    <span class="na">network_mode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">service:envoy"</span>
-
   <span class="na">envoy</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">envoyproxy/envoy:v1.31-latest</span>
-    <span class="na">ports</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s2">"</span><span class="s">8080:8080"</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">envoyproxy/envoy:v1.39-latest</span>
     <span class="na">volumes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">./envoy.yaml:/etc/envoy/envoy.yaml</span>
+      <span class="pi">-</span> <span class="s">./envoy.yaml:/etc/envoy/envoy.yaml:ro</span>
+    <span class="na">ports</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">8080:8080"</span>                  <span class="c1"># inbound traffic enters via the proxy</span>
+
+  <span class="na">app</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">my-app:1.4.0</span>
+    <span class="na">network_mode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">service:envoy"</span>    <span class="c1"># share envoy's network namespace</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">DATABASE_URL</span><span class="pi">:</span> <span class="s">postgres://app@localhost:15432/app</span>   <span class="c1"># envoy listens here</span>
 </code></pre></div></div>
 
-<p><strong>How it works.</strong> The key line is <code class="language-plaintext highlighter-rouge">network_mode: "service:envoy"</code>: it places the <code class="language-plaintext highlighter-rouge">app</code> container in the <em>same network namespace</em> as <code class="language-plaintext highlighter-rouge">envoy</code>. They now share one loopback interface and one set of ports. The app dials <code class="language-plaintext highlighter-rouge">localhost:9000</code> for its database; Envoy is listening there and forwards the connection to the real, possibly remote, database — adding mutual TLS, connection pooling, and retries along the way. The application’s code stays ignorant of all of it.</p>
+<p><code class="language-plaintext highlighter-rouge">network_mode: "service:envoy"</code> places the application in the proxy’s network namespace; they share one loopback interface and one port space. When the app connects to <code class="language-plaintext highlighter-rouge">localhost:15432</code>, Envoy accepts the connection and forwards it to the real database, adding mutual TLS, connection pooling, and retries. Ports must be published on the service that owns the namespace (<code class="language-plaintext highlighter-rouge">envoy</code>), not on <code class="language-plaintext highlighter-rouge">app</code>.</p>
 
-<p><strong>Why this matters.</strong> The ambassador decouples the application from the <em>topology</em> of its dependencies. Move the database, add a read replica, or wrap every call in mTLS, and you change only the ambassador’s config — never the application image. This is precisely the mechanism behind service meshes (Istio, Linkerd), where an Envoy sidecar-ambassador is injected next to every workload to form the mesh data plane.</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph NS["shared network namespace"]
+        App["app"] --&gt;|"localhost:15432"| Env["Envoy"]
+    end
+    Env --&gt;|"mTLS, retries,&lt;br/&gt;discovery"| DB[("Database&lt;br/&gt;(any host)")]
+    Client((Client)) --&gt;|":8080"| Env
+</code></pre>
 
-<p><strong>Inbound ambassadors</strong> work the same way in reverse: the proxy terminates TLS and rate-limits before forwarding clean HTTP to the app on <code class="language-plaintext highlighter-rouge">localhost</code>, so the application never handles certificates or abusive clients directly.</p>
+<p>The ambassador decouples the application from the <em>topology</em> of its dependencies: moving the database, adding replicas, or enforcing mTLS changes proxy configuration, not the application. An inbound ambassador works the same way in reverse, terminating TLS and applying rate limits before passing plain HTTP to the app.</p>
+
+<h3 id="service-meshes-sidecar-and-sidecar-less">Service meshes: sidecar and sidecar-less</h3>
+
+<p>A service mesh automates the ambassador pattern fleet-wide: Istio or Linkerd inject a proxy next to every workload, and a control plane configures all of them. The per-Pod proxy has costs (memory per replica, an extra hop, restarts to upgrade the proxy), which led to <strong>sidecar-less</strong> designs. Istio’s <strong>ambient mode</strong> (generally available since Istio 1.24, late 2024) splits the proxy into a per-node layer-4 component (<code class="language-plaintext highlighter-rouge">ztunnel</code>) that provides mTLS, plus optional per-namespace <strong>waypoint</strong> proxies for layer-7 policy. Cilium’s service mesh similarly moves much of the work into eBPF and per-node proxies.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Sidecar proxy per Pod</th>
+      <th>Per-node / ambient</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Isolation between workloads</td>
+      <td>Strong (one proxy each)</td>
+      <td>Shared node component</td>
+    </tr>
+    <tr>
+      <td>Resource overhead</td>
+      <td>Grows with replica count</td>
+      <td>Grows with node count</td>
+    </tr>
+    <tr>
+      <td>Proxy upgrade</td>
+      <td>Restart every workload</td>
+      <td>Upgrade node components</td>
+    </tr>
+    <tr>
+      <td>L7 features</td>
+      <td>Always available</td>
+      <td>Opt-in waypoint proxies</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The pattern, a proxy that owns the application’s network connections, is unchanged; only where the proxy runs differs.</p>
 
 <h2 id="adapter-pattern">Adapter Pattern</h2>
 
-<p>An <strong>adapter</strong> (sometimes called a <em>normalizer</em>) standardizes the output of a container so the outside world sees a uniform interface. Where the ambassador adapts the <em>connection</em>, the adapter adapts the <em>data or interface shape</em> — most often to expose a legacy or third-party app’s metrics, logs, or health in a format your platform expects.</p>
+<p>An <strong>adapter</strong> presents the application’s output through a standard interface. The ambassador adapts <em>connections</em>; the adapter adapts <em>data and interfaces</em>, most often to expose a legacy or third-party application’s metrics, logs, or health in the format the platform expects.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Metrics adapter example</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># compose.yaml</span>
 <span class="na">services</span><span class="pi">:</span>
   <span class="na">legacy-app</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">legacy-app:latest</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">legacy-app:2.3</span>            <span class="c1"># exposes stats in its own format at /legacy/stats</span>
 
   <span class="na">metrics-adapter</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">prom-exporter:latest</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">example/legacy-exporter:1.0</span>   <span class="c1"># placeholder: an exporter for this app</span>
     <span class="na">environment</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">LEGACY_APP_URL=http://legacy-app:8080</span>
-      <span class="pi">-</span> <span class="s">METRICS_PATH=/legacy/stats</span>
+      <span class="na">LEGACY_APP_URL</span><span class="pi">:</span> <span class="s">http://legacy-app:8080/legacy/stats</span>
     <span class="na">ports</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s2">"</span><span class="s">9090:9090"</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">9100:9100"</span>                  <span class="c1"># Prometheus scrapes /metrics here</span>
 </code></pre></div></div>
 
-<p><strong>How it works.</strong> The <code class="language-plaintext highlighter-rouge">legacy-app</code> exposes statistics in its own idiosyncratic format at <code class="language-plaintext highlighter-rouge">/legacy/stats</code>. Your monitoring stack speaks Prometheus, which expects metrics in the OpenMetrics text format on a <code class="language-plaintext highlighter-rouge">/metrics</code> endpoint. The <code class="language-plaintext highlighter-rouge">metrics-adapter</code> polls the legacy endpoint, translates each value into a Prometheus metric, and serves the result on port <code class="language-plaintext highlighter-rouge">9090</code>. Prometheus scrapes the adapter; neither the legacy app nor Prometheus needs to change.</p>
+<p>The adapter polls the proprietary endpoint, converts each value into Prometheus/OpenMetrics text format, and serves it on <code class="language-plaintext highlighter-rouge">/metrics</code>. Neither the application nor the monitoring system changes. Real examples are the Prometheus exporter ecosystem (<code class="language-plaintext highlighter-rouge">redis_exporter</code>, <code class="language-plaintext highlighter-rouge">postgres_exporter</code>, the JMX exporter), log normalizers that turn unstructured output into structured JSON, and health shims that translate an application-specific status into an HTTP <code class="language-plaintext highlighter-rouge">200</code>/<code class="language-plaintext highlighter-rouge">503</code> for probes.</p>
 
-<p><strong>Typical adapters.</strong></p>
-
-<ul>
-  <li><strong>Metrics exporters</strong> — <code class="language-plaintext highlighter-rouge">node_exporter</code>, <code class="language-plaintext highlighter-rouge">redis_exporter</code>, JMX exporters that turn app-specific stats into Prometheus format.</li>
-  <li><strong>Log format normalizers</strong> — a container that reshapes unstructured app logs into structured JSON before shipping.</li>
-  <li><strong>Health-check shims</strong> — translate a non-standard liveness signal into the HTTP <code class="language-plaintext highlighter-rouge">200</code>/<code class="language-plaintext highlighter-rouge">503</code> your orchestrator probes.</li>
-</ul>
-
-<h3 id="choosing-between-the-three">Choosing Between the Three</h3>
-
-<p>The three composition patterns are easy to confuse because they all run a helper next to the app. The distinction is <em>what</em> the helper mediates:</p>
+<h3 id="choosing-between-the-three">Choosing between the three</h3>
 
 <table>
   <thead>
     <tr>
       <th>Pattern</th>
       <th>Mediates</th>
-      <th>Direction</th>
+      <th>Coupling to the app</th>
       <th>Canonical example</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Sidecar</strong></td>
-      <td>Shared local resources (files, sockets)</td>
-      <td>Augments the app in place</td>
-      <td>Log shipper on a shared volume</td>
+      <td>Local resources (files, sockets, processes)</td>
+      <td>Shared volume or PID namespace</td>
+      <td>Log shipper tailing a shared volume</td>
     </tr>
     <tr>
       <td><strong>Ambassador</strong></td>
-      <td>Network connections</td>
-      <td>Brokers traffic in/out</td>
-      <td>Envoy proxy for mTLS and discovery</td>
+      <td>Outbound or inbound connections</td>
+      <td>Shared network namespace (<code class="language-plaintext highlighter-rouge">localhost</code>)</td>
+      <td>Envoy providing mTLS and discovery</td>
     </tr>
     <tr>
       <td><strong>Adapter</strong></td>
-      <td>Data/interface shape</td>
-      <td>Normalizes the app’s external surface</td>
+      <td>The shape of the app’s external interface</td>
+      <td>Network or volume, read-only</td>
       <td>Prometheus exporter for a legacy app</td>
     </tr>
   </tbody>
 </table>
 
-<p>A single Pod may use all three at once: an init container seeds config, an ambassador handles egress mTLS, a sidecar ships logs, and an adapter exposes metrics — while the application container does nothing but serve requests.</p>
+<p>The terms overlap in practice: a mesh proxy is often called a “sidecar” because of how it is deployed, even though its job is the ambassador’s. The distinction that matters is what the helper mediates.</p>
 
 <h2 id="init-containers">Init Containers</h2>
 
-<p>An <strong>init container</strong> runs <em>before</em> the main container starts, performs one-time setup, then exits. The main container does not start until every init container has completed successfully. This is the pattern for any work that must happen <em>once, before the app</em>, and must <em>block</em> startup if it fails: schema migrations, fetching secrets or config, waiting on a dependency, or fixing volume permissions.</p>
-
-<p>Init containers are a first-class Kubernetes concept. In Docker Compose the same ordering is approximated with <code class="language-plaintext highlighter-rouge">depends_on</code> plus a service that runs to completion.</p>
-
-<p><strong>Kubernetes:</strong></p>
+<p>An <strong>init container</strong> runs to completion before the application starts; if it fails, the application does not start. It is the pattern for work that must happen once, before the app, and must block startup on failure: schema migrations, waiting for a dependency, fetching configuration, or fixing volume permissions.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">web-with-init</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">initContainers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">wait-for-db</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">busybox:1.36</span>
-    <span class="c1"># Block until the database accepts connections</span>
-    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">sh'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">-c'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">until</span><span class="nv"> </span><span class="s">nc</span><span class="nv"> </span><span class="s">-z</span><span class="nv"> </span><span class="s">db</span><span class="nv"> </span><span class="s">5432;</span><span class="nv"> </span><span class="s">do</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">waiting</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">db;</span><span class="nv"> </span><span class="s">sleep</span><span class="nv"> </span><span class="s">2;</span><span class="nv"> </span><span class="s">done'</span><span class="pi">]</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">run-migrations</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myregistry/migrations:latest</span>
-    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">/app/migrate'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">up'</span><span class="pi">]</span>
-    <span class="na">env</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DATABASE_URL</span>
-      <span class="na">valueFrom</span><span class="pi">:</span>
-        <span class="na">secretKeyRef</span><span class="pi">:</span>
-          <span class="na">name</span><span class="pi">:</span> <span class="s">db-credentials</span>
-          <span class="na">key</span><span class="pi">:</span> <span class="s">url</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">wait-for-db</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">busybox:1.37</span>
+      <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">sh'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">-c'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">until</span><span class="nv"> </span><span class="s">nc</span><span class="nv"> </span><span class="s">-z</span><span class="nv"> </span><span class="s">db</span><span class="nv"> </span><span class="s">5432;</span><span class="nv"> </span><span class="s">do</span><span class="nv"> </span><span class="s">echo</span><span class="nv"> </span><span class="s">waiting</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">db;</span><span class="nv"> </span><span class="s">sleep</span><span class="nv"> </span><span class="s">2;</span><span class="nv"> </span><span class="s">done'</span><span class="pi">]</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">migrate</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/migrations:1.4.0</span>
+      <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">/app/migrate'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">up'</span><span class="pi">]</span>
+      <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">DATABASE_URL</span>
+          <span class="na">valueFrom</span><span class="pi">:</span>
+            <span class="na">secretKeyRef</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">name</span><span class="pi">:</span> <span class="nv">db-admin</span><span class="pi">,</span> <span class="nv">key</span><span class="pi">:</span> <span class="nv">url</span> <span class="pi">}</span>
   <span class="na">containers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myregistry/web:latest</span>
-    <span class="na">ports</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">8080</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/web:1.4.0</span>
+      <span class="na">ports</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">8080</span>
 </code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">web</code> container starts only after <code class="language-plaintext highlighter-rouge">wait-for-db</code> confirms the database is reachable <em>and</em> <code class="language-plaintext highlighter-rouge">run-migrations</code> applies the schema. If either init container fails, Kubernetes restarts the Pod and retries — the application never sees a half-migrated database.</p>
+<p>Init containers run sequentially in declaration order. If one fails, the kubelet retries it according to the Pod’s <code class="language-plaintext highlighter-rouge">restartPolicy</code>, and <code class="language-plaintext highlighter-rouge">web</code> never sees a partially migrated schema.</p>
 
-<p><strong>Docker Compose equivalent:</strong></p>
+<p>In Compose, the equivalent is a one-shot service plus <code class="language-plaintext highlighter-rouge">depends_on</code> conditions:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">services</span><span class="pi">:</span>
+  <span class="na">db</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:18</span>
+    <span class="na">healthcheck</span><span class="pi">:</span>
+      <span class="na">test</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">CMD-SHELL"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">pg_isready</span><span class="nv"> </span><span class="s">-U</span><span class="nv"> </span><span class="s">postgres"</span><span class="pi">]</span>
+      <span class="na">interval</span><span class="pi">:</span> <span class="s">5s</span>
+      <span class="na">retries</span><span class="pi">:</span> <span class="m">10</span>
+
   <span class="na">migrate</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myregistry/migrations:latest</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/migrations:1.4.0</span>
     <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">/app/migrate"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">up"</span><span class="pi">]</span>
     <span class="na">depends_on</span><span class="pi">:</span>
       <span class="na">db</span><span class="pi">:</span>
         <span class="na">condition</span><span class="pi">:</span> <span class="s">service_healthy</span>
-    <span class="na">restart</span><span class="pi">:</span> <span class="s2">"</span><span class="s">no"</span>            <span class="c1"># run once, do not restart</span>
+    <span class="na">restart</span><span class="pi">:</span> <span class="s2">"</span><span class="s">no"</span>
 
   <span class="na">web</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myregistry/web:latest</span>
-    <span class="na">ports</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s2">"</span><span class="s">8080:8080"</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/web:1.4.0</span>
     <span class="na">depends_on</span><span class="pi">:</span>
       <span class="na">migrate</span><span class="pi">:</span>
-        <span class="na">condition</span><span class="pi">:</span> <span class="s">service_completed_successfully</span>   <span class="c1"># wait for migrate to exit 0</span>
+        <span class="na">condition</span><span class="pi">:</span> <span class="s">service_completed_successfully</span>
+      <span class="na">db</span><span class="pi">:</span>
+        <span class="na">condition</span><span class="pi">:</span> <span class="s">service_healthy</span>
+        <span class="na">restart</span><span class="pi">:</span> <span class="kc">true</span>          <span class="c1"># restart web if Compose restarts db</span>
 </code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">service_completed_successfully</code> condition is Compose’s way to express “start <code class="language-plaintext highlighter-rouge">web</code> only after <code class="language-plaintext highlighter-rouge">migrate</code> exits cleanly” — the same ordering guarantee an init container provides.</p>
+<p><code class="language-plaintext highlighter-rouge">service_completed_successfully</code> starts <code class="language-plaintext highlighter-rouge">web</code> only after <code class="language-plaintext highlighter-rouge">migrate</code> exits with status 0.</p>
 
-<p><strong>Why a separate container, not a startup script?</strong> Putting migrations in an init container keeps the application image free of migration tooling and database admin credentials. The init container can use a different, more privileged image and identity, run to completion, and disappear — leaving the long-running app with the minimal image and least-privileged credentials it actually needs.</p>
+<p>A separate container rather than a startup script keeps migration tooling and database-admin credentials out of the application image: the init container can use a different image and a more privileged identity, and then it is gone. Two caveats: with many replicas, every Pod runs its init containers, so migrations must be idempotent or guarded by a lock; and large schema changes are often better run as a separate Job in the deployment pipeline than as an init step in every Pod.</p>
 
 <h2 id="image-security-patterns">Image Security Patterns</h2>
 
-<p>The composition patterns above shape <em>how containers run together</em>; the next two sections shape <em>what is inside the image</em> and <em>what it is allowed to do at runtime</em>. Both reduce attack surface.</p>
+<p>The composition patterns decide how containers run together. The next patterns decide what is inside an image and what the process may do.</p>
 
-<h3 id="distroless-images">Distroless Images</h3>
+<h3 id="distroless-and-hardened-base-images">Distroless and hardened base images</h3>
 
-<p>A “distroless” image contains <em>only</em> your application and its runtime dependencies — no shell, no package manager, no <code class="language-plaintext highlighter-rouge">ls</code>, no <code class="language-plaintext highlighter-rouge">cat</code>. There is nothing for an attacker who lands a remote-code-execution bug to pivot with: no <code class="language-plaintext highlighter-rouge">sh</code> to spawn, no <code class="language-plaintext highlighter-rouge">curl</code> to exfiltrate, no <code class="language-plaintext highlighter-rouge">apt</code> to install tools. The image is also dramatically smaller, which means fewer CVEs to patch and faster pulls.</p>
+<p>A <strong>distroless</strong> image contains the application and its runtime dependencies and nothing else: no shell, no package manager, no coreutils. An attacker who achieves code execution has no <code class="language-plaintext highlighter-rouge">sh</code>, <code class="language-plaintext highlighter-rouge">curl</code>, or <code class="language-plaintext highlighter-rouge">apt</code> to work with, the image has far fewer packages to accumulate CVEs, and it pulls faster.</p>
 
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Multi-stage build with distroless</span>
-<span class="k">FROM</span><span class="w"> </span><span class="s">golang:1.23</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">builder</span>
-<span class="k">WORKDIR</span><span class="s"> /app</span>
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># syntax=docker/dockerfile:1</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">golang:1.26</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">build</span>
+<span class="k">WORKDIR</span><span class="s"> /src</span>
+<span class="k">COPY</span><span class="s"> go.mod go.sum ./</span>
+<span class="k">RUN </span>go mod download
 <span class="k">COPY</span><span class="s"> . .</span>
-<span class="k">RUN </span><span class="nv">CGO_ENABLED</span><span class="o">=</span>0 go build <span class="nt">-o</span> myapp .
+<span class="k">RUN </span><span class="nv">CGO_ENABLED</span><span class="o">=</span>0 go build <span class="nt">-trimpath</span> <span class="nt">-ldflags</span><span class="o">=</span><span class="s2">"-s -w"</span> <span class="nt">-o</span> /out/app .
 
-<span class="c"># Distroless image - no shell, package manager, or utilities</span>
-<span class="k">FROM</span><span class="s"> gcr.io/distroless/static:nonroot</span>
-<span class="k">COPY</span><span class="s"> --from=builder /app/myapp /</span>
-<span class="k">USER</span><span class="s"> nonroot:nonroot</span>
-<span class="k">ENTRYPOINT</span><span class="s"> ["/myapp"]</span>
+<span class="k">FROM</span><span class="s"> gcr.io/distroless/static-debian13:nonroot</span>
+<span class="k">COPY</span><span class="s"> --from=build /out/app /app</span>
+<span class="k">ENTRYPOINT</span><span class="s"> ["/app"]</span>
 </code></pre></div></div>
 
-<p><strong>How it works.</strong> A multi-stage build does all the messy compilation in a full <code class="language-plaintext highlighter-rouge">golang</code> image, then copies <em>only the resulting static binary</em> into <code class="language-plaintext highlighter-rouge">gcr.io/distroless/static</code>. <code class="language-plaintext highlighter-rouge">CGO_ENABLED=0</code> produces a statically linked binary with no libc dependency, so the runtime image needs nothing but the binary itself. The <code class="language-plaintext highlighter-rouge">:nonroot</code> tag and <code class="language-plaintext highlighter-rouge">USER nonroot:nonroot</code> ensure the process runs as an unprivileged user.</p>
+<p><code class="language-plaintext highlighter-rouge">CGO_ENABLED=0</code> produces a statically linked binary, so the runtime image needs no libc. The <code class="language-plaintext highlighter-rouge">:nonroot</code> tag already sets <code class="language-plaintext highlighter-rouge">USER</code> to UID 65532.</p>
 
-<p><strong>The distroless family</strong> (from Google’s <code class="language-plaintext highlighter-rouge">distroless</code> project, with similar offerings from Chainguard’s <code class="language-plaintext highlighter-rouge">wolfi</code>) is tiered by how much runtime the language needs:</p>
+<p>Google’s distroless images (currently based on Debian 13) are tiered by how much runtime the language needs:</p>
 
 <table>
   <thead>
     <tr>
       <th>Image</th>
-      <th>Contains</th>
-      <th>Use for</th>
+      <th>Adds</th>
+      <th>For</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">distroless/static</code></td>
-      <td>CA certs, tzdata, <code class="language-plaintext highlighter-rouge">/etc/passwd</code></td>
-      <td>Statically linked Go/Rust binaries</td>
+      <td><code class="language-plaintext highlighter-rouge">static-debian13</code></td>
+      <td>CA certificates, tzdata, <code class="language-plaintext highlighter-rouge">/etc/passwd</code></td>
+      <td>Static Go and Rust binaries</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">distroless/base</code></td>
-      <td>The above + glibc, libssl</td>
+      <td><code class="language-plaintext highlighter-rouge">base-debian13</code></td>
+      <td>glibc, OpenSSL</td>
       <td>Dynamically linked native binaries</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">distroless/cc</code></td>
-      <td>base + libgcc, libstdc++</td>
+      <td><code class="language-plaintext highlighter-rouge">cc-debian13</code></td>
+      <td>libgcc, libstdc++</td>
       <td>C/C++ and some Rust binaries</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">distroless/java</code>, <code class="language-plaintext highlighter-rouge">python3</code>, <code class="language-plaintext highlighter-rouge">nodejs</code></td>
-      <td>base + the language runtime</td>
-      <td>JVM, CPython, Node apps</td>
+      <td><code class="language-plaintext highlighter-rouge">java21-debian13</code>, <code class="language-plaintext highlighter-rouge">java25-debian13</code></td>
+      <td>A JRE</td>
+      <td>JVM applications</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">nodejs22-debian13</code>, <code class="language-plaintext highlighter-rouge">nodejs24-debian13</code></td>
+      <td>Node.js</td>
+      <td>Node applications</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">python3-debian13</code></td>
+      <td>CPython</td>
+      <td>Python applications (dependencies copied in from a build stage)</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>The debugging caveat.</strong> With no shell, <code class="language-plaintext highlighter-rouge">docker exec -it container sh</code> will not work — there is no <code class="language-plaintext highlighter-rouge">sh</code>. Use the <code class="language-plaintext highlighter-rouge">:debug</code> variant of a distroless image (which adds BusyBox) for local troubleshooting, or attach an <em>ephemeral debug container</em> in Kubernetes (<code class="language-plaintext highlighter-rouge">kubectl debug</code>) that brings its own tools into the Pod without modifying the hardened production image.</p>
+<p>Each is published with <code class="language-plaintext highlighter-rouge">:latest</code>, <code class="language-plaintext highlighter-rouge">:nonroot</code>, <code class="language-plaintext highlighter-rouge">:debug</code>, and <code class="language-plaintext highlighter-rouge">:debug-nonroot</code> tags; the <code class="language-plaintext highlighter-rouge">debug</code> variants add a BusyBox shell for troubleshooting.</p>
 
-<h3 id="run-as-non-root-and-drop-privileges">Run as Non-Root and Drop Privileges</h3>
+<p>Distroless is one of several <strong>minimal, hardened image</strong> families:</p>
 
-<p>Distroless gives you a non-root <em>user</em>; defense in depth means also stripping the <em>capabilities</em> and write access the process does not need. A hardened production image and run spec typically combines:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Family</th>
+      <th>Characteristics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Google distroless</td>
+      <td>Debian packages, no shell; free</td>
+    </tr>
+    <tr>
+      <td>Chainguard Images</td>
+      <td>Built on the Wolfi distribution, rebuilt continuously for low CVE counts; <code class="language-plaintext highlighter-rouge">-dev</code> variants include a shell and package manager</td>
+    </tr>
+    <tr>
+      <td>Docker Hardened Images</td>
+      <td>Maintained by Docker on Debian and Alpine; non-root by default; signed SBOMs, VEX, and SLSA Build Level 3 provenance; the core catalog is free under Apache 2.0, with paid tiers for remediation SLAs</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">scratch</code></td>
+      <td>Empty; you supply everything (CA certificates and <code class="language-plaintext highlighter-rouge">/etc/passwd</code> included)</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># In the Dockerfile: never run as root</span>
-<span class="k">FROM</span><span class="s"> gcr.io/distroless/base:nonroot</span>
-<span class="k">COPY</span><span class="s"> --from=builder /app/server /server</span>
-<span class="k">USER</span><span class="s"> nonroot:nonroot          # UID 65532, not root</span>
-<span class="k">ENTRYPOINT</span><span class="s"> ["/server"]</span>
+<p>The build-and-runtime split of dev and runtime variants follows the multi-stage pattern in <a href="dockerfiles.html#multi-stage-builds">Dockerfiles</a>: compile in the variant with tools, ship the one without.</p>
+
+<p><strong>Debugging without a shell.</strong> <code class="language-plaintext highlighter-rouge">docker exec -it app sh</code> fails on a distroless container because there is no <code class="language-plaintext highlighter-rouge">sh</code>. Instead, attach a tools container to its namespaces, which leaves the production image unchanged:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Docker: a tools container sharing the target's network and PID namespaces</span>
+docker run <span class="nt">--rm</span> <span class="nt">-it</span> <span class="nt">--network</span> container:app <span class="nt">--pid</span> container:app nicolaka/netshoot
+
+<span class="c"># Docker Desktop: docker debug attaches a toolbox shell without modifying the image</span>
+docker debug app
+
+<span class="c"># Kubernetes: an ephemeral debug container targeting the app's process namespace</span>
+kubectl debug <span class="nt">-it</span> pod/web <span class="nt">--image</span><span class="o">=</span>busybox:1.37 <span class="nt">--target</span><span class="o">=</span>web
 </code></pre></div></div>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># In the runtime spec (Compose): least privilege at launch</span>
+<h3 id="least-privilege-at-runtime">Least privilege at runtime</h3>
+
+<p>The image should run as non-root; the runtime specification should remove what the process does not need:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># compose.yaml</span>
 <span class="na">services</span><span class="pi">:</span>
   <span class="na">server</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myregistry/server:latest</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/server:1.4.0</span>
+    <span class="na">user</span><span class="pi">:</span> <span class="s2">"</span><span class="s">65532:65532"</span>
     <span class="na">read_only</span><span class="pi">:</span> <span class="kc">true</span>                 <span class="c1"># immutable root filesystem</span>
-    <span class="na">cap_drop</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">ALL</span>                         <span class="c1"># drop every Linux capability</span>
-    <span class="na">security_opt</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">no-new-privileges:true</span>      <span class="c1"># block setuid escalation</span>
     <span class="na">tmpfs</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">/tmp</span>                        <span class="c1"># writable scratch where actually needed</span>
+      <span class="pi">-</span> <span class="s">/tmp</span>                        <span class="c1"># writable scratch space only where needed</span>
+    <span class="na">cap_drop</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ALL</span><span class="pi">]</span>                 <span class="c1"># no Linux capabilities</span>
+    <span class="na">security_opt</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">no-new-privileges:true</span>      <span class="c1"># setuid binaries cannot escalate</span>
+    <span class="na">pids_limit</span><span class="pi">:</span> <span class="m">256</span>
 </code></pre></div></div>
 
-<p>Each control closes a path an attacker would otherwise use: <code class="language-plaintext highlighter-rouge">read_only</code> prevents writing a payload to disk, <code class="language-plaintext highlighter-rouge">cap_drop: ALL</code> removes powers like <code class="language-plaintext highlighter-rouge">CAP_NET_RAW</code> and <code class="language-plaintext highlighter-rouge">CAP_SYS_ADMIN</code>, and <code class="language-plaintext highlighter-rouge">no-new-privileges</code> stops a setuid binary from re-escalating. (Storage and capability hardening are covered in depth in <a href="storage-security.html">Storage &amp; Security</a>; the point here is that the <em>image pattern</em> and the <em>runtime pattern</em> reinforce each other.)</p>
+<p>The Kubernetes equivalent is a <code class="language-plaintext highlighter-rouge">securityContext</code> with <code class="language-plaintext highlighter-rouge">runAsNonRoot: true</code>, <code class="language-plaintext highlighter-rouge">readOnlyRootFilesystem: true</code>, <code class="language-plaintext highlighter-rouge">allowPrivilegeEscalation: false</code>, <code class="language-plaintext highlighter-rouge">capabilities: { drop: [ALL] }</code>, and <code class="language-plaintext highlighter-rouge">seccompProfile: { type: RuntimeDefault }</code>, which together satisfy the Pod Security Standards <em>restricted</em> profile.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Control</th>
+      <th>Blocks</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Non-root UID</td>
+      <td>Writing to root-owned paths; many container-escape techniques</td>
+    </tr>
+    <tr>
+      <td>Read-only root filesystem</td>
+      <td>Dropping and running payloads, tampering with binaries</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cap_drop: ALL</code></td>
+      <td>Raw sockets (<code class="language-plaintext highlighter-rouge">NET_RAW</code>), mounts and namespace tricks (<code class="language-plaintext highlighter-rouge">SYS_ADMIN</code>), ownership changes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">no-new-privileges</code></td>
+      <td>Escalation through setuid/setgid binaries</td>
+    </tr>
+    <tr>
+      <td>Default seccomp profile</td>
+      <td>Rarely needed, dangerous syscalls</td>
+    </tr>
+    <tr>
+      <td>User namespaces (rootless Docker, <code class="language-plaintext highlighter-rouge">userns-remap</code>, Kubernetes <code class="language-plaintext highlighter-rouge">hostUsers: false</code>)</td>
+      <td>Container root mapping to host root</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Volume, secrets, and capability hardening are covered in more depth in <a href="storage-security.html">Storage &amp; Security</a>; user namespaces in <a href="../container-runtimes.html#user-namespaces-and-rootless-containers">Container Runtimes</a>.</p>
 
 <h2 id="runtime-security-patterns">Runtime Security Patterns</h2>
 
-<p>Image hardening shrinks the attack surface; <strong>runtime detection</strong> catches the cases where an attacker gets in anyway. The pattern is to watch system calls and container behavior against a policy of what is expected, and alert (or block) on anything outside it.</p>
+<p>Hardening shrinks the attack surface; <strong>runtime detection</strong> catches what gets through anyway. The pattern is to observe system calls and container behavior, compare them against expected behavior, and alert on or block deviations.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># falco-rules.yaml</span>
-<span class="pi">-</span> <span class="na">rule</span><span class="pi">:</span> <span class="s">Unauthorized Process in Container</span>
-  <span class="na">desc</span><span class="pi">:</span> <span class="s">Detect unauthorized process execution</span>
+<p><a href="https://falco.org/">Falco</a>, a CNCF graduated project, taps the kernel’s syscall stream (with its modern eBPF probe by default) and evaluates each event against rules:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># custom-rules.yaml</span>
+<span class="pi">-</span> <span class="na">list</span><span class="pi">:</span> <span class="s">web_allowed_processes</span>
+  <span class="na">items</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">nginx</span><span class="pi">,</span> <span class="nv">node</span><span class="pi">]</span>
+
+<span class="pi">-</span> <span class="na">rule</span><span class="pi">:</span> <span class="s">Unexpected process in web container</span>
+  <span class="na">desc</span><span class="pi">:</span> <span class="s">A process not on the allowlist started in a web-tier container</span>
   <span class="na">condition</span><span class="pi">:</span> <span class="pi">&gt;</span>
-    <span class="s">container and</span>
-    <span class="s">not proc.name in (allowed_processes) and</span>
-    <span class="s">not container.image.repository in (trusted_images)</span>
+    <span class="s">spawned_process and container</span>
+    <span class="s">and container.image.repository = "registry.example.com/web"</span>
+    <span class="s">and not proc.name in (web_allowed_processes)</span>
   <span class="na">output</span><span class="pi">:</span> <span class="pi">&gt;</span>
-    <span class="s">Unauthorized process in container</span>
-    <span class="s">(user=%user.name command=%proc.cmdline container=%container.name)</span>
+    <span class="s">Unexpected process in web container</span>
+    <span class="s">(command=%proc.cmdline user=%user.name container=%container.name image=%container.image.repository)</span>
   <span class="na">priority</span><span class="pi">:</span> <span class="s">WARNING</span>
+  <span class="na">tags</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">container</span><span class="pi">,</span> <span class="nv">process</span><span class="pi">]</span>
 </code></pre></div></div>
 
-<p><strong>How it works.</strong> <a href="https://falco.org/">Falco</a> is a CNCF runtime-security engine that taps the kernel’s system-call stream (via eBPF) and evaluates each event against rules like the one above. The rule fires when a process starts inside a container whose name is <em>not</em> on an allowlist and whose image is <em>not</em> trusted — a strong signal that an attacker has spawned a shell or dropped a tool inside a container that should only ever run its one known process. Because distroless images have <em>no</em> extra processes, this rule pairs naturally with them: any unexpected process is, by construction, anomalous.</p>
+<p><code class="language-plaintext highlighter-rouge">spawned_process</code> and <code class="language-plaintext highlighter-rouge">container</code> are macros from Falco’s default ruleset. The rule fires when anything other than the expected processes starts in the web image, such as a shell spawned through a remote-code-execution bug. It pairs well with distroless images, where the legitimate process set is a single binary and any other process is anomalous by construction.</p>
 
-<p><strong>Layers of runtime defense.</strong> Falco is one tool in a broader runtime-security pattern:</p>
+<p>Runtime detection is one layer in a chain of controls, each covering a different point in an image’s life:</p>
 
-<ul>
-  <li><strong>Behavioral detection</strong> (Falco, Tetragon) — alert on unexpected syscalls, file writes, or network connections.</li>
-  <li><strong>Admission control</strong> (OPA Gatekeeper, Kyverno) — reject Pods at deploy time that run as root, lack resource limits, or use untrusted registries.</li>
-  <li><strong>Image scanning and provenance</strong> (Docker Scout, Trivy, SLSA attestations) — block images with known CVEs or without a verifiable build origin before they ever run.</li>
-</ul>
+<pre><code class="language-mermaid">flowchart LR
+    B["Build&lt;br/&gt;minimal base,&lt;br/&gt;multi-stage"] --&gt; S["Scan and attest&lt;br/&gt;Scout, Trivy, Grype;&lt;br/&gt;SBOM, provenance, signature"]
+    S --&gt; A["Admit&lt;br/&gt;Kyverno, OPA Gatekeeper,&lt;br/&gt;Pod Security Admission"]
+    A --&gt; R["Run&lt;br/&gt;non-root, read-only,&lt;br/&gt;no capabilities"]
+    R --&gt; D["Detect and respond&lt;br/&gt;Falco, Tetragon"]
+    D -.-&gt;|findings feed back| B
+</code></pre>
 
-<p>Together these enforce a closed loop: only vetted images deploy, they run with least privilege, and any deviation at runtime is detected. No single layer is sufficient — a scanned image can still be exploited at runtime, and a runtime alert is too late if a privileged container has already been deployed.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Stage</th>
+      <th>Tools</th>
+      <th>Catches</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Scan and attest</td>
+      <td>Docker Scout, Trivy, Grype; SBOM and SLSA provenance; cosign or Notation signatures</td>
+      <td>Known CVEs; images of unknown origin</td>
+    </tr>
+    <tr>
+      <td>Admission</td>
+      <td>Kyverno, OPA Gatekeeper, Pod Security Admission, signature-verification policies</td>
+      <td>Privileged, root, unsigned, or unapproved-registry workloads</td>
+    </tr>
+    <tr>
+      <td>Runtime detection and enforcement</td>
+      <td>Falco, Tetragon (eBPF, can kill offending processes)</td>
+      <td>Exploitation of unknown bugs, attacker activity inside a container</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>No single layer is sufficient: a clean scan says nothing about zero-days, and a runtime alert comes too late if a privileged container was admitted.</p>
 
 <h2 id="putting-the-patterns-together">Putting the Patterns Together</h2>
 
-<p>A production deployment usually layers several of these patterns at once. A typical hardened web workload looks like:</p>
-
 <pre><code class="language-mermaid">flowchart TB
-    subgraph Pod["Pod"]
-        Init["initContainer:&lt;br/&gt;wait-for-db + migrate"]
-        App["app container&lt;br/&gt;(distroless, non-root,&lt;br/&gt;read-only FS)"]
-        Amb["ambassador:&lt;br/&gt;Envoy mTLS proxy"]
-        Side["sidecar:&lt;br/&gt;log shipper"]
-        Init -.-&gt;|runs first, then exits| App
+    subgraph Pod["Pod: web"]
+        Init["init: migrate&lt;br/&gt;(exits before app)"]
+        App["app&lt;br/&gt;distroless, non-root,&lt;br/&gt;read-only FS"]
+        Amb["sidecar: Envoy&lt;br/&gt;(ambassador, mTLS)"]
+        Side["sidecar: log shipper"]
+        Init -.-&gt; App
         App &lt;--&gt;|localhost| Amb
         App --&gt;|shared volume| Side
     end
-    Amb &lt;--&gt;|mTLS| Mesh[("Service mesh /&lt;br/&gt;databases")]
-    Side --&gt;|ships| Logs[("Log store")]
-    Falco["Falco (node agent)"] -.-&gt;|watches syscalls| Pod
+    Amb &lt;--&gt;|mTLS| Deps[("Other services,&lt;br/&gt;database")]
+    Side --&gt; Logs[("Log store")]
+    Falco["Falco / Tetragon&lt;br/&gt;(node agent)"] -.-&gt;|observes syscalls| Pod
 </code></pre>
 
-<p>The init container guarantees the schema is ready before the app starts; the distroless, non-root, read-only app container minimizes what an attacker can do; the ambassador handles encryption and discovery; the sidecar ships logs; and a node-level Falco agent watches every container for anomalous behavior. Each pattern owns one concern, and the application image stays focused on business logic.</p>
+<p>The init container ensures the schema exists before the app starts; the application image contains only the application and runs with least privilege; the ambassador handles encryption and discovery; the sidecar ships logs; and a node agent watches every container for anomalous behavior. Each component owns one concern.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="fundamentals.html">Docker Fundamentals</a> - Images, containers, and core concepts</li>
-  <li><a href="storage-security.html">Docker: Storage &amp; Security</a> - Volumes, network drivers, and container hardening</li>
-  <li><a href="dockerfiles.html">Docker: Dockerfiles &amp; CI/CD</a> - Multi-stage builds and pipelines</li>
-  <li><a href="advanced.html">Docker: Advanced Patterns</a> - Production architectures, case studies, and WebAssembly runtimes</li>
-  <li><a href="../kubernetes/">Kubernetes</a> - Pods, init containers, and orchestration at scale</li>
-  <li><a href="../docker-essentials.html">Docker Essentials</a> - Quick command reference</li>
+  <li><a href="fundamentals.html">Fundamentals</a> - Images, containers, and namespaces</li>
+  <li><a href="dockerfiles.html">Dockerfiles &amp; CI/CD</a> - Multi-stage builds and build-time secrets</li>
+  <li><a href="docker-networking.html">Networking</a> - Shared network namespaces and Compose networking</li>
+  <li><a href="storage-security.html">Storage &amp; Security</a> - Volumes, capabilities, and secrets</li>
+  <li><a href="registry.html">Registries &amp; Supply Chain</a> - Signing, SBOMs, and provenance</li>
+  <li><a href="advanced.html">Production Patterns</a> - Compose in production, Swarm, and reference architectures</li>
+  <li><a href="../container-runtimes.html">Container Runtimes</a> - Sandboxed runtimes and user namespaces</li>
+  <li><a href="../kubernetes/">Kubernetes</a> - Pods, init containers, and sidecars at scale</li>
+</ul>
+
+<h2 id="references">References</h2>
+
+<ul>
+  <li>B. Burns and D. Oppenheimer, “Design Patterns for Container-based Distributed Systems,” USENIX HotCloud 2016</li>
+  <li><a href="https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/">Kubernetes: Sidecar containers</a></li>
+  <li><a href="https://docs.docker.com/reference/compose-file/services/#depends_on">Compose file reference: depends_on</a></li>
+  <li><a href="https://github.com/GoogleContainerTools/distroless">Distroless container images</a></li>
+  <li><a href="https://docs.docker.com/dhi/">Docker Hardened Images</a></li>
+  <li><a href="https://falco.org/docs/concepts/rules/">Falco rules documentation</a></li>
 </ul>
 
       </section>

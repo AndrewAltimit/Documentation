@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="TCP reliability and congestion control (Reno, CUBIC, BBR, ECN/L4S), UDP, QUIC, and the application protocols built on them: HTTP/1.1 to HTTP/3, TLS, DNS, DHC...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Networking: Transport & Application Protocols">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="TCP reliability and congestion control (Reno, CUBIC, BBR, ECN/L4S), UDP, QUIC, and the application protocols built on them: HTTP/1.1 to HTTP/3, TLS, DNS, DHC...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/networking/transport-and-protocols.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Networking: Transport & Application Protocols">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="TCP reliability and congestion control (Reno, CUBIC, BBR, ECN/L4S), UDP, QUIC, and the application protocols built on them: HTTP/1.1 to HTTP/3, TLS, DNS, DHC...">
 
 <title>Networking: Transport & Application Protocols | Andrews Notebook</title>
 
@@ -3131,318 +3131,48 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p><a href="./">Networking</a></p>
+        <p><a href="./">Networking</a> » Transport &amp; Application Protocols</p>
 
-<!-- Custom styles are now loaded via main.scss -->
+<p>The network layer delivers packets to a host; the <strong>transport layer</strong> delivers them to the right application and decides what “delivery” means — reliable and ordered (TCP), best-effort (UDP), or reliable, multiplexed and encrypted over UDP (QUIC). This page covers how TCP achieves reliability, how its congestion control keeps the internet stable, why new protocols are built on UDP, and the application protocols most traffic depends on: HTTP, TLS, DNS, DHCP, and SSH.</p>
 
-<p>The internet layer gets a packet to the right host; the transport layer decides which application receives it and whether delivery is reliable. This page goes deep on TCP congestion control — the mechanism that keeps the internet from collapsing — then weighs TCP against UDP, and finishes with the application protocols you use every day: HTTP, DNS, DHCP, and SSH.</p>
+<h2 id="ports-and-multiplexing">Ports and Multiplexing</h2>
 
-<h2 id="deep-dive-how-tcp-controls-the-internets-speed">Deep Dive: How TCP Controls the Internet’s Speed</h2>
-
-<p>TCP’s real genius lies in congestion control. Without it, the internet would collapse under its own traffic. Let’s explore how TCP automatically adjusts sending rates to match network capacity.</p>
-
-<h3 id="the-congestion-control-challenge">The Congestion Control Challenge</h3>
-
-<p>Imagine driving on a highway without speed limits or traffic reports. How fast should you go? Too slow wastes time; too fast causes accidents. TCP faces this same dilemma billions of times per second.</p>
-
-<p>The Python classes below are <em>illustrative</em> — simplified models meant to make the algorithms’ logic concrete, not production stacks.</p>
-
-<h4 id="tcp-reno-the-classic-algorithm">TCP Reno: The Classic Algorithm</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">TCPReno</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">TCP Reno congestion control algorithm</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">mss</span><span class="o">=</span><span class="mi">1460</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">mss</span> <span class="o">=</span> <span class="n">mss</span>  <span class="c1"># Maximum Segment Size
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">*</span> <span class="n">mss</span>  <span class="c1"># Congestion window
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">ssthresh</span> <span class="o">=</span> <span class="mi">64</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># Slow start threshold
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">'</span><span class="s">slow_start</span><span class="sh">'</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">dup_ack_count</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">rtt_samples</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">srtt</span> <span class="o">=</span> <span class="bp">None</span>  <span class="c1"># Smoothed RTT
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rttvar</span> <span class="o">=</span> <span class="bp">None</span>  <span class="c1"># RTT variance
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rto</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Retransmission timeout
-</span>        
-    <span class="k">def</span> <span class="nf">on_ack</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">ack_num</span><span class="p">,</span> <span class="n">is_duplicate</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Handle ACK reception</span><span class="sh">"""</span>
-        <span class="k">if</span> <span class="n">is_duplicate</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">dup_ack_count</span> <span class="o">+=</span> <span class="mi">1</span>
-            
-            <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">dup_ack_count</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="c1"># Fast retransmit/recovery
-</span>                <span class="n">self</span><span class="p">.</span><span class="n">ssthresh</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span><span class="p">)</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">ssthresh</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">'</span><span class="s">fast_recovery</span><span class="sh">'</span>
-                <span class="k">return</span> <span class="sh">'</span><span class="s">fast_retransmit</span><span class="sh">'</span>
-                
-            <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">==</span> <span class="sh">'</span><span class="s">fast_recovery</span><span class="sh">'</span><span class="p">:</span>
-                <span class="c1"># Inflate window
-</span>                <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">+=</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span>
-                
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">dup_ack_count</span> <span class="o">=</span> <span class="mi">0</span>
-            
-            <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">==</span> <span class="sh">'</span><span class="s">slow_start</span><span class="sh">'</span><span class="p">:</span>
-                <span class="c1"># Exponential increase
-</span>                <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">+=</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span>
-                
-                <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">ssthresh</span><span class="p">:</span>
-                    <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">'</span><span class="s">congestion_avoidance</span><span class="sh">'</span>
-                    
-            <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">==</span> <span class="sh">'</span><span class="s">congestion_avoidance</span><span class="sh">'</span><span class="p">:</span>
-                <span class="c1"># Additive increase
-</span>                <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">+=</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">mss</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span><span class="p">)</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span>
-                
-            <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">==</span> <span class="sh">'</span><span class="s">fast_recovery</span><span class="sh">'</span><span class="p">:</span>
-                <span class="c1"># Exit fast recovery
-</span>                <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">ssthresh</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">'</span><span class="s">congestion_avoidance</span><span class="sh">'</span>
-                
-        <span class="k">return</span> <span class="bp">None</span>
-    
-    <span class="k">def</span> <span class="nf">on_timeout</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Handle retransmission timeout</span><span class="sh">"""</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">ssthresh</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">'</span><span class="s">slow_start</span><span class="sh">'</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">dup_ack_count</span> <span class="o">=</span> <span class="mi">0</span>
-        
-        <span class="c1"># Back off RTO
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rto</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">rto</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
-        
-    <span class="k">def</span> <span class="nf">update_rtt</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">measured_rtt</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Update RTT estimates (RFC 6298)</span><span class="sh">"""</span>
-        <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.125</span>
-        <span class="n">beta</span> <span class="o">=</span> <span class="mf">0.25</span>
-        <span class="n">K</span> <span class="o">=</span> <span class="mi">4</span>
-        
-        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">srtt</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="c1"># First measurement
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">srtt</span> <span class="o">=</span> <span class="n">measured_rtt</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">rttvar</span> <span class="o">=</span> <span class="n">measured_rtt</span> <span class="o">/</span> <span class="mi">2</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Update estimates
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">rttvar</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">beta</span><span class="p">)</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">rttvar</span> <span class="o">+</span> <span class="n">beta</span> <span class="o">*</span> <span class="nf">abs</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">srtt</span> <span class="o">-</span> <span class="n">measured_rtt</span><span class="p">)</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">srtt</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">srtt</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">measured_rtt</span>
-            
-        <span class="c1"># Calculate RTO
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rto</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">srtt</span> <span class="o">+</span> <span class="n">K</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">rttvar</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">rto</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">rto</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>  <span class="c1"># Minimum 1 second
-</span></code></pre></div></div>
-
-<h4 id="tcp-bbr-googles-game-changer">TCP BBR: Google’s Game-Changer</h4>
-
-<p>Traditional algorithms like Reno react to packet loss, but what if we could measure the actual capacity? BBR (Bottleneck Bandwidth and RTT) does exactly that, leading to faster downloads and smoother video streaming.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">TCPBBR</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">BBR measures the network</span><span class="sh">'</span><span class="s">s actual capacity instead of guessing.
-    
-    Key insight: The optimal sending rate equals the bottleneck bandwidth,
-    and the optimal amount of data in flight equals bandwidth × RTT.
-    </span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">mode</span> <span class="o">=</span> <span class="sh">'</span><span class="s">startup</span><span class="sh">'</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">pacing_rate</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">min_rtt</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">inf</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">min_rtt_stamp</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">btl_bw</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Bottleneck bandwidth
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rtprop</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Min RTT
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">bandwidth_samples</span> <span class="o">=</span> <span class="p">[]</span>
-        
-    <span class="k">def</span> <span class="nf">update_model</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">delivered</span><span class="p">,</span> <span class="n">interval</span><span class="p">,</span> <span class="n">rtt</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Update bandwidth and RTT model</span><span class="sh">"""</span>
-        <span class="c1"># Update bandwidth estimate
-</span>        <span class="k">if</span> <span class="n">interval</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">bandwidth</span> <span class="o">=</span> <span class="n">delivered</span> <span class="o">/</span> <span class="n">interval</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">bandwidth_samples</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">bandwidth</span><span class="p">)</span>
-            
-            <span class="c1"># Use windowed max filter
-</span>            <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">bandwidth_samples</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">bandwidth_samples</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-                
-            <span class="n">self</span><span class="p">.</span><span class="n">btl_bw</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">bandwidth_samples</span><span class="p">)</span>
-            
-        <span class="c1"># Update RTT estimate
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rtprop</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">rtprop</span><span class="p">,</span> <span class="n">rtt</span><span class="p">)</span> <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">rtprop</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">rtt</span>
-        
-    <span class="k">def</span> <span class="nf">calculate_pacing_rate</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate pacing rate based on model</span><span class="sh">"""</span>
-        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">mode</span> <span class="o">==</span> <span class="sh">'</span><span class="s">startup</span><span class="sh">'</span><span class="p">:</span>
-            <span class="c1"># High gain to quickly discover bandwidth
-</span>            <span class="n">pacing_gain</span> <span class="o">=</span> <span class="mf">2.89</span>  <span class="c1"># 2/ln(2)
-</span>        <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">mode</span> <span class="o">==</span> <span class="sh">'</span><span class="s">drain</span><span class="sh">'</span><span class="p">:</span>
-            <span class="c1"># Drain queue built during startup
-</span>            <span class="n">pacing_gain</span> <span class="o">=</span> <span class="mf">0.35</span>  <span class="c1"># 1/2.89
-</span>        <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">mode</span> <span class="o">==</span> <span class="sh">'</span><span class="s">probe_bw</span><span class="sh">'</span><span class="p">:</span>
-            <span class="c1"># Cycle through different gains
-</span>            <span class="n">gains</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.25</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-            <span class="n">pacing_gain</span> <span class="o">=</span> <span class="n">gains</span><span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">cycle_index</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">gains</span><span class="p">)]</span>
-        <span class="k">else</span><span class="p">:</span>  <span class="c1"># probe_rtt
-</span>            <span class="n">pacing_gain</span> <span class="o">=</span> <span class="mi">1</span>
-            
-        <span class="n">self</span><span class="p">.</span><span class="n">pacing_rate</span> <span class="o">=</span> <span class="n">pacing_gain</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">btl_bw</span>
-        
-    <span class="k">def</span> <span class="nf">update_cwnd</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Update congestion window</span><span class="sh">"""</span>
-        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">mode</span> <span class="o">==</span> <span class="sh">'</span><span class="s">probe_rtt</span><span class="sh">'</span><span class="p">:</span>
-            <span class="c1"># Minimal cwnd to measure RTT
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># BDP + headroom for probing
-</span>            <span class="n">bdp</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">btl_bw</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">rtprop</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">cwnd</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">bdp</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">cwnd_gain</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">mss</span><span class="p">)</span>
-</code></pre></div></div>
-
-<blockquote>
-  <p>Congestion control exists because performance is fundamentally a queueing problem — see <a href="performance-and-security.html">Performance, QoS &amp; Security</a> for the queueing models underneath.</p>
-</blockquote>
-
-<h2 id="choosing-the-right-transport-tcp-vs-udp">Choosing the Right Transport: TCP vs UDP</h2>
-
-<p>One of the most important decisions in network programming is choosing between TCP and UDP. It’s not about which is “better”—each serves different needs.</p>
-
-<h3 id="tcp-the-reliable-workhorse">TCP: The Reliable Workhorse</h3>
-<p><strong>Think of TCP like certified mail with tracking:</strong></p>
-<ul>
-  <li>Connection-oriented</li>
-  <li>Reliable delivery</li>
-  <li>Ordered packets</li>
-  <li>Flow control</li>
-  <li>Congestion control</li>
-</ul>
-
-<p><strong>Three-way Handshake</strong>: before any data flows, TCP establishes a connection and agrees on initial sequence numbers. Tearing it down takes a separate four-way exchange (each side closes its half independently):</p>
-
-<pre><code class="language-mermaid">sequenceDiagram
-    participant C as Client
-    participant S as Server
-    Note over C,S: Connection setup (3-way handshake)
-    C-&gt;&gt;S: SYN (seq=x)
-    S-&gt;&gt;C: SYN-ACK (seq=y, ack=x+1)
-    C-&gt;&gt;S: ACK (ack=y+1)
-    Note over C,S: Data transfer
-    C-&gt;&gt;S: data + ACKs
-    S-&gt;&gt;C: data + ACKs
-    Note over C,S: Connection teardown
-    C-&gt;&gt;S: FIN
-    S-&gt;&gt;C: ACK
-    S-&gt;&gt;C: FIN
-    C-&gt;&gt;S: ACK
-</code></pre>
-
-<p>The handshake costs one full round trip before any payload moves — which is why connection reuse (HTTP keep-alive) and 0-RTT protocols like QUIC matter so much for latency.</p>
-
-<p><strong>Use Cases</strong>:</p>
-<ul>
-  <li>Web browsing (HTTP)</li>
-  <li>Email (SMTP)</li>
-  <li>File transfer (FTP)</li>
-  <li>SSH</li>
-</ul>
-
-<h3 id="udp-the-speed-demon">UDP: The Speed Demon</h3>
-<p><strong>Think of UDP like shouting across a room:</strong></p>
-<ul>
-  <li>No guarantee anyone heard you</li>
-  <li>No confirmation of receipt</li>
-  <li>But it’s fast and simple</li>
-</ul>
-
-<p><strong>Perfect for:</strong></p>
-<ul>
-  <li><strong>Live video/audio</strong>: Losing a frame is better than delay</li>
-  <li><strong>Gaming</strong>: Old position updates become irrelevant</li>
-  <li><strong>DNS</strong>: Queries are tiny and can be retried</li>
-  <li><strong>IoT sensors</strong>: Broadcasting readings to whoever’s listening</li>
-</ul>
-
-<p><strong>The key insight</strong>: Sometimes “good enough” delivery beats perfect delivery, especially when data becomes stale quickly.</p>
-
-<h3 id="tcp-vs-udp-at-a-glance">TCP vs UDP at a Glance</h3>
+<p>A host runs many networked programs at once. The transport layer tells their traffic apart with 16-bit <strong>port numbers</strong>. A connection is identified by its <strong>5-tuple</strong> — protocol, source address, source port, destination address, destination port — so one web server on port 443 can hold millions of simultaneous connections, each from a different client address or port.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Property</th>
-      <th>TCP</th>
-      <th>UDP</th>
+      <th>Range</th>
+      <th>Name</th>
+      <th>Assigned by</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Connection</td>
-      <td>Connection-oriented (handshake)</td>
-      <td>Connectionless</td>
+      <td>0–1023</td>
+      <td>Well-known (system) ports</td>
+      <td>IANA; binding usually needs privileges</td>
     </tr>
     <tr>
-      <td>Delivery</td>
-      <td>Guaranteed, retransmits lost data</td>
-      <td>Best-effort, no retransmission</td>
+      <td>1024–49151</td>
+      <td>Registered ports</td>
+      <td>IANA registration</td>
     </tr>
     <tr>
-      <td>Ordering</td>
-      <td>In-order</td>
-      <td>No ordering</td>
-    </tr>
-    <tr>
-      <td>Flow/congestion control</td>
-      <td>Yes</td>
-      <td>No</td>
-    </tr>
-    <tr>
-      <td>Header overhead</td>
-      <td>20+ bytes</td>
-      <td>8 bytes</td>
-    </tr>
-    <tr>
-      <td>Latency</td>
-      <td>Higher (acks, setup)</td>
-      <td>Lower</td>
-    </tr>
-    <tr>
-      <td>Typical uses</td>
-      <td>Web, email, file transfer, SSH</td>
-      <td>Video/voice, gaming, DNS, IoT</td>
+      <td>49152–65535</td>
+      <td>Dynamic / ephemeral</td>
+      <td>Chosen by the OS for outgoing connections (Linux defaults to 32768–60999)</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="protocols-in-action-how-the-internet-works">Protocols in Action: How the Internet Works</h2>
-
-<p>Let’s explore the protocols you use every day, understanding not just what they do, but why they work the way they do.</p>
-
-<h3 id="httphttps-the-webs-foundation">HTTP/HTTPS: The Web’s Foundation</h3>
-<p>HTTP is how browsers talk to servers. HTTPS adds encryption, protecting your data from eavesdroppers.</p>
-
-<p><strong>HTTP Methods</strong>:</p>
-<ul>
-  <li>GET: Retrieve resource</li>
-  <li>POST: Submit data</li>
-  <li>PUT: Update resource</li>
-  <li>DELETE: Remove resource</li>
-  <li>HEAD: Headers only</li>
-  <li>OPTIONS: Available methods</li>
-</ul>
-
-<p><strong>Status Codes</strong>:</p>
-<ul>
-  <li>1xx: Informational</li>
-  <li>2xx: Success (200 OK)</li>
-  <li>3xx: Redirection (301 Moved)</li>
-  <li>4xx: Client error (404 Not Found)</li>
-  <li>5xx: Server error (500 Internal Error)</li>
-</ul>
-
-<h4 id="well-known-ports">Well-Known Ports</h4>
-
-<p>Ports identify which application a transport-layer segment belongs to. The range 0–1023 is reserved for well-known services; knowing the common ones speeds up firewall rules and troubleshooting:</p>
+<p>Ports worth knowing:</p>
 
 <table>
   <thead>
     <tr>
       <th>Port</th>
-      <th>Protocol</th>
+      <th>Transport</th>
       <th>Service</th>
     </tr>
   </thead>
@@ -3453,14 +3183,19 @@ document.addEventListener('DOMContentLoaded', function () {
       <td>SSH</td>
     </tr>
     <tr>
-      <td>25</td>
+      <td>25 / 587</td>
       <td>TCP</td>
-      <td>SMTP (mail relay)</td>
+      <td>SMTP relay / mail submission</td>
     </tr>
     <tr>
       <td>53</td>
-      <td>TCP/UDP</td>
+      <td>UDP, TCP</td>
       <td>DNS</td>
+    </tr>
+    <tr>
+      <td>67 / 68</td>
+      <td>UDP</td>
+      <td>DHCP server / client</td>
     </tr>
     <tr>
       <td>80</td>
@@ -3470,17 +3205,22 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td>123</td>
       <td>UDP</td>
-      <td>NTP (time sync)</td>
+      <td>NTP</td>
     </tr>
     <tr>
-      <td>143</td>
+      <td>143 / 993</td>
       <td>TCP</td>
-      <td>IMAP</td>
+      <td>IMAP / IMAP over TLS</td>
     </tr>
     <tr>
       <td>443</td>
-      <td>TCP/UDP</td>
-      <td>HTTPS (TCP) and HTTP/3 over QUIC (UDP)</td>
+      <td>TCP, UDP</td>
+      <td>HTTPS (HTTP/1.1, HTTP/2 over TCP; HTTP/3 over QUIC on UDP)</td>
+    </tr>
+    <tr>
+      <td>853</td>
+      <td>TCP, UDP</td>
+      <td>DNS over TLS / DNS over QUIC</td>
     </tr>
     <tr>
       <td>3306</td>
@@ -3500,73 +3240,647 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
-<h3 id="dns-the-internets-directory-service">DNS: The Internet’s Directory Service</h3>
+<h2 id="tcp-reliable-byte-streams">TCP: Reliable Byte Streams</h2>
 
-<p>Typing “google.com” is much easier than remembering “142.250.80.46”. DNS makes this magic happen, but it’s more sophisticated than a simple phone book.</p>
+<p>TCP (RFC 9293, which in 2022 consolidated the original RFC 793 and decades of updates) gives applications a reliable, ordered, bidirectional <strong>byte stream</strong> over an unreliable packet network. It provides:</p>
 
-<p><strong>How DNS queries work:</strong></p>
-<ol>
-  <li><strong>Your browser</strong> asks your local DNS resolver</li>
-  <li><strong>Local resolver</strong> checks its cache</li>
-  <li>If not cached, it asks the <strong>root servers</strong> (knows where .com lives)</li>
-  <li><strong>TLD servers</strong> know where google.com’s servers are</li>
-  <li><strong>Google’s DNS</strong> provides the actual IP address</li>
-  <li>Result is cached at each step for speed</li>
-</ol>
-
-<p><strong>Common DNS record types:</strong></p>
 <ul>
-  <li>A: IPv4 address</li>
-  <li>AAAA: IPv6 address</li>
-  <li>CNAME: Canonical name (alias)</li>
-  <li>MX: Mail exchange</li>
-  <li>TXT: Text information</li>
-  <li>NS: Name server</li>
-  <li>SOA: Start of authority</li>
+  <li><strong>Reliability</strong> — every byte has a sequence number; the receiver acknowledges what it has received and the sender retransmits what is lost.</li>
+  <li><strong>Ordering</strong> — out-of-order segments are buffered and delivered in sequence.</li>
+  <li><strong>Flow control</strong> — the receiver advertises a window so a fast sender cannot overrun a slow receiver.</li>
+  <li><strong>Congestion control</strong> — the sender limits itself so it does not overrun the <em>network</em> (see <a href="#congestion-control">below</a>).</li>
 </ul>
 
-<p><strong>DNS Query Process</strong>:</p>
-<ol>
-  <li>Check local cache</li>
-  <li>Query recursive resolver</li>
-  <li>Query root server</li>
-  <li>Query TLD server</li>
-  <li>Query authoritative server</li>
-</ol>
+<h3 id="connection-setup-and-teardown">Connection Setup and Teardown</h3>
 
-<h3 id="dhcp-automatic-network-configuration">DHCP: Automatic Network Configuration</h3>
+<p>Before data flows, the two ends exchange initial sequence numbers in a <strong>three-way handshake</strong>. Closing is a separate exchange in each direction, because each side closes its half of the stream independently:</p>
 
-<p>When you connect to Wi-Fi, how does your device get an IP address? DHCP handles this automatically, saving network administrators from manually configuring thousands of devices.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Server
+    Note over C,S: Setup (1 RTT before data)
+    C-&gt;&gt;S: SYN (seq=x)
+    S-&gt;&gt;C: SYN-ACK (seq=y, ack=x+1)
+    C-&gt;&gt;S: ACK (ack=y+1), may carry data
+    Note over C,S: Data transfer
+    C-&gt;&gt;S: data
+    S-&gt;&gt;C: data + ACKs
+    Note over C,S: Teardown
+    C-&gt;&gt;S: FIN
+    S-&gt;&gt;C: ACK
+    S-&gt;&gt;C: FIN
+    C-&gt;&gt;S: ACK
+    Note over C: TIME_WAIT (2 x MSL)
+</code></pre>
 
-<p><strong>The DORA Dance:</strong></p>
-<ol>
-  <li><strong>Discover</strong>: “Hey, I’m new here! Any DHCP servers around?”</li>
-  <li><strong>Offer</strong>: “Welcome! You can have 192.168.1.150”</li>
-  <li><strong>Request</strong>: “Thanks! I’ll take that address”</li>
-  <li><strong>Acknowledge</strong>: “It’s yours for the next 24 hours”</li>
-</ol>
+<p>The handshake costs one round trip before any payload moves, and TLS adds at least one more. This is why connection reuse (HTTP keep-alive, connection pools), TCP Fast Open, and QUIC’s combined handshake matter so much for latency.</p>
 
-<p><strong>What else DHCP provides:</strong></p>
+<p>The side that closes first enters <strong>TIME_WAIT</strong> for twice the maximum segment lifetime (60 seconds on Linux) so that delayed segments from the old connection cannot be mistaken for a new one. Busy clients that open many short connections to one server can exhaust ephemeral ports this way — another reason to reuse connections.</p>
+
+<p>The full connection lifecycle as a state machine (simplified; simultaneous open and close are omitted):</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; CLOSED
+    CLOSED --&gt; LISTEN: passive open (server)
+    CLOSED --&gt; SYN_SENT: active open / send SYN
+    LISTEN --&gt; SYN_RCVD: recv SYN / send SYN-ACK
+    SYN_SENT --&gt; ESTABLISHED: recv SYN-ACK / send ACK
+    SYN_RCVD --&gt; ESTABLISHED: recv ACK
+    ESTABLISHED --&gt; FIN_WAIT_1: close / send FIN
+    ESTABLISHED --&gt; CLOSE_WAIT: recv FIN / send ACK
+    FIN_WAIT_1 --&gt; FIN_WAIT_2: recv ACK
+    FIN_WAIT_2 --&gt; TIME_WAIT: recv FIN / send ACK
+    CLOSE_WAIT --&gt; LAST_ACK: close / send FIN
+    LAST_ACK --&gt; CLOSED: recv ACK
+    TIME_WAIT --&gt; CLOSED: 2 x MSL timeout
+</code></pre>
+
+<p>A pile-up of sockets in <code class="language-plaintext highlighter-rouge">CLOSE_WAIT</code> (visible with <code class="language-plaintext highlighter-rouge">ss -tan state close-wait</code>) almost always means an application bug: the peer closed, but the local program never called <code class="language-plaintext highlighter-rouge">close()</code>.</p>
+
+<h3 id="acknowledgements-and-retransmission">Acknowledgements and Retransmission</h3>
+
+<p>TCP acknowledgements are <strong>cumulative</strong>: <code class="language-plaintext highlighter-rouge">ack=n</code> means “I have every byte before <em>n</em>”. The sender detects loss in two ways:</p>
+
 <ul>
-  <li>Default gateway (your router’s address)</li>
-  <li>DNS servers</li>
-  <li>Subnet mask</li>
-  <li>Lease time (when to renew)</li>
+  <li><strong>Fast retransmit.</strong> If a segment is lost but later ones arrive, the receiver keeps repeating the same ACK. Three <strong>duplicate ACKs</strong> tell the sender to retransmit immediately. The <strong>SACK</strong> option (selective acknowledgement, RFC 2018) lets the receiver list exactly which blocks it holds, so several losses in one window can be repaired in one round trip. Modern stacks also use <strong>RACK-TLP</strong> (RFC 8985), which detects loss by elapsed time rather than by counting duplicates.</li>
+  <li><strong>Retransmission timeout (RTO).</strong> If nothing is acknowledged for too long, the sender assumes loss and retransmits. The timer is derived from measured round-trip times (RFC 6298). For each new RTT sample $R’$:</li>
 </ul>
 
-<h3 id="ssh-secure-shell">SSH (Secure Shell)</h3>
-<p>Encrypted remote access protocol.</p>
+\[\begin{aligned}
+\mathrm{RTTVAR} &amp;\leftarrow (1-\beta)\,\mathrm{RTTVAR} + \beta\,\lvert \mathrm{SRTT} - R' \rvert \\
+\mathrm{SRTT} &amp;\leftarrow (1-\alpha)\,\mathrm{SRTT} + \alpha\, R' \\
+\mathrm{RTO} &amp;= \mathrm{SRTT} + \max\left(G,\; 4\,\mathrm{RTTVAR}\right)
+\end{aligned}\]
 
-<p><strong>Key-based Authentication</strong>:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Generate key pair</span>
-ssh-keygen <span class="nt">-t</span> rsa <span class="nt">-b</span> 4096
+<p>with $\alpha = 1/8$, $\beta = 1/4$, and $G$ the clock granularity. The first sample initialises $\mathrm{SRTT} = R$ and $\mathrm{RTTVAR} = R/2$. The RFC recommends a minimum RTO of 1 second; Linux uses 200 ms. Each timeout doubles the RTO (exponential backoff).</p>
 
-<span class="c"># Copy public key to server</span>
-ssh-copy-id user@server
+<h3 id="flow-control-and-the-bandwidth-delay-product">Flow Control and the Bandwidth-Delay Product</h3>
 
-<span class="c"># Connect using key</span>
-ssh <span class="nt">-i</span> ~/.ssh/id_rsa user@server
+<p>Each ACK carries the receiver’s <strong>window</strong> (<code class="language-plaintext highlighter-rouge">rwnd</code>): how many more bytes it can buffer. The sender may have at most $\min(\mathrm{rwnd}, \mathrm{cwnd})$ unacknowledged bytes in flight, where <code class="language-plaintext highlighter-rouge">cwnd</code> is the congestion window.</p>
+
+<p>To keep a path full, the amount in flight must equal the <strong>bandwidth-delay product (BDP)</strong>:</p>
+
+\[\mathrm{BDP} = \text{bottleneck bandwidth} \times \mathrm{RTT}\]
+
+<p>A 1 Gbit/s path with a 50 ms RTT needs $10^9 \times 0.05 / 8 = 6.25$ MB in flight. The original 16-bit window field caps out at 65,535 bytes, so the <strong>window scale</strong> option (RFC 7323) multiplies it by up to $2^{14}$. A connection that is slow on a long, fast path is very often limited by a small receive buffer rather than by the network; Linux auto-tunes buffers up to <code class="language-plaintext highlighter-rouge">net.ipv4.tcp_rmem</code>/<code class="language-plaintext highlighter-rouge">tcp_wmem</code> maximums.</p>
+
+<h2 id="congestion-control">Congestion Control</h2>
+
+<p>If every sender transmitted as fast as its link allowed, router queues would overflow, packets would be dropped and retransmitted, and useful throughput would collapse — which is what happened to the early internet in 1986. Van Jacobson’s fix (1988) was to make each TCP sender infer the network’s capacity and back off when it is exceeded. The sender maintains a <strong>congestion window</strong> (<code class="language-plaintext highlighter-rouge">cwnd</code>) and adjusts it from feedback: ACKs mean “there is room”, loss (or delay, or an ECN mark) means “slow down”.</p>
+
+<p>Because it treats the network as a queueing system, congestion control is closely tied to the models in <a href="performance-and-security.html">Performance, QoS &amp; Security</a>.</p>
+
+<h3 id="reno-slow-start-and-aimd">Reno: Slow Start and AIMD</h3>
+
+<p>The classic algorithm (TCP Reno, refined as NewReno) has three phases:</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; SlowStart
+    SlowStart --&gt; CongestionAvoidance: cwnd &gt;= ssthresh
+    SlowStart --&gt; FastRecovery: 3 duplicate ACKs
+    CongestionAvoidance --&gt; FastRecovery: 3 duplicate ACKs
+    FastRecovery --&gt; CongestionAvoidance: new data ACKed (cwnd = ssthresh)
+    SlowStart --&gt; SlowStart: timeout (cwnd = 1 MSS)
+    CongestionAvoidance --&gt; SlowStart: timeout (ssthresh = cwnd/2, cwnd = 1 MSS)
+    FastRecovery --&gt; SlowStart: timeout
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Phase</th>
+      <th>Rule</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Slow start</strong></td>
+      <td>cwnd += 1 MSS per ACK</td>
+      <td>Doubles every RTT: exponential probing from a small initial window (10 MSS on modern stacks, RFC 6928)</td>
+    </tr>
+    <tr>
+      <td><strong>Congestion avoidance</strong></td>
+      <td>cwnd += MSS²/cwnd per ACK</td>
+      <td>Grows by about 1 MSS per RTT: <strong>additive increase</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Fast recovery</strong> (3 dup ACKs)</td>
+      <td>ssthresh = cwnd/2; cwnd = ssthresh</td>
+      <td><strong>Multiplicative decrease</strong>, then continue linearly</td>
+    </tr>
+    <tr>
+      <td><strong>Timeout</strong></td>
+      <td>ssthresh = cwnd/2; cwnd = 1 MSS</td>
+      <td>Severe congestion: restart slow start</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Additive-increase / multiplicative-decrease (<strong>AIMD</strong>) is what makes TCP stable and fair: competing flows that each grow linearly and halve on loss converge to equal shares of a bottleneck. The resulting window trace is the familiar sawtooth:</p>
+
+<figure style="margin:1.5em 0">
+<svg viewBox="0 0 640 270" role="img" aria-labelledby="cwnd-title cwnd-desc" style="width:100%;max-width:640px;height:auto;display:block;margin:auto;background:transparent;color:inherit;font-family:inherit">
+  <title id="cwnd-title">TCP Reno congestion window over time</title>
+  <desc id="cwnd-desc">The congestion window grows exponentially in slow start, is halved on triple duplicate ACKs and then grows linearly, and collapses to one segment on a timeout before slow-starting again.</desc>
+  <g fill="none" stroke="currentColor">
+    <line x1="50" y1="220" x2="625" y2="220" stroke-width="1.2" />
+    <line x1="50" y1="220" x2="50" y2="20" stroke-width="1.2" />
+    <polyline stroke-width="2.4" stroke-linejoin="round" points="50,215 70,210 90,200 110,180 130,140 150,60 150,140 270,80 270,150 390,90 390,215 400,210 410,200 420,180 427,155 547,95 547,160 620,123" />
+    <polyline stroke-width="1" stroke-dasharray="4 4" opacity="0.6" points="150,140 270,140" />
+    <polyline stroke-width="1" stroke-dasharray="4 4" opacity="0.6" points="270,150 390,150" />
+    <polyline stroke-width="1" stroke-dasharray="4 4" opacity="0.6" points="390,155 547,155" />
+  </g>
+  <g fill="currentColor" font-size="12">
+    <text x="12" y="30">cwnd</text>
+    <text x="590" y="238">time</text>
+    <text x="58" y="100">slow start</text>
+    <text x="158" y="54">3 dup ACKs: halve</text>
+    <text x="165" y="165">additive increase</text>
+    <text x="300" y="72">3 dup ACKs</text>
+    <text x="398" y="236">timeout: cwnd = 1</text>
+    <text x="440" y="170" opacity="0.8">ssthresh</text>
+  </g>
+</svg>
+<figcaption style="text-align:center;font-size:0.9em">Reno's congestion window: exponential slow start, linear growth, halving on fast retransmit, and collapse on timeout.</figcaption>
+</figure>
+
+<p>A useful consequence (the Mathis model) is that a Reno-style flow’s throughput is bounded by its RTT and loss rate $p$:</p>
+
+\[\text{throughput} \approx \frac{\mathrm{MSS}}{\mathrm{RTT}} \cdot \frac{C}{\sqrt{p}}, \qquad C \approx \sqrt{3/2}\]
+
+<p>so a long-RTT path needs a vanishingly small loss rate to run at high speed. That limitation drove the newer algorithms.</p>
+
+<h3 id="cubic">CUBIC</h3>
+
+<p><strong>CUBIC</strong> (RFC 9438, 2023) is the default in Linux (since 2.6.19), Windows, and Apple platforms. It replaces linear growth with a cubic function of the time $t$ since the last loss:</p>
+
+\[W(t) = C\,(t - K)^3 + W_{\max}, \qquad K = \sqrt[3]{\frac{W_{\max}(1-\beta)}{C}}\]
+
+<p>where $W_{\max}$ is the window at the last loss, $\beta = 0.7$ is the decrease factor, and $C = 0.4$. The window climbs quickly back toward $W_{\max}$, plateaus near it (where loss last happened), then probes beyond it. Because growth depends on elapsed time rather than on ACK arrival, CUBIC is far less penalised by long RTTs than Reno.</p>
+
+<h3 id="bbr">BBR</h3>
+
+<p>Loss-based algorithms have a structural problem: they only back off once buffers overflow, so on paths with large buffers they keep queues full and inflate latency (<strong>bufferbloat</strong>), while on paths with random non-congestion loss (Wi-Fi, long-haul) they back off needlessly.</p>
+
+<p><strong>BBR</strong> (Bottleneck Bandwidth and Round-trip propagation time), developed at Google, instead builds an explicit model of the path. It estimates the bottleneck bandwidth (the windowed maximum delivery rate) and the propagation delay (the windowed minimum RTT), then <strong>paces</strong> packets at the estimated bandwidth while capping data in flight near one BDP. It cycles through phases: <em>Startup</em> (grow rapidly, gain about $2/\ln 2 \approx 2.89$), <em>Drain</em> (empty the queue Startup built), <em>ProbeBW</em> (periodically send slightly faster, then slower, to detect added capacity), and <em>ProbeRTT</em> (briefly shrink in flight to re-measure minimum RTT).</p>
+
+<p>The first version (2016) was criticised for unfairness to CUBIC flows and for ignoring loss. <strong>BBRv3</strong> reacts to loss and ECN within bounds and is used for Google’s and YouTube’s traffic; it is specified in the IETF CCWG draft <code class="language-plaintext highlighter-rouge">draft-ietf-ccwg-bbr</code> (version 06, July 2026, targeting Experimental status). The <code class="language-plaintext highlighter-rouge">tcp_bbr</code> module in mainline Linux has implemented BBRv1; BBRv3 has been developed in Google’s kernel branch.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Which algorithm is in use, and which are available?</span>
+sysctl net.ipv4.tcp_congestion_control
+sysctl net.ipv4.tcp_available_congestion_control
+
+<span class="c"># Switch to BBR (pair it with the fq qdisc for pacing on older kernels)</span>
+<span class="nb">sudo </span>sysctl <span class="nt">-w</span> net.core.default_qdisc<span class="o">=</span>fq
+<span class="nb">sudo </span>sysctl <span class="nt">-w</span> net.ipv4.tcp_congestion_control<span class="o">=</span>bbr
+
+<span class="c"># Per-connection cwnd, RTT, retransmits and delivery rate</span>
+ss <span class="nt">-tin</span>
 </code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Algorithm</th>
+      <th>Congestion signal</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Reno / NewReno</td>
+      <td>Loss</td>
+      <td>Simple, well understood</td>
+      <td>Slow on high-BDP paths</td>
+    </tr>
+    <tr>
+      <td>CUBIC</td>
+      <td>Loss</td>
+      <td>Scales to fast long paths; default nearly everywhere</td>
+      <td>Fills buffers; mistakes random loss for congestion</td>
+    </tr>
+    <tr>
+      <td>BBR (v1/v3)</td>
+      <td>Delivery-rate and RTT model</td>
+      <td>High throughput, low queueing, tolerant of random loss</td>
+      <td>Fairness with loss-based flows still debated</td>
+    </tr>
+    <tr>
+      <td>DCTCP / Prague</td>
+      <td>ECN marks (proportional)</td>
+      <td>Very low, stable queues</td>
+      <td>Needs ECN support end to end</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="ecn-and-l4s">ECN and L4S</h3>
+
+<p>Dropping a packet is a wasteful way to say “slow down”. <strong>Explicit Congestion Notification</strong> (ECN, RFC 3168) lets a router mark the IP header instead; the receiver echoes the mark and the sender reacts as if a packet had been lost, with no retransmission needed. <strong>L4S</strong> (Low Latency, Low Loss, Scalable throughput; RFCs 9330–9332, 2023) builds on this: L4S traffic is identified by the ECT(1) codepoint, gets a separate shallow queue that marks early and often, and uses “scalable” congestion controls (such as TCP Prague) that respond to the <em>fraction</em> of marked packets rather than halving. The target is consistently sub-millisecond queueing delay; Apple platforms support it, and Comcast began rolling it out across its DOCSIS cable network in 2025.</p>
+
+<h2 id="udp-minimal-datagrams">UDP: Minimal Datagrams</h2>
+
+<p>UDP (RFC 768) adds almost nothing to IP: source and destination ports, a length, and a checksum — an 8-byte header. There is no connection, no acknowledgement, no ordering, and no congestion control. That minimalism is the point:</p>
+
+<ul>
+  <li><strong>Latency-critical, loss-tolerant data</strong> — voice, video conferencing, games — where a late packet is useless and retransmission would only add delay.</li>
+  <li><strong>Tiny request/response exchanges</strong> — DNS, NTP, DHCP — where a single datagram each way beats a handshake, and the application can simply retry.</li>
+  <li><strong>Multicast and broadcast</strong>, which TCP cannot do.</li>
+  <li><strong>A substrate for new transports.</strong> Middleboxes (firewalls, NATs) block or mangle anything that is not TCP or UDP, and TCP is implemented in OS kernels that change slowly. Building a new protocol on UDP in user space sidesteps both — the path QUIC took.</li>
+</ul>
+
+<p>An application that sends bulk data over UDP is responsible for its own congestion control; otherwise it harms every other flow on the path.</p>
+
+<h2 id="quic">QUIC</h2>
+
+<p><strong>QUIC</strong> (RFC 9000, 2021) is a general-purpose, encrypted, multiplexed transport running over UDP. Designed at Google and standardised by the IETF, it carries HTTP/3 and increasingly other protocols (DNS over QUIC, SMB over QUIC, MASQUE tunnelling, WebTransport).</p>
+
+<p>What it changes relative to TCP + TLS:</p>
+
+<ul>
+  <li><strong>Integrated TLS 1.3.</strong> Transport and cryptographic handshakes are combined: a new connection is ready after <strong>1 RTT</strong>, and a resumed connection can send application data in its first flight (<strong>0-RTT</strong>). 0-RTT data can be replayed by an attacker, so it should be used only for idempotent requests.</li>
+  <li><strong>Independent streams.</strong> Many streams share a connection, and loss on one stream does not stall the others. HTTP/2 over TCP suffers <strong>head-of-line blocking</strong>: one lost TCP segment delays every multiplexed request behind it.</li>
+  <li><strong>Connection IDs and migration.</strong> Connections are identified by IDs rather than by the 5-tuple, so a phone moving from Wi-Fi to cellular keeps its connection.</li>
+  <li><strong>Encryption of almost everything</strong>, including most of the transport header and all acknowledgement information, which prevents middleboxes from ossifying the protocol. QUIC version 2 (RFC 9369) exists largely to keep version negotiation exercised.</li>
+  <li><strong>User-space implementation</strong>, allowing congestion control and loss recovery to evolve with application releases.</li>
+</ul>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Server
+    Note over C,S: TCP + TLS 1.3: request sent after 2 RTT
+    C-&gt;&gt;S: SYN
+    S-&gt;&gt;C: SYN-ACK
+    C-&gt;&gt;S: ACK + TLS ClientHello
+    S-&gt;&gt;C: ServerHello ... Finished
+    C-&gt;&gt;S: Finished + HTTP request
+    Note over C,S: QUIC: request sent after 1 RTT
+    C-&gt;&gt;S: Initial (ClientHello)
+    S-&gt;&gt;C: Initial + Handshake (ServerHello ... Finished)
+    C-&gt;&gt;S: Handshake Finished + HTTP/3 request
+</code></pre>
+
+<p>The costs are real: user-space UDP processing uses more CPU per byte than kernel TCP with hardware offloads (though UDP GSO/GRO narrows the gap), and some enterprise networks block UDP 443, so clients always keep a TCP fallback.</p>
+
+<h3 id="transport-comparison">Transport Comparison</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>TCP</th>
+      <th>UDP</th>
+      <th>QUIC</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Connection setup</td>
+      <td>1 RTT (+1 RTT for TLS 1.3)</td>
+      <td>None</td>
+      <td>1 RTT including TLS; 0-RTT on resumption</td>
+    </tr>
+    <tr>
+      <td>Reliability and ordering</td>
+      <td>Yes, one ordered stream</td>
+      <td>No</td>
+      <td>Yes, per stream</td>
+    </tr>
+    <tr>
+      <td>Head-of-line blocking across streams</td>
+      <td>Yes</td>
+      <td>N/A</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Congestion control</td>
+      <td>Yes (kernel)</td>
+      <td>No</td>
+      <td>Yes (user space, pluggable)</td>
+    </tr>
+    <tr>
+      <td>Encryption</td>
+      <td>Optional (TLS on top)</td>
+      <td>Optional (DTLS)</td>
+      <td>Mandatory, built in</td>
+    </tr>
+    <tr>
+      <td>Connection migration</td>
+      <td>No (5-tuple bound)</td>
+      <td>N/A</td>
+      <td>Yes (connection IDs)</td>
+    </tr>
+    <tr>
+      <td>Header overhead</td>
+      <td>20–60 bytes</td>
+      <td>8 bytes</td>
+      <td>~20+ bytes inside UDP</td>
+    </tr>
+    <tr>
+      <td>Typical uses</td>
+      <td>Web (HTTP/1.1, HTTP/2), SSH, databases, email</td>
+      <td>DNS, VoIP, games, streaming media</td>
+      <td>HTTP/3, DNS over QUIC, WebTransport</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Other transports exist for specific niches: <strong>SCTP</strong> (message-oriented, multi-streaming, multi-homing; used in telecom signalling and, over DTLS, for WebRTC data channels) and <strong>Multipath TCP</strong> (RFC 8684; one TCP connection spread across several paths, in mainline Linux since 5.6).</p>
+
+<h2 id="http">HTTP</h2>
+
+<p>HTTP is a stateless request/response protocol between a client and a server. Its <strong>semantics</strong> — methods, status codes, headers — are defined once in RFC 9110 and shared by every version; the versions differ only in how messages are put on the wire.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Version</th>
+      <th>Standard</th>
+      <th>Wire format</th>
+      <th>Transport</th>
+      <th>Key change</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>HTTP/1.1</td>
+      <td>RFC 9112 (originally 1997)</td>
+      <td>Text</td>
+      <td>TCP</td>
+      <td>Persistent connections; one outstanding request per connection in practice</td>
+    </tr>
+    <tr>
+      <td>HTTP/2</td>
+      <td>RFC 9113 (originally 2015)</td>
+      <td>Binary frames, HPACK header compression</td>
+      <td>TCP</td>
+      <td>Many concurrent streams on one connection</td>
+    </tr>
+    <tr>
+      <td>HTTP/3</td>
+      <td>RFC 9114 (2022)</td>
+      <td>Binary frames, QPACK header compression</td>
+      <td>QUIC</td>
+      <td>No transport head-of-line blocking; faster setup; migration</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Browsers discover HTTP/3 support through an <code class="language-plaintext highlighter-rouge">Alt-Svc</code> response header or an HTTPS DNS record, and fall back to HTTP/2 if UDP is blocked.</p>
+
+<h3 id="methods">Methods</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Purpose</th>
+      <th>Safe</th>
+      <th>Idempotent</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td>Retrieve a representation</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>HEAD</td>
+      <td>GET without the body</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>OPTIONS</td>
+      <td>Describe communication options (used by CORS preflight)</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td>Process the enclosed data (create, submit, trigger)</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td>Create or replace the target resource</td>
+      <td>No</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>PATCH</td>
+      <td>Partially modify a resource</td>
+      <td>No</td>
+      <td>No (unless designed to be)</td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td>Remove the resource</td>
+      <td>No</td>
+      <td>Yes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><em>Safe</em> means the request does not change server state; <em>idempotent</em> means repeating it has the same effect as sending it once, which is what makes automatic retries safe. How to apply these to API design is covered in <a href="../../api-design/rest.html">REST</a>.</p>
+
+<h3 id="status-codes">Status Codes</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Class</th>
+      <th>Meaning</th>
+      <th>Common codes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1xx</td>
+      <td>Informational</td>
+      <td>101 Switching Protocols, 103 Early Hints</td>
+    </tr>
+    <tr>
+      <td>2xx</td>
+      <td>Success</td>
+      <td>200 OK, 201 Created, 204 No Content, 206 Partial Content</td>
+    </tr>
+    <tr>
+      <td>3xx</td>
+      <td>Redirection</td>
+      <td>301 Moved Permanently, 302 Found, 304 Not Modified, 307/308 Temporary/Permanent Redirect (method preserved)</td>
+    </tr>
+    <tr>
+      <td>4xx</td>
+      <td>Client error</td>
+      <td>400 Bad Request, 401 Unauthorized (not authenticated), 403 Forbidden (not permitted), 404 Not Found, 409 Conflict, 429 Too Many Requests</td>
+    </tr>
+    <tr>
+      <td>5xx</td>
+      <td>Server error</td>
+      <td>500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="https-and-tls">HTTPS and TLS</h3>
+
+<p>HTTPS is HTTP carried over <strong>TLS</strong>, which authenticates the server with a certificate and encrypts and integrity-protects the traffic. TLS 1.3 (RFC 8446) is the current version: its handshake takes one round trip, it removes legacy algorithms, and every key exchange provides forward secrecy. Major browsers and CDNs now negotiate the hybrid post-quantum key exchange <strong>X25519MLKEM768</strong> by default, protecting recorded traffic against future quantum decryption. The handshake, certificates, and the Web PKI are covered in <a href="../cybersecurity/cryptography.html#tls-in-practice">Cryptography: TLS in Practice</a>.</p>
+
+<h2 id="dns">DNS</h2>
+
+<p>The Domain Name System maps names to records — most commonly to IP addresses — through a distributed, hierarchical, heavily cached database. The namespace is a tree: the root, top-level domains (<code class="language-plaintext highlighter-rouge">.com</code>, <code class="language-plaintext highlighter-rouge">.org</code>, <code class="language-plaintext highlighter-rouge">.uk</code>), and zones delegated beneath them, each served by <strong>authoritative</strong> name servers.</p>
+
+<h3 id="resolution">Resolution</h3>
+
+<p>Applications call a local <strong>stub resolver</strong>, which asks a <strong>recursive resolver</strong> (run by the ISP, the enterprise, or a public service). The recursive resolver walks the tree from the root, following referrals, and caches every answer for its <strong>TTL</strong>:</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant App as Stub resolver
+    participant R as Recursive resolver
+    participant Root as Root server
+    participant TLD as .com TLD server
+    participant Auth as example.com authoritative
+    App-&gt;&gt;R: A? www.example.com
+    Note over R: Cache miss
+    R-&gt;&gt;Root: A? www.example.com
+    Root--&gt;&gt;R: Referral: .com NS records
+    R-&gt;&gt;TLD: A? www.example.com
+    TLD--&gt;&gt;R: Referral: example.com NS records
+    R-&gt;&gt;Auth: A? www.example.com
+    Auth--&gt;&gt;R: A 192.0.2.10 (TTL 300)
+    R--&gt;&gt;App: A 192.0.2.10
+    Note over R: Cached for 300 s; later queries skip the walk
+</code></pre>
+
+<p>In practice the root and TLD referrals are almost always cached, so most lookups cost one query to an authoritative server or none at all. DNS uses UDP port 53 for most queries and falls back to TCP when a response is too large; EDNS(0) negotiates larger UDP payloads, with 1,232 bytes the widely adopted safe default to avoid IP fragmentation.</p>
+
+<h3 id="record-types">Record Types</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Contents</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A / AAAA</td>
+      <td>IPv4 / IPv6 address</td>
+    </tr>
+    <tr>
+      <td>CNAME</td>
+      <td>Alias to another name (cannot coexist with other records at the same name, so not at a zone apex)</td>
+    </tr>
+    <tr>
+      <td>MX</td>
+      <td>Mail servers for the domain, with priority</td>
+    </tr>
+    <tr>
+      <td>NS</td>
+      <td>Authoritative name servers for a zone</td>
+    </tr>
+    <tr>
+      <td>SOA</td>
+      <td>Zone metadata: primary server, serial number, timers</td>
+    </tr>
+    <tr>
+      <td>TXT</td>
+      <td>Free text; used for SPF, DKIM, DMARC, and domain-ownership verification</td>
+    </tr>
+    <tr>
+      <td>PTR</td>
+      <td>Reverse lookup: address to name</td>
+    </tr>
+    <tr>
+      <td>SRV</td>
+      <td>Host and port for a named service</td>
+    </tr>
+    <tr>
+      <td>CAA</td>
+      <td>Which certificate authorities may issue for the domain</td>
+    </tr>
+    <tr>
+      <td>HTTPS / SVCB</td>
+      <td>Service parameters: supported ALPN protocols (e.g. <code class="language-plaintext highlighter-rouge">h3</code>), alternative endpoints, ECH keys (RFC 9460)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dig www.example.com A +short          <span class="c"># just the answer</span>
+dig @1.1.1.1 example.com AAAA         <span class="c"># ask a specific resolver</span>
+dig +trace www.example.com            <span class="c"># walk the delegation from the root yourself</span>
+dig cloudflare.com HTTPS              <span class="c"># service-binding record</span>
+dig <span class="nt">-x</span> 8.8.8.8 +short                 <span class="c"># reverse lookup</span>
+</code></pre></div></div>
+
+<h3 id="security-and-privacy">Security and Privacy</h3>
+
+<p>Classic DNS is unauthenticated and unencrypted. Two independent fixes address different problems:</p>
+
+<ul>
+  <li><strong>DNSSEC</strong> (RFC 4033–4035) adds signatures so a validating resolver can prove an answer is authentic, defeating cache poisoning. It does not hide queries.</li>
+  <li><strong>Encrypted DNS</strong> hides queries from the network between the stub and the recursive resolver: <strong>DNS over TLS</strong> (DoT, RFC 7858, port 853), <strong>DNS over HTTPS</strong> (DoH, RFC 8484, port 443), and <strong>DNS over QUIC</strong> (DoQ, RFC 9250). It does not authenticate the data itself.</li>
+</ul>
+
+<h2 id="dhcp">DHCP</h2>
+
+<p>The Dynamic Host Configuration Protocol (RFC 2131) gives a host its IPv4 address, subnet mask, default gateway, DNS servers, and other options when it joins a network. The exchange is known as <strong>DORA</strong>; because the client has no address yet, the first messages are broadcasts from <code class="language-plaintext highlighter-rouge">0.0.0.0</code> (client port UDP 68, server port 67):</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client (no address)
+    participant S as DHCP server
+    C-&gt;&gt;S: DISCOVER (broadcast)
+    S-&gt;&gt;C: OFFER 192.168.1.150, lease 24 h
+    C-&gt;&gt;S: REQUEST 192.168.1.150 (broadcast, names the chosen server)
+    S-&gt;&gt;C: ACK (address, mask, gateway, DNS, lease time)
+    Note over C: At 50% of lease (T1): unicast renew to same server
+    Note over C: At 87.5% (T2): broadcast rebind to any server
+</code></pre>
+
+<p>The REQUEST is broadcast so that any other servers that made offers learn they were not chosen. Routers forward DHCP broadcasts to a central server with a <strong>relay agent</strong> (Cisco’s <code class="language-plaintext highlighter-rouge">ip helper-address</code>), which records the originating subnet in the <code class="language-plaintext highlighter-rouge">giaddr</code> field so the server can pick the right address pool. On switches, <strong>DHCP snooping</strong> blocks rogue servers by allowing OFFERs and ACKs only from trusted ports.</p>
+
+<p>IPv6 hosts usually configure themselves with <strong>SLAAC</strong> (stateless address autoconfiguration, RFC 4862), learning the prefix, gateway, and DNS servers (RFC 8106) from router advertisements. <strong>DHCPv6</strong> (RFC 8415) is used where central address assignment is required and for <strong>prefix delegation</strong> to home routers.</p>
+
+<h2 id="ssh">SSH</h2>
+
+<p>The Secure Shell protocol provides an encrypted, authenticated channel for remote login, command execution, file transfer (SFTP, <code class="language-plaintext highlighter-rouge">scp</code>), and tunnelling. It runs over TCP port 22 and has three layers: a transport layer (key exchange, server authentication, encryption), a user-authentication layer (public key, password, or keyboard-interactive), and a connection layer that multiplexes channels (shells, port forwards) over one session.</p>
+
+<p>OpenSSH, the dominant implementation, has modernised its defaults: since <strong>OpenSSH 10.0</strong> (April 2025) the hybrid post-quantum key exchange <strong>mlkem768x25519-sha256</strong> is used by default, and DSA keys are no longer supported at all. Ed25519 is the recommended key type.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Generate an Ed25519 key pair (or ed25519-sk for a FIDO2 hardware key)</span>
+ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-C</span> <span class="s2">"alice@laptop"</span>
+
+<span class="c"># Install the public key on a server, then log in with it</span>
+ssh-copy-id alice@server.example.com
+ssh alice@server.example.com
+
+<span class="c"># Local forward: reach the server's private Postgres at localhost:5432</span>
+ssh <span class="nt">-L</span> 5432:localhost:5432 alice@server.example.com
+
+<span class="c"># Dynamic SOCKS proxy through the server</span>
+ssh <span class="nt">-D</span> 1080 alice@server.example.com
+</code></pre></div></div>
+
+<p>Per-host settings belong in <code class="language-plaintext highlighter-rouge">~/.ssh/config</code> rather than on the command line. <code class="language-plaintext highlighter-rouge">ProxyJump</code> connects through a bastion host without copying keys onto it:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Host bastion
+    HostName bastion.example.com
+    User alice
+
+Host db-*.internal
+    User alice
+    ProxyJump bastion
+    IdentityFile ~/.ssh/id_ed25519
+</code></pre></div></div>
+
+<p>On first connection the client records the server’s host key in <code class="language-plaintext highlighter-rouge">~/.ssh/known_hosts</code>; a later mismatch warning means the key changed and should be investigated, not dismissed. At scale, organisations replace per-key trust with <strong>SSH certificates</strong> signed by an internal CA, which expire automatically and avoid distributing <code class="language-plaintext highlighter-rouge">authorized_keys</code> files.</p>
 
 <hr />
 
@@ -3577,9 +3891,11 @@ ssh <span class="nt">-i</span> ~/.ssh/id_rsa user@server
 <h3 id="see-also">See Also</h3>
 
 <ul>
-  <li><a href="fundamentals.html">Layers &amp; Addressing</a> — where the transport layer fits in the OSI/TCP-IP stack.</li>
-  <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — the queueing theory behind congestion control.</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> — TLS, certificates, and securing application protocols.</li>
+  <li><a href="fundamentals.html">Layers &amp; Addressing</a> — where the transport layer fits in the OSI and TCP/IP models.</li>
+  <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — queueing theory behind congestion, and troubleshooting tools.</li>
+  <li><a href="../cybersecurity/cryptography.html">Cryptography</a> — TLS 1.3, certificates, and post-quantum key exchange.</li>
+  <li><a href="../../api-design/">API Design</a> — REST, GraphQL, and gRPC built on HTTP.</li>
+  <li><a href="wireless-and-mobile.html">Wireless &amp; Mobile</a> — the lossy links that challenge loss-based congestion control.</li>
 </ul>
 
       </section>

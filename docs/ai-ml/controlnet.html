@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="ControlNet and related spatial-conditioning methods for diffusion models: how the architecture works, control types and preprocessors, per-family model suppo...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="ControlNet Guide">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="ControlNet and related spatial-conditioning methods for diffusion models: how the architecture works, control types and preprocessors, per-family model suppo...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/ai-ml/controlnet.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="ControlNet Guide">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="ControlNet and related spatial-conditioning methods for diffusion models: how the architecture works, control types and preprocessors, per-family model suppo...">
 
 <title>ControlNet Guide | Andrews Notebook</title>
 
@@ -3131,426 +3131,343 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>Stop fighting the prompt for composition. ControlNet lets you <em>show</em> the model the pose, edges, or depth you want and have it follow that structure exactly while the prompt handles content and style.</p>
+        <h1 id="controlnet">ControlNet</h1>
 
-<h2 id="why-use-controlnet">Why Use ControlNet?</h2>
+<p><strong>ControlNet</strong> is a method for adding spatial conditioning (a pose skeleton, edge map, depth map, segmentation map, and so on) to a pretrained text-to-image diffusion model without retraining or degrading it. It was introduced by Lvmin Zhang, Anyi Rao and Maneesh Agrawala in <em>Adding Conditional Control to Text-to-Image Diffusion Models</em> (2023). The prompt still decides <em>what</em> is drawn; the control map decides <em>where</em> it goes. This page covers the architecture, the common control types and their preprocessors, which ControlNets exist for each base-model family, how to wire and tune them in ComfyUI and diffusers, how ControlNet relates to adapters and instruction-editing models, and how to diagnose bad results.</p>
 
-<p>Prompts are great at describing <em>what</em> to generate but poor at controlling <em>where</em> things go. ControlNet closes that gap by conditioning generation on a structural reference. Understanding it unlocks several practical wins:</p>
+<h2 id="how-controlnet-works">How ControlNet Works</h2>
 
-<ul>
-  <li><strong>Reliable composition</strong> - Reproduce a specific pose, layout, or perspective instead of rerolling seeds</li>
-  <li><strong>Sketch-to-image</strong> - Turn rough drawings or line art into finished renders</li>
-  <li><strong>Consistency</strong> - Hold a character’s pose or a scene’s geometry steady across many generations</li>
-  <li>
-    <p><strong>Style-preserving structure</strong> - Restyle a photo while keeping its shapes and depth intact</p>
-  </li>
-  <li><strong>Control Maps.</strong> A preprocessor turns your reference into a pose skeleton, edge map, or depth gradient that steers every denoising step.</li>
-  <li><strong>Strength Is a Dial.</strong> Tune control influence (and when it applies) so structure guides the result without overriding the prompt.</li>
-  <li><strong>Composable.</strong> Combine with IP-Adapter for style and LoRAs for subjects — but stacking many ControlNets rarely helps.</li>
-</ul>
+<p>A ControlNet workflow has two independent stages:</p>
 
-<h2 id="what-is-controlnet">What is ControlNet?</h2>
-
-<p>ControlNet is a neural network architecture that adds spatial control to diffusion models. It allows you to guide image generation using various types of conditioning inputs like human poses, edge maps, depth maps, and more, while maintaining the quality and capabilities of the base model.</p>
-
-<p>As of 2024, ControlNet has evolved significantly with new control types, better preprocessing, and support for newer models. The ecosystem now includes alternatives like T2I-Adapter, IP-Adapter, and InstantID that offer different trade-offs between control precision and flexibility.</p>
-
-<h3 id="how-controlnet-works">How ControlNet Works</h3>
+<ol>
+  <li>A <strong>preprocessor</strong> (annotator) analyses a reference image once and produces a <strong>control map</strong>: an OpenPose skeleton, a Canny edge image, a depth map, etc. This is ordinary computer vision and has nothing to do with the diffusion model.</li>
+  <li>A <strong>ControlNet model</strong> reads that map and nudges the diffusion model’s internal features at every denoising step so the output follows the map’s structure.</li>
+</ol>
 
 <pre><code class="language-mermaid">flowchart LR
-    Ref["Input/reference image"] --&gt; Pre["Preprocessor&lt;br/&gt;(pose, edge, depth…)"]
+    Ref["Reference image"] --&gt; Pre["Preprocessor&lt;br/&gt;(DWPose, Canny,&lt;br/&gt;Depth Anything...)"]
     Pre --&gt; Map["Control map"]
-    Prompt["Text prompt"] --&gt; Base["Base diffusion model"]
-    Map --&gt; CN["ControlNet&lt;br/&gt;(trainable encoder copy)"]
-    Base --&gt; CN
-    CN --&gt; Out["Controlled output"]
+    Map --&gt; CN["ControlNet&lt;br/&gt;(trainable copy)"]
+    Prompt["Prompt"] --&gt; Enc["Text encoder"]
+    Enc --&gt; Base["Frozen base model&lt;br/&gt;(U-Net or DiT)"]
+    Enc --&gt; CN
+    CN --&gt;|"residuals added&lt;br/&gt;at each step"| Base
+    Noise["Noisy latent"] --&gt; Base
+    Noise --&gt; CN
+    Base --&gt; Out["Denoised latent"]
 </code></pre>
 
-<p>ControlNet creates a trainable copy of the diffusion model’s encoder blocks, which learns to respond to specific spatial conditions while preserving the original model’s generation capabilities. The preprocessor extracts a structural “control map” (a stick-figure pose, an edge outline, a depth gradient) from your reference image; ControlNet then injects that structure into every denoising step.</p>
+<p>Because the ControlNet only ever sees the map, the map is the interface: any depth map (estimated, rendered from a 3D scene, or painted by hand) works with any depth ControlNet for the right base model, and a misdetected pose can be fixed by editing the skeleton rather than re-running the preprocessor.</p>
 
-<p>The split between <em>preprocessor</em> and <em>model</em> is the key idea: the preprocessor is a one-time analysis pass that turns your reference into a control map, and the ControlNet model is what conditions generation on that map. The same depth map can feed any depth ControlNet, and you can hand-author or edit a control map directly when a preprocessor gets it wrong.</p>
+<h3 id="architecture-locked-copy-trainable-copy-zero-convolutions">Architecture: Locked Copy, Trainable Copy, Zero Convolutions</h3>
 
-<h4 id="why-controlnet-doesnt-break-the-base-model-zero-convolutions">Why ControlNet Doesn’t Break the Base Model: Zero Convolutions</h4>
+<p>For a U-Net, ControlNet clones the <strong>encoder</strong> blocks and middle block. The original weights are <strong>locked</strong> (frozen); the clone is <strong>trainable</strong> and receives the control map (embedded by a small convolutional network) added to its input. The clone’s outputs are added back into the frozen U-Net’s skip connections through <strong>zero convolutions</strong>: 1x1 convolutions whose weights and biases are initialised to zero.</p>
 
-<p>The reason you can add ControlNet to a model without retraining or degrading it is a design detail called <strong>zero convolutions</strong>. ControlNet clones the encoder half of the frozen base model and connects that clone back into the original network through 1x1 convolution layers whose weights start at zero. At the very first training step those zero-initialized layers output nothing, so the combined network is <em>identical</em> to the original - then they gradually learn to inject the control signal.</p>
+<p>For one block $\mathcal{F}(\cdot\,; \Theta)$ with input feature $x$ and condition $c$, the paper writes the controlled output as</p>
 
-<p>This gives two practical guarantees:</p>
+\[y_c = \mathcal{F}(x; \Theta) + \mathcal{Z}\big(\mathcal{F}(x + \mathcal{Z}(c; \Theta_{z1}); \Theta_c); \Theta_{z2}\big),\]
+
+<p>where $\Theta$ are the frozen weights, $\Theta_c$ the trainable copy, and $\mathcal{Z}$ the zero convolutions with parameters $\Theta_{z1}, \Theta_{z2}$. At initialisation both $\mathcal{Z}$ terms output zero, so $y_c = \mathcal{F}(x; \Theta)$ and the combined model is exactly the original. Gradients into the zero-convolution weights are non-zero (they depend on the input features), so the control pathway grows from nothing during training. This gives three practical properties:</p>
 
 <ul>
-  <li><strong>No catastrophic forgetting.</strong> The base model’s weights are frozen; only the trainable copy and the zero-convs learn. The model never “unlearns” what it already knew.</li>
-  <li><strong>Graceful start.</strong> Training begins from a perfect copy of the base model rather than from noise, so even small datasets produce usable controls.</li>
+  <li><strong>No damage to the base model.</strong> Its weights never change, so disconnecting the ControlNet restores the original behaviour exactly.</li>
+  <li><strong>Data efficiency.</strong> Training starts from a strong copy of the base encoder rather than random weights; the original paper trained useful controls on datasets from under 50k to a few million pairs.</li>
+  <li><strong>Family lock-in.</strong> The trainable copy mirrors one specific network, so a ControlNet only fits the architecture it was cloned from. An SD 1.5 ControlNet cannot drive SDXL, and neither drives FLUX.</li>
 </ul>
 
-<p>This is also why a ControlNet is bound to its base family: the trainable copy mirrors that specific U-Net (or DiT), so its connection points only line up with a model of the same architecture.</p>
+<p>For DiT models (SD3, FLUX, Qwen-Image, Z-Image) the same idea is applied to a subset of transformer blocks: a few blocks are copied, fed the control tokens, and their outputs are added to the corresponding hidden states of the frozen transformer. InstantX’s Qwen-Image Union ControlNet, for example, copies 5 double-stream blocks.</p>
 
-<h2 id="control-types-at-a-glance">Control Types at a Glance</h2>
+<p>A later paper, <em>ControlNet++</em> (Li et al., 2024), improved adherence by adding a cycle-consistency loss that re-extracts the condition from the generated image and penalises mismatch. (Not to be confused with xinsir’s SDXL union model, whose repository is also named “ControlNet++”.)</p>
 
-<p>Most workflows only need one control type. Pick it by what you want to preserve from the reference, not by what the reference <em>is</em>:</p>
+<h2 id="control-types-and-preprocessors">Control Types and Preprocessors</h2>
+
+<p>Pick a control type by what you want to <em>preserve</em> from the reference.</p>
 
 <table>
   <thead>
     <tr>
-      <th>You want to preserve…</th>
-      <th>Use</th>
-      <th>Preprocessor</th>
+      <th>Preserve</th>
+      <th>Control type</th>
+      <th>Preprocessor (comfyui_controlnet_aux)</th>
       <th>Typical strength</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>A character’s pose</td>
-      <td>OpenPose / DWPose</td>
-      <td><code class="language-plaintext highlighter-rouge">dw_openpose_full</code></td>
+      <td>Body pose, hands, face orientation</td>
+      <td>OpenPose</td>
+      <td><code class="language-plaintext highlighter-rouge">DWPreprocessor</code> (DWPose)</td>
       <td>0.8-1.0</td>
     </tr>
     <tr>
-      <td>Exact edges and outlines</td>
+      <td>Exact outlines</td>
       <td>Canny</td>
-      <td><code class="language-plaintext highlighter-rouge">canny</code></td>
-      <td>0.7-1.0</td>
+      <td><code class="language-plaintext highlighter-rouge">CannyEdgePreprocessor</code></td>
+      <td>0.6-0.9</td>
     </tr>
     <tr>
-      <td>Soft/organic shapes</td>
-      <td>SoftEdge</td>
-      <td><code class="language-plaintext highlighter-rouge">hed</code> / <code class="language-plaintext highlighter-rouge">pidinet</code></td>
+      <td>Soft shapes, loose outlines</td>
+      <td>SoftEdge / HED</td>
+      <td><code class="language-plaintext highlighter-rouge">HEDPreprocessor</code>, <code class="language-plaintext highlighter-rouge">PiDiNetPreprocessor</code></td>
       <td>0.5-0.8</td>
     </tr>
     <tr>
-      <td>3D spatial layout / depth</td>
+      <td>Clean line art (illustration, manga)</td>
+      <td>Lineart</td>
+      <td><code class="language-plaintext highlighter-rouge">LineArtPreprocessor</code>, <code class="language-plaintext highlighter-rouge">AnimeLineArtPreprocessor</code></td>
+      <td>0.7-1.0</td>
+    </tr>
+    <tr>
+      <td>3D layout, foreground/background</td>
       <td>Depth</td>
-      <td><code class="language-plaintext highlighter-rouge">depth_anything</code> / <code class="language-plaintext highlighter-rouge">zoe</code></td>
+      <td><code class="language-plaintext highlighter-rouge">DepthAnythingV2Preprocessor</code>, <code class="language-plaintext highlighter-rouge">Zoe-DepthMapPreprocessor</code></td>
       <td>0.5-0.8</td>
     </tr>
     <tr>
       <td>Straight architectural lines</td>
       <td>MLSD</td>
-      <td><code class="language-plaintext highlighter-rouge">mlsd</code></td>
+      <td><code class="language-plaintext highlighter-rouge">M-LSDPreprocessor</code></td>
       <td>0.7-1.0</td>
     </tr>
     <tr>
-      <td>A rough sketch → finished art</td>
+      <td>A rough sketch</td>
       <td>Scribble</td>
-      <td><code class="language-plaintext highlighter-rouge">scribble</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ScribblePreprocessor</code> or a hand-drawn map</td>
       <td>0.6-0.9</td>
     </tr>
     <tr>
-      <td>Per-region scene semantics</td>
+      <td>Which object class is where</td>
       <td>Segmentation</td>
-      <td><code class="language-plaintext highlighter-rouge">seg_ofade20k</code></td>
+      <td><code class="language-plaintext highlighter-rouge">OneFormer-ADE20K-SemSegPreprocessor</code></td>
+      <td>0.5-0.8</td>
+    </tr>
+    <tr>
+      <td>Surface orientation</td>
+      <td>Normal</td>
+      <td><code class="language-plaintext highlighter-rouge">BAE-NormalMapPreprocessor</code></td>
       <td>0.5-0.8</td>
     </tr>
     <tr>
       <td>Structure during upscaling</td>
-      <td>Tile</td>
-      <td><code class="language-plaintext highlighter-rouge">tile_resample</code></td>
-      <td>0.5-1.0</td>
+      <td>Tile / Blur</td>
+      <td>none (downscaled or blurred image)</td>
+      <td>0.4-1.0</td>
+    </tr>
+    <tr>
+      <td>Tonal layout / recolouring</td>
+      <td>Gray / Recolor</td>
+      <td>grayscale conversion</td>
+      <td>0.7-0.9</td>
     </tr>
   </tbody>
 </table>
 
-<p>If you are unsure, <strong>Depth</strong> is the most forgiving general-purpose control (it constrains layout without locking in exact lines), and <strong>Canny</strong> is the most precise.</p>
+<p>If unsure, <strong>Depth</strong> is the most forgiving (it fixes layout without locking outlines) and <strong>Canny</strong> the most literal. Preview every control map before sampling; most failures are visible in the map itself.</p>
 
-<h3 id="a-worked-example-posing-a-character">A Worked Example: Posing a Character</h3>
+<h3 id="pose">Pose</h3>
 
-<p>Suppose you have a reference photo of someone standing with arms crossed, and you want a knight in armor in that exact pose. The end-to-end flow with concrete settings:</p>
+<p>DWPose (2023) is the default pose estimator: it detects body, hand and face keypoints more reliably than the original OpenPose models and handles partial occlusion better. Pose constrains posture only, not silhouette or clothing. For hands, use a full-body-plus-hands output; a missing hand in the skeleton usually produces a malformed hand in the image. Animal pose estimators exist for quadrupeds.</p>
 
-<ol>
-  <li><strong>Preprocess</strong> the reference with <code class="language-plaintext highlighter-rouge">dw_openpose_full</code> at 1024px (SDXL). You now have a stick-figure skeleton - preview it and confirm the limbs are detected correctly.</li>
-  <li><strong>Prompt</strong> for content and style only: <code class="language-plaintext highlighter-rouge">"a knight in ornate steel armor, dramatic studio lighting, photorealistic"</code>. Notice the prompt says nothing about pose - the control map handles that.</li>
-  <li><strong>Apply</strong> an SDXL OpenPose ControlNet with <code class="language-plaintext highlighter-rouge">strength: 0.85</code>, <code class="language-plaintext highlighter-rouge">start_percent: 0.0</code>, <code class="language-plaintext highlighter-rouge">end_percent: 0.8</code>.</li>
-  <li><strong>Sample</strong> normally (e.g. DPM++ 2M, 30 steps, CFG 6).</li>
-</ol>
+<h3 id="edges-and-lines">Edges and Lines</h3>
 
-<p>The result is a knight standing with arms crossed. Ending control at 80% (<code class="language-plaintext highlighter-rouge">end_percent: 0.8</code>) lets the final steps add armor detail the skeleton never specified. If the pose drifts, raise strength toward 1.0; if the armor looks stiff or traced, lower strength or pull <code class="language-plaintext highlighter-rouge">end_percent</code> down to 0.6.</p>
+<p>The edge family differs in how literally lines are enforced. <strong>Canny</strong> is a classic gradient-based detector with two thresholds: pixels above the high threshold are edges, pixels between the thresholds count only if connected to a strong edge. Lower thresholds keep more (fainter) edges and more texture noise. <strong>SoftEdge/HED</strong> gives thick, soft boundaries that tolerate painterly inputs; <strong>Lineart</strong> extracts clean strokes; <strong>MLSD</strong> keeps only straight line segments (buildings, interiors); <strong>Scribble</strong> accepts crude hand drawings.</p>
 
-<h2 id="controlnet-types-in-depth">ControlNet Types in Depth</h2>
+<h3 id="depth">Depth</h3>
 
-<p>Each control type pairs a <strong>preprocessor</strong> (which extracts a specific structure from your reference) with a <strong>ControlNet model</strong> (which conditions on that structure). The sections below group them by what they capture. You rarely need more than one or two.</p>
+<p>Depth maps encode distance as brightness (near is bright). <strong>Depth Anything V2</strong> (2024) is the usual default: fast, robust and sharp at object boundaries. MiDaS and LeReS are older relative-depth estimators; ZoeDepth estimates metric depth. Depth maps rendered directly from a 3D scene (Blender, a game engine) are cleaner than any estimator and are the standard trick for turning greybox scenes into concept art.</p>
 
-<h3 id="pose-control">Pose Control</h3>
+<h3 id="segmentation-and-normals">Segmentation and Normals</h3>
 
-<p>Pose controls extract a human skeleton from a reference and transfer it to your generated subject — the workhorse for character work.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Preprocessor</th>
-      <th>What it captures</th>
-      <th>Notes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>OpenPose</td>
-      <td>18-25 body keypoints; optional hands and face</td>
-      <td>The original standard; variants are <code class="language-plaintext highlighter-rouge">openpose_body</code>, <code class="language-plaintext highlighter-rouge">openpose_full</code>, <code class="language-plaintext highlighter-rouge">openpose_hand</code>, <code class="language-plaintext highlighter-rouge">openpose_face</code></td>
-    </tr>
-    <tr>
-      <td>DWPose</td>
-      <td>Whole-body skeleton including detailed hands/face</td>
-      <td>More accurate than OpenPose with better occlusion handling; the current recommended default</td>
-    </tr>
-    <tr>
-      <td>Animal OpenPose</td>
-      <td>Quadruped skeletons</td>
-      <td>For animals rather than humans</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>Pose is keypoint-based, so it constrains <em>posture</em> but not silhouette or clothing — leave those to the prompt. If hands come out malformed, prefer a <code class="language-plaintext highlighter-rouge">full</code>/DWPose variant so the hand keypoints are detected and conditioned.</p>
-
-<h3 id="edge-and-line-control">Edge and Line Control</h3>
-
-<p>Edge controls preserve outlines and structure. They differ mainly in how <em>literal</em> the lines are — hard binary edges versus soft, artistic ones.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Preprocessor</th>
-      <th>Edge style</th>
-      <th>Best for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Canny</td>
-      <td>Hard binary edges from a classic algorithm</td>
-      <td>Architecture, products, anything with clean outlines</td>
-    </tr>
-    <tr>
-      <td>SoftEdge (HED / PiDiNet)</td>
-      <td>Soft, natural edges</td>
-      <td>Organic subjects, artistic restyles where hard lines look traced</td>
-    </tr>
-    <tr>
-      <td>MLSD</td>
-      <td>Straight lines only</td>
-      <td>Buildings, interiors, technical drawings</td>
-    </tr>
-    <tr>
-      <td>Lineart / Anime Lineart</td>
-      <td>Clean extracted line art</td>
-      <td>Coloring/restyling line drawings, manga</td>
-    </tr>
-    <tr>
-      <td>Scribble</td>
-      <td>Tolerant of rough, sketchy input</td>
-      <td>Turning a quick doodle into finished art</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>Canny exposes low/high thresholds: a lower <strong>low threshold</strong> keeps more (fainter) edges, a higher <strong>high threshold</strong> keeps only the strongest. The practical rule is to pick by how literal you want the structure — Canny for “trace this exactly,” SoftEdge for “follow these shapes loosely,” Scribble for “use this as a hint.”</p>
-
-<h3 id="depth-control">Depth Control</h3>
-
-<p>Depth controls capture the 3D layout of a scene as a grayscale map (near = bright, far = dark), constraining spatial arrangement without locking exact outlines. This makes depth the most forgiving general-purpose control.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Preprocessor</th>
-      <th>Type</th>
-      <th>Notes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Depth Anything (v1/v2)</td>
-      <td>Relative depth</td>
-      <td>Current default — fast, robust, trained on a very large dataset; good for batch and video</td>
-    </tr>
-    <tr>
-      <td>MiDaS</td>
-      <td>Relative depth</td>
-      <td>The long-standing baseline; still fine for general use</td>
-    </tr>
-    <tr>
-      <td>ZoeDepth</td>
-      <td>Metric depth</td>
-      <td>Estimates actual distances; better for realistic outdoor scenes</td>
-    </tr>
-    <tr>
-      <td>LeReS</td>
-      <td>Relative depth</td>
-      <td>Higher quality on complex scenes, slower</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>Start with <strong>Depth Anything</strong>. Depth pairs especially well with a second control (e.g. OpenPose) because it adds spatial grounding without fighting the pose.</p>
-
-<h3 id="semantic-and-surface-control">Semantic and Surface Control</h3>
-
-<p>These conditions describe <em>what</em> occupies each region or <em>how surfaces face</em>, rather than edges or skeletons.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Preprocessor</th>
-      <th>Captures</th>
-      <th>Best for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Segmentation (ADE20K)</td>
-      <td>A color-coded map of 150+ object classes</td>
-      <td>Laying out scenes (“sky here, building there”)</td>
-    </tr>
-    <tr>
-      <td>Normal map</td>
-      <td>Surface orientation as RGB-encoded normals</td>
-      <td>Lighting/relief consistency on products and sculptures</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>With segmentation you can hand-paint the control map directly: each class has a fixed color (sky, building, tree, person, ground, etc.), so painting blocks of those colors dictates where each kind of object appears.</p>
+<p>Segmentation ControlNets for SD 1.5 were trained on ADE20K’s 150-class palette, where each class has a fixed RGB colour. Painting blocks in those colours lays out a scene directly (“sky here, building there”). Normal maps encode surface orientation as RGB and help keep lighting and relief consistent on products and sculpture.</p>
 
 <h3 id="utility-controls">Utility Controls</h3>
 
-<p>A few controls solve specific production problems rather than transferring structure from a reference:</p>
+<ul>
+  <li><strong>Tile</strong> (SD 1.5, SDXL) and <strong>Blur</strong> (SD 3.5 Large) condition on a low-resolution or blurred version of the image itself. Used per tile during upscaling, they let the model invent detail while keeping each tile faithful to the original, which is the basis of tiled-upscale workflows.</li>
+  <li><strong>Inpaint</strong> ControlNets condition on the image with the masked region blanked, improving blending when a dedicated inpainting checkpoint is not available. See <a href="inpainting-editing.html">Inpainting &amp; Editing</a>.</li>
+  <li><strong>QR / pattern</strong> ControlNets (community models built on the brightness idea) embed a scannable code or a hidden shape into an image.</li>
+</ul>
+
+<h2 id="model-support-by-family">Model Support by Family</h2>
+
+<p>A ControlNet must match the base model’s family. Maturity varies widely.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Control</th>
-      <th>Purpose</th>
+      <th>Base family</th>
+      <th>Notable ControlNets</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Tile</td>
-      <td>Adds coherent detail during upscaling and enables seamless tiled generation — the backbone of high-res “Ultimate SD Upscale” workflows</td>
+      <td>SD 1.5</td>
+      <td>lllyasviel ControlNet v1.1 (14 models: canny, depth, openpose, lineart, anime lineart, softedge, mlsd, scribble, seg, normalbae, tile, inpaint, shuffle, ip2p)</td>
+      <td>The most complete set; still useful for quick experiments</td>
     </tr>
     <tr>
-      <td>Inpaint</td>
-      <td>Restricts generation to a masked region for clean object removal or editing</td>
+      <td>SDXL</td>
+      <td>xinsir <code class="language-plaintext highlighter-rouge">controlnet-union-sdxl-1.0</code> (ProMax variant adds tile, inpaint and outpaint), xinsir single-type models, diffusers canny/depth</td>
+      <td>Union ProMax is the usual single download</td>
     </tr>
     <tr>
-      <td>Shuffle</td>
-      <td>Reshuffles content spatially while preserving style — for creative variations</td>
+      <td>SD 3.5 Large</td>
+      <td>Stability AI Blur, Canny, Depth (Nov 2024)</td>
+      <td>Stability AI Community License; depth trained on DepthFM maps</td>
+    </tr>
+    <tr>
+      <td>FLUX.1 [dev]</td>
+      <td>BFL <strong>FLUX.1 Canny [dev]</strong> and <strong>Depth [dev]</strong> (full models, or LoRAs applied to dev); Shakker Labs <strong>Union Pro 2.0</strong> (canny, soft edge, depth, pose, gray); XLabs and InstantX models</td>
+      <td>BFL’s versions are separate checkpoints rather than add-on ControlNets</td>
+    </tr>
+    <tr>
+      <td>Qwen-Image</td>
+      <td>InstantX <strong>Qwen-Image-ControlNet-Union</strong> (canny, soft edge, depth, pose); DiffSynth “model patch” controls</td>
+      <td>Native ComfyUI support</td>
+    </tr>
+    <tr>
+      <td>Z-Image Turbo</td>
+      <td>Alibaba PAI <strong>Z-Image-Turbo-Fun-Controlnet-Union</strong> (canny, HED, depth, pose, MLSD)</td>
+      <td>v2.1 re-distilled to 8 steps so control does not cost the turbo speed-up</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="installation-and-setup">Installation and Setup</h2>
+<p>Union models bundle several control types into one network that recognises the condition type from the map itself (or from a type input), replacing a folder of one-model-per-type files.</p>
 
-<h3 id="comfyui-installation">ComfyUI Installation</h3>
+<h2 id="workflows">Workflows</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install ControlNet models</span>
-<span class="nb">cd </span>ComfyUI/models/controlnet
+<h3 id="comfyui">ComfyUI</h3>
 
-<span class="c"># Download models (example for SD 1.5)</span>
-wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11p_sd15_openpose.pth
-wget https://huggingface.co/lllyasviel/ControlNet-v1-1/resolve/main/control_v11f1p_sd15_depth.pth
+<p>Preprocessors come from the <code class="language-plaintext highlighter-rouge">comfyui_controlnet_aux</code> custom node pack (installable from ComfyUI-Manager); ControlNet weights go in <code class="language-plaintext highlighter-rouge">models/controlnet/</code>.</p>
 
-<span class="c"># For SDXL ControlNet</span>
-wget https://huggingface.co/diffusers/controlnet-canny-sdxl-1.0/resolve/main/diffusion_pytorch_model.fp16.safetensors
-
-<span class="c"># Install preprocessor nodes</span>
-<span class="nb">cd</span> ../../custom_nodes
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Preprocessor nodes</span>
+<span class="nb">cd </span>ComfyUI/custom_nodes
 git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
+pip <span class="nb">install</span> <span class="nt">-r</span> comfyui_controlnet_aux/requirements.txt
+
+<span class="c"># Example ControlNet weights (hf CLI from huggingface_hub)</span>
+<span class="nb">cd</span> ../models/controlnet
+hf download xinsir/controlnet-union-sdxl-1.0 diffusion_pytorch_model_promax.safetensors <span class="nt">--local-dir</span> sdxl-union
+hf download comfyanonymous/ControlNet-v1-1_fp16_safetensors control_v11p_sd15_openpose_fp16.safetensors <span class="nt">--local-dir</span> <span class="nb">.</span>
 </code></pre></div></div>
 
-<h3 id="required-components">Required Components</h3>
-
-<p>You need three things to run ControlNet, plus optional extras:</p>
-
-<ul>
-  <li><strong>Preprocessor nodes</strong> — <code class="language-plaintext highlighter-rouge">comfyui_controlnet_aux</code> provides the OpenPose, Canny, Depth, and other extractors.</li>
-  <li><strong>ControlNet model(s)</strong> — one per control type, matched to your base-model family.</li>
-  <li><strong>A base diffusion model</strong> — your SD 1.5, SDXL, or FLUX checkpoint.</li>
-</ul>
-
-<p>Optionally, add custom preprocessors or additional ControlNet models as your workflows grow.</p>
-
-<h2 id="basic-workflows">Basic Workflows</h2>
-
-<h3 id="the-single-controlnet-graph">The Single-ControlNet Graph</h3>
-
-<p>A ControlNet workflow extends the standard text-to-image graph by inserting one node between the text conditioning and the sampler. The control map flows in alongside the prompt:</p>
+<p>The graph inserts one node between the text encoders and the sampler:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    LI["LoadImage&lt;br/&gt;(reference)"] --&gt; Pre["Preprocessor&lt;br/&gt;(pose / canny / depth)"]
-    Pre --&gt; Apply["Apply ControlNet"]
-    Pos["CLIPTextEncode&lt;br/&gt;(positive)"] --&gt; Apply
-    CN["Load ControlNet model"] --&gt; Apply
-    Apply --&gt;|conditioning| KS["KSampler"]
-    KS --&gt; VD["VAE Decode"] --&gt; SI["SaveImage"]
+    LI["Load Image&lt;br/&gt;(reference)"] --&gt; Pre["Preprocessor&lt;br/&gt;(e.g. DWPose)"]
+    Pre --&gt; Prev["Preview Image"]
+    Pre --&gt; Apply["Apply ControlNet&lt;br/&gt;strength, start %, end %"]
+    CN["Load ControlNet Model"] --&gt; Apply
+    Pos["CLIP Text Encode&lt;br/&gt;(positive)"] --&gt; Apply
+    Neg["CLIP Text Encode&lt;br/&gt;(negative)"] --&gt; Apply
+    VAE["VAE"] -.-&gt;|"DiT ControlNets"| Apply
+    Apply --&gt;|"positive + negative"| KS["KSampler"]
+    KS --&gt; VD["VAE Decode"] --&gt; SI["Save Image"]
 </code></pre>
 
-<p>Everything before <code class="language-plaintext highlighter-rouge">Apply ControlNet</code> is the new branch; everything after is the ordinary sampler-to-image path. <strong>Preview the preprocessor output</strong> before sampling — most pose, edge, and depth failures are visible in the control map itself.</p>
+<p><code class="language-plaintext highlighter-rouge">Apply ControlNet</code> modifies both positive and negative conditioning and outputs the pair to the sampler. The optional <code class="language-plaintext highlighter-rouge">vae</code> input is needed by ControlNets for SD3/FLUX-class models, which encode the control image into latent space. Union models that need an explicit type take it through a <code class="language-plaintext highlighter-rouge">SetUnionControlNetType</code> node between the loader and <code class="language-plaintext highlighter-rouge">Apply ControlNet</code>.</p>
 
-<h3 id="stacking-two-controls">Stacking Two Controls</h3>
-
-<p>To combine controls (for example, a pose plus its scene depth), chain the <code class="language-plaintext highlighter-rouge">Apply ControlNet</code> nodes — the conditioning flows through each in turn:</p>
+<p>To stack controls, chain <code class="language-plaintext highlighter-rouge">Apply ControlNet</code> nodes: the conditioning output of the first feeds the second.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    P1["OpenPose map"] --&gt; A1["Apply ControlNet&lt;br/&gt;(pose, strength 0.9)"]
-    Pos["Positive conditioning"] --&gt; A1
-    A1 --&gt; A2["Apply ControlNet&lt;br/&gt;(depth, strength 0.5)"]
+    Cond["Positive / negative"] --&gt; A1["Apply ControlNet&lt;br/&gt;pose, strength 0.9"]
+    P1["Pose map"] --&gt; A1
+    A1 --&gt; A2["Apply ControlNet&lt;br/&gt;depth, strength 0.5, end 0.6"]
     P2["Depth map"] --&gt; A2
     A2 --&gt; KS["KSampler"]
 </code></pre>
 
-<p>Keep the <em>secondary</em> control weaker than the primary so they cooperate rather than fight. Two is plenty; three or more usually conflict.</p>
+<h3 id="diffusers">diffusers</h3>
 
-<h3 id="the-parameters-that-matter">The Parameters That Matter</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">cv2</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">from</span> <span class="n">diffusers</span> <span class="kn">import</span> <span class="n">ControlNetModel</span><span class="p">,</span> <span class="n">StableDiffusionXLControlNetPipeline</span>
+<span class="kn">from</span> <span class="n">diffusers.utils</span> <span class="kn">import</span> <span class="n">load_image</span>
+<span class="kn">from</span> <span class="n">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
 
-<p>Every <code class="language-plaintext highlighter-rouge">Apply ControlNet</code> node exposes the same handful of dials:</p>
+<span class="n">controlnet</span> <span class="o">=</span> <span class="n">ControlNetModel</span><span class="p">.</span><span class="nf">from_pretrained</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">diffusers/controlnet-canny-sdxl-1.0</span><span class="sh">"</span><span class="p">,</span> <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">float16</span>
+<span class="p">)</span>
+<span class="n">pipe</span> <span class="o">=</span> <span class="n">StableDiffusionXLControlNetPipeline</span><span class="p">.</span><span class="nf">from_pretrained</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">stabilityai/stable-diffusion-xl-base-1.0</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">controlnet</span><span class="o">=</span><span class="n">controlnet</span><span class="p">,</span>
+    <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">float16</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">pipe</span><span class="p">.</span><span class="nf">enable_model_cpu_offload</span><span class="p">()</span>
+
+<span class="n">ref</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="nf">load_image</span><span class="p">(</span><span class="sh">"</span><span class="s">reference.png</span><span class="sh">"</span><span class="p">).</span><span class="nf">resize</span><span class="p">((</span><span class="mi">1024</span><span class="p">,</span> <span class="mi">1024</span><span class="p">)))</span>
+<span class="n">edges</span> <span class="o">=</span> <span class="n">cv2</span><span class="p">.</span><span class="nc">Canny</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+<span class="n">control</span> <span class="o">=</span> <span class="n">Image</span><span class="p">.</span><span class="nf">fromarray</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">stack</span><span class="p">([</span><span class="n">edges</span><span class="p">]</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+
+<span class="n">image</span> <span class="o">=</span> <span class="nf">pipe</span><span class="p">(</span>
+    <span class="n">prompt</span><span class="o">=</span><span class="sh">"</span><span class="s">a glass-and-steel pavilion at golden hour, architectural photography</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">image</span><span class="o">=</span><span class="n">control</span><span class="p">,</span>
+    <span class="n">controlnet_conditioning_scale</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>   <span class="c1"># strength
+</span>    <span class="n">control_guidance_start</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>          <span class="c1"># start_percent
+</span>    <span class="n">control_guidance_end</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>            <span class="c1"># end_percent
+</span>    <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
+<span class="p">).</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p>Multiple ControlNets are passed as lists (<code class="language-plaintext highlighter-rouge">controlnet=[cn_a, cn_b]</code>, <code class="language-plaintext highlighter-rouge">image=[map_a, map_b]</code>, <code class="language-plaintext highlighter-rouge">controlnet_conditioning_scale=[0.9, 0.5]</code>). FLUX uses <code class="language-plaintext highlighter-rouge">FluxControlNetPipeline</code> for community ControlNets and <code class="language-plaintext highlighter-rouge">FluxControlPipeline</code> for BFL’s Canny/Depth models.</p>
+
+<h2 id="tuning">Tuning</h2>
+
+<h3 id="parameters">Parameters</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Parameter</th>
+      <th>Parameter (ComfyUI / diffusers)</th>
       <th>Range</th>
-      <th>What it does</th>
+      <th>Effect</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">strength</code></td>
-      <td>0-2 (use ~0.6-1.0)</td>
-      <td>How hard the control map pushes the result toward its structure</td>
+      <td><code class="language-plaintext highlighter-rouge">strength</code> / <code class="language-plaintext highlighter-rouge">controlnet_conditioning_scale</code></td>
+      <td>0-2, usually 0.5-1.0</td>
+      <td>Scales the residuals the ControlNet adds</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">start_percent</code></td>
-      <td>0.0-1.0</td>
-      <td>Fraction of sampling at which control begins (usually 0.0)</td>
+      <td><code class="language-plaintext highlighter-rouge">start_percent</code> / <code class="language-plaintext highlighter-rouge">control_guidance_start</code></td>
+      <td>0-1</td>
+      <td>Fraction of sampling at which control starts (usually 0)</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">end_percent</code></td>
-      <td>0.0-1.0</td>
-      <td>Fraction at which control stops (lower it to free up late detail)</td>
+      <td><code class="language-plaintext highlighter-rouge">end_percent</code> / <code class="language-plaintext highlighter-rouge">control_guidance_end</code></td>
+      <td>0-1</td>
+      <td>Fraction at which control stops</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">control_mode</code></td>
-      <td>balanced / prompt / control</td>
-      <td>Whether to favor the prompt or the control map when they disagree</td>
+      <td>Control mode (A1111/Forge only)</td>
+      <td>Balanced / My prompt is more important / ControlNet is more important</td>
+      <td>Re-weights control against CFG; ComfyUI has no equivalent switch</td>
     </tr>
   </tbody>
 </table>
 
-<p>The two most useful beyond <code class="language-plaintext highlighter-rouge">strength</code> are <code class="language-plaintext highlighter-rouge">start_percent</code> and <code class="language-plaintext highlighter-rouge">end_percent</code>. Because early denoising steps fix composition and later steps fill in detail, ending control early (e.g. <code class="language-plaintext highlighter-rouge">end_percent: 0.7</code>) lets the structure lock in the layout, then frees the model to add detail the control map never specified — often the difference between a rigid, traced-looking image and a natural one.</p>
+<p>The control window matters as much as strength. Early steps fix composition, late steps add texture. Ending control at 0.6-0.8 locks the layout and then lets the model add detail the map never specified; this is usually the fix for images that look traced or stiff. Starting control late (0.1-0.2) gives the model freedom over the silhouette while still steering the arrangement.</p>
 
-<p><strong>Common pitfalls:</strong></p>
+<h3 id="worked-example-transferring-a-pose">Worked Example: Transferring a Pose</h3>
 
-<ul>
-  <li><strong>Mismatched ControlNet and base model.</strong> An SD 1.5 ControlNet silently fails or corrupts output on SDXL/FLUX. Match the family first.</li>
-  <li><strong>Strength pinned at 1.0.</strong> Full strength makes results look traced and fights the prompt. Start around 0.7 and raise only if structure drifts.</li>
-  <li><strong>Wrong preprocessor for the input.</strong> Running Canny on a soft watercolor produces noisy edges; use SoftEdge. Always preview the control map before sampling.</li>
-  <li><strong>Control resolution mismatch.</strong> Preprocess at the model’s native resolution (512 for SD 1.5, 1024 for SDXL) or the map misaligns with the latent.</li>
-  <li><strong>Stacking too many controls.</strong> Three or more ControlNets usually conflict and degrade quality. Prefer one strong control plus IP-Adapter for style.</li>
-</ul>
+<p>Goal: a knight in armour standing in the same pose as a reference photo, on SDXL.</p>
 
-<h2 id="advanced-techniques">Advanced Techniques</h2>
+<ol>
+  <li>Run <code class="language-plaintext highlighter-rouge">DWPreprocessor</code> on the reference at 1024 px and preview the skeleton. Confirm both hands were detected.</li>
+  <li>Prompt for content and style only: <em>“a knight in ornate steel armour, dramatic studio lighting, photorealistic”</em>. The prompt should not fight the pose (for example by asking for “sitting”).</li>
+  <li>Load an SDXL OpenPose or union model and set <code class="language-plaintext highlighter-rouge">strength 0.85</code>, <code class="language-plaintext highlighter-rouge">start 0.0</code>, <code class="language-plaintext highlighter-rouge">end 0.8</code>.</li>
+  <li>Sample normally (DPM++ 2M Karras, 30 steps, CFG 5-6).</li>
+</ol>
 
-<h3 id="combining-controls-deliberately">Combining Controls Deliberately</h3>
+<p>If the pose drifts, raise strength toward 1.0 or extend <code class="language-plaintext highlighter-rouge">end_percent</code>. If the armour looks flat or stencilled, lower strength or pull <code class="language-plaintext highlighter-rouge">end_percent</code> down to 0.6.</p>
 
-<p>Two controls work best when each owns a different job. Give the <em>primary</em> control (the one carrying your main intent) full strength and the <em>secondary</em> one a supporting weight:</p>
+<h3 id="combining-controls-and-adapters">Combining Controls and Adapters</h3>
+
+<p>Two controls cooperate when each owns a different job. Give the primary control full strength and the secondary a supporting weight; if the result looks muddy, lower the secondary first.</p>
 
 <table>
   <thead>
@@ -3563,263 +3480,80 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
   <tbody>
     <tr>
       <td>Pose + Depth</td>
-      <td>Pose owns posture; depth grounds spatial layout</td>
-      <td>OpenPose ~0.9, Depth ~0.5</td>
+      <td>Pose owns posture; depth grounds the scene</td>
+      <td>0.9 / 0.5</td>
     </tr>
     <tr>
       <td>Canny + Segmentation</td>
       <td>Edges own outlines; segmentation owns region content</td>
-      <td>Canny ~0.8, Seg ~0.6</td>
+      <td>0.8 / 0.6</td>
     </tr>
     <tr>
       <td>Depth + SoftEdge</td>
-      <td>Depth owns 3D layout; soft edges add gentle shape</td>
-      <td>Depth ~0.7, SoftEdge ~0.4</td>
+      <td>Depth owns layout; soft edges add gentle shape</td>
+      <td>0.7 / 0.4</td>
     </tr>
   </tbody>
 </table>
 
-<p>If a stacked result looks muddy, lower the secondary control before touching the primary one.</p>
+<p>Three or more ControlNets usually conflict. A more reliable stack conditions on different <em>kinds</em> of information: ControlNet for structure, IP-Adapter for appearance, a LoRA for a specific subject.</p>
 
-<h3 id="strength-scheduling-with-end_percent">Strength Scheduling with <code class="language-plaintext highlighter-rouge">end_percent</code></h3>
+<h2 id="related-methods">Related Methods</h2>
 
-<p>You do not need per-step strength curves — the built-in <code class="language-plaintext highlighter-rouge">start_percent</code>/<code class="language-plaintext highlighter-rouge">end_percent</code> window is the practical version of scheduling. Holding control through the first ~70% of steps locks composition, then releasing it lets the model add detail freely. Reach for an early <code class="language-plaintext highlighter-rouge">end_percent</code> (0.5-0.7) whenever a result looks traced or stiff.</p>
-
-<h3 id="control-mode-selection">Control Mode Selection</h3>
-
-<p>When the prompt and the control map disagree, <code class="language-plaintext highlighter-rouge">control_mode</code> decides who wins:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Mode</th>
-      <th>Behavior</th>
-      <th>Use case</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Balanced</td>
-      <td>Weighs prompt and control roughly equally</td>
-      <td>General use (default)</td>
-    </tr>
-    <tr>
-      <td>Prompt (My prompt is more important)</td>
-      <td>Lets the prompt override structure when they conflict</td>
-      <td>Creative freedom, looser adherence</td>
-    </tr>
-    <tr>
-      <td>Control (ControlNet is more important)</td>
-      <td>Enforces the structure even against the prompt</td>
-      <td>Exact composition matching</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="resolution-matching">Resolution Matching</h3>
-
-<p>Always preprocess at your base model’s native resolution — <strong>512 for SD 1.5, 1024 for SDXL/FLUX</strong> — so the control map aligns with the latent grid. A mismatch shifts the structure relative to the image and is one of the most common causes of “the pose is slightly off.”</p>
-
-<h2 id="preprocessing-best-practices">Preprocessing Best Practices</h2>
-
-<p>The control map is only as good as the preprocessor that made it. Two habits prevent most problems: <strong>preview every control map</strong> before sampling, and <strong>match the preprocessor to the input</strong>, not just to the control type you want.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Input quality</th>
-      <th>Recommended choice</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Clean photo</td>
-      <td>Standard preprocessor for the type (Canny, OpenPose, Depth Anything)</td>
-    </tr>
-    <tr>
-      <td>Noisy or low-light</td>
-      <td>Robust variants — DWPose for pose, ZoeDepth/LeReS for depth</td>
-    </tr>
-    <tr>
-      <td>Artistic / painterly</td>
-      <td>Soft variants — SoftEdge (HED/PiDiNet) instead of Canny</td>
-    </tr>
-    <tr>
-      <td>Technical drawing</td>
-      <td>Precise variants — MLSD for straight lines</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>You can also <strong>author or edit a control map by hand</strong>. Because the ControlNet only sees the map (not your reference), you can clean up a misdetected pose skeleton, paint a segmentation layout directly, or composite two maps together before sampling — often faster than rerolling preprocessor settings.</p>
-
-<h2 id="model-compatibility">Model Compatibility</h2>
-
-<p>A ControlNet is built for one base-model family and only works there. Support and maturity vary widely across families:</p>
-
-<ul>
-  <li><strong>SD 1.5 ControlNet</strong>: The most mature ecosystem — every control type, heavily optimized</li>
-  <li><strong>SDXL ControlNet</strong>: Full support at higher resolution and quality</li>
-  <li><strong>SD3 ControlNet</strong>: Available (Canny, Depth, and others released by Stability AI)</li>
-  <li><strong>FLUX</strong>: Available — multiple options now ship, including <strong>ControlNet Union</strong> (one model covering several control types) and dedicated Canny/Depth/Pose models from teams such as XLabs, InstantX, and Shakker Labs</li>
-</ul>
-
-<p>Beyond the structural controls, the ecosystem has added more specialized conditions over time — for example <strong>Recolor</strong> (change colors while preserving structure), <strong>Brightness/Illumination</strong> (steer lighting), and <strong>QR/pattern</strong> controls that hide scannable codes or shapes inside artistic images. Availability differs by base model; the structural types above are the universally supported core.</p>
-
-<h3 id="controlnet-versions">ControlNet Versions</h3>
-
-<p>ControlNets are tied to their base-model family. A control map is portable, but the ControlNet <em>model</em> is not — an SD 1.5 ControlNet will not load on SDXL or FLUX.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Base Model</th>
-      <th>ControlNet Family</th>
-      <th>File Pattern</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>SD 1.5</td>
-      <td>v1.1 (most complete)</td>
-      <td><code class="language-plaintext highlighter-rouge">control_v11*_sd15_*.pth</code></td>
-    </tr>
-    <tr>
-      <td>SD 2.1</td>
-      <td>v1.1 SD2</td>
-      <td><code class="language-plaintext highlighter-rouge">control_v11*_sd21_*.pth</code></td>
-    </tr>
-    <tr>
-      <td>SDXL</td>
-      <td>SDXL v1 / Union</td>
-      <td><code class="language-plaintext highlighter-rouge">controlnet-*-sdxl-1.0*.safetensors</code></td>
-    </tr>
-    <tr>
-      <td>SD3</td>
-      <td>SD3 (Canny, Depth, …)</td>
-      <td><code class="language-plaintext highlighter-rouge">*controlnet*sd3*.safetensors</code></td>
-    </tr>
-    <tr>
-      <td>FLUX</td>
-      <td>FLUX / Union</td>
-      <td><code class="language-plaintext highlighter-rouge">*flux*controlnet*.safetensors</code></td>
-    </tr>
-  </tbody>
-</table>
-
-<blockquote>
-  <p><strong>Union models simplify the mess.</strong> Newer “ControlNet Union” releases for SDXL and FLUX bundle many control types into a single model file, so you load one ControlNet and select the mode (pose, canny, depth, …) at runtime instead of juggling a separate file per type.</p>
-</blockquote>
-
-<h3 id="controlnet-vs-the-alternatives">ControlNet vs. the Alternatives</h3>
-
-<p>ControlNet is the most precise spatial conditioner, but it is not always the right tool. Several lighter or differently-focused methods share the space:</p>
+<p>ControlNet is the most precise spatial conditioner, but not always the right tool.</p>
 
 <table>
   <thead>
     <tr>
       <th>Method</th>
       <th>Conditions on</th>
-      <th>Strength</th>
-      <th>Best for</th>
+      <th>Trade-off</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>ControlNet</td>
-      <td>Structural map (pose, edge, depth)</td>
-      <td>Highest spatial precision</td>
-      <td>Reproducing exact composition</td>
+      <td>Spatial map (pose, edge, depth…)</td>
+      <td>Highest structural precision; adds a large second network</td>
+      <td>Exact composition</td>
     </tr>
     <tr>
       <td>T2I-Adapter</td>
-      <td>Same map types, lighter</td>
-      <td>Fast, low VRAM, less precise</td>
-      <td>Real-time, batch, mobile</td>
+      <td>Same map types</td>
+      <td>~77M parameters vs ~360M (SD 1.5) to ~1.2B (SDXL) for a ControlNet; runs once rather than every step; looser</td>
+      <td>Batch or low-VRAM control</td>
     </tr>
     <tr>
-      <td>IP-Adapter</td>
-      <td>A <em>reference image’s</em> style/content</td>
+      <td>Control-LoRA / FLUX Canny-Depth LoRAs</td>
+      <td>Spatial map, via low-rank weights</td>
+      <td>Much smaller files, slightly weaker</td>
+      <td>Distribution-friendly control</td>
+    </tr>
+    <tr>
+      <td>IP-Adapter / FLUX Redux</td>
+      <td>A reference image’s appearance</td>
       <td>Transfers look, not layout</td>
       <td>“Make it look like this”</td>
     </tr>
     <tr>
-      <td>InstantID</td>
-      <td>A reference <em>face</em></td>
-      <td>Identity-preserving portraits</td>
-      <td>Consistent faces from one photo</td>
+      <td>InstantID, PuLID</td>
+      <td>A reference face</td>
+      <td>Identity preservation from one photo</td>
+      <td>Consistent characters</td>
+    </tr>
+    <tr>
+      <td>Instruction editing (FLUX.1 Kontext, Qwen-Image-Edit, FLUX.2 multi-reference)</td>
+      <td>Input image(s) + text instruction</td>
+      <td>No map needed; less exact geometry control</td>
+      <td>“Same scene, but…” edits, pose or view changes described in words</td>
     </tr>
   </tbody>
 </table>
 
-<p>A common pattern is to combine them: ControlNet for <em>where</em> (structure), IP-Adapter for <em>what it looks like</em> (style), and a LoRA for <em>who/what</em> (subject). They condition on different things, so they cooperate rather than conflict.</p>
-
-<h3 id="t2i-adapter">T2I-Adapter</h3>
-
-<p>T2I-Adapter is a lighter alternative that conditions on the same kinds of maps (pose, edge, depth) but with a much smaller model. It trades a little precision for speed and low VRAM:</p>
-
-<ul>
-  <li><strong>Advantages:</strong> tiny model (~80 MB vs ~1.4 GB), faster inference, lower VRAM, several adapters combine cleanly — good for real-time and batch.</li>
-  <li><strong>Trade-offs:</strong> sometimes less precise than ControlNet, fewer available types, and may need more prompt help to lock the result.</li>
-</ul>
-
-<p>Reach for T2I-Adapter when throughput or memory matters more than pixel-exact structure.</p>
-
-<h3 id="ip-adapter-integration">IP-Adapter Integration</h3>
-
-<p>IP-Adapter and ControlNet condition on different things, so they layer naturally: ControlNet from a <strong>depth map</strong> fixes the 3D structure, while IP-Adapter from a <strong>reference image</strong> supplies the style and palette. The result is precise composition wearing the look of your reference — neither alone achieves both.</p>
-
-<h2 id="common-workflows">Common Workflows</h2>
-
-<p>A few recurring jobs and the control setup each calls for:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Goal</th>
-      <th>Reference</th>
-      <th>Preprocessor</th>
-      <th>Strength</th>
-      <th>Prompt handles</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Character in a chosen pose</td>
-      <td>Pose photo</td>
-      <td>OpenPose / DWPose</td>
-      <td>~0.9</td>
-      <td>Outfit, style, setting</td>
-    </tr>
-    <tr>
-      <td>Render from a floor plan / line drawing</td>
-      <td>Technical drawing</td>
-      <td>MLSD (straight lines)</td>
-      <td>~1.0</td>
-      <td>Materials, lighting, mood</td>
-    </tr>
-    <tr>
-      <td>Restyle a photo, keep composition</td>
-      <td>The photo</td>
-      <td>Depth (+ SoftEdge)</td>
-      <td>Depth ~0.7, SoftEdge ~0.5</td>
-      <td>The new style</td>
-    </tr>
-    <tr>
-      <td>Sketch to finished art</td>
-      <td>Rough sketch</td>
-      <td>Scribble</td>
-      <td>~0.7</td>
-      <td>Subject details, finish</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>For <strong>character consistency across many images</strong>, fix the seed and pair a character LoRA (subject) with a pose ControlNet (posture) — the LoRA keeps the identity stable while the control map varies the pose.</p>
+<p>Instruction-editing models have absorbed many jobs that used to require ControlNet plus inpainting (relighting, changing a character’s outfit, turning a subject), and some accept a pose or depth image as one of their references. ControlNet remains the tool when geometry must match a map exactly: architecture from line drawings, depth-accurate renders of 3D scenes, animation where every frame must follow a skeleton.</p>
 
 <h2 id="troubleshooting">Troubleshooting</h2>
-
-<p>Most ControlNet problems trace back to a bad control map or too-aggressive strength. Diagnose by previewing the map first, then adjust strength and the control window:</p>
 
 <table>
   <thead>
@@ -3831,107 +3565,61 @@ git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git
   </thead>
   <tbody>
     <tr>
-      <td>Preprocessor misses the subject (no skeleton/edges)</td>
-      <td>Low contrast, wrong preprocessor, low-res input</td>
-      <td>Raise contrast, switch to a robust variant (DWPose, SoftEdge), or hand-edit the map</td>
+      <td>Control has no effect, or output is corrupted</td>
+      <td>ControlNet from a different base family; missing <code class="language-plaintext highlighter-rouge">vae</code> input on a DiT ControlNet</td>
+      <td>Match the family; connect the VAE</td>
     </tr>
     <tr>
-      <td>Result looks traced or stiff</td>
-      <td>Strength too high, control runs too late</td>
-      <td>Lower <code class="language-plaintext highlighter-rouge">strength</code> toward 0.6, pull <code class="language-plaintext highlighter-rouge">end_percent</code> to ~0.7, optionally raise CFG</td>
+      <td>Preprocessor misses the subject</td>
+      <td>Low contrast, small subject, wrong detector</td>
+      <td>Crop or upscale the reference; switch detector (DWPose, SoftEdge); hand-edit the map</td>
     </tr>
     <tr>
-      <td>Harsh artifacts along edges</td>
-      <td>Canny on a soft/organic subject</td>
-      <td>Use SoftEdge instead, or lightly blur the control map</td>
+      <td>Result looks traced, flat or stiff</td>
+      <td>Strength too high or control held to the end</td>
+      <td>Strength 0.6-0.7, <code class="language-plaintext highlighter-rouge">end_percent</code> 0.6-0.8</td>
     </tr>
     <tr>
-      <td>Structure is slightly misaligned</td>
-      <td>Control map resolution ≠ model resolution</td>
-      <td>Preprocess at 512 (SD 1.5) or 1024 (SDXL/FLUX)</td>
+      <td>Hard halos and artifacts along edges</td>
+      <td>Canny on a soft or noisy subject</td>
+      <td>Use SoftEdge/Lineart, raise Canny thresholds, or blur the map slightly</td>
     </tr>
     <tr>
-      <td>Control silently does nothing / corrupts output</td>
-      <td>ControlNet built for a different base family</td>
-      <td>Use a ControlNet matching your checkpoint’s family</td>
+      <td>Structure offset or distorted</td>
+      <td>Control map aspect ratio or resolution differs from the latent</td>
+      <td>Preprocess at the generation resolution and aspect ratio</td>
+    </tr>
+    <tr>
+      <td>Pose correct, anatomy wrong</td>
+      <td>Hands or face missing from skeleton</td>
+      <td>Use a full-body + hands detector; fix limbs in a pose editor</td>
+    </tr>
+    <tr>
+      <td>Stacked controls muddy</td>
+      <td>Controls competing</td>
+      <td>Lower the secondary control, or end it earlier</td>
+    </tr>
+    <tr>
+      <td>Out of memory</td>
+      <td>Extra network per control</td>
+      <td>Use a union model, fp16/fp8 weights, T2I-Adapter, or offload; run preprocessors on CPU</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="performance-and-vram">Performance and VRAM</h3>
-
-<p>ControlNet adds a second pass over the encoder, so it costs memory and time. To keep it light: run the <strong>preprocessor on CPU</strong> (it is a one-time analysis pass and rarely the bottleneck), keep the <strong>ControlNet model on GPU</strong>, enable your tool’s <strong>low-VRAM / offload</strong> mode so unused models leave VRAM, and prefer <strong>T2I-Adapter</strong> when you need many controls cheaply.</p>
-
-<h2 id="creative-applications">Creative Applications</h2>
-
-<p>ControlNet’s value compounds once you stop treating the control map as fixed:</p>
-
-<ul>
-  <li><strong>Hybrid maps.</strong> Because the model only sees the map, you can composite two sources — e.g. take depth from a photo and edges from a separate sketch, blend them, and feed the combination — to borrow structure from multiple references at once.</li>
-  <li><strong>Restyle while preserving layout.</strong> Run Depth (and optionally SoftEdge) on a photo, then prompt for a completely different style (“oil painting in the style of Van Gogh”). The scene’s geometry survives while the look changes entirely.</li>
-  <li><strong>Animation consistency.</strong> For video, extract a control map per frame and blend each frame’s map slightly toward the previous one, so the conditioning evolves smoothly instead of jumping — a simple but effective way to reduce flicker. See <a href="output-formats.html">Output Formats</a> and <a href="advanced-techniques.html">Advanced Techniques</a> for full temporal workflows.</li>
-</ul>
-
-<h2 id="best-practices">Best Practices</h2>
-
-<h3 id="do">Do</h3>
-
-<ul>
-  <li>Match control resolution to model resolution</li>
-  <li>Use the appropriate preprocessor for the input type</li>
-  <li>Experiment with strength values</li>
-  <li>Combine multiple controls thoughtfully</li>
-  <li>Save successful control maps for reuse</li>
-</ul>
-
-<h3 id="avoid">Avoid</h3>
-
-<ul>
-  <li>Using 100% control strength by default</li>
-  <li>Ignoring prompt importance</li>
-  <li>Mixing incompatible model versions</li>
-  <li>Expecting perfect results immediately</li>
-  <li>Overstacking controls (3+ is rarely helpful)</li>
-</ul>
-
-<h2 id="where-controlnet-is-heading">Where ControlNet Is Heading</h2>
-
-<p>A few directions are already shipping or clearly underway, rather than speculative:</p>
-
-<ul>
-  <li><strong>Union models</strong> that fold many control types into one file (SDXL and FLUX) are becoming the norm, replacing the old one-file-per-type sprawl.</li>
-  <li><strong>Better, faster preprocessors</strong> — Depth Anything for depth and DWPose for pose are recent examples — keep raising control-map quality, which matters more than new control types.</li>
-  <li><strong>Temporal/video control</strong> is maturing alongside video diffusion, addressing the frame-to-frame flicker that frame-by-frame ControlNet causes.</li>
-  <li><strong>Optical-illusion and pattern controls</strong> (hidden text, QR codes, spiral illusions) show how creatively the conditioning map can be repurposed.</li>
-</ul>
-
-<p>The durable takeaway: invest in understanding the preprocessor-plus-model split and strength tuning, since those skills carry over to whatever control types arrive next.</p>
-
-<h2 id="conclusion">Conclusion</h2>
-
-<p>ControlNet transforms diffusion models from probabilistic generators into precision tools. By understanding the various control types and their optimal applications, you can achieve unprecedented control over AI image generation while maintaining the creative capabilities of the base models.</p>
-
-<p>The key to mastery is experimentation: try different preprocessors, adjust strengths, and combine controls creatively. As the technology evolves, ControlNet continues to bridge the gap between artistic vision and AI capabilities.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>ControlNet adds spatial control</strong> to diffusion by injecting a structural “control map” (pose, edge, depth, segmentation) into every denoising step.</li>
-  <li><strong>The preprocessor matters as much as the model</strong> — choose it to match your input (OpenPose for figures, Canny for edges, Depth for 3D structure).</li>
-  <li><strong>Strength is a dial, not a switch.</strong> Rarely use 100%; tune <code class="language-plaintext highlighter-rouge">strength</code> and pull <code class="language-plaintext highlighter-rouge">end_percent</code> back so structure guides the layout without overriding the prompt’s detail.</li>
-  <li><strong>Combine deliberately:</strong> ControlNet for structure + IP-Adapter for style + a LoRA for subject — but stacking 3+ ControlNets rarely helps.</li>
-  <li><strong>Match versions and resolution.</strong> Use ControlNets built for your base family (SD1.5/SDXL/FLUX) and align control resolution with generation resolution.</li>
-</ul>
+<p>For video, per-frame ControlNet flickers because each frame’s map and noise are independent. Temporal models (AnimateDiff for SD 1.5/SDXL, and control-capable video models such as Wan’s VACE variants) handle consistency better; see <a href="output-formats.html">Output Formats</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Understanding the base generation process</li>
-  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Integrate ControlNet into advanced workflows</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Combine LoRAs with ControlNet for custom styles</li>
-  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Multi-control and expert patterns</li>
-  <li><a href="model-types.html">Model Types</a> - ControlNet model types and compatibility</li>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - ControlNet support across models</li>
+  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - The base generation process</li>
+  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Node-graph mechanics</li>
+  <li><a href="inpainting-editing.html">Inpainting &amp; Editing</a> - Masks, inpaint ControlNets and instruction editing</li>
+  <li><a href="flux-guide.html">FLUX Guide</a> - FLUX.1 Canny/Depth, Kontext and FLUX.2 references</li>
+  <li><a href="sdxl-guide.html">SDXL Guide</a> - The family with the broadest modern ControlNet support</li>
+  <li><a href="lora-training.html">LoRA Training</a> - Subject and style LoRAs to pair with control</li>
+  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Regional prompting and multi-control patterns</li>
+  <li><a href="model-types.html">Model Types</a> - Where ControlNets sit among checkpoints, LoRAs and adapters</li>
   <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
 </ul>
 

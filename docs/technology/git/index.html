@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How Git works under the hood: the object store, the commit graph, the wire protocol, and the merge, rebase, recovery and authentication machinery built on them.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Git Internals">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How Git works under the hood: the object store, the commit graph, the wire protocol, and the merge, rebase, recovery and authentication machinery built on them.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Git Internals">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How Git works under the hood: the object store, the commit graph, the wire protocol, and the merge, rebase, recovery and authentication machinery built on them.">
 
 <title>Git Internals | Andrews Notebook</title>
 
@@ -3133,93 +3133,167 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Git Internals</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Distributed Version Control System: Architecture, Algorithms, and Implementation</p>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Architecture, algorithms, and operations of a distributed version control system</p>
 </div>
 
-<p>Git is a distributed version control system designed by Linus Torvalds in 2005. Built on content-addressable storage and cryptographic principles, it tracks changes, manages parallel development, and ensures data integrity through SHA-1 hashing. Three properties define it: <strong>DAG-based history</strong> (commits form a directed acyclic graph), <strong>cryptographic integrity</strong> (SHA-1 content addressing, SHA-256 opt-in), and a <strong>distributed, peer-to-peer architecture</strong> in which every clone is a complete repository with full history.</p>
+<p><strong>Git</strong> is a distributed version control system written by Linus Torvalds in 2005 for Linux kernel development and maintained since then by Junio Hamano and a large contributor community. The current release line is <strong>Git 2.55</strong> (June 2026). At its core Git is a <em>content-addressable object store</em> (every file, directory, commit and tag is named by the hash of its bytes) with a small set of mutable <em>references</em> layered on top. Nearly every Git behaviour, from cheap branches to the recoverability of “lost” commits, follows from that design.</p>
 
-<p>This section is the <strong>architecture and internals deep dive</strong> — the object model, the commit DAG, the wire protocol, and the algorithms behind merge, rebase, and bisect. If you instead want to <em>get started</em>, read the <a href="../git-crash-course.html">Git Crash Course</a>; to <em>look up a command</em>, the <a href="../git-reference.html">Git Command Reference</a>; for <em>team workflow</em>, <a href="../branching.html">Branching Strategies</a>.</p>
+<p>This section is the architecture deep dive. For a first walkthrough read the <a href="../git-crash-course.html">Git Crash Course</a>; to look up a command, the <a href="../git-reference.html">Git Command Reference</a>; for team workflow, <a href="../branching.html">Branching Strategies</a>.</p>
 
-<h2 id="what-is-git">What is Git?</h2>
+<h2 id="the-design-in-one-picture">The design in one picture</h2>
 
-<p>Git is a <strong>distributed version control system</strong> created by Linus Torvalds in 2005 for Linux kernel development. Unlike centralized systems (SVN, Perforce), Git:</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Refs["References (mutable)"]
+        HEAD["HEAD"] --&gt; main["refs/heads/main"]
+        tag["refs/tags/v1.0"]
+        log[["reflog"]]
+    end
+    subgraph Objects["Object store (immutable, content-addressed)"]
+        C3["commit C3"] --&gt; C2["commit C2"] --&gt; C1["commit C1"]
+        C3 --&gt; T["tree /"]
+        T --&gt; B1["blob README"]
+        T --&gt; T2["tree src/"] --&gt; B2["blob main.c"]
+    end
+    main --&gt; C3
+    tag --&gt; C2
+    WT["Working tree"] -- "git add" --&gt; IDX["Index&lt;br/&gt;(staging area)"] -- "git commit" --&gt; C3
+</code></pre>
 
-<ul>
-  <li><strong>Stores complete history locally</strong>: Every clone is a full backup</li>
-  <li><strong>Works offline</strong>: Most operations don’t need network access</li>
-  <li><strong>Branches are lightweight</strong>: Creating/merging branches is fast and easy</li>
-  <li><strong>Guarantees data integrity</strong>: Uses SHA-1 checksums (with collision detection) for all data; SHA-256 is an opt-in, still-experimental format</li>
-  <li><strong>Supports non-linear development</strong>: Multiple parallel branches and complex merges</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>What it means</th>
+      <th>Consequence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Snapshots, not diffs</strong></td>
+      <td>Each commit records a full tree; unchanged files reuse the same blob</td>
+      <td>Checkout of any revision is a direct lookup; deltas exist only as a storage optimisation in pack files</td>
+    </tr>
+    <tr>
+      <td><strong>Content addressing</strong></td>
+      <td>Objects are named by SHA-1 (default) or SHA-256 of their content</td>
+      <td>Deduplication and tamper-evidence come for free; a commit hash commits to all of its history</td>
+    </tr>
+    <tr>
+      <td><strong>History is a DAG</strong></td>
+      <td>Commits point to their parent(s), forming a directed acyclic graph</td>
+      <td>Merge, rebase, bisect and <code class="language-plaintext highlighter-rouge">log</code> are graph algorithms</td>
+    </tr>
+    <tr>
+      <td><strong>References are cheap pointers</strong></td>
+      <td>A branch is a name that resolves to one commit</td>
+      <td>Creating, deleting and moving branches is O(1) and never touches objects</td>
+    </tr>
+    <tr>
+      <td><strong>Fully distributed</strong></td>
+      <td>Every clone holds the complete object graph</td>
+      <td>Most operations are local and offline; every clone is a backup</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="why-use-version-control">Why Use Version Control?</h3>
+<h2 id="pages-in-this-section">Pages in this section</h2>
 
-<p>Version control solves fundamental problems in software development:</p>
+<p>Read <strong>Object Model &amp; Storage</strong> first; the other pages build on the object store and reference model it describes.</p>
 
-<ol>
-  <li><strong>Collaboration</strong>: Multiple developers can work on the same project without conflicts</li>
-  <li><strong>History</strong>: Track who changed what, when, and why</li>
-  <li><strong>Backup</strong>: Distributed copies protect against data loss</li>
-  <li><strong>Experimentation</strong>: Try new ideas in branches without affecting stable code</li>
-  <li><strong>Time Travel</strong>: Revert to any previous state of the project</li>
-  <li><strong>Blame/Annotation</strong>: Understand why code was written a certain way</li>
-</ol>
-
-<h2 id="explore-git-internals">Explore Git Internals</h2>
-
-<p>This deep dive assumes you already use Git day to day; if not, read the <a href="../git-crash-course.html">Git Crash Course</a> first. Start with <strong>Object Model &amp; Storage</strong> — the protocol and algorithm pages both build on the object store it describes.</p>
+<pre><code class="language-mermaid">flowchart TD
+    OM["Object Model &amp; Storage"] --&gt; PP["Protocols, Packs &amp; Performance"]
+    OM --&gt; AO["Algorithms &amp; Advanced Operations"]
+    AO --&gt; CR["Conflict Resolution &amp; Recovery"]
+    PP --&gt; AU["Authentication &amp; Access Control"]
+</code></pre>
 
 <table>
   <thead>
     <tr>
       <th>Page</th>
-      <th>What it covers</th>
+      <th>Covers</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><a href="object-model.html">Object Model &amp; Storage</a></td>
-      <td>The four object types, content-addressable storage, the storage layout, the three trees, Merkle/DAG foundations, the index format, and reference management</td>
+      <td>The four object types, content-addressable storage, on-disk layout, the three trees, the index format, and references</td>
     </tr>
     <tr>
       <td><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a></td>
-      <td>The wire protocol, distributed synchronization, pack and index file formats, delta compression, and performance optimization</td>
+      <td>Wire protocol v2, fetch/push negotiation, pack and pack-index formats, delta compression, maintenance, and large-repository techniques</td>
     </tr>
     <tr>
       <td><a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a></td>
-      <td>Three-way merge, merge strategies, rebase and bisect algorithms, stash, reset/revert, hooks, and recovery</td>
+      <td>Merge-base computation, three-way merge and the <code class="language-plaintext highlighter-rouge">ort</code> strategy, rebase and the sequencer, <code class="language-plaintext highlighter-rouge">replay</code> and <code class="language-plaintext highlighter-rouge">history</code>, bisect, cherry-pick, stash, reset/revert, and hooks</td>
     </tr>
     <tr>
       <td><a href="conflict-and-recovery.html">Conflict Resolution &amp; Recovery</a></td>
-      <td>Resolving merge/rebase conflicts, undoing history rewrites, and recovering lost commits and branches via reflog and fsck</td>
+      <td>Resolving merge, rebase and cherry-pick conflicts; undoing force-pushes; recovering commits with the reflog and <code class="language-plaintext highlighter-rouge">fsck</code>; repairing corrupt repositories</td>
     </tr>
     <tr>
       <td><a href="auth-and-access-control.html">Authentication &amp; Access Control</a></td>
-      <td>SSH keys, deploy keys, access tokens, credential helpers, GPG/SSH commit signing, SSO, and leaked-credential defense</td>
+      <td>SSH keys, deploy keys, tokens and credential helpers; GPG, SSH and Sigstore commit signing; SSO; Git’s local trust settings; leaked-secret response</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="where-git-is-heading">Where Git is heading</h2>
+
+<p>The Git project maintains a list of changes planned for <strong>Git 3.0</strong> in <code class="language-plaintext highlighter-rouge">Documentation/BreakingChanges</code>. No release date has been set, but several defaults are already opt-in:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Change</th>
+      <th>Today</th>
+      <th>Git 3.0 plan</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Object hash</td>
+      <td>SHA-1 (hardened, with collision detection); SHA-256 via <code class="language-plaintext highlighter-rouge">git init --object-format=sha256</code></td>
+      <td>SHA-256 for new repositories; SHA-1 repositories keep working</td>
+    </tr>
+    <tr>
+      <td>Reference storage</td>
+      <td>Loose files plus <code class="language-plaintext highlighter-rouge">packed-refs</code>; <strong>reftable</strong> via <code class="language-plaintext highlighter-rouge">init.defaultRefFormat=reftable</code></td>
+      <td>reftable by default</td>
+    </tr>
+    <tr>
+      <td>Default branch name</td>
+      <td><code class="language-plaintext highlighter-rouge">master</code>, with a warning since Git 2.49</td>
+      <td><code class="language-plaintext highlighter-rouge">main</code></td>
+    </tr>
+    <tr>
+      <td>Bare-repository discovery</td>
+      <td><code class="language-plaintext highlighter-rouge">safe.bareRepository=all</code></td>
+      <td><code class="language-plaintext highlighter-rouge">explicit</code>, to stop hooks in embedded bare repositories from running implicitly</td>
+    </tr>
+    <tr>
+      <td>Rust</td>
+      <td>Optional build component</td>
+      <td>Required to build Git</td>
+    </tr>
+    <tr>
+      <td>Removed commands</td>
+      <td><code class="language-plaintext highlighter-rouge">git whatchanged</code>, <code class="language-plaintext highlighter-rouge">git pack-redundant</code>, grafts, <code class="language-plaintext highlighter-rouge">.git/branches/</code> and <code class="language-plaintext highlighter-rouge">.git/remotes/</code> still work</td>
+      <td>Removed; use <code class="language-plaintext highlighter-rouge">git log --raw</code>, <code class="language-plaintext highlighter-rouge">git replace</code>, and config-based remotes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">git checkout</code> is explicitly <em>not</em> being removed, even though <code class="language-plaintext highlighter-rouge">git switch</code> and <code class="language-plaintext highlighter-rouge">git restore</code> cover its two roles. The main obstacle to switching hash functions is ecosystem support: SHA-256 repositories cannot yet interoperate with SHA-1 remotes, and forge and library support is still incomplete.</p>
+
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><strong>Snapshots, not diffs</strong> — each commit stores a full tree snapshot; identical content is deduplicated by hash, so snapshots stay cheap.</li>
-  <li><strong>Everything is content-addressed</strong> — blobs, trees, commits, and tags are named by the hash of their content, giving Git both integrity and deduplication.</li>
-  <li><strong>History is a DAG</strong> — commits link to parents to form a directed acyclic graph; branches and tags are just movable pointers into it.</li>
-  <li><strong>Branches are cheap pointers</strong> — a branch is a 40-character file pointing at a commit; creating, switching, and merging are fast and local.</li>
-  <li><strong>Merge needs a common ancestor</strong> — three-way merge diffs both sides against the merge base; non-overlapping changes combine automatically.</li>
-  <li><strong>Almost everything is local</strong> — commits, branches, history, and diffs work offline; the network is only needed to fetch, push, and clone.</li>
-</ul>
-
-<h2 id="see-also">See Also</h2>
-
-<ul>
-  <li><a href="../git-crash-course.html">Git Crash Course</a> — start here if you are new to Git</li>
-  <li><a href="../git-reference.html">Git Command Reference</a> — complete command syntax cheat sheet</li>
-  <li><a href="../branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, and trunk-based development</li>
-  <li><a href="../ci-cd/">CI/CD</a> — continuous integration and deployment pipelines</li>
-  <li><a href="../docker/">Docker</a> — containerization for consistent development environments</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> — security practices for version control and secrets management</li>
+  <li><a href="../git-crash-course.html">Git Crash Course</a>: start here if you are new to Git</li>
+  <li><a href="../git-reference.html">Git Command Reference</a>: command syntax, including <a href="../git-reference.html#toward-git-30">the road to Git 3.0</a></li>
+  <li><a href="../branching.html">Branching Strategies</a>: GitHub Flow, GitLab Flow, Git Flow and trunk-based development</li>
+  <li><a href="../ci-cd/">CI/CD</a>: continuous integration and deployment pipelines</li>
+  <li><a href="../cybersecurity/">Cybersecurity</a>: secrets management and supply-chain security</li>
 </ul>
 
       </section>

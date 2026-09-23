@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Diffusion, flow matching, GANs, VAEs, autoregressive models and discrete diffusion: the objectives, samplers, and trade-offs behind modern image, video, audi...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AI & ML: Generative Models">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Diffusion, flow matching, GANs, VAEs, autoregressive models and discrete diffusion: the objectives, samplers, and trade-offs behind modern image, video, audi...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/ai/generative-models.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AI & ML: Generative Models">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Diffusion, flow matching, GANs, VAEs, autoregressive models and discrete diffusion: the objectives, samplers, and trade-offs behind modern image, video, audi...">
 
 <title>AI & ML: Generative Models | Andrews Notebook</title>
 
@@ -3135,354 +3135,423 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI &amp; Machine Learning</a> › Generative Models</p>
 
-<p>Generative models learn the distribution of their training data so they can produce new, original samples from it. This page covers the dominant families—diffusion models, GANs, VAEs, and the autoregressive approach behind large language models—along with the mathematics that makes them work.</p>
+<p>A <strong>generative model</strong> learns an approximation $p_\theta(\mathbf{x})$ of the distribution that produced its training data, so it can draw new samples from it and, in some cases, evaluate how likely a given sample is. This page covers the families that matter in practice: <strong>diffusion and flow-matching models</strong> (the dominant approach for images, video, and audio), <strong>GANs</strong>, <strong>VAEs</strong>, <strong>autoregressive models</strong> (the basis of large language models), and the newer <strong>discrete diffusion</strong> language models. It focuses on the objectives and sampling procedures; the loss functions themselves are derived in more depth on <a href="loss-functions.html">Loss Functions &amp; Objectives</a>, and a hands-on pipeline walkthrough lives in <a href="../../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>.</p>
 
-<h2 id="the-mathematics-behind-modern-image-generation">The Mathematics Behind Modern Image Generation</h2>
+<h2 id="the-families-at-a-glance">The Families at a Glance</h2>
 
-<p>Remember those AI-generated images that look impossibly real? They’re created using diffusion models—a mathematical framework that seemed counterintuitive at first but has proven incredibly powerful. The key insight: instead of trying to generate images directly, we learn how to gradually remove noise from random static.</p>
+<p>Every family answers the same question — how to turn simple randomness into structured data — with a different trade-off between sample quality, diversity (mode coverage), sampling speed, training stability, and whether the model gives you a likelihood.</p>
 
-<h3 id="score-based-generative-modeling">Score-Based Generative Modeling</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Family</th>
+      <th>How it generates</th>
+      <th>Sampling cost</th>
+      <th>Exact likelihood</th>
+      <th>Training</th>
+      <th>Typical use (2025–26)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Diffusion / score-based</td>
+      <td>Iteratively denoise Gaussian noise</td>
+      <td>20–50 network calls; 1–4 after distillation</td>
+      <td>Via ODE (expensive)</td>
+      <td>Stable (regression loss)</td>
+      <td>Images, video, audio, molecules</td>
+    </tr>
+    <tr>
+      <td>Flow matching / rectified flow</td>
+      <td>Integrate a learned velocity field from noise to data</td>
+      <td>Similar to diffusion, fewer steps</td>
+      <td>Via ODE</td>
+      <td>Stable (regression loss)</td>
+      <td>SD3, FLUX and most new image/video models</td>
+    </tr>
+    <tr>
+      <td>GAN</td>
+      <td>One generator pass from a latent vector</td>
+      <td>1 call</td>
+      <td>No</td>
+      <td>Adversarial, unstable</td>
+      <td>Super-resolution, real-time, as a distillation loss</td>
+    </tr>
+    <tr>
+      <td>VAE</td>
+      <td>Decode a sample from a latent prior</td>
+      <td>1 call</td>
+      <td>Lower bound (ELBO)</td>
+      <td>Stable</td>
+      <td>The compression stage of latent diffusion</td>
+    </tr>
+    <tr>
+      <td>Autoregressive</td>
+      <td>Predict one token at a time</td>
+      <td>One call per token</td>
+      <td>Yes</td>
+      <td>Stable (cross-entropy)</td>
+      <td>LLMs, speech, some image generators</td>
+    </tr>
+    <tr>
+      <td>Normalizing flow</td>
+      <td>Invertible transform of noise</td>
+      <td>1 call</td>
+      <td>Yes</td>
+      <td>Stable, architecture-constrained</td>
+      <td>Density estimation, niche image models</td>
+    </tr>
+    <tr>
+      <td>Discrete (masked) diffusion</td>
+      <td>Iteratively unmask tokens in parallel</td>
+      <td>Few passes over the whole sequence</td>
+      <td>Bound</td>
+      <td>Stable (cross-entropy)</td>
+      <td>Emerging fast text and code generation</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Score-based diffusion models use continuous-time stochastic differential equations:</strong></p>
+<h2 id="diffusion-models">Diffusion Models</h2>
 
-<ul>
-  <li><strong>Forward SDE</strong> gradually adds noise:</li>
-</ul>
+<p>Diffusion models, introduced by Sohl-Dickstein et al. (2015) and made practical by <strong>DDPM</strong> (Ho, Jain &amp; Abbeel, 2020), define a fixed <em>forward process</em> that gradually corrupts data into Gaussian noise and train a network to run that process <em>in reverse</em>. Generating an image then means starting from pure noise and repeatedly applying the learned denoiser.</p>
 
-\[d\mathbf{x} = f(\mathbf{x}, t)\,dt + g(t)\,d\mathbf{w}\]
+<pre><code class="language-mermaid">flowchart LR
+    x0["x_0&lt;br/&gt;data"] --&gt;|"q: add noise"| x1["x_t&lt;br/&gt;partly noisy"]
+    x1 --&gt;|"q: add noise"| xT["x_T&lt;br/&gt;pure Gaussian noise"]
+    xT -.-&gt;|"p_theta: denoise"| x1b["x_t"]
+    x1b -.-&gt;|"p_theta: denoise"| x0b["x_0&lt;br/&gt;new sample"]
+</code></pre>
 
-<ul>
-  <li><strong>Reverse SDE</strong> runs the process backward to generate samples:</li>
-</ul>
+<p><em>Solid arrows: the fixed forward (noising) process used to build training pairs. Dashed arrows: the learned reverse process used for generation.</em></p>
 
-\[d\mathbf{x} = \left[f(\mathbf{x}, t) - g(t)^2 \nabla_{\mathbf{x}} \log p_t(\mathbf{x})\right]dt + g(t)\,d\bar{\mathbf{w}}\]
+<h3 id="ddpm-the-discrete-time-formulation">DDPM: The Discrete-Time Formulation</h3>
 
-<ul>
-  <li><strong>Score Matching</strong>: learn the score $\nabla_{\mathbf{x}} \log p_t(\mathbf{x})$ via denoising</li>
-  <li><strong>Variance schedule</strong>: $\sigma(t) = \sigma_{\min}\left(\sigma_{\max}/\sigma_{\min}\right)^{t}$</li>
-</ul>
+<p>With a variance schedule $\beta_1, \dots, \beta_T$ and $\bar\alpha_t = \prod_{s=1}^{t}(1-\beta_s)$, the forward process has a closed form at any step, so a noisy sample can be produced in one shot:</p>
 
-<p><strong>Key advantages:</strong></p>
-<ul>
-  <li>Continuous time formulation enables flexible sampling</li>
-  <li>Predictor-corrector methods improve sample quality</li>
-  <li>Connection to neural ODEs and normalizing flows</li>
-  <li>State-of-the-art image generation quality</li>
-</ul>
+\[q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\!\left(\mathbf{x}_t;\ \sqrt{\bar\alpha_t}\,\mathbf{x}_0,\ (1-\bar\alpha_t)\mathbf{I}\right), \qquad \mathbf{x}_t = \sqrt{\bar\alpha_t}\,\mathbf{x}_0 + \sqrt{1-\bar\alpha_t}\,\varepsilon, \quad \varepsilon \sim \mathcal{N}(\mathbf{0}, \mathbf{I}).\]
+
+<p>The reverse transitions $p_\theta(\mathbf{x}<em>{t-1} \mid \mathbf{x}_t)$ are Gaussians whose mean is computed from a network $\varepsilon</em>\theta$ that predicts the added noise. The variational bound on the likelihood simplifies, after reweighting, to a plain regression loss:</p>
+
+\[\mathcal{L}_{\text{simple}} = \mathbb{E}_{t,\,\mathbf{x}_0,\,\varepsilon}\left[\left\lVert \varepsilon - \varepsilon_\theta(\mathbf{x}_t, t)\right\rVert^2\right].\]
+
+<p>Training is therefore: sample an image, a timestep, and a noise vector; build $\mathbf{x}_t$; regress the noise. There is no adversary and no intractable integral, which is why diffusion training is far more stable than GAN training.</p>
+
+<p><strong>Parameterizations.</strong> Predicting the noise $\varepsilon$ is one of three equivalent targets. The network can instead predict the clean image $\mathbf{x}_0$, or the <em>velocity</em> $\mathbf{v} = \sqrt{\bar\alpha_t}\,\varepsilon - \sqrt{1-\bar\alpha_t}\,\mathbf{x}_0$ (Salimans &amp; Ho, 2022). They differ in how the loss is weighted across noise levels; $\mathbf{v}$-prediction behaves better at very high noise and is used by several production models.</p>
+
+<p><strong>Schedules.</strong> The original linear $\beta_t$ schedule destroys information too quickly at low resolution; the cosine schedule (Nichol &amp; Dhariwal, 2021) and later noise-level-aware formulations fixed this. Karras et al.’s <strong>EDM</strong> framework (2022) separated the design choices — noise schedule, network preconditioning, loss weighting, and sampler — and showed each can be tuned independently.</p>
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/diffusion_models.py#L15">diffusion_models.py#ScoreBasedDiffusion</a>
+<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/diffusion_models.py#L119">diffusion_models.py#DDPM</a>
 </div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example usage:
-</span><span class="kn">from</span> <span class="n">diffusion_models</span> <span class="kn">import</span> <span class="n">ScoreBasedDiffusion</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">diffusion_models</span> <span class="kn">import</span> <span class="n">DDPM</span>
 
-<span class="c1"># Create score-based model
-</span><span class="n">score_model</span> <span class="o">=</span> <span class="nc">UNet</span><span class="p">(...)</span>  <span class="c1"># score network (predicts the score / noise)
-# training loop: sample t, add noise to x_0, predict the score, backprop the loss
-</span><span class="n">diffusion</span> <span class="o">=</span> <span class="nc">ScoreBasedDiffusion</span><span class="p">(</span><span class="n">score_model</span><span class="p">,</span> <span class="n">sigma_min</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">sigma_max</span><span class="o">=</span><span class="mf">50.0</span><span class="p">)</span>
+<span class="n">ddpm</span> <span class="o">=</span> <span class="nc">DDPM</span><span class="p">(</span><span class="n">noise_predictor</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">beta_start</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">beta_end</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>  <span class="c1"># noise_predictor: a U-Net or DiT
+</span>
+<span class="n">loss</span> <span class="o">=</span> <span class="n">ddpm</span><span class="p">.</span><span class="nf">loss</span><span class="p">(</span><span class="n">batch_images</span><span class="p">)</span>                                  <span class="c1"># noise-prediction MSE
+</span><span class="n">samples</span> <span class="o">=</span> <span class="n">ddpm</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">))</span>                  <span class="c1"># 1000 ancestral steps
+</span><span class="n">fast</span> <span class="o">=</span> <span class="n">ddpm</span><span class="p">.</span><span class="nf">ddim_sample</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">ddim_timesteps</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>  <span class="c1"># deterministic DDIM
+</span></code></pre></div></div>
 
-<span class="c1"># Training
-</span><span class="n">loss</span> <span class="o">=</span> <span class="n">diffusion</span><span class="p">.</span><span class="nf">loss_fn</span><span class="p">(</span><span class="n">batch_images</span><span class="p">)</span>
+<h3 id="the-score-based-sde-view">The Score-Based (SDE) View</h3>
 
-<span class="c1"># Sampling
-</span><span class="n">samples</span> <span class="o">=</span> <span class="n">diffusion</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">num_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-</code></pre></div></div>
+<p>Song et al. (2021) unified diffusion models with score matching by taking the number of steps to infinity. The forward process becomes a stochastic differential equation</p>
 
-<h3 id="ddpm-mathematical-framework">DDPM Mathematical Framework</h3>
+\[d\mathbf{x} = f(\mathbf{x}, t)\,dt + g(t)\,d\mathbf{w},\]
 
-<p>While score-based models work in continuous time, researchers found that discretizing the process into fixed timesteps could make training more stable and efficient. This led to DDPMs, which have become the foundation for many practical diffusion models.</p>
+<p>and Anderson’s time-reversal result gives the reverse-time SDE, which depends on the data only through the <strong>score</strong> $\nabla_{\mathbf{x}} \log p_t(\mathbf{x})$:</p>
 
-<p><strong>Denoising Diffusion Probabilistic Models (DDPM) use discrete timesteps:</strong></p>
+\[d\mathbf{x} = \left[f(\mathbf{x}, t) - g(t)^2\, \nabla_{\mathbf{x}} \log p_t(\mathbf{x})\right]dt + g(t)\,d\bar{\mathbf{w}}.\]
 
-<ul>
-  <li><strong>Forward process</strong> (closed form at any step $t$):</li>
-</ul>
+<p>A network $s_\theta(\mathbf{x}, t)$ is trained to approximate the score by <em>denoising score matching</em>. Noise prediction and score estimation are the same thing up to scale: for the DDPM forward process, $s_\theta(\mathbf{x}<em>t, t) = -\varepsilon</em>\theta(\mathbf{x}_t, t)/\sqrt{1-\bar\alpha_t}$.</p>
 
-\[q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\!\left(\mathbf{x}_t;\, \sqrt{\bar\alpha_t}\,\mathbf{x}_0,\, (1-\bar\alpha_t)\mathbf{I}\right)\]
+<p>The same marginals $p_t$ are also produced by a deterministic <strong>probability-flow ODE</strong>,</p>
 
-<ul>
-  <li><strong>Reverse process</strong>: $p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t)$ learned via a neural network</li>
-  <li><strong>Training objective</strong> (predict the added noise $\varepsilon$):</li>
-</ul>
+\[\frac{d\mathbf{x}}{dt} = f(\mathbf{x}, t) - \tfrac{1}{2}\,g(t)^2\, \nabla_{\mathbf{x}} \log p_t(\mathbf{x}),\]
 
-\[\mathcal{L}_{\text{simple}} = \mathbb{E}_{t,\,\mathbf{x}_0,\,\varepsilon}\left[\,\left\lVert \varepsilon - \varepsilon_\theta(\mathbf{x}_t, t)\right\rVert^2\,\right]\]
-
-<ul>
-  <li><strong>Variance schedule</strong>: $\beta_t$ controls the noise level added at each step; $\bar\alpha_t = \prod_{s=1}^{t}(1-\beta_s)$</li>
-</ul>
-
-<p><strong>Key innovations:</strong></p>
-<ul>
-  <li>Simplified loss function (predict noise instead of data)</li>
-  <li>Reparameterization for stable training</li>
-  <li>DDIM: Deterministic sampling variant</li>
-  <li>Improved schedules (cosine, learned)</li>
-</ul>
+<p>which is what makes fast deterministic samplers (DDIM is a discretization of it), exact likelihood computation, and latent-space interpolation possible. Common choices of $f$ and $g$ are the <em>variance-preserving</em> SDE (the continuous limit of DDPM) and the <em>variance-exploding</em> SDE with geometric noise levels $\sigma(t) = \sigma_{\min}\left(\sigma_{\max}/\sigma_{\min}\right)^{t}$.</p>
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/diffusion_models.py#L108">diffusion_models.py#DDPM</a>
+<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/diffusion_models.py#L16">diffusion_models.py#ScoreBasedDiffusion</a>
 </div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example usage:
-</span><span class="kn">from</span> <span class="n">diffusion_models</span> <span class="kn">import</span> <span class="n">DDPM</span>
+<h3 id="samplers">Samplers</h3>
 
-<span class="c1"># Create DDPM model
-</span><span class="n">noise_predictor</span> <span class="o">=</span> <span class="nc">UNet</span><span class="p">(...)</span>  <span class="c1"># Your noise prediction network
-</span><span class="n">ddpm</span> <span class="o">=</span> <span class="nc">DDPM</span><span class="p">(</span><span class="n">noise_predictor</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">beta_start</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">,</span> <span class="n">beta_end</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
+<p>Because the reverse process is an SDE or ODE, sampling is numerical integration, and better integrators mean fewer network evaluations (NFEs) for the same quality.</p>
 
-<span class="c1"># Training
-</span><span class="n">loss</span> <span class="o">=</span> <span class="n">ddpm</span><span class="p">.</span><span class="nf">loss</span><span class="p">(</span><span class="n">batch_images</span><span class="p">)</span>
+<table>
+  <thead>
+    <tr>
+      <th>Sampler</th>
+      <th>Type</th>
+      <th>Typical steps</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DDPM ancestral</td>
+      <td>Stochastic</td>
+      <td>250–1000</td>
+      <td>Original; slow</td>
+    </tr>
+    <tr>
+      <td>DDIM (Song, Meng &amp; Ermon, 2021)</td>
+      <td>Deterministic ODE</td>
+      <td>25–100</td>
+      <td>Same trained model, far fewer steps; invertible</td>
+    </tr>
+    <tr>
+      <td>Euler / Heun (EDM)</td>
+      <td>ODE, 1st/2nd order</td>
+      <td>20–40</td>
+      <td>Simple, robust defaults</td>
+    </tr>
+    <tr>
+      <td>DPM-Solver++, UniPC</td>
+      <td>High-order ODE solvers</td>
+      <td>10–25</td>
+      <td>Exploit the semi-linear structure of the ODE</td>
+    </tr>
+    <tr>
+      <td>Euler ancestral, DPM++ SDE</td>
+      <td>Stochastic</td>
+      <td>20–40</td>
+      <td>Injected noise can correct accumulated error</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1"># Sampling
-</span><span class="n">samples</span> <span class="o">=</span> <span class="n">ddpm</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">))</span>
+<h3 id="flow-matching-and-rectified-flow">Flow Matching and Rectified Flow</h3>
 
-<span class="c1"># DDIM sampling (faster)
-</span><span class="n">samples</span> <span class="o">=</span> <span class="n">ddpm</span><span class="p">.</span><span class="nf">ddim_sample</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">ddim_timesteps</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
-</code></pre></div></div>
+<p><strong>Flow matching</strong> (Lipman et al., 2023) and the closely related <strong>rectified flow</strong> (Liu et al., 2023) skip the SDE machinery and learn a velocity field that transports noise to data directly. The simplest version draws a straight line between a data point and a noise sample,</p>
 
-<h2 id="diffusion-models-creating-art-from-noise">Diffusion Models: Creating Art from Noise</h2>
+\[\mathbf{x}_t = (1-t)\,\mathbf{x}_0 + t\,\varepsilon, \qquad t \in [0, 1],\]
 
-<p>Diffusion models are a class of generative models that revolutionized image generation and are expanding into other domains. They work by gradually adding noise to data and then learning to reverse that process, enabling high-quality sample generation.</p>
+<p>and trains a network $\mathbf{v}_\theta$ to predict the constant velocity along it:</p>
 
-<h3 id="how-diffusion-models-work">How Diffusion Models Work</h3>
+\[\mathcal{L}_{\text{FM}} = \mathbb{E}_{t,\,\mathbf{x}_0,\,\varepsilon}\left[\left\lVert \mathbf{v}_\theta(\mathbf{x}_t, t) - (\varepsilon - \mathbf{x}_0)\right\rVert^2\right].\]
 
-<div class="diffusion-process">
-    <div class="process-visual">
-      <svg viewBox="0 0 600 200">
-        <!-- Forward process -->
-        <text x="300" y="30" text-anchor="middle" font-size="12" font-weight="bold">Forward Process (Adding Noise)</text>
+<p>Sampling integrates $d\mathbf{x}/dt = \mathbf{v}_\theta$ from $t=1$ (noise) to $t=0$ (data). Gaussian diffusion is a special case with curved paths; straighter paths are easier to integrate in few steps. Stable Diffusion 3 (Esser et al., 2024) showed that rectified flow with a timestep distribution biased toward the middle noise levels outperformed the standard diffusion formulations at scale, and FLUX.1 and most image and video models released since 2024 are trained with flow-matching objectives. See <a href="../../ai-ml/sd3-guide.html">SD3 Guide</a> and <a href="../../ai-ml/flux-guide.html">FLUX Guide</a> for the practical consequences.</p>
 
-        <!-- Original image -->
-        <rect x="50" y="50" width="60" height="60" fill="url(#imageGradient)" stroke="#2c3e50" stroke-width="2" />
-        <text x="80" y="130" text-anchor="middle" font-size="10">Original</text>
+<h3 id="guidance-and-conditioning">Guidance and Conditioning</h3>
 
-        <!-- Arrow -->
-        <path d="M 115 80 L 145 80" stroke="#95a5a6" stroke-width="2" marker-end="url(#arrow)" />
+<p>Conditional models (text-to-image, image-to-video) receive the condition $c$ — usually text-encoder embeddings — through cross-attention (U-Net era) or by concatenating text and image tokens into one joint attention sequence (MM-DiT in SD3 and FLUX).</p>
 
-        <!-- Partially noisy -->
-        <rect x="150" y="50" width="60" height="60" fill="url(#noisyGradient1)" stroke="#2c3e50" stroke-width="2" opacity="0.8" />
-        <text x="180" y="130" text-anchor="middle" font-size="10">t = 100</text>
+<p><strong>Classifier-free guidance</strong> (Ho &amp; Salimans, 2022) trains one network both with and without the condition (the condition is randomly dropped during training) and extrapolates between the two predictions at sampling time:</p>
 
-        <!-- Arrow -->
-        <path d="M 215 80 L 245 80" stroke="#95a5a6" stroke-width="2" marker-end="url(#arrow)" />
+\[\tilde\varepsilon_\theta(\mathbf{x}_t, c) = \varepsilon_\theta(\mathbf{x}_t, \varnothing) + w\left(\varepsilon_\theta(\mathbf{x}_t, c) - \varepsilon_\theta(\mathbf{x}_t, \varnothing)\right).\]
 
-        <!-- More noisy -->
-        <rect x="250" y="50" width="60" height="60" fill="url(#noisyGradient2)" stroke="#2c3e50" stroke-width="2" opacity="0.6" />
-        <text x="280" y="130" text-anchor="middle" font-size="10">t = 500</text>
+<p>A guidance scale $w &gt; 1$ trades diversity for prompt adherence and apparent quality; too high a value oversaturates images. CFG doubles the cost per step, so some models (FLUX.1-dev, for example) are <em>guidance-distilled</em> to take $w$ as an input and run a single pass. Structural conditioning such as edges, depth, or pose is added with auxiliary networks like <a href="../../ai-ml/controlnet.html">ControlNet</a>.</p>
 
-        <!-- Arrow -->
-        <path d="M 315 80 L 345 80" stroke="#95a5a6" stroke-width="2" marker-end="url(#arrow)" />
+<h3 id="latent-diffusion-and-the-backbone">Latent Diffusion and the Backbone</h3>
 
-        <!-- Pure noise -->
-        <rect x="350" y="50" width="60" height="60" fill="#95a5a6" stroke="#2c3e50" stroke-width="2" />
-        <text x="380" y="130" text-anchor="middle" font-size="10">Pure Noise</text>
+<p>Running diffusion on raw pixels is expensive at high resolution. <strong>Latent diffusion</strong> (Rombach et al., 2022) first trains an autoencoder that compresses an image by about 8x per side into a latent tensor, runs diffusion in that latent space, and decodes the result. This is the design behind every Stable Diffusion release and most commercial image and video generators.</p>
 
-        <!-- Reverse process arrow -->
-        <path d="M 380 140 Q 230 160, 80 140" stroke="#e74c3c" stroke-width="3" marker-end="url(#arrow)" fill="none" />
-        <text x="230" y="180" text-anchor="middle" font-size="12" fill="#e74c3c">Reverse Process (Denoising)</text>
+<pre><code class="language-mermaid">flowchart LR
+    P["Text prompt"] --&gt; TE["Text encoder(s)&lt;br/&gt;CLIP / T5 / LLM"]
+    N["Gaussian noise&lt;br/&gt;in latent space"] --&gt; D
+    TE --&gt;|"conditioning"| D["Denoiser&lt;br/&gt;U-Net or DiT&lt;br/&gt;run for N steps"]
+    S["Sampler / scheduler"] --&gt; D
+    D --&gt; Z["Clean latent z_0"]
+    Z --&gt; V["VAE decoder"]
+    V --&gt; I["Image / video frames"]
+</code></pre>
 
-        <!-- Gradient definitions -->
-        <defs>
-          <linearGradient id="imageGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#3498db;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#2ecc71;stop-opacity:1" />
-          </linearGradient>
-          <linearGradient id="noisyGradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#3498db;stop-opacity:0.7" />
-            <stop offset="50%" style="stop-color:#95a5a6;stop-opacity:0.7" />
-            <stop offset="100%" style="stop-color:#2ecc71;stop-opacity:0.7" />
-          </linearGradient>
-          <linearGradient id="noisyGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#95a5a6;stop-opacity:0.8" />
-            <stop offset="100%" style="stop-color:#7f8c8d;stop-opacity:0.8" />
-          </linearGradient>
-        </defs>
-      </svg>
-    </div>
-</div>
+<p>The denoiser architecture has shifted from the convolutional <strong>U-Net</strong> (SD 1.x, SDXL) to the <strong>Diffusion Transformer</strong> (DiT; Peebles &amp; Xie, 2023), which treats the latent as a sequence of patches and scales predictably with parameters and compute, just like language transformers. SD3’s MM-DiT, FLUX, and current video models are transformer-based. For video, the latent is a spatio-temporal volume of patches, and the same machinery extends across time.</p>
 
-<p>The process has four stages:</p>
+<h3 id="fast-sampling-distillation">Fast Sampling: Distillation</h3>
 
-<ol>
-  <li><strong>Forward process</strong> — gradually adds Gaussian noise to data over many timesteps until it becomes pure noise.</li>
-  <li><strong>Reverse process</strong> — learns to denoise step by step, recovering the original data distribution.</li>
-  <li><strong>Training</strong> — the model learns to predict the noise added at each step.</li>
-  <li><strong>Generation</strong> — starting from random noise, the model iteratively removes noise to produce new samples.</li>
-</ol>
-
-<h3 id="making-diffusion-practical-latent-diffusion">Making Diffusion Practical: Latent Diffusion</h3>
-
-<p>The mathematical elegance of diffusion models is compelling, but early versions were too slow and computationally expensive for practical use. The key practical breakthrough was <strong>Latent Diffusion Models (LDMs)</strong>: rather than running the noisy diffusion process in pixel space, an autoencoder first compresses the image into a much smaller latent representation, the diffusion model operates there, and a decoder maps the result back to pixels. This cuts compute by an order of magnitude and is what makes text-to-image models like Stable Diffusion runnable on consumer GPUs. Conditioning (e.g., a text prompt) is injected into the denoising U-Net via cross-attention, and <strong>classifier-free guidance</strong> scales how strongly the sample follows that prompt.</p>
-
-<div class="notice--info">
-  <p>For a full walkthrough of the latent-diffusion pipeline — VAE encode/decode, the conditioned U-Net, the scheduler, and a runnable Stable Diffusion example — see <a href="../../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> in the AI/ML section. We keep the treatment conceptual here to avoid duplicating that pipeline.</p>
-</div>
-
-<h3 id="key-diffusion-model-architectures">Key Diffusion Model Architectures</h3>
-
-<h4 id="denoising-diffusion-probabilistic-models-ddpms">Denoising Diffusion Probabilistic Models (DDPMs)</h4>
-<p>The foundational architecture that established the diffusion framework:</p>
-<ul>
-  <li>Uses a Markov chain of diffusion steps</li>
-  <li>Trains a neural network to predict noise at each timestep</li>
-  <li>Achieves high sample quality but requires many denoising steps</li>
-</ul>
-
-<h4 id="denoising-diffusion-implicit-models-ddims">Denoising Diffusion Implicit Models (DDIMs)</h4>
-<p>An improvement over DDPMs that enables:</p>
-<ul>
-  <li>Deterministic sampling</li>
-  <li>Fewer denoising steps for faster generation</li>
-  <li>Interpolation between samples</li>
-</ul>
-
-<h4 id="latent-diffusion-models-ldms">Latent Diffusion Models (LDMs)</h4>
-<p>Operates in a compressed latent space:</p>
-<ul>
-  <li>Significantly reduces computational requirements</li>
-  <li>Powers Stable Diffusion and similar models</li>
-  <li>Enables high-resolution image generation on consumer hardware</li>
-</ul>
-
-<h4 id="score-based-generative-models">Score-Based Generative Models</h4>
-<p>Alternative formulation using score matching:</p>
-<ul>
-  <li>Learns the gradient of the data distribution</li>
-  <li>Provides theoretical connections to other generative models</li>
-  <li>Enables continuous-time diffusion processes</li>
-</ul>
-
-<h3 id="real-world-impact-applications-of-diffusion-models">Real-World Impact: Applications of Diffusion Models</h3>
-
-<p>What started as a theoretical curiosity has become one of the most versatile tools in AI. Diffusion models aren’t just creating pretty pictures—they’re solving real problems across diverse fields.</p>
-
-<h4 id="image-generation">Image Generation</h4>
-<ul>
-  <li><strong>Text-to-Image</strong>: DALL-E 2, Stable Diffusion, Midjourney</li>
-  <li><strong>Image Editing</strong>: Inpainting, outpainting, style transfer</li>
-  <li><strong>Super-Resolution</strong>: Enhancing image quality and resolution</li>
-  <li><strong>Medical Imaging</strong>: Generating synthetic medical data, denoising scans</li>
-</ul>
-
-<h4 id="beyond-images-representative-systems-circa-20232024">Beyond Images (representative systems, circa 2023–2024)</h4>
-<ul>
-  <li><strong>Audio Generation</strong>: MusicGen, AudioCraft, Stable Audio, Suno AI</li>
-  <li><strong>Video Generation</strong>: Runway Gen-2, Pika Labs, Stable Video Diffusion, OpenAI Sora (preview)</li>
-  <li><strong>3D Generation</strong>: DreamGaussian, Wonder3D, Instant3D, TripoSR</li>
-  <li><strong>Molecular Design</strong>: RFDiffusion, AlphaFold 3, MoleculeGPT</li>
-  <li><strong>Text-to-3D</strong>: DreamFusion, Magic3D, Point-E, Shap-E</li>
-</ul>
-
-<h3 id="advantages-of-diffusion-models">Advantages of Diffusion Models</h3>
-
-<ol>
-  <li><strong>Sample Quality</strong>: Often superior to GANs in terms of fidelity and diversity</li>
-  <li><strong>Training Stability</strong>: More stable training compared to GANs</li>
-  <li><strong>Mode Coverage</strong>: Better at capturing the full data distribution</li>
-  <li><strong>Controllability</strong>: Easy to incorporate conditioning information</li>
-</ol>
-
-<h3 id="challenges-and-limitations">Challenges and Limitations</h3>
-
-<ol>
-  <li><strong>Computational Cost</strong>: Requires many denoising steps for generation</li>
-  <li><strong>Memory Requirements</strong>: High-resolution generation needs significant resources</li>
-  <li><strong>Speed</strong>: Slower than GANs for real-time applications</li>
-  <li><strong>Data Requirements</strong>: Needs large datasets for training</li>
-</ol>
-
-<h3 id="recent-advances">Recent Advances</h3>
-
-<h4 id="classifier-free-guidance">Classifier-Free Guidance</h4>
-<p>Improves sample quality by combining conditional and unconditional models:</p>
-<ul>
-  <li>Enables better adherence to text prompts</li>
-  <li>Adjustable guidance scale for quality vs diversity trade-off</li>
-</ul>
-
-<h4 id="consistency-models">Consistency Models</h4>
-<p>New approach that enables single-step generation:</p>
-<ul>
-  <li>Drastically reduces inference time</li>
-  <li>Maintains competitive sample quality</li>
-  <li>Promising for real-time applications</li>
-</ul>
-
-<h4 id="cross-attention-mechanisms">Cross-Attention Mechanisms</h4>
-<p>Enables better text-image alignment:</p>
-<ul>
-  <li>Improved prompt following</li>
-  <li>Fine-grained control over generation</li>
-  <li>Used in most modern text-to-image models</li>
-</ul>
-
-<h2 id="other-generative-families-gans-vaes-and-autoregressive-models">Other Generative Families: GANs, VAEs, and Autoregressive Models</h2>
-
-<p>Diffusion models dominate image generation today, but they’re part of a broader landscape. Each family makes a different trade-off between sample quality, diversity, training stability, and speed.</p>
-
-<h3 id="generative-adversarial-networks-gans">Generative Adversarial Networks (GANs)</h3>
-
-<p>A GAN pits two networks against each other: a <strong>generator</strong> tries to produce realistic samples from random noise, while a <strong>discriminator</strong> tries to tell real samples from generated ones. They play a minimax game,</p>
-
-\[\min_G \max_D \; \mathbb{E}_{\mathbf{x}\sim p_{\text{data}}}[\log D(\mathbf{x})] + \mathbb{E}_{\mathbf{z}\sim p_{\mathbf{z}}}[\log(1 - D(G(\mathbf{z})))],\]
-
-<p>driving the generator toward outputs the discriminator can no longer distinguish from real data.</p>
+<p>Twenty to fifty network calls per image is the main practical cost of diffusion. Several distillation methods reduce it to one to eight:</p>
 
 <ul>
-  <li><strong>Strengths</strong>: Fast single-pass generation, sharp samples (StyleGAN-quality faces)</li>
-  <li><strong>Weaknesses</strong>: Notoriously unstable training; mode collapse (the generator covers only part of the distribution)</li>
-  <li><strong>Notable variants</strong>: DCGAN, StyleGAN/StyleGAN3, CycleGAN (unpaired image translation), Pix2Pix</li>
+  <li><strong>Progressive distillation</strong> (Salimans &amp; Ho, 2022) repeatedly trains a student to match two teacher steps with one.</li>
+  <li><strong>Consistency models</strong> (Song et al., 2023) learn a function that maps any point on an ODE trajectory directly to its endpoint, enabling one- or few-step generation; <em>latent consistency models</em> apply this to Stable Diffusion.</li>
+  <li><strong>Adversarial diffusion distillation</strong> (SDXL Turbo, 2023) and its latent successors combine a distillation loss with a GAN discriminator, producing sharp images in 1–4 steps.</li>
+  <li><strong>Distribution-matching</strong> and <strong>rectified-flow reflow</strong> approaches straighten trajectories so a few Euler steps suffice.</li>
 </ul>
 
-<h3 id="variational-autoencoders-vaes">Variational Autoencoders (VAEs)</h3>
+<p>The cost of distillation is some loss of diversity and controllability (for example, reduced sensitivity to negative prompts and CFG).</p>
 
-<p>A VAE learns a probabilistic latent space. An <strong>encoder</strong> maps inputs to a distribution over latent codes, and a <strong>decoder</strong> reconstructs the input from a sampled code. Training maximizes the <strong>evidence lower bound (ELBO)</strong>,</p>
-
-\[\mathcal{L}_{\text{ELBO}} = \mathbb{E}_{q_\phi(\mathbf{z}\mid\mathbf{x})}[\log p_\theta(\mathbf{x}\mid\mathbf{z})] - D_{\mathrm{KL}}\!\left(q_\phi(\mathbf{z}\mid\mathbf{x}) \,\|\, p(\mathbf{z})\right),\]
-
-<p>which balances reconstruction quality against keeping the latent distribution close to a simple prior.</p>
+<h3 id="applications-beyond-still-images">Applications Beyond Still Images</h3>
 
 <ul>
-  <li><strong>Strengths</strong>: Stable training, smooth and interpretable latent space, principled probabilistic framing</li>
-  <li><strong>Weaknesses</strong>: Reconstructions tend to be blurrier than GAN or diffusion outputs</li>
-  <li><strong>Modern role</strong>: The autoencoder inside a latent diffusion model is essentially a VAE — VAEs now often serve as the compression front-end rather than the final generator.</li>
+  <li><strong>Video</strong>: diffusion transformers over spatio-temporal latents. OpenAI’s Sora (previewed February 2024) made the approach famous; Google’s Veo 3 (2025) added natively generated synchronized audio, and open-weight video models (e.g. HunyuanVideo, Wan) followed.</li>
+  <li><strong>Audio and music</strong>: latent diffusion over spectrograms or codec latents (Stable Audio), alongside autoregressive codec-token models.</li>
+  <li><strong>Science</strong>: protein backbone design (RFdiffusion), biomolecular structure prediction (AlphaFold 3 uses a diffusion module to produce atomic coordinates), materials and small-molecule generation.</li>
+  <li><strong>Robotics</strong>: <em>diffusion policies</em> generate action trajectories conditioned on observations.</li>
+  <li><strong>Editing</strong>: inpainting, outpainting, and instruction-based image editing reuse the same denoiser with partial noising or extra conditioning; see <a href="../../ai-ml/inpainting-editing.html">Inpainting &amp; Editing</a>.</li>
 </ul>
 
-<p>The <a href="architectures.html">variational inference</a> discussion on the architectures page covers the approximation machinery VAEs rely on.</p>
+<h3 id="strengths-and-limitations">Strengths and Limitations</h3>
 
-<h3 id="autoregressive-models-and-llm-generation">Autoregressive Models and LLM Generation</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Strengths</th>
+      <th>Limitations</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>State-of-the-art fidelity and diversity; good mode coverage</td>
+      <td>Iterative sampling; many network calls without distillation</td>
+    </tr>
+    <tr>
+      <td>Stable, simple regression objective</td>
+      <td>Large memory footprint at high resolution and for long video</td>
+    </tr>
+    <tr>
+      <td>Easy to condition and guide at inference time</td>
+      <td>Exact likelihood is expensive to compute</td>
+    </tr>
+    <tr>
+      <td>Same framework spans images, video, audio, and 3-D</td>
+      <td>Heavy guidance reduces diversity; artifacts in text, hands, and physics persist in weaker models</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Autoregressive models factor a joint distribution into a product of conditionals and generate one token at a time, each conditioned on everything generated so far:</p>
+<h2 id="generative-adversarial-networks-gans">Generative Adversarial Networks (GANs)</h2>
+
+<p>A GAN (Goodfellow et al., 2014) trains a <strong>generator</strong> $G$ that maps noise $\mathbf{z}$ to samples and a <strong>discriminator</strong> $D$ that classifies samples as real or generated. They play a minimax game:</p>
+
+\[\min_G \max_D \; \mathbb{E}_{\mathbf{x}\sim p_{\text{data}}}\left[\log D(\mathbf{x})\right] + \mathbb{E}_{\mathbf{z}\sim p_{\mathbf{z}}}\left[\log\left(1 - D(G(\mathbf{z}))\right)\right].\]
+
+<p>At the optimal discriminator the generator minimizes the Jensen–Shannon divergence between the real and generated distributions. In practice the generator is trained with the <em>non-saturating</em> loss $-\log D(G(\mathbf{z}))$, and variants such as the Wasserstein GAN with gradient penalty and spectral normalization were developed to stabilize training (see <a href="loss-functions.html">Loss Functions</a>).</p>
+
+<ul>
+  <li><strong>Strengths</strong>: a single forward pass per sample; very sharp outputs; the StyleGAN family produced photorealistic faces years before diffusion caught up.</li>
+  <li><strong>Weaknesses</strong>: unstable, hyperparameter-sensitive training; <strong>mode collapse</strong> (the generator covers only part of the distribution); no likelihood; hard to scale to diverse, text-conditioned data.</li>
+  <li><strong>Where GANs live now</strong>: as a component rather than the whole model — the perceptual/adversarial loss that makes VAE decoders sharp, adversarial distillation of diffusion models, super-resolution (Real-ESRGAN), and neural vocoders for speech.</li>
+</ul>
+
+<h2 id="variational-autoencoders-vaes">Variational Autoencoders (VAEs)</h2>
+
+<p>A VAE (Kingma &amp; Welling, 2014) pairs an <strong>encoder</strong> $q_\phi(\mathbf{z} \mid \mathbf{x})$ that maps an input to a distribution over latent codes with a <strong>decoder</strong> $p_\theta(\mathbf{x} \mid \mathbf{z})$ that reconstructs it. The marginal likelihood is intractable, so training maximizes the <strong>evidence lower bound (ELBO)</strong>:</p>
+
+\[\mathcal{L}_{\text{ELBO}} = \mathbb{E}_{q_\phi(\mathbf{z}\mid\mathbf{x})}\left[\log p_\theta(\mathbf{x}\mid\mathbf{z})\right] - D_{\mathrm{KL}}\left(q_\phi(\mathbf{z}\mid\mathbf{x}) \,\|\, p(\mathbf{z})\right).\]
+
+<p>The first term rewards accurate reconstruction; the second keeps the approximate posterior close to a simple prior $p(\mathbf{z}) = \mathcal{N}(\mathbf{0}, \mathbf{I})$ so that sampling from the prior yields plausible outputs. The <strong>reparameterization trick</strong> $\mathbf{z} = \boldsymbol{\mu} + \boldsymbol{\sigma} \odot \boldsymbol{\epsilon}$ makes the expectation differentiable. The approximation machinery is covered under variational inference in <a href="ml-foundations.html">Machine Learning Foundations</a>.</p>
+
+<ul>
+  <li><strong>Strengths</strong>: stable training, a smooth latent space useful for interpolation and representation learning, a principled probabilistic objective.</li>
+  <li><strong>Weaknesses</strong>: samples from a pure VAE are blurry, because a factorized Gaussian decoder averages over plausible outputs.</li>
+  <li><strong>Modern role</strong>: the autoencoder in latent diffusion is a VAE trained with a small KL weight plus perceptual and adversarial losses, making it a high-quality compressor rather than a generator. Its latent channel count (4 in SD 1.x/SDXL, 16 in SD3 and FLUX) is a major factor in fine-detail quality. <strong>VQ-VAE</strong> replaces the continuous latent with a learned codebook of discrete tokens, which is what allows images and audio to be modeled by autoregressive transformers.</li>
+</ul>
+
+<h2 id="autoregressive-models">Autoregressive Models</h2>
+
+<p>Autoregressive models factor the joint distribution with the chain rule and generate one element at a time, each conditioned on everything before it:</p>
 
 \[p(\mathbf{x}) = \prod_{i=1}^{n} p(x_i \mid x_1, \dots, x_{i-1}).\]
 
-<p>This is exactly how large language models generate text: given a prompt, the transformer predicts a probability distribution over the next token, a token is sampled (greedy, temperature, top-k, or nucleus/top-p sampling), it’s appended to the context, and the process repeats.</p>
+<p>Training is cross-entropy on next-token prediction, parallelized across positions with a causal attention mask. At inference the model produces a distribution over the next token, one token is chosen, appended, and the process repeats:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    C["Context tokens"] --&gt; T["Transformer&lt;br/&gt;(causal attention, KV cache)"]
+    T --&gt; L["Logits over vocabulary"]
+    L --&gt; S["Decoding rule&lt;br/&gt;greedy, temperature,&lt;br/&gt;top-k, top-p, min-p"]
+    S --&gt; N["Next token"]
+    N --&gt;|"append and repeat"| C
+</code></pre>
+
+<p>This is how every large language model generates text. Decoding strategy matters: greedy decoding is repetitive, temperature scales the logits, top-$k$ and nucleus (top-$p$) sampling truncate the low-probability tail, and <em>speculative decoding</em> uses a small draft model to propose several tokens that the large model verifies in one pass, cutting latency without changing the output distribution. Transformer internals, inference, and serving are covered in the <a href="../ai-lecture-2023.html">AI Deep Dive</a>.</p>
 
 <ul>
-  <li><strong>Strengths</strong>: Exact likelihoods, excellent at sequential/discrete data, the backbone of modern LLMs (GPT-4-class / o-series, Claude 4, Gemini)</li>
-  <li><strong>Weaknesses</strong>: Sequential generation is slow; quality depends heavily on decoding strategy</li>
-  <li><strong>Beyond text</strong>: The same principle drives autoregressive image models (PixelCNN, ImageGPT) and audio models (WaveNet)</li>
+  <li><strong>Strengths</strong>: exact likelihoods; a single, extremely scalable objective; native fit for discrete, sequential data.</li>
+  <li><strong>Weaknesses</strong>: generation is inherently sequential (one forward pass per token), and errors cannot be revised once emitted.</li>
+  <li><strong>Beyond text</strong>: WaveNet and PixelCNN were early autoregressive audio and image models. Modern systems tokenize images or audio with a VQ-style codec and model the tokens with a transformer — the approach behind natively multimodal models, and behind GPT-4o’s built-in image generation (March 2025). <em>Visual autoregressive modeling</em> (VAR, 2024) predicts coarse-to-fine token maps rather than raster order, and hybrid designs (e.g. MAR) replace the discrete codebook with a small per-token diffusion head.</li>
 </ul>
 
-<p>For how these models scale and what new abilities emerge with size, see <a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a>.</p>
+<h2 id="normalizing-flows">Normalizing Flows</h2>
+
+<p>A normalizing flow builds $p_\theta(\mathbf{x})$ from an invertible, differentiable map $\mathbf{x} = f_\theta(\mathbf{z})$ of a simple base density, and computes the exact likelihood with the change-of-variables formula:</p>
+
+\[\log p_\theta(\mathbf{x}) = \log p(\mathbf{z}) - \log\left|\det \frac{\partial f_\theta(\mathbf{z})}{\partial \mathbf{z}}\right|, \qquad \mathbf{z} = f_\theta^{-1}(\mathbf{x}).\]
+
+<p>Architectures (RealNVP, Glow) are designed so the Jacobian determinant is cheap, which restricts expressiveness; flows never matched diffusion on image quality, though transformer-based autoregressive flows have narrowed the gap. Their lasting influence is conceptual: continuous normalizing flows are the direct ancestors of flow matching.</p>
+
+<h2 id="discrete-diffusion-for-language">Discrete Diffusion for Language</h2>
+
+<p>Diffusion ideas have been carried back to discrete tokens. <strong>Masked diffusion language models</strong> start from a fully masked sequence and, over several steps, predict and commit tokens in parallel, remasking low-confidence positions — generalizing BERT-style masked modeling into a generative process. Research models such as LLaDA (2025) showed competitive quality with similarly sized autoregressive models, and commercial previews (Inception Labs’ Mercury, Google’s Gemini Diffusion) emphasized very high tokens-per-second for code and text. The appeal is parallel generation and the ability to revise earlier tokens; the open questions are quality at the largest scales, variable-length output, and efficient caching. As of 2026 autoregressive decoding still dominates production LLMs.</p>
+
+<h2 id="timeline">Timeline</h2>
+
+<pre><code class="language-mermaid">timeline
+    title Milestones in deep generative modeling
+    2013-2014 : VAE (Kingma and Welling) : GAN (Goodfellow et al.)
+    2015-2016 : Diffusion probabilistic models (Sohl-Dickstein) : PixelCNN and WaveNet
+    2017-2019 : VQ-VAE : StyleGAN : GPT-2
+    2020-2021 : DDPM : Score-based SDEs : DALL-E and CLIP
+    2022 : Latent diffusion / Stable Diffusion : Classifier-free guidance : EDM
+    2023 : DiT : Consistency models : Flow matching and rectified flow
+    2024 : SD3 (rectified-flow MM-DiT) : FLUX.1 : Sora preview
+    2025-2026 : Native autoregressive image generation in LLMs : Video with audio (Veo 3) : Discrete diffusion LMs
+</code></pre>
+
+<h2 id="evaluation">Evaluation</h2>
+
+<p>Generative models are hard to evaluate because there is no single correct output.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Measures</th>
+      <th>Caveats</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>FID (Fréchet Inception Distance)</td>
+      <td>Distance between feature statistics of real and generated images</td>
+      <td>Biased by the Inception feature space and sample count; weak correlation with human preference at the top end</td>
+    </tr>
+    <tr>
+      <td>CLIP score</td>
+      <td>Text–image alignment</td>
+      <td>Saturates; blind to composition and counting errors</td>
+    </tr>
+    <tr>
+      <td>Precision / recall (for generative models)</td>
+      <td>Fidelity vs. coverage separately</td>
+      <td>Sensitive to the feature extractor</td>
+    </tr>
+    <tr>
+      <td>Negative log-likelihood / bits per dimension</td>
+      <td>Density-model quality</td>
+      <td>Poorly correlated with perceived quality</td>
+    </tr>
+    <tr>
+      <td>Human preference (pairwise arenas, reward models)</td>
+      <td>What users actually prefer</td>
+      <td>Costly, noisy, and gameable</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Current practice combines automated metrics with prompt suites that test specific skills (object counts, spatial relations, text rendering) and large-scale human preference rankings.</p>
 
 <hr />
 
 <h2 id="continue-reading">Continue Reading</h2>
 
 <div class="page-nav" style="display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-  <span>← <strong>Previous:</strong> <a href="architectures.html">Neural Network Architectures</a></span>
+  <span>← <strong>Previous:</strong> <a href="reinforcement-learning.html">Reinforcement Learning</a></span>
   <span><strong>Next:</strong> <a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> →</span>
 </div>
 
 <h3 id="see-also">See Also</h3>
 
 <ul>
-  <li><a href="../../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> — the full latent-diffusion pipeline, hands-on</li>
-  <li><a href="../../ai-ml/">AI/ML Documentation Hub</a> — practical generative-AI guides (ComfyUI, LoRA, ControlNet)</li>
-  <li><a href="architectures.html">Neural Network Architectures</a> — the transformers and autoencoders these models are built from</li>
-  <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — scaling laws and the frontier of generative AI</li>
+  <li><a href="loss-functions.html">Loss Functions &amp; Objectives</a> — the ELBO, adversarial, diffusion, and flow-matching objectives in detail</li>
+  <li><a href="../../ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> — the latent-diffusion pipeline, hands-on</li>
+  <li><a href="../../ai-ml/sd3-guide.html">SD3 Guide</a> and <a href="../../ai-ml/flux-guide.html">FLUX Guide</a> — rectified-flow transformers in practice</li>
+  <li><a href="deep-learning-architectures.html">Deep Learning Architectures</a> — the transformers and convolutional networks these models are built from</li>
+  <li><a href="../ai-lecture-2023.html">AI Deep Dive</a> — how LLMs are trained and served</li>
+  <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — scaling, safety, and the governance of generative AI</li>
 </ul>
 
       </section>

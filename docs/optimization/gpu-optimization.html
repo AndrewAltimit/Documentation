@@ -3135,243 +3135,493 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Performance Optimization</a> » GPU Optimization</p>
 
-<p>The GPU is a massively parallel throughput machine, not a faster CPU. Optimizing it means keeping its execution units busy, moving data efficiently across a hierarchy of memories, and minimizing the synchronization that stalls the CPU and GPU on each other. This page covers GPU profilers, occupancy, memory coalescing, draw-call batching, shader optimization, and CPU-GPU synchronization. Four governing ideas:</p>
-
-<ul>
-  <li><strong>Find the bound first.</strong> A GPU frame is fill-rate, geometry, bandwidth, or ALU limited. The profiler tells you which — and every other decision follows from that answer.</li>
-  <li><strong>Occupancy hides latency.</strong> The GPU covers ~400-cycle memory stalls by swapping to another warp. Too few warps in flight means the cores sit idle waiting on memory.</li>
-  <li><strong>Coalesce your memory.</strong> Adjacent threads should touch adjacent addresses so one wide transaction serves a whole warp. Scattered access multiplies bandwidth cost.</li>
-  <li><strong>Batch and don’t stall.</strong> Each draw call costs CPU validation; each readback stalls the pipeline. Batch geometry and keep the CPU and GPU running asynchronously.</li>
-</ul>
+<p>A GPU is a throughput machine, not a faster CPU: it runs tens of thousands of threads at once and hides memory latency by switching among them rather than by avoiding it. Optimizing GPU work means finding which hardware unit limits the frame or kernel, keeping enough work in flight to hide latency, moving as few bytes as possible through the memory hierarchy, and never letting the CPU and GPU wait on each other. This page covers the execution model, profiling tools, bottleneck classification and the roofline model, occupancy, memory access (coalescing, shared memory, bank conflicts), draw-call submission and GPU-driven rendering, shader optimization, compute-specific techniques, and CPU-GPU synchronization. It applies to both graphics (Vulkan, Direct3D 12, Metal) and compute (CUDA, HIP, compute shaders).</p>
 
 <h2 id="the-gpu-execution-model">The GPU Execution Model</h2>
 
-<p>Before optimizing, you need a mental model of <em>why</em> the GPU is fast. It is a SIMT (Single Instruction, Multiple Thread) machine: threads are grouped into <strong>warps</strong> (NVIDIA, 32 threads) or <strong>wavefronts</strong> (AMD, 32 or 64 threads) that execute the same instruction in lock-step. A streaming multiprocessor (SM / compute unit) holds many such warps resident at once and switches between them cycle-by-cycle to hide latency.</p>
+<p>GPUs execute threads in groups that share one instruction stream, a model NVIDIA calls <strong>SIMT</strong> (single instruction, multiple threads).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Vendor</th>
+      <th>Group name</th>
+      <th>Width</th>
+      <th>Multiprocessor</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>NVIDIA</td>
+      <td>Warp</td>
+      <td>32</td>
+      <td>Streaming multiprocessor (SM)</td>
+    </tr>
+    <tr>
+      <td>AMD RDNA (Radeon)</td>
+      <td>Wavefront</td>
+      <td>32 or 64 (wave32 / wave64)</td>
+      <td>Compute unit (CU), paired as a WGP</td>
+    </tr>
+    <tr>
+      <td>AMD CDNA (Instinct)</td>
+      <td>Wavefront</td>
+      <td>64</td>
+      <td>Compute unit</td>
+    </tr>
+    <tr>
+      <td>Apple</td>
+      <td>SIMD-group</td>
+      <td>32</td>
+      <td>GPU core</td>
+    </tr>
+    <tr>
+      <td>Intel Xe</td>
+      <td>Sub-group (SIMD)</td>
+      <td>8, 16, or 32</td>
+      <td>Xe core</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This page uses “warp” for the generic concept. A kernel launch or draw call becomes a grid of <strong>thread blocks</strong> (workgroups in Vulkan and compute shaders); each block is assigned to one multiprocessor, split into warps, and the multiprocessor’s schedulers interleave all resident warps cycle by cycle.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    A["Kernel / Draw dispatch"] --&gt; B["Grid of thread blocks"]
-    B --&gt; C["Block scheduled onto an SM"]
-    C --&gt; D["Block split into warps&lt;br/&gt;(32 threads, lock-step)"]
-    D --&gt; E["Warp scheduler interleaves&lt;br/&gt;many resident warps"]
-    E --&gt; F["Stall on memory? Swap to&lt;br/&gt;another ready warp — no idle"]
+    A["Kernel launch or draw call"] --&gt; B["Grid of thread blocks&lt;br/&gt;(workgroups)"]
+    B --&gt; C["Each block assigned to one SM / CU"]
+    C --&gt; D["Block split into warps&lt;br/&gt;(32 threads in lock-step)"]
+    D --&gt; E["Warp schedulers pick a ready warp&lt;br/&gt;every cycle"]
+    E --&gt; F{"Warp stalls on memory?"}
+    F --&gt;|"yes"| G["Switch to another resident warp&lt;br/&gt;at no cost"]
+    F --&gt;|"no"| E
+    G --&gt; E
 </code></pre>
 
-<p>Two consequences drive almost every GPU optimization:</p>
+<p>Two consequences drive nearly every GPU optimization:</p>
 
 <ol>
-  <li><strong>Latency is hidden by parallelism, not avoided.</strong> A single warp that issues a global-memory load waits hundreds of cycles. The GPU stays busy only if <em>other</em> warps are ready to run. The supply of ready warps is your <strong>occupancy</strong>.</li>
-  <li><strong>Divergence wastes lanes.</strong> If threads in a warp take different branches, the hardware executes both paths with the inactive lanes masked off. A fully divergent <code class="language-plaintext highlighter-rouge">if/else</code> halves throughput for that region.</li>
+  <li><strong>Latency is hidden by parallelism, not avoided.</strong> A global-memory load takes hundreds of cycles. The multiprocessor stays busy only if other warps are ready to issue while one waits. How many warps are resident is the <strong>occupancy</strong>; how many are <em>ready</em> also depends on how much independent work each warp has.</li>
+  <li><strong>Divergence wastes lanes.</strong> When threads in one warp take different branches, the hardware runs each path in turn with the non-participating lanes masked off. A fully divergent <code class="language-plaintext highlighter-rouge">if/else</code> costs the sum of both paths. (Since Volta, NVIDIA GPUs track a program counter per thread, which avoids some deadlocks in divergent code, but divergent paths still execute serially.)</li>
 </ol>
 
-<p>This model unifies graphics and compute: a pixel shader invocation, a vertex shader invocation, and a CUDA/compute thread are all just threads packed into warps.</p>
+<p>Pixel shaders, vertex shaders, and compute threads all run on this same machinery. Pixel shaders are additionally launched in 2x2 <strong>quads</strong> so that screen-space derivatives (for mip selection) can be computed, which is why tiny triangles waste shading work.</p>
 
 <h2 id="gpu-profiling">GPU Profiling</h2>
 
-<p>You cannot optimize what you have not measured, and on the GPU intuition is especially unreliable — the work is asynchronous, deeply pipelined, and split across hardware units that overlap. Always start with a frame capture.</p>
+<p>GPU intuition is unreliable: work is asynchronous, deeply pipelined, and spread across units that overlap in time. Start with a capture.</p>
 
-<p><strong>Tools:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Scope</th>
+      <th>Use it for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>NVIDIA Nsight Systems</strong></td>
+      <td>System timeline (CPU threads, API calls, GPU queues, transfers)</td>
+      <td>Finding CPU-GPU stalls, idle gaps, launch overhead; the first tool for CUDA and ML workloads</td>
+    </tr>
+    <tr>
+      <td><strong>NVIDIA Nsight Compute</strong></td>
+      <td>Single CUDA kernel</td>
+      <td>Occupancy, warp stall reasons, memory throughput, roofline, source-level hot spots</td>
+    </tr>
+    <tr>
+      <td><strong>NVIDIA Nsight Graphics</strong></td>
+      <td>Graphics frame</td>
+      <td>Per-draw GPU timing, GPU Trace unit throughputs, shader profiler</td>
+    </tr>
+    <tr>
+      <td><strong>RenderDoc</strong></td>
+      <td>Graphics frame, cross-vendor</td>
+      <td>Frame debugging: every draw, resource, and pipeline state; inputs and outputs of each stage</td>
+    </tr>
+    <tr>
+      <td><strong>AMD Radeon GPU Profiler (RGP)</strong></td>
+      <td>Frame or dispatch on AMD</td>
+      <td>Wavefront occupancy, barriers, instruction timing</td>
+    </tr>
+    <tr>
+      <td><strong>AMD rocprof / Omniperf (ROCm Compute Profiler)</strong></td>
+      <td>HIP kernels on AMD</td>
+      <td>Counter collection and roofline for Instinct GPUs</td>
+    </tr>
+    <tr>
+      <td><strong>PIX</strong></td>
+      <td>Direct3D 12 on Windows and Xbox</td>
+      <td>GPU captures, timing, and CPU-side timelines</td>
+    </tr>
+    <tr>
+      <td><strong>Xcode Metal debugger / Metal System Trace</strong></td>
+      <td>Apple GPUs</td>
+      <td>Shader cost, limiter counters, CPU-GPU timeline</td>
+    </tr>
+    <tr>
+      <td><strong>PyTorch Profiler, <code class="language-plaintext highlighter-rouge">torch.cuda</code> events</strong></td>
+      <td>ML frameworks</td>
+      <td>Operator-level GPU time, exported to trace viewers</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Metrics to read:</p>
+
 <ul>
-  <li><strong>RenderDoc</strong>: Cross-platform frame capture and analysis. Inspect every draw call, resource, and pipeline state; view inputs/outputs of each shader stage.</li>
-  <li><strong>NVIDIA Nsight Graphics / Nsight Compute</strong>: Deep NVIDIA GPU profiling — per-draw timing, occupancy, warp stall reasons, and roofline analysis for compute.</li>
-  <li><strong>AMD Radeon GPU Profiler (RGP)</strong>: Wavefront-level occupancy and instruction timing on AMD hardware.</li>
-  <li><strong>PIX</strong>: Xbox and Windows GPU capture and timing.</li>
-  <li><strong>Xcode GPU Debugger / Metal System Trace</strong>: Apple GPU profiling and shader cost analysis.</li>
+  <li>GPU time per pass and per draw or kernel, from the <strong>timeline</strong> rather than by summing per-draw numbers (overlapping work makes the sum exceed frame time)</li>
+  <li>Unit throughputs as a percentage of peak (shader ALU, texture, memory, raster), which directly identify the limiter</li>
+  <li>Achieved versus theoretical occupancy, and <strong>warp stall reasons</strong> (memory dependency, barrier, execution dependency, instruction fetch)</li>
+  <li>DRAM bandwidth, L1 and L2 hit rates</li>
+  <li>Overdraw and primitive counts before and after culling</li>
 </ul>
 
-<p><strong>Key Metrics:</strong></p>
-<ul>
-  <li>GPU time per draw call (where is the frame actually spent?)</li>
-  <li>Shader occupancy (how many warps are resident vs the hardware maximum?)</li>
-  <li>Memory bandwidth usage and L1/L2 cache hit rates</li>
-  <li>Overdraw (how many times is each pixel shaded?)</li>
-  <li>Triangle throughput and primitive cull rate</li>
-  <li>Warp/wavefront stall reasons (memory, barrier, instruction fetch)</li>
-</ul>
-
-<h3 id="a-disciplined-workflow">A Disciplined Workflow</h3>
+<h3 id="workflow">Workflow</h3>
 
 <pre><code class="language-mermaid">flowchart TD
-    A["Capture a frame in a release build"] --&gt; B["Sort draws by GPU time"]
-    B --&gt; C["Inspect the most expensive draw/pass"]
-    C --&gt; D{"What is the bound?"}
-    D --&gt;|"pixels"| E["Fill-rate / overdraw"]
-    D --&gt;|"verts"| F["Geometry"]
-    D --&gt;|"bytes"| G["Bandwidth"]
-    D --&gt;|"math"| H["ALU / occupancy"]
-    E --&gt; I["Apply targeted fix, re-capture"]
-    F --&gt; I
-    G --&gt; I
-    H --&gt; I
-    I --&gt; B
+    A["Capture a release build&lt;br/&gt;at a worst-case viewpoint or input"] --&gt; B["Rank passes / kernels by GPU time"]
+    B --&gt; C["Inspect the most expensive one"]
+    C --&gt; D{"Which unit is at peak?"}
+    D --&gt;|"pixels, ROP"| E["Fill rate / overdraw"]
+    D --&gt;|"vertices, primitives"| F["Geometry"]
+    D --&gt;|"DRAM, L2"| G["Bandwidth"]
+    D --&gt;|"ALU"| H["Shader math"]
+    D --&gt;|"nothing near peak"| I["Latency / occupancy&lt;br/&gt;or CPU / sync bound"]
+    E --&gt; J["Targeted fix, re-capture"]
+    F --&gt; J
+    G --&gt; J
+    H --&gt; J
+    I --&gt; J
+    J --&gt; B
 </code></pre>
 
-<p>Capture in a <strong>release/shipping build</strong> at a representative, worst-case viewpoint — debug builds and trivial scenes both mislead. Note that the <em>sum</em> of per-draw timings often exceeds the frame time because the GPU overlaps stages; trust the timeline view over naive addition.</p>
+<p>When <strong>no unit is near its peak</strong>, the GPU is usually starved: too little parallelism, stalls on dependent memory accesses, or waiting on the CPU. Check the system timeline for gaps before optimizing shaders.</p>
 
-<h2 id="identifying-gpu-bottlenecks">Identifying GPU Bottlenecks</h2>
+<h2 id="identifying-the-bottleneck">Identifying the Bottleneck</h2>
 
-<p>A GPU frame is limited by whichever hardware unit saturates first. Classifying the bound is the single most important diagnostic step, because the fix for one bound does nothing for another.</p>
+<p>A GPU frame or kernel is limited by whichever unit saturates first, and the fix for one bound does nothing for another.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Common Bottlenecks:
+<table>
+  <thead>
+    <tr>
+      <th>Bound</th>
+      <th>Symptoms</th>
+      <th>Typical fixes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Fill rate / pixel</strong></td>
+      <td>Time scales with resolution; high overdraw; heavy pixel shaders</td>
+      <td>Depth prepass or front-to-back sorting, cheaper pixel shaders, lower internal resolution with upscaling (DLSS, FSR, XeSS), variable-rate shading</td>
+    </tr>
+    <tr>
+      <td><strong>Geometry</strong></td>
+      <td>Time scales with triangle count, not resolution; many sub-pixel triangles</td>
+      <td>LOD, culling (frustum, occlusion, backface, cluster), mesh simplification, meshlets and mesh shaders</td>
+    </tr>
+    <tr>
+      <td><strong>Bandwidth</strong></td>
+      <td>DRAM throughput near peak</td>
+      <td>Block-compressed textures (BC, ASTC), mipmaps, smaller render-target formats, fewer passes (merge or fuse them), better cache reuse</td>
+    </tr>
+    <tr>
+      <td><strong>ALU (shader math)</strong></td>
+      <td>ALU throughput near peak</td>
+      <td>Simplify math, move work to vertex or earlier stages, precompute, lower precision</td>
+    </tr>
+    <tr>
+      <td><strong>Latency / occupancy</strong></td>
+      <td>Nothing at peak; stalls on memory dependency</td>
+      <td>Raise occupancy, add independent work per thread, prefetch into shared memory</td>
+    </tr>
+    <tr>
+      <td><strong>CPU / submission</strong></td>
+      <td>GPU idle between bursts; CPU thread saturated</td>
+      <td>Batching, instancing, indirect and GPU-driven rendering, multithreaded command recording</td>
+    </tr>
+  </tbody>
+</table>
 
-1. Fill Rate Limited
-   - Many pixels shaded
-   - Complex pixel shaders
-   - High overdraw
-   Fix: Reduce resolution, simplify shaders, depth prepass
-
-2. Geometry Limited
-   - High triangle count
-   - Complex vertex shaders
-   - Tessellation overhead
-   Fix: LOD, culling, mesh simplification
-
-3. Bandwidth Limited
-   - Large textures
-   - Many texture samples
-   - Uncompressed data
-   Fix: Texture compression, mipmaps, atlas textures
-
-4. Shader Limited
-   - Complex math
-   - Branching
-   - Register pressure
-   Fix: Simplify shaders, precompute, use LUTs
-</code></pre></div></div>
-
-<p><strong>Quick binary-search diagnostics</strong> when a profiler is not handy:</p>
+<p>Quick diagnostics when a profiler is not available:</p>
 
 <ul>
-  <li><strong>Halve the resolution.</strong> If frame time drops proportionally, you are fill-rate or bandwidth bound on screen-space work. If it barely moves, you are geometry- or CPU-bound.</li>
-  <li><strong>Replace the pixel shader with a flat color.</strong> A large speedup confirms a fill-rate/ALU-heavy pixel shader.</li>
-  <li><strong>Disable a pass entirely</strong> (shadows, post-processing) and watch the delta to attribute cost.</li>
+  <li><strong>Change the resolution.</strong> If frame time scales with pixel count, the bound is fill rate or bandwidth on screen-space work. If it barely moves, look at geometry or the CPU.</li>
+  <li><strong>Replace a pixel shader with a flat color.</strong> A large speedup points at that shader.</li>
+  <li><strong>Disable a pass</strong> (shadows, post-processing) and measure the difference.</li>
+  <li><strong>Check CPU and GPU frame times separately.</strong> If the CPU frame time exceeds the GPU’s, GPU optimization will not help.</li>
 </ul>
 
-<p>The arithmetic-intensity (roofline) view formalizes the ALU-vs-bandwidth question. A kernel is bandwidth-bound when its useful compute per byte moved is below the hardware’s ratio of peak FLOPs to peak bytes/s:</p>
+<h3 id="the-roofline-model">The Roofline Model</h3>
 
-\[\text{Arithmetic Intensity} = \frac{\text{FLOPs executed}}{\text{Bytes moved from memory}}\]
+<p>For compute kernels (and full-screen passes), the <strong>roofline model</strong> answers “am I limited by math or by memory?” <strong>Arithmetic intensity</strong> is the useful work per byte moved from DRAM:</p>
 
-<p>If intensity is below the machine balance point, no amount of math optimization helps — you must move fewer bytes (compression, caching, smaller formats).</p>
+\[I = \frac{\text{FLOPs executed}}{\text{bytes moved to and from memory}}\]
+
+<p>Attainable performance is bounded by both the compute peak and the memory system:</p>
+
+\[P_{\text{attainable}} = \min\left(P_{\text{peak}},\; I \times B_{\text{peak}}\right)\]
+
+<p>The <strong>ridge point</strong> $I^{*} = P_{\text{peak}} / B_{\text{peak}}$ is the machine balance. Kernels to its left are memory-bound; to its right, compute-bound.</p>
+
+<figure style="margin:1.5rem auto; max-width:640px;">
+<svg viewBox="0 0 640 300" width="100%" role="img" aria-labelledby="gpu-roofline-title" style="color:currentColor; background:transparent;">
+<title id="gpu-roofline-title">Roofline model: attainable performance rises with arithmetic intensity along the memory-bandwidth roof until the ridge point, then flattens at the compute peak</title>
+<line x1="70" y1="250" x2="610" y2="250" stroke="currentColor" stroke-width="1.5" />
+<line x1="70" y1="250" x2="70" y2="20" stroke="currentColor" stroke-width="1.5" />
+<text x="340" y="285" text-anchor="middle" font-size="14" fill="currentColor">Arithmetic intensity (FLOP per byte, log scale)</text>
+<text x="25" y="135" text-anchor="middle" font-size="14" fill="currentColor" transform="rotate(-90 25 135)">Attainable FLOP/s (log scale)</text>
+<polyline points="80,240 330,60 600,60" fill="none" stroke="currentColor" stroke-width="3" />
+<line x1="330" y1="60" x2="330" y2="250" stroke="currentColor" stroke-width="1" stroke-dasharray="5 5" opacity="0.6" />
+<text x="465" y="50" text-anchor="middle" font-size="13" fill="currentColor">Compute roof: peak FLOP/s</text>
+<text x="175" y="130" text-anchor="middle" font-size="13" fill="currentColor" transform="rotate(-36 175 130)">Memory roof: slope = bandwidth</text>
+<text x="336" y="80" font-size="12" fill="currentColor">ridge point I*</text>
+<text x="200" y="242" text-anchor="middle" font-size="13" fill="currentColor" opacity="0.8">memory-bound</text>
+<text x="470" y="242" text-anchor="middle" font-size="13" fill="currentColor" opacity="0.8">compute-bound</text>
+<circle cx="150" cy="200" r="6" fill="none" stroke="currentColor" stroke-width="2" />
+<text x="162" y="212" font-size="12" fill="currentColor">elementwise add</text>
+<circle cx="500" cy="85" r="6" fill="none" stroke="currentColor" stroke-width="2" />
+<text x="500" y="110" text-anchor="middle" font-size="12" fill="currentColor">large matrix multiply</text>
+</svg>
+<figcaption style="text-align:center; font-size:0.9em;">A kernel's point sits below the roof; the gap to the roof is headroom, and which roof is above it says what to optimize.</figcaption>
+</figure>
+
+<p>As a concrete scale, an NVIDIA H100 SXM has about 67 TFLOP/s of non-tensor FP32 throughput and about 3.35 TB/s of HBM3 bandwidth, a ridge point near 20 FLOP per byte. An elementwise FP32 add (<code class="language-plaintext highlighter-rouge">c = a + b</code>) does 1 FLOP per 12 bytes moved, about 0.08 FLOP per byte, so it runs at under 1% of peak compute no matter how its math is written; the only way to speed it up is to move fewer bytes, for example by <strong>fusing</strong> it into the kernel that produced <code class="language-plaintext highlighter-rouge">a</code> or the one that consumes <code class="language-plaintext highlighter-rouge">c</code>. Large matrix multiplications reuse each loaded element many times and sit far to the right, which is why they, and the tensor cores that accelerate them, reach near-peak throughput.</p>
 
 <h2 id="occupancy">Occupancy</h2>
 
-<p><strong>Occupancy</strong> is the ratio of active warps resident on a multiprocessor to the hardware maximum. Because the GPU hides memory latency by switching among resident warps, low occupancy leaves cores idle whenever the active warp stalls. The formal definition:</p>
+<p><strong>Occupancy</strong> is the ratio of resident warps on a multiprocessor to the hardware maximum:</p>
 
-\[\text{Occupancy} = \frac{\text{Active warps per SM}}{\text{Maximum warps per SM}}\]
+\[\text{Occupancy} = \frac{\text{active warps per SM}}{\text{maximum warps per SM}}\]
 
-<p>Occupancy is capped by whichever per-SM resource runs out first as you pack more warps in:</p>
+<p>It is capped by whichever per-SM resource runs out first:</p>
 
 <ul>
-  <li><strong>Registers per thread.</strong> Each SM has a fixed register file (e.g. 65536 32-bit registers). If a shader uses 64 registers per thread and a warp is 32 threads, each warp consumes 2048 registers, so at most 32 warps can be resident from this limit alone. A shader that <em>spills</em> registers to local memory both lowers occupancy and adds memory traffic.</li>
-  <li><strong>Shared / group memory per block.</strong> A block requesting a large shared-memory tile limits how many blocks fit per SM.</li>
-  <li><strong>Block (thread-group) size.</strong> Warps are allocated in whole blocks; a poorly chosen block size can leave warp slots unused.</li>
+  <li><strong>Registers.</strong> The register file is shared by all resident threads. More registers per thread means fewer warps.</li>
+  <li><strong>Shared memory</strong> (LDS on AMD, threadgroup memory in Metal, <code class="language-plaintext highlighter-rouge">groupshared</code> in HLSL) per block.</li>
+  <li><strong>Block size and the per-SM block limit.</strong> Warps are allocated in whole blocks, so a block size that does not divide the warp budget evenly leaves slots unused.</li>
 </ul>
 
-<p>The maximum warps an SM can host given a per-thread register budget is:</p>
+<p>Per-SM limits for recent NVIDIA architectures (from the CUDA programming guide):</p>
 
-\[W_{\max} = \left\lfloor \frac{R_{\text{SM}}}{R_{\text{thread}} \times T_{\text{warp}}} \right\rfloor\]
+<table>
+  <thead>
+    <tr>
+      <th>Compute capability</th>
+      <th>Examples</th>
+      <th>Max resident warps</th>
+      <th>Max threads</th>
+      <th>32-bit registers</th>
+      <th>Max registers per thread</th>
+      <th>Max shared memory</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>8.0</td>
+      <td>A100</td>
+      <td>64</td>
+      <td>2048</td>
+      <td>65,536</td>
+      <td>255</td>
+      <td>164 KB</td>
+    </tr>
+    <tr>
+      <td>8.6 / 8.9</td>
+      <td>RTX 30 / RTX 40 series, L40</td>
+      <td>48</td>
+      <td>1536</td>
+      <td>65,536</td>
+      <td>255</td>
+      <td>100 KB</td>
+    </tr>
+    <tr>
+      <td>9.0</td>
+      <td>H100, H200</td>
+      <td>64</td>
+      <td>2048</td>
+      <td>65,536</td>
+      <td>255</td>
+      <td>228 KB</td>
+    </tr>
+    <tr>
+      <td>12.0</td>
+      <td>RTX 50 series</td>
+      <td>48</td>
+      <td>1536</td>
+      <td>65,536</td>
+      <td>255</td>
+      <td>100 KB</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>where $R_{\text{SM}}$ is the register file size, $R_{\text{thread}}$ the registers per thread, and $T_{\text{warp}}$ the warp width.</p>
+<p>Ignoring allocation granularity, the register-limited warp count is</p>
 
-<p><strong>Worked example.</strong> Suppose $R_{\text{SM}} = 65536$, a warp is $T_{\text{warp}} = 32$ threads, and the hardware caps an SM at 64 resident warps. A shader compiled to 32 registers/thread allows $65536 / (32 \times 32) = 64$ warps — register-unlimited, so 100% theoretical occupancy. Recompile with one extra texture lookup that pushes it to 40 registers/thread and you get $\lfloor 65536 / (40 \times 32) \rfloor = 51$ warps, or about 80% occupancy. Cross into spilling and effective occupancy collapses further.</p>
+\[W_{\text{reg}} = \left\lfloor \frac{R_{\text{SM}}}{R_{\text{thread}} \times T_{\text{warp}}} \right\rfloor\]
 
-<p><strong>Higher occupancy is not always better.</strong> Beyond the point where there are enough warps to hide memory latency, extra occupancy yields nothing — and chasing it by shrinking register usage can <em>hurt</em> if the compiler is forced to recompute or spill values. The goal is <em>enough</em> latency hiding for your access pattern, not a 100% number. Memory-bound kernels generally need higher occupancy to hide long stalls; compute-bound kernels with high arithmetic intensity often run fine at moderate occupancy.</p>
+<p>where $R_{\text{SM}}$ is the register file size, $R_{\text{thread}}$ the registers per thread, and $T_{\text{warp}}$ the warp width. Achieved occupancy is the minimum of this, the shared-memory limit, the block limit, and the hardware maximum.</p>
 
-<p><strong>Levers to raise occupancy when it is the bound:</strong></p>
+<p><strong>Worked example (compute capability 9.0).</strong> At 32 registers per thread, $65536 / (32 \times 32) = 64$ warps, the hardware maximum, so 100% theoretical occupancy. A change that raises usage to 40 registers gives $\lfloor 65536 / 1280 \rfloor = 51$ warps; with 256-thread (8-warp) blocks only 6 whole blocks fit, so 48 warps, 75% occupancy. At 128 registers, 16 warps remain (25%). If the compiler must <strong>spill</strong> registers to local memory to stay under a limit, it adds memory traffic on top.</p>
+
+<p><strong>More occupancy is not always better.</strong> Once enough warps are resident to cover memory latency, more add nothing, and forcing register usage down (with <code class="language-plaintext highlighter-rouge">__launch_bounds__</code> or <code class="language-plaintext highlighter-rouge">-maxrregcount</code>) can cause spills that make the kernel slower. Many of the fastest kernels, including tuned matrix multiplies and attention kernels, deliberately run at low occupancy and hide latency with <strong>instruction-level parallelism</strong> instead: each thread keeps several independent loads and math operations in flight. Aim for enough latency hiding, measured by stall reasons, not for a 100% occupancy number.</p>
+
+<p>Levers when occupancy is the limiter:</p>
+
 <ul>
-  <li>Reduce register pressure: split a large kernel, hoist constants, avoid keeping many live values, use lower precision where acceptable.</li>
-  <li>Reduce shared-memory footprint per block, or tune the tile size.</li>
-  <li>Tune block size to a multiple of the warp width (32) that divides cleanly into the SM’s warp budget.</li>
+  <li>Reduce live registers: shorten long-lived values, split very large kernels, avoid large per-thread arrays (which can end up in local memory).</li>
+  <li>Reduce shared memory per block, or choose a tile size that lets another block fit.</li>
+  <li>Choose block sizes that are multiples of the warp width and divide the per-SM warp budget; the CUDA occupancy API (<code class="language-plaintext highlighter-rouge">cudaOccupancyMaxPotentialBlockSize</code>) or the Nsight Compute occupancy calculator shows the options.</li>
 </ul>
 
-<h2 id="memory-coalescing">Memory Coalescing</h2>
+<h2 id="memory-access">Memory Access</h2>
 
-<p>Global memory is delivered to a warp in wide transactions aligned to cache-line / segment boundaries (typically 32, 64, or 128 bytes). <strong>Coalescing</strong> means arranging accesses so that the threads of a warp touch a single contiguous, aligned region, served by the minimum number of transactions. Scattered or misaligned access forces the hardware to issue many transactions, most of whose bytes are discarded — wasting the majority of your bandwidth.</p>
+<pre><code class="language-mermaid">flowchart LR
+    R["Registers&lt;br/&gt;per thread"] --&gt; S["L1 / shared memory&lt;br/&gt;per SM, on-chip&lt;br/&gt;~tens of cycles"]
+    S --&gt; L2["L2 cache&lt;br/&gt;shared by all SMs"]
+    L2 --&gt; D["DRAM: HBM or GDDR&lt;br/&gt;hundreds of cycles"]
+    D -.-&gt;|"PCIe / NVLink / C2C"| H["Host memory"]
+</code></pre>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Coalesced (1 transaction serves the warp):
-thread:   0    1    2    3   ...  31
-addr:    [0]  [4]  [8]  [12] ... [124]   -&gt; one 128-byte segment
+<p>Every level down is slower and shared by more threads. The largest wins come from moving data across the lower links less often.</p>
 
-Strided (many transactions, mostly wasted):
-thread:   0      1      2     ...
-addr:    [0]   [256]  [512]   ...        -&gt; one segment per thread
+<h3 id="coalescing">Coalescing</h3>
+
+<p>Global memory is served in aligned chunks: on NVIDIA GPUs, 32-byte <strong>sectors</strong> grouped into 128-byte cache lines. When the 32 threads of a warp access 32 consecutive 4-byte words, the request is served by four sectors in one line: <strong>coalesced</strong>. When they access addresses far apart, each thread needs its own sector and most of each transfer is wasted.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Coalesced: thread t reads element t
+thread:  0     1     2     3    ...   31
+address: 0     4     8     12   ...   124      -&gt; 4 sectors, 128 bytes, all used
+
+Strided: thread t reads element 64*t
+thread:  0     1     2    ...
+address: 0     256   512  ...                  -&gt; 32 sectors, 1024 bytes moved for 128 used
 </code></pre></div></div>
 
-<p>The same principle is why <strong>Structure of Arrays (SoA)</strong> beats Array of Structures (AoS) on the GPU. With AoS, consecutive threads reading the same field stride by the whole struct size; with SoA, that field is contiguous and coalesces perfectly.</p>
+<p>This is why <strong>structure of arrays</strong> beats array of structures on the GPU. With AoS, consecutive threads reading one field are separated by the whole struct size; with SoA, the field is contiguous.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// AoS: thread t reads particles[t].position -&gt; strided by sizeof(Particle)</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// AoS: thread t reads particles[t].position, strided by sizeof(Particle)</span>
 <span class="k">struct</span> <span class="nc">Particle</span> <span class="p">{</span> <span class="n">float3</span> <span class="n">position</span><span class="p">;</span> <span class="n">float3</span> <span class="n">velocity</span><span class="p">;</span> <span class="n">float4</span> <span class="n">color</span><span class="p">;</span> <span class="kt">float</span> <span class="n">mass</span><span class="p">;</span> <span class="p">};</span>
-<span class="n">Particle</span> <span class="n">particles</span><span class="p">[</span><span class="n">N</span><span class="p">];</span>
 
-<span class="c1">// SoA: thread t reads positions[t] -&gt; fully contiguous, coalesced</span>
+<span class="c1">// SoA: thread t reads positions[t], contiguous and coalesced</span>
 <span class="k">struct</span> <span class="nc">Particles</span> <span class="p">{</span>
-    <span class="n">float3</span> <span class="n">positions</span><span class="p">[</span><span class="n">N</span><span class="p">];</span>   <span class="c1">// hot, accessed together -&gt; one segment per warp</span>
-    <span class="n">float3</span> <span class="n">velocities</span><span class="p">[</span><span class="n">N</span><span class="p">];</span>
-    <span class="n">float4</span> <span class="n">colors</span><span class="p">[</span><span class="n">N</span><span class="p">];</span>
-    <span class="kt">float</span>  <span class="n">masses</span><span class="p">[</span><span class="n">N</span><span class="p">];</span>
+    <span class="n">float3</span><span class="o">*</span> <span class="n">positions</span><span class="p">;</span>
+    <span class="n">float3</span><span class="o">*</span> <span class="n">velocities</span><span class="p">;</span>
+    <span class="n">float4</span><span class="o">*</span> <span class="n">colors</span><span class="p">;</span>
+    <span class="kt">float</span><span class="o">*</span>  <span class="n">masses</span><span class="p">;</span>
 <span class="p">};</span>
 </code></pre></div></div>
 
-<p><strong>Practical guidance:</strong></p>
+<p>Guidelines:</p>
+
 <ul>
-  <li>Index so that <code class="language-plaintext highlighter-rouge">threadIdx.x</code> (the fastest-varying thread index) maps to the contiguous memory dimension. For a row-major 2D array, let consecutive threads walk a row, not a column.</li>
-  <li>Align base addresses and row strides (pitch) to the transaction size; APIs provide pitched allocations for exactly this.</li>
-  <li>For graphics, the analog is texture access: nearby pixels (a quad) should sample nearby texels. Mipmaps and swizzled/tiled texture layouts exist to keep these accesses cache- and bandwidth-friendly.</li>
-  <li>Use <strong>shared / group memory</strong> as a software-managed cache: have the warp cooperatively load a coalesced tile into fast on-chip memory once, then read it many times with arbitrary access patterns.</li>
+  <li>Map the fastest-varying thread index (<code class="language-plaintext highlighter-rouge">threadIdx.x</code>, <code class="language-plaintext highlighter-rouge">gl_LocalInvocationID.x</code>) to the contiguous dimension of the data. For a row-major 2D array, adjacent threads should walk along a row.</li>
+  <li>Align base addresses and row pitches to the transaction size; APIs provide pitched allocations (<code class="language-plaintext highlighter-rouge">cudaMallocPitch</code>) for this.</li>
+  <li>Prefer 16-byte vector loads (<code class="language-plaintext highlighter-rouge">float4</code>) where the data allows; fewer, wider instructions reach peak bandwidth more easily.</li>
+  <li>For textures, nearby pixels should sample nearby texels. Mipmaps and the GPU’s tiled (swizzled) texture layouts exist to keep those accesses cache-friendly; sampling a high-resolution texture far away without mips thrashes the cache.</li>
 </ul>
 
-<h2 id="draw-call-optimization">Draw Call Optimization</h2>
+<h3 id="shared-memory-and-bank-conflicts">Shared Memory and Bank Conflicts</h3>
 
-<p>Every draw call carries CPU-side cost: state validation, command-buffer encoding, and driver work to set up the GPU. Thousands of tiny draws make the frame <strong>CPU-bound on submission</strong> long before the GPU is saturated. The remedy is to do more work per call and to order calls so the GPU changes state as little as possible. (Modern explicit APIs — Vulkan, D3D12, Metal — cut the per-call driver cost dramatically but do not eliminate the value of batching.)</p>
+<p><strong>Shared memory</strong> is a fast, software-managed on-chip scratchpad visible to all threads of a block. The standard pattern is to load a tile from global memory with coalesced reads, synchronize, then read it many times in whatever pattern the algorithm needs.</p>
 
-<p><strong>Batching Strategies:</strong></p>
+<p>Shared memory is divided into 32 <strong>banks</strong> of 4 bytes. Threads of a warp that access different addresses in the same bank are serialized (a <strong>bank conflict</strong>). A matrix transpose shows both problems and their fixes:</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">constexpr</span> <span class="kt">int</span> <span class="n">TILE</span> <span class="o">=</span> <span class="mi">32</span><span class="p">;</span>
+
+<span class="c1">// in: rows x cols, row-major; out: cols x rows. Launch with blockDim = (32, 8).</span>
+<span class="n">__global__</span> <span class="kt">void</span> <span class="nf">transpose</span><span class="p">(</span><span class="kt">float</span><span class="o">*</span> <span class="n">__restrict__</span> <span class="n">out</span><span class="p">,</span> <span class="k">const</span> <span class="kt">float</span><span class="o">*</span> <span class="n">__restrict__</span> <span class="n">in</span><span class="p">,</span>
+                          <span class="kt">int</span> <span class="n">rows</span><span class="p">,</span> <span class="kt">int</span> <span class="n">cols</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// +1 column of padding shifts each row by one bank, so reading a column</span>
+    <span class="c1">// touches 32 different banks instead of the same bank 32 times.</span>
+    <span class="n">__shared__</span> <span class="kt">float</span> <span class="n">tile</span><span class="p">[</span><span class="n">TILE</span><span class="p">][</span><span class="n">TILE</span> <span class="o">+</span> <span class="mi">1</span><span class="p">];</span>
+
+    <span class="kt">int</span> <span class="n">x</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">TILE</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>       <span class="c1">// column in `in`</span>
+    <span class="kt">int</span> <span class="n">y</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">y</span> <span class="o">*</span> <span class="n">TILE</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>       <span class="c1">// row in `in`</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">TILE</span><span class="p">;</span> <span class="n">j</span> <span class="o">+=</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">y</span><span class="p">)</span>     <span class="c1">// coalesced read along rows</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="n">cols</span> <span class="o">&amp;&amp;</span> <span class="n">y</span> <span class="o">+</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">rows</span><span class="p">)</span>
+            <span class="n">tile</span><span class="p">[</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="n">j</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">in</span><span class="p">[(</span><span class="n">y</span> <span class="o">+</span> <span class="n">j</span><span class="p">)</span> <span class="o">*</span> <span class="n">cols</span> <span class="o">+</span> <span class="n">x</span><span class="p">];</span>
+
+    <span class="n">__syncthreads</span><span class="p">();</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">y</span> <span class="o">*</span> <span class="n">TILE</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>           <span class="c1">// column in `out`</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">blockIdx</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">TILE</span> <span class="o">+</span> <span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>           <span class="c1">// row in `out`</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">TILE</span><span class="p">;</span> <span class="n">j</span> <span class="o">+=</span> <span class="n">blockDim</span><span class="p">.</span><span class="n">y</span><span class="p">)</span>     <span class="c1">// coalesced write along rows</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="n">rows</span> <span class="o">&amp;&amp;</span> <span class="n">y</span> <span class="o">+</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">cols</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">[(</span><span class="n">y</span> <span class="o">+</span> <span class="n">j</span><span class="p">)</span> <span class="o">*</span> <span class="n">rows</span> <span class="o">+</span> <span class="n">x</span><span class="p">]</span> <span class="o">=</span> <span class="n">tile</span><span class="p">[</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">x</span><span class="p">][</span><span class="n">threadIdx</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="n">j</span><span class="p">];</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>A naive transpose reads rows and writes columns, so one of the two global accesses is strided. Staging through the tile makes both global accesses coalesced; the transposition happens in shared memory, where the padding keeps column reads conflict-free.</p>
+
+<p>On Hopper and later NVIDIA GPUs, the <strong>Tensor Memory Accelerator</strong> (TMA) copies whole tiles between global and shared memory asynchronously, and libraries such as CUTLASS and cuDNN use it to overlap loading the next tile with computing on the current one.</p>
+
+<h2 id="draw-calls-and-gpu-driven-rendering">Draw Calls and GPU-Driven Rendering</h2>
+
+<p>Every draw call has CPU-side cost: state validation, descriptor binding, and command encoding. Thousands of small draws make a frame <strong>CPU-bound on submission</strong> while the GPU sits partly idle. Explicit APIs (Vulkan, Direct3D 12, Metal) cut per-draw driver overhead substantially and allow recording command buffers on many threads, but reducing the number of CPU-issued draws still pays.</p>
 
 <table>
   <thead>
     <tr>
       <th>Technique</th>
-      <th>Description</th>
-      <th>Best For</th>
+      <th>What it does</th>
+      <th>Best for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Static Batching</td>
-      <td>Combine static meshes at build time</td>
-      <td>Static geometry</td>
+      <td>Static batching</td>
+      <td>Merge static meshes that share a material at build time</td>
+      <td>Static level geometry</td>
     </tr>
     <tr>
-      <td>Dynamic Batching</td>
-      <td>Runtime combination of small meshes</td>
-      <td>UI, particles</td>
+      <td>Instancing</td>
+      <td>One draw, many copies with per-instance data</td>
+      <td>Repeated objects: foliage, crowds, debris</td>
     </tr>
     <tr>
-      <td>GPU Instancing</td>
-      <td>One draw call, many instances</td>
-      <td>Repeated objects</td>
+      <td>Bindless resources</td>
+      <td>Index textures and buffers from large descriptor arrays instead of binding per draw</td>
+      <td>Removing material state changes so more draws merge</td>
     </tr>
     <tr>
-      <td>Indirect Drawing</td>
-      <td>GPU generates draw commands</td>
-      <td>Procedural, culling</td>
+      <td>Multi-draw indirect</td>
+      <td>GPU reads an array of draw arguments from a buffer</td>
+      <td>Many different meshes in one call</td>
     </tr>
     <tr>
-      <td>Mesh Shaders</td>
-      <td>GPU-driven geometry</td>
-      <td>Complex scenes</td>
+      <td>GPU-driven culling</td>
+      <td>Compute pass culls objects or meshlets and writes indirect arguments</td>
+      <td>Large scenes; removes CPU-GPU round trips</td>
+    </tr>
+    <tr>
+      <td>Mesh shaders</td>
+      <td>Replace the vertex and primitive pipeline with compute-like task and mesh stages over meshlets</td>
+      <td>Fine-grained culling and LOD on the GPU</td>
+    </tr>
+    <tr>
+      <td>Device-generated commands, D3D12 Work Graphs</td>
+      <td>GPU generates new work (including state changes or dispatches) without the CPU</td>
+      <td>Fully GPU-driven pipelines</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>GPU instancing</strong> is the workhorse for repeated geometry: submit one mesh once and supply a per-instance buffer of transforms (and optionally per-instance colors/params). The GPU loops the geometry internally, so a forest of 10,000 trees becomes a single draw.</p>
+<p><strong>Instancing</strong> submits one mesh and a per-instance buffer of transforms; a forest of 10,000 trees becomes one draw.</p>
 
-<div class="language-glsl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Vertex shader reading a per-instance transform (one draw, N instances)</span>
+<div class="language-glsl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#version 460
+</span><span class="c1">// OpenGL 4.6 vertex shader: one draw, N instances.</span>
+<span class="c1">// (In Vulkan GLSL, use gl_InstanceIndex, which includes the base instance.)</span>
 <span class="k">layout</span><span class="p">(</span><span class="n">location</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">in</span> <span class="kt">vec3</span> <span class="n">inPosition</span><span class="p">;</span>
 
 <span class="k">layout</span><span class="p">(</span><span class="n">std430</span><span class="p">,</span> <span class="n">binding</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="n">readonly</span> <span class="n">buffer</span> <span class="n">InstanceData</span> <span class="p">{</span>
-    <span class="kt">mat4</span> <span class="n">modelMatrix</span><span class="p">[];</span>   <span class="c1">// one entry per instance</span>
+    <span class="kt">mat4</span> <span class="n">modelMatrix</span><span class="p">[];</span>            <span class="c1">// one entry per instance</span>
 <span class="p">};</span>
 
-<span class="k">uniform</span> <span class="kt">mat4</span> <span class="n">viewProj</span><span class="p">;</span>
+<span class="k">layout</span><span class="p">(</span><span class="n">std140</span><span class="p">,</span> <span class="n">binding</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="k">uniform</span> <span class="n">Camera</span> <span class="p">{</span>
+    <span class="kt">mat4</span> <span class="n">viewProj</span><span class="p">;</span>
+<span class="p">};</span>
 
 <span class="kt">void</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
     <span class="kt">mat4</span> <span class="n">model</span> <span class="o">=</span> <span class="n">modelMatrix</span><span class="p">[</span><span class="nb">gl_InstanceID</span><span class="p">];</span>
@@ -3379,119 +3629,143 @@ addr:    [0]   [256]  [512]   ...        -&gt; one segment per thread
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p><strong>Indirect / GPU-driven rendering</strong> goes further: a compute pass culls objects and writes the draw arguments (index count, instance count, offsets) into a buffer the GPU consumes directly via <code class="language-plaintext highlighter-rouge">drawIndexedIndirect</code>. The CPU never sees the per-object decision, eliminating both submission cost and CPU-GPU round trips for culling.</p>
+<p><strong>GPU-driven rendering</strong> moves the per-object decisions to the GPU. A compute pass tests every object (or meshlet) against the view frustum and last frame’s depth pyramid (Hi-Z occlusion), compacts the survivors, and writes draw arguments that a single <code class="language-plaintext highlighter-rouge">vkCmdDrawIndexedIndirectCount</code> or <code class="language-plaintext highlighter-rouge">ExecuteIndirect</code> call consumes. The CPU submits a constant handful of calls regardless of scene size. Virtualized-geometry systems such as Unreal Engine 5’s Nanite take this further with cluster-level culling and LOD selected entirely on the GPU.</p>
 
-<p><strong>State Sorting:</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Sort draw calls to minimize state changes:
-1. By render target
-2. By shader program
-3. By material/textures
-4. By mesh
+<pre><code class="language-mermaid">flowchart LR
+    A["Scene buffer&lt;br/&gt;all objects / meshlets"] --&gt; B["Compute: frustum +&lt;br/&gt;Hi-Z occlusion cull"]
+    B --&gt; C["Compacted list +&lt;br/&gt;indirect draw arguments"]
+    C --&gt; D["One indirect draw&lt;br/&gt;(or mesh-shader dispatch)"]
+    D --&gt; E["Depth buffer"]
+    E --&gt;|"build Hi-Z for next frame"| B
+</code></pre>
 
-Cost of state changes (relative):
-- Render target: Very high
-- Shader program: High
-- Textures: Medium
-- Uniforms: Low
-- Vertex buffers: Low
-</code></pre></div></div>
-
-<p>Sorting by the most expensive state first means a single pipeline/shader bind amortizes over many draws. Combine sorting with a <strong>depth prepass</strong> (render depth only, then shade front-to-back) to slash overdraw on fill-rate-bound scenes.</p>
+<p><strong>State sorting.</strong> When draws remain CPU-issued, sort them so the most expensive state changes happen least often: render target first, then pipeline (shader) state, then material resources, then per-draw constants and buffers. With bindless resources, material changes become index changes and nearly disappear from the cost. Combine sorting with a <strong>depth prepass</strong> or rough front-to-back order so early depth testing rejects hidden pixels before they are shaded.</p>
 
 <h2 id="shader-optimization">Shader Optimization</h2>
 
-<p>Once a shader is the bound, the win comes from doing less work per invocation, keeping warps non-divergent, and using the cheapest precision that is correct. Remember that a pixel shader runs once per covered fragment, often millions of times per frame — small savings multiply enormously.</p>
+<p>When a shader is the bound, the win comes from doing less work per invocation, keeping warps coherent, and using the cheapest correct precision. A pixel shader runs once per covered pixel, often millions of times per frame, so small savings multiply.</p>
 
-<p><strong>General Guidelines:</strong></p>
-<div class="language-glsl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Avoid</span>
-<span class="k">if</span> <span class="p">(</span><span class="n">condition</span><span class="p">)</span> <span class="p">{</span> <span class="p">...</span> <span class="p">}</span>  <span class="c1">// Divergent branching</span>
-<span class="n">sqrt</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>                 <span class="c1">// Use x * inversesqrt(x) for length</span>
-<span class="n">pow</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">.</span><span class="mi">0</span><span class="p">)</span>            <span class="c1">// Use x * x</span>
+<p><strong>Divergence.</strong></p>
 
-<span class="c1">// Prefer</span>
-<span class="n">mix</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">step</span><span class="p">(</span><span class="n">threshold</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>  <span class="c1">// Branchless select</span>
-<span class="n">x</span> <span class="o">*</span> <span class="n">inversesqrt</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>                  <span class="c1">// Faster length</span>
-<span class="n">x</span> <span class="o">*</span> <span class="n">x</span>                               <span class="c1">// Faster power of 2</span>
-
-<span class="c1">// Use appropriate precision</span>
-<span class="kt">lowp</span> <span class="kt">float</span> <span class="n">color</span><span class="p">;</span>       <span class="c1">// 8-bit, for colors</span>
-<span class="kt">mediump</span> <span class="kt">float</span> <span class="n">uv</span><span class="p">;</span>       <span class="c1">// 16-bit, for UVs</span>
-<span class="kt">highp</span> <span class="kt">float</span> <span class="n">position</span><span class="p">;</span>   <span class="c1">// 32-bit, for positions</span>
-</code></pre></div></div>
-
-<p><strong>Minimize warp divergence.</strong> Because a warp executes both sides of a branch when threads disagree, the cost of a divergent <code class="language-plaintext highlighter-rouge">if/else</code> is the sum of both paths. Strategies:</p>
 <ul>
-  <li>Replace small branches with branchless math (<code class="language-plaintext highlighter-rouge">mix</code>, <code class="language-plaintext highlighter-rouge">step</code>, <code class="language-plaintext highlighter-rouge">clamp</code>, <code class="language-plaintext highlighter-rouge">saturate</code>).</li>
-  <li>Keep divergent decisions <strong>coherent across the warp</strong> — pixels in a screen tile usually share the same branch, so spatial coherence often makes branches effectively free.</li>
-  <li>Hoist uniform-control-flow branches (the same for the whole draw) — these are cheap, only <em>thread-varying</em> branches diverge.</li>
+  <li>Branches that are <strong>uniform</strong> across a draw or dispatch (based on constants) are cheap; only thread-varying branches diverge.</li>
+  <li>Branches that are coherent across screen regions (most pixels in a tile take the same side) diverge only at region edges, so they are usually fine.</li>
+  <li>For short, genuinely divergent branches, compute both sides and select (<code class="language-plaintext highlighter-rouge">mix</code>, <code class="language-plaintext highlighter-rouge">step</code>, <code class="language-plaintext highlighter-rouge">select</code>); the compiler often does this itself. For long divergent branches, consider sorting or binning work so each warp sees similar cases (for example, material sorting in deferred and ray-traced renderers).</li>
 </ul>
 
-<p><strong>Reduce register pressure.</strong> Long shaders with many simultaneously-live variables consume registers and cap occupancy (see above). Shorten dependency chains, reuse variables, and avoid holding many intermediate results across long stretches.</p>
+<p><strong>Math.</strong></p>
 
-<p><strong>ALU vs Texture Tradeoffs:</strong></p>
 <ul>
-  <li>Simple math is often faster than a texture lookup on modern GPUs with abundant ALU.</li>
-  <li>Complex transcendental functions may still benefit from a precomputed <strong>lookup-table (LUT) texture</strong>.</li>
-  <li>Texture units are fast, but a dependent texture fetch (where the coordinate comes from another fetch) serializes and stalls — avoid chains.</li>
-  <li>Profile both ways; the balance shifts by GPU generation and by how loaded the ALU vs texture units already are.</li>
+  <li>Compilers already turn <code class="language-plaintext highlighter-rouge">pow(x, 2.0)</code> into <code class="language-plaintext highlighter-rouge">x * x</code> and fold constants; write clear code and check the generated ISA (via Nsight, RGA, or the Metal shader profiler) before hand-optimizing.</li>
+  <li>Move work to the earliest stage where it is still correct: per-draw constants on the CPU, slowly varying terms in the vertex shader (interpolated to pixels), per-pixel only what must be.</li>
+  <li>Transcendentals (<code class="language-plaintext highlighter-rouge">sin</code>, <code class="language-plaintext highlighter-rouge">exp</code>, <code class="language-plaintext highlighter-rouge">rsqrt</code>) run on special-function units at a fraction of the regular ALU rate; they are fast but not free.</li>
 </ul>
 
-<p><strong>Other high-value moves:</strong> move per-vertex what need not be per-pixel (e.g. compute slowly-varying terms in the vertex shader and let interpolation do the rest); precompute constants on the CPU and pass them as uniforms; prefer <code class="language-plaintext highlighter-rouge">mediump</code>/<code class="language-plaintext highlighter-rouge">half</code> precision on mobile tile-based GPUs where it doubles ALU throughput and halves bandwidth.</p>
+<p><strong>Precision.</strong></p>
+
+<ul>
+  <li>16-bit floats (<code class="language-plaintext highlighter-rouge">half</code> in Metal, <code class="language-plaintext highlighter-rouge">min16float</code> or <code class="language-plaintext highlighter-rouge">float16_t</code> with Shader Model 6.2+ in HLSL, <code class="language-plaintext highlighter-rouge">mediump</code> in GLSL ES) can double ALU throughput on hardware with packed FP16 math and halve register use, which in turn raises occupancy.</li>
+  <li><code class="language-plaintext highlighter-rouge">mediump</code> and <code class="language-plaintext highlighter-rouge">lowp</code> are hints: desktop OpenGL ignores them, and mobile implementations map them to FP16 or wider. Use 16-bit types for colors, normals, and UVs within a modest range; keep positions and depth in 32-bit float.</li>
+</ul>
+
+<p><strong>Registers and memory.</strong></p>
+
+<ul>
+  <li>Long shaders with many simultaneously live values consume registers and cap occupancy. Shorten live ranges and avoid dynamically indexed local arrays.</li>
+  <li>Dependent texture fetches (a coordinate computed from another fetch) serialize latency; keep such chains short.</li>
+  <li>Simple arithmetic is often cheaper than a texture lookup; precomputed lookup textures still win for expensive functions. The balance shifts by GPU generation, so measure both.</li>
+</ul>
+
+<h2 id="compute-and-ml-workloads">Compute and ML Workloads</h2>
+
+<p>GPU compute, and machine learning in particular, adds a few concerns that graphics rarely hits:</p>
+
+<ul>
+  <li><strong>Use the tensor cores.</strong> Matrix math in FP16, BF16, TF32, or FP8 (Hopper and later; FP4 on Blackwell) runs an order of magnitude faster than FP32 on the regular ALUs. Mixed-precision training and inference (<code class="language-plaintext highlighter-rouge">torch.autocast</code>) is the default for a reason.</li>
+  <li><strong>Fuse kernels.</strong> Chains of elementwise operations are memory-bound, so each separate kernel re-reads and re-writes the whole tensor. Fusion keeps intermediates in registers or shared memory. Compilers (<code class="language-plaintext highlighter-rouge">torch.compile</code>, XLA, Triton) fuse automatically; FlashAttention is the landmark hand-fused example, computing attention tile by tile in shared memory so the full attention matrix is never written to DRAM.</li>
+  <li><strong>Cut launch overhead.</strong> Each kernel launch costs several microseconds of CPU and driver time. Workloads made of many tiny kernels (small-batch inference) are launch-bound; <strong>CUDA Graphs</strong> record a sequence of launches once and replay it with a single call.</li>
+  <li><strong>Overlap transfers with compute.</strong> Use pinned (page-locked) host memory, asynchronous copies on separate streams, and double-buffered batches so PCIe or NVLink transfers hide behind computation. Better still, keep data resident on the GPU between steps.</li>
+  <li><strong>Batch.</strong> A batch that is too small cannot fill tens of thousands of lanes; throughput often scales nearly linearly with batch size until a compute or memory roof is reached.</li>
+</ul>
+
+<p>For model-level techniques (quantization, pruning, distillation, serving), see <a href="../ai-ml/model-compression.html">Model Compression</a> and <a href="../ai-ml/optimization-guide.html">AI/ML Optimization</a>.</p>
 
 <h2 id="cpu-gpu-synchronization">CPU-GPU Synchronization</h2>
 
-<p>The CPU and GPU are independent processors connected by a command queue. The CPU records commands into a buffer that the GPU consumes some frames later. The system runs at full speed only when both stay busy; the classic performance killer is a <strong>sync point</strong> where one waits idle for the other.</p>
+<p>The CPU and GPU are independent processors connected by command queues. The CPU records command buffers that the GPU executes later, usually one or two frames behind. Both run at full speed only while neither waits for the other; the classic performance bug is an accidental <strong>sync point</strong>.</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    subgraph CPU
-      A["Record frame N+1"] --&gt; B["Record frame N+2"]
-    end
-    subgraph GPU
-      C["Execute frame N"] --&gt; D["Execute frame N+1"]
-    end
-    A -. submit .-&gt; C
-    B -. submit .-&gt; D
+<pre><code class="language-mermaid">sequenceDiagram
+    participant CPU
+    participant GPU
+    CPU-&gt;&gt;GPU: submit frame N
+    CPU-&gt;&gt;CPU: record frame N+1
+    GPU-&gt;&gt;GPU: execute frame N
+    CPU-&gt;&gt;GPU: submit frame N+1
+    CPU-&gt;&gt;CPU: record frame N+2
+    Note over CPU: wait on fence for frame N&lt;br/&gt;before reusing its buffers
+    GPU--&gt;&gt;CPU: fence N signaled
+    GPU-&gt;&gt;GPU: execute frame N+1
 </code></pre>
 
-<p><strong>The readback stall.</strong> Reading a GPU resource back to the CPU immediately after writing it (an occlusion-query result, a computed buffer, a screenshot) forces the CPU to block until the GPU drains every queued command and reaches that work. This serializes the two processors and can cost an entire frame. Avoid it by:</p>
-<ul>
-  <li><strong>Deferring the read by N frames.</strong> Issue the readback into a ring of staging buffers and consume the result two or three frames later, when it is already complete. You trade a little latency for full overlap.</li>
-  <li><strong>Keeping the result on the GPU.</strong> With indirect drawing and compute, results like cull counts never need to touch the CPU at all.</li>
-</ul>
-
-<p><strong>Buffer updates and hazards.</strong> Writing to a buffer or texture the GPU is still reading from creates a hazard the driver resolves by either stalling or renaming the resource. Use:</p>
-<ul>
-  <li><strong>Multiple buffering</strong> (double/triple): write into a different copy each frame so the CPU never touches a resource in flight.</li>
-  <li><strong>Persistent mapped + fenced ring buffers</strong>: a large mapped buffer carved into per-frame regions, gated by a fence so you only reuse a region after its frame’s GPU work signals completion.</li>
-</ul>
-
-<p><strong>Fences, semaphores, and barriers</strong> are the primitives:</p>
-<ul>
-  <li>A <strong>fence</strong> lets the CPU wait on (or poll) GPU completion of a submission — use it to know when a frame’s resources are safe to reuse, <em>not</em> to block every frame.</li>
-  <li><strong>Semaphores</strong> synchronize GPU queues with each other (e.g. compute feeding graphics) without involving the CPU.</li>
-  <li><strong>Pipeline barriers / resource transitions</strong> order GPU work and change resource state; over-broad barriers serialize the pipeline, so scope them as tightly as the data dependency requires.</li>
-</ul>
-
-<p><strong>Frames in flight.</strong> Letting the CPU run 2-3 frames ahead of the GPU (bounded by fences) maximizes overlap, at the cost of input latency. This is the standard triple-buffered pipeline: enough lookahead to keep both processors saturated, but not so much that the controls feel laggy.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p><strong>Readback stalls.</strong> Reading a GPU result on the CPU immediately after requesting it (a query result, a computed buffer, a screenshot) blocks the CPU until the GPU drains all earlier work, serializing the two processors and potentially costing a whole frame. Avoid it by:</p>
 
 <ul>
-  <li><strong>Capture, then classify the bound.</strong> Profile a release-build worst case with RenderDoc/Nsight/RGP and decide whether you are fill-rate, geometry, bandwidth, or ALU limited before changing anything.</li>
-  <li><strong>Occupancy hides latency.</strong> Resident warps cover memory stalls. Watch register and shared-memory pressure, but chase only <em>enough</em> occupancy to hide your access latency — not a 100% number.</li>
-  <li><strong>Coalesce and use SoA.</strong> Make adjacent threads touch adjacent, aligned addresses so one wide transaction serves the warp. SoA layouts coalesce where AoS strides.</li>
-  <li><strong>Batch and sort draws.</strong> Instancing and indirect rendering cut per-call CPU cost; sorting by render target then shader then material minimizes expensive state changes.</li>
-  <li><strong>Cut shader work and divergence.</strong> Cheaper math, branchless selects, coherent branches, lower precision, and fewer live registers all raise per-invocation throughput.</li>
-  <li><strong>Never stall the pipeline.</strong> Defer readbacks by frames, multi-buffer updates behind fences, and run the CPU 2-3 frames ahead so neither processor waits idle.</li>
+  <li><strong>Deferring the read.</strong> Copy results into a ring of staging buffers and read each one two or three frames later, when its fence has already signaled.</li>
+  <li><strong>Keeping results on the GPU.</strong> With indirect drawing and compute, values such as visible-object counts never need to reach the CPU.</li>
 </ul>
+
+<p><strong>Buffer update hazards.</strong> Writing a buffer the GPU may still be reading forces the driver (in older APIs) to stall or silently copy, and in explicit APIs is simply a bug. Use:</p>
+
+<ul>
+  <li><strong>Per-frame copies</strong> (double or triple buffering) so the CPU never writes a resource that is in flight.</li>
+  <li><strong>Persistently mapped ring buffers</strong> carved into per-frame regions, each reused only after the fence for its frame has signaled.</li>
+</ul>
+
+<p><strong>Synchronization primitives.</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Primitive</th>
+      <th>Synchronizes</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Fence (D3D12 <code class="language-plaintext highlighter-rouge">ID3D12Fence</code>, Vulkan fence or timeline semaphore, Metal shared event)</td>
+      <td>GPU to CPU</td>
+      <td>Know when a frame’s resources can be reused. Poll or wait only when about to reuse, not every frame.</td>
+    </tr>
+    <tr>
+      <td>Semaphore (Vulkan binary or timeline semaphores, core since Vulkan 1.2)</td>
+      <td>Queue to queue</td>
+      <td>Order work across graphics, async compute, and transfer queues without CPU involvement</td>
+    </tr>
+    <tr>
+      <td>Pipeline barrier / resource transition</td>
+      <td>Work within a queue</td>
+      <td>Order dependent passes and change resource layouts. Over-broad barriers (all stages, all resources) serialize the GPU; scope them to the actual dependency and batch them.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Async compute.</strong> Independent compute work (light culling, particle simulation, post-processing) can run on a separate queue and overlap graphics passes that leave ALUs idle, such as shadow-map rendering, which is mostly raster- and depth-bound. The gain depends on the two workloads stressing different units; profile before and after.</p>
+
+<p><strong>Frames in flight.</strong> Letting the CPU run two to three frames ahead of the GPU, bounded by fences, keeps both saturated at the cost of input latency. Latency-reduction features (NVIDIA Reflex, AMD Anti-Lag, and similar) shorten this queue dynamically when the GPU is the bottleneck.</p>
 
 <h2 id="see-also">See Also</h2>
+
 <ul>
-  <li><a href="./">Performance Optimization</a> - The optimization hub: process, philosophy, and all subsystems</li>
-  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - The rendering pipeline and GPU architecture this builds on</li>
-  <li><a href="../gamedev/">Game Development</a> - Frame budgets and engine-level performance</li>
-  <li><a href="../technology/unreal.html">Unreal Engine</a> - UE5 GPU profiling tools and rendering features</li>
-  <li><a href="../vr-ar/">VR/AR Development</a> - Strict GPU budgets for stereo rendering at high frame rates</li>
+  <li><a href="./">Performance Optimization</a>: the hub, process, and learning paths</li>
+  <li><a href="./cpu-optimization.html">CPU Optimization</a>: profiling, cache-aware layout, and SIMD on the CPU side</li>
+  <li><a href="./memory-optimization.html">Memory Optimization</a>: texture compression, streaming, and memory budgets</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics and Rendering</a>: the rendering pipeline and GPU architecture this builds on</li>
+  <li><a href="../graphics/shaders.html">Shader Programming</a>: shader stages, languages, and debugging</li>
+  <li><a href="../ai-ml/optimization-guide.html">AI/ML Optimization</a>: inference and training performance for diffusion and other models</li>
+  <li><a href="../gamedev/">Game Development</a>: frame budgets and engine-level performance</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a>: Unreal’s GPU profiling tools and Nanite</li>
+  <li><a href="../vr-ar/">VR/AR Development</a>: tight GPU budgets for stereo rendering at high refresh rates</li>
 </ul>
 
       </section>

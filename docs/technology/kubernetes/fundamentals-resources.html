@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Kubernetes health probes, CPU and memory requests and limits, QoS classes and node-pressure eviction, scheduling, in-place pod resize, and the Horizontal Pod...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Kubernetes: Health & Resource Management">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Kubernetes health probes, CPU and memory requests and limits, QoS classes and node-pressure eviction, scheduling, in-place pod resize, and the Horizontal Pod...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/kubernetes/fundamentals-resources.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Kubernetes: Health & Resource Management">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Kubernetes health probes, CPU and memory requests and limits, QoS classes and node-pressure eviction, scheduling, in-place pod resize, and the Horizontal Pod...">
 
 <title>Kubernetes: Health & Resource Management | Andrews Notebook</title>
 
@@ -3133,41 +3133,44 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Kubernetes</a> » <a href="fundamentals.html">Fundamentals</a> » Health &amp; Resource Management</p>
 
-<p>Teach Kubernetes what “healthy” means and how much your workloads cost: probes, requests and limits, QoS classes, scheduling, and horizontal autoscaling.</p>
+<p>This page covers the contract between a workload and the cluster that runs it. <strong>Probes</strong> tell the kubelet what “healthy” and “ready” mean for a container. <strong>Requests and limits</strong> tell the scheduler what a pod needs and the kernel what it may use; together they determine the pod’s <strong>QoS class</strong> and its fate under node pressure. The <strong>scheduler</strong> places pods using those requests, and the <strong>Horizontal Pod Autoscaler</strong> changes replica counts from live metrics. Behaviour described here is current for Kubernetes v1.35–v1.37.</p>
 
-<h2 id="why-health-and-resources-go-together">Why Health and Resources Go Together</h2>
+<pre><code class="language-mermaid">flowchart LR
+    R["requests / limits"] --&gt; S["Scheduler&lt;br/&gt;placement"]
+    R --&gt; Q["QoS class"]
+    Q --&gt; E["Eviction &amp; OOM&lt;br/&gt;ordering"]
+    R --&gt; H["HPA&lt;br/&gt;utilization = usage / request"]
+    P["Probes"] --&gt; T["Traffic routing&lt;br/&gt;(readiness)"]
+    P --&gt; RS["Restarts&lt;br/&gt;(liveness)"]
+</code></pre>
 
-<p>A Deployment will restart a <em>crashed</em> container automatically, but many failures are subtler: a process that is still running yet stuck in a deadlock, or one that has started but is not yet ready to serve traffic. At the same time, the scheduler can only place pods sensibly if you tell it how much CPU and memory each one needs. Health probes and resource declarations are two halves of the same contract — together they tell Kubernetes what “healthy” means for your application and what it costs to run.</p>
+<h2 id="probes">Probes</h2>
 
-<p>This page covers that contract end to end: the three probe types, CPU/memory requests and limits, the Quality of Service classes those values imply, how the scheduler uses requests to place pods, and how the Horizontal Pod Autoscaler uses live metrics to change the replica count.</p>
-
-<h2 id="keeping-pods-healthy-probes">Keeping Pods Healthy: Probes</h2>
-
-<p>A pod that is <code class="language-plaintext highlighter-rouge">Running</code> is not necessarily <em>working</em>. The kubelet runs <strong>probes</strong> — periodic checks against each container — to decide whether to restart it, route traffic to it, or wait for it to boot. The three probe types answer three different questions, and confusing them is one of the most common production mistakes.</p>
+<p>A container that is running is not necessarily working. The kubelet on each node runs <strong>probes</strong> against the containers it manages and acts on the results. The three probe types answer different questions, and confusing them is one of the most common causes of self-inflicted outages.</p>
 
 <table>
   <thead>
     <tr>
       <th>Probe</th>
-      <th>Question it answers</th>
-      <th>Action on failure</th>
+      <th>Question</th>
+      <th>On failure</th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <td><strong>Startup</strong></td>
+      <td>Has the application finished starting?</td>
+      <td>Keeps liveness and readiness suspended; after <code class="language-plaintext highlighter-rouge">failureThreshold</code> failures the container is killed and restarted</td>
+    </tr>
+    <tr>
       <td><strong>Liveness</strong></td>
-      <td>“Is the container alive, or wedged?”</td>
-      <td>Restart the container</td>
+      <td>Is the process still able to make progress, or is it wedged?</td>
+      <td>Container is killed and restarted according to the pod’s <code class="language-plaintext highlighter-rouge">restartPolicy</code></td>
     </tr>
     <tr>
       <td><strong>Readiness</strong></td>
-      <td>“Can it serve traffic right now?”</td>
-      <td>Remove the pod from Service endpoints (no restart)</td>
-    </tr>
-    <tr>
-      <td><strong>Startup</strong></td>
-      <td>“Has a slow-starting app finished booting?”</td>
-      <td>Hold off liveness/readiness checks until it passes</td>
+      <td>Should this pod receive traffic right now?</td>
+      <td>Pod is marked not Ready and removed from Service EndpointSlices; <strong>no restart</strong></td>
     </tr>
   </tbody>
 </table>
@@ -3175,32 +3178,87 @@ document.addEventListener('DOMContentLoaded', function () {
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
   <span class="na">containers</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:1.4</span>
-    <span class="na">startupProbe</span><span class="pi">:</span>            <span class="c1"># Give a slow boot up to 30 x 10s = 300s</span>
-      <span class="na">httpGet</span><span class="pi">:</span>
-        <span class="na">path</span><span class="pi">:</span> <span class="s">/healthz/live</span>
-        <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/web:1.4.2</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">name</span><span class="pi">:</span> <span class="nv">http</span><span class="pi">,</span> <span class="nv">containerPort</span><span class="pi">:</span> <span class="nv">8080</span><span class="pi">}</span>
+    <span class="na">startupProbe</span><span class="pi">:</span>                 <span class="c1"># allow up to 30 x 5s = 150s to boot</span>
+      <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">path</span><span class="pi">:</span> <span class="nv">/healthz/live</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">http</span><span class="pi">}</span>
+      <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
       <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">30</span>
+    <span class="na">livenessProbe</span><span class="pi">:</span>                <span class="c1"># restart after ~3 x 10s of being wedged</span>
+      <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">path</span><span class="pi">:</span> <span class="nv">/healthz/live</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">http</span><span class="pi">}</span>
       <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
-    <span class="na">readinessProbe</span><span class="pi">:</span>          <span class="c1"># Gate traffic until the app is ready</span>
-      <span class="na">httpGet</span><span class="pi">:</span>
-        <span class="na">path</span><span class="pi">:</span> <span class="s">/healthz/ready</span>
-        <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
-      <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">5</span>
-      <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
-    <span class="na">livenessProbe</span><span class="pi">:</span>           <span class="c1"># Restart if the app wedges</span>
-      <span class="na">httpGet</span><span class="pi">:</span>
-        <span class="na">path</span><span class="pi">:</span> <span class="s">/healthz/live</span>
-        <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
-      <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">15</span>
       <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">3</span>
+    <span class="na">readinessProbe</span><span class="pi">:</span>               <span class="c1"># gate traffic; may check dependencies</span>
+      <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">path</span><span class="pi">:</span> <span class="nv">/healthz/ready</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">http</span><span class="pi">}</span>
+      <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
+      <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">2</span>
 </code></pre></div></div>
 
-<p><strong>Why the distinction matters</strong>: a failing <em>readiness</em> probe quietly pulls the pod out of rotation so users are never routed to it, then re-adds it once healthy — ideal for warm-ups or temporary overload. A failing <em>liveness</em> probe kills and restarts the container. Pointing a liveness probe at a dependency you do not control (such as a database) is a classic anti-pattern: a brief database hiccup triggers a restart storm that makes the outage worse.</p>
+<h3 id="probe-lifecycle">Probe Lifecycle</h3>
 
-<h3 id="how-a-probe-is-evaluated">How a Probe Is Evaluated</h3>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Starting: container started
+    Starting --&gt; Starting: startup probe fails&lt;br/&gt;(below failureThreshold)
+    Starting --&gt; Restart: startup probe fails&lt;br/&gt;failureThreshold times
+    Starting --&gt; Serving: startup probe succeeds once
+    state Serving {
+        [*] --&gt; NotReady
+        NotReady --&gt; Ready: readiness succeeds
+        Ready --&gt; NotReady: readiness fails&lt;br/&gt;(removed from endpoints)
+    }
+    Serving --&gt; Restart: liveness fails&lt;br/&gt;failureThreshold times
+    Restart --&gt; Starting: kubelet restarts container&lt;br/&gt;(exponential back-off)
+</code></pre>
 
-<p>Each probe runs on the kubelet of the node hosting the pod, on a fixed interval, and tracks consecutive results against thresholds. The tuning knobs are the same for all three types:</p>
+<p>The startup probe runs only until its first success and never again for that container. Readiness is evaluated for the whole life of the container, so a pod can move in and out of rotation many times without restarting. Repeated restarts are delayed by an exponential back-off (starting at 10 s and capped at 5 minutes), which is what the <code class="language-plaintext highlighter-rouge">CrashLoopBackOff</code> waiting reason reports.</p>
+
+<h3 id="handlers">Handlers</h3>
+
+<p>Any probe type can use any handler:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Handler</th>
+      <th>Succeeds when</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">httpGet</code></td>
+      <td>Response status is 200–399</td>
+      <td>The usual choice for HTTP services. Serve it from a cheap, dependency-free handler.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tcpSocket</code></td>
+      <td>A TCP connection can be opened</td>
+      <td>For non-HTTP servers; proves only that something is listening.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">grpc</code></td>
+      <td>The <a href="https://github.com/grpc/grpc/blob/master/doc/health-checking.md">gRPC health-checking protocol</a> returns <code class="language-plaintext highlighter-rouge">SERVING</code></td>
+      <td>Native since v1.27; no helper binary needed.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">exec</code></td>
+      <td>A command inside the container exits 0</td>
+      <td>Most flexible but most expensive: a process is forked on every probe.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">livenessProbe</span><span class="pi">:</span>
+  <span class="na">grpc</span><span class="pi">:</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">9090</span>
+    <span class="na">service</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>            <span class="c1"># empty = overall server health</span>
+<span class="na">readinessProbe</span><span class="pi">:</span>
+  <span class="na">exec</span><span class="pi">:</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">test"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-f"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">/tmp/ready"</span><span class="pi">]</span>
+</code></pre></div></div>
+
+<h3 id="timing-fields">Timing Fields</h3>
 
 <table>
   <thead>
@@ -3213,159 +3271,206 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">initialDelaySeconds</code></td>
-      <td>Wait this long after the container starts before the first probe</td>
+      <td>Delay before the first probe</td>
       <td>0</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">periodSeconds</code></td>
-      <td>How often to probe</td>
+      <td>Interval between probes</td>
       <td>10</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">timeoutSeconds</code></td>
-      <td>How long to wait for a single probe to respond</td>
+      <td>Time allowed for one probe to answer</td>
       <td>1</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">successThreshold</code></td>
-      <td>Consecutive successes needed to be considered passing</td>
+      <td>Consecutive successes to pass (must be 1 for liveness and startup)</td>
       <td>1</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">failureThreshold</code></td>
-      <td>Consecutive failures before the probe is considered failed</td>
+      <td>Consecutive failures to fail</td>
       <td>3</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terminationGracePeriodSeconds</code></td>
+      <td>Probe-level override of the pod’s grace period when a liveness or startup failure kills the container</td>
+      <td>pod value</td>
     </tr>
   </tbody>
 </table>
 
-<p>The effective time before a liveness probe restarts a container is roughly <code class="language-plaintext highlighter-rouge">initialDelaySeconds + failureThreshold x periodSeconds</code>. In the example above that is <code class="language-plaintext highlighter-rouge">0 + 3 x 15 = 45</code> seconds of being wedged before a restart.</p>
+<p>The worst-case time a wedged container keeps running is about <code class="language-plaintext highlighter-rouge">failureThreshold × periodSeconds</code> (+ <code class="language-plaintext highlighter-rouge">timeoutSeconds</code> per attempt); a slow-booting application gets up to <code class="language-plaintext highlighter-rouge">failureThreshold × periodSeconds</code> from its startup probe. Prefer a startup probe over a large <code class="language-plaintext highlighter-rouge">initialDelaySeconds</code> on liveness: the latter delays detection of genuine hangs for the container’s whole lifetime, not just at boot.</p>
 
-<h3 id="the-three-probe-mechanisms">The Three Probe Mechanisms</h3>
-
-<p>A probe can use any of three handlers, regardless of type:</p>
+<h3 id="design-guidelines">Design Guidelines</h3>
 
 <ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">httpGet</code></strong> — the kubelet performs an HTTP GET; any <code class="language-plaintext highlighter-rouge">2xx</code>/<code class="language-plaintext highlighter-rouge">3xx</code> status code is a success. Best for web services; expose a cheap, dependency-free endpoint.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">tcpSocket</code></strong> — success if the TCP connection opens. Useful for non-HTTP servers (databases, brokers) where “the port accepts connections” is a reasonable proxy for health.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">exec</code></strong> — runs a command inside the container; exit code <code class="language-plaintext highlighter-rouge">0</code> is success. Most flexible (you can check a lockfile, a queue depth, etc.) but the most expensive, since it forks a process on every probe.</li>
+  <li><strong>Liveness checks only the process itself.</strong> Never probe a database, cache or downstream API from liveness: a brief dependency outage then restarts every replica at once and turns a blip into an outage. Many services need no liveness probe at all — if the process crashes when broken, the kubelet already restarts it.</li>
+  <li><strong>Readiness may consider dependencies and load.</strong> Failing readiness only removes the pod from rotation, which is the right response to “cannot serve right now”. Be aware that if <em>every</em> replica fails readiness together, the Service has no endpoints.</li>
+  <li><strong>Use separate endpoints</strong> (<code class="language-plaintext highlighter-rouge">/healthz/live</code>, <code class="language-plaintext highlighter-rouge">/healthz/ready</code>) so the two can diverge.</li>
+  <li><strong>Leave headroom.</strong> A 1-second timeout on an endpoint that sometimes takes 1.2 s under load, or a probe that competes with request threads for CPU, produces spurious restarts exactly when the service is busiest.</li>
+  <li><strong>Handle shutdown.</strong> On termination the pod is removed from endpoints while <code class="language-plaintext highlighter-rouge">SIGTERM</code> is delivered; endpoint removal propagates asynchronously, so applications (or a <code class="language-plaintext highlighter-rouge">preStop</code> sleep) should keep serving for a few seconds after <code class="language-plaintext highlighter-rouge">SIGTERM</code> to avoid dropped requests.</li>
 </ul>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># tcpSocket liveness for a message broker</span>
-<span class="na">livenessProbe</span><span class="pi">:</span>
-  <span class="na">tcpSocket</span><span class="pi">:</span>
-    <span class="na">port</span><span class="pi">:</span> <span class="m">5672</span>
-  <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">20</span>
+<h2 id="requests-and-limits">Requests and Limits</h2>
 
-<span class="c1"># exec readiness that checks a lockfile the app writes when ready</span>
-<span class="na">readinessProbe</span><span class="pi">:</span>
-  <span class="na">exec</span><span class="pi">:</span>
-    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">cat"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">/tmp/ready"</span><span class="pi">]</span>
-  <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
-</code></pre></div></div>
+<p>Each container can declare, per resource, a <strong>request</strong> and a <strong>limit</strong>.</p>
 
-<h3 id="startup-probes-protecting-slow-boots">Startup Probes: Protecting Slow Boots</h3>
-
-<p>Before startup probes existed, the only way to accommodate an application that took two minutes to initialize was a large <code class="language-plaintext highlighter-rouge">initialDelaySeconds</code> on the liveness probe — which also delayed detection of a <em>genuine</em> hang for the entire life of the container. The <strong>startup probe</strong> decouples the two concerns:</p>
-
-<pre><code class="language-mermaid">flowchart LR
-    Start([Container starts]) --&gt; SU{Startup&lt;br/&gt;probe passing?}
-    SU --&gt;|"no, keep trying&lt;br/&gt;up to failureThreshold"| SU
-    SU --&gt;|"yes (booted)"| LR[Liveness &amp; readiness&lt;br/&gt;probes take over]
-    SU --&gt;|"exceeded threshold"| Kill[Restart container]
-</code></pre>
-
-<p>While the startup probe runs, the liveness and readiness probes are suspended. Once it passes once, the kubelet hands off to the other two and never runs the startup probe again. Give it a generous budget — <code class="language-plaintext highlighter-rouge">failureThreshold x periodSeconds</code> should comfortably exceed the worst-case boot time — and keep the steady-state liveness probe tight so real hangs are caught quickly.</p>
-
-<h3 id="probe-design-guidelines">Probe Design Guidelines</h3>
-
-<ul>
-  <li><strong>Liveness should be cheap and self-contained.</strong> Check only that the process itself is responsive. Never check a database, cache, or downstream API in a liveness probe.</li>
-  <li><strong>Readiness may check dependencies.</strong> It is acceptable for a readiness probe to fail when a critical dependency is unavailable, because that only removes the pod from rotation — it does not restart it.</li>
-  <li><strong>Separate the endpoints.</strong> Use distinct paths (<code class="language-plaintext highlighter-rouge">/healthz/live</code> vs <code class="language-plaintext highlighter-rouge">/healthz/ready</code>) so the two concerns can diverge.</li>
-  <li><strong>Avoid making probes too aggressive.</strong> A 1-second timeout on an endpoint that occasionally takes 1.2 seconds under load will produce spurious restarts. Leave headroom.</li>
-</ul>
-
-<h2 id="resources-requests-and-limits">Resources: Requests and Limits</h2>
-
-<p>Every container can declare how much CPU and memory it <em>requests</em> (the amount guaranteed and used by the scheduler for placement) and its <em>limit</em> (the hard ceiling). These two numbers drive scheduling, throttling, eviction, and the pod’s Quality of Service class.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="na">resources</span><span class="pi">:</span>
-      <span class="na">requests</span><span class="pi">:</span>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">250m"</span>        <span class="c1"># 0.25 of a core, used for scheduling</span>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
-      <span class="na">limits</span><span class="pi">:</span>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500m"</span>        <span class="c1"># throttled above this</span>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>    <span class="c1"># killed (OOMKilled) above this</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">resources</span><span class="pi">:</span>
+  <span class="na">requests</span><span class="pi">:</span>
+    <span class="na">cpu</span><span class="pi">:</span> <span class="s">250m</span>          <span class="c1"># 0.25 core reserved by the scheduler</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s">256Mi</span>
+  <span class="na">limits</span><span class="pi">:</span>
+    <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span>           <span class="c1"># CFS quota: throttled above one core</span>
+    <span class="na">memory</span><span class="pi">:</span> <span class="s">256Mi</span>      <span class="c1"># hard cap: OOM-killed above this</span>
 </code></pre></div></div>
 
 <table>
   <thead>
     <tr>
-      <th>Type</th>
-      <th>Purpose</th>
-      <th>What happens if exceeded</th>
+      <th> </th>
+      <th>Request</th>
+      <th>Limit</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Request</strong></td>
-      <td>Scheduling: “I need at least this much”</td>
-      <td>N/A — it is a guaranteed minimum</td>
+      <td><strong>Used by</strong></td>
+      <td>Scheduler (placement), kubelet eviction ranking, HPA utilization, CPU weight under contention</td>
+      <td>Kernel cgroup enforcement</td>
     </tr>
     <tr>
-      <td><strong>Limit</strong></td>
-      <td>Protection: “Never use more than this”</td>
-      <td>CPU: throttled; Memory: OOMKilled</td>
+      <td><strong>CPU exceeded</strong></td>
+      <td>Allowed if the node has idle CPU</td>
+      <td>Throttled (CFS quota)</td>
+    </tr>
+    <tr>
+      <td><strong>Memory exceeded</strong></td>
+      <td>Allowed, but makes the pod an early eviction candidate under node pressure</td>
+      <td>Container is OOM-killed (<code class="language-plaintext highlighter-rouge">OOMKilled</code>, exit code 137)</td>
+    </tr>
+    <tr>
+      <td><strong>If omitted</strong></td>
+      <td>Defaults to the limit if a limit is set; otherwise zero (or a LimitRange default)</td>
+      <td>Unbounded (or a LimitRange default)</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="how-cpu-and-memory-differ">How CPU and Memory Differ</h3>
+<h3 id="cpu-is-compressible-memory-is-not">CPU Is Compressible, Memory Is Not</h3>
 
-<p>The single most important fact about resources is that the two are governed differently because of their physical nature:</p>
+<p><strong>CPU</strong> is time-sliced. The request sets the container’s cgroup CPU weight, so under contention CPU is shared in proportion to requests; the limit sets a CFS quota, and a container that uses its quota within a 100 ms period is paused until the next period. Nothing is killed, but throttling adds latency — often in bursts that average utilization graphs hide. Units are cores: <code class="language-plaintext highlighter-rouge">1</code>, <code class="language-plaintext highlighter-rouge">0.5</code>, <code class="language-plaintext highlighter-rouge">500m</code> (millicores).</p>
 
-<ul>
-  <li><strong>CPU is <em>compressible</em>.</strong> A container that tries to exceed its CPU limit is <em>throttled</em> — the Linux Completely Fair Scheduler (CFS) caps the slices it receives, so it simply runs slower. Nothing is killed. CPU is expressed in cores; <code class="language-plaintext highlighter-rouge">1000m</code> (“millicores”) equals one full core, <code class="language-plaintext highlighter-rouge">250m</code> is a quarter core.</li>
-  <li><strong>Memory is <em>incompressible</em>.</strong> You cannot give a process “a slower megabyte”. A container that exceeds its memory limit is terminated by the kernel’s OOM killer and shows up as <code class="language-plaintext highlighter-rouge">OOMKilled</code>. If it is managed by a controller, it is then restarted, often into a <code class="language-plaintext highlighter-rouge">CrashLoopBackOff</code> if the memory pressure is persistent.</li>
-</ul>
+<p><strong>Memory</strong> cannot be taken back without killing something. A container whose usage reaches its memory limit is killed by the kernel OOM killer and restarted; persistent pressure appears as <code class="language-plaintext highlighter-rouge">CrashLoopBackOff</code> with last state <code class="language-plaintext highlighter-rouge">OOMKilled</code>. Units are bytes; use binary suffixes (<code class="language-plaintext highlighter-rouge">Mi</code>, <code class="language-plaintext highlighter-rouge">Gi</code> = powers of 1024) rather than decimal ones (<code class="language-plaintext highlighter-rouge">M</code>, <code class="language-plaintext highlighter-rouge">G</code> = powers of 1000) to avoid a silent ~5% discrepancy.</p>
 
-<p><strong>Practical guidance</strong>: always set memory requests <em>and</em> limits, and set them equal unless you have a specific reason not to — because memory is incompressible, “bursting” above the request just defers an OOM kill to a less predictable moment. For CPU, setting a request (for scheduling) without a limit is a defensible choice that lets latency-sensitive workloads use idle cores; setting a limit caps the blast radius of a runaway loop. Setting at least requests on every production workload prevents one greedy pod from starving its neighbors.</p>
-
-<h3 id="units-reference">Units Reference</h3>
+<p>Current practice for most services:</p>
 
 <table>
   <thead>
     <tr>
       <th>Resource</th>
-      <th>Unit</th>
-      <th>Examples</th>
+      <th>Recommendation</th>
+      <th>Reason</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>CPU</td>
-      <td>cores / millicores</td>
-      <td><code class="language-plaintext highlighter-rouge">1</code>, <code class="language-plaintext highlighter-rouge">500m</code> (0.5 core), <code class="language-plaintext highlighter-rouge">100m</code> (0.1 core)</td>
+      <td>Memory</td>
+      <td>Set request <strong>and</strong> limit, usually equal</td>
+      <td>Bursting above the request only defers the OOM kill to an unpredictable moment and makes the pod an eviction candidate</td>
     </tr>
     <tr>
-      <td>Memory</td>
-      <td>bytes (binary or decimal)</td>
-      <td><code class="language-plaintext highlighter-rouge">512Mi</code> (512 mebibytes), <code class="language-plaintext highlighter-rouge">1Gi</code>, <code class="language-plaintext highlighter-rouge">500M</code> (decimal megabytes)</td>
+      <td>CPU request</td>
+      <td>Always set, close to typical usage</td>
+      <td>Drives placement and fair sharing under contention</td>
+    </tr>
+    <tr>
+      <td>CPU limit</td>
+      <td>Often omitted for latency-sensitive services; set it where you need hard isolation, predictable cost, or Guaranteed QoS</td>
+      <td>Limits cause throttling even when the node has idle CPU</td>
     </tr>
   </tbody>
 </table>
 
-<p>Note the distinction between <code class="language-plaintext highlighter-rouge">Mi</code>/<code class="language-plaintext highlighter-rouge">Gi</code> (powers of 1024) and <code class="language-plaintext highlighter-rouge">M</code>/<code class="language-plaintext highlighter-rouge">G</code> (powers of 1000). Mixing them up is a common source of “why did my pod get 4.7% less memory than I asked for” confusion — always prefer the binary <code class="language-plaintext highlighter-rouge">Mi</code>/<code class="language-plaintext highlighter-rouge">Gi</code> suffixes.</p>
+<h3 id="node-allocatable">Node Allocatable</h3>
 
-<h3 id="limitranges-and-resourcequotas">LimitRanges and ResourceQuotas</h3>
+<p>The scheduler does not use a node’s raw capacity. The kubelet reserves some for the operating system, for Kubernetes daemons, and as a buffer for eviction, and advertises the remainder as <strong>allocatable</strong>:</p>
 
-<p>In a shared cluster you rarely want to trust every team to set sane values by hand. Two namespace-scoped objects enforce policy:</p>
+\[\text{allocatable} = \text{capacity} - \text{kube-reserved} - \text{system-reserved} - \text{hard eviction threshold}\]
+
+<p>A pod fits on a node when the sum of the requests of the pods already there, plus its own, does not exceed allocatable. Actual usage and limits play no part in this check, which is why requests must be honest: under-requesting overpacks nodes, over-requesting wastes money.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl describe node &lt;node&gt;   <span class="c"># "Capacity", "Allocatable" and "Allocated resources" sections</span>
+kubectl top node               <span class="c"># actual usage (requires metrics-server)</span>
+</code></pre></div></div>
+
+<h3 id="pod-level-resources">Pod-Level Resources</h3>
+
+<p>Since v1.34 (beta, enabled by default) a pod may also declare <code class="language-plaintext highlighter-rouge">spec.resources</code> for CPU, memory and hugepages as a <strong>shared budget</strong> for all its containers. This suits pods with sidecars, where splitting a budget between containers is guesswork; containers without their own limits can use whatever the pod budget leaves free. When both levels are set, the pod-level values govern scheduling and QoS.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">app-with-sidecar</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">resources</span><span class="pi">:</span>                 <span class="c1"># budget for the whole pod</span>
+    <span class="na">requests</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">1Gi</span><span class="pi">}</span>
+    <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">1Gi</span><span class="pi">}</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/app:3.1</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">proxy</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/proxy:1.9</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">memory</span><span class="pi">:</span> <span class="nv">128Mi</span><span class="pi">}</span>   <span class="c1"># optional per-container cap inside the budget</span>
+</code></pre></div></div>
+
+<h3 id="in-place-resize">In-Place Resize</h3>
+
+<p>Historically <code class="language-plaintext highlighter-rouge">resources</code> in a pod spec were immutable, so changing them meant replacing the pod. <strong>In-place pod resize</strong> (GA in v1.35) allows the CPU and memory requests and limits of a running pod’s containers to be changed through the pod’s <code class="language-plaintext highlighter-rouge">resize</code> subresource, usually without restarting the container.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl patch pod web-0 <span class="nt">--subresource</span> resize <span class="nt">--patch</span> <span class="se">\</span>
+  <span class="s1">'{"spec":{"containers":[{"name":"web","resources":{"requests":{"cpu":"800m"},"limits":{"cpu":"800m"}}}]}}'</span>
+
+kubectl get pod web-0 <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.containerStatuses[0].resources}'</span>   <span class="c"># what is actually applied</span>
+</code></pre></div></div>
 
 <ul>
-  <li>A <strong><code class="language-plaintext highlighter-rouge">LimitRange</code></strong> sets defaults and bounds <em>per container/pod</em>. It can inject default requests/limits into pods that omit them and reject pods whose values fall outside a min/max window.</li>
-  <li>A <strong><code class="language-plaintext highlighter-rouge">ResourceQuota</code></strong> caps the <em>aggregate</em> requests and limits across an entire namespace, so one team cannot consume the whole cluster.</li>
+  <li>Each container can set a <code class="language-plaintext highlighter-rouge">resizePolicy</code> per resource: <code class="language-plaintext highlighter-rouge">NotRequired</code> (the default — apply live) or <code class="language-plaintext highlighter-rouge">RestartContainer</code> (for applications, such as JVMs, that size heaps at startup).</li>
+  <li>The kubelet reports progress with pod conditions: <code class="language-plaintext highlighter-rouge">PodResizePending</code> (reason <code class="language-plaintext highlighter-rouge">Deferred</code> if the node might fit it later, <code class="language-plaintext highlighter-rouge">Infeasible</code> if it never will) and <code class="language-plaintext highlighter-rouge">PodResizeInProgress</code>.</li>
+  <li>A resize cannot change the pod’s QoS class. Lowering a memory limit below current usage is not safe and may be refused or end in an OOM kill.</li>
+  <li>The Vertical Pod Autoscaler can apply its recommendations this way using <code class="language-plaintext highlighter-rouge">updateMode: InPlaceOrRecreate</code> (GA in VPA 1.6), falling back to eviction when an in-place change is not possible.</li>
 </ul>
+
+<p>Resizing a <em>pod</em> does not change its owning Deployment’s template; the next rollout reverts to the template values. In-place resize is most useful to autoscalers and for temporary adjustments — for example giving a JVM extra CPU during start-up and taking it back afterwards.</p>
+
+<h3 id="limitrange-and-resourcequota">LimitRange and ResourceQuota</h3>
+
+<p>Two namespace-scoped objects enforce policy in shared clusters:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Object</th>
+      <th>Scope</th>
+      <th>Does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>LimitRange</strong></td>
+      <td>Each container or pod in the namespace</td>
+      <td>Injects default requests and limits; rejects values outside min/max bounds or a maximum limit-to-request ratio</td>
+    </tr>
+    <tr>
+      <td><strong>ResourceQuota</strong></td>
+      <td>The namespace in aggregate</td>
+      <td>Caps total requests and limits, object counts (pods, Services, PVCs), storage per StorageClass, and more</td>
+    </tr>
+  </tbody>
+</table>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">LimitRange</span>
@@ -3375,265 +3480,414 @@ document.addEventListener('DOMContentLoaded', function () {
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">limits</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Container</span>
-    <span class="na">default</span><span class="pi">:</span>           <span class="c1"># applied as the limit if none is set</span>
-      <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500m"</span>
-      <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
-    <span class="na">defaultRequest</span><span class="pi">:</span>    <span class="c1"># applied as the request if none is set</span>
-      <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100m"</span>
-      <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">128Mi"</span>
+    <span class="na">defaultRequest</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">cpu</span><span class="pi">:</span> <span class="nv">100m</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">128Mi</span><span class="pi">}</span>   <span class="c1"># used when a container sets no request</span>
+    <span class="na">default</span><span class="pi">:</span>        <span class="pi">{</span><span class="nv">cpu</span><span class="pi">:</span> <span class="nv">500m</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">512Mi</span><span class="pi">}</span>   <span class="c1"># used when a container sets no limit</span>
+    <span class="na">max</span><span class="pi">:</span>            <span class="pi">{</span><span class="nv">memory</span><span class="pi">:</span> <span class="nv">4Gi</span><span class="pi">}</span>
 <span class="nn">---</span>
 <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ResourceQuota</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">team-a-quota</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">compute</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">team-a</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">hard</span><span class="pi">:</span>
     <span class="na">requests.cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
     <span class="na">requests.memory</span><span class="pi">:</span> <span class="s">20Gi</span>
-    <span class="na">limits.cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">20"</span>
     <span class="na">limits.memory</span><span class="pi">:</span> <span class="s">40Gi</span>
+    <span class="na">pods</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100"</span>
 </code></pre></div></div>
 
-<p>A subtle but important interaction: once a <code class="language-plaintext highlighter-rouge">ResourceQuota</code> constrains <code class="language-plaintext highlighter-rouge">requests.cpu</code> or <code class="language-plaintext highlighter-rouge">requests.memory</code> in a namespace, every pod in that namespace <strong>must</strong> specify the corresponding request, or the API server rejects it. A <code class="language-plaintext highlighter-rouge">LimitRange</code> with defaults is the usual way to keep that requirement from breaking existing manifests.</p>
+<p>Once a quota constrains <code class="language-plaintext highlighter-rouge">requests.cpu</code> or <code class="language-plaintext highlighter-rouge">requests.memory</code>, every new pod in the namespace must specify that request or be rejected by the API server; a LimitRange with defaults keeps existing manifests working.</p>
 
-<h2 id="quality-of-service-qos-classes">Quality of Service (QoS) Classes</h2>
+<h2 id="quality-of-service-classes">Quality of Service Classes</h2>
 
-<p>Kubernetes derives a <strong>Quality of Service class</strong> for every pod from its requests and limits. You never set the QoS class directly — it is computed — but it determines who gets evicted first when a node runs low on memory.</p>
+<p>Kubernetes derives a <strong>QoS class</strong> for each pod from its requests and limits. It is never set directly; it appears in <code class="language-plaintext highlighter-rouge">status.qosClass</code>.</p>
 
 <table>
   <thead>
     <tr>
-      <th>QoS class</th>
+      <th>Class</th>
       <th>Condition</th>
-      <th>Eviction priority</th>
+      <th>Consequence</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Guaranteed</strong></td>
-      <td>requests == limits for <em>every</em> container (both CPU and memory set)</td>
-      <td>Evicted last</td>
+      <td>Every container (or the pod-level budget) has CPU and memory requests equal to limits</td>
+      <td>Lowest OOM score; last to be evicted; eligible for exclusive CPUs with the static CPU manager</td>
     </tr>
     <tr>
       <td><strong>Burstable</strong></td>
-      <td>at least one request set, but the pod is not Guaranteed</td>
-      <td>Evicted in the middle</td>
+      <td>Not Guaranteed, but at least one container has a CPU or memory request or limit</td>
+      <td>Middle ground</td>
     </tr>
     <tr>
       <td><strong>BestEffort</strong></td>
-      <td>no requests or limits set on any container</td>
-      <td>Evicted first</td>
+      <td>No CPU or memory requests or limits anywhere in the pod</td>
+      <td>First to be killed or evicted under pressure</td>
     </tr>
   </tbody>
 </table>
 
 <pre><code class="language-mermaid">flowchart TD
-    Q{Every container has&lt;br/&gt;requests == limits&lt;br/&gt;for CPU and memory?}
-    Q --&gt;|yes| G[Guaranteed&lt;br/&gt;evicted last]
-    Q --&gt;|no| B{Any container has&lt;br/&gt;a request or limit?}
-    B --&gt;|yes| Bu[Burstable&lt;br/&gt;evicted in the middle]
-    B --&gt;|no| BE[BestEffort&lt;br/&gt;evicted first]
+    Q{"Every container sets CPU and memory,&lt;br/&gt;with requests == limits?"}
+    Q --&gt;|yes| G["Guaranteed"]
+    Q --&gt;|no| B{"Any CPU or memory&lt;br/&gt;request or limit set?"}
+    B --&gt;|yes| Bu["Burstable"]
+    B --&gt;|no| BE["BestEffort"]
 </code></pre>
 
-<h3 id="how-qos-drives-eviction">How QoS Drives Eviction</h3>
+<h3 id="two-kinds-of-out-of-memory">Two Kinds of Out-of-Memory</h3>
 
-<p>When a node comes under memory pressure, the kubelet must reclaim memory before the kernel OOM killer fires indiscriminately. It ranks pods for eviction by QoS class and by how far each pod’s memory usage exceeds its request:</p>
+<p>It is important to distinguish the two mechanisms that kill containers for memory:</p>
 
 <ol>
-  <li><strong>BestEffort</strong> pods are evicted first — they made no promises and the scheduler made none to them.</li>
-  <li><strong>Burstable</strong> pods are evicted next, those most over their requests going first.</li>
-  <li><strong>Guaranteed</strong> pods are evicted last, and only if reclaiming lower-priority pods was not enough.</li>
+  <li><strong>Container limit reached.</strong> The container’s own cgroup hits its memory limit; the kernel kills a process in that container regardless of how much memory the node has free. The pod is <em>not</em> evicted; the container restarts in place and reports <code class="language-plaintext highlighter-rouge">OOMKilled</code>.</li>
+  <li><strong>Node running out.</strong> Total usage approaches the node’s capacity. Either the kubelet notices first and <strong>evicts</strong> whole pods (below), or, if memory is consumed faster than the kubelet can react, the kernel OOM killer picks a victim using <code class="language-plaintext highlighter-rouge">oom_score_adj</code> values the kubelet assigns by QoS: −997 for Guaranteed, 1000 for BestEffort, and a value between 2 and 999 for Burstable that is lower the larger the pod’s memory request is relative to node memory.</li>
 </ol>
 
-<p>The practical takeaway: give your most important workloads <code class="language-plaintext highlighter-rouge">requests == limits</code> so they land in the Guaranteed class and survive node pressure. Reserve BestEffort for genuinely disposable, interruptible work. (Pod <strong>priority and preemption</strong>, set via a <code class="language-plaintext highlighter-rouge">PriorityClass</code>, is a separate mechanism that governs <em>scheduling</em> order rather than eviction under node pressure; the two can be combined.)</p>
+<h3 id="node-pressure-eviction">Node-Pressure Eviction</h3>
+
+<p>The kubelet monitors node resources against <strong>eviction thresholds</strong>. On Linux the default hard thresholds are <code class="language-plaintext highlighter-rouge">memory.available&lt;100Mi</code>, <code class="language-plaintext highlighter-rouge">nodefs.available&lt;10%</code>, <code class="language-plaintext highlighter-rouge">imagefs.available&lt;15%</code> and <code class="language-plaintext highlighter-rouge">nodefs.inodesFree&lt;5%</code>; soft thresholds with grace periods can be added. When a threshold is crossed, the node reports a pressure condition and is tainted so the scheduler stops sending it more work (BestEffort pods under memory pressure, all new pods under disk pressure), and the kubelet evicts pods, ranking candidates by:</p>
+
+<ol>
+  <li>whether the pod’s usage of the starved resource <strong>exceeds its request</strong>;</li>
+  <li><strong>pod priority</strong> (from its <code class="language-plaintext highlighter-rouge">PriorityClass</code>);</li>
+  <li>usage <strong>relative to request</strong> — the further over, the sooner evicted.</li>
+</ol>
+
+<p>In practice this means BestEffort pods (whose requests are zero, so any usage exceeds them) and Burstable pods running above their requests go first, while Guaranteed pods and Burstable pods below their requests are evicted only as a last resort. Setting memory requests equal to actual steady-state usage is therefore the most effective protection. Evicted pods end in phase <code class="language-plaintext highlighter-rouge">Failed</code> with reason <code class="language-plaintext highlighter-rouge">Evicted</code>; their controller creates replacements elsewhere.</p>
+
+<p>Node-pressure eviction is distinct from <strong>API-initiated eviction</strong> (used by <code class="language-plaintext highlighter-rouge">kubectl drain</code> and the cluster autoscaler), which respects PodDisruptionBudgets, and from <strong>preemption</strong>, where the scheduler removes lower-priority pods to make room for a higher-priority pending pod.</p>
 
 <h2 id="scheduler-basics">Scheduler Basics</h2>
 
-<p>The <strong>kube-scheduler</strong> is the control-plane component that decides which node each new pod runs on. It watches the API server for pods with no node assignment (<code class="language-plaintext highlighter-rouge">spec.nodeName</code> empty) and, for each one, runs a two-phase algorithm.</p>
+<p>The <strong>kube-scheduler</strong> assigns each unscheduled pod to a node. It is built on the <em>scheduling framework</em>: a pipeline of plugins attached to extension points. The two that matter most are <strong>Filter</strong> (which nodes can run the pod) and <strong>Score</strong> (which of those is best).</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    P[Pending pod] --&gt; F["Filter (predicates)&lt;br/&gt;which nodes can run it?"]
-    F --&gt; S["Score (priorities)&lt;br/&gt;rank the feasible nodes"]
-    S --&gt; B["Bind&lt;br/&gt;write nodeName via API server"]
-    B --&gt; K[kubelet on chosen node&lt;br/&gt;starts the container]
+    Q["Scheduling queue&lt;br/&gt;(ordered by priority)"] --&gt; F["Filter&lt;br/&gt;NodeResourcesFit, NodeAffinity,&lt;br/&gt;TaintToleration, VolumeBinding,&lt;br/&gt;PodTopologySpread, ..."]
+    F --&gt;|"feasible nodes"| S["Score&lt;br/&gt;resource balance, affinity,&lt;br/&gt;spread, image locality"]
+    F --&gt;|"none feasible"| PE["PostFilter:&lt;br/&gt;preemption of lower-priority pods"]
+    S --&gt; B["Bind&lt;br/&gt;set spec.nodeName"]
+    B --&gt; K["kubelet starts the pod"]
+    PE -.-&gt;|"retry later"| Q
 </code></pre>
 
-<ol>
-  <li><strong>Filtering (predicates).</strong> The scheduler eliminates nodes that <em>cannot</em> run the pod. The dominant filter is resource fit: a node is feasible only if its <strong>allocatable</strong> capacity minus the sum of existing pods’ <strong>requests</strong> leaves room for this pod’s requests. (Note that it is <em>requests</em>, not actual usage, and not limits, that the scheduler reserves against — this is why setting honest requests matters so much.) Other filters include node selectors/affinity, taints the pod does not tolerate, and unsatisfiable volume topology.</li>
-  <li><strong>Scoring (priorities).</strong> Among feasible nodes, the scheduler scores each on factors such as spreading pods of the same workload across nodes, packing to reduce fragmentation, and image locality. The highest-scoring node wins (ties broken randomly).</li>
-  <li><strong>Binding.</strong> The scheduler writes the chosen <code class="language-plaintext highlighter-rouge">nodeName</code> back through the API server. The kubelet on that node then pulls the image and starts the container.</li>
-</ol>
+<ul>
+  <li><strong>Filter.</strong> A node is feasible only if its allocatable resources minus the requests already placed there cover the pod’s requests, and it satisfies node selectors and required affinity, tolerates the node’s taints, meets topology-spread constraints, and can attach the pod’s volumes in the right zone.</li>
+  <li><strong>Score.</strong> Feasible nodes are ranked on weighted criteria — by default favouring less-allocated nodes, preferred affinities, even spreading and nodes that already have the image. The highest score wins.</li>
+  <li><strong>Bind.</strong> The scheduler writes the chosen node into the pod’s <code class="language-plaintext highlighter-rouge">spec.nodeName</code>; the kubelet on that node takes over.</li>
+</ul>
 
-<h3 id="steering-the-scheduler">Steering the Scheduler</h3>
-
-<p>You can influence placement with several mechanisms, from blunt to expressive:</p>
+<h3 id="steering-placement">Steering Placement</h3>
 
 <table>
   <thead>
     <tr>
       <th>Mechanism</th>
-      <th>What it does</th>
+      <th>Declared on</th>
+      <th>Effect</th>
       <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong><code class="language-plaintext highlighter-rouge">nodeSelector</code></strong></td>
-      <td>Hard requirement: pod runs only on nodes with matching labels</td>
-      <td>“GPU pods on GPU nodes”</td>
+      <td><code class="language-plaintext highlighter-rouge">nodeSelector</code></td>
+      <td>Pod</td>
+      <td>Hard requirement on node labels</td>
+      <td>Put GPU pods on GPU nodes</td>
     </tr>
     <tr>
-      <td><strong>Node affinity</strong></td>
-      <td>Like nodeSelector but supports <code class="language-plaintext highlighter-rouge">required</code> and <code class="language-plaintext highlighter-rouge">preferred</code> rules and richer operators</td>
-      <td>Soft preferences, multi-label logic</td>
+      <td>Node affinity</td>
+      <td>Pod</td>
+      <td><code class="language-plaintext highlighter-rouge">required</code> or <code class="language-plaintext highlighter-rouge">preferred</code> rules with <code class="language-plaintext highlighter-rouge">In</code>, <code class="language-plaintext highlighter-rouge">NotIn</code>, <code class="language-plaintext highlighter-rouge">Exists</code>, <code class="language-plaintext highlighter-rouge">Gt</code>, <code class="language-plaintext highlighter-rouge">Lt</code></td>
+      <td>Soft zone or instance-type preferences</td>
     </tr>
     <tr>
-      <td><strong>Pod affinity / anti-affinity</strong></td>
-      <td>Place pods near (or away from) other pods by label</td>
-      <td>Co-locate cache with app; spread replicas across zones</td>
+      <td>Pod affinity / anti-affinity</td>
+      <td>Pod</td>
+      <td>Place near or away from pods matching a selector, within a topology domain</td>
+      <td>Co-locate with a cache; keep replicas apart</td>
     </tr>
     <tr>
-      <td><strong>Taints &amp; tolerations</strong></td>
-      <td>A node <em>repels</em> pods unless they explicitly tolerate the taint</td>
-      <td>Reserve nodes for system or special workloads</td>
+      <td>Taints and tolerations</td>
+      <td>Node / pod</td>
+      <td>A tainted node repels pods that do not tolerate the taint (<code class="language-plaintext highlighter-rouge">NoSchedule</code>, <code class="language-plaintext highlighter-rouge">PreferNoSchedule</code>, <code class="language-plaintext highlighter-rouge">NoExecute</code>)</td>
+      <td>Dedicated or special-hardware node pools</td>
     </tr>
     <tr>
-      <td><strong>Topology spread constraints</strong></td>
-      <td>Evenly distribute pods across zones/nodes within a skew budget</td>
+      <td>Topology spread constraints</td>
+      <td>Pod</td>
+      <td>Limit the imbalance (<code class="language-plaintext highlighter-rouge">maxSkew</code>) of matching pods across zones or nodes</td>
       <td>High availability across failure domains</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PriorityClass</code></td>
+      <td>Pod</td>
+      <td>Queue order and the right to preempt lower-priority pods</td>
+      <td>Protect critical workloads</td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Require GPU nodes, prefer a specific zone, and tolerate the gpu taint</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">nodeSelector</span><span class="pi">:</span>
-    <span class="na">hardware</span><span class="pi">:</span> <span class="s">gpu</span>
+<p>Taints <em>repel</em>, tolerations <em>permit</em>, affinity <em>attracts</em>. A toleration alone does not pull a pod onto a tainted node — combine it with a node selector or affinity when a workload must run only on a dedicated pool:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">priorityClassName</span><span class="pi">:</span> <span class="s">high-priority</span>
   <span class="na">tolerations</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">dedicated"</span>
-    <span class="na">operator</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Equal"</span>
-    <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">gpu"</span>
-    <span class="na">effect</span><span class="pi">:</span> <span class="s2">"</span><span class="s">NoSchedule"</span>
+  <span class="pi">-</span> <span class="pi">{</span><span class="nv">key</span><span class="pi">:</span> <span class="nv">dedicated</span><span class="pi">,</span> <span class="nv">operator</span><span class="pi">:</span> <span class="nv">Equal</span><span class="pi">,</span> <span class="nv">value</span><span class="pi">:</span> <span class="nv">gpu</span><span class="pi">,</span> <span class="nv">effect</span><span class="pi">:</span> <span class="nv">NoSchedule</span><span class="pi">}</span>
   <span class="na">affinity</span><span class="pi">:</span>
     <span class="na">nodeAffinity</span><span class="pi">:</span>
-      <span class="na">preferredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">weight</span><span class="pi">:</span> <span class="m">100</span>
-        <span class="na">preference</span><span class="pi">:</span>
-          <span class="na">matchExpressions</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">topology.kubernetes.io/zone</span>
-            <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
-            <span class="na">values</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">us-east-1a"</span><span class="pi">]</span>
+      <span class="na">requiredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span>
+        <span class="na">nodeSelectorTerms</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">matchExpressions</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="pi">{</span><span class="nv">key</span><span class="pi">:</span> <span class="nv">node.kubernetes.io/instance-type</span><span class="pi">,</span> <span class="nv">operator</span><span class="pi">:</span> <span class="nv">In</span><span class="pi">,</span> <span class="nv">values</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">g6.xlarge</span><span class="pi">,</span> <span class="nv">g6.2xlarge</span><span class="pi">]}</span>
+  <span class="na">topologySpreadConstraints</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">maxSkew</span><span class="pi">:</span> <span class="m">1</span>
+    <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">topology.kubernetes.io/zone</span>
+    <span class="na">whenUnsatisfiable</span><span class="pi">:</span> <span class="s">DoNotSchedule</span>
+    <span class="na">labelSelector</span><span class="pi">:</span>
+      <span class="na">matchLabels</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">app.kubernetes.io/name</span><span class="pi">:</span> <span class="nv">trainer</span><span class="pi">}</span>
 </code></pre></div></div>
 
-<p>Remember the distinction: <strong>taints repel, tolerations permit, affinities attract.</strong> A taint on a node keeps pods <em>off</em> unless they tolerate it; an affinity on a pod pulls it <em>toward</em> matching nodes. They are frequently combined — taint a pool of expensive GPU nodes so ordinary workloads stay away, and add both a toleration and a <code class="language-plaintext highlighter-rouge">nodeSelector</code> to the GPU workloads so only they land there.</p>
+<p>Scheduling decisions are made once: <code class="language-plaintext highlighter-rouge">IgnoredDuringExecution</code> means a running pod is not moved if node labels later change. Rebalancing requires the separate <a href="https://github.com/kubernetes-sigs/descheduler">descheduler</a> project. Custom scheduler profiles and spread defaults are covered in <a href="advanced.html#advanced-scheduling">Advanced Topics</a>.</p>
 
-<h3 id="what-if-no-node-fits">What If No Node Fits?</h3>
+<h3 id="when-no-node-fits">When No Node Fits</h3>
 
-<p>If filtering eliminates every node, the pod stays <code class="language-plaintext highlighter-rouge">Pending</code> and the scheduler records an event explaining why (for example, <code class="language-plaintext highlighter-rouge">0/5 nodes are available: 5 Insufficient memory</code>). This is the most common reason a freshly applied pod never starts — and it is almost always a requests-vs-capacity problem, solved by lowering requests, adding nodes, or (with the Cluster Autoscaler installed) letting the cluster grow a node automatically.</p>
+<p>If every node is filtered out and preemption cannot help, the pod stays <code class="language-plaintext highlighter-rouge">Pending</code> and the scheduler records an event summarising why:</p>
 
-<h2 id="autoscaling-scaling-out-with-the-hpa">Autoscaling: Scaling Out with the HPA</h2>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0/6 nodes are available: 3 Insufficient memory, 2 node(s) had untolerated taint {dedicated: gpu},
+1 node(s) didn't match pod topology spread constraints. preemption: 0/6 nodes are available: ...
+</code></pre></div></div>
 
-<p>Static replica counts force a trade-off: provision for peak and waste money at the trough, or provision for the average and fall over under load. The <strong>Horizontal Pod Autoscaler (HPA)</strong> removes the trade-off by changing the replica count of a Deployment (or StatefulSet) automatically in response to live metrics.</p>
+<p>The fix is almost always one of: lower the requests, relax a constraint, add a toleration, or add capacity — which a node autoscaler (Cluster Autoscaler or Karpenter) does automatically when it sees unschedulable pods.</p>
 
-<blockquote>
-  <p>The HPA scales the <em>number</em> of pods. To resize an individual pod’s CPU/memory requests, see the Vertical Pod Autoscaler, and for adding whole nodes when pods cannot be scheduled, the Cluster Autoscaler — both covered alongside the HPA in <a href="workloads.html">Workloads &amp; Storage</a>. These three operate at different layers and are often used together.</p>
-</blockquote>
+<h2 id="horizontal-pod-autoscaling">Horizontal Pod Autoscaling</h2>
+
+<p>The <strong>HorizontalPodAutoscaler (HPA)</strong> adjusts the <code class="language-plaintext highlighter-rouge">replicas</code> of a Deployment, StatefulSet or any resource with a <code class="language-plaintext highlighter-rouge">scale</code> subresource, based on observed metrics.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Autoscaler</th>
+      <th>Changes</th>
+      <th>Reacts to</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>HPA</strong></td>
+      <td>Number of pods</td>
+      <td>Per-pod resource usage, custom or external metrics</td>
+    </tr>
+    <tr>
+      <td><strong>VPA</strong> (add-on)</td>
+      <td>Requests and limits of pods</td>
+      <td>Historical usage</td>
+    </tr>
+    <tr>
+      <td><strong>Cluster Autoscaler / Karpenter</strong></td>
+      <td>Number of nodes</td>
+      <td>Unschedulable pods, under-used nodes</td>
+    </tr>
+    <tr>
+      <td><strong>KEDA</strong> (add-on)</td>
+      <td>Replicas via generated HPAs, including to and from zero</td>
+      <td>Event sources: queues, streams, cron, databases</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The VPA and node autoscalers are described in <a href="workloads.html#scaling-workloads">Workloads &amp; Storage</a>.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    M[metrics-server&lt;br/&gt;per-pod CPU/mem] --&gt; HPA[HPA controller]
-    HPA --&gt;|"computes desired replicas"| D[Deployment]
-    D --&gt; RS[ReplicaSet]
-    RS --&gt; P1[Pod] &amp; P2[Pod] &amp; P3[Pod]
-    P1 &amp; P2 &amp; P3 -.usage.-&gt; M
+    MS["metrics-server&lt;br/&gt;(metrics.k8s.io)"] --&gt; HPA
+    CM["Prometheus Adapter / KEDA&lt;br/&gt;(custom &amp; external metrics)"] --&gt; HPA
+    HPA["HPA controller&lt;br/&gt;every 15s"] --&gt;|"scale subresource"| D["Deployment"]
+    D --&gt; RS["ReplicaSet"] --&gt; P["Pods"]
+    P -.-&gt;|"usage via kubelet"| MS
 </code></pre>
 
-<h3 id="the-scaling-formula">The Scaling Formula</h3>
+<h3 id="the-algorithm">The Algorithm</h3>
 
-<p>The HPA controller runs a reconciliation loop (every 15 seconds by default). On each pass it reads the current metric across all ready pods, compares it to the target, and computes the desired replica count with a single ratio:</p>
+<p>Every 15 seconds (the controller manager’s <code class="language-plaintext highlighter-rouge">--horizontal-pod-autoscaler-sync-period</code>) the controller computes, for each metric,</p>
 
-\[\text{desiredReplicas} = \left\lceil \text{currentReplicas} \times \frac{\text{currentMetricValue}}{\text{targetMetricValue}} \right\rceil\]
+\[\text{desiredReplicas} = \left\lceil \text{currentReplicas} \times \frac{\text{currentMetricValue}}{\text{desiredMetricValue}} \right\rceil\]
 
-<p>For example, with 3 replicas averaging 90% CPU and a target of 70%, the controller wants <code class="language-plaintext highlighter-rouge">ceil(3 x 90/70) = ceil(3.86) = 4</code> replicas. If utilization later falls to 35%, it wants <code class="language-plaintext highlighter-rouge">ceil(4 x 35/70) = 2</code> replicas. The result is always clamped to the configured <code class="language-plaintext highlighter-rouge">minReplicas</code>/<code class="language-plaintext highlighter-rouge">maxReplicas</code> window.</p>
+<p>and then:</p>
+
+<ul>
+  <li>does nothing if the ratio is within the <strong>tolerance</strong> (default 10%) of 1.0 — recent releases also allow a per-HPA <code class="language-plaintext highlighter-rouge">tolerance</code> under <code class="language-plaintext highlighter-rouge">behavior.scaleUp</code> / <code class="language-plaintext highlighter-rouge">behavior.scaleDown</code> (feature gate <code class="language-plaintext highlighter-rouge">HPAConfigurableTolerance</code>);</li>
+  <li>when several metrics are listed, takes the <strong>largest</strong> proposal, so any one saturated dimension can scale out;</li>
+  <li>excludes pods that are not yet Ready or are missing metrics from the average in the direction that would over-react (conservatively assuming 0% usage when scaling up and 100% when scaling down);</li>
+  <li>applies the <code class="language-plaintext highlighter-rouge">behavior</code> rate limits and stabilization window, then clamps to <code class="language-plaintext highlighter-rouge">minReplicas</code>–<code class="language-plaintext highlighter-rouge">maxReplicas</code>.</li>
+</ul>
+
+<p>Example: 4 replicas averaging 90% CPU against a 60% target gives $\lceil 4 \times 90/60 \rceil = 6$.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling/v2</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">HorizontalPodAutoscaler</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-hpa</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">scaleTargetRef</span><span class="pi">:</span>
     <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
     <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">app-deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
   <span class="na">minReplicas</span><span class="pi">:</span> <span class="m">3</span>
-  <span class="na">maxReplicas</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">maxReplicas</span><span class="pi">:</span> <span class="m">30</span>
   <span class="na">metrics</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Resource</span>
     <span class="na">resource</span><span class="pi">:</span>
       <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
       <span class="na">target</span><span class="pi">:</span>
         <span class="na">type</span><span class="pi">:</span> <span class="s">Utilization</span>
-        <span class="na">averageUtilization</span><span class="pi">:</span> <span class="m">70</span>   <span class="c1"># target: keep average CPU near 70% of the request</span>
+        <span class="na">averageUtilization</span><span class="pi">:</span> <span class="m">60</span>        <span class="c1"># percent of the pods' CPU *request*</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Pods</span>
+    <span class="na">pods</span><span class="pi">:</span>
+      <span class="na">metric</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">http_requests_per_second</span>   <span class="c1"># served by a custom-metrics adapter</span>
+      <span class="na">target</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">AverageValue</span>
+        <span class="na">averageValue</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100"</span>
 </code></pre></div></div>
 
-<p>Crucially, <code class="language-plaintext highlighter-rouge">averageUtilization: 70</code> is a percentage <strong>of the pod’s CPU <em>request</em></strong>, not of the node or of a raw core. This is the direct link back to the resources section: an HPA cannot scale on CPU utilization unless the pods declare a CPU request to be a percentage of. A pod with no request has undefined utilization, and the HPA will report <code class="language-plaintext highlighter-rouge">&lt;unknown&gt;</code> and refuse to scale.</p>
+<p><code class="language-plaintext highlighter-rouge">Utilization</code> targets are a percentage of the <strong>request</strong>, not of a core or of the node. A pod without a CPU request has undefined utilization and the HPA reports <code class="language-plaintext highlighter-rouge">&lt;unknown&gt;</code> for that metric. If you use the HPA, remove <code class="language-plaintext highlighter-rouge">spec.replicas</code> from the Deployment manifest you apply, or every <code class="language-plaintext highlighter-rouge">kubectl apply</code> will reset the replica count.</p>
 
-<h3 id="beyond-cpu-memory-custom-and-external-metrics">Beyond CPU: Memory, Custom, and External Metrics</h3>
+<h3 id="metric-sources">Metric Sources</h3>
 
-<p>The <code class="language-plaintext highlighter-rouge">autoscaling/v2</code> API supports several metric sources, and an HPA may list more than one — it computes a desired replica count for each and takes the <strong>maximum</strong>, so any single overloaded dimension can scale the workload out:</p>
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">type</code></th>
+      <th>Source API</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Resource</code></td>
+      <td><code class="language-plaintext highlighter-rouge">metrics.k8s.io</code> (metrics-server)</td>
+      <td>Average CPU or memory utilization across the pods</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ContainerResource</code></td>
+      <td><code class="language-plaintext highlighter-rouge">metrics.k8s.io</code></td>
+      <td>CPU of the <code class="language-plaintext highlighter-rouge">app</code> container only, ignoring sidecars</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Pods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">custom.metrics.k8s.io</code></td>
+      <td>Requests per second per pod</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Object</code></td>
+      <td><code class="language-plaintext highlighter-rouge">custom.metrics.k8s.io</code></td>
+      <td>Requests per second on an Ingress or Gateway route</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">External</code></td>
+      <td><code class="language-plaintext highlighter-rouge">external.metrics.k8s.io</code></td>
+      <td>Depth of an SQS queue or Kafka consumer lag</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">Resource</code></strong> — CPU or memory utilization (or an absolute <code class="language-plaintext highlighter-rouge">averageValue</code>).</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">Pods</code></strong> — a custom per-pod metric averaged across pods, e.g. requests-per-second exposed via the custom metrics API.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">Object</code></strong> — a metric describing a single Kubernetes object, e.g. an Ingress’s request rate.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">External</code></strong> — a metric from outside the cluster, e.g. the depth of a cloud queue (SQS, Pub/Sub).</li>
-</ul>
+<p>Custom and external metrics need an adapter that implements the corresponding API — commonly the Prometheus Adapter or KEDA.</p>
 
-<h3 id="avoiding-thrash-stabilization-and-behavior">Avoiding Thrash: Stabilization and Behavior</h3>
+<h3 id="scaling-behavior">Scaling Behavior</h3>
 
-<p>Naively applying the formula every 15 seconds would cause <strong>flapping</strong> — rapidly scaling up and down as the metric oscillates around the target. The HPA dampens this with a stabilization window (by default it considers the highest recommendation over the last 5 minutes when scaling <em>down</em>, so it scales out eagerly but in conservatively) and with a configurable <code class="language-plaintext highlighter-rouge">behavior</code> block:</p>
+<p>Without tuning, the HPA scales up quickly and down cautiously. The defaults are equivalent to:</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="na">behavior</span><span class="pi">:</span>
-    <span class="na">scaleDown</span><span class="pi">:</span>
-      <span class="na">stabilizationWindowSeconds</span><span class="pi">:</span> <span class="m">300</span>   <span class="c1"># wait 5 min of sustained low load before removing pods</span>
-      <span class="na">policies</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Percent</span>
-        <span class="na">value</span><span class="pi">:</span> <span class="m">50</span>                       <span class="c1"># remove at most 50% of pods per 60s</span>
-        <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">60</span>
-    <span class="na">scaleUp</span><span class="pi">:</span>
-      <span class="na">policies</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Pods</span>
-        <span class="na">value</span><span class="pi">:</span> <span class="m">4</span>                        <span class="c1"># add at most 4 pods per 60s</span>
-        <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">60</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">behavior</span><span class="pi">:</span>
+  <span class="na">scaleUp</span><span class="pi">:</span>
+    <span class="na">stabilizationWindowSeconds</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="na">selectPolicy</span><span class="pi">:</span> <span class="s">Max</span>
+    <span class="na">policies</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">type</span><span class="pi">:</span> <span class="nv">Percent</span><span class="pi">,</span> <span class="nv">value</span><span class="pi">:</span> <span class="nv">100</span><span class="pi">,</span> <span class="nv">periodSeconds</span><span class="pi">:</span> <span class="nv">15</span><span class="pi">}</span>   <span class="c1"># at most double...</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">type</span><span class="pi">:</span> <span class="nv">Pods</span><span class="pi">,</span>    <span class="nv">value</span><span class="pi">:</span> <span class="nv">4</span><span class="pi">,</span>   <span class="nv">periodSeconds</span><span class="pi">:</span> <span class="nv">15</span><span class="pi">}</span>   <span class="c1"># ...or add 4 pods, whichever is more</span>
+  <span class="na">scaleDown</span><span class="pi">:</span>
+    <span class="na">stabilizationWindowSeconds</span><span class="pi">:</span> <span class="m">300</span>                    <span class="c1"># use the highest recommendation of the last 5 min</span>
+    <span class="na">policies</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">type</span><span class="pi">:</span> <span class="nv">Percent</span><span class="pi">,</span> <span class="nv">value</span><span class="pi">:</span> <span class="nv">100</span><span class="pi">,</span> <span class="nv">periodSeconds</span><span class="pi">:</span> <span class="nv">15</span><span class="pi">}</span>
 </code></pre></div></div>
 
-<p><strong>Operational notes</strong>:</p>
+<p>The <strong>stabilization window</strong> is what prevents flapping: when scaling down, the controller uses the highest recommendation seen during the window, so a brief dip does not remove pods that will be needed again a minute later. Override the block per HPA — for example a longer scale-down window and a <code class="language-plaintext highlighter-rouge">Percent: 10</code> policy for services with slow warm-up.</p>
+
+<h3 id="scaling-to-zero">Scaling to Zero</h3>
+
+<p><code class="language-plaintext highlighter-rouge">minReplicas: 0</code> lets idle workloads release all their pods, which matters most for pods holding GPUs or other expensive resources. It is <strong>beta and enabled by default in v1.37</strong> (feature gate <code class="language-plaintext highlighter-rouge">HPAScaleToZero</code>) and requires at least one <code class="language-plaintext highlighter-rouge">Object</code> or <code class="language-plaintext highlighter-rouge">External</code> metric, because per-pod metrics cannot be measured when no pods exist. On older clusters, KEDA provides the same capability.</p>
+
+<h3 id="operational-notes">Operational Notes</h3>
 
 <ul>
-  <li>The HPA depends on the <strong>metrics-server</strong> add-on for CPU/memory metrics; without it, the HPA shows <code class="language-plaintext highlighter-rouge">&lt;unknown&gt;</code> targets and never acts. Verify with <code class="language-plaintext highlighter-rouge">kubectl top pods</code>.</li>
-  <li>Set <code class="language-plaintext highlighter-rouge">minReplicas</code> to survive the loss of a node or an availability zone — do not let an HPA scale a critical service down to one replica.</li>
-  <li>Do not run an HPA and a VPA against the <em>same</em> resource metric (e.g. both on CPU); they will fight, with one resizing pods while the other counts them. Pair an HPA on CPU with a VPA on memory, or keep them apart entirely.</li>
+  <li>Install <strong>metrics-server</strong>; without it <code class="language-plaintext highlighter-rouge">Resource</code> metrics are <code class="language-plaintext highlighter-rouge">&lt;unknown&gt;</code> and <code class="language-plaintext highlighter-rouge">kubectl top</code> fails.</li>
+  <li>Size <code class="language-plaintext highlighter-rouge">minReplicas</code> to survive losing a node or zone, and pair the HPA with a <strong>PodDisruptionBudget</strong>.</li>
+  <li>The HPA adds pods; if nodes are full, the new pods stay <code class="language-plaintext highlighter-rouge">Pending</code> until a node autoscaler adds capacity. Pod start-up time plus node provisioning time is your real reaction time.</li>
+  <li>Do not let an HPA and a VPA act on the <strong>same</strong> resource (for example both on CPU); either scale horizontally on CPU and let the VPA manage memory only, or drive the HPA from custom metrics.</li>
+  <li>Inspect decisions with <code class="language-plaintext highlighter-rouge">kubectl describe hpa &lt;name&gt;</code> — the conditions (<code class="language-plaintext highlighter-rouge">AbleToScale</code>, <code class="language-plaintext highlighter-rouge">ScalingActive</code>, <code class="language-plaintext highlighter-rouge">ScalingLimited</code>) and events explain why it did or did not act.</li>
 </ul>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="quick-reference">Quick Reference</h2>
 
-<ul>
-  <li><strong>Three probes, three jobs.</strong> Liveness restarts a wedged container, readiness gates traffic, startup protects slow boots. Never point liveness at an external dependency.</li>
-  <li><strong>CPU throttles, memory kills.</strong> CPU is compressible (excess use is throttled); memory is not (excess use is OOMKilled). Always set memory requests and limits.</li>
-  <li><strong>Requests drive everything.</strong> The scheduler reserves against requests, not usage; QoS class derives from requests vs limits; HPA utilization is a percentage of the request.</li>
-  <li><strong>Scale out on a live signal.</strong> The HPA changes replica count from a simple ratio of current to target metric, clamped to min/max and dampened to avoid thrash.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Likely mechanism</th>
+      <th>Look at</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Container restarts, last state <code class="language-plaintext highlighter-rouge">OOMKilled</code></td>
+      <td>Memory limit reached</td>
+      <td>Raise the limit or fix the leak; <code class="language-plaintext highlighter-rouge">kubectl describe pod</code></td>
+    </tr>
+    <tr>
+      <td>Pod <code class="language-plaintext highlighter-rouge">Failed</code>, reason <code class="language-plaintext highlighter-rouge">Evicted</code></td>
+      <td>Node-pressure eviction</td>
+      <td>Node conditions; pods running above their requests</td>
+    </tr>
+    <tr>
+      <td>Latency spikes, CPU below limit on average</td>
+      <td>CFS throttling</td>
+      <td><code class="language-plaintext highlighter-rouge">container_cpu_cfs_throttled_periods_total</code>; raise or remove CPU limit</td>
+    </tr>
+    <tr>
+      <td>Pod <code class="language-plaintext highlighter-rouge">Pending</code>, <code class="language-plaintext highlighter-rouge">Insufficient cpu/memory</code></td>
+      <td>Requests do not fit allocatable</td>
+      <td>Lower requests or add nodes</td>
+    </tr>
+    <tr>
+      <td>Restarts during slow start-up</td>
+      <td>Liveness firing before the app is up</td>
+      <td>Add a startup probe</td>
+    </tr>
+    <tr>
+      <td>All replicas restart together</td>
+      <td>Liveness probe checks a shared dependency</td>
+      <td>Move the dependency check to readiness</td>
+    </tr>
+    <tr>
+      <td>HPA target <code class="language-plaintext highlighter-rouge">&lt;unknown&gt;</code></td>
+      <td>No metrics-server or no CPU request</td>
+      <td><code class="language-plaintext highlighter-rouge">kubectl top pods</code>; set requests</td>
+    </tr>
+  </tbody>
+</table>
 
 <hr />
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="fundamentals.html">Fundamentals</a> - Cluster architecture, Pods, Deployments, Services, and the reconciliation loop</li>
-  <li><a href="workloads.html">Workloads &amp; Storage</a> - StatefulSets, persistent volumes, VPA/Cluster Autoscaler, RBAC, and Pod Security</li>
-  <li><a href="operations.html">Operations</a> - kubectl, Helm, and a systematic troubleshooting guide</li>
-  <li><a href="advanced.html">Advanced Topics</a> - CRDs, Operators, service mesh, and performance tuning</li>
-  <li><a href="../docker/">Docker</a> - The container fundamentals Kubernetes builds on</li>
+  <li><a href="fundamentals.html">Fundamentals</a> — architecture, the reconciliation loop, Pods, Deployments and Services</li>
+  <li><a href="fundamentals-networking.html">Networking &amp; Configuration</a> — Services, Gateway API and Ingress, NetworkPolicies, ConfigMaps and Secrets</li>
+  <li><a href="workloads.html">Workloads &amp; Storage</a> — StatefulSets, DaemonSets, Jobs, VPA and cluster autoscaling, Pod Security</li>
+  <li><a href="operations.html">Operations</a> — kubectl, Helm, troubleshooting and a production checklist</li>
+  <li><a href="advanced.html">Advanced Topics</a> — custom scheduling, CRDs and Operators, performance tuning</li>
 </ul>
 
       </section>

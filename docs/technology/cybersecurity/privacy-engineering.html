@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Turning privacy law into architecture: privacy by design, data minimization and retention, PII discovery and masking/tokenization, differential privacy, cons...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Cybersecurity: Privacy Engineering">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Turning privacy law into architecture: privacy by design, data minimization and retention, PII discovery and masking/tokenization, differential privacy, cons...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/cybersecurity/privacy-engineering.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Cybersecurity: Privacy Engineering">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Turning privacy law into architecture: privacy by design, data minimization and retention, PII discovery and masking/tokenization, differential privacy, cons...">
 
 <title>Cybersecurity: Privacy Engineering | Andrews Notebook</title>
 
@@ -2883,6 +2883,22 @@ document.addEventListener('DOMContentLoaded', function () {
   <p><strong>Privacy ≠ security.</strong> A perfectly encrypted, breach-free system can still violate privacy by collecting too much, keeping it too long, or using it for purposes the subject never agreed to. Privacy engineering targets <em>what you do with data</em>, not just <em>who can steal it</em>.</p>
 </blockquote>
 
+<p>The controls on this page attach to a data lifecycle: each stage has a corresponding technique that limits exposure.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Collect"] --&gt; B["Store"]
+    B --&gt; C["Use / analyze"]
+    C --&gt; D["Share"]
+    D --&gt; E["Retain"]
+    E --&gt; F["Delete"]
+    A -.- a["Minimization,&lt;br/&gt;consent, purpose binding"]
+    B -.- b["Encryption,&lt;br/&gt;tokenization, access control"]
+    C -.- c["Masking,&lt;br/&gt;differential privacy"]
+    D -.- d["Consent check,&lt;br/&gt;opt-out / GPC"]
+    E -.- e["Retention schedule,&lt;br/&gt;legal hold"]
+    F -.- f["Erasure,&lt;br/&gt;crypto-shredding"]
+</code></pre>
+
 <h2 id="privacy-by-design">Privacy by Design</h2>
 
 <p>“Privacy by Design” (PbD), formalized by Ann Cavoukian in the 1990s and later written into GDPR Article 25 as <strong>data protection by design and by default</strong>, is the principle that privacy must be engineered into systems from the start rather than bolted on after launch. The seven foundational principles, in engineering terms:</p>
@@ -2948,19 +2964,55 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="the-privacy-threat-model-linddun">The Privacy Threat Model: LINDDUN</h3>
 
-<p>Where security threat modeling uses STRIDE, privacy engineering uses <strong>LINDDUN</strong>, a mnemonic for seven privacy threat categories that map onto a data-flow diagram of the system:</p>
+<p>Where security threat modeling uses STRIDE, privacy engineering uses <strong>LINDDUN</strong>, a mnemonic for seven privacy threat categories checked against every element of a system’s data-flow diagram:</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    L["Linking&lt;br/&gt;(correlate records to one person)"]
-    I["Identifying&lt;br/&gt;(re-identify a 'pseudonym')"]
-    N["Non-repudiation&lt;br/&gt;(can't deny an action)"]
-    D["Detecting&lt;br/&gt;(infer presence from observables)"]
-    DD["Data Disclosure&lt;br/&gt;(excessive exposure)"]
-    U["Unawareness&lt;br/&gt;(subject can't act on rights)"]
-    NC["Non-compliance&lt;br/&gt;(policy vs. practice gap)"]
-</code></pre>
+<table>
+  <thead>
+    <tr>
+      <th>Threat</th>
+      <th>The risk</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+<strong>L</strong>inking</td>
+      <td>Correlating records back to one person across sources</td>
+    </tr>
+    <tr>
+      <td>
+<strong>I</strong>dentifying</td>
+      <td>Re-identifying someone behind a “pseudonym”</td>
+    </tr>
+    <tr>
+      <td>
+<strong>N</strong>on-repudiation</td>
+      <td>A subject cannot plausibly deny an action they wanted private</td>
+    </tr>
+    <tr>
+      <td>
+<strong>D</strong>etecting</td>
+      <td>Inferring that someone is in the dataset from observable side effects</td>
+    </tr>
+    <tr>
+      <td>
+<strong>D</strong>ata disclosure</td>
+      <td>Excessive or unnecessary exposure of personal data</td>
+    </tr>
+    <tr>
+      <td>
+<strong>U</strong>nawareness</td>
+      <td>The subject cannot understand or act on their rights</td>
+    </tr>
+    <tr>
+      <td>
+<strong>N</strong>on-compliance</td>
+      <td>The system’s practice diverges from its stated policy or the law</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>For each data flow, store, and process, you ask “which of these can happen here?” and add a control. <em>Linking</em> and <em>Identifying</em> are the engine behind most re-identification scandals — the 1990s Massachusetts GIC release, “anonymized” Netflix Prize ratings, and AOL search logs were all defeated by joining quasi-identifiers across datasets.</p>
+<p>For each data flow, store, and process, you ask “which of these can happen here?” and add a control. <em>Linking</em> and <em>Identifying</em> are the engine behind most re-identification scandals — the 1990s Massachusetts GIC release, the “anonymized” Netflix Prize ratings, and AOL search logs were all defeated by joining quasi-identifiers across datasets. The LINDDUN project now also publishes a lightweight card-deck variant (LINDDUN GO) for faster workshops.</p>
 
 <h2 id="data-minimization-and-retention">Data Minimization and Retention</h2>
 
@@ -3129,7 +3181,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <span class="c1"># Application &amp; analytics see only "tok_..."; raw PANs never leave the vault.
 </span></code></pre></div></div>
 
-<p><strong>Format-preserving encryption (FPE)</strong> (e.g., NIST FF1/FF3-1) is a middle ground: ciphertext that keeps the original format (a 16-digit “card number” maps to another 16-digit string), useful when legacy schemas demand a specific shape but you still need reversibility under a key.</p>
+<p><strong>Format-preserving encryption (FPE)</strong> is a middle ground: ciphertext that keeps the original format (a 16-digit “card number” maps to another 16-digit string), useful when a legacy schema demands a specific shape but you still need reversibility under a key. NIST specifies FPE in SP 800-38G. Note the moving target here: after Betül Durak and colleagues, and later Ohad Amon, Orr Dunkelman, and Eyal Ronen, showed practical attacks against the <strong>FF3/FF3-1</strong> tweak schedule, NIST’s 2025 draft revision (SP 800-38G Rev. 1) <strong>removes FF3-1 entirely</strong> and retains only <strong>FF1</strong>, tightening it to a minimum domain of one million values. New designs should use FF1 over a large domain, or prefer tokenization where the format constraint is the only reason FPE was considered.</p>
 
 <h2 id="differential-privacy-in-practice">Differential Privacy in Practice</h2>
 
@@ -3143,9 +3195,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p>Intuitively: whether or not <em>your</em> record is in the dataset, the distribution of outputs barely changes — so the output cannot reveal much about you specifically. The <strong>privacy budget</strong> ε is the knob: small ε (e.g., 0.1) means strong privacy and noisier answers; large ε (e.g., 10) means weak privacy and accurate answers. ε is consumed across queries and <strong>composes additively</strong>, so a fixed total budget must be allocated carefully.</p>
 
-<p>The relaxed (ε, δ)-DP allows a small failure probability δ:</p>
+<p>The relaxed (ε, δ)-DP allows a small failure probability δ (kept far below $1/n$ for a dataset of $n$ people):</p>
 
 \[\Pr[M(D) \in S] \le e^{\varepsilon} \cdot \Pr[M(D') \in S] + \delta\]
+
+<p>This relaxation is what the <strong>Gaussian mechanism</strong> (adding normally-distributed noise) satisfies, and it is the basis for the tight composition accounting — Rényi DP and the “moments accountant” — that makes training ML models with DP-SGD practical. For choosing and defending ε in a real deployment, NIST published <strong>SP 800-226, <em>Guidelines for Evaluating Differential Privacy Guarantees</em></strong> (2025), which catalogs the common “DP hazards” (mis-set neighboring definitions, floating-point leaks, unbounded sensitivity) that quietly void the guarantee in practice.</p>
 
 <h3 id="the-laplace-mechanism">The Laplace Mechanism</h3>
 
@@ -3183,7 +3237,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <li>
 <strong>Central DP</strong> trusts a curator to hold raw data and add noise to released aggregates (smaller noise, used by the <strong>US Census Bureau</strong> for the 2020 redistricting data).</li>
   <li>
-<strong>Local DP</strong> has each <em>user</em> randomize their own value before it ever leaves the device (larger noise, but no trusted curator). Apple’s keyboard/emoji telemetry and Google’s <strong>RAPPOR</strong> in Chrome use local DP.</li>
+<strong>Local DP</strong> has each <em>user</em> randomize their own value before it ever leaves the device (larger noise, but no trusted curator). Apple’s keyboard/emoji telemetry uses local DP, and Google’s <strong>RAPPOR</strong> in Chrome pioneered the approach for browser statistics.</li>
 </ul>
 
 <blockquote>
@@ -3241,7 +3295,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <span class="bp">...</span>
 </code></pre></div></div>
 
-<p>The CCPA/CPRA model inverts the default: most processing is permitted, but consumers have a <strong>right to opt out</strong> of the “sale” or “sharing” of personal information, surfaced through a “Do Not Sell or Share My Personal Information” link and honored automatically via the <strong>Global Privacy Control (GPC)</strong> browser signal. A robust CMP handles both the GDPR opt-in world and the CCPA opt-out world from one consent ledger.</p>
+<p>The CCPA/CPRA model inverts the default: most processing is permitted, but consumers have a <strong>right to opt out</strong> of the “sale” or “sharing” of personal information, surfaced through a “Do Not Sell or Share My Personal Information” link and honored automatically via the <strong>Global Privacy Control (GPC)</strong> browser signal. GPC is now a legally binding universal opt-out signal in a growing list of states — California, Colorado, Connecticut, New Jersey (from mid-2025), and Oregon (from January 2026) among them — and regulators have enforced it: California settlements include Sephora ($1.2M, 2022), Healthline ($1.55M, 2025), and Disney ($2.75M, 2026) for failing to honor opt-outs. California’s <strong>AB 566</strong> goes further, requiring browsers sold in the state to offer a built-in opt-out-signal control starting <strong>January 1, 2027</strong>, which will push GPC from an opt-in extension toward a default. A robust CMP handles both the GDPR opt-in world and the CCPA opt-out world from one consent ledger.</p>
 
 <h2 id="the-practical-side-of-gdpr-and-ccpa">The Practical Side of GDPR and CCPA</h2>
 
@@ -3352,10 +3406,12 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td><strong>Penalty ceiling</strong></td>
       <td>Up to €20M or 4% of global turnover</td>
-      <td>Per-violation fines (higher for minors)</td>
+      <td>~$2,663 per violation, ~$7,988 if intentional or involving a minor (CPI-adjusted)</td>
     </tr>
   </tbody>
 </table>
+
+<p>New for engineering teams: the California Privacy Protection Agency’s <strong>ADMT, risk-assessment, and cybersecurity-audit regulations</strong> were finalized in September 2025 and took effect <strong>January 1, 2026</strong> (with phased compliance deadlines). They add three concrete obligations beyond the rights above — a documented <strong>risk assessment</strong> before certain high-risk processing, an <strong>annual independent cybersecurity audit</strong> for qualifying businesses, and consumer rights to <strong>access and opt out of automated decision-making technology (ADMT)</strong> — which pull DPIA-style documentation and audit trails firmly into the US regime, not just the EU one.</p>
 
 <p>The architectural takeaway: build for the <em>stricter</em> regime (GDPR’s opt-in, purpose-bound, minimized model) and the looser one falls out almost for free, while a single consent ledger and DSAR orchestrator serve every jurisdiction you operate in.</p>
 

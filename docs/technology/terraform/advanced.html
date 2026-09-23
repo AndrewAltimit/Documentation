@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Refactoring with moved/import/removed blocks, dynamic blocks, checks, ephemeral and write-only values, actions and terraform query, troubleshooting, and the ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Terraform: Advanced Topics">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Refactoring with moved/import/removed blocks, dynamic blocks, checks, ephemeral and write-only values, actions and terraform query, troubleshooting, and the ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/terraform/advanced.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Terraform: Advanced Topics">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Refactoring with moved/import/removed blocks, dynamic blocks, checks, ephemeral and write-only values, actions and terraform query, troubleshooting, and the ...">
 
 <title>Terraform: Advanced Topics | Andrews Notebook</title>
 
@@ -3131,499 +3131,616 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>This page covers troubleshooting and debugging Terraform — the mistakes everyone makes and how to recover from them — followed by notable recent releases and where Infrastructure as Code is heading.</p>
+        <p>This page covers the parts of Terraform you need once the basics are routine. These are the configuration-driven refactoring blocks, the language features for generating and asserting configuration, and the newer features for keeping secrets out of state and working outside the create/read/update/delete (CRUD) model. It then gives a troubleshooting guide for common failures and a release history of Terraform and OpenTofu, current as of September 2026.</p>
 
-<h2 id="common-pitfalls-and-troubleshooting">Common Pitfalls and Troubleshooting</h2>
+<h2 id="refactoring-with-configuration-blocks">Refactoring with configuration blocks</h2>
 
-<h3 id="the-mistakes-everyone-makes-and-how-to-avoid-them">The Mistakes Everyone Makes (And How to Avoid Them)</h3>
+<p>Early Terraform refactoring meant running <code class="language-plaintext highlighter-rouge">terraform state mv</code>, <code class="language-plaintext highlighter-rouge">terraform import</code>, and <code class="language-plaintext highlighter-rouge">terraform state rm</code> by hand, against production state, with no review. Terraform 1.1 through 1.7 replaced each of these commands with a block that goes through the normal plan, review, and apply cycle.</p>
 
-<p>Learning from others’ mistakes is the fastest way to mastery. Here are the most common Terraform pitfalls and their solutions.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Block</th>
+      <th>Replaces</th>
+      <th>Since</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">moved</code></td>
+      <td><code class="language-plaintext highlighter-rouge">terraform state mv</code></td>
+      <td>1.1</td>
+      <td>Renames an address in state; the plan shows “has moved to” instead of destroy/create</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">import</code></td>
+      <td><code class="language-plaintext highlighter-rouge">terraform import</code></td>
+      <td>1.5 (<code class="language-plaintext highlighter-rouge">for_each</code> in 1.7; inside modules in 1.16)</td>
+      <td>Adopts an existing object into state during apply</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">removed</code></td>
+      <td><code class="language-plaintext highlighter-rouge">terraform state rm</code></td>
+      <td>1.7</td>
+      <td>Drops an object from state, optionally without destroying it</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="1-the-state-file-disasters">1. The State File Disasters</h3>
-
-<h4 id="pitfall-losing-or-corrupting-state">Pitfall: Losing or Corrupting State</h4>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># DON'T: Edit state files manually</span>
-<span class="c"># DON'T: Delete state files thinking you can regenerate them</span>
-<span class="c"># DON'T: Have multiple people working with local state</span>
-</code></pre></div></div>
-
-<h4 id="solution-proper-state-management">Solution: Proper State Management</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Always use remote state for team projects</span>
-<span class="nx">terraform</span> <span class="p">{</span>
-  <span class="nx">backend</span> <span class="s2">"s3"</span> <span class="p">{</span>
-    <span class="nx">bucket</span>         <span class="o">=</span> <span class="s2">"terraform-state-bucket"</span>
-    <span class="nx">key</span>            <span class="o">=</span> <span class="s2">"project/terraform.tfstate"</span>
-    <span class="nx">region</span>         <span class="o">=</span> <span class="s2">"us-east-1"</span>
-    <span class="nx">dynamodb_table</span> <span class="o">=</span> <span class="s2">"terraform-locks"</span>
-    <span class="nx">encrypt</span>        <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Renamed a resource, or moved it into a module: no replacement</span>
+<span class="nx">moved</span> <span class="p">{</span>
+  <span class="nx">from</span> <span class="o">=</span> <span class="nx">aws_instance</span><span class="p">.</span><span class="nx">web</span>
+  <span class="nx">to</span>   <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">web</span><span class="p">.</span><span class="nx">aws_instance</span><span class="p">.</span><span class="nx">this</span>
 <span class="p">}</span>
 
-<span class="c1"># Enable state locking to prevent concurrent modifications</span>
-<span class="nx">resource</span> <span class="s2">"aws_dynamodb_table"</span> <span class="s2">"terraform_locks"</span> <span class="p">{</span>
-  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"terraform-locks"</span>
-  <span class="nx">billing_mode</span> <span class="o">=</span> <span class="s2">"PAY_PER_REQUEST"</span>
-  <span class="nx">hash_key</span>     <span class="o">=</span> <span class="s2">"LockID"</span>
-  
-  <span class="nx">attribute</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"LockID"</span>
-    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"S"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="recovery-when-things-go-wrong">Recovery: When Things Go Wrong</h4>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Recover from state issues</span>
-terraform state pull <span class="o">&gt;</span> backup.tfstate  <span class="c"># Backup current state</span>
-terraform refresh                      <span class="c"># Sync state with reality</span>
-terraform state <span class="nb">rm</span> &lt;resource&gt;          <span class="c"># Remove problematic resources</span>
-terraform import &lt;resource&gt; &lt;<span class="nb">id</span><span class="o">&gt;</span>       <span class="c"># Re-import resources</span>
-</code></pre></div></div>
-
-<h3 id="2-the-dependency-hell">2. The Dependency Hell</h3>
-
-<h4 id="pitfall-circular-dependencies">Pitfall: Circular Dependencies</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># This creates a circular dependency</span>
-<span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"web"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"web-sg"</span>
-  
-  <span class="nx">ingress</span> <span class="p">{</span>
-    <span class="nx">from_port</span>       <span class="o">=</span> <span class="mi">443</span>
-    <span class="nx">to_port</span>         <span class="o">=</span> <span class="mi">443</span>
-    <span class="nx">protocol</span>        <span class="o">=</span> <span class="s2">"tcp"</span>
-    <span class="nx">security_groups</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">app</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>  <span class="c1"># References app</span>
-  <span class="p">}</span>
+<span class="c1"># Adopt existing buckets; `plan -generate-config-out=generated.tf` writes starter config</span>
+<span class="nx">import</span> <span class="p">{</span>
+  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">toset</span><span class="p">([</span><span class="s2">"legacy-logs"</span><span class="p">,</span> <span class="s2">"legacy-assets"</span><span class="p">])</span>
+  <span class="nx">to</span>       <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">legacy</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">]</span>
+  <span class="nx">id</span>       <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span>
 <span class="p">}</span>
 
-<span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"app"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"app-sg"</span>
-  
-  <span class="nx">egress</span> <span class="p">{</span>
-    <span class="nx">from_port</span>       <span class="o">=</span> <span class="mi">443</span>
-    <span class="nx">to_port</span>         <span class="o">=</span> <span class="mi">443</span>
-    <span class="nx">protocol</span>        <span class="o">=</span> <span class="s2">"tcp"</span>
-    <span class="nx">security_groups</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">web</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>  <span class="c1"># References web</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<span class="c1"># Stop managing a resource without deleting it</span>
+<span class="nx">removed</span> <span class="p">{</span>
+  <span class="nx">from</span> <span class="o">=</span> <span class="nx">aws_db_instance</span><span class="p">.</span><span class="nx">old_reporting</span>
 
-<h4 id="solution-break-the-cycle">Solution: Break the Cycle</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Create security groups first, then add rules</span>
-<span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"web"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"web-sg"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"app"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"app-sg"</span>
-<span class="p">}</span>
-
-<span class="c1"># Add rules separately</span>
-<span class="nx">resource</span> <span class="s2">"aws_security_group_rule"</span> <span class="s2">"web_to_app"</span> <span class="p">{</span>
-  <span class="nx">type</span>                     <span class="o">=</span> <span class="s2">"ingress"</span>
-  <span class="nx">from_port</span>                <span class="o">=</span> <span class="mi">443</span>
-  <span class="nx">to_port</span>                  <span class="o">=</span> <span class="mi">443</span>
-  <span class="nx">protocol</span>                 <span class="o">=</span> <span class="s2">"tcp"</span>
-  <span class="nx">security_group_id</span>        <span class="o">=</span> <span class="nx">aws_security_group</span><span class="err">.</span><span class="nx">app</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">source_security_group_id</span> <span class="o">=</span> <span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">web</span><span class="p">.</span><span class="nx">id</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="3-the-provider-version-chaos">3. The Provider Version Chaos</h3>
-
-<h4 id="pitfall-uncontrolled-provider-updates">Pitfall: Uncontrolled Provider Updates</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># DON'T: Leave provider versions unspecified</span>
-<span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
-  <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="solution-lock-provider-versions">Solution: Lock Provider Versions</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Always specify provider versions</span>
-<span class="nx">terraform</span> <span class="p">{</span>
-  <span class="nx">required_version</span> <span class="o">=</span> <span class="s2">"&gt;= 1.0"</span>
-  
-  <span class="nx">required_providers</span> <span class="p">{</span>
-    <span class="nx">aws</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">source</span>  <span class="o">=</span> <span class="s2">"hashicorp/aws"</span>
-      <span class="nx">version</span> <span class="o">=</span> <span class="s2">"~&gt; 5.0"</span>  <span class="c1"># Allow patch updates only</span>
-    <span class="p">}</span>
-    <span class="nx">random</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">source</span>  <span class="o">=</span> <span class="s2">"hashicorp/random"</span>
-      <span class="nx">version</span> <span class="o">=</span> <span class="s2">"= 3.5.1"</span>  <span class="c1"># Exact version</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="4-the-variable-validation-gaps">4. The Variable Validation Gaps</h3>
-
-<h4 id="pitfall-runtime-failures-from-bad-input">Pitfall: Runtime Failures from Bad Input</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># This can fail at runtime with invalid values</span>
-<span class="nx">variable</span> <span class="s2">"instance_type"</span> <span class="p">{</span>
-  <span class="nx">type</span> <span class="o">=</span> <span class="nx">string</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="solution-comprehensive-validation">Solution: Comprehensive Validation</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">variable</span> <span class="s2">"instance_type"</span> <span class="p">{</span>
-  <span class="nx">type</span>        <span class="o">=</span> <span class="nx">string</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"EC2 instance type"</span>
-  
-  <span class="nx">validation</span> <span class="p">{</span>
-    <span class="nx">condition</span> <span class="o">=</span> <span class="nx">contains</span><span class="p">([</span>
-      <span class="s2">"t3.micro"</span><span class="p">,</span> <span class="s2">"t3.small"</span><span class="p">,</span> <span class="s2">"t3.medium"</span><span class="p">,</span>
-      <span class="s2">"m5.large"</span><span class="p">,</span> <span class="s2">"m5.xlarge"</span><span class="p">,</span> <span class="s2">"m5.2xlarge"</span>
-    <span class="p">],</span> <span class="nx">var</span><span class="p">.</span><span class="nx">instance_type</span><span class="p">)</span>
-    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Instance type must be one of the approved sizes."</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">variable</span> <span class="s2">"environment"</span> <span class="p">{</span>
-  <span class="nx">type</span>        <span class="o">=</span> <span class="nx">string</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Deployment environment"</span>
-  
-  <span class="nx">validation</span> <span class="p">{</span>
-    <span class="nx">condition</span>     <span class="o">=</span> <span class="nx">regex</span><span class="p">(</span><span class="s2">"^(dev|staging|prod)$"</span><span class="p">,</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span><span class="p">)</span> <span class="o">!</span><span class="p">=</span> <span class="s2">""</span>
-    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Environment must be dev, staging, or prod."</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="5-the-resource-naming-conflicts">5. The Resource Naming Conflicts</h3>
-
-<h4 id="pitfall-name-collisions">Pitfall: Name Collisions</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># This fails if the bucket already exists</span>
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"data"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"my-data-bucket"</span>  <span class="c1"># Not globally unique!</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="solution-unique-naming-strategies">Solution: Unique Naming Strategies</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Use data sources and random suffixes</span>
-<span class="nx">data</span> <span class="s2">"aws_caller_identity"</span> <span class="s2">"current"</span> <span class="p">{}</span>
-
-<span class="nx">resource</span> <span class="s2">"random_id"</span> <span class="s2">"bucket_suffix"</span> <span class="p">{</span>
-  <span class="nx">byte_length</span> <span class="o">=</span> <span class="mi">8</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"data"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"my-data-${data.aws_caller_identity.current.account_id}-${random_id.bucket_suffix.hex}"</span>
-<span class="p">}</span>
-
-<span class="c1"># Or use naming conventions</span>
-<span class="nx">locals</span> <span class="p">{</span>
-  <span class="nx">bucket_name</span> <span class="o">=</span> <span class="s2">"${var.project}-${var.environment}-${var.region}-data"</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="6-the-partial-apply-problem">6. The Partial Apply Problem</h3>
-
-<h4 id="pitfall-interrupted-applies">Pitfall: Interrupted Applies</h4>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Apply fails midway through</span>
-terraform apply
-<span class="c"># Error: insufficient permissions</span>
-<span class="c"># Now infrastructure is half-created</span>
-</code></pre></div></div>
-
-<h4 id="solution-atomic-operations">Solution: Atomic Operations</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Use create_before_destroy for critical resources</span>
-<span class="nx">resource</span> <span class="s2">"aws_instance"</span> <span class="s2">"web"</span> <span class="p">{</span>
-  <span class="c1"># ...</span>
-  
   <span class="nx">lifecycle</span> <span class="p">{</span>
-    <span class="nx">create_before_destroy</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">destroy</span> <span class="o">=</span> <span class="kc">false</span>
   <span class="p">}</span>
 <span class="p">}</span>
-
-<span class="c1"># Target specific resources when recovering</span>
-<span class="nx">terraform</span> <span class="nx">apply</span> <span class="o">-</span><span class="nx">target</span><span class="o">=</span><span class="nx">aws_instance</span><span class="err">.</span><span class="nx">web</span>
-
-<span class="c1"># Use -refresh=false when state is inconsistent</span>
-<span class="nx">terraform</span> <span class="nx">apply</span> <span class="o">-</span><span class="nx">refresh</span><span class="o">=</span><span class="kc">false</span>
 </code></pre></div></div>
 
-<h3 id="7-the-secret-exposure">7. The Secret Exposure</h3>
+<p>Keep <code class="language-plaintext highlighter-rouge">moved</code> blocks in shared modules for at least one major version, so that every caller has a chance to apply them. Delete <code class="language-plaintext highlighter-rouge">import</code> blocks after they have been applied. Since 1.8, <code class="language-plaintext highlighter-rouge">moved</code> can also move state between <em>different</em> resource types when the provider supports it, for example from <code class="language-plaintext highlighter-rouge">aws_s3_bucket_object</code> to <code class="language-plaintext highlighter-rouge">aws_s3_object</code>.</p>
 
-<h4 id="pitfall-hardcoded-secrets">Pitfall: Hardcoded Secrets</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># NEVER DO THIS</span>
-<span class="nx">resource</span> <span class="s2">"aws_db_instance"</span> <span class="s2">"database"</span> <span class="p">{</span>
-  <span class="nx">master_password</span> <span class="o">=</span> <span class="s2">"SuperSecret123!"</span>  <span class="c1"># This is in your Git history forever!</span>
+<p>To import at scale, Terraform 1.14 added <strong>list resources</strong> and <code class="language-plaintext highlighter-rouge">terraform query</code>. A <code class="language-plaintext highlighter-rouge">*.tfquery.hcl</code> file declares <code class="language-plaintext highlighter-rouge">list</code> blocks that ask a provider to enumerate existing objects, filtered by tags or other criteria. <code class="language-plaintext highlighter-rouge">terraform query -generate-config-out=FILE</code> then writes <code class="language-plaintext highlighter-rouge">import</code> blocks and matching resource configuration for everything it found. This removes the need to list IDs by hand.</p>
+
+<h2 id="generating-configuration">Generating configuration</h2>
+
+<h3 id="dynamic-blocks">Dynamic blocks</h3>
+
+<p><code class="language-plaintext highlighter-rouge">dynamic</code> generates repeated <strong>nested blocks</strong> (not resources) from a collection:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">variable</span> <span class="s2">"ingress_rules"</span> <span class="p">{</span>
+  <span class="nx">type</span> <span class="o">=</span> <span class="nx">map</span><span class="p">(</span><span class="nx">object</span><span class="p">({</span>
+    <span class="nx">port</span>        <span class="o">=</span> <span class="nx">number</span>
+    <span class="nx">cidr_blocks</span> <span class="o">=</span> <span class="nx">list</span><span class="p">(</span><span class="nx">string</span><span class="p">)</span>
+  <span class="p">}))</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"web"</span> <span class="p">{</span>
+  <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"web"</span>
+  <span class="nx">vpc_id</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">vpc_id</span>
+
+  <span class="nx">dynamic</span> <span class="s2">"ingress"</span> <span class="p">{</span>
+    <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">ingress_rules</span>
+    <span class="nx">content</span> <span class="p">{</span>
+      <span class="nx">description</span> <span class="o">=</span> <span class="nx">ingress</span><span class="p">.</span><span class="nx">key</span>
+      <span class="nx">from_port</span>   <span class="o">=</span> <span class="nx">ingress</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">port</span>
+      <span class="nx">to_port</span>     <span class="o">=</span> <span class="nx">ingress</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">port</span>
+      <span class="nx">protocol</span>    <span class="o">=</span> <span class="s2">"tcp"</span>
+      <span class="nx">cidr_blocks</span> <span class="o">=</span> <span class="nx">ingress</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">cidr_blocks</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h4 id="solution-proper-secret-management">Solution: Proper Secret Management</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Use AWS Secrets Manager</span>
-<span class="nx">resource</span> <span class="s2">"random_password"</span> <span class="s2">"db_password"</span> <span class="p">{</span>
+<p>Use <code class="language-plaintext highlighter-rouge">dynamic</code> only when the number of blocks really depends on input. A configuration made mostly of <code class="language-plaintext highlighter-rouge">dynamic</code> blocks is hard to read. That usually means the module is trying to wrap a provider resource one-to-one, and such a module adds little value. Where a provider offers separate resources for the repeated items, prefer them. For AWS security groups, <code class="language-plaintext highlighter-rouge">aws_vpc_security_group_ingress_rule</code> with <code class="language-plaintext highlighter-rouge">for_each</code> gives each rule its own address.</p>
+
+<h3 id="code-generation-around-terraform">Code generation around Terraform</h3>
+
+<p>When HCL’s expressions stop being enough, teams generate Terraform instead of writing it:</p>
+
+<ul>
+  <li><strong>Terragrunt</strong> generates backend and provider blocks and wires the dependencies between stacks.</li>
+  <li><strong>JSON configuration</strong> (<code class="language-plaintext highlighter-rouge">*.tf.json</code>) is a complete alternative syntax for HCL. Any language can emit it.</li>
+  <li><strong>Pulumi</strong> or the AWS CDK replace HCL with a general-purpose language entirely. <strong>CDK for Terraform</strong> filled the same role for Terraform, but HashiCorp archived it on 10 December 2025.</li>
+</ul>
+
+<p>Terraform 1.15 also allows variables and locals in module <code class="language-plaintext highlighter-rouge">source</code> and <code class="language-plaintext highlighter-rouge">version</code> arguments. Before 1.15, generating module sources was a common reason to add a wrapper tool at all. OpenTofu has supported this since 1.8 through early evaluation.</p>
+
+<h2 id="validating-assumptions">Validating assumptions</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism</th>
+      <th>Evaluated</th>
+      <th>On failure</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">variable</code> <code class="language-plaintext highlighter-rouge">validation</code></td>
+      <td>Plan, when the value is known</td>
+      <td>Error; the run stops</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">precondition</code> / <code class="language-plaintext highlighter-rouge">postcondition</code> in <code class="language-plaintext highlighter-rouge">lifecycle</code></td>
+      <td>Before or after the resource is planned or applied</td>
+      <td>Error; the run stops</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">check</code> block with <code class="language-plaintext highlighter-rouge">assert</code> (and an optional scoped <code class="language-plaintext highlighter-rouge">data</code> source)</td>
+      <td>End of every plan and apply</td>
+      <td><strong>Warning</strong> only</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">check</code> blocks describe health properties of the running system. They are useful because they run on every plan, including scheduled drift-detection runs:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">check</span> <span class="s2">"site_is_up"</span> <span class="p">{</span>
+  <span class="nx">data</span> <span class="s2">"http"</span> <span class="s2">"home"</span> <span class="p">{</span>
+    <span class="nx">url</span> <span class="o">=</span> <span class="s2">"https://${aws_lb.app.dns_name}/healthz"</span>
+  <span class="p">}</span>
+
+  <span class="nx">assert</span> <span class="p">{</span>
+    <span class="nx">condition</span>     <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">http</span><span class="p">.</span><span class="nx">home</span><span class="p">.</span><span class="nx">status_code</span> <span class="o">==</span> <span class="mi">200</span>
+    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Health endpoint returned ${data.http.home.status_code}."</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="ephemeral-values-and-write-only-arguments">Ephemeral values and write-only arguments</h2>
+
+<p>Before 1.10, any value that passed through a resource argument, variable, or output ended up in plan files and state. Two features now let secrets flow through a configuration without being stored:</p>
+
+<ul>
+  <li><strong>Ephemeral</strong> (1.10): <code class="language-plaintext highlighter-rouge">ephemeral</code> resource blocks, plus variables and outputs marked <code class="language-plaintext highlighter-rouge">ephemeral = true</code>, produce values that exist only during a single run. They are opened fresh in each phase and never written to plan or state. An ephemeral value may only be used in ephemeral contexts: provider configuration, other ephemeral values, and write-only arguments.</li>
+  <li><strong>Write-only arguments</strong> (1.11): resource arguments, conventionally suffixed <code class="language-plaintext highlighter-rouge">_wo</code>, that the provider sends to the API but never stores. The provider cannot see whether the value has changed, so each write-only argument has a companion version argument (<code class="language-plaintext highlighter-rouge">_wo_version</code>). Incrementing the version triggers an update.</li>
+</ul>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant TF as Terraform
+    participant EPH as ephemeral random_password
+    participant P as aws provider
+    participant API as RDS API
+    participant S as State
+    TF-&gt;&gt;EPH: open (plan and apply)
+    EPH--&gt;&gt;TF: password (memory only)
+    TF-&gt;&gt;P: apply aws_db_instance (password_wo, password_wo_version = 2)
+    P-&gt;&gt;API: CreateDBInstance / ModifyDBInstance
+    P--&gt;&gt;TF: new state (password_wo = null)
+    TF-&gt;&gt;S: write attributes, no secret
+</code></pre>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">ephemeral</span> <span class="s2">"random_password"</span> <span class="s2">"db"</span> <span class="p">{</span>
   <span class="nx">length</span>  <span class="o">=</span> <span class="mi">32</span>
   <span class="nx">special</span> <span class="o">=</span> <span class="kc">true</span>
 <span class="p">}</span>
 
-<span class="nx">resource</span> <span class="s2">"aws_secretsmanager_secret"</span> <span class="s2">"db_password"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.project}-db-password"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_secretsmanager_secret_version"</span> <span class="s2">"db_password"</span> <span class="p">{</span>
-  <span class="nx">secret_id</span>     <span class="o">=</span> <span class="nx">aws_secretsmanager_secret</span><span class="p">.</span><span class="nx">db_password</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">secret_string</span> <span class="o">=</span> <span class="nx">random_password</span><span class="p">.</span><span class="nx">db_password</span><span class="p">.</span><span class="nx">result</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_db_instance"</span> <span class="s2">"database"</span> <span class="p">{</span>
-  <span class="nx">manage_master_user_password</span> <span class="o">=</span> <span class="kc">true</span>  <span class="c1"># Let AWS manage it</span>
-<span class="p">}</span>
-
-<span class="c1"># Or use environment variables</span>
-<span class="nx">variable</span> <span class="s2">"db_password"</span> <span class="p">{</span>
-  <span class="nx">type</span>      <span class="o">=</span> <span class="nx">string</span>
-  <span class="nx">sensitive</span> <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">default</span>   <span class="o">=</span> <span class="s2">""</span>  <span class="c1"># Set via TF_VAR_db_password env var</span>
+<span class="nx">resource</span> <span class="s2">"aws_db_instance"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">identifier</span>          <span class="o">=</span> <span class="s2">"app"</span>
+  <span class="nx">engine</span>              <span class="o">=</span> <span class="s2">"postgres"</span>
+  <span class="nx">instance_class</span>      <span class="o">=</span> <span class="s2">"db.t4g.medium"</span>
+  <span class="nx">allocated_storage</span>   <span class="o">=</span> <span class="mi">50</span>
+  <span class="nx">username</span>            <span class="o">=</span> <span class="s2">"app_admin"</span>
+  <span class="nx">password_wo</span>         <span class="o">=</span> <span class="nx">ephemeral</span><span class="err">.</span><span class="nx">random_password</span><span class="p">.</span><span class="nx">db</span><span class="p">.</span><span class="nx">result</span>
+  <span class="nx">password_wo_version</span> <span class="o">=</span> <span class="mi">2</span> <span class="c1"># bump to rotate</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="troubleshooting-flowchart">Troubleshooting Flowchart</h3>
+<p>A generated ephemeral password is never stored, so nothing else can read it later. In practice, either write it to a secret store in the same run (for example through a secret resource’s own write-only argument), or read it from one (<code class="language-plaintext highlighter-rouge">ephemeral "aws_secretsmanager_secret_version"</code>, or Vault’s ephemeral resources). For RDS specifically, <code class="language-plaintext highlighter-rouge">manage_master_user_password = true</code> avoids handling the password at all.</p>
 
-<p>When things go wrong, follow this systematic approach:</p>
+<p>Terraform 1.16 adds a <code class="language-plaintext highlighter-rouge">store</code> block on <code class="language-plaintext highlighter-rouge">terraform_data</code> for carrying ephemeral and sensitive values from plan to apply. OpenTofu added ephemeral values in 1.11.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1. Error During Plan?
-   ├─ Yes → Check syntax with `terraform validate`
-   │         Check provider credentials
-   │         Verify variable values
-   └─ No → Continue to Apply
+<h2 id="actions">Actions</h2>
 
-2. Error During Apply?
-   ├─ Yes → Did it partially apply?
-   │   ├─ Yes → Use `terraform state list` to check
-   │   │         Consider targeted apply/destroy
-   │   └─ No → Fix configuration and retry
-   └─ No → Success!
+<p>Terraform 1.14 introduced <strong>actions</strong>: operations defined by a provider that don’t fit the CRUD model, such as invoking a Lambda function, creating a snapshot, or running an Ansible playbook. An action can be tied to a resource’s lifecycle events or invoked on demand:</p>
 
-3. State Mismatch?
-   ├─ Yes → Run `terraform refresh`
-   │         Use `terraform import` for existing resources
-   │         Consider `terraform state rm` for orphans
-   └─ No → All good!
-
-4. Need to Debug?
-   ├─ Enable debug logging: TF_LOG=DEBUG terraform plan
-   ├─ Use `terraform console` for testing expressions
-   └─ Check provider-specific debug options
-</code></pre></div></div>
-
-<h3 id="debug-commands-cheatsheet">Debug Commands Cheatsheet</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Enable detailed logging</span>
-<span class="nb">export </span><span class="nv">TF_LOG</span><span class="o">=</span>DEBUG
-<span class="nb">export </span><span class="nv">TF_LOG_PATH</span><span class="o">=</span><span class="s2">"terraform-debug.log"</span>
-
-<span class="c"># Test expressions and functions</span>
-terraform console
-<span class="o">&gt;</span> var.instance_type
-<span class="o">&gt;</span> cidrsubnet<span class="o">(</span><span class="s2">"10.0.0.0/16"</span>, 8, 1<span class="o">)</span>
-
-<span class="c"># Validate syntax without accessing providers</span>
-terraform validate
-
-<span class="c"># Format check</span>
-terraform <span class="nb">fmt</span> <span class="nt">-check</span> <span class="nt">-recursive</span>
-
-<span class="c"># State inspection</span>
-terraform state list
-terraform state show aws_instance.web
-terraform state pull <span class="o">&gt;</span> state-backup.json
-
-<span class="c"># Graph dependencies</span>
-terraform graph | dot <span class="nt">-Tpng</span> <span class="o">&gt;</span> graph.png
-
-<span class="c"># Show resource attributes</span>
-terraform show <span class="nt">-json</span> | jq <span class="s1">'.values.root_module.resources[] | select(.address=="aws_instance.web")'</span>
-</code></pre></div></div>
-
-<h2 id="future-directions">Future Directions</h2>
-
-<h3 id="where-infrastructure-as-code-is-heading">Where Infrastructure as Code is Heading</h3>
-
-<p>The infrastructure landscape continues to evolve rapidly. Understanding emerging trends helps you prepare for the future and make better architectural decisions today.</p>
-
-<h3 id="ai-driven-infrastructure-optimization">AI-Driven Infrastructure Optimization</h3>
-
-<p>Machine learning is beginning to transform infrastructure management:</p>
-<ul>
-  <li><strong>Predictive Scaling</strong>: ML models predict load and scale proactively</li>
-  <li><strong>Cost Optimization</strong>: AI identifies underutilized resources</li>
-  <li><strong>Anomaly Detection</strong>: Automated identification of configuration drift</li>
-  <li><strong>Configuration Generation</strong>: AI assists in writing Terraform code</li>
-</ul>
-
-<p>In practice this shows up as vendor tooling rather than bespoke models: HashiCorp and cloud providers now ship assistants that draft module code, flag drift, and recommend right-sizing from observed usage.</p>
-
-<h2 id="terraform-notable-releases-and-features">Terraform: Notable Releases and Features</h2>
-
-<h3 id="recent-features-terraform-17">Recent Features (Terraform 1.7+)</h3>
-<ul>
-  <li><strong>Test Framework GA</strong>: Native testing framework for modules</li>
-  <li><strong>Config-driven Import</strong>: Import existing resources using configuration</li>
-  <li><strong>Enhanced Performance</strong>: Faster plan and apply operations</li>
-  <li><strong>Improved Provider Development</strong>: Better SDK and documentation</li>
-</ul>
-
-<h3 id="opentofu-divergence">OpenTofu Divergence</h3>
-<p>OpenTofu, the open-source fork, has introduced:</p>
-<ul>
-  <li><strong>State Encryption</strong>: Built-in state file encryption</li>
-  <li><strong>Enhanced Backends</strong>: Additional backend support</li>
-  <li><strong>Community-driven Features</strong>: Faster feature development</li>
-  <li><strong>License Freedom</strong>: MPL 2.0 license</li>
-</ul>
-
-<h3 id="cloud-provider-updates">Cloud Provider Updates</h3>
-
-<h4 id="aws-provider-5x">AWS Provider 5.x</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Recent new resources</span>
-<span class="nx">resource</span> <span class="s2">"aws_verified_access_instance"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="c1"># Zero-trust network access</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h4 id="azure-provider-3x">Azure Provider 3.x</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Azure OpenAI integration</span>
-<span class="nx">resource</span> <span class="s2">"azurerm_cognitive_deployment"</span> <span class="s2">"gpt4"</span> <span class="p">{</span>
-  <span class="nx">name</span>                <span class="o">=</span> <span class="s2">"gpt4-deployment"</span>
-  <span class="nx">cognitive_account_id</span> <span class="o">=</span> <span class="nx">azurerm_cognitive_account</span><span class="p">.</span><span class="nx">openai</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">model</span> <span class="p">{</span>
-    <span class="nx">format</span>  <span class="o">=</span> <span class="s2">"OpenAI"</span>
-    <span class="nx">name</span>    <span class="o">=</span> <span class="s2">"gpt-4"</span>
-    <span class="nx">version</span> <span class="o">=</span> <span class="s2">"0125-turbo"</span>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">action</span> <span class="s2">"aws_lambda_invoke"</span> <span class="s2">"warm_cache"</span> <span class="p">{</span>
+  <span class="nx">config</span> <span class="p">{</span>
+    <span class="nx">function_name</span> <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">cache_warmer</span><span class="p">.</span><span class="nx">function_name</span>
+    <span class="nx">payload</span>       <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span> <span class="nx">reason</span> <span class="o">=</span> <span class="s2">"deploy"</span> <span class="p">})</span>
   <span class="p">}</span>
 <span class="p">}</span>
-</code></pre></div></div>
 
-<h4 id="google-cloud-provider-5x">Google Cloud Provider 5.x</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Vertex AI and Gemini support</span>
-<span class="nx">resource</span> <span class="s2">"google_vertex_ai_endpoint"</span> <span class="s2">"prediction"</span> <span class="p">{</span>
-  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"gemini-endpoint"</span>
-  <span class="nx">display_name</span> <span class="o">=</span> <span class="s2">"Gemini Pro Endpoint"</span>
-  <span class="nx">location</span>     <span class="o">=</span> <span class="s2">"us-central1"</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<span class="nx">resource</span> <span class="s2">"aws_ecs_service"</span> <span class="s2">"app"</span> <span class="p">{</span>
+  <span class="c1"># ...</span>
 
-<h3 id="modern-best-practices">Modern Best Practices</h3>
-
-<h4 id="1-policy-as-code-integration">1. Policy as Code Integration</h4>
-
-<p>The block below is <strong>pseudocode illustrating a Sentinel policy concept</strong> — it is not
-runnable <code class="language-plaintext highlighter-rouge">.tf</code>. Sentinel policies live in <code class="language-plaintext highlighter-rouge">.sentinel</code> files and are wired into
-Terraform Cloud/Enterprise policy sets, not declared as Terraform resources:</p>
-
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Conceptual Sentinel policy: enforce a monthly cost ceiling and
-# an allowlist of instance types (illustrative, not runnable HCL)
-policy "cost-control" {
-  source = "./policies/cost-control.sentinel"
-
-  enforcement_level = "hard-mandatory"
-
-  params = {
-    max_monthly_cost       = 10000
-    allowed_instance_types = ["t3.*", "m5.*"]
-  }
-}
-</code></pre></div></div>
-
-<h4 id="2-gitops-workflows">2. GitOps Workflows</h4>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Terraform + ArgoCD</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">argoproj.io/v1alpha1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Application</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">infrastructure</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">source</span><span class="pi">:</span>
-    <span class="na">repoURL</span><span class="pi">:</span> <span class="s">https://github.com/company/terraform</span>
-    <span class="na">path</span><span class="pi">:</span> <span class="s">environments/production</span>
-    <span class="na">plugin</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">terraform</span>
-      <span class="na">env</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">TF_VERSION</span>
-          <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1.7.0"</span>
-</code></pre></div></div>
-
-<h4 id="3-cost-optimization">3. Cost Optimization</h4>
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># FinOps integration</span>
-<span class="nx">module</span> <span class="s2">"cost_anomaly_detection"</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"terraform-aws-modules/cost-anomaly-detection/aws"</span>
-  
-  <span class="nx">monitors</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">main</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">name</span> <span class="o">=</span> <span class="s2">"terraform-managed-resources"</span>
-      <span class="nx">threshold_expression</span> <span class="o">=</span> <span class="s2">"ANOMALY_TOTAL_IMPACT_PERCENTAGE &gt; 20"</span>
+  <span class="nx">lifecycle</span> <span class="p">{</span>
+    <span class="nx">action_trigger</span> <span class="p">{</span>
+      <span class="nx">events</span>  <span class="o">=</span> <span class="p">[</span><span class="nx">after_create</span><span class="p">,</span> <span class="nx">after_update</span><span class="p">]</span>
+      <span class="nx">actions</span> <span class="o">=</span> <span class="p">[</span><span class="nx">action</span><span class="p">.</span><span class="nx">aws_lambda_invoke</span><span class="p">.</span><span class="nx">warm_cache</span><span class="p">]</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="emerging-trends">Emerging Trends</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Run just the action, excluding all other changes</span>
+terraform apply <span class="nt">-invoke</span><span class="o">=</span>action.aws_lambda_invoke.warm_cache
+</code></pre></div></div>
 
-<h4 id="platform-engineering">Platform Engineering</h4>
+<p>Actions do not change state. They replace most uses of <code class="language-plaintext highlighter-rouge">local-exec</code> provisioners and <code class="language-plaintext highlighter-rouge">null_resource</code> triggers for “do something after X” logic, and unlike those, they appear in the plan. Terraform 1.16 added <code class="language-plaintext highlighter-rouge">on_failure = halt | taint | continue</code> to action triggers. Actions are not available in OpenTofu.</p>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+    Start["Something failed"] --&gt; Where{"Which phase?"}
+    Where -- init --&gt; I["Provider/module download or backend config:&lt;br/&gt;check network, registry mirror,&lt;br/&gt;credentials for the backend,&lt;br/&gt;lock file checksums (init -upgrade)"]
+    Where -- validate/plan --&gt; P{"Error type"}
+    P -- syntax / type --&gt; P1["terraform validate;&lt;br/&gt;terraform console to test expressions"]
+    P -- "auth / 403" --&gt; P2["Which identity? aws sts get-caller-identity;&lt;br/&gt;check assume_role and OIDC trust"]
+    P -- "cycle / unknown for_each" --&gt; P3["See dependency cycles&lt;br/&gt;and for_each keys below"]
+    Where -- apply --&gt; A{"Partially applied?"}
+    A -- yes --&gt; A1["Fix cause, re-run plan:&lt;br/&gt;created objects are already in state,&lt;br/&gt;failed creates are marked tainted"]
+    A -- no --&gt; A2["Fix configuration or permissions, re-plan"]
+    Where -- "lock" --&gt; L["Is a run actually in progress?&lt;br/&gt;If not: terraform force-unlock LOCK_ID"]
+    Where -- "unexpected diff" --&gt; D["plan -refresh-only to see drift;&lt;br/&gt;check ignore_changes and provider upgrades"]
+</code></pre>
+
+<h3 id="state-problems">State problems</h3>
+
+<p>Terraform has no transactions. An apply that fails partway leaves every successful operation recorded in state. Objects whose creation started but did not finish are marked <strong>tainted</strong> and will be replaced on the next apply. The fix is almost always to correct the cause and run <code class="language-plaintext highlighter-rouge">plan</code>/<code class="language-plaintext highlighter-rouge">apply</code> again, not to edit state.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Situation</th>
+      <th>Response</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Lock left behind by a crashed run</td>
+      <td>Confirm no run is active, then <code class="language-plaintext highlighter-rouge">terraform force-unlock LOCK_ID</code></td>
+    </tr>
+    <tr>
+      <td>Resource deleted outside Terraform</td>
+      <td>The next plan’s refresh notices and proposes to recreate it; delete its configuration if it should stay gone</td>
+    </tr>
+    <tr>
+      <td>Resource created outside Terraform</td>
+      <td><code class="language-plaintext highlighter-rouge">import</code> block (plus <code class="language-plaintext highlighter-rouge">-generate-config-out</code>)</td>
+    </tr>
+    <tr>
+      <td>Wrong address after a refactor</td>
+      <td><code class="language-plaintext highlighter-rouge">moved</code> block</td>
+    </tr>
+    <tr>
+      <td>Object must be recreated even though its configuration is unchanged</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform apply -replace=ADDRESS</code> (the older <code class="language-plaintext highlighter-rouge">terraform taint</code> is deprecated)</td>
+    </tr>
+    <tr>
+      <td>Drift you want to accept into state</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform apply -refresh-only</code> (replaces the deprecated <code class="language-plaintext highlighter-rouge">terraform refresh</code>)</td>
+    </tr>
+    <tr>
+      <td>State corrupted or mangled</td>
+      <td>Restore a previous object version from the backend bucket (enable versioning), or <code class="language-plaintext highlighter-rouge">terraform state push</code> a backup taken with <code class="language-plaintext highlighter-rouge">state pull</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The recommended S3 backend no longer needs a DynamoDB table. S3-native locking (<code class="language-plaintext highlighter-rouge">use_lockfile</code>, GA in 1.11) writes a <code class="language-plaintext highlighter-rouge">.tflock</code> object using S3 conditional writes. DynamoDB-based locking is deprecated and will be removed in a future minor version. OpenTofu has supported <code class="language-plaintext highlighter-rouge">use_lockfile</code> since 1.10.</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">backend</span> <span class="s2">"s3"</span> <span class="p">{</span>
+    <span class="nx">bucket</span>       <span class="o">=</span> <span class="s2">"acme-terraform-state"</span>
+    <span class="nx">key</span>          <span class="o">=</span> <span class="s2">"network/prod.tfstate"</span>
+    <span class="nx">region</span>       <span class="o">=</span> <span class="s2">"us-east-1"</span>
+    <span class="nx">encrypt</span>      <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">use_lockfile</span> <span class="o">=</span> <span class="kc">true</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>To migrate, set both <code class="language-plaintext highlighter-rouge">use_lockfile = true</code> and the old <code class="language-plaintext highlighter-rouge">dynamodb_table</code> for one release cycle, so that locks are taken in both places, then remove <code class="language-plaintext highlighter-rouge">dynamodb_table</code>.</p>
+
+<h3 id="dependency-cycles">Dependency cycles</h3>
+
+<p>Two resources that reference each other form a cycle. Security groups whose inline rules point at each other are the classic example:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Cycle: web references app, app references web</span>
+<span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"web"</span> <span class="p">{</span>
+  <span class="nx">ingress</span> <span class="p">{</span>
+    <span class="nx">from_port</span>       <span class="o">=</span> <span class="mi">443</span>
+    <span class="nx">to_port</span>         <span class="o">=</span> <span class="mi">443</span>
+    <span class="nx">protocol</span>        <span class="o">=</span> <span class="s2">"tcp"</span>
+    <span class="nx">security_groups</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">app</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"app"</span> <span class="p">{</span>
+  <span class="nx">egress</span> <span class="p">{</span>
+    <span class="nx">from_port</span>       <span class="o">=</span> <span class="mi">443</span>
+    <span class="nx">to_port</span>         <span class="o">=</span> <span class="mi">443</span>
+    <span class="nx">protocol</span>        <span class="o">=</span> <span class="s2">"tcp"</span>
+    <span class="nx">security_groups</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">web</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>To break the cycle, create the groups without rules and attach each rule as its own resource. The rules depend on both groups, but the groups no longer depend on each other:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"web"</span> <span class="p">{</span>
+  <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"web"</span>
+  <span class="nx">vpc_id</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">vpc_id</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"app"</span> <span class="p">{</span>
+  <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"app"</span>
+  <span class="nx">vpc_id</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">vpc_id</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_vpc_security_group_ingress_rule"</span> <span class="s2">"app_from_web"</span> <span class="p">{</span>
+  <span class="nx">security_group_id</span>            <span class="o">=</span> <span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">app</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">referenced_security_group_id</span> <span class="o">=</span> <span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">web</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">ip_protocol</span>                  <span class="o">=</span> <span class="s2">"tcp"</span>
+  <span class="nx">from_port</span>                    <span class="o">=</span> <span class="mi">443</span>
+  <span class="nx">to_port</span>                      <span class="o">=</span> <span class="mi">443</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_vpc_security_group_egress_rule"</span> <span class="s2">"web_to_app"</span> <span class="p">{</span>
+  <span class="nx">security_group_id</span>            <span class="o">=</span> <span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">web</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">referenced_security_group_id</span> <span class="o">=</span> <span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">app</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">ip_protocol</span>                  <span class="o">=</span> <span class="s2">"tcp"</span>
+  <span class="nx">from_port</span>                    <span class="o">=</span> <span class="mi">443</span>
+  <span class="nx">to_port</span>                      <span class="o">=</span> <span class="mi">443</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>The same approach works for IAM (roles and policy attachments), for routes (route tables and <code class="language-plaintext highlighter-rouge">aws_route</code>), and for any other case where a “container” resource and its “entries” can be managed separately. Don’t mix inline rules and standalone rule resources on the same security group, because the two will fight over the rule set.</p>
+
+<h3 id="unknown-values-in-for_each-and-count">Unknown values in <code class="language-plaintext highlighter-rouge">for_each</code> and <code class="language-plaintext highlighter-rouge">count</code></h3>
+
+<p><code class="language-plaintext highlighter-rouge">Invalid for_each argument ... The "for_each" map includes keys derived from resource attributes that cannot be determined until apply</code> means a key depends on something that doesn’t exist yet. Build keys from input variables or static names, and put the unknown IDs only in the <em>values</em>:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bad: keys are subnet IDs that are unknown until apply</span>
+<span class="nx">for_each</span> <span class="o">=</span> <span class="nx">toset</span><span class="err">(</span><span class="nx">aws_subnet</span><span class="err">.</span><span class="nx">private</span><span class="p">[*]</span><span class="err">.</span><span class="nx">id</span><span class="err">)</span>
+
+<span class="c1"># Good: keys are known names; IDs are values</span>
+<span class="nx">for_each</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">for</span> <span class="nx">k</span><span class="p">,</span> <span class="nx">s</span> <span class="nx">in</span> <span class="nx">aws_subnet</span><span class="p">.</span><span class="nx">private</span> <span class="o">:</span> <span class="nx">k</span> <span class="o">=&gt;</span> <span class="nx">s</span><span class="p">.</span><span class="nx">id</span> <span class="p">}</span>
+</code></pre></div></div>
+
+<h3 id="other-frequent-errors">Other frequent errors</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Cause</th>
+      <th>Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Error: Inconsistent dependency lock file</code></td>
+      <td>Constraints changed or the lock file is missing a platform</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform init -upgrade</code>, or <code class="language-plaintext highlighter-rouge">terraform providers lock</code> for every platform</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Provider produced inconsistent final plan</code> / <code class="language-plaintext highlighter-rouge">inconsistent result after apply</code></td>
+      <td>A provider bug, usually with computed or normalized values</td>
+      <td>Upgrade the provider; report it with a <code class="language-plaintext highlighter-rouge">TF_LOG=trace</code> capture</td>
+    </tr>
+    <tr>
+      <td>Perpetual diff on every plan</td>
+      <td>The API normalizes the value (JSON policies, case, defaults) or another tool modifies it</td>
+      <td>Normalize with <code class="language-plaintext highlighter-rouge">jsonencode</code>, set the default explicitly, or <code class="language-plaintext highlighter-rouge">ignore_changes</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BucketAlreadyExists</code> / name conflicts</td>
+      <td>Globally unique names</td>
+      <td><code class="language-plaintext highlighter-rouge">bucket_prefix</code>, or append the account ID or region</td>
+    </tr>
+    <tr>
+      <td>Validation using <code class="language-plaintext highlighter-rouge">regex()</code> errors instead of failing cleanly</td>
+      <td><code class="language-plaintext highlighter-rouge">regex</code> raises an error when it finds no match</td>
+      <td>Wrap it: <code class="language-plaintext highlighter-rouge">can(regex("^t3\\.", var.type))</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Error acquiring the state lock</code> in CI</td>
+      <td>Two pipelines running the same stack</td>
+      <td>Serialize runs per stack; <code class="language-plaintext highlighter-rouge">-lock-timeout=5m</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="debugging-tools">Debugging tools</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Logging: TRACE, DEBUG, INFO, WARN, ERROR; split core vs provider logs</span>
+<span class="nb">export </span><span class="nv">TF_LOG</span><span class="o">=</span>DEBUG
+<span class="nb">export </span><span class="nv">TF_LOG_PROVIDER</span><span class="o">=</span>TRACE
+<span class="nb">export </span><span class="nv">TF_LOG_PATH</span><span class="o">=</span>terraform-debug.log
+
+<span class="c"># Evaluate expressions against real config and state</span>
+terraform console
+<span class="o">&gt;</span> cidrsubnet<span class="o">(</span><span class="s2">"10.0.0.0/16"</span>, 8, 1<span class="o">)</span>
+<span class="s2">"10.0.1.0/24"</span>
+
+<span class="c"># Machine-readable plan and state for jq / policy tools</span>
+terraform plan <span class="nt">-out</span><span class="o">=</span>tfplan <span class="o">&amp;&amp;</span> terraform show <span class="nt">-json</span> tfplan | jq <span class="s1">'.resource_changes[] | select(.change.actions != ["no-op"]) | .address'</span>
+terraform state show <span class="nt">-json</span> aws_instance.web   <span class="c"># -json added in 1.16</span>
+
+<span class="c"># Dependency graph (DOT; render with Graphviz)</span>
+terraform graph | dot <span class="nt">-Tsvg</span> <span class="o">&gt;</span> graph.svg
+</code></pre></div></div>
+
+<h2 id="release-history">Release history</h2>
+
+<h3 id="terraform">Terraform</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Version</th>
+      <th>Released</th>
+      <th>Highlights</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.5</td>
+      <td>June 2023</td>
+      <td><code class="language-plaintext highlighter-rouge">import</code> blocks with <code class="language-plaintext highlighter-rouge">-generate-config-out</code>; <code class="language-plaintext highlighter-rouge">check</code> blocks</td>
+    </tr>
+    <tr>
+      <td>1.6</td>
+      <td>October 2023</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform test</code> GA; first release under BUSL 1.1</td>
+    </tr>
+    <tr>
+      <td>1.7</td>
+      <td>January 2024</td>
+      <td>Mock providers for tests; <code class="language-plaintext highlighter-rouge">removed</code> blocks; <code class="language-plaintext highlighter-rouge">for_each</code> in <code class="language-plaintext highlighter-rouge">import</code></td>
+    </tr>
+    <tr>
+      <td>1.8</td>
+      <td>April 2024</td>
+      <td>Provider-defined functions; <code class="language-plaintext highlighter-rouge">moved</code> between resource types</td>
+    </tr>
+    <tr>
+      <td>1.9</td>
+      <td>June 2024</td>
+      <td>Validation rules may reference other variables and objects; <code class="language-plaintext highlighter-rouge">templatestring</code> function</td>
+    </tr>
+    <tr>
+      <td>1.10</td>
+      <td>November 2024</td>
+      <td>Ephemeral resources, variables, and outputs; S3 backend native locking (preview)</td>
+    </tr>
+    <tr>
+      <td>1.11</td>
+      <td>February 2025</td>
+      <td>Write-only arguments; S3 native locking GA (DynamoDB locking deprecated); <code class="language-plaintext highlighter-rouge">test -junit-xml</code> GA</td>
+    </tr>
+    <tr>
+      <td>1.12</td>
+      <td>May 2025</td>
+      <td>OCI Object Storage backend</td>
+    </tr>
+    <tr>
+      <td>1.13</td>
+      <td>August 2025</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform stacks</code> CLI command; test files must declare the external variables they use</td>
+    </tr>
+    <tr>
+      <td>1.14</td>
+      <td>November 2025</td>
+      <td>Actions; list resources and <code class="language-plaintext highlighter-rouge">terraform query</code></td>
+    </tr>
+    <tr>
+      <td>1.15</td>
+      <td>April 2026</td>
+      <td><code class="language-plaintext highlighter-rouge">deprecated</code> attribute on variables and outputs; variables and locals in module <code class="language-plaintext highlighter-rouge">source</code>/<code class="language-plaintext highlighter-rouge">version</code>; <code class="language-plaintext highlighter-rouge">convert</code> function; <code class="language-plaintext highlighter-rouge">validate</code> checks the backend block; S3 backend supports <code class="language-plaintext highlighter-rouge">aws login</code>; Windows ARM64 builds</td>
+    </tr>
+    <tr>
+      <td>1.16</td>
+      <td>August 2026</td>
+      <td><code class="language-plaintext highlighter-rouge">import</code> inside modules; <code class="language-plaintext highlighter-rouge">store</code> block on <code class="language-plaintext highlighter-rouge">terraform_data</code>; <code class="language-plaintext highlighter-rouge">lifecycle { destroy = false }</code>; action trigger <code class="language-plaintext highlighter-rouge">on_failure</code>; <code class="language-plaintext highlighter-rouge">-json</code> for <code class="language-plaintext highlighter-rouge">state show</code> and <code class="language-plaintext highlighter-rouge">workspace list</code>; Mermaid output from <code class="language-plaintext highlighter-rouge">terraform graph</code>; <code class="language-plaintext highlighter-rouge">console -scope</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Terraform 1.17 was in beta in September 2026. Outside the CLI, HCP Terraform Stacks reached general availability, and HashiCorp publishes an official Terraform MCP server. The MCP server lets AI coding assistants query the registry and HCP Terraform workspaces, so that generated configuration is based on current provider schemas rather than on training data.</p>
+
+<h3 id="opentofu">OpenTofu</h3>
+
+<p>OpenTofu forked from Terraform 1.5 and has diverged since then. Features that first appeared in OpenTofu, or exist only there:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Version</th>
+      <th>Released</th>
+      <th>Highlights</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.6</td>
+      <td>January 2024</td>
+      <td>First stable release; the OpenTofu registry; the test framework</td>
+    </tr>
+    <tr>
+      <td>1.7</td>
+      <td>April 2024</td>
+      <td>Client-side state and plan encryption; provider-defined functions; <code class="language-plaintext highlighter-rouge">removed</code> blocks; loopable <code class="language-plaintext highlighter-rouge">import</code></td>
+    </tr>
+    <tr>
+      <td>1.8</td>
+      <td>July 2024</td>
+      <td>Early evaluation: variables and locals in backend config and module sources; <code class="language-plaintext highlighter-rouge">.tofu</code> files that override <code class="language-plaintext highlighter-rouge">.tf</code> for dual-tool modules</td>
+    </tr>
+    <tr>
+      <td>1.9</td>
+      <td>January 2025</td>
+      <td><code class="language-plaintext highlighter-rouge">for_each</code> on provider blocks; <code class="language-plaintext highlighter-rouge">-exclude</code> flag (the inverse of <code class="language-plaintext highlighter-rouge">-target</code>)</td>
+    </tr>
+    <tr>
+      <td>1.10</td>
+      <td>June 2025</td>
+      <td>Providers and modules distributed through OCI registries; S3 native locking</td>
+    </tr>
+    <tr>
+      <td>1.11</td>
+      <td>December 2025</td>
+      <td>Ephemeral values; <code class="language-plaintext highlighter-rouge">enabled</code> meta-argument as a clearer alternative to <code class="language-plaintext highlighter-rouge">count = cond ? 1 : 0</code></td>
+    </tr>
+    <tr>
+      <td>1.12</td>
+      <td>May 2026</td>
+      <td><code class="language-plaintext highlighter-rouge">prevent_destroy</code> can reference variables; <code class="language-plaintext highlighter-rouge">destroy = false</code> lifecycle option; import by resource identity; faster, fully checksummed provider installs</td>
+    </tr>
+    <tr>
+      <td>1.13</td>
+      <td>release candidate, September 2026</td>
+      <td>Built-in linting (experimental); <code class="language-plaintext highlighter-rouge">convert</code> function; Windows ARM64; WinRM provisioner connection removed</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="provider-major-versions">Provider major versions</h3>
+
+<p>Large providers ship breaking changes only in major releases, roughly yearly. Read the upgrade guide before raising a <code class="language-plaintext highlighter-rouge">~&gt;</code> constraint:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Provider</th>
+      <th>Latest major (Sept 2026)</th>
+      <th>Notable change in that major</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hashicorp/aws</code></td>
+      <td>6.x (6.0 in June 2025)</td>
+      <td>Per-resource <code class="language-plaintext highlighter-rouge">region</code> argument, which removes most per-region provider aliases</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hashicorp/azurerm</code></td>
+      <td>5.x</td>
+      <td>See the provider’s 5.0 upgrade guide</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hashicorp/google</code></td>
+      <td>8.x</td>
+      <td>See the provider’s 8.0 upgrade guide</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="further-reading">Further reading</h2>
+
 <ul>
-  <li><strong>Backstage Integration</strong>: Service catalog with Terraform</li>
-  <li><strong>Internal Developer Platforms</strong>: Self-service infrastructure</li>
-  <li><strong>Golden Paths</strong>: Pre-approved infrastructure patterns</li>
+  <li>Kief Morris, <em>Infrastructure as Code: Dynamic Systems for the Cloud Age</em> (O’Reilly)</li>
+  <li>Yevgeniy Brikman, <em>Terraform: Up &amp; Running</em> (3rd edition, O’Reilly, 2022)</li>
+  <li>Terraform language documentation and per-version upgrade guides: developer.hashicorp.com/terraform</li>
+  <li>OpenTofu documentation and “What’s new” pages: opentofu.org/docs</li>
 </ul>
-
-<h4 id="ai-assisted-infrastructure">AI-Assisted Infrastructure</h4>
-<ul>
-  <li><strong>Copilot for Terraform</strong>: AI-powered configuration generation</li>
-  <li><strong>Automated Documentation</strong>: AI-generated module docs</li>
-  <li><strong>Intelligent Cost Optimization</strong>: ML-based resource right-sizing</li>
-</ul>
-
-<h4 id="edge-and-iot">Edge and IoT</h4>
-<ul>
-  <li><strong>Edge Provider Support</strong>: Managing edge infrastructure</li>
-  <li><strong>5G Network Slicing</strong>: Terraform for telecom infrastructure</li>
-  <li><strong>IoT Fleet Management</strong>: Device provisioning at scale</li>
-</ul>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Theory underpins practice.</strong> Terraform rests on graph theory (dependency resolution), type theory (configuration safety), and distributed-systems principles (state management). Knowing this makes hard bugs tractable.</li>
-  <li><strong>The dependency graph drives everything.</strong> Plan, apply, and parallelism all derive from the resource graph. Understanding it explains why ordering, <code class="language-plaintext highlighter-rouge">depends_on</code>, and targeted applies behave as they do.</li>
-  <li><strong>Scale through composition.</strong> Well-designed module interfaces, sensible state segmentation, and policy-as-code keep large estates maintainable rather than monolithic.</li>
-  <li><strong>The ecosystem is shifting.</strong> OpenTofu, Crossplane, Pulumi, and AI-assisted authoring are reshaping IaC. The declarative, graph-based model remains the constant.</li>
-</ul>
-
-<h2 id="references-and-further-reading">References and Further Reading</h2>
-
-<h3 id="books">Books</h3>
-<ul>
-  <li>“Infrastructure as Code: Dynamic Systems for the Cloud Age” — Kief Morris</li>
-  <li>“Terraform: Up &amp; Running” — Yevgeniy Brikman</li>
-</ul>
-
-<h3 id="research-projects">Research Projects</h3>
-<ul>
-  <li><strong>CNCF Crossplane</strong>: Kubernetes-based Infrastructure as Code</li>
-  <li><strong>AWS CDK</strong>: Cloud Development Kit for programmatic infrastructure</li>
-  <li><strong>Pulumi</strong>: Infrastructure as Code using general-purpose languages</li>
-</ul>
-
-<h3 id="advanced-topics">Advanced Topics</h3>
-<ul>
-  <li>Graph algorithms for dependency resolution</li>
-  <li>Distributed locking mechanisms</li>
-  <li>State reconciliation algorithms</li>
-  <li>Policy engines and compliance frameworks</li>
-  <li>Infrastructure testing methodologies</li>
-</ul>
-
-<hr />
 
 <h2 id="see-also">See Also</h2>
+
 <ul>
-  <li><a href="../aws/">AWS</a> - Cloud infrastructure and services</li>
-  <li><a href="../docker/">Docker</a> - Container fundamentals and deployment</li>
-  <li><a href="../kubernetes/">Kubernetes</a> - Container orchestration infrastructure</li>
-  <li><a href="../ci-cd/">CI/CD</a> - Infrastructure automation in pipelines</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> - Security practices for infrastructure</li>
-  <li><a href="../../distributed-systems/">Distributed Systems</a> - Distributed infrastructure principles</li>
+  <li><a href="core-concepts.html">Core Concepts</a>: workflow, plan actions, meta-arguments</li>
+  <li><a href="state-modules.html">State &amp; Modules</a>: backends, state commands, module design</li>
+  <li><a href="patterns.html">Enterprise Patterns</a>: stack layout, CI/CD, policy, testing</li>
+  <li><a href="../aws/iac.html">AWS Infrastructure as Code</a>: CloudFormation and CDK</li>
+  <li><a href="../ci-cd/">CI/CD</a>: running infrastructure changes from pipelines</li>
+  <li><a href="../../distributed-systems/">Distributed Systems</a>: consistency and locking concepts behind remote state</li>
 </ul>
 
       </section>

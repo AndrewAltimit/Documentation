@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="A guided first pass through Git — the three-area model, setup and authentication, the commit loop, branches, remotes, pull requests, conflicts and recovering...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Git Crash Course">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="A guided first pass through Git — the three-area model, setup and authentication, the commit loop, branches, remotes, pull requests, conflicts and recovering...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git-crash-course.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Git Crash Course">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="A guided first pass through Git — the three-area model, setup and authentication, the commit loop, branches, remotes, pull requests, conflicts and recovering...">
 
 <title>Git Crash Course | Andrews Notebook</title>
 
@@ -3133,123 +3133,212 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>This is the <strong>learning path</strong> for people new to Git. It follows a single story — create a repo, make commits, branch, push, and open a pull request — in the order you actually do them, with just enough explanation to keep moving. The four Git pages fit together as:</p>
+        <p>This page is a first walkthrough of Git for people new to it. It follows the order in which you actually use Git — set up, create a repository, commit, branch, sync with a remote, open a pull request — and ends with fixing common mistakes and resolving conflicts. Commands reflect Git 2.55 (June 2026); anything older than about Git 2.30 may lack some of them. The Git pages on this site divide up as follows:</p>
 
-<ul>
-  <li><strong>This page (Crash Course)</strong> — a guided first walkthrough; read it top to bottom.</li>
-  <li><a href="git/">Git Version Control</a> — how Git works under the hood (objects, the DAG, internals).</li>
-  <li><a href="git-reference.html">Git Command Reference</a> — the alphabetical lookup cheat sheet for every command.</li>
-  <li><a href="branching.html">Branching Strategies</a> — team workflows: Git Flow, GitHub Flow, trunk-based.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Page</th>
+      <th>Use it for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Git Crash Course</strong> (this page)</td>
+      <td>Learning the everyday workflow, read top to bottom</td>
+    </tr>
+    <tr>
+      <td><a href="git-reference.html">Git Command Reference</a></td>
+      <td>Looking up syntax, organized by task</td>
+    </tr>
+    <tr>
+      <td><a href="git/">Git Version Control</a></td>
+      <td>How Git works internally: objects, the commit graph, packfiles</td>
+    </tr>
+    <tr>
+      <td><a href="branching.html">Branching Strategies</a></td>
+      <td>Team workflows: GitHub Flow, trunk-based development, Git Flow</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="why-version-control">Why version control?</h2>
+<h2 id="what-git-does">What Git does</h2>
 
-<p>Before Git, people emailed <code class="language-plaintext highlighter-rouge">report_final_v2_REALLY_final.docx</code> around. Version control replaces that chaos with a single source of truth that remembers <strong>every</strong> change, <strong>who</strong> made it, and <strong>why</strong> — and lets many people work in parallel without overwriting each other. The payoff is threefold: a <strong>full history</strong> where every saved version is recoverable forever, <strong>collaboration</strong> where many people edit the same project safely, and <strong>safe experiments</strong> you can try in a branch and throw away if they fail.</p>
+<p>Git is a <strong>distributed version control system</strong>. It records a project’s history as a series of <strong>commits</strong>, each a complete snapshot of the tracked files plus the author, time, message and a pointer to the previous commit. Every clone holds the full history, so almost all operations (committing, branching, viewing history) are local and fast, and a lost server can be restored from any clone. Collaboration happens by exchanging commits with shared <strong>remotes</strong> such as GitHub, GitLab or Bitbucket.</p>
 
-<h2 id="the-mental-model-three-areas">The mental model: three areas</h2>
+<h2 id="the-three-areas">The three areas</h2>
 
-<p>Almost every Git command moves your work between three places. Internalize this picture and the commands stop feeling random.</p>
+<p>Most Git commands move changes between three local areas and a remote. Keeping this picture in mind makes the commands predictable.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    WD["Working Directory&lt;br/&gt;(files you edit)"] --&gt;|git add| STAGE["Staging Area&lt;br/&gt;(what goes in next commit)"]
-    STAGE --&gt;|git commit| REPO["Local Repository&lt;br/&gt;(.git history)"]
-    REPO --&gt;|git push| REMOTE["Remote&lt;br/&gt;(GitHub / GitLab)"]
-    REMOTE --&gt;|git pull / fetch| REPO
-    REPO --&gt;|git checkout| WD
+    WD["Working tree&lt;br/&gt;(files you edit)"] --&gt;|git add| IDX["Index / staging area&lt;br/&gt;(next commit)"]
+    IDX --&gt;|git commit| REPO["Local repository&lt;br/&gt;(.git history)"]
+    REPO --&gt;|git push| REM["Remote&lt;br/&gt;(GitHub, GitLab)"]
+    REM --&gt;|git fetch| REPO
+    IDX --&gt;|git restore --staged| WD
+    REPO --&gt;|git switch / git restore| WD
 </code></pre>
 
 <table>
   <thead>
     <tr>
       <th>Area</th>
-      <th>What it holds</th>
-      <th>You change it with</th>
+      <th>Holds</th>
+      <th>Changed by</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Working Directory</td>
-      <td>The actual files on disk you are editing</td>
-      <td>Your editor</td>
+      <td><strong>Working tree</strong></td>
+      <td>The files on disk you are editing</td>
+      <td>Your editor; <code class="language-plaintext highlighter-rouge">git restore</code></td>
     </tr>
     <tr>
-      <td>Staging Area (Index)</td>
-      <td>The exact snapshot you are about to commit</td>
-      <td><code class="language-plaintext highlighter-rouge">git add</code></td>
+      <td><strong>Index</strong> (staging area)</td>
+      <td>The exact snapshot the next commit will record</td>
+      <td><code class="language-plaintext highlighter-rouge">git add</code>, <code class="language-plaintext highlighter-rouge">git restore --staged</code></td>
     </tr>
     <tr>
-      <td>Local Repository</td>
-      <td>The committed history on your machine</td>
-      <td><code class="language-plaintext highlighter-rouge">git commit</code></td>
+      <td><strong>Local repository</strong></td>
+      <td>All commits, branches and tags, stored in <code class="language-plaintext highlighter-rouge">.git/</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git commit</code>, <code class="language-plaintext highlighter-rouge">git fetch</code>, <code class="language-plaintext highlighter-rouge">git merge</code></td>
     </tr>
     <tr>
-      <td>Remote</td>
-      <td>The shared copy others pull from</td>
+      <td><strong>Remote</strong></td>
+      <td>A shared copy that others push to and fetch from</td>
       <td><code class="language-plaintext highlighter-rouge">git push</code></td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="step-1--one-time-setup">Step 1 — One-time setup</h2>
+<p>The index is what makes Git different from most other tools: you choose exactly which changes go into a commit, even individual hunks within a file (<code class="language-plaintext highlighter-rouge">git add -p</code>), rather than committing everything that changed.</p>
 
-<p>Tell Git who you are (this stamps every commit) and pick sensible defaults.</p>
+<p>From Git’s point of view, each file is in one of a few states:</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Untracked: create file
+    Untracked --&gt; Staged: git add
+    Unmodified --&gt; Modified: edit
+    Modified --&gt; Staged: git add
+    Staged --&gt; Unmodified: git commit
+    Modified --&gt; Unmodified: git restore
+    Unmodified --&gt; Untracked: git rm --cached
+</code></pre>
+
+<p><code class="language-plaintext highlighter-rouge">git status</code> reports exactly these states, and usually prints the command to move a file from one to another.</p>
+
+<h2 id="setup">Setup</h2>
+
+<h3 id="identity-and-defaults">Identity and defaults</h3>
+
+<p>Git stamps every commit with a name and email. Set them once per machine:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> user.name <span class="s2">"Your Name"</span>
 git config <span class="nt">--global</span> user.email <span class="s2">"you@example.com"</span>
-git config <span class="nt">--global</span> init.defaultBranch main   <span class="c"># name the first branch "main"</span>
-git config <span class="nt">--global</span> pull.rebase <span class="nb">false</span>          <span class="c"># default merge behavior on pull</span>
+git config <span class="nt">--global</span> init.defaultBranch main    <span class="c"># Git 3.0 will make "main" the built-in default</span>
+git config <span class="nt">--global</span> pull.rebase <span class="nb">true</span>           <span class="c"># replay local commits on top when pulling</span>
+git config <span class="nt">--global</span> core.editor <span class="s2">"code --wait"</span>  <span class="c"># or vim, nano, etc.</span>
+
+git config list <span class="nt">--show-origin</span>                  <span class="c"># review settings and which file set them</span>
 </code></pre></div></div>
 
-<p>Check it worked:</p>
+<p>If your branch and the remote have diverged, recent Git versions refuse to <code class="language-plaintext highlighter-rouge">git pull</code> until you have chosen how to reconcile them. <code class="language-plaintext highlighter-rouge">pull.rebase true</code> keeps history linear; <code class="language-plaintext highlighter-rouge">pull.ff only</code> refuses anything but a fast-forward and leaves the decision to you; <code class="language-plaintext highlighter-rouge">pull.rebase false</code> creates a merge commit.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--list</span>
-</code></pre></div></div>
+<h3 id="authenticating-to-a-remote">Authenticating to a remote</h3>
 
-<h2 id="step-2--start-a-repository">Step 2 — Start a repository</h2>
+<p>Hosting services do not accept account passwords for Git operations (GitHub removed password authentication in 2021). Use one of:</p>
 
-<p>You either <strong>create</strong> a new one or <strong>clone</strong> an existing project.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Setup</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>HTTPS + credential helper</strong></td>
+      <td>Install Git Credential Manager, or run <code class="language-plaintext highlighter-rouge">gh auth login</code> for GitHub</td>
+      <td>Browser-based sign-in; tokens are stored in the OS keychain</td>
+    </tr>
+    <tr>
+      <td><strong>SSH key</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">ssh-keygen -t ed25519 -C "you@example.com"</code>, then add <code class="language-plaintext highlighter-rouge">~/.ssh/id_ed25519.pub</code> to your account</td>
+      <td>Use <code class="language-plaintext highlighter-rouge">git@github.com:owner/repo.git</code> URLs</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Option A: brand-new project in the current folder</span>
+<p><a href="git/auth-and-access-control.html">Authentication and Access Control</a> covers keys, tokens and hardware-backed keys in depth. The same SSH key can also sign your commits, which lets the host display them as <em>verified</em>; see <a href="git-reference.html#signing-commits-and-tags">signing</a> in the command reference.</p>
+
+<h2 id="starting-a-repository">Starting a repository</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># A new project in the current directory</span>
 git init
 
-<span class="c"># Option B: copy an existing project from a remote</span>
+<span class="c"># A copy of an existing project (creates ./repo)</span>
 git clone https://github.com/owner/repo.git
+git clone git@github.com:owner/repo.git         <span class="c"># same, over SSH</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">git init</code> creates a hidden <code class="language-plaintext highlighter-rouge">.git/</code> directory — that folder <em>is</em> your repository (the history database). Delete it and you delete the version control, not the files.</p>
+<p><code class="language-plaintext highlighter-rouge">git init</code> creates a hidden <code class="language-plaintext highlighter-rouge">.git/</code> directory; that directory <em>is</em> the repository. Deleting it removes all history but leaves the files. <code class="language-plaintext highlighter-rouge">git clone</code> downloads the full history, checks out the default branch, and records the source as a remote named <code class="language-plaintext highlighter-rouge">origin</code>.</p>
 
-<h2 id="step-3--the-core-loop-edit--add--commit">Step 3 — The core loop: edit → add → commit</h2>
+<h3 id="ignoring-files">Ignoring files</h3>
 
-<p>This is the cycle you will repeat thousands of times.</p>
+<p>List files Git should never track (build output, dependencies, local secrets, editor clutter) in a <code class="language-plaintext highlighter-rouge">.gitignore</code> at the repository root, and commit it:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. See what changed</span>
-git status
-
-<span class="c"># 2. Stage the changes you want to save together</span>
-git add file1.py file2.py
-git add <span class="nb">.</span>              <span class="c"># stage everything that changed</span>
-
-<span class="c"># 3. Save a snapshot with a message explaining WHY</span>
-git commit <span class="nt">-m</span> <span class="s2">"Add login form validation"</span>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code># .gitignore
+node_modules/
+dist/
+__pycache__/
+*.log
+.env
+.DS_Store
 </code></pre></div></div>
 
-<p><strong>What makes a good commit?</strong> One logical change per commit, with a message written in the imperative mood (“Add”, “Fix”, “Remove” — not “Added”/”Fixing”). Keep the first line under ~50 characters. Future-you reading <code class="language-plaintext highlighter-rouge">git log</code> will thank present-you.</p>
+<p><code class="language-plaintext highlighter-rouge">.gitignore</code> only affects untracked files. If a file was committed before being ignored, stop tracking it with <code class="language-plaintext highlighter-rouge">git rm --cached &lt;file&gt;</code>. A file containing a secret that was ever committed should be treated as leaked (see <a href="git-reference.html#removing-sensitive-data">Removing sensitive data</a>).</p>
 
-<p>Inspect your history any time:</p>
+<h2 id="the-commit-loop">The commit loop</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log <span class="nt">--oneline</span> <span class="nt">--graph</span>    <span class="c"># compact, visual history</span>
-git diff                     <span class="c"># changes you have NOT staged yet</span>
-git diff <span class="nt">--staged</span>            <span class="c"># changes that ARE staged for next commit</span>
+<p>This is the cycle you repeat all day: inspect, stage, commit.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git status                  <span class="c"># what changed and what is staged</span>
+git diff                    <span class="c"># unstaged changes</span>
+git add app.py tests/       <span class="c"># stage specific paths</span>
+git add <span class="nt">-p</span>                  <span class="c"># stage hunk by hunk, reviewing each</span>
+git diff <span class="nt">--staged</span>           <span class="c"># exactly what will be committed</span>
+git commit <span class="nt">-m</span> <span class="s2">"Validate email format on signup"</span>
 </code></pre></div></div>
 
-<h2 id="step-4--branching-work-without-breaking-things">Step 4 — Branching: work without breaking things</h2>
+<p>A good commit contains <strong>one logical change</strong> and a message that explains it. The convention is a short summary line in the imperative mood (“Add”, “Fix”, “Remove”), about 50 characters, then a blank line and a body explaining <em>why</em> when it is not obvious:</p>
 
-<p>A branch is a cheap, movable pointer to a commit. Create one per feature or fix so <code class="language-plaintext highlighter-rouge">main</code> always stays stable.</p>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Validate email format on signup
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git switch <span class="nt">-c</span> feature/login   <span class="c"># create and switch to a new branch (Git 2.23+)</span>
-<span class="c"># ...edit, add, commit as usual...</span>
-git switch main               <span class="c"># jump back to main</span>
-git switch feature/login      <span class="c"># and back to your work</span>
+Users could register with addresses missing a domain, which later
+failed silently when we sent verification mail. Reject them at the
+form and return a specific error message.
+</code></pre></div></div>
+
+<p>Many teams also follow <a href="https://www.conventionalcommits.org/">Conventional Commits</a> (<code class="language-plaintext highlighter-rouge">feat:</code>, <code class="language-plaintext highlighter-rouge">fix:</code>, <code class="language-plaintext highlighter-rouge">docs:</code>), which lets tools generate changelogs and version numbers.</p>
+
+<p>To look back at history:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log <span class="nt">--oneline</span> <span class="nt">--graph</span> <span class="nt">--all</span>   <span class="c"># compact graph of every branch</span>
+git log <span class="nt">-p</span> path/to/file           <span class="c"># full change history of one file</span>
+git show &lt;commit&gt;                 <span class="c"># one commit's message and diff</span>
+git blame path/to/file            <span class="c"># who last changed each line, and in which commit</span>
+</code></pre></div></div>
+
+<h2 id="branches">Branches</h2>
+
+<p>A <strong>branch</strong> is a movable, named pointer to a commit; creating one costs almost nothing. <code class="language-plaintext highlighter-rouge">HEAD</code> names the branch you are on, and each new commit advances that branch. Work on a branch per feature or fix so that <code class="language-plaintext highlighter-rouge">main</code> stays releasable.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git switch <span class="nt">-c</span> feature/login   <span class="c"># create a branch at the current commit and switch to it</span>
+<span class="c"># ...edit, add, commit...</span>
+git switch main               <span class="c"># back to main</span>
+git switch -                  <span class="c"># back to the previous branch</span>
+git branch                    <span class="c"># list local branches</span>
 </code></pre></div></div>
 
 <pre><code class="language-mermaid">gitGraph
@@ -3265,118 +3354,154 @@ git switch feature/login      <span class="c"># and back to your work</span>
     commit id: "release"
 </code></pre>
 
-<blockquote>
-  <p><code class="language-plaintext highlighter-rouge">git switch</code> and <code class="language-plaintext highlighter-rouge">git restore</code> (Git 2.23+) are the modern, clearer replacements for the overloaded <code class="language-plaintext highlighter-rouge">git checkout</code>. You will still see <code class="language-plaintext highlighter-rouge">checkout</code> everywhere — it does both jobs.</p>
-</blockquote>
+<p><code class="language-plaintext highlighter-rouge">git switch</code> (for changing branches) and <code class="language-plaintext highlighter-rouge">git restore</code> (for discarding file changes) were introduced in Git 2.23 to split up the overloaded <code class="language-plaintext highlighter-rouge">git checkout</code>, which does both. Older guides use <code class="language-plaintext highlighter-rouge">checkout</code> throughout; the two forms are equivalent.</p>
 
-<h2 id="step-5--share-your-work-push-and-pull">Step 5 — Share your work: push and pull</h2>
+<h3 id="bringing-a-branch-up-to-date">Bringing a branch up to date</h3>
 
-<p><code class="language-plaintext highlighter-rouge">origin</code> is the conventional name for your main remote. The first push sets up tracking with <code class="language-plaintext highlighter-rouge">-u</code>.</p>
+<p>While you work, <code class="language-plaintext highlighter-rouge">main</code> moves on. There are two ways to incorporate those changes:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Push your branch to the remote for the first time</span>
-git push <span class="nt">-u</span> origin feature/login
-
-<span class="c"># Later pushes on the same branch are just:</span>
-git push
-
-<span class="c"># Bring down changes others have pushed</span>
-git pull
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fetch origin
+git rebase origin/main    <span class="c"># replay your commits on top of the latest main (linear history)</span>
+<span class="c"># or</span>
+git merge origin/main     <span class="c"># record a merge commit joining the two lines</span>
 </code></pre></div></div>
 
-<pre><code class="language-mermaid">sequenceDiagram
-    participant You as Your machine
-    participant GH as GitHub (remote)
-    participant Team as Teammate
-    You-&gt;&gt;You: edit + git commit
-    You-&gt;&gt;GH: git push
-    GH-&gt;&gt;Team: git pull
-    Team-&gt;&gt;GH: their commits (git push)
-    GH-&gt;&gt;You: git pull (get teammate's work)
+<p>Rebasing rewrites your branch’s commits (they get new IDs), so only rebase commits that nobody else has built on. If the branch has already been pushed, update it with <code class="language-plaintext highlighter-rouge">git push --force-with-lease</code>, which refuses to overwrite commits you have not seen.</p>
+
+<h2 id="remotes-fetch-pull-and-push">Remotes: fetch, pull and push</h2>
+
+<p>A remote is a named URL; <code class="language-plaintext highlighter-rouge">origin</code> is the conventional name for the one you cloned from. Git keeps <strong>remote-tracking branches</strong> such as <code class="language-plaintext highlighter-rouge">origin/main</code>, local read-only records of where the remote’s branches were at your last fetch.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    RM["origin's main&lt;br/&gt;(on the server)"] --&gt;|git fetch| TR["origin/main&lt;br/&gt;(remote-tracking)"]
+    TR --&gt;|git merge / git rebase| LM["main&lt;br/&gt;(your branch)"]
+    LM --&gt;|git push| RM
 </code></pre>
-
-<h2 id="step-6--open-a-pull-request">Step 6 — Open a pull request</h2>
-
-<p>A pull request (PR) — called a merge request on GitLab — proposes merging your branch into <code class="language-plaintext highlighter-rouge">main</code>. It is where review, automated tests, and discussion happen before code lands.</p>
-
-<ol>
-  <li>Push your branch (Step 5).</li>
-  <li>On GitHub/GitLab, open a PR from your branch into <code class="language-plaintext highlighter-rouge">main</code>.</li>
-  <li>Teammates review; CI runs tests automatically.</li>
-  <li>After approval, <strong>merge</strong> — your work is now in <code class="language-plaintext highlighter-rouge">main</code>.</li>
-  <li>Delete the branch; pull <code class="language-plaintext highlighter-rouge">main</code> locally to stay current.</li>
-</ol>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Using the GitHub CLI from the terminal</span>
-gh <span class="nb">pr </span>create <span class="nt">--fill</span>
-gh <span class="nb">pr </span>status
-</code></pre></div></div>
-
-<p>See <a href="branching.html">Branching Strategies</a> for how teams structure this at scale.</p>
-
-<h2 id="the-12-commands-that-cover-90-of-daily-work">The 12 commands that cover 90% of daily work</h2>
 
 <table>
   <thead>
     <tr>
       <th>Command</th>
-      <th>What it does</th>
+      <th>Does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git fetch</code></td>
+      <td>Downloads new commits and updates <code class="language-plaintext highlighter-rouge">origin/*</code>; never touches your branches or files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git pull</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git fetch</code>, then merges or rebases the upstream branch into the current one</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git push</code></td>
+      <td>Uploads your commits and moves the remote branch forward, if that is a fast-forward</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git push <span class="nt">-u</span> origin feature/login   <span class="c"># first push: create the remote branch and set it as upstream</span>
+git push                           <span class="c"># later pushes from that branch</span>
+git pull                           <span class="c"># integrate others' work</span>
+git status                         <span class="c"># shows "ahead 2, behind 1" relative to the upstream</span>
+</code></pre></div></div>
+
+<p>A push is rejected when the remote branch contains commits you do not have. Pull (or fetch and rebase) first, then push again.</p>
+
+<h2 id="pull-requests">Pull requests</h2>
+
+<p>A <strong>pull request</strong> (GitHub, Bitbucket) or <strong>merge request</strong> (GitLab) proposes merging a branch into <code class="language-plaintext highlighter-rouge">main</code>. It is where code review, automated checks and discussion happen before the change lands.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Dev as You
+    participant Host as GitHub
+    participant CI as CI checks
+    participant Rev as Reviewer
+    Dev-&gt;&gt;Host: git push -u origin feature/login
+    Dev-&gt;&gt;Host: open pull request into main
+    Host-&gt;&gt;CI: run tests and linters
+    CI--&gt;&gt;Host: checks pass
+    Host-&gt;&gt;Rev: request review
+    Rev--&gt;&gt;Host: approve (or request changes)
+    Dev-&gt;&gt;Host: merge (merge, squash or rebase)
+    Dev-&gt;&gt;Dev: git switch main and git pull
+</code></pre>
+
+<p>With the GitHub CLI:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gh <span class="nb">pr </span>create <span class="nt">--fill</span>                        <span class="c"># title and body from your commits</span>
+gh <span class="nb">pr </span>status                               <span class="c"># your PRs and their checks</span>
+gh <span class="nb">pr </span>checkout 123                         <span class="c"># check out someone else's PR locally</span>
+gh <span class="nb">pr </span>merge <span class="nt">--squash</span> <span class="nt">--delete-branch</span>       <span class="c"># merge once approved</span>
+</code></pre></div></div>
+
+<p>To address review feedback, commit to the same branch and push; the pull request updates automatically. After merging, delete the branch and update your local <code class="language-plaintext highlighter-rouge">main</code>. <a href="branching.html">Branching Strategies</a> covers how teams structure this at scale.</p>
+
+<h2 id="everyday-commands">Everyday commands</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th>Does</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">git status</code></td>
-      <td>What changed, what’s staged</td>
+      <td>Show changed, staged and untracked files</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">git add &lt;file&gt;</code></td>
-      <td>Stage changes</td>
+      <td><code class="language-plaintext highlighter-rouge">git add &lt;path&gt;</code> / <code class="language-plaintext highlighter-rouge">git add -p</code></td>
+      <td>Stage changes (whole files, or hunk by hunk)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">git commit -m "msg"</code></td>
-      <td>Save a snapshot</td>
+      <td>Record the staged snapshot</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">git log --oneline</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git diff</code> / <code class="language-plaintext highlighter-rouge">git diff --staged</code></td>
+      <td>Show unstaged / staged changes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git log --oneline --graph</code></td>
       <td>View history</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">git diff</code></td>
-      <td>See unstaged changes</td>
+      <td><code class="language-plaintext highlighter-rouge">git switch -c &lt;branch&gt;</code></td>
+      <td>Create a branch and switch to it</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">git switch -c &lt;br&gt;</code></td>
-      <td>New branch</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">git switch &lt;br&gt;</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git switch &lt;branch&gt;</code></td>
       <td>Change branch</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">git merge &lt;br&gt;</code></td>
-      <td>Combine branches</td>
+      <td><code class="language-plaintext highlighter-rouge">git merge &lt;branch&gt;</code> / <code class="language-plaintext highlighter-rouge">git rebase &lt;branch&gt;</code></td>
+      <td>Integrate another branch</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">git pull</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git fetch</code> / <code class="language-plaintext highlighter-rouge">git pull</code></td>
       <td>Get remote changes</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">git push</code></td>
-      <td>Send your commits</td>
+      <td>Publish your commits</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">git stash</code></td>
-      <td>Shelve work temporarily</td>
+      <td><code class="language-plaintext highlighter-rouge">git stash</code> / <code class="language-plaintext highlighter-rouge">git stash pop</code></td>
+      <td>Set work in progress aside, then restore it</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">git restore &lt;file&gt;</code></td>
-      <td>Discard local edits</td>
+      <td>Discard uncommitted edits to a file</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="oh-no--fixing-common-mistakes">“Oh no” — fixing common mistakes</h2>
+<h2 id="fixing-common-mistakes">Fixing common mistakes</h2>
 
-<p>Everyone breaks something early on. These get you out of the most common holes safely.</p>
+<p>Git rarely destroys committed work, and <code class="language-plaintext highlighter-rouge">git reflog</code> can usually recover anything committed in the last 30 days (the default expiry for unreachable entries; reachable ones last 90). The commands that <em>do</em> lose data are the ones that discard uncommitted changes (<code class="language-plaintext highlighter-rouge">git restore</code>, <code class="language-plaintext highlighter-rouge">git reset --hard</code>, <code class="language-plaintext highlighter-rouge">git clean</code>), so pause before running them.</p>
 
 <table>
   <thead>
@@ -3388,83 +3513,94 @@ gh <span class="nb">pr </span>status
   </thead>
   <tbody>
     <tr>
-      <td>Committed too early / wrong message</td>
-      <td><code class="language-plaintext highlighter-rouge">git commit --amend -m "Better message"</code></td>
-      <td>Rewrites the last commit. Don’t amend commits you’ve already pushed and shared.</td>
+      <td>Typo in the last commit message, or forgot a file</td>
+      <td><code class="language-plaintext highlighter-rouge">git add &lt;file&gt;</code>, then <code class="language-plaintext highlighter-rouge">git commit --amend</code></td>
+      <td>Replaces the last commit; do not amend commits already pushed to a shared branch</td>
     </tr>
     <tr>
-      <td>Undo last commit but keep the code</td>
+      <td>Staged a file by mistake</td>
+      <td><code class="language-plaintext highlighter-rouge">git restore --staged &lt;file&gt;</code></td>
+      <td>The edits stay in your working tree</td>
+    </tr>
+    <tr>
+      <td>Want to discard edits to a file</td>
+      <td><code class="language-plaintext highlighter-rouge">git restore &lt;file&gt;</code></td>
+      <td>Destructive: uncommitted changes are gone</td>
+    </tr>
+    <tr>
+      <td>Undo the last commit but keep the changes</td>
       <td><code class="language-plaintext highlighter-rouge">git reset --soft HEAD~1</code></td>
-      <td>Removes the commit, leaves the changes staged so you can recommit.</td>
+      <td>The changes return to the staging area</td>
     </tr>
     <tr>
-      <td>Drop everything since the last commit</td>
-      <td><code class="language-plaintext highlighter-rouge">git restore .</code></td>
-      <td>Discards uncommitted edits — destructive, make sure you mean it.</td>
+      <td>Committed on <code class="language-plaintext highlighter-rouge">main</code> instead of a branch</td>
+      <td><code class="language-plaintext highlighter-rouge">git branch feature/x</code>, then <code class="language-plaintext highlighter-rouge">git reset --hard origin/main</code>, then <code class="language-plaintext highlighter-rouge">git switch feature/x</code></td>
+      <td>Creates the branch at your commit before moving <code class="language-plaintext highlighter-rouge">main</code> back</td>
     </tr>
     <tr>
-      <td>Mid-task, need to switch branches</td>
-      <td><code class="language-plaintext highlighter-rouge">git stash</code> → <code class="language-plaintext highlighter-rouge">git switch other</code> → <code class="language-plaintext highlighter-rouge">git stash pop</code></td>
-      <td>Shelves your work-in-progress and brings it back later.</td>
+      <td>Need to switch branches mid-task</td>
+      <td><code class="language-plaintext highlighter-rouge">git stash -u</code>, <code class="language-plaintext highlighter-rouge">git switch other</code>, later <code class="language-plaintext highlighter-rouge">git stash pop</code></td>
+      <td><code class="language-plaintext highlighter-rouge">-u</code> includes untracked files</td>
     </tr>
     <tr>
-      <td>Think I lost a commit</td>
-      <td><code class="language-plaintext highlighter-rouge">git reflog</code></td>
-      <td>Shows where HEAD has been; almost nothing is truly gone. Check out the hash to recover it.</td>
+      <td>Pushed a bad commit to a shared branch</td>
+      <td><code class="language-plaintext highlighter-rouge">git revert &lt;commit&gt;</code></td>
+      <td>Adds a new commit that undoes it; history is not rewritten</td>
+    </tr>
+    <tr>
+      <td>“Lost” a commit after a reset or rebase</td>
+      <td><code class="language-plaintext highlighter-rouge">git reflog</code>, then <code class="language-plaintext highlighter-rouge">git switch -c rescue &lt;hash&gt;</code></td>
+      <td>The reflog records every position <code class="language-plaintext highlighter-rouge">HEAD</code> has had</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="handling-merge-conflicts-the-calm-version">Handling merge conflicts (the calm version)</h2>
+<p><a href="git/conflict-and-recovery.html">Conflict and Recovery</a> explains why these work.</p>
 
-<p>A conflict just means two branches changed the same lines. Git pauses and asks you to choose.</p>
+<h2 id="merge-conflicts">Merge conflicts</h2>
+
+<p>A <strong>conflict</strong> occurs when two branches change the same lines (or one edits a file the other deletes) and Git cannot decide which version wins. Git pauses the merge, rebase or cherry-pick and marks the file:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge feature/login
-<span class="c"># CONFLICT in app.py</span>
+<span class="c"># CONFLICT (content): Merge conflict in app.py</span>
+git status                     <span class="c"># lists files under "Unmerged paths"</span>
 </code></pre></div></div>
 
-<p>Open the file; Git marks the clash:</p>
+<p>With the recommended setting <code class="language-plaintext highlighter-rouge">git config --global merge.conflictStyle zdiff3</code> (Git 2.35+), the markers also show the common ancestor, which makes it much easier to see what each side intended:</p>
 
 <div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+greeting = "Hello, world"
+||||||| base
 greeting = "Hello"
 =======
 greeting = "Hi there"
 &gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/login
 </code></pre></div></div>
 
-<p>Edit the file to the version you want, delete the <code class="language-plaintext highlighter-rouge">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>/<code class="language-plaintext highlighter-rouge">=======</code>/<code class="language-plaintext highlighter-rouge">&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> markers, then:</p>
+<p>Here <code class="language-plaintext highlighter-rouge">main</code> added “, world” and the branch replaced the word, so the correct resolution might be <code class="language-plaintext highlighter-rouge">greeting = "Hi there, world"</code>. Edit the file to the intended result, delete all the marker lines, then:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git add app.py
-git commit          <span class="c"># completes the merge</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git add app.py        <span class="c"># mark as resolved</span>
+git commit            <span class="c"># finish a merge (for a rebase: git rebase --continue)</span>
 </code></pre></div></div>
 
-<p>If it goes sideways, <code class="language-plaintext highlighter-rouge">git merge --abort</code> returns you to safety.</p>
+<p>To give up and return to the state before the merge, run <code class="language-plaintext highlighter-rouge">git merge --abort</code> (or <code class="language-plaintext highlighter-rouge">git rebase --abort</code>). Most editors, including VS Code and JetBrains IDEs, provide a three-way merge view for conflicts.</p>
 
-<h2 id="where-to-go-next">Where to go next</h2>
-
-<ul>
-  <li><strong>Understand the machinery</strong> — read <a href="git/">Git Version Control</a> for the object model, the commit DAG, and how SHA hashing guarantees integrity.</li>
-  <li><strong>Look up a command</strong> — keep <a href="git-reference.html">Git Command Reference</a> open as your cheat sheet for rebase, cherry-pick, bisect, and more.</li>
-  <li><strong>Work on a team</strong> — pick a workflow in <a href="branching.html">Branching Strategies</a> and wire it into <a href="ci-cd/">CI/CD</a>.</li>
-</ul>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="next-steps">Next steps</h2>
 
 <ul>
-  <li><strong>Three areas:</strong> working directory → staging (<code class="language-plaintext highlighter-rouge">add</code>) → repository (<code class="language-plaintext highlighter-rouge">commit</code>) → remote (<code class="language-plaintext highlighter-rouge">push</code>).</li>
-  <li><strong>The core loop is edit → <code class="language-plaintext highlighter-rouge">add</code> → <code class="language-plaintext highlighter-rouge">commit</code>,</strong> repeated endlessly with clear messages.</li>
-  <li><strong>Branch for every change</strong> so <code class="language-plaintext highlighter-rouge">main</code> stays stable; merge via pull requests.</li>
-  <li><strong>Almost nothing is unrecoverable</strong> — <code class="language-plaintext highlighter-rouge">git reflog</code> and <code class="language-plaintext highlighter-rouge">git reset</code> are your safety net.</li>
-  <li><strong>A dozen commands</strong> cover the vast majority of daily work; learn the rest as you need them.</li>
+  <li><strong>Look up a command:</strong> <a href="git-reference.html">Git Command Reference</a> covers rebase, cherry-pick, bisect, worktrees, signing and more.</li>
+  <li><strong>Understand the internals:</strong> <a href="git/">Git Version Control</a> explains blobs, trees, commits and why a commit ID identifies the entire history behind it.</li>
+  <li><strong>Choose a team workflow:</strong> <a href="branching.html">Branching Strategies</a>, then automate checks with <a href="ci-cd/">CI/CD</a>.</li>
 </ul>
 
 <h2 id="references">References</h2>
 
 <ul>
-  <li><a href="https://git-scm.com/book">Pro Git Book</a> — free, comprehensive, beginner-friendly</li>
-  <li><a href="https://skills.github.com/">GitHub Skills</a> — interactive hands-on exercises</li>
-  <li><a href="https://git-scm.com/doc">Official Git Documentation</a></li>
-  <li><a href="https://www.conventionalcommits.org/">Conventional Commits</a> — a popular commit message convention</li>
+  <li><a href="https://git-scm.com/book">Pro Git</a> — free and comprehensive</li>
+  <li><a href="https://git-scm.com/docs">Official Git documentation</a></li>
+  <li><a href="https://skills.github.com/">GitHub Skills</a> — interactive exercises</li>
+  <li><a href="https://www.conventionalcommits.org/">Conventional Commits</a></li>
+  <li><a href="https://ohshitgit.com/">Oh Shit, Git!?!</a> — recovering from common mistakes</li>
 </ul>
 
       </section>

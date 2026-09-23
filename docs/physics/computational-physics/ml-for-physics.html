@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Physics-informed neural networks, neural operators, equivariant networks, and machine-learned interatomic potentials: how each builds physics into the model,...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Computational Physics: Machine Learning for Physics">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Physics-informed neural networks, neural operators, equivariant networks, and machine-learned interatomic potentials: how each builds physics into the model,...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/computational-physics/ml-for-physics.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Computational Physics: Machine Learning for Physics">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Physics-informed neural networks, neural operators, equivariant networks, and machine-learned interatomic potentials: how each builds physics into the model,...">
 
 <title>Computational Physics: Machine Learning for Physics | Andrews Notebook</title>
 
@@ -3133,29 +3133,90 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Computational Physics</a> › Machine Learning for Physics</p>
 
-<p>Learning the physics directly from data — solving PDEs, emulating simulators, and respecting symmetry by construction.</p>
+<p>Machine learning in computational physics works alongside the governing equations; it does not replace them. A conventional solver discretizes a known equation and solves it for one set of inputs. A learned model can do three other things. It can take a known PDE as a soft constraint (<strong>physics-informed neural networks</strong>). It can amortize a whole family of solutions into one forward pass (<strong>neural operators</strong>). Or it can stand in for an expensive quantum-chemistry calculation while respecting the right symmetries (<strong>machine-learned interatomic potentials</strong>). This page covers these families, the architectural ideas behind them, and their failure modes.</p>
 
-<p>Machine learning entered computational physics not to replace the differential equations but to <em>complement</em> them. A traditional solver discretizes a known equation and grinds through it for one set of boundary conditions; a learned model can absorb a known equation as a soft constraint (PINNs), amortize an entire family of solutions into a single forward pass (neural operators), or replace an intractable quantum-chemistry calculation with a cheap surrogate that still obeys the right invariances (neural-network potentials). The unifying theme is <strong>inductive bias</strong>: the more physics you bake into the architecture or loss, the less data you need and the better the model generalizes.</p>
+<p>The common thread is <strong>inductive bias</strong>. A generic network is a universal approximator, and in the small-data regime of physics that works against you: the network will happily fit a function that breaks energy conservation or rotational symmetry. If you build the symmetry group, the governing equation, or the conservation law into the model, the hypothesis space shrinks to physically admissible functions. That is why a symmetry-aware network can match a generic one with orders of magnitude less data.</p>
 
-<p><strong>Why physics priors matter.</strong> A generic neural network is a universal approximator, but in the small-data, high-stakes regime of physics that universality is a liability — it will happily fit a function that violates energy conservation or rotational symmetry. Encoding the symmetry group, the governing PDE, or the conservation law <em>into</em> the model shrinks the hypothesis space to physically admissible functions, which is why a symmetry-aware network can match a generic one with orders of magnitude less data.</p>
+<h2 id="where-the-physics-goes">Where the Physics Goes</h2>
 
-<h2 id="recent-advances-in-physics-ml-integration">Recent Advances in Physics-ML Integration</h2>
+<p>Every method on this page puts prior knowledge into one or more of three places:</p>
 
-<p>The intersection of machine learning and physics has seen explosive growth, with four broad threads driving most of the progress:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Where physics enters</th>
+      <th>Mechanism</th>
+      <th>Typical examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Loss function</strong></td>
+      <td>Penalize violations of a PDE, boundary condition, or conservation law</td>
+      <td>PINNs, physics-regularized surrogates</td>
+    </tr>
+    <tr>
+      <td><strong>Architecture</strong></td>
+      <td>Build the symmetry or structure in so it holds exactly</td>
+      <td>Equivariant GNNs (NequIP, MACE), Hamiltonian/Lagrangian networks, hard-constrained ansätze</td>
+    </tr>
+    <tr>
+      <td><strong>Data and training</strong></td>
+      <td>Train on simulator output, or backpropagate through the simulator itself</td>
+      <td>Neural operators, weather emulators, differentiable simulators</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Major themes:</strong></p>
-<ul>
-  <li><strong>Neural operators</strong> — learning the <em>solution operator</em> of an entire family of PDEs, so one trained model solves new initial/boundary conditions in a single forward pass (Fourier Neural Operators, DeepONet, graph neural operators).</li>
-  <li><strong>Equivariant neural networks</strong> — networks whose outputs transform correctly under physical symmetries (rotations, translations, permutations), giving exact conservation and dramatically better data efficiency.</li>
-  <li><strong>Differentiable physics engines</strong> — simulators written in autodiff frameworks so gradients flow end-to-end through the solver, enabling inverse design, control, and learned closures.</li>
-  <li><strong>Foundation models for science</strong> — large models pre-trained on diverse simulation/experimental data (notably for protein structure, materials, and weather) that are then fine-tuned for specific tasks.</li>
-</ul>
+<p>In general, <strong>architectural constraints beat loss penalties</strong>. A penalty is only approximately satisfied and competes with the other loss terms. An architectural constraint holds exactly for every parameter value, so no data or optimizer effort is spent learning it.</p>
 
-<p>A few concrete landmarks worth knowing: <strong>DeepMind’s GraphCast</strong> (2023) showed a graph neural network beating the gold-standard numerical weather model on a 10-day forecast while running thousands of times faster; <strong>AlphaFold 2/3</strong> turned protein and biomolecular structure prediction into a largely solved problem using an equivariant attention architecture; and <strong>neural-network interatomic potentials</strong> (MACE, NequIP, Allegro) now reach near-DFT accuracy on molecular dynamics at a fraction of the cost, all built on equivariant message passing.</p>
+<h2 id="choosing-a-method">Choosing a Method</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Learns</th>
+      <th>Needs</th>
+      <th>Output</th>
+      <th>Use when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>PINN</strong></td>
+      <td>One solution $u(x,t)$</td>
+      <td>The PDE, BCs/ICs, optionally sparse data</td>
+      <td>Mesh-free, differentiable field</td>
+      <td>Inverse problems, sparse-data assimilation, awkward geometries, one-off solves</td>
+    </tr>
+    <tr>
+      <td><strong>Neural operator</strong> (FNO, DeepONet)</td>
+      <td>The solution <em>operator</em> $a \mapsto u$</td>
+      <td>Many solved input–output pairs</td>
+      <td>Fast surrogate for a PDE family</td>
+      <td>Many-query work: UQ, design optimization, real-time control</td>
+    </tr>
+    <tr>
+      <td><strong>ML interatomic potential</strong></td>
+      <td>Potential-energy surface $E({\mathbf{r}_i})$</td>
+      <td>DFT energies and forces</td>
+      <td>Energies and forces for MD</td>
+      <td>Long or large MD at near-DFT accuracy</td>
+    </tr>
+    <tr>
+      <td><strong>Learned emulator</strong> (weather, climate)</td>
+      <td>Time-stepping map $x_t \mapsto x_{t+\Delta t}$</td>
+      <td>Decades of reanalysis or simulation data</td>
+      <td>Autoregressive forecasts</td>
+      <td>High-volume, repeated forecasting where training data is plentiful</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="physics-informed-neural-networks-pinns">Physics-Informed Neural Networks (PINNs)</h2>
 
-<p>A PINN represents the unknown field $u(x,t)$ directly as a neural network $u_\theta(x,t)$ and trains it by minimizing the <em>residual of the governing PDE</em> evaluated at sampled collocation points, plus penalties for the boundary and initial conditions. Crucially, the spatial and temporal derivatives in the PDE are computed by <strong>automatic differentiation</strong> of the network — there is no mesh and no finite-difference stencil. For a PDE written abstractly as</p>
+<p>A PINN represents the unknown field $u(x,t)$ as a neural network $u_\theta(x,t)$. It is trained to minimize the <strong>residual of the governing PDE</strong> at sampled <em>collocation points</em>, plus penalties for the boundary and initial conditions. The derivatives in the PDE come from <strong>automatic differentiation</strong> of the network, so there is no mesh and no finite-difference stencil. For a PDE</p>
 
 \[\mathcal{N}[u](x,t) = 0, \qquad x \in \Omega,\ t \in [0,T],\]
 
@@ -3163,436 +3224,511 @@ document.addEventListener('DOMContentLoaded', function () {
 
 \[L(\theta) = \lambda_r L_r + \lambda_b L_b + \lambda_i L_i,\]
 
-\[L_r = \frac{1}{N_r}\sum_{k=1}^{N_r} \left| \mathcal{N}[u_\theta](x_k, t_k) \right|^2,\]
+\[L_r = \frac{1}{N_r}\sum_{k=1}^{N_r} \left| \mathcal{N}[u_\theta](x_k, t_k) \right|^2, \qquad L_b = \frac{1}{N_b}\sum_{k=1}^{N_b} \left| \mathcal{B}[u_\theta](x_k, t_k) \right|^2, \qquad L_i = \frac{1}{N_i}\sum_{k=1}^{N_i} \left| u_\theta(x_k, 0) - u_0(x_k) \right|^2.\]
 
-\[L_b = \frac{1}{N_b}\sum_{k=1}^{N_b} \left| \mathcal{B}[u_\theta](x_k, t_k) \right|^2, \qquad L_i = \frac{1}{N_i}\sum_{k=1}^{N_i} \left| u_\theta(x_k, 0) - u_0(x_k) \right|^2.\]
+<p>The weights $\lambda$ set how strongly the optimizer enforces the equation relative to the boundary and initial data.</p>
 
-<p>Each term is just a mean-squared residual, and the $\lambda$ weights balance how aggressively the optimizer enforces the equation versus the data. For the 1D heat equation $u_t = \alpha\, u_{xx}$ the residual the code below minimizes is</p>
+<pre><code class="language-mermaid">flowchart LR
+    P["Collocation points (x, t)"] --&gt; N["Network u_theta(x, t)"]
+    N --&gt; AD["Autodiff: u_t, u_x, u_xx"]
+    AD --&gt; R["PDE residual N[u_theta]"]
+    N --&gt; BC["Boundary / initial mismatch"]
+    R --&gt; L["Weighted loss L(theta)"]
+    BC --&gt; L
+    L --&gt; OPT["Optimizer: Adam, then L-BFGS"]
+    OPT --&gt;|"update theta"| N
+</code></pre>
 
-\[\mathcal{N}[u] = \frac{\partial u}{\partial t} - \alpha\, \frac{\partial^2 u}{\partial x^2}.\]
+<h3 id="worked-example-the-1d-heat-equation">Worked example: the 1D heat equation</h3>
+
+<p>For $u_t = \alpha\, u_{xx}$ on $x \in [-1, 1]$, $t \in [0, 1]$, with $u(x,0) = \sin(\pi x)$ and $u(\pm 1, t) = 0$, the residual is</p>
+
+\[\mathcal{N}[u] = \frac{\partial u}{\partial t} - \alpha\, \frac{\partial^2 u}{\partial x^2},\]
+
+<p>and the exact solution $u = \sin(\pi x)\, e^{-\alpha \pi^2 t}$ gives a ground truth to check against. The code below uses a <strong>hard-constrained ansatz</strong>,</p>
+
+\[\hat{u}(x,t) = \sin(\pi x) + t\,(1 - x^2)\, N_\theta(x,t),\]
+
+<p>which satisfies the initial and boundary conditions exactly for any network $N_\theta$. The loss $L_b$ and $L_i$ terms therefore disappear, and only the PDE residual is trained. Training follows the standard recipe: Adam on resampled collocation points, then L-BFGS refinement.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">math</span>
+<span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">import</span> <span class="n">torch.nn</span> <span class="k">as</span> <span class="n">nn</span>
+
+<span class="n">ALPHA</span> <span class="o">=</span> <span class="mf">0.1</span>  <span class="c1"># diffusivity
+</span>
+
+<span class="k">class</span> <span class="nc">MLP</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">widths</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">1</span><span class="p">)):</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
+        <span class="n">layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">n_in</span><span class="p">,</span> <span class="n">n_out</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">widths</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">widths</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+            <span class="n">layers</span> <span class="o">+=</span> <span class="p">[</span><span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_in</span><span class="p">,</span> <span class="n">n_out</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Tanh</span><span class="p">()]</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">layers</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># linear output layer
+</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">net</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">u_hat</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Satisfies u(x,0) = sin(pi x) and u(+-1,t) = 0 exactly (hard constraints).</span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">math</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">t</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="nf">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">pde_residual</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="nf">requires_grad_</span><span class="p">(</span><span class="bp">True</span><span class="p">),</span> <span class="n">t</span><span class="p">.</span><span class="nf">requires_grad_</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="nf">u_hat</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+    <span class="n">u_t</span><span class="p">,</span> <span class="n">u_x</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">torch</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">u_xx</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">u_x</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">u_x</span><span class="p">),</span> <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">u_t</span> <span class="o">-</span> <span class="n">ALPHA</span> <span class="o">*</span> <span class="n">u_xx</span>
+
+
+<span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+
+<span class="n">torch</span><span class="p">.</span><span class="nf">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="nc">MLP</span><span class="p">()</span>
+
+<span class="c1"># Stage 1: Adam on freshly resampled collocation points each step
+</span><span class="n">adam</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">optim</span><span class="p">.</span><span class="nc">Adam</span><span class="p">(</span><span class="n">model</span><span class="p">.</span><span class="nf">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">3000</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="nf">sample</span><span class="p">(</span><span class="mi">2048</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="nf">pde_residual</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">).</span><span class="nf">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">).</span><span class="nf">mean</span><span class="p">()</span>
+    <span class="n">adam</span><span class="p">.</span><span class="nf">zero_grad</span><span class="p">()</span>
+    <span class="n">loss</span><span class="p">.</span><span class="nf">backward</span><span class="p">()</span>
+    <span class="n">adam</span><span class="p">.</span><span class="nf">step</span><span class="p">()</span>
+
+<span class="c1"># Stage 2: L-BFGS refinement on a fixed point set
+</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="nf">sample</span><span class="p">(</span><span class="mi">4096</span><span class="p">)</span>
+<span class="n">lbfgs</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">optim</span><span class="p">.</span><span class="nc">LBFGS</span><span class="p">(</span><span class="n">model</span><span class="p">.</span><span class="nf">parameters</span><span class="p">(),</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">line_search_fn</span><span class="o">=</span><span class="sh">"</span><span class="s">strong_wolfe</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">closure</span><span class="p">():</span>
+    <span class="n">lbfgs</span><span class="p">.</span><span class="nf">zero_grad</span><span class="p">()</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="nf">pde_residual</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">).</span><span class="nf">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">).</span><span class="nf">mean</span><span class="p">()</span>
+    <span class="n">loss</span><span class="p">.</span><span class="nf">backward</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">loss</span>
+
+<span class="n">lbfgs</span><span class="p">.</span><span class="nf">step</span><span class="p">(</span><span class="n">closure</span><span class="p">)</span>
+
+<span class="c1"># Validate against the exact solution
+</span><span class="n">xv</span><span class="p">,</span> <span class="n">tv</span> <span class="o">=</span> <span class="nf">sample</span><span class="p">(</span><span class="mi">10_000</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="p">.</span><span class="nf">no_grad</span><span class="p">():</span>
+    <span class="n">exact</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">math</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xv</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">ALPHA</span> <span class="o">*</span> <span class="n">math</span><span class="p">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">tv</span><span class="p">)</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="p">(</span><span class="nf">u_hat</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">xv</span><span class="p">,</span> <span class="n">tv</span><span class="p">)</span> <span class="o">-</span> <span class="n">exact</span><span class="p">).</span><span class="nf">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">exact</span><span class="p">.</span><span class="nf">norm</span><span class="p">()</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">relative L2 error: </span><span class="si">{</span><span class="n">err</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># of order 1e-4
+</span></code></pre></div></div>
+
+<p>Always report a PINN’s error against an independent reference: an exact solution, or a converged conventional solve. A small residual loss does not guarantee a small solution error.</p>
+
+<h3 id="strengths-and-failure-modes">Strengths and failure modes</h3>
+
+<p>PINNs are most useful when a mesh is awkward or when data and equations have to be fused. Examples are <strong>inverse problems</strong>, where an unknown coefficient or source is learned jointly with the field, <strong>data assimilation</strong> from sparse or noisy measurements, and moderately high-dimensional PDEs where a grid would need $N^d$ points. The solution is a smooth, differentiable function that can be queried anywhere.</p>
+
+<p>Their known weaknesses are just as important:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Failure mode</th>
+      <th>Symptom</th>
+      <th>Common remedies</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Spectral bias</strong></td>
+      <td>Smooth networks miss sharp fronts, boundary layers, and high-frequency content</td>
+      <td>Fourier-feature embeddings, adaptive or residual-based collocation sampling, domain decomposition (XPINNs, FBPINNs)</td>
+    </tr>
+    <tr>
+      <td><strong>Loss imbalance</strong></td>
+      <td>The PDE is satisfied in the interior while the boundary is ignored, or vice versa</td>
+      <td>Hard constraints, adaptive weights based on gradient norms or the neural tangent kernel</td>
+    </tr>
+    <tr>
+      <td><strong>Causality violation</strong></td>
+      <td>Time-dependent problems converge to a wrong but self-consistent solution</td>
+      <td>Causal weighting that trains early times first, or time-marching windows</td>
+    </tr>
+    <tr>
+      <td><strong>Ill-conditioned optimization</strong></td>
+      <td>Adam stalls with a loss plateau far above the discretization error</td>
+      <td>L-BFGS or other quasi-Newton refinement, natural-gradient and preconditioned second-order methods</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Two points of perspective matter. First, for forward problems in low dimensions that standard solvers already handle, a well-tuned finite-element or spectral code is usually faster and more accurate than a PINN by a wide margin. PINNs earn their place on inverse and data-fusion problems. Second, a 2024 survey of the ML-for-PDE literature (McGreivy and Hakim, <em>Nature Machine Intelligence</em>) found that many reported speedups over numerical solvers came from weak baselines. When evaluating any claim that a learned model beats a solver, check that the baseline solver ran at comparable accuracy on comparable hardware.</p>
+
+<p><strong>Libraries:</strong> <a href="https://github.com/lululxvi/deepxde">DeepXDE</a> (multi-backend PINN toolkit) and <a href="https://github.com/NVIDIA/physicsnemo">NVIDIA PhysicsNeMo</a> (formerly Modulus; PINNs, neural operators, and graph-based surrogates). Many research PINNs are written directly in JAX or PyTorch.</p>
+
+<h2 id="neural-operators">Neural Operators</h2>
+
+<p>A PINN learns <em>one</em> solution. A <strong>neural operator</strong> learns the <strong>solution operator</strong> $\mathcal{G}: a \mapsto u$, a map between function spaces. For example, it can map an initial condition, a coefficient field, or a forcing function to the resulting solution. Training is expensive, since it needs a dataset of solved instances, but after that a new instance costs one forward pass. Well-designed operators are also approximately <strong>discretization-invariant</strong>: the learned parameters do not depend on the grid, so a model trained at one resolution can be evaluated at another.</p>
+
+<h3 id="fourier-neural-operator-fno">Fourier Neural Operator (FNO)</h3>
+
+<p>The FNO (Li et al., 2021) parameterizes the integral kernel of each layer in Fourier space:</p>
+
+\[v^{(l+1)}(x) = \sigma\!\Big( W v^{(l)}(x) + \big(\mathcal{K} v^{(l)}\big)(x) \Big), \qquad \big(\mathcal{K} v\big)(x) = \mathcal{F}^{-1}\!\big( R_\phi \cdot \mathcal{F} v \big)(x),\]
+
+<p>where $W$ is a pointwise linear map and $R_\phi$ is a learned complex tensor applied to the lowest $k_{\max}$ Fourier modes. All higher modes are discarded. Truncating the spectrum works as a learnable low-pass filter: it keeps the smooth, long-range structure that dominates most PDE solutions, and it fixes the parameter count independently of resolution. Because the FFT is global, one layer mixes information across the whole domain. A convolution layer sees only its local stencil. The pointwise path $W$ restores the local, high-frequency content that the spectral path throws away.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Input a(x)&lt;br/&gt;+ grid coordinates"] --&gt; P["Lift P&lt;br/&gt;(pointwise)"]
+    P --&gt; F1["Fourier layer 1"]
+    F1 --&gt; F2["..."]
+    F2 --&gt; F3["Fourier layer L"]
+    F3 --&gt; Q["Project Q&lt;br/&gt;(pointwise MLP)"]
+    Q --&gt; U["Output u(x)"]
+    subgraph FL["One Fourier layer"]
+        direction LR
+        V["v"] --&gt; FFT["FFT"] --&gt; TR["Keep modes up to k_max,&lt;br/&gt;multiply by R_phi"] --&gt; IFFT["Inverse FFT"] --&gt; S["+"]
+        V --&gt; W1["W (1x1 conv)"] --&gt; S
+        S --&gt; ACT["activation"]
+    end
+</code></pre>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
 <span class="kn">import</span> <span class="n">torch.nn</span> <span class="k">as</span> <span class="n">nn</span>
-<span class="kn">import</span> <span class="n">torch.optim</span> <span class="k">as</span> <span class="n">optim</span>
 
-<span class="k">class</span> <span class="nc">PhysicsInformedNN</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Neural network for solving PDEs</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">layers</span><span class="p">):</span>
+
+<span class="k">class</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Global convolution: FFT -&gt; keep lowest modes -&gt; learned complex weights -&gt; inverse FFT.</span><span class="sh">"""</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">in_ch</span><span class="p">,</span> <span class="n">out_ch</span><span class="p">,</span> <span class="n">modes1</span><span class="p">,</span> <span class="n">modes2</span><span class="p">):</span>
         <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
-        
-        <span class="c1"># Build network
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">ModuleList</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">layers</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">layers</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">layers</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]))</span>
-        
-        <span class="c1"># Activation
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">activation</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Tanh</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Forward pass through network</span><span class="sh">"""</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">layer</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">layers</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="nf">layer</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">layers</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">physics_loss</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Physics-informed loss for heat equation</span><span class="sh">"""</span>
-        <span class="n">x</span><span class="p">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="bp">True</span>
-        <span class="n">t</span><span class="p">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="bp">True</span>
-        
-        <span class="c1"># Network output
-</span>        <span class="n">u</span> <span class="o">=</span> <span class="nf">self</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cat</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
-        
-        <span class="c1"># Compute derivatives
-</span>        <span class="n">u_t</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">grad_outputs</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">u</span><span class="p">),</span>
-                                 <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">u_x</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">grad_outputs</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">u</span><span class="p">),</span>
-                                 <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">u_xx</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">u_x</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">grad_outputs</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="nf">ones_like</span><span class="p">(</span><span class="n">u_x</span><span class="p">),</span>
-                                  <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        
-        <span class="c1"># Heat equation: u_t - α*u_xx = 0
-</span>        <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.1</span>
-        <span class="n">f</span> <span class="o">=</span> <span class="n">u_t</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">u_xx</span>
-        
-        <span class="k">return</span> <span class="n">torch</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">f</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span> <span class="o">=</span> <span class="n">modes1</span><span class="p">,</span> <span class="n">modes2</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">in_ch</span> <span class="o">*</span> <span class="n">out_ch</span><span class="p">)</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">in_ch</span><span class="p">,</span> <span class="n">out_ch</span><span class="p">,</span> <span class="n">modes1</span><span class="p">,</span> <span class="n">modes2</span><span class="p">)</span>
+        <span class="c1"># rfft2 keeps only k_y &gt;= 0, so low |k_x| lives at both ends of axis -2
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">w_pos</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Parameter</span><span class="p">(</span><span class="n">scale</span> <span class="o">*</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">w_neg</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Parameter</span><span class="p">(</span><span class="n">scale</span> <span class="o">*</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">))</span>
 
-<span class="k">def</span> <span class="nf">train_pinn</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">n_epochs</span><span class="o">=</span><span class="mi">5000</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Train physics-informed neural network</span><span class="sh">"""</span>
-    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="p">.</span><span class="nc">Adam</span><span class="p">(</span><span class="n">model</span><span class="p">.</span><span class="nf">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
-    
-    <span class="c1"># Training points
-</span>    <span class="n">n_points</span> <span class="o">=</span> <span class="mi">1000</span>
-    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">n_points</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># x in [-1, 1]
-</span>    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">n_points</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># t in [0, 1]
-</span>    
-    <span class="c1"># Boundary conditions
-</span>    <span class="n">n_bc</span> <span class="o">=</span> <span class="mi">100</span>
-    <span class="n">x_bc</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">ones</span><span class="p">(</span><span class="n">n_bc</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
-    <span class="n">t_bc</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">n_bc</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">u_bc</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">n_bc</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># u(-1, t) = 0
-</span>    
-    <span class="c1"># Initial condition
-</span>    <span class="n">x_ic</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">n_bc</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span>
-    <span class="n">t_ic</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">n_bc</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">u_ic</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x_ic</span><span class="p">)</span>  <span class="c1"># u(x, 0) = sin(πx)
-</span>    
-    <span class="n">losses</span> <span class="o">=</span> <span class="p">[]</span>
-    
-    <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_epochs</span><span class="p">):</span>
-        <span class="n">optimizer</span><span class="p">.</span><span class="nf">zero_grad</span><span class="p">()</span>
-        
-        <span class="c1"># Physics loss
-</span>        <span class="n">loss_physics</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="nf">physics_loss</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
-        
-        <span class="c1"># Boundary condition loss
-</span>        <span class="n">u_pred_bc</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cat</span><span class="p">([</span><span class="n">x_bc</span><span class="p">,</span> <span class="n">t_bc</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
-        <span class="n">loss_bc</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">mean</span><span class="p">((</span><span class="n">u_pred_bc</span> <span class="o">-</span> <span class="n">u_bc</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-        
-        <span class="c1"># Initial condition loss
-</span>        <span class="n">u_pred_ic</span> <span class="o">=</span> <span class="nf">model</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cat</span><span class="p">([</span><span class="n">x_ic</span><span class="p">,</span> <span class="n">t_ic</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
-        <span class="n">loss_ic</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">mean</span><span class="p">((</span><span class="n">u_pred_ic</span> <span class="o">-</span> <span class="n">u_ic</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-        
-        <span class="c1"># Total loss
-</span>        <span class="n">loss</span> <span class="o">=</span> <span class="n">loss_physics</span> <span class="o">+</span> <span class="n">loss_bc</span> <span class="o">+</span> <span class="n">loss_ic</span>
-        
-        <span class="n">loss</span><span class="p">.</span><span class="nf">backward</span><span class="p">()</span>
-        <span class="n">optimizer</span><span class="p">.</span><span class="nf">step</span><span class="p">()</span>
-        
-        <span class="k">if</span> <span class="n">epoch</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s">: Loss = </span><span class="si">{</span><span class="n">loss</span><span class="p">.</span><span class="nf">item</span><span class="p">()</span><span class="si">:</span><span class="p">.</span><span class="mi">6</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-            <span class="n">losses</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">loss</span><span class="p">.</span><span class="nf">item</span><span class="p">())</span>
-    
-    <span class="k">return</span> <span class="n">losses</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>                                   <span class="c1"># x: (B, C, H, W)
+</span>        <span class="n">B</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span>
+        <span class="n">x_ft</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">rfft2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>                           <span class="c1"># (B, C, H, W//2 + 1)
+</span>        <span class="n">out_ft</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">w_pos</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                             <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="p">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">m1</span><span class="p">,</span> <span class="n">m2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span>
+        <span class="n">mix</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">torch</span><span class="p">.</span><span class="nf">einsum</span><span class="p">(</span><span class="sh">"</span><span class="s">bixy,ioxy-&gt;boxy</span><span class="sh">"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">out_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="n">m1</span><span class="p">,</span> <span class="p">:</span><span class="n">m2</span><span class="p">]</span> <span class="o">=</span> <span class="nf">mix</span><span class="p">(</span><span class="n">x_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="n">m1</span><span class="p">,</span> <span class="p">:</span><span class="n">m2</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">w_pos</span><span class="p">)</span>
+        <span class="n">out_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="n">m1</span><span class="p">:,</span> <span class="p">:</span><span class="n">m2</span><span class="p">]</span> <span class="o">=</span> <span class="nf">mix</span><span class="p">(</span><span class="n">x_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="n">m1</span><span class="p">:,</span> <span class="p">:</span><span class="n">m2</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">w_neg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">irfft2</span><span class="p">(</span><span class="n">out_ft</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">))</span>
 
-<span class="c1"># Example usage
-</span><span class="n">model</span> <span class="o">=</span> <span class="nc">PhysicsInformedNN</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>  <span class="c1"># 2 inputs (x, t), 1 output (u)
-</span><span class="n">losses</span> <span class="o">=</span> <span class="nf">train_pinn</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-</code></pre></div></div>
 
-<h3 id="when-pinns-shine--and-when-they-struggle">When PINNs shine — and when they struggle</h3>
+<span class="k">class</span> <span class="nc">FNO2d</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">in_ch</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">out_ch</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_layers</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">lift</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">in_ch</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>                       <span class="c1"># P
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">spectral</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">ModuleList</span><span class="p">(</span>
+            <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">modes</span><span class="p">,</span> <span class="n">modes</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_layers</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">local</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">ModuleList</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_layers</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">project</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">GELU</span><span class="p">(),</span>
+                                     <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="n">out_ch</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>     <span class="c1"># Q
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">act</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">GELU</span><span class="p">()</span>
 
-<p>PINNs are most attractive when a mesh is awkward: high-dimensional PDEs (where grid points scale as $N^d$), inverse problems where an unknown coefficient is learned jointly with the field, and problems where sparse experimental data must be fused with a known equation. Because the solution is a smooth analytic function of its inputs, it can be queried at any point without interpolation.</p>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>                  <span class="c1"># a: (B, in_ch, H, W), e.g. [a(x,y), x, y]
+</span>        <span class="n">v</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">lift</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">K</span><span class="p">,</span> <span class="n">W</span><span class="p">)</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="nf">zip</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">spectral</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">local</span><span class="p">)):</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="nc">K</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">+</span> <span class="nc">W</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">spectral</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">act</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">project</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
 
-<p>The failure modes are equally important to know:</p>
 
-<ul>
-  <li><strong>Stiff / multiscale dynamics.</strong> Sharp fronts and turbulent spectra are hard for a smooth tanh network to represent; the residual loss develops pathological gradients. Fourier-feature embeddings and curriculum/time-marching schemes help.</li>
-  <li><strong>Loss balancing.</strong> The relative magnitude of $L_r$, $L_b$, $L_i$ controls everything, and a poorly weighted PINN happily satisfies the PDE in the interior while ignoring the boundary. Adaptive weighting (e.g., learning-rate annealing on the gradients of each term, or the neural-tangent-kernel-based schemes) is often essential.</li>
-  <li><strong>Optimization, not approximation, is the bottleneck.</strong> A network <em>can</em> represent the solution, but Adam frequently stalls in a bad minimum; a second-order optimizer (L-BFGS) after Adam warm-up is the standard remedy.</li>
-</ul>
+<span class="n">model</span> <span class="o">=</span> <span class="nc">FNO2d</span><span class="p">()</span>
+<span class="nf">print</span><span class="p">(</span><span class="nf">model</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">)).</span><span class="n">shape</span><span class="p">)</span>    <span class="c1"># torch.Size([2, 1, 64, 64])
+</span><span class="nf">print</span><span class="p">(</span><span class="nf">model</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">)).</span><span class="n">shape</span><span class="p">)</span>  <span class="c1"># same weights, finer grid
+</span></code></pre></div></div>
 
-<p><strong>Hard vs. soft constraints.</strong> Penalizing boundary/initial conditions in the loss is a <em>soft</em> constraint — the network only approximately satisfies them. You can instead enforce them <em>exactly</em> by construction: write the output as <code class="language-plaintext highlighter-rouge">u(x,t) = u0(x) + t·g(x) + t·(x+1)(x-1)·N(x,t)</code> so the ansatz already obeys the IC and Dirichlet BCs for any network N. Hard constraints remove the corresponding loss terms entirely and usually train far more reliably.</p>
+<p>In practice, use the maintained <a href="https://github.com/neuraloperator/neuraloperator"><code class="language-plaintext highlighter-rouge">neuraloperator</code></a> library (<code class="language-plaintext highlighter-rouge">from neuralop.models import FNO</code>) rather than hand-rolled layers. It provides FNO, tensorized FNO (TFNO, which factorizes $R_\phi$ to cut parameters), U-shaped and geometry-aware variants, and training utilities. A typical training set for the 2D Navier–Stokes benchmark pairs vorticity fields at time $t_0$ with fields at a later time $T$, all generated once by a pseudo-spectral solver.</p>
 
-<h2 id="equivariant-and-symmetry-aware-networks">Equivariant and Symmetry-Aware Networks</h2>
+<h3 id="other-operator-architectures">Other operator architectures</h3>
 
-<p>Physics is full of exact symmetries: the energy of a molecule does not change if you rotate, translate, or relabel its atoms; a force vector <em>rotates with</em> the molecule. A generic network has to <em>learn</em> these invariances from data, wasting capacity and data on facts that are known a priori. <strong>Equivariant networks</strong> build the symmetry into the architecture so it holds exactly, for free.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Architecture</th>
+      <th>Idea</th>
+      <th>Handles irregular geometry?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>DeepONet</strong></td>
+      <td>A <em>branch</em> net encodes the input function at fixed sensors; a <em>trunk</em> net encodes the query point; the output is their inner product</td>
+      <td>Yes (trunk takes arbitrary points)</td>
+    </tr>
+    <tr>
+      <td><strong>FNO / TFNO</strong></td>
+      <td>Spectral convolution on a regular grid</td>
+      <td>No, unless the domain is mapped to a grid (Geo-FNO)</td>
+    </tr>
+    <tr>
+      <td><strong>Graph neural operators / MeshGraphNets</strong></td>
+      <td>Message passing on the simulation mesh</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><strong>Transformer operators</strong></td>
+      <td>Attention over mesh points or latent tokens</td>
+      <td>Yes</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Formally, a map $f$ is <strong>invariant</strong> under a group $G$ acting via representations $\rho$ if it ignores the transformation, and <strong>equivariant</strong> if it transforms in step with it:</p>
+<p>Neural operators are most reliable when interpolating within the training distribution. Rolling them out autoregressively over long times accumulates error, and in chaotic systems that error can drive the rollout onto unphysical states. Stabilization techniques include training on multi-step rollouts, adding noise during training, and using diffusion-model refinement.</p>
+
+<h2 id="symmetry-and-equivariant-networks">Symmetry and Equivariant Networks</h2>
+
+<p>Physics has many exact symmetries. A molecule’s energy does not change if you rotate, translate, or relabel its identical atoms, while a force vector <em>rotates with</em> the molecule. A generic network has to learn these facts from data. An <strong>equivariant network</strong> builds them into the architecture so they hold exactly.</p>
+
+<p>A map $f$ is <strong>invariant</strong> under a group $G$ if it ignores the transformation, and <strong>equivariant</strong> if its output transforms along with the input:</p>
 
 \[f(\rho_{\text{in}}(g)\, x) = f(x) \quad \text{(invariant)}, \qquad f(\rho_{\text{in}}(g)\, x) = \rho_{\text{out}}(g)\, f(x) \quad \text{(equivariant)}, \qquad \forall g \in G.\]
 
-<p>Energy is a scalar and should be <em>invariant</em> under the Euclidean group $E(3)$ (rotations, translations, reflections); forces and dipoles are vectors and should be <em>equivariant</em>. The modern recipe for $E(3)$-equivariance represents features as <strong>spherical tensors</strong> labelled by angular-momentum order $\ell$ (scalars $\ell=0$, vectors $\ell=1$, …) and combines them with the <strong>Clebsch–Gordan tensor product</strong>, exactly as angular momenta couple in quantum mechanics:</p>
+<p>Energy is a scalar and must be <em>invariant</em> under the Euclidean group $E(3)$ and under permutations of identical atoms. Forces, dipoles, and other vectors must be <em>equivariant</em>. The standard way to get $E(3)$-equivariance is to represent features as <strong>spherical tensors</strong> labelled by angular-momentum order $\ell$ (scalars $\ell=0$, vectors $\ell=1$, and so on). These are combined with the <strong>Clebsch–Gordan tensor product</strong>, in the same way angular momenta couple in quantum mechanics:</p>
 
 \[(u^{(\ell_1)} \otimes v^{(\ell_2)})^{(\ell)}_m = \sum_{m_1, m_2} C^{\ell\, m}_{\ell_1 m_1\, \ell_2 m_2}\, u^{(\ell_1)}_{m_1}\, v^{(\ell_2)}_{m_2}, \qquad |\ell_1 - \ell_2| \le \ell \le \ell_1 + \ell_2.\]
 
-<p>Because the Clebsch–Gordan coefficients $C$ encode how irreducible representations of $SO(3)$ combine, any network built from these products is rotation-equivariant by construction. This is the engine inside NequIP, MACE, and Allegro.</p>
+<p>The coefficients $C$ encode how irreducible representations of $SO(3)$ combine, so any network built from these products is rotation-equivariant by construction. This is the core operation in NequIP, Allegro, and MACE. The <a href="https://e3nn.org/">e3nn</a> library implements it, and NVIDIA’s cuEquivariance provides fused GPU kernels for it.</p>
 
-<p>The code below shows the simpler but widely used special case: a <strong>permutation- and translation-invariant</strong> message-passing network in the style of SchNet, where invariance to rotation is obtained by using only interatomic <em>distances</em> (themselves rotation-invariant) as edge features.</p>
+<p>A simpler special case is widely used: <strong>invariant</strong> message passing in the style of SchNet. Rotation invariance comes from using only interatomic <em>distances</em> as edge features, and permutation invariance comes from summing over neighbours.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
 <span class="kn">import</span> <span class="n">torch.nn</span> <span class="k">as</span> <span class="n">nn</span>
 
-<span class="k">class</span> <span class="nc">InvariantMessagePassing</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">E(3)-invariant message-passing layer (SchNet-style).
 
-    Atoms carry scalar features; messages depend only on interatomic
-    distances, so the output is invariant to rotation/translation and
-    equivariant (here: invariant) to permutation of identical atoms.
-    </span><span class="sh">"""</span>
+<span class="k">class</span> <span class="nc">InvariantMessagePassing</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">E(3)-invariant message-passing layer (SchNet-style continuous filters).</span><span class="sh">"""</span>
 
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_features</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">n_rbf</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">6.0</span><span class="p">):</span>
         <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
         <span class="n">self</span><span class="p">.</span><span class="n">cutoff</span> <span class="o">=</span> <span class="n">cutoff</span>
-        <span class="c1"># Radial basis: expand each distance into smooth Gaussians
-</span>        <span class="n">self</span><span class="p">.</span><span class="nf">register_buffer</span><span class="p">(</span><span class="sh">"</span><span class="s">centers</span><span class="sh">"</span><span class="p">,</span> <span class="n">torch</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">n_rbf</span><span class="p">))</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">width</span> <span class="o">=</span> <span class="p">(</span><span class="n">cutoff</span> <span class="o">/</span> <span class="n">n_rbf</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">register_buffer</span><span class="p">(</span><span class="sh">"</span><span class="s">centers</span><span class="sh">"</span><span class="p">,</span> <span class="n">torch</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">n_rbf</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">cutoff</span> <span class="o">/</span> <span class="n">n_rbf</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">filter_net</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_rbf</span><span class="p">,</span> <span class="n">n_features</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">SiLU</span><span class="p">(),</span>
+                                        <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_features</span><span class="p">,</span> <span class="n">n_features</span><span class="p">))</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">update</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_features</span><span class="p">,</span> <span class="n">n_features</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">SiLU</span><span class="p">(),</span>
+                                    <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_features</span><span class="p">,</span> <span class="n">n_features</span><span class="p">))</span>
 
-        <span class="c1"># Filter-generating network: distance-expansion -&gt; per-feature weights
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">filter_net</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_rbf</span><span class="p">,</span> <span class="n">n_features</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">SiLU</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_features</span><span class="p">,</span> <span class="n">n_features</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">update</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_features</span><span class="p">,</span> <span class="n">n_features</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">SiLU</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">n_features</span><span class="p">,</span> <span class="n">n_features</span><span class="p">),</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">rbf</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">distances</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Smoothly expand distances onto a Gaussian radial basis.</span><span class="sh">"""</span>
-        <span class="n">diff</span> <span class="o">=</span> <span class="n">distances</span><span class="p">[...,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">centers</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">diff</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
-
-    <span class="k">def</span> <span class="nf">cosine_cutoff</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">distances</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Smoothly zero out interactions beyond the cutoff radius.</span><span class="sh">"""</span>
-        <span class="n">fc</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">distances</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">cutoff</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">fc</span> <span class="o">*</span> <span class="p">(</span><span class="n">distances</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">cutoff</span><span class="p">).</span><span class="nf">float</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">x: (n_atoms, n_features); edge_index: (2, n_edges).</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">h: (n_atoms, n_features); edge_index: (2, n_edges) without self-loops.</span><span class="sh">"""</span>
         <span class="n">src</span><span class="p">,</span> <span class="n">dst</span> <span class="o">=</span> <span class="n">edge_index</span>
-        <span class="n">r_vec</span> <span class="o">=</span> <span class="n">positions</span><span class="p">[</span><span class="n">dst</span><span class="p">]</span> <span class="o">-</span> <span class="n">positions</span><span class="p">[</span><span class="n">src</span><span class="p">]</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r_vec</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>                 <span class="c1"># rotation-invariant
-</span>        <span class="c1"># Build continuous filters from distances only
-</span>        <span class="n">W</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">filter_net</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">rbf</span><span class="p">(</span><span class="n">r</span><span class="p">))</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="nf">cosine_cutoff</span><span class="p">(</span><span class="n">r</span><span class="p">)[:,</span> <span class="bp">None</span><span class="p">]</span>
-        <span class="n">messages</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">src</span><span class="p">]</span> <span class="o">*</span> <span class="n">W</span>                         <span class="c1"># element-wise filter
-</span>        <span class="c1"># Aggregate messages onto destination atoms (permutation-invariant sum)
-</span>        <span class="n">agg</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">).</span><span class="nf">index_add_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">messages</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="n">agg</span><span class="p">)</span>                   <span class="c1"># residual update
+        <span class="n">r</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">positions</span><span class="p">[</span><span class="n">dst</span><span class="p">]</span> <span class="o">-</span> <span class="n">positions</span><span class="p">[</span><span class="n">src</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>   <span class="c1"># invariant
+</span>        <span class="n">rbf</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="p">((</span><span class="n">r</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">centers</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">fc</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">cutoff</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">cutoff</span><span class="p">)</span>
+        <span class="n">W</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">filter_net</span><span class="p">(</span><span class="n">rbf</span><span class="p">)</span> <span class="o">*</span> <span class="n">fc</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span>           <span class="c1"># smooth, distance-only filter
+</span>        <span class="n">agg</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">h</span><span class="p">).</span><span class="nf">index_add_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">h</span><span class="p">[</span><span class="n">src</span><span class="p">]</span> <span class="o">*</span> <span class="n">W</span><span class="p">)</span>   <span class="c1"># permutation-invariant sum
+</span>        <span class="k">return</span> <span class="n">h</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="n">agg</span><span class="p">)</span>                      <span class="c1"># residual update
 </span></code></pre></div></div>
 
-<p>The crucial design choices — using only distances, summing (not concatenating) neighbor messages, and applying a smooth cutoff — are precisely what make the layer respect the symmetries exactly rather than approximately. A full $E(3)$-equivariant model additionally carries $\ell \ge 1$ vector/tensor features and combines them with the tensor product above so that <em>directional</em> quantities like forces come out equivariant.</p>
+<p>Three design choices make the layer respect the symmetries exactly rather than approximately: messages depend only on distances, neighbour messages are summed, and a smooth cutoff keeps the energy differentiable. Invariant models can predict only scalars directly. Forces come from differentiating the energy. Fully equivariant models also carry $\ell \ge 1$ features, which capture angular information more efficiently and can output tensorial properties directly.</p>
 
-<h2 id="neural-network-interatomic-potentials">Neural-Network Interatomic Potentials</h2>
+<p><span id="neural-network-interatomic-potentials"></span></p>
 
-<p>Ab-initio molecular dynamics is limited by the cost of evaluating the energy with density-functional theory at every timestep. A <strong>neural-network potential (NNP)</strong> learns a surrogate $E_\theta({\mathbf{r}_i})$ trained to reproduce DFT energies and forces, then drives MD at a tiny fraction of the cost while retaining near-quantum accuracy. The foundational <strong>Behler–Parrinello</strong> architecture decomposes the total energy into a sum of atomic contributions,</p>
+<h2 id="machine-learned-interatomic-potentials">Machine-Learned Interatomic Potentials</h2>
+
+<p><em>Ab initio</em> molecular dynamics is limited by the cost of a DFT calculation at every timestep. A <strong>machine-learned interatomic potential (MLIP)</strong> is trained on DFT energies and forces and learns a surrogate $E_\theta({\mathbf{r}_i})$. It can then run MD at a small fraction of the cost while keeping near-DFT accuracy. MLIPs are now a standard tool in materials and molecular simulation.</p>
+
+<h3 id="the-behlerparrinello-decomposition">The Behler–Parrinello decomposition</h3>
+
+<p>Nearly every MLIP inherits the Behler–Parrinello (2007) decomposition of the total energy into atomic contributions:</p>
 
 \[E = \sum_{i=1}^{N_{\text{atoms}}} E_i\big(\mathbf{G}_i\big),\]
 
-<p>where each atomic energy $E_i$ is produced by a shared network fed a fixed-length descriptor $\mathbf{G}_i$ of atom $i$’s local environment. This decomposition makes the model <strong>size-extensive</strong> (energy scales with system size) and <strong>transferable</strong> between systems. The descriptors are <strong>symmetry functions</strong>: rotation- and permutation-invariant functions of the neighbor geometry. A radial symmetry function aggregates pairwise distances,</p>
+<p>where a shared network maps a descriptor $\mathbf{G}_i$ of atom $i$’s local environment to its energy. This makes the model <strong>size-extensive</strong>, so energy scales with system size, and <strong>local</strong>, so cost is $O(N)$. The original descriptors are hand-designed <strong>symmetry functions</strong>. A radial one is</p>
 
-\[G_i^{\text{rad}} = \sum_{j \neq i} e^{-\eta (r_{ij} - R_s)^2}\, f_c(r_{ij}),\]
+\[G_i^{\text{rad}} = \sum_{j \neq i} e^{-\eta (r_{ij} - R_s)^2}\, f_c(r_{ij}), \qquad f_c(r) = \begin{cases} \tfrac{1}{2}\left[\cos\!\left(\dfrac{\pi r}{R_c}\right) + 1\right], &amp; r \le R_c, \\[4pt] 0, &amp; r &gt; R_c, \end{cases}\]
 
-<p>and the smooth cutoff $f_c$ ensures the descriptor and its derivatives vanish continuously at the cutoff radius $R_c$:</p>
-
-\[f_c(r) = \begin{cases} \tfrac{1}{2}\left[\cos\!\left(\dfrac{\pi r}{R_c}\right) + 1\right], &amp; r \le R_c, \\[4pt] 0, &amp; r &gt; R_c. \end{cases}\]
-
-<p>Forces follow exactly from the analytic gradient of the (smooth, differentiable) energy network — automatic differentiation gives them for free,</p>
+<p>and angular functions add three-body terms. Forces are exact gradients of the energy, which gives a conservative force field by construction:</p>
 
 \[\mathbf{F}_i = -\nabla_{\mathbf{r}_i} E.\]
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">NeuralPotential</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Neural network for learning interatomic potentials</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_features</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_layers</span><span class="o">=</span><span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">]):</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">math</span>
+<span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">import</span> <span class="n">torch.nn</span> <span class="k">as</span> <span class="n">nn</span>
+
+
+<span class="k">class</span> <span class="nc">BehlerParrinello</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Single-element Behler-Parrinello potential with radial symmetry functions.</span><span class="sh">"""</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">etas</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">),</span> <span class="n">shifts</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">),</span>
+                 <span class="n">cutoff</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">hidden</span><span class="o">=</span><span class="mi">64</span><span class="p">):</span>
         <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
-        
-        <span class="n">layers</span> <span class="o">=</span> <span class="p">[</span><span class="n">n_features</span><span class="p">]</span> <span class="o">+</span> <span class="n">hidden_layers</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_build_network</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span>
-        
-        <span class="c1"># Symmetry functions for atomic environments
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">symmetry_params</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_init_symmetry_functions</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">_build_network</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">layers</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Build the neural network</span><span class="sh">"""</span>
-        <span class="n">network</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">network</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">layers</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">layers</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]))</span>
-            <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nf">len</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="n">network</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">ReLU</span><span class="p">())</span>
-        <span class="k">return</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">network</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">_init_symmetry_functions</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Initialize Behler-Parrinello symmetry functions</span><span class="sh">"""</span>
-        <span class="c1"># Radial symmetry function parameters
-</span>        <span class="n">eta_values</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]</span>
-        <span class="n">Rs_values</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">]</span>
-        
-        <span class="c1"># Angular symmetry function parameters
-</span>        <span class="n">zeta_values</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]</span>
-        <span class="n">lambda_values</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>
-        
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">eta</span><span class="sh">'</span><span class="p">:</span> <span class="n">eta_values</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">Rs</span><span class="sh">'</span><span class="p">:</span> <span class="n">Rs_values</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">zeta</span><span class="sh">'</span><span class="p">:</span> <span class="n">zeta_values</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">lambda</span><span class="sh">'</span><span class="p">:</span> <span class="n">lambda_values</span>
-        <span class="p">}</span>
-    
-    <span class="k">def</span> <span class="nf">compute_symmetry_functions</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">types</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">6.0</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Compute symmetry functions for atomic environments</span><span class="sh">"""</span>
-        <span class="n">n_atoms</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">positions</span><span class="p">)</span>
-        <span class="n">n_features</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">symmetry_params</span><span class="p">[</span><span class="sh">'</span><span class="s">eta</span><span class="sh">'</span><span class="p">])</span> <span class="o">*</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">symmetry_params</span><span class="p">[</span><span class="sh">'</span><span class="s">Rs</span><span class="sh">'</span><span class="p">])</span>
-        <span class="n">features</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">n_atoms</span><span class="p">,</span> <span class="n">n_features</span><span class="p">)</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_atoms</span><span class="p">):</span>
-            <span class="n">feature_idx</span> <span class="o">=</span> <span class="mi">0</span>
-            
-            <span class="c1"># Radial symmetry functions
-</span>            <span class="k">for</span> <span class="n">eta</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">symmetry_params</span><span class="p">[</span><span class="sh">'</span><span class="s">eta</span><span class="sh">'</span><span class="p">]:</span>
-                <span class="k">for</span> <span class="n">Rs</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">symmetry_params</span><span class="p">[</span><span class="sh">'</span><span class="s">Rs</span><span class="sh">'</span><span class="p">]:</span>
-                    <span class="n">G_rad</span> <span class="o">=</span> <span class="mi">0</span>
-                    
-                    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_atoms</span><span class="p">):</span>
-                        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
-                            <span class="k">continue</span>
-                        
-                        <span class="n">r_ij</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">positions</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-                        
-                        <span class="k">if</span> <span class="n">r_ij</span> <span class="o">&lt;</span> <span class="n">cutoff</span><span class="p">:</span>
-                            <span class="n">fc</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r_ij</span> <span class="o">/</span> <span class="n">cutoff</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-                            <span class="n">G_rad</span> <span class="o">+=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">eta</span> <span class="o">*</span> <span class="p">(</span><span class="n">r_ij</span> <span class="o">-</span> <span class="n">Rs</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">fc</span>
-                    
-                    <span class="n">features</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">feature_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">G_rad</span>
-                    <span class="n">feature_idx</span> <span class="o">+=</span> <span class="mi">1</span>
-        
-        <span class="k">return</span> <span class="n">features</span>
-    
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">features</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Predict energy from symmetry functions</span><span class="sh">"""</span>
-        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">network</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">calculate_forces</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">types</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate forces as negative gradient of energy</span><span class="sh">"""</span>
-        <span class="n">positions</span><span class="p">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="bp">True</span>
-        
-        <span class="c1"># Compute features
-</span>        <span class="n">features</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">compute_symmetry_functions</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">types</span><span class="p">)</span>
-        
-        <span class="c1"># Predict atomic energies
-</span>        <span class="n">atomic_energies</span> <span class="o">=</span> <span class="nf">self</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
-        <span class="n">total_energy</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">atomic_energies</span><span class="p">)</span>
-        
-        <span class="c1"># Calculate forces
-</span>        <span class="n">forces</span> <span class="o">=</span> <span class="o">-</span><span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">total_energy</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span>
-                                     <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        
-        <span class="k">return</span> <span class="n">forces</span><span class="p">,</span> <span class="n">total_energy</span>
+        <span class="n">eta</span><span class="p">,</span> <span class="n">rs</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">tensor</span><span class="p">(</span><span class="n">etas</span><span class="p">),</span> <span class="n">torch</span><span class="p">.</span><span class="nf">tensor</span><span class="p">(</span><span class="n">shifts</span><span class="p">),</span> <span class="n">indexing</span><span class="o">=</span><span class="sh">"</span><span class="s">ij</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">register_buffer</span><span class="p">(</span><span class="sh">"</span><span class="s">eta</span><span class="sh">"</span><span class="p">,</span> <span class="n">eta</span><span class="p">.</span><span class="nf">flatten</span><span class="p">())</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">register_buffer</span><span class="p">(</span><span class="sh">"</span><span class="s">rs</span><span class="sh">"</span><span class="p">,</span> <span class="n">rs</span><span class="p">.</span><span class="nf">flatten</span><span class="p">())</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">cutoff</span> <span class="o">=</span> <span class="n">cutoff</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">atomic_net</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span>          <span class="c1"># shared by every atom
+</span>            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">eta</span><span class="p">.</span><span class="nf">numel</span><span class="p">(),</span> <span class="n">hidden</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">SiLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">hidden</span><span class="p">,</span> <span class="n">hidden</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">SiLU</span><span class="p">(),</span>
+            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">hidden</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">descriptors</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">pos</span><span class="p">):</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">cdist</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">pos</span><span class="p">)</span>                                  <span class="c1"># (N, N) distances
+</span>        <span class="n">fc</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">math</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">cutoff</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">fc</span> <span class="o">=</span> <span class="n">fc</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">cutoff</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">torch</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)))</span>  <span class="c1"># drop i == j
+</span>        <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">self</span><span class="p">.</span><span class="n">eta</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span><span class="p">[...,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">rs</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>   <span class="c1"># (N, N, n_G)
+</span>        <span class="nf">return </span><span class="p">(</span><span class="n">g</span> <span class="o">*</span> <span class="n">fc</span><span class="p">[...,</span> <span class="bp">None</span><span class="p">]).</span><span class="nf">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>                      <span class="c1"># sum over neighbours j
+</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">pos</span><span class="p">):</span>
+        <span class="sh">"""</span><span class="s">Return total energy E and forces F = -dE/dr.</span><span class="sh">"""</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span><span class="p">.</span><span class="nf">requires_grad_</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+        <span class="n">energy</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">atomic_net</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="nf">descriptors</span><span class="p">(</span><span class="n">pos</span><span class="p">)).</span><span class="nf">sum</span><span class="p">()</span>      <span class="c1"># E = sum_i E_i(G_i)
+</span>        <span class="n">forces</span> <span class="o">=</span> <span class="o">-</span><span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">energy</span><span class="p">,</span> <span class="n">pos</span><span class="p">,</span> <span class="n">create_graph</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">training</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">energy</span><span class="p">,</span> <span class="n">forces</span>
 </code></pre></div></div>
 
-<p>The state of the art has since moved from hand-crafted symmetry functions to <strong>learned equivariant descriptors</strong>. Message-passing potentials like <strong>NequIP</strong> and <strong>MACE</strong> carry $E(3)$-equivariant features (the spherical-tensor machinery from the previous section), which lets them reach the same accuracy with one to two orders of magnitude less training data and capture many-body angular information that two-body radial descriptors miss. The trade-off is cost per evaluation: descriptor-based potentials are cheaper per step, equivariant ones are far more data-efficient.</p>
+<p>The model is trained on a weighted loss over energies and forces, $L = w_E \lvert E - E^{\text{DFT}}\rvert^2 + w_F \sum_i \lVert \mathbf{F}_i - \mathbf{F}_i^{\text{DFT}} \rVert^2$. Forces supply $3N$ labels per configuration against one for the energy, so they dominate the information content. (<code class="language-plaintext highlighter-rouge">create_graph=True</code> during training lets the force loss backpropagate into the weights.) This toy has no periodic boundary conditions and handles only one element. Production codes add per-element networks, neighbour lists, and minimum-image distances.</p>
 
-<h2 id="fourier-neural-operators-fno">Fourier Neural Operators (FNO)</h2>
+<h3 id="generations-of-mlips">Generations of MLIPs</h3>
 
-<p>Where a PINN learns <em>one</em> solution, a <strong>neural operator</strong> learns the <em>solution operator</em> of a PDE — a map between infinite-dimensional function spaces, e.g. from an initial-condition function $a(x)$ to the solution $u(x)$. Once trained, it solves a new instance in a single forward pass, with <strong>discretization invariance</strong>: train on a coarse grid, evaluate on a fine one. The <strong>Fourier Neural Operator</strong> realizes this by parameterizing the integral kernel operator in the spectral domain. Each layer applies the update</p>
+<table>
+  <thead>
+    <tr>
+      <th>Generation</th>
+      <th>Representative models</th>
+      <th>Descriptor</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Descriptor + NN or kernel</td>
+      <td>Behler–Parrinello, ANI, GAP/SOAP, ACE</td>
+      <td>Fixed, hand-designed invariants</td>
+      <td>Cheap per step; needs large training sets; limited body order</td>
+    </tr>
+    <tr>
+      <td>Invariant message passing</td>
+      <td>SchNet, PhysNet, DimeNet</td>
+      <td>Learned from distances (and angles)</td>
+      <td>Flexible but data-hungry</td>
+    </tr>
+    <tr>
+      <td>Equivariant message passing</td>
+      <td>NequIP, Allegro, MACE</td>
+      <td>Learned $\ell \ge 1$ spherical-tensor features</td>
+      <td>1–2 orders of magnitude more data-efficient; more cost per step</td>
+    </tr>
+    <tr>
+      <td>Universal / foundation models</td>
+      <td>MACE-MP-0 and successors, CHGNet, SevenNet, Orb, Meta’s UMA</td>
+      <td>Large equivariant or attention models trained on millions of DFT structures across most of the periodic table</td>
+      <td>Usable out of the box; fine-tune for production accuracy</td>
+    </tr>
+  </tbody>
+</table>
 
-\[u^{(l+1)}(x) = \sigma\!\Big( W u^{(l)}(x) + \big(\mathcal{K} u^{(l)}\big)(x) \Big),\]
+<p><strong>Foundation MLIPs</strong> are the major development since 2023. Trained on datasets such as the Materials Project trajectories, Meta’s OMat24 (inorganic materials) and OMol25 (molecules), and the Open Catalyst sets, one model covers about 89 elements and gives qualitatively correct dynamics for systems it never saw. The <a href="https://matbench-discovery.materialsproject.org/">Matbench Discovery</a> leaderboard compares them on crystal-stability prediction. The recommended workflow is now to <strong>start from a foundation model and fine-tune</strong> on a few hundred system-specific DFT calculations, instead of training from scratch.</p>
 
-<p>where $W$ is a pointwise (local) linear map and $\mathcal{K}$ is a global convolution implemented as a multiplication in Fourier space. Concretely, with $\mathcal{F}$ the Fourier transform and $R_\phi$ a learned, complex-valued weight applied to the lowest $k_{\max}$ modes,</p>
+<p>Both MACE and Meta’s FAIRChem expose their models as <a href="https://wiki.fysik.dtu.dk/ase/">ASE</a> calculators:</p>
 
-\[\big(\mathcal{K} u\big)(x) = \mathcal{F}^{-1}\!\big( R_\phi \cdot \mathcal{F} u \big)(x).\]
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">ase.build</span> <span class="kn">import</span> <span class="n">bulk</span>
+<span class="kn">from</span> <span class="n">mace.calculators</span> <span class="kn">import</span> <span class="n">mace_mp</span>                      <span class="c1"># pip install mace-torch
+</span>
+<span class="n">atoms</span> <span class="o">=</span> <span class="nf">bulk</span><span class="p">(</span><span class="sh">"</span><span class="s">Cu</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">fcc</span><span class="sh">"</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="mf">3.6</span><span class="p">,</span> <span class="n">cubic</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">atoms</span><span class="p">.</span><span class="n">calc</span> <span class="o">=</span> <span class="nf">mace_mp</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">medium</span><span class="sh">"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="sh">"</span><span class="s">cuda</span><span class="sh">"</span><span class="p">,</span> <span class="n">default_dtype</span><span class="o">=</span><span class="sh">"</span><span class="s">float64</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">atoms</span><span class="p">.</span><span class="nf">get_potential_energy</span><span class="p">(),</span> <span class="n">atoms</span><span class="p">.</span><span class="nf">get_forces</span><span class="p">().</span><span class="n">shape</span><span class="p">)</span>
 
-<p>Truncating to the lowest modes acts as a learnable low-pass filter: it captures the smooth, long-range structure that dominates most PDE solutions while keeping the parameter count fixed and <em>independent of resolution</em>. Because the FFT is global, a single layer mixes information across the whole domain — unlike a convolution, which only sees its local stencil.</p>
+<span class="c1"># Meta's UMA models (pip install fairchem-core; weights are gated on Hugging Face)
+</span><span class="kn">from</span> <span class="n">fairchem.core</span> <span class="kn">import</span> <span class="n">pretrained_mlip</span><span class="p">,</span> <span class="n">FAIRChemCalculator</span>
+<span class="n">predictor</span> <span class="o">=</span> <span class="n">pretrained_mlip</span><span class="p">.</span><span class="nf">get_predict_unit</span><span class="p">(</span><span class="sh">"</span><span class="s">uma-s-1p2</span><span class="sh">"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="sh">"</span><span class="s">cuda</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">atoms</span><span class="p">.</span><span class="n">calc</span> <span class="o">=</span> <span class="nc">FAIRChemCalculator</span><span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="n">task_name</span><span class="o">=</span><span class="sh">"</span><span class="s">omat</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># "omol", "oc20", ...
+</span></code></pre></div></div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">2D Fourier layer for Neural Operators</span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">in_channels</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">modes1</span><span class="p">,</span> <span class="n">modes2</span><span class="p">):</span>
-        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">in_channels</span> <span class="o">=</span> <span class="n">in_channels</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">out_channels</span> <span class="o">=</span> <span class="n">out_channels</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">modes1</span> <span class="o">=</span> <span class="n">modes1</span>  <span class="c1"># Number of Fourier modes to keep
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">modes2</span> <span class="o">=</span> <span class="n">modes2</span>
-        
-        <span class="n">self</span><span class="p">.</span><span class="n">scale</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">in_channels</span> <span class="o">*</span> <span class="n">out_channels</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">weights1</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Parameter</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">scale</span> <span class="o">*</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span>
-            <span class="n">in_channels</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">))</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">weights2</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Parameter</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">scale</span> <span class="o">*</span> <span class="n">torch</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span>
-            <span class="n">in_channels</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">))</span>
-    
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="n">batch_size</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="c1"># Compute Fourier coefficients
-</span>        <span class="n">x_ft</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">rfft2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        
-        <span class="c1"># Multiply relevant Fourier modes
-</span>        <span class="n">out_ft</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">out_channels</span><span class="p">,</span> <span class="n">x</span><span class="p">.</span><span class="nf">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">),</span> 
-                           <span class="n">x</span><span class="p">.</span><span class="nf">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">//</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">cfloat</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="p">.</span><span class="n">device</span><span class="p">)</span>
-        
-        <span class="n">out_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">]</span> <span class="o">=</span> \
-            <span class="n">self</span><span class="p">.</span><span class="nf">compl_mul2d</span><span class="p">(</span><span class="n">x_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">weights1</span><span class="p">)</span>
-        <span class="n">out_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">:,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">]</span> <span class="o">=</span> \
-            <span class="n">self</span><span class="p">.</span><span class="nf">compl_mul2d</span><span class="p">(</span><span class="n">x_ft</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">:,</span> <span class="p">:</span><span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">weights2</span><span class="p">)</span>
-        
-        <span class="c1"># Return to physical space
-</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">irfft2</span><span class="p">(</span><span class="n">out_ft</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="nf">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">),</span> <span class="n">x</span><span class="p">.</span><span class="nf">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)))</span>
-        <span class="k">return</span> <span class="n">x</span>
-    
-    <span class="k">def</span> <span class="nf">compl_mul2d</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
-        <span class="c1"># Complex multiplication
-</span>        <span class="k">return</span> <span class="n">torch</span><span class="p">.</span><span class="nf">einsum</span><span class="p">(</span><span class="sh">"</span><span class="s">bixy,ioxy-&gt;boxy</span><span class="sh">"</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">weights</span><span class="p">)</span>
+<p>Check model names against the current release notes: new checkpoints come out frequently, and a checkpoint name in older code may no longer be the recommended one.</p>
 
-<span class="k">class</span> <span class="nc">FourierNeuralOperator2d</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Fourier Neural Operator for learning solution operators of PDEs</span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">modes1</span><span class="p">,</span> <span class="n">modes2</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">in_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">modes1</span> <span class="o">=</span> <span class="n">modes1</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">modes2</span> <span class="o">=</span> <span class="n">modes2</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">width</span>
-        
-        <span class="c1"># Input lifting
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">fc0</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">in_channels</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">)</span>
-        
-        <span class="c1"># Fourier layers
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">conv0</span> <span class="o">=</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">conv3</span> <span class="o">=</span> <span class="nc">SpectralConv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">modes2</span><span class="p">)</span>
-        
-        <span class="c1"># Regular convolutions for local features
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">w0</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">w1</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">w2</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">w3</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Conv2d</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        
-        <span class="c1"># Output projection
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">128</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">)</span>
-        
-        <span class="n">self</span><span class="p">.</span><span class="n">activation</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">GELU</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="c1"># x: (batch, x, y, channels)
-</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">fc0</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="nf">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># (batch, channels, x, y)
-</span>        
-        <span class="c1"># Fourier layers with residual connections
-</span>        <span class="n">x1</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">conv0</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">w0</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="n">x1</span> <span class="o">+</span> <span class="n">x2</span><span class="p">)</span>
-        
-        <span class="n">x1</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">w1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="n">x1</span> <span class="o">+</span> <span class="n">x2</span><span class="p">)</span>
-        
-        <span class="n">x1</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">conv2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">w2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="n">x1</span> <span class="o">+</span> <span class="n">x2</span><span class="p">)</span>
-        
-        <span class="n">x1</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">conv3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x2</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">w3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">+</span> <span class="n">x2</span>
-        
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="nf">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># (batch, x, y, channels)
-</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">fc1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">activation</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">fc2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x</span>
+<h3 id="active-learning">Active learning</h3>
 
-<span class="c1"># Example: Learning the solution operator for 2D Navier-Stokes
-</span><span class="k">def</span> <span class="nf">train_fno_navier_stokes</span><span class="p">():</span>
-    <span class="sh">"""</span><span class="s">Train FNO to learn the solution operator for 2D turbulence</span><span class="sh">"""</span>
-    <span class="n">model</span> <span class="o">=</span> <span class="nc">FourierNeuralOperator2d</span><span class="p">(</span><span class="n">modes1</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">modes2</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
-    
-    <span class="c1"># Training would involve:
-</span>    <span class="c1"># 1. Generate training data: initial conditions → solutions at time T
-</span>    <span class="c1"># 2. Train model to map: u(x,y,0) → u(x,y,T)
-</span>    <span class="c1"># 3. Model learns the solution operator, can generalize to new initial conditions
-</span>    
-    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">FNO architecture created for learning Navier-Stokes solution operator</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
+<p>An MLIP can be trusted only inside the region of configuration space it was trained on. MD will eventually wander outside that region, into high temperatures, bond breaking, or new phases. Production training therefore uses an <strong>active-learning loop</strong>: run MD with the current model, detect configurations where it is uncertain (from committee disagreement or a per-structure error estimate), label those with DFT, and retrain.</p>
 
-<p>The two-channel split in <code class="language-plaintext highlighter-rouge">SpectralConv2d</code> (low-frequency modes from both the positive and negative ends of the spectrum) reflects the conjugate symmetry of the real FFT. The complementary $1\times 1$ convolution <code class="language-plaintext highlighter-rouge">w</code> lets the operator represent the high-frequency, local residual that the truncated spectral path discards — the same low-pass-plus-local-correction structure that makes FNOs both expressive and resolution-robust. Beyond the FNO, <strong>DeepONet</strong> offers an alternative operator-learning paradigm (a “branch” network encodes the input function and a “trunk” network encodes the query location), and <strong>graph neural operators</strong> generalize the construction to irregular meshes where the FFT no longer applies.</p>
+<pre><code class="language-mermaid">flowchart LR
+    D["Training set&lt;br/&gt;(DFT energies + forces)"] --&gt; T["Train or fine-tune MLIP&lt;br/&gt;(ensemble)"]
+    T --&gt; MD["Run MD / sampling&lt;br/&gt;with the MLIP"]
+    MD --&gt; U{"Model uncertain?"}
+    U --&gt;|"no"| P["Production run"]
+    U --&gt;|"yes"| S["Select configurations"]
+    S --&gt; DFT["Label with DFT"]
+    DFT --&gt; D
+</code></pre>
 
-<p><strong>PINN vs. neural operator: which to reach for.</strong> Use a <strong>PINN</strong> when you need <em>one</em> high-accuracy solution to a known PDE, possibly with an unknown parameter to infer, and have little or no labeled data. Use a <strong>neural operator</strong> when you must solve the <em>same</em> PDE family thousands of times (uncertainty quantification, design optimization, real-time control) and can afford to generate a training set of paired input-output functions once.</p>
+<p>Validate an MLIP on <em>physical observables</em> such as radial distribution functions, phonon spectra, diffusion coefficients, and energy conservation in NVE runs, not only on test-set force errors. A model with low force RMSE can still be unstable in long simulations.</p>
+
+<h2 id="learned-emulators-at-scale">Learned Emulators at Scale</h2>
+
+<p>The largest ML-for-physics systems are global <strong>weather and climate emulators</strong>. They are trained on decades of ECMWF’s ERA5 reanalysis and learn the map from the atmospheric state at time $t$ to the state at $t + 6\,\text{h}$. Forecasts come from rolling that map out autoregressively.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>System</th>
+      <th>Year</th>
+      <th>Approach</th>
+      <th>Notable result</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GraphCast (Google DeepMind)</td>
+      <td>2023</td>
+      <td>Graph neural network on a multi-scale icosahedral mesh</td>
+      <td>Beat ECMWF’s deterministic HRES on most verification targets at 10 days; about a minute per forecast on one TPU</td>
+    </tr>
+    <tr>
+      <td>NeuralGCM (Google)</td>
+      <td>2024</td>
+      <td>Hybrid: differentiable dynamical core plus learned physics</td>
+      <td>Stable multi-decade climate runs with realistic statistics</td>
+    </tr>
+    <tr>
+      <td>GenCast (Google DeepMind)</td>
+      <td>2024</td>
+      <td>Diffusion model producing ensemble members</td>
+      <td>Outperformed ECMWF’s ENS ensemble on most targets</td>
+    </tr>
+    <tr>
+      <td>Aurora (Microsoft)</td>
+      <td>2025</td>
+      <td>Foundation model pre-trained on diverse Earth-system data, fine-tuned per task</td>
+      <td>Weather, air quality, ocean waves, and cyclone tracks from one backbone</td>
+    </tr>
+    <tr>
+      <td>AIFS (ECMWF)</td>
+      <td>2025</td>
+      <td>Graph/transformer model run by ECMWF itself</td>
+      <td>First ML forecast model run operationally alongside ECMWF’s physics-based system</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These models show both the promise and the limits of pure emulation. They are fast and skilful within the training climate, but they inherit reanalysis biases, they are not guaranteed to conserve mass or energy, and they cannot be trusted to extrapolate to climates unlike their training data. Hybrid designs like NeuralGCM, which keep the physics core and learn only the unresolved processes, are one response.</p>
+
+<p>Protein structure prediction is the other flagship result. <strong>AlphaFold 2</strong> (2021) used an SE(3)-invariant structure module. <strong>AlphaFold 3</strong> (2024) replaced it with a diffusion-based module that is not equivariant by construction and learns the symmetry from data augmentation instead. That this works suggests inductive bias is a data-efficiency tool rather than a requirement once data is abundant. The work was recognized with the 2024 Nobel Prize in Chemistry.</p>
+
+<h2 id="other-directions">Other Directions</h2>
+
+<ul>
+  <li><strong>Neural-network wavefunctions.</strong> Variational Monte Carlo with neural ansätze reaches near-exact ground-state energies for small molecules and lattice models. Examples are FermiNet, PauliNet, and Psiformer for continuum electrons, and neural quantum states for spin systems. <a href="https://www.netket.org/">NetKet</a> is the standard JAX library. See <a href="monte-carlo-and-md.html#quantum-monte-carlo">Quantum Monte Carlo</a>.</li>
+  <li><strong>Generative models for sampling.</strong> Normalizing flows and diffusion models, as <em>Boltzmann generators</em> and in lattice field theory, propose independent samples from $e^{-\beta E}$. Exact reweighting or a Metropolis correction keeps the result unbiased while sidestepping the long autocorrelations of local MCMC.</li>
+  <li><strong>Differentiable simulation.</strong> Simulators written in JAX or PyTorch, such as <a href="https://github.com/jax-md/jax-md">JAX-MD</a> and differentiable CFD codes, let gradients flow through the solver. That enables inverse design, parameter fitting, and learned sub-grid closures trained against the full solver.</li>
+  <li><strong>Symbolic regression.</strong> Tools such as <a href="https://github.com/MilesCranmer/PySR">PySR</a> search for compact closed-form expressions that fit data. They recover interpretable laws, and they can distil a trained neural network into an equation.</li>
+  <li><strong>Simulation-based inference.</strong> Neural density estimators fit posteriors over physical parameters directly from simulator output when the likelihood is intractable. This is now common in cosmology and particle physics.</li>
+</ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="hpc-and-ml.html">Parallel Computing</a> — the MPI and GPU infrastructure that trains these models and generates their data.</li>
-  <li><a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a> — the Navier-Stokes solvers that FNOs learn to emulate.</li>
-  <li><a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a> — the MD trajectories that neural-network potentials accelerate.</li>
-  <li><a href="quantum-methods.html">Quantum Computational Methods</a> — the DFT calculations that supply training labels for NNPs.</li>
-  <li><a href="tools-and-practices.html">Visualization, Libraries &amp; Best Practices</a> — frameworks and tooling for the surrounding workflow.</li>
+  <li><a href="hpc-and-ml.html">Parallel &amp; High-Performance Computing</a>: the MPI and GPU infrastructure that trains these models and generates their data.</li>
+  <li><a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a>: the Navier–Stokes solvers that neural operators emulate, and the baselines they must beat.</li>
+  <li><a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a>: the MD engines that MLIPs plug into.</li>
+  <li><a href="quantum-methods.html">Quantum Computational Methods</a>: the DFT calculations that supply MLIP training labels.</li>
+  <li><a href="electronic-structure-beyond-dft.html">Electronic Structure Beyond DFT</a>: coupled-cluster references used for high-accuracy molecular training sets.</li>
+  <li><a href="tools-and-practices.html">Visualization, Libraries &amp; Best Practices</a>: the surrounding software stack and validation habits.</li>
 </ul>
 
       </section>

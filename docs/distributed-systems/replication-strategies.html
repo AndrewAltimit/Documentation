@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Single-leader, consensus, multi-leader, and leaderless replication; quorum arithmetic; failover and fencing; replication lag; and conflict resolution.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Distributed Systems: Replication Strategies">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Single-leader, consensus, multi-leader, and leaderless replication; quorum arithmetic; failover and fencing; replication lag; and conflict resolution.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/distributed-systems/replication-strategies.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Distributed Systems: Replication Strategies">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Single-leader, consensus, multi-leader, and leaderless replication; quorum arithmetic; failover and fencing; replication lag; and conflict resolution.">
 
 <title>Distributed Systems: Replication Strategies | Andrews Notebook</title>
 
@@ -3133,220 +3133,308 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Distributed Systems</a> » Replication Strategies</p>
 
-<p><strong>Replication</strong> means keeping a copy of the same data on multiple machines. You do it for three reasons: <strong>availability</strong> (survive a node failure), <strong>latency</strong> (serve reads from a replica geographically close to the user), and <strong>read throughput</strong> (spread reads across many copies). The hard part is not making copies — it is keeping them <em>consistent</em> while writes keep arriving and machines keep failing. This page covers the three replication architectures, the quorum math that lets you tune the consistency/availability trade-off, the session guarantees that make weak consistency tolerable, and the failover and conflict-resolution machinery you need in production. Four ideas recur:</p>
+<p><strong>Replication</strong> keeps a copy of the same data on several machines. Systems replicate for availability (surviving the loss of a node or a zone), for latency (serving reads from a copy near the user), and for read throughput (spreading reads across copies). Making copies is easy. The difficulty is keeping them consistent while writes keep arriving and machines keep failing. This page covers the main replication architectures, the quorum arithmetic behind tunable consistency, failover and fencing, how to measure replication lag, and how systems that accept concurrent writes resolve conflicts.</p>
+
+<p>Four ideas run through the rest of the page:</p>
 
 <ul>
-  <li><strong>One writer is simplest.</strong> Single-leader replication is the default in most databases because it sidesteps write conflicts entirely — but the leader is a bottleneck and a failure point.</li>
-  <li><strong>R + W &gt; N buys overlap.</strong> Quorum reads and writes guarantee that any read set intersects the latest write set, giving strong-ish consistency without a single leader.</li>
-  <li><strong>Lag is unavoidable.</strong> Asynchronous replication always trails. The question is not whether replicas are stale, but how stale, and whether your clients can tell.</li>
-  <li><strong>Concurrent writes conflict.</strong> The moment you allow more than one node to accept writes, you must define what happens when two of them disagree — there is no way to dodge it.</li>
+  <li><strong>One writer is simplest.</strong> Single-leader replication avoids write conflicts because one node orders every write. The leader is then a throughput bottleneck and a failover hazard.</li>
+  <li><strong>Overlapping quorums bound staleness.</strong> If read and write quorums must intersect ($R + W &gt; N$), every read contacts at least one replica that holds the latest acknowledged write.</li>
+  <li><strong>Asynchronous replicas always trail.</strong> The question is how far behind they are and whether clients can observe it.</li>
+  <li><strong>More than one writer means conflicts.</strong> Once two nodes can accept writes to the same key, the system needs a defined rule for concurrent updates.</li>
 </ul>
 
-<h2 id="why-replicate-at-all">Why Replicate at All</h2>
+<h2 id="goals-and-trade-offs">Goals and Trade-offs</h2>
 
-<p>Before choosing a strategy, be clear about which goal dominates, because they pull in different directions:</p>
+<p>The reasons to replicate pull in different directions, so it helps to know which one dominates before picking a design.</p>
 
 <table>
   <thead>
     <tr>
       <th>Goal</th>
-      <th>What it demands</th>
-      <th>Tension</th>
+      <th>What it requires</th>
+      <th>What it costs</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>High availability</strong></td>
-      <td>Data survives node/datacenter loss; reads/writes continue</td>
-      <td>More replicas, automatic failover</td>
+      <td>High availability</td>
+      <td>Copies in independent failure domains; automatic failover</td>
+      <td>Failover complexity; split-brain risk</td>
     </tr>
     <tr>
-      <td><strong>Low read latency</strong></td>
-      <td>A replica near every user population</td>
-      <td>Geo-distribution, multi-leader or leaderless</td>
+      <td>Low read latency</td>
+      <td>A replica near each user population</td>
+      <td>Staleness; cross-region write latency</td>
     </tr>
     <tr>
-      <td><strong>Read scalability</strong></td>
-      <td>Many copies to absorb read traffic</td>
-      <td>Replication lag grows with copy count</td>
+      <td>Read scaling</td>
+      <td>Many copies to absorb reads</td>
+      <td>More lag to manage; more copies to keep healthy</td>
     </tr>
     <tr>
-      <td><strong>Disaster recovery</strong></td>
-      <td>A durable, possibly delayed copy off-site</td>
-      <td>Async replication, accept some data loss</td>
+      <td>Disaster recovery</td>
+      <td>A durable copy in another region</td>
+      <td>Asynchronous replication, so a small loss window (RPO greater than 0)</td>
     </tr>
   </tbody>
 </table>
 
-<p>A replica that is always perfectly up to date with the leader would require synchronous replication to <em>every</em> copy on <em>every</em> write — which makes writes as slow as the slowest replica and unavailable if any replica is down. So real systems replicate asynchronously (or to a quorum), and everything below is about managing the staleness that creates.</p>
+<p>A replica that is never stale would need synchronous replication to every copy on every write. Writes would then run at the speed of the slowest replica and would stop whenever any replica was down. Real systems therefore replicate asynchronously or to a quorum, and most of this page deals with the resulting staleness.</p>
 
-<p>Replication is distinct from <strong>partitioning (sharding)</strong>, which splits <em>different</em> data across nodes for capacity. The two are orthogonal and usually combined: each shard is independently replicated. See <a href="../technology/database-design/">Database Design</a> for the partitioning side.</p>
+<p>Replication is separate from <strong>partitioning</strong> (sharding), which spreads <em>different</em> data across nodes for capacity. The two are combined in practice: each shard is replicated independently. See <a href="../technology/database-design/">Database Design</a> for partitioning, and <a href="../technology/database-design/replication-and-consensus.html">Replication &amp; Consensus</a> for a database-operator view of the same material.</p>
 
-<h2 id="the-three-architectures">The Three Architectures</h2>
+<h2 id="replication-architectures">Replication Architectures</h2>
 
-<p>Every replication scheme is one of three shapes, defined by <em>which nodes may accept writes</em>.</p>
+<p>Replication schemes differ mainly in which nodes may accept writes and how a write becomes durable.</p>
 
 <pre><code class="language-mermaid">flowchart LR
     subgraph Single["Single-leader"]
         C1[Client] --&gt;|write| L1[(Leader)]
-        L1 --&gt;|replicate| F1[(Follower)]
-        L1 --&gt;|replicate| F2[(Follower)]
-        C2[Client] -.read.-&gt; F1
+        L1 --&gt;|log| F1[(Follower)]
+        L1 --&gt;|log| F2[(Follower)]
     end
     subgraph Multi["Multi-leader"]
-        LA[(Leader A)] &lt;--&gt;|replicate| LB[(Leader B)]
-        CA[Client] --&gt;|write| LA
-        CB[Client] --&gt;|write| LB
+        CA[Client] --&gt;|write| LA[(Leader A)]
+        CB[Client] --&gt;|write| LB[(Leader B)]
+        LA &lt;--&gt;|replicate| LB
     end
     subgraph Leaderless["Leaderless"]
-        CX[Client] --&gt;|write to W nodes| N1[(Node)]
-        CX --&gt; N2[(Node)]
-        CX --&gt; N3[(Node)]
-        CY[Client] --&gt;|read from R nodes| N1
-        CY --&gt; N2
+        CX[Client] --&gt;|write to W of N| N1[(Replica)]
+        CX --&gt; N2[(Replica)]
+        CX --&gt; N3[(Replica)]
     end
 </code></pre>
 
-<h3 id="single-leader-primaryreplica">Single-Leader (Primary/Replica)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Architecture</th>
+      <th>Who accepts writes</th>
+      <th>Write conflicts</th>
+      <th>Failover</th>
+      <th>Typical systems</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Single-leader, async/semi-sync</td>
+      <td>One leader</td>
+      <td>None</td>
+      <td>External orchestrator promotes a follower</td>
+      <td>PostgreSQL streaming replication, MySQL, SQL Server, Redis/Valkey, Kafka partitions (ISR)</td>
+    </tr>
+    <tr>
+      <td>Single-leader, consensus (Raft/Paxos)</td>
+      <td>One elected leader per group</td>
+      <td>None</td>
+      <td>Built into the protocol</td>
+      <td>etcd, CockroachDB, TiKV, YugabyteDB, Spanner, MongoDB replica sets, Kafka’s KRaft metadata quorum</td>
+    </tr>
+    <tr>
+      <td>Multi-leader</td>
+      <td>One leader per region or device</td>
+      <td>Yes</td>
+      <td>Not needed for writes; each site keeps writing</td>
+      <td>MySQL/PostgreSQL bidirectional logical replication, CouchDB, offline-first apps</td>
+    </tr>
+    <tr>
+      <td>Leaderless (Dynamo-style)</td>
+      <td>Any replica</td>
+      <td>Yes</td>
+      <td>Not needed; live replicas keep serving</td>
+      <td>Cassandra, ScyllaDB, Riak</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>One node is designated the <strong>leader</strong> (primary, master). All writes go to the leader. The leader applies the write to its local storage, then sends the change to its <strong>followers</strong> (replicas, secondaries) as a <strong>replication log</strong>. Followers apply the changes in the same order and may serve reads.</p>
+<h3 id="single-leader-replication">Single-Leader Replication</h3>
 
-<p>This is the model used by PostgreSQL, MySQL, MongoDB (replica sets), Oracle Data Guard, SQL Server, and many message brokers (Kafka per-partition). It dominates because it has <strong>no write conflicts</strong>: a single node imposes a total order on all writes.</p>
+<p>One node, the <strong>leader</strong> (primary), accepts all writes. It applies each write locally and sends the change to its <strong>followers</strong> (replicas, standbys) through a <strong>replication log</strong>. Followers apply the changes in log order and can serve reads. Because the leader imposes one total order on writes, followers never disagree about the order of updates. They can only be behind.</p>
 
-<p>The key choice is <em>when</em> a write is considered durable relative to follower acknowledgement:</p>
+<p>The main design choice is when a write counts as committed relative to follower acknowledgements.</p>
 
 <table>
   <thead>
     <tr>
       <th>Mode</th>
       <th>Leader waits for</th>
-      <th>On leader crash</th>
+      <th>Leader crash loses</th>
       <th>Cost</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Synchronous</strong></td>
-      <td>At least one follower to ack</td>
-      <td>No data loss (that follower has it)</td>
-      <td>Write blocks if follower is slow/down</td>
+      <td>Asynchronous</td>
+      <td>Nothing</td>
+      <td>Writes not yet shipped</td>
+      <td>Fastest; a loss window on failover</td>
     </tr>
     <tr>
-      <td><strong>Asynchronous</strong></td>
-      <td>Nothing (fire and forget)</td>
-      <td>Last writes may be lost</td>
-      <td>Fast, but weaker durability</td>
+      <td>Synchronous (one standby)</td>
+      <td>That standby’s ack</td>
+      <td>Nothing, if the standby survives</td>
+      <td>Writes stall if the standby is slow or down</td>
     </tr>
     <tr>
-      <td><strong>Semi-synchronous</strong></td>
-      <td>One designated sync follower; rest async</td>
-      <td>No loss if both leader and sync follower don’t fail together</td>
-      <td>Practical middle ground</td>
+      <td>Quorum commit</td>
+      <td>Any $k$ of the standbys</td>
+      <td>Nothing, if one of the $k$ survives</td>
+      <td>One slow standby no longer stalls writes</td>
+    </tr>
+    <tr>
+      <td>Majority (consensus)</td>
+      <td>A majority of the group</td>
+      <td>Nothing while a majority survives</td>
+      <td>One majority round-trip per commit</td>
     </tr>
   </tbody>
 </table>
 
-<p>Making <em>all</em> followers synchronous is impractical — any single slow follower stalls every write. The common production pattern is <strong>semi-synchronous</strong>: exactly one follower is synchronous, so there is always one up-to-date copy, while the others lag asynchronously.</p>
+<p>Waiting for <em>every</em> follower is impractical, because any slow follower stalls every write. Production systems wait for one designated standby, for any $k$ of a set, or for a majority:</p>
+
+<ul>
+  <li><strong>PostgreSQL</strong> sets this with <code class="language-plaintext highlighter-rouge">synchronous_standby_names</code>. <code class="language-plaintext highlighter-rouge">FIRST 1 (a, b)</code> waits for the highest-priority available standby, and <code class="language-plaintext highlighter-rouge">ANY 2 (a, b, c)</code> waits for any two (quorum commit). <code class="language-plaintext highlighter-rouge">synchronous_commit</code> then selects how far along each standby must be: <code class="language-plaintext highlighter-rouge">remote_write</code>, <code class="language-plaintext highlighter-rouge">on</code> (flushed to disk), or <code class="language-plaintext highlighter-rouge">remote_apply</code> (visible to queries).</li>
+  <li><strong>MySQL</strong> semi-synchronous replication waits for <code class="language-plaintext highlighter-rouge">rpl_semi_sync_source_wait_for_replica_count</code> replicas to acknowledge receipt. Group Replication (InnoDB Cluster) uses a Paxos-derived protocol instead.</li>
+  <li><strong>Kafka</strong> tracks an <strong>in-sync replica set (ISR)</strong> per partition. A producer using <code class="language-plaintext highlighter-rouge">acks=all</code> is acknowledged once every ISR member has the record, and <code class="language-plaintext highlighter-rouge">min.insync.replicas</code> makes the leader refuse writes when the ISR shrinks below that floor. Kafka 4.0 removed ZooKeeper in favor of the Raft-based KRaft controller. Kafka 4.1 enables <strong>Eligible Leader Replicas</strong> (KIP-966) by default on new clusters: the controller tracks replicas that have fallen out of the ISR but are still known to hold every committed record, so a leader can be elected from them without data loss.</li>
+</ul>
 
 <pre><code class="language-mermaid">sequenceDiagram
     participant C as Client
     participant L as Leader
-    participant Fs as Sync follower
-    participant Fa as Async follower
+    participant S as Sync standby
+    participant A as Async follower
     C-&gt;&gt;L: write(x = 5)
-    L-&gt;&gt;L: apply locally
-    L-&gt;&gt;Fs: replicate(x = 5)
-    L-&gt;&gt;Fa: replicate(x = 5)
-    Fs--&gt;&gt;L: ack
-    Note over L,Fs: leader waits only for the sync follower
-    L--&gt;&gt;C: ok
-    Fa--&gt;&gt;L: ack (later)
+    L-&gt;&gt;L: append to local log
+    par ship log
+        L-&gt;&gt;S: log record
+    and
+        L-&gt;&gt;A: log record
+    end
+    S--&gt;&gt;L: ack (flushed)
+    L--&gt;&gt;C: committed
+    A--&gt;&gt;L: ack (later, not awaited)
 </code></pre>
 
-<p><strong>Setting up a new follower</strong> without downtime follows a standard recipe:</p>
+<h4 id="what-the-replication-log-carries">What the Replication Log Carries</h4>
+
+<table>
+  <thead>
+    <tr>
+      <th>Log format</th>
+      <th>What ships</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Statement-based</td>
+      <td>SQL statements</td>
+      <td>Compact</td>
+      <td>Breaks on nondeterminism (<code class="language-plaintext highlighter-rouge">NOW()</code>, <code class="language-plaintext highlighter-rouge">RAND()</code>, triggers)</td>
+      <td>Old MySQL default; largely abandoned</td>
+    </tr>
+    <tr>
+      <td>Physical (WAL shipping)</td>
+      <td>Storage-engine page changes</td>
+      <td>Exact byte-for-byte copy; cheap to apply</td>
+      <td>Same major version and architecture on both ends; entire cluster only</td>
+      <td>PostgreSQL streaming replication</td>
+    </tr>
+    <tr>
+      <td>Logical (row-based)</td>
+      <td>Row-level changes per table</td>
+      <td>Crosses versions (enables upgrades); selective; feeds <strong>change data capture</strong></td>
+      <td>More CPU; DDL often not replicated</td>
+      <td>MySQL row-based binlog, PostgreSQL logical replication, Debezium</td>
+    </tr>
+    <tr>
+      <td>Trigger-based</td>
+      <td>Rows written by triggers into a change table</td>
+      <td>Arbitrary filtering and transformation</td>
+      <td>Slow; fragile</td>
+      <td>Legacy tools such as Slony</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Logical replication has absorbed most of the special cases. It is how zero-downtime major-version upgrades, cross-database migrations, and CDC pipelines work. PostgreSQL 17 added <strong>failover slots</strong>: with <code class="language-plaintext highlighter-rouge">sync_replication_slots</code> on a physical standby and <code class="language-plaintext highlighter-rouge">failover = true</code> on the subscription, logical replication slots are synchronized to the standby, so CDC consumers survive a primary failover without a full resync. PostgreSQL 17 also added <code class="language-plaintext highlighter-rouge">pg_createsubscriber</code>, which converts a physical standby into a logical subscriber without recopying the data.</p>
+
+<h4 id="adding-a-follower-without-downtime">Adding a Follower Without Downtime</h4>
 
 <ol>
-  <li>Take a consistent <strong>snapshot</strong> of the leader’s data at a known log position (most databases can do this without locking writes, e.g. PostgreSQL <code class="language-plaintext highlighter-rouge">pg_basebackup</code>).</li>
-  <li>Copy the snapshot to the new follower.</li>
-  <li>The follower connects to the leader and requests <strong>all changes since the snapshot’s log position</strong> (the <em>log sequence number</em> / LSN / replication offset).</li>
-  <li>Once the follower has caught up the backlog, it is <em>in sync</em> and continues streaming live changes.</li>
+  <li>Take a consistent snapshot of the leader at a known log position without blocking writes (PostgreSQL <code class="language-plaintext highlighter-rouge">pg_basebackup</code>, MySQL <code class="language-plaintext highlighter-rouge">CLONE</code> or Percona XtraBackup).</li>
+  <li>Restore the snapshot on the new node.</li>
+  <li>Stream every change since the snapshot’s log position (the PostgreSQL <strong>LSN</strong>, MySQL <strong>GTID</strong> set, or Kafka offset).</li>
+  <li>Once the backlog is applied, the follower is caught up and continues streaming live changes.</li>
 </ol>
 
-<p><strong>What gets replicated</strong> — the replication log can take several forms, each with trade-offs:</p>
+<h3 id="consensus-based-replication">Consensus-Based Replication</h3>
 
-<ul>
-  <li><strong>Statement-based</strong>: ship the SQL statements. Compact, but breaks on nondeterminism (<code class="language-plaintext highlighter-rouge">NOW()</code>, <code class="language-plaintext highlighter-rouge">RAND()</code>, auto-increment, triggers). Largely abandoned.</li>
-  <li><strong>Write-ahead log (WAL) shipping</strong>: ship the low-level storage-engine log of which bytes changed on disk. Very tight coupling — follower must run a compatible storage-engine version, which complicates rolling upgrades. (PostgreSQL.)</li>
-  <li><strong>Logical (row-based) log</strong>: ship the logical changes — “row R in table T now has these column values.” Decoupled from storage format, so it survives version skew and can feed external consumers (this is what powers <strong>change data capture / CDC</strong>). (MySQL binlog in row mode, PostgreSQL logical replication.)</li>
-  <li><strong>Trigger-based</strong>: application-level, using DB triggers to record changes into a table the replicator reads. Flexible but slower and more error-prone; used when you need selective/transformed replication.</li>
-</ul>
+<p>Many modern databases keep the single-leader shape but replace the external failover machinery with a consensus protocol. Each shard (a “range” in CockroachDB, a “region” in TiKV, a “tablet” in YugabyteDB) is a Raft or Paxos group of usually three or five replicas. The leader appends each write to the replicated log and commits it once a <strong>majority</strong> has persisted it. Leader election is part of the protocol, so failover needs no orchestrator and can never produce two leaders in the same term.</p>
 
-<h3 id="multi-leader">Multi-Leader</h3>
-
-<p>Each leader accepts writes and also acts as a follower to the other leaders, forwarding its writes to them. The motivating use cases:</p>
-
-<ul>
-  <li><strong>Multi-datacenter operation</strong>: one leader per datacenter so writes are local (low latency) and a datacenter outage does not block writes globally.</li>
-  <li><strong>Offline-capable clients</strong>: each device is effectively a leader (your calendar app keeps working on a plane, then syncs).</li>
-  <li><strong>Collaborative editing</strong>: each user’s edits apply locally and propagate.</li>
-</ul>
-
-<p>The price is <strong>write conflicts</strong>: two leaders can concurrently modify the same record, and the replication that carries those writes to each other will discover the disagreement. Conflict handling (covered <a href="#conflict-handling">below</a>) becomes mandatory, which is why multi-leader is avoided unless the use case truly needs it.</p>
-
-<p>Topologies matter — how leaders forward writes to one another affects fault tolerance:</p>
-
-<pre><code class="language-mermaid">flowchart TD
-    subgraph star["Star / tree"]
-        Root((Root)) --- A((A))
-        Root --- B((B))
-        Root --- Cn((C))
+<pre><code class="language-mermaid">flowchart LR
+    Client --&gt;|write| L
+    subgraph G["Raft group for one shard (N = 3)"]
+        L[(Leader)] --&gt;|AppendEntries| F1[(Follower)]
+        L --&gt;|AppendEntries| F2[(Follower)]
     end
-    subgraph ring["Ring"]
-        R1((A)) --&gt; R2((B)) --&gt; R3((C)) --&gt; R1
-    end
-    subgraph mesh["All-to-all"]
-        M1((A)) --- M2((B))
-        M2 --- M3((C))
-        M3 --- M1
-    end
+    F1 -.-&gt;|ack| L
+    L -.-&gt;|commit once 2 of 3 have it| Client
 </code></pre>
 
-<p>In <strong>circular</strong> and <strong>star</strong> topologies a single node failure can break the propagation path. <strong>All-to-all</strong> is more fault tolerant but can suffer <strong>causality violations</strong> — a write and its update can arrive at a node out of order if links have different latencies. This is the failure mode behind subtle multi-leader bugs, and it is fixed with version vectors (below) rather than wall-clock timestamps.</p>
+<p>The trade-offs:</p>
 
-<h3 id="leaderless-dynamo-style">Leaderless (Dynamo-style)</h3>
+<ul>
+  <li><strong>Consistency:</strong> writes are linearizable, and reads can be too when served by the leader under a lease or through a read-index round.</li>
+  <li><strong>Availability:</strong> a group of $2f + 1$ replicas tolerates $f$ failures. A minority partition cannot write.</li>
+  <li><strong>Latency:</strong> every commit costs one round-trip to the nearest majority. With replicas in three regions, that is a cross-region round-trip per write. This is why such databases let you pin leaders (leaseholders) near the users who write most.</li>
+  <li><strong>Scale:</strong> each shard has its own leader, so write throughput scales with the number of shards even though any single key has one writer.</li>
+</ul>
 
-<p>There is no leader. The client (or a coordinator node on its behalf) sends each write to <em>several</em> replicas and each read to <em>several</em> replicas, and uses <strong>quorums</strong> to decide what counts as a successful, consistent operation. This is the Amazon Dynamo design, adopted by Cassandra, Riak, and ScyllaDB.</p>
+<p>Raft and Paxos themselves are covered in <a href="consensus-and-coordination.html">Consensus and Coordination</a>.</p>
 
-<p>Because any replica accepts writes at any time, leaderless systems are highly available — there is no failover to perform when a node dies; the live replicas just keep serving. The trade-off is that consistency must be reconstructed at read time, and conflicts are again possible. The quorum math is what makes this manageable, so we treat it next as its own topic.</p>
+<h3 id="multi-leader-replication">Multi-Leader Replication</h3>
+
+<p>Several nodes accept writes and replicate them to one another. Each leader is also a follower of the others. Typical reasons:</p>
+
+<ul>
+  <li><strong>Multi-region writes.</strong> A leader in each region keeps writes local and lets each region keep accepting writes when another is down.</li>
+  <li><strong>Offline clients.</strong> Every device is effectively a leader that syncs later. A calendar app on a plane is the standard example. See <a href="client-side-consistency.html">Client-Side Consistency</a>.</li>
+  <li><strong>Collaborative editing.</strong> Each user’s edits apply locally first and propagate afterward.</li>
+</ul>
+
+<p>The cost is <strong>write conflicts</strong>. Two leaders can modify the same record concurrently, and nothing orders the two writes. Conflict handling (see <a href="#conflict-handling">below</a>) must be designed in from the start, which is why multi-leader replication is used only where one of these needs is real.</p>
+
+<p>The replication topology also matters. In <strong>ring</strong> and <strong>star</strong> topologies, one failed node can break propagation for the others. <strong>All-to-all</strong> topologies avoid that, but writes can arrive out of causal order when links have different latencies: an update can reach a node before the insert it modifies. Version vectors (below) detect this. Wall-clock timestamps do not.</p>
+
+<h3 id="leaderless-replication">Leaderless Replication</h3>
+
+<p>There is no leader. The client, or a coordinator node acting for it, sends each write to all $N$ replicas of a key and each read to several of them, and uses <strong>quorums</strong> to decide success. This design comes from Amazon’s 2007 Dynamo paper and is used by Cassandra, ScyllaDB, and Riak. (The managed DynamoDB service uses a different, Paxos-based design internally despite the name.)</p>
+
+<p>There is no failover. When a replica dies the others keep serving, which makes leaderless stores highly available for writes. In exchange, consistency is reassembled at read time, and concurrent writes to the same key can conflict.</p>
 
 <h2 id="quorum-reads-and-writes">Quorum Reads and Writes</h2>
 
-<p>Let <strong>N</strong> be the number of replicas a given key is stored on. On each write, the coordinator sends to all N and waits for <strong>W</strong> successful acknowledgements before reporting success. On each read, it queries all N (or enough of them) and waits for <strong>R</strong> responses, returning the most recent value among them.</p>
-
-<p>The central inequality is:</p>
+<p>Let $N$ be the number of replicas that store a key. A write is sent to all $N$ and reported successful once $W$ have acknowledged it. A read queries replicas until $R$ have responded and returns the newest version among them. The central condition is:</p>
 
 \[R + W &gt; N\]
 
-<p>If the read set (R nodes) and the write set (W nodes) must together exceed N, then by the pigeonhole principle <strong>they overlap in at least one node</strong> — so any read is guaranteed to contact at least one replica that saw the latest acknowledged write. That overlapping node carries the fresh value, and version metadata lets the reader recognize it as newest.</p>
+<p>When it holds, any set of $R$ replicas and any set of $W$ replicas must share at least one node (pigeonhole principle). Every read therefore reaches at least one replica that acknowledged the latest successful write, and version metadata lets the coordinator recognize that value as the newest.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    subgraph nodes["N = 5 replicas"]
-        n1((1)) ; n2((2)) ; n3((3)) ; n4((4)) ; n5((5))
-    end
-    W["W = 3 write nodes&lt;br/&gt;{1, 2, 3}"] --&gt; n1
-    W --&gt; n2
-    W --&gt; n3
-    Rd["R = 3 read nodes&lt;br/&gt;{3, 4, 5}"] --&gt; n3
-    Rd --&gt; n4
-    Rd --&gt; n5
-    n3 -.-&gt;|overlap guarantees&lt;br/&gt;fresh value| Overlap["node 3 saw the write"]
+    W["Write set, W = 3"] --&gt; n1((1))
+    W --&gt; n2((2))
+    W --&gt; n3((3))
+    R["Read set, R = 3"] --&gt; n3
+    R --&gt; n4((4))
+    R --&gt; n5((5))
+    n3 -.- O["Node 3 is in both sets,&lt;br/&gt;so the read sees the write"]
 </code></pre>
 
-<p>The number of node failures the system tolerates while still satisfying a quorum is governed by the same arithmetic:</p>
-
-\[\text{tolerable failures} = N - \max(R, W)\]
-
-<p>Common configurations, with N = 3 and N = 5, illustrate the tuning dial:</p>
+<p>The number of unavailable replicas each path can tolerate follows from the same arithmetic. Reads succeed while $N - R$ or fewer replicas are down, and writes succeed while $N - W$ or fewer are down.</p>
 
 <table>
   <thead>
@@ -3354,9 +3442,9 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>N</th>
       <th>W</th>
       <th>R</th>
-      <th>R+W&gt;N?</th>
-      <th>Reads tolerate</th>
-      <th>Writes tolerate</th>
+      <th>$R + W &gt; N$?</th>
+      <th>Write survives</th>
+      <th>Read survives</th>
       <th>Character</th>
     </tr>
   </thead>
@@ -3365,389 +3453,459 @@ document.addEventListener('DOMContentLoaded', function () {
       <td>3</td>
       <td>2</td>
       <td>2</td>
-      <td>yes (4&gt;3)</td>
-      <td>1 node down</td>
-      <td>1 node down</td>
-      <td>Balanced strong quorum</td>
+      <td>yes</td>
+      <td>1 down</td>
+      <td>1 down</td>
+      <td>Balanced; the common default</td>
     </tr>
     <tr>
       <td>3</td>
       <td>3</td>
       <td>1</td>
-      <td>yes (4&gt;3)</td>
-      <td>2 down</td>
+      <td>yes</td>
       <td>0 down</td>
+      <td>2 down</td>
       <td>Fast reads, fragile writes</td>
     </tr>
     <tr>
       <td>3</td>
       <td>1</td>
       <td>3</td>
-      <td>yes (4&gt;3)</td>
-      <td>0 down</td>
+      <td>yes</td>
       <td>2 down</td>
+      <td>0 down</td>
       <td>Fast writes, fragile reads</td>
     </tr>
     <tr>
       <td>5</td>
       <td>3</td>
       <td>3</td>
-      <td>yes (6&gt;5)</td>
+      <td>yes</td>
       <td>2 down</td>
       <td>2 down</td>
-      <td>Robust strong quorum</td>
+      <td>Survives two failures on both paths</td>
     </tr>
     <tr>
       <td>3</td>
       <td>1</td>
       <td>1</td>
-      <td><strong>no</strong> (2&lt;3)</td>
+      <td><strong>no</strong></td>
       <td>2 down</td>
       <td>2 down</td>
-      <td>Eventual consistency, max availability</td>
+      <td>Eventual consistency; lowest latency</td>
     </tr>
   </tbody>
 </table>
 
-<p>A typical default is <strong>N = 3, W = 2, R = 2</strong>: a strict quorum that survives one node failure on both paths. Choosing <strong>W = R = 1</strong> abandons the overlap guarantee for maximum availability and lowest latency — pure eventual consistency.</p>
+<p>The coordinator waits only for the fastest $W$ or $R$ responses, so a larger $N$ with the same quorum sizes also hides slow replicas and cuts tail latency.</p>
 
-<h3 id="why-quorums-are-not-actually-linearizable">Why Quorums Are Not Actually Linearizable</h3>
+<p>Cassandra and ScyllaDB expose the dial per request as a <strong>consistency level</strong>:</p>
 
-<p>The <code class="language-plaintext highlighter-rouge">R + W &gt; N</code> rule is weaker than it looks. Several edge cases mean a strict quorum is <em>not</em> guaranteed to be linearizable:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Replicas that must respond</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ONE</code>, <code class="language-plaintext highlighter-rouge">LOCAL_ONE</code></td>
+      <td>1 (in the local DC for <code class="language-plaintext highlighter-rouge">LOCAL_ONE</code>)</td>
+      <td>Lowest latency, weakest guarantee</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">QUORUM</code></td>
+      <td>Majority of all replicas across DCs</td>
+      <td>Strong reads and writes in a single-DC cluster</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">LOCAL_QUORUM</code></td>
+      <td>Majority in the coordinator’s DC</td>
+      <td>Usual multi-DC choice: strong within the region, no cross-region wait</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">EACH_QUORUM</code> (writes)</td>
+      <td>Majority in every DC</td>
+      <td>Writes that must be durable in every region before returning</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ALL</code></td>
+      <td>Every replica</td>
+      <td>Rarely justified; any one failure blocks the request</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="why-quorums-are-not-linearizable">Why Quorums Are Not Linearizable</h3>
+
+<p>$R + W &gt; N$ is weaker than it looks. Several cases break it:</p>
 
 <ul>
-  <li><strong>Sloppy quorums with hinted handoff.</strong> If the W “home” nodes for a key are unreachable, the system may accept the write on <em>other</em> reachable nodes (a sloppy quorum) and hand the data off later when the home nodes recover. The W writes and R reads can then land on disjoint node sets, breaking the overlap until handoff completes. This trades consistency for higher write availability.</li>
-  <li><strong>Concurrent writes</strong> to the same key may be ordered differently at different replicas; without a merge rule, “the latest value” is ambiguous.</li>
-  <li><strong>A write that succeeds on some but fewer than W replicas</strong> is not rolled back on the replicas that did accept it — a later read may or may not see it.</li>
-  <li><strong>Read-repair timing</strong>: if a node carrying a fresh value is restored from an older replica, the quorum count can be satisfied by stale nodes.</li>
+  <li><strong>Sloppy quorums.</strong> When some of a key’s home replicas are unreachable, Dynamo and Riak can accept the write on other nodes and hand it back later (<strong>hinted handoff</strong>). Until then, the read and write sets need not overlap. Cassandra stores hints too, but hints do not count toward the consistency level except for the explicit <code class="language-plaintext highlighter-rouge">ANY</code> level.</li>
+  <li><strong>Concurrent writes.</strong> Two writes to the same key can land in different orders on different replicas. Without a conflict rule, “the newest value” is undefined.</li>
+  <li><strong>Partial writes.</strong> A write that reaches fewer than $W$ replicas is reported as failed but is not rolled back where it did land. Later reads may or may not return it.</li>
+  <li><strong>Restores from stale copies.</strong> If a replica holding the new value fails and is rebuilt from an older one, the number of replicas holding the new value can drop below $W$.</li>
+  <li><strong>Read-then-write races.</strong> Even with quorums on both paths, a reader can see a new value and a later reader can see the old one while the write is still propagating. Making that impossible requires read repair to complete before the read returns (Cassandra’s blocking read repair does this), and even then sequences of operations are not linearizable.</li>
 </ul>
 
-<p>So quorums give you <em>strong eventual</em> behavior and good staleness bounds, not the strict linearizability of consensus (Raft/Paxos). When you need true linearizability, use a <a href="../advanced/distributed-systems-theory/">consensus-backed system</a>. The quorum dial is for when “usually fresh, always available” is the right trade.</p>
+<p>Quorums provide good staleness bounds and high availability, not linearizability. For linearizable reads and writes, use a <a href="consensus-and-coordination.html">consensus-backed system</a>. Cassandra offers lightweight transactions (Paxos-based compare-and-set) for single-partition cases. Cassandra 6.0, still in alpha in September 2026, adds <strong>Accord</strong>, a leaderless consensus protocol for multi-partition strict-serializable transactions.</p>
 
-<h3 id="anti-entropy-keeping-replicas-convergent">Anti-Entropy: Keeping Replicas Convergent</h3>
+<h3 id="anti-entropy">Anti-Entropy</h3>
 
-<p>Two background mechanisms repair divergence in leaderless systems:</p>
+<p>Leaderless stores use two background mechanisms to bring divergent replicas back together:</p>
 
 <ul>
-  <li><strong>Read repair.</strong> When a read contacts R replicas and notices one returned a stale value, the coordinator writes the fresh value back to the stale replica. This opportunistically repairs frequently-read keys — but keys that are rarely read drift indefinitely.</li>
-  <li><strong>Anti-entropy / Merkle trees.</strong> A background process continually compares replicas and copies missing data. To avoid transferring everything, replicas exchange <strong>Merkle trees</strong> (hash trees over key ranges): identical subtree hashes are skipped, and the process recurses only into ranges whose hashes differ, so the data moved is proportional to the divergence, not the dataset size.</li>
+  <li><strong>Read repair.</strong> When a read sees a replica return an older version, the coordinator writes the newer one back to it. Frequently read keys get fixed this way. Keys that are rarely read do not. Cassandra 4.0 removed the probabilistic background read repair setting (<code class="language-plaintext highlighter-rouge">read_repair_chance</code>) and kept blocking read repair on quorum reads.</li>
+  <li><strong>Merkle-tree repair.</strong> Replicas exchange hash trees over their key ranges, skip subtrees whose hashes match, and recurse only into ranges that differ, so the data transferred is proportional to the divergence rather than the dataset. Cassandra runs this as <code class="language-plaintext highlighter-rouge">nodetool repair</code>, usually incrementally and on a schedule shorter than <code class="language-plaintext highlighter-rouge">gc_grace_seconds</code> so that deleted data cannot come back. <a href="failure-detection.html#anti-entropy-and-merkle-trees">Failure Detection</a> walks through the tree comparison.</li>
 </ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Sketch of a leaderless quorum coordinator (read path with read-repair)
-</span><span class="kn">import</span> <span class="n">time</span>
-<span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
-
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Sketch of a leaderless quorum coordinator with read repair.
+# Replica clients are assumed to expose store(key, value, version) and
+# fetch(key) -&gt; (value, version), raising ReplicaUnavailable on failure.
+</span>
 <span class="k">class</span> <span class="nc">QuorumStore</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">replicas</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">replicas</span> <span class="o">=</span> <span class="n">replicas</span>      <span class="c1"># list of replica client objects
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">N</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">W</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">R</span> <span class="o">=</span> <span class="n">n</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">r</span>
-        <span class="k">assert</span> <span class="n">self</span><span class="p">.</span><span class="n">R</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">W</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">N</span><span class="p">,</span> <span class="sh">"</span><span class="s">R + W must exceed N for quorum overlap</span><span class="sh">"</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">replicas</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">replicas</span> <span class="o">=</span> <span class="n">replicas</span>               <span class="c1"># the N replicas that own this key
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">N</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">W</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">R</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">replicas</span><span class="p">),</span> <span class="n">w</span><span class="p">,</span> <span class="n">r</span>
+        <span class="k">assert</span> <span class="n">self</span><span class="p">.</span><span class="n">R</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">W</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">N</span><span class="p">,</span> <span class="sh">"</span><span class="s">quorums must overlap</span><span class="sh">"</span>
 
-    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="n">version</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">time_ns</span><span class="p">()</span>                  <span class="c1"># version stamp (real systems use a logical clock)
+    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">version</span><span class="p">):</span>
+        <span class="c1"># version: from a logical clock or version vector, not time.time()
 </span>        <span class="n">acks</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">[:</span><span class="n">self</span><span class="p">.</span><span class="n">N</span><span class="p">]:</span>
-            <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">:</span>          <span class="c1"># real systems send in parallel
+</span>            <span class="k">try</span><span class="p">:</span>
                 <span class="n">replica</span><span class="p">.</span><span class="nf">store</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">version</span><span class="p">)</span>
                 <span class="n">acks</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">if</span> <span class="n">acks</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">W</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="bp">True</span>                    <span class="c1"># quorum of writes satisfied
-</span>            <span class="k">except</span> <span class="n">ReplicaUnavailable</span><span class="p">:</span>
-                <span class="k">continue</span>
-        <span class="k">raise</span> <span class="nc">QuorumNotReached</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">only </span><span class="si">{</span><span class="n">acks</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">W</span><span class="si">}</span><span class="s"> write acks</span><span class="sh">"</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
-        <span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>                             <span class="c1"># (value, version, replica)
-</span>        <span class="k">for</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">[:</span><span class="n">self</span><span class="p">.</span><span class="n">N</span><span class="p">]:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">responses</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="o">*</span><span class="n">replica</span><span class="p">.</span><span class="nf">fetch</span><span class="p">(</span><span class="n">key</span><span class="p">),</span> <span class="n">replica</span><span class="p">))</span>
             <span class="k">except</span> <span class="n">ReplicaUnavailable</span><span class="p">:</span>
                 <span class="k">continue</span>
-            <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">responses</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">R</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">acks</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">W</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">QuorumNotReached</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">acks</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">W</span><span class="si">}</span><span class="s"> write acks</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="n">responses</span> <span class="o">=</span> <span class="p">[]</span>                          <span class="c1"># (value, version, replica)
+</span>        <span class="k">for</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">value</span><span class="p">,</span> <span class="n">version</span> <span class="o">=</span> <span class="n">replica</span><span class="p">.</span><span class="nf">fetch</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="n">responses</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">value</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">replica</span><span class="p">))</span>
+            <span class="k">except</span> <span class="n">ReplicaUnavailable</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">responses</span><span class="p">)</span> <span class="o">==</span> <span class="n">self</span><span class="p">.</span><span class="n">R</span><span class="p">:</span>
                 <span class="k">break</span>
         <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">responses</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">R</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="nc">QuorumNotReached</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">only </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">responses</span><span class="p">)</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">R</span><span class="si">}</span><span class="s"> read acks</span><span class="sh">"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="nc">QuorumNotReached</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">responses</span><span class="p">)</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">R</span><span class="si">}</span><span class="s"> read acks</span><span class="sh">"</span><span class="p">)</span>
 
-        <span class="c1"># Newest version wins; repair any stale replica we read from.
-</span>        <span class="n">value</span><span class="p">,</span> <span class="n">newest</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">responses</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">ver</span><span class="p">,</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">responses</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">ver</span> <span class="o">&lt;</span> <span class="n">newest</span><span class="p">:</span>
-                <span class="n">replica</span><span class="p">.</span><span class="nf">store</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">newest</span><span class="p">)</span>  <span class="c1"># read repair
+        <span class="n">value</span><span class="p">,</span> <span class="n">newest</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">responses</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">version</span><span class="p">,</span> <span class="n">replica</span> <span class="ow">in</span> <span class="n">responses</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">version</span> <span class="o">&lt;</span> <span class="n">newest</span><span class="p">:</span>
+                <span class="n">replica</span><span class="p">.</span><span class="nf">store</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">newest</span><span class="p">)</span>   <span class="c1"># read repair
 </span>        <span class="k">return</span> <span class="n">value</span>
 </code></pre></div></div>
 
-<h2 id="read-your-writes-and-session-guarantees">Read-Your-Writes and Session Guarantees</h2>
+<h2 id="session-guarantees">Session Guarantees</h2>
 
-<p>Asynchronous replication means a client can write to the leader, then immediately read from a <em>lagging</em> follower and not see its own write — a jarring “did my edit just vanish?” experience. Rather than pay for full linearizability everywhere, systems offer a menu of <strong>session guarantees</strong> (also called <em>client-centric consistency</em>) that fix the most visible anomalies cheaply.</p>
+<p>With asynchronous followers, a client can write to the leader and then read from a follower that has not applied the write yet. From the user’s point of view the edit has vanished. Full linearizability everywhere is expensive, so systems offer cheaper <strong>session guarantees</strong> (client-centric consistency) that remove the anomalies users notice.</p>
 
 <pre><code class="language-mermaid">sequenceDiagram
     participant U as User
     participant L as Leader
     participant F as Lagging follower
-    U-&gt;&gt;L: write profile bio
-    L--&gt;&gt;U: ok
-    U-&gt;&gt;F: read profile (lag not yet applied)
-    F--&gt;&gt;U: old bio  -- looks like the write was lost!
+    U-&gt;&gt;L: update profile bio
+    L--&gt;&gt;U: ok (LSN 1042)
+    U-&gt;&gt;F: read profile
+    Note over F: applied only up to LSN 1038
+    F--&gt;&gt;U: old bio
 </code></pre>
 
 <table>
   <thead>
     <tr>
       <th>Guarantee</th>
-      <th>Promise to a single client/session</th>
-      <th>Anomaly it prevents</th>
+      <th>Promise to one session</th>
+      <th>Anomaly prevented</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Read-your-writes</strong> (read-after-write)</td>
-      <td>You always see your own most recent writes</td>
-      <td>“My comment disappeared after I posted it”</td>
+      <td>Read-your-writes</td>
+      <td>You see your own completed writes</td>
+      <td>A posted comment disappears on refresh</td>
     </tr>
     <tr>
-      <td><strong>Monotonic reads</strong></td>
-      <td>Successive reads never go backward in time</td>
-      <td>Refreshing and seeing newer data, then older</td>
+      <td>Monotonic reads</td>
+      <td>Successive reads never go back in time</td>
+      <td>Data appears, then disappears on the next refresh</td>
     </tr>
     <tr>
-      <td><strong>Consistent prefix reads</strong></td>
-      <td>If you see write B, you’ve seen everything causally before B (write A)</td>
-      <td>Seeing an answer before its question</td>
+      <td>Consistent prefix</td>
+      <td>You never see an effect before its cause</td>
+      <td>An answer shown before its question</td>
     </tr>
     <tr>
-      <td><strong>Writes-follow-reads</strong> (session causality)</td>
-      <td>Writes are ordered after any writes you read</td>
-      <td>Replying to a comment you can no longer see</td>
+      <td>Writes-follow-reads</td>
+      <td>Your writes are ordered after writes you have read</td>
+      <td>A reply to a comment that other replicas do not have yet</td>
     </tr>
   </tbody>
 </table>
 
-<p>Implementation techniques, in increasing cost:</p>
+<p>Common implementations, cheapest first:</p>
 
 <ul>
-  <li><strong>Read-your-writes</strong>:
-    <ul>
-      <li>Read recently-modified data from the leader (e.g., your own profile from the leader, everyone else’s from a follower).</li>
-      <li>Track the <strong>last write timestamp/LSN</strong> in the client session; route reads to a replica that has applied at least that position, or wait until it has.</li>
-      <li>Use the client’s last-write time to reject too-stale replicas.</li>
-    </ul>
-  </li>
-  <li><strong>Monotonic reads</strong>: pin a session to a single replica (e.g., hash the user ID to a replica) so reads never jump to a less-advanced one. If that replica fails, the session must move forward, not backward.</li>
-  <li><strong>Consistent prefix / writes-follow-reads</strong>: track causal dependencies (logical timestamps or version vectors) and only serve a read once the replica has applied all causally-prior writes.</li>
+  <li><strong>Route by recency.</strong> Read a user’s own recently modified data from the leader and everything else from followers.</li>
+  <li><strong>Carry a position token.</strong> The session remembers the LSN, GTID, or version vector of its last write and reads only from replicas that have applied at least that position, falling back to the leader otherwise. MongoDB’s causally consistent sessions and CockroachDB’s follower reads are built-in forms of this.</li>
+  <li><strong>Stick to one replica.</strong> Pinning a session to one replica gives monotonic reads. If that replica fails, the session must move to a replica that is at least as far ahead.</li>
 </ul>
 
-<p>These are <em>per-session</em> properties — they say nothing about what <em>other</em> clients see. That is exactly why they are cheap: they require tracking a little state per client rather than coordinating across the cluster. For the formal placement of these in the consistency hierarchy, see <a href="../advanced/distributed-systems-theory/#consistency-models">Distributed Systems Theory</a> and the consistency-model table in the <a href="consensus-and-coordination.html#consistency-models">hub overview</a>.</p>
+<p>These guarantees apply to one session only and say nothing about what other clients observe. That is what makes them cheap. <a href="client-side-consistency.html#session-guarantees">Client-Side Consistency</a> covers enforcement with version vectors, and <a href="consensus-and-coordination.html#consistency-models">Consensus and Coordination</a> places them in the consistency hierarchy.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Read-your-writes via LSN tracking in the client session
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Read-your-writes by tracking the session's last-write LSN.
 </span><span class="k">class</span> <span class="nc">Session</span><span class="p">:</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">leader</span><span class="p">,</span> <span class="n">followers</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">leader</span> <span class="o">=</span> <span class="n">leader</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">followers</span> <span class="o">=</span> <span class="n">followers</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">last_write_lsn</span> <span class="o">=</span> <span class="mi">0</span>           <span class="c1"># high-water mark of this session's writes
-</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">leader</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">followers</span> <span class="o">=</span> <span class="n">leader</span><span class="p">,</span> <span class="n">followers</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">last_write_lsn</span> <span class="o">=</span> <span class="mi">0</span>
+
     <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">last_write_lsn</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">leader</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>   <span class="c1"># leader returns the LSN it assigned
+        <span class="n">self</span><span class="p">.</span><span class="n">last_write_lsn</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">leader</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>  <span class="c1"># leader returns commit LSN
 </span>
     <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
-        <span class="c1"># Pick any follower that has applied at least our last write; else fall back to leader.
-</span>        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">followers</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">f</span><span class="p">.</span><span class="nf">applied_lsn</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">last_write_lsn</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">followers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">f</span><span class="p">.</span><span class="nf">replay_lsn</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">last_write_lsn</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">leader</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>      <span class="c1"># no follower caught up yet -&gt; read the source of truth
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">leader</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>   <span class="c1"># no follower has caught up yet
 </span></code></pre></div></div>
 
 <h2 id="replica-placement">Replica Placement</h2>
 
-<p><em>Where</em> copies live determines the failure correlations you survive and the latencies your users feel. The guiding principle: <strong>place replicas in independent failure domains</strong>, and weigh that against the latency cost of distance.</p>
-
-<ul>
-  <li><strong>Rack and host diversity.</strong> Two replicas on the same physical host, top-of-rack switch, or power circuit share a failure. Placement policies (Cassandra’s <code class="language-plaintext highlighter-rouge">NetworkTopologyStrategy</code>, Kubernetes pod anti-affinity, HDFS rack awareness) spread replicas across racks so a rack outage loses at most one copy.</li>
-  <li><strong>Availability zones.</strong> Within a cloud region, replicas across AZs survive a datacenter (AZ) outage with low (sub-millisecond to single-digit-ms) inter-AZ latency. This is the standard durable-and-fast tier.</li>
-  <li><strong>Regions.</strong> Cross-region replicas survive a whole region’s loss and serve local reads to distant users, but inter-region latency (tens to hundreds of ms) makes synchronous cross-region writes painful — hence multi-leader or async region replication for geo-distribution.</li>
-  <li><strong>Quorum-aware placement.</strong> In leaderless/quorum systems you can require that a write quorum spans at least two AZs (e.g., Cassandra’s <code class="language-plaintext highlighter-rouge">LOCAL_QUORUM</code> vs <code class="language-plaintext highlighter-rouge">EACH_QUORUM</code>) so that no single AZ failure both loses data and breaks the quorum.</li>
-</ul>
-
-<pre><code class="language-mermaid">flowchart TD
-    subgraph region["Region us-east-1"]
-        subgraph az1["AZ a"]
-            r1[(Replica 1&lt;br/&gt;leader)]
-        end
-        subgraph az2["AZ b"]
-            r2[(Replica 2&lt;br/&gt;sync follower)]
-        end
-        subgraph az3["AZ c"]
-            r3[(Replica 3&lt;br/&gt;async follower)]
-        end
-    end
-    subgraph region2["Region eu-west-1"]
-        r4[(Replica 4&lt;br/&gt;async, DR + local reads)]
-    end
-    r1 --&gt; r2
-    r1 --&gt; r3
-    r1 -.async.-&gt; r4
-</code></pre>
-
-<p>A common production layout: leader + synchronous follower in two AZs of the primary region (no data loss on an AZ failure), an async follower in a third AZ (read scaling), and an async replica in a second region (disaster recovery and low-latency reads for that region’s users).</p>
-
-<h2 id="failover-and-failback">Failover and Failback</h2>
-
-<p>When the leader dies, a single-leader system must promote a follower. <strong>Failover</strong> is the most dangerous operation in replication because it is rarely exercised and full of edge cases.</p>
-
-<pre><code class="language-mermaid">stateDiagram-v2
-    [*] --&gt; Healthy
-    Healthy --&gt; Suspected: heartbeats missed
-    Suspected --&gt; Healthy: leader responds (false alarm)
-    Suspected --&gt; Electing: timeout exceeded
-    Electing --&gt; Promoting: new leader chosen&lt;br/&gt;(most up-to-date follower)
-    Promoting --&gt; Reconfiguring: clients + replicas&lt;br/&gt;repointed to new leader
-    Reconfiguring --&gt; Healthy
-    Healthy --&gt; Failback: old leader returns as follower
-    Failback --&gt; Healthy
-</code></pre>
-
-<p>The steps and their hazards:</p>
-
-<ol>
-  <li><strong>Detect failure.</strong> No perfect failure detector exists (FLP) — you use timeouts on heartbeats. Too short causes spurious failovers (a GC pause or network blip looks like death); too long extends downtime. Typical timeouts are 5–30 s.</li>
-  <li><strong>Choose a new leader.</strong> Either by <strong>election</strong> (the replicas run a consensus round, e.g., Raft) or by a designated <strong>controller/orchestrator</strong> (Patroni + etcd, MongoDB’s replica-set election, Orchestrator for MySQL). The best candidate is the follower with the <strong>most recent data</strong> (highest applied LSN) to minimize loss.</li>
-  <li><strong>Reconfigure routing.</strong> Clients and the other followers must start sending writes to the new leader, usually via a virtual IP, a proxy (HAProxy/ProxySQL), or service discovery (DNS/etcd). Stale clients that still hold the old endpoint must be fenced off.</li>
-  <li><strong>Constrain the old leader (fencing).</strong> When the old leader comes back it may still believe it is leader — a <strong>split brain</strong> with two leaders accepting conflicting writes. <strong>Fencing</strong> (a.k.a. STONITH — “shoot the other node in the head”) forces the old leader to step down: a fencing token (a monotonically increasing epoch number that storage/locks reject if stale), revoking its lease, or powering it off.</li>
-</ol>
-
-<h3 id="failure-modes-of-failover">Failure Modes of Failover</h3>
-
-<p>These are the classic ways failover causes <em>more</em> damage than the original crash:</p>
-
-<ul>
-  <li><strong>Lost writes (async replication).</strong> Writes acknowledged by the old leader but not yet replicated are gone when a less-advanced follower is promoted. If those IDs were used elsewhere (e.g., reused primary keys that another system already referenced), discarding them causes cross-system corruption. (A real GitHub incident discarded MySQL writes that Redis had already consumed.)</li>
-  <li><strong>Split brain.</strong> Two nodes both accept writes; without fencing, their divergent histories must be reconciled or one is discarded, losing data.</li>
-  <li><strong>Cascading failover storms.</strong> A too-aggressive timeout under high load triggers failover, the new leader is also overloaded, and the cluster thrashes between leaders.</li>
-</ul>
-
-<h3 id="failback">Failback</h3>
-
-<p><strong>Failback</strong> is returning to the original (or preferred) leader after it recovers, or after a region is restored. The recovered node must rejoin as a <strong>follower first</strong>, catch up on everything it missed (often via a full resync if its log diverged), and only then — during a controlled, low-traffic window — be promoted back if a preferred-leader policy demands it. Automated failover is common; automated <em>failback</em> is often deliberately manual, because flipping the leader twice doubles the disruption and many teams prefer to leave the new leader in place until a maintenance window.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Sketch of orchestrator-driven failover with fencing tokens
-</span><span class="k">class</span> <span class="nc">FailoverController</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">followers</span><span class="p">,</span> <span class="n">lease_store</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">followers</span> <span class="o">=</span> <span class="n">followers</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">lease_store</span> <span class="o">=</span> <span class="n">lease_store</span>     <span class="c1"># provides monotonically increasing epoch tokens
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">epoch</span> <span class="o">=</span> <span class="mi">0</span>
-
-    <span class="k">def</span> <span class="nf">on_leader_suspected</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="nf">_confirm_dead</span><span class="p">():</span>       <span class="c1"># re-check across the timeout window
-</span>            <span class="k">return</span>                         <span class="c1"># false alarm; do nothing
-</span>        <span class="n">candidate</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">followers</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="p">.</span><span class="nf">applied_lsn</span><span class="p">())</span>  <span class="c1"># least data loss
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">epoch</span> <span class="o">+=</span> <span class="mi">1</span>                    <span class="c1"># new fencing epoch invalidates the old leader
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">lease_store</span><span class="p">.</span><span class="nf">grant_leader</span><span class="p">(</span><span class="n">candidate</span><span class="p">.</span><span class="nb">id</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">epoch</span><span class="p">)</span>
-        <span class="n">candidate</span><span class="p">.</span><span class="nf">promote</span><span class="p">(</span><span class="n">epoch</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">epoch</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="nf">_repoint_clients</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>   <span class="c1"># update proxy / service discovery
-</span>        <span class="c1"># Any write from the old leader now carries a stale epoch and is rejected by storage.
-</span></code></pre></div></div>
-
-<h2 id="replication-lag-and-monitoring">Replication Lag and Monitoring</h2>
-
-<p>Replication lag is the delay between a write landing on the leader and that write being visible on a given replica. Under healthy conditions it is milliseconds; under load, large transactions, or network strain it can balloon to seconds or minutes, and that is when the session anomalies above start hurting users.</p>
-
-<p>Two ways to express lag, and you should track both:</p>
-
-<ul>
-  <li><strong>Time lag</strong> — wall-clock seconds the replica is behind. Intuitive for SLOs (“replicas within 1 s”).</li>
-  <li><strong>Byte/offset lag (LSN gap)</strong> — how many WAL bytes / log entries the replica has not yet applied. The leading indicator: byte lag spikes <em>before</em> time lag, because a replica can be many bytes behind while still appearing time-current if it just caught up.</li>
-</ul>
-
-<p>Concrete signals to alert on:</p>
+<p>Where the copies live determines which failures the system survives and what latency users see. Put replicas in <strong>independent failure domains</strong> and weigh that against the latency cost of distance.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Metric</th>
-      <th>Source</th>
-      <th>Why it matters</th>
+      <th>Domain</th>
+      <th>Survives</th>
+      <th>Replication latency</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">pg_last_wal_replay_lsn</code> vs <code class="language-plaintext highlighter-rouge">pg_current_wal_lsn</code> (PostgreSQL)</td>
-      <td>leader/replica</td>
-      <td>Byte lag per replica</td>
+      <td>Different hosts and racks</td>
+      <td>Host, top-of-rack switch, or power-feed failure</td>
+      <td>Tens of microseconds</td>
+      <td>Minimum for any replicated store (HDFS rack awareness, Kubernetes topology spread)</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">Seconds_Behind_Master</code> (MySQL)</td>
-      <td>replica</td>
-      <td>Time lag (beware: pauses to 0 if replication thread stalls)</td>
+      <td>Availability zones in one region</td>
+      <td>Loss of a datacenter</td>
+      <td>Usually around 1 ms or less; a few ms at most</td>
+      <td>Synchronous or quorum replication</td>
     </tr>
     <tr>
-      <td>Replica apply rate vs leader write rate</td>
-      <td>both</td>
-      <td>Whether the gap is growing or shrinking</td>
-    </tr>
-    <tr>
-      <td>Number of in-sync replicas (ISR)</td>
-      <td>leader</td>
-      <td>Below the min breaks the durability/quorum guarantee</td>
-    </tr>
-    <tr>
-      <td>Replication connection up/down</td>
-      <td>each link</td>
-      <td>A broken link looks like “0 lag” until you check the connection</td>
+      <td>Regions</td>
+      <td>Loss of a whole region</td>
+      <td>Tens to hundreds of ms</td>
+      <td>Async disaster-recovery copies, local reads, or multi-leader/consensus with leader pinning</td>
     </tr>
   </tbody>
 </table>
 
-<p>Watch for the <strong>MySQL <code class="language-plaintext highlighter-rouge">Seconds_Behind_Master</code> trap</strong>: it reports 0 when the replica’s SQL thread is <em>stopped</em> (it isn’t behind, it isn’t applying anything), masking a total stall. Always pair time lag with a liveness/connection check and with byte lag.</p>
+<p>Quorum systems should also make the quorum span failure domains. With three replicas in three zones and $W = 2$, losing one zone leaves every key writable and readable. Cassandra’s <code class="language-plaintext highlighter-rouge">NetworkTopologyStrategy</code> places replicas by rack and DC for this reason.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Minimal lag monitor: alert on growing byte lag or a dead replication link
-</span><span class="k">class</span> <span class="nc">LagMonitor</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">leader</span><span class="p">,</span> <span class="n">replicas</span><span class="p">,</span> <span class="n">max_byte_lag</span><span class="p">,</span> <span class="n">max_time_lag_s</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">leader</span> <span class="o">=</span> <span class="n">leader</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">replicas</span> <span class="o">=</span> <span class="n">replicas</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">max_byte_lag</span> <span class="o">=</span> <span class="n">max_byte_lag</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">max_time_lag_s</span> <span class="o">=</span> <span class="n">max_time_lag_s</span>
+<pre><code class="language-mermaid">flowchart TD
+    subgraph P["Primary region"]
+        subgraph a["Zone a"]
+            r1[(Leader)]
+        end
+        subgraph b["Zone b"]
+            r2[(Sync standby)]
+        end
+        subgraph c["Zone c"]
+            r3[(Async read replica)]
+        end
+    end
+    subgraph D["DR region"]
+        r4[(Async replica:&lt;br/&gt;DR and local reads)]
+    end
+    r1 --&gt;|sync| r2
+    r1 --&gt;|async| r3
+    r1 -.-&gt;|async, cross-region| r4
+</code></pre>
 
-    <span class="k">def</span> <span class="nf">check</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">head</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">leader</span><span class="p">.</span><span class="nf">current_lsn</span><span class="p">()</span>
-        <span class="n">alerts</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">replicas</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="p">.</span><span class="nf">replication_connected</span><span class="p">():</span>
-                <span class="n">alerts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">: replication link DOWN</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># the 'silent 0 lag' case
-</span>                <span class="k">continue</span>
-            <span class="n">byte_lag</span> <span class="o">=</span> <span class="n">head</span> <span class="o">-</span> <span class="n">r</span><span class="p">.</span><span class="nf">applied_lsn</span><span class="p">()</span>
-            <span class="n">time_lag</span> <span class="o">=</span> <span class="n">r</span><span class="p">.</span><span class="nf">replay_time_lag_seconds</span><span class="p">()</span>
-            <span class="k">if</span> <span class="n">byte_lag</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">max_byte_lag</span><span class="p">:</span>
-                <span class="n">alerts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">: byte lag </span><span class="si">{</span><span class="n">byte_lag</span><span class="si">}</span><span class="s"> &gt; </span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">max_byte_lag</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">time_lag</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">max_time_lag_s</span><span class="p">:</span>
-                <span class="n">alerts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">: time lag </span><span class="si">{</span><span class="n">time_lag</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">f</span><span class="si">}</span><span class="s">s &gt; </span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">max_time_lag_s</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">alerts</span>
+<p>The layout shown is a common single-leader production setup: a leader and a synchronous standby in two zones (a zone failure loses no data), an asynchronous replica in a third zone for read scaling, and an asynchronous replica in a second region for disaster recovery.</p>
+
+<h2 id="failover-and-failback">Failover and Failback</h2>
+
+<p>When the leader of a single-leader system fails, a follower has to be promoted. Failover is the most dangerous routine operation in replication: it happens rarely, it happens under stress, and it has many edge cases. Consensus-based systems run it inside the protocol. Everything else relies on an external orchestrator such as <strong>Patroni</strong> or <strong>CloudNativePG</strong> for PostgreSQL, <strong>Orchestrator</strong> or InnoDB Cluster for MySQL, or Sentinel for Redis/Valkey.</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Healthy
+    Healthy --&gt; Suspected: heartbeats missed
+    Suspected --&gt; Healthy: leader responds
+    Suspected --&gt; Fencing: timeout confirmed
+    Fencing --&gt; Promoting: old leader fenced&lt;br/&gt;(lease revoked, epoch bumped)
+    Promoting --&gt; Rerouting: most up-to-date&lt;br/&gt;follower promoted
+    Rerouting --&gt; Healthy: clients and followers&lt;br/&gt;follow new leader
+    Healthy --&gt; Rejoining: old leader returns
+    Rejoining --&gt; Healthy: resynced as follower
+</code></pre>
+
+<ol>
+  <li><strong>Detect the failure.</strong> No failure detector is perfect in an asynchronous network (see <a href="failure-detection.html">Failure Detection</a>), so systems use heartbeat timeouts, typically tens of seconds. A short timeout mistakes a GC pause or network blip for a crash. A long one extends the outage.</li>
+  <li><strong>Fence the old leader.</strong> Before a new leader starts accepting writes, make sure the old one cannot. Options: let its lease expire (Patroni’s leader key in etcd or Consul has a TTL, and a primary that cannot renew it demotes itself), bump an <strong>epoch</strong> or fencing token that storage rejects when stale, or cut power (STONITH, “shoot the other node in the head”).</li>
+  <li><strong>Choose the new leader.</strong> Pick the follower with the highest applied log position to minimize lost writes. With synchronous or quorum commit, promote a replica known to hold every committed write.</li>
+  <li><strong>Reroute clients.</strong> Point writers at the new leader through a virtual IP, a proxy (HAProxy, PgBouncer, ProxySQL), DNS, or <a href="service-discovery.html">service discovery</a>. Clients holding connections to the old leader must be disconnected.</li>
+</ol>
+
+<h3 id="how-failover-goes-wrong">How Failover Goes Wrong</h3>
+
+<ul>
+  <li><strong>Lost writes.</strong> Under asynchronous replication, writes acknowledged by the old leader but not yet shipped disappear when a less advanced follower is promoted. In a 2012 GitHub incident, an out-of-date MySQL follower was promoted and reissued auto-increment primary keys that were already referenced in Redis, which exposed some private data to the wrong users.</li>
+  <li><strong>Split brain.</strong> Without fencing, the old and new leaders both accept writes, and one history must later be discarded or reconciled by hand.</li>
+  <li><strong>Flapping.</strong> An aggressive timeout under heavy load triggers a failover, the new leader is just as overloaded, and leadership moves back and forth while no work gets done. Rate-limit automatic failovers.</li>
+  <li><strong>Stranded consumers.</strong> CDC pipelines and logical subscribers attached to the old primary break unless their replication slots were synchronized. This is the gap PostgreSQL 17 failover slots close.</li>
+</ul>
+
+<h3 id="failback">Failback</h3>
+
+<p><strong>Failback</strong> returns leadership to the original or preferred node. The recovered node rejoins as a follower first. If its log diverged (it accepted writes the new leader never saw), it has to be rewound (<code class="language-plaintext highlighter-rouge">pg_rewind</code>) or rebuilt. Only then, and during a quiet period, should it be promoted back. Many teams automate failover but leave failback manual, because each leadership change is a disruption and the new leader is usually fine where it is.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Orchestrator-driven failover with an epoch-based fencing token.
+</span><span class="k">class</span> <span class="nc">FailoverController</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">followers</span><span class="p">,</span> <span class="n">coord</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">followers</span> <span class="o">=</span> <span class="n">followers</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">coord</span> <span class="o">=</span> <span class="n">coord</span>          <span class="c1"># linearizable store (etcd/ZooKeeper) holding the epoch
+</span>
+    <span class="k">def</span> <span class="nf">on_leader_suspected</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="nf">_confirm_dead</span><span class="p">():</span>            <span class="c1"># re-check across the timeout window
+</span>            <span class="k">return</span>
+        <span class="n">epoch</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">coord</span><span class="p">.</span><span class="nf">increment</span><span class="p">(</span><span class="sh">"</span><span class="s">leader_epoch</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># atomic; old leader's epoch is now stale
+</span>        <span class="n">candidate</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">followers</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">f</span><span class="p">:</span> <span class="n">f</span><span class="p">.</span><span class="nf">applied_lsn</span><span class="p">())</span>
+        <span class="n">candidate</span><span class="p">.</span><span class="nf">promote</span><span class="p">(</span><span class="n">epoch</span><span class="o">=</span><span class="n">epoch</span><span class="p">)</span>          <span class="c1"># storage rejects writes carrying an older epoch
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">_repoint_clients</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>Operationally, lag drives policy: route latency-sensitive consistent reads to the leader or to replicas within a lag threshold; remove a too-lagged replica from the read pool; and in quorum systems, refuse to count an out-of-sync replica toward W. Lag is also why <strong>min in-sync replicas</strong> (Kafka <code class="language-plaintext highlighter-rouge">min.insync.replicas</code>, etc.) exists — if too few replicas are caught up, the leader should refuse writes rather than silently weaken durability.</p>
+<h2 id="replication-lag">Replication Lag</h2>
+
+<p><strong>Replication lag</strong> is the delay between a write committing on the leader and becoming visible on a replica. Under normal load it is milliseconds. Large transactions, long-running queries on the replica, network trouble, or a single-threaded apply process can stretch it to minutes, and that is when the session anomalies above become visible to users.</p>
+
+<p>Track lag in two forms:</p>
+
+<ul>
+  <li><strong>Time lag:</strong> how many seconds the replica is behind. Easy to state as an SLO (“replicas within 1 s”).</li>
+  <li><strong>Position lag:</strong> how many WAL bytes, binlog events, or offsets the replica has not applied. It shows a growing backlog before time lag does.</li>
+</ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>Signal</th>
+      <th>System</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">write_lag</code>, <code class="language-plaintext highlighter-rouge">flush_lag</code>, <code class="language-plaintext highlighter-rouge">replay_lag</code> in <code class="language-plaintext highlighter-rouge">pg_stat_replication</code></td>
+      <td>PostgreSQL (on the primary)</td>
+      <td>Time lag at each stage for each standby</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn)</code></td>
+      <td>PostgreSQL</td>
+      <td>Byte lag for each standby</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pg_replication_slots.wal_status</code>, retained WAL</td>
+      <td>PostgreSQL</td>
+      <td>An abandoned slot retains WAL until the disk fills; cap it with <code class="language-plaintext highlighter-rouge">max_slot_wal_keep_size</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Seconds_Behind_Source</code> from <code class="language-plaintext highlighter-rouge">SHOW REPLICA STATUS</code></td>
+      <td>MySQL 8.0.22+ (formerly <code class="language-plaintext highlighter-rouge">Seconds_Behind_Master</code>)</td>
+      <td>See the caveat below</td>
+    </tr>
+    <tr>
+      <td>Heartbeat table (for example <code class="language-plaintext highlighter-rouge">pt-heartbeat</code>)</td>
+      <td>MySQL, any database</td>
+      <td>The leader writes a timestamp every second; lag is the replica’s age of that row</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">UnderReplicatedPartitions</code>, <code class="language-plaintext highlighter-rouge">UnderMinIsrPartitionCount</code></td>
+      <td>Kafka</td>
+      <td>ISR shrinkage; partitions under the minimum reject <code class="language-plaintext highlighter-rouge">acks=all</code> writes</td>
+    </tr>
+    <tr>
+      <td>Replication connection status</td>
+      <td>All</td>
+      <td>A dead link can look like zero lag</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>The <code class="language-plaintext highlighter-rouge">Seconds_Behind_Source</code> caveat.</strong> MySQL computes it from the timestamp of the last event the applier (SQL) thread executed from the relay log. If the receiver (I/O) thread stalls, for example because of a network problem, the applier drains the relay log and the value drops to 0 while the replica falls further and further behind. The value is NULL when replication is stopped. Always check <code class="language-plaintext highlighter-rouge">Replica_IO_Running</code> and <code class="language-plaintext highlighter-rouge">Replica_SQL_Running</code>, and prefer a heartbeat table for real end-to-end lag.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Lag monitor: alert on a dead link first, then on byte or time lag.
+</span><span class="k">def</span> <span class="nf">check_replicas</span><span class="p">(</span><span class="n">leader</span><span class="p">,</span> <span class="n">replicas</span><span class="p">,</span> <span class="n">max_bytes</span><span class="p">,</span> <span class="n">max_seconds</span><span class="p">):</span>
+    <span class="n">head</span> <span class="o">=</span> <span class="n">leader</span><span class="p">.</span><span class="nf">current_lsn</span><span class="p">()</span>
+    <span class="n">alerts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">replicas</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="p">.</span><span class="nf">replication_connected</span><span class="p">():</span>
+            <span class="n">alerts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">: replication link down</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># would otherwise read as 0 lag
+</span>            <span class="k">continue</span>
+        <span class="nf">if </span><span class="p">(</span><span class="n">lag</span> <span class="p">:</span><span class="o">=</span> <span class="n">head</span> <span class="o">-</span> <span class="n">r</span><span class="p">.</span><span class="nf">replay_lsn</span><span class="p">())</span> <span class="o">&gt;</span> <span class="n">max_bytes</span><span class="p">:</span>
+            <span class="n">alerts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">: </span><span class="si">{</span><span class="n">lag</span><span class="si">}</span><span class="s"> bytes behind</span><span class="sh">"</span><span class="p">)</span>
+        <span class="nf">if </span><span class="p">(</span><span class="n">secs</span> <span class="p">:</span><span class="o">=</span> <span class="n">r</span><span class="p">.</span><span class="nf">replay_lag_seconds</span><span class="p">())</span> <span class="o">&gt;</span> <span class="n">max_seconds</span><span class="p">:</span>
+            <span class="n">alerts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">: </span><span class="si">{</span><span class="n">secs</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">f</span><span class="si">}</span><span class="s">s behind</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">alerts</span>
+</code></pre></div></div>
+
+<p>Lag also drives routing policy. Send consistency-sensitive reads to the leader or to replicas below a lag threshold, take badly lagging replicas out of the read pool, and set a minimum in-sync replica count (Kafka <code class="language-plaintext highlighter-rouge">min.insync.replicas</code>, MySQL semi-sync wait count, PostgreSQL <code class="language-plaintext highlighter-rouge">ANY k</code>) so the leader refuses writes instead of silently weakening durability.</p>
 
 <h2 id="conflict-handling">Conflict Handling</h2>
 
-<p>The instant you allow more than one node to accept writes — multi-leader or leaderless — two clients can concurrently write the same key, and replication will surface the disagreement. Conflicts are <em>not</em> a bug you can engineer away; they are inherent to concurrent writes without a single ordering authority. What you choose is the resolution policy.</p>
+<p>Once more than one node accepts writes to the same key (multi-leader or leaderless), two clients can update that key concurrently, and each replica may see the updates in a different order. There is no way to design this away. The only choice is which resolution policy to use.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    W1["Leader A:&lt;br/&gt;title = 'B'"] --&gt; Sync{Replicate to&lt;br/&gt;each other}
-    W2["Leader B:&lt;br/&gt;title = 'C'"] --&gt; Sync
-    Sync --&gt; Conflict["Conflict detected:&lt;br/&gt;'B' vs 'C' on same key,&lt;br/&gt;neither happened-before the other"]
-    Conflict --&gt; R1[Last-write-wins]
-    Conflict --&gt; R2[Merge / CRDT]
-    Conflict --&gt; R3[Keep both,&lt;br/&gt;app resolves]
+    A["Leader A: title = 'B'"] --&gt; X{"Replicas exchange writes"}
+    B["Leader B: title = 'C'"] --&gt; X
+    X --&gt; D{"Does either write&lt;br/&gt;happen-before the other?"}
+    D --&gt;|yes| O["Later write overwrites earlier"]
+    D --&gt;|no: concurrent| Res{"Resolution policy"}
+    Res --&gt; LWW["Last-write-wins&lt;br/&gt;(one value discarded)"]
+    Res --&gt; M["Merge or CRDT"]
+    Res --&gt; S["Keep siblings,&lt;br/&gt;application resolves"]
 </code></pre>
 
-<h3 id="detecting-concurrency-version-vectors">Detecting Concurrency: Version Vectors</h3>
+<h3 id="detecting-concurrency-with-version-vectors">Detecting Concurrency with Version Vectors</h3>
 
-<p>You cannot resolve a conflict until you can tell a <em>concurrent</em> write from a <em>sequential update</em>. Wall-clock timestamps fail here because clocks are unsynchronized — this is the trap behind naive last-write-wins. The correct tool is a <strong>version vector</strong> (a vector of per-replica counters; a generalization of Lamport’s logical clocks to multiple writers):</p>
+<p>Resolving a conflict requires first telling a <strong>concurrent</strong> write apart from a <strong>sequential</strong> update. Wall-clock timestamps cannot do this: clocks are not synchronized, and a timestamp order says nothing about whether one writer had seen the other’s value. A <strong>version vector</strong> holds one counter per replica:</p>
 
 <ul>
-  <li>Each replica tracks a counter, incremented on each write it originates.</li>
-  <li>A value carries the vector of counters it has “seen.”</li>
-  <li>Compare two versions component-wise: if every component of A is ≥ B’s (and at least one is strictly greater), A <strong>descends from</strong> (causally follows) B — a clean overwrite. If neither dominates, the writes are <strong>concurrent</strong> — a genuine conflict.</li>
+  <li>A replica increments its own counter for each write it accepts.</li>
+  <li>Each value carries the vector of writes it reflects.</li>
+  <li>Compare two vectors component by component. If every entry of $A$ is at least the matching entry of $B$ and one is greater, $A$ descends from $B$ and cleanly replaces it. If neither dominates, the writes are concurrent.</li>
 </ul>
 
-<p>This is what Dynamo, Riak, and Cassandra use to distinguish “newer” from “concurrent,” instead of trusting clocks. See the happens-before relation in <a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a>.</p>
+<p>Dynamo used vector clocks, and Riak uses <strong>dotted version vectors</strong>, a refinement that stops the number of siblings from growing without bound. <strong>Cassandra does not use vector clocks.</strong> Each cell carries a write timestamp and the highest timestamp wins, so Cassandra is last-write-wins at cell granularity. The happens-before relation behind all of this is covered in <a href="../advanced/distributed-systems-theory/#time-and-clocks">Distributed Systems Theory</a>.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">relation</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Compare two version vectors ({replica_id: counter}).</span><span class="sh">"""</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="n">a</span><span class="p">.</span><span class="nf">keys</span><span class="p">()</span> <span class="o">|</span> <span class="n">b</span><span class="p">.</span><span class="nf">keys</span><span class="p">()</span>
+    <span class="n">a_ge</span> <span class="o">=</span> <span class="nf">all</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">b</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">)</span>
+    <span class="n">b_ge</span> <span class="o">=</span> <span class="nf">all</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">a</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">a_ge</span> <span class="ow">and</span> <span class="n">b_ge</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sh">"</span><span class="s">equal</span><span class="sh">"</span>
+    <span class="k">if</span> <span class="n">a_ge</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sh">"</span><span class="s">a_after_b</span><span class="sh">"</span>
+    <span class="k">if</span> <span class="n">b_ge</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sh">"</span><span class="s">b_after_a</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="sh">"</span><span class="s">concurrent</span><span class="sh">"</span>          <span class="c1"># a genuine conflict
+</span>
+<span class="k">def</span> <span class="nf">merge_vectors</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nf">max</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">b</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">a</span><span class="p">.</span><span class="nf">keys</span><span class="p">()</span> <span class="o">|</span> <span class="n">b</span><span class="p">.</span><span class="nf">keys</span><span class="p">()}</span>
+</code></pre></div></div>
 
 <h3 id="resolution-strategies">Resolution Strategies</h3>
 
@@ -3756,99 +3914,80 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <th>Strategy</th>
       <th>How it resolves</th>
-      <th>Pro</th>
-      <th>Con</th>
+      <th>Data loss?</th>
+      <th>Suitable for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Last-write-wins (LWW)</strong></td>
-      <td>Highest timestamp wins; discard the rest</td>
-      <td>Simple, no app logic</td>
-      <td><strong>Silently drops data</strong>; needs synced clocks; nondeterministic on ties</td>
+      <td>Last-write-wins (LWW)</td>
+      <td>Highest timestamp wins</td>
+      <td>Yes, silently; clock skew can pick the “older” write</td>
+      <td>Caches, metrics, immutable-once-written data</td>
     </tr>
     <tr>
-      <td><strong>Highest priority / origin wins</strong></td>
-      <td>Designate a winner (e.g., a “main” datacenter)</td>
-      <td>Deterministic</td>
-      <td>Arbitrary data loss for losers</td>
+      <td>Designated winner</td>
+      <td>A fixed site or priority wins</td>
+      <td>Yes, for the losing sites</td>
+      <td>Simple primary/secondary region setups</td>
     </tr>
     <tr>
-      <td><strong>Merge values</strong></td>
-      <td>Combine concurrent values (union a set, sum counters, concatenate)</td>
-      <td>No data loss</td>
-      <td>Needs commutative semantics; can produce nonsense if naive</td>
+      <td>Siblings</td>
+      <td>Store every concurrent version and return them all on the next read</td>
+      <td>No; the application or user chooses</td>
+      <td>Shopping carts, documents (Riak’s model)</td>
     </tr>
     <tr>
-      <td><strong>Keep both (siblings)</strong></td>
-      <td>Store all concurrent versions; surface to the application/user on next read</td>
-      <td>No data loss; user intent preserved</td>
-      <td>Pushes complexity to the app (Riak’s “siblings”)</td>
+      <td>Application merge</td>
+      <td>Custom merge function run on conflict</td>
+      <td>Depends on the function</td>
+      <td>Domain-specific records</td>
     </tr>
     <tr>
-      <td><strong>CRDTs</strong></td>
-      <td>Data types whose merges are provably convergent</td>
-      <td>Automatic, correct, no coordination</td>
-      <td>Limited to types you can express as a CRDT</td>
+      <td>CRDTs</td>
+      <td>Data types whose merge is commutative, associative, and idempotent</td>
+      <td>No; replicas converge automatically</td>
+      <td>Counters, sets, maps, collaborative text</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>CRDTs (Conflict-free Replicated Data Types)</strong> deserve emphasis: they are data structures (counters, sets, maps, sequences) whose merge operation is <strong>commutative, associative, and idempotent</strong>, so replicas applying the same set of updates in any order converge to the same state automatically — no conflict resolution code, no coordination. A grow-only counter, an observed-remove set, and a sequence CRDT (the basis of collaborative text editors) are the canonical examples. The cost is that you must model your data in CRDT terms and accept some metadata overhead.</p>
+<p><strong>CRDTs</strong> (conflict-free replicated data types) make convergence a property of the data type. Any two replicas that have received the same set of updates reach the same state, in any order, with no coordination. Grow-only and PN counters, observed-remove sets, LWW registers, and sequence CRDTs for text are the standard building blocks. They underlie collaborative editors (Automerge, Yjs), Redis Enterprise active-active databases, and Riak data types. The cost is modeling data as CRDTs and carrying extra metadata. <a href="client-side-consistency.html#crdts-conflict-free-replicated-data-types">Client-Side Consistency</a> covers how they work.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Version-vector comparison: the core of conflict detection
-</span><span class="k">def</span> <span class="nf">relation</span><span class="p">(</span><span class="n">vv_a</span><span class="p">,</span> <span class="n">vv_b</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Return </span><span class="sh">'</span><span class="s">a_after_b</span><span class="sh">'</span><span class="s">, </span><span class="sh">'</span><span class="s">b_after_a</span><span class="sh">'</span><span class="s">, </span><span class="sh">'</span><span class="s">equal</span><span class="sh">'</span><span class="s">, or </span><span class="sh">'</span><span class="s">concurrent</span><span class="sh">'</span><span class="s">.</span><span class="sh">"""</span>
-    <span class="n">a_ge</span> <span class="o">=</span> <span class="nf">all</span><span class="p">(</span><span class="n">vv_a</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">vv_b</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">set</span><span class="p">(</span><span class="n">vv_a</span><span class="p">)</span> <span class="o">|</span> <span class="nf">set</span><span class="p">(</span><span class="n">vv_b</span><span class="p">))</span>
-    <span class="n">b_ge</span> <span class="o">=</span> <span class="nf">all</span><span class="p">(</span><span class="n">vv_b</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">vv_a</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">set</span><span class="p">(</span><span class="n">vv_a</span><span class="p">)</span> <span class="o">|</span> <span class="nf">set</span><span class="p">(</span><span class="n">vv_b</span><span class="p">))</span>
-    <span class="k">if</span> <span class="n">a_ge</span> <span class="ow">and</span> <span class="n">b_ge</span><span class="p">:</span>
-        <span class="k">return</span> <span class="sh">"</span><span class="s">equal</span><span class="sh">"</span>
-    <span class="k">if</span> <span class="n">a_ge</span><span class="p">:</span>
-        <span class="k">return</span> <span class="sh">"</span><span class="s">a_after_b</span><span class="sh">"</span>      <span class="c1"># a cleanly overwrites b
-</span>    <span class="k">if</span> <span class="n">b_ge</span><span class="p">:</span>
-        <span class="k">return</span> <span class="sh">"</span><span class="s">b_after_a</span><span class="sh">"</span>      <span class="c1"># b cleanly overwrites a
-</span>    <span class="k">return</span> <span class="sh">"</span><span class="s">concurrent</span><span class="sh">"</span>         <span class="c1"># genuine conflict -&gt; apply a resolution strategy
-</span>
+<p>In practice, <strong>avoid concurrent writes to the same key where possible</strong>. Route all writes for a given record to one home region (partition users by region, for example) so conflicts are rare. Where concurrent writes are unavoidable, prefer CRDTs or siblings over LWW for user data. Use LWW only where losing one of two concurrent values does no harm.</p>
 
-<span class="k">def</span> <span class="nf">resolve</span><span class="p">(</span><span class="n">value_a</span><span class="p">,</span> <span class="n">vv_a</span><span class="p">,</span> <span class="n">value_b</span><span class="p">,</span> <span class="n">vv_b</span><span class="p">,</span> <span class="n">merge</span><span class="p">):</span>
-    <span class="n">rel</span> <span class="o">=</span> <span class="nf">relation</span><span class="p">(</span><span class="n">vv_a</span><span class="p">,</span> <span class="n">vv_b</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rel</span> <span class="o">==</span> <span class="sh">"</span><span class="s">a_after_b</span><span class="sh">"</span> <span class="ow">or</span> <span class="n">rel</span> <span class="o">==</span> <span class="sh">"</span><span class="s">equal</span><span class="sh">"</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">value_a</span><span class="p">,</span> <span class="n">vv_a</span>
-    <span class="k">if</span> <span class="n">rel</span> <span class="o">==</span> <span class="sh">"</span><span class="s">b_after_a</span><span class="sh">"</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">value_b</span><span class="p">,</span> <span class="n">vv_b</span>
-    <span class="c1"># concurrent: merge component-wise vectors and merge the values
-</span>    <span class="n">merged_vv</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nf">max</span><span class="p">(</span><span class="n">vv_a</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">vv_b</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">set</span><span class="p">(</span><span class="n">vv_a</span><span class="p">)</span> <span class="o">|</span> <span class="nf">set</span><span class="p">(</span><span class="n">vv_b</span><span class="p">)}</span>
-    <span class="k">return</span> <span class="nf">merge</span><span class="p">(</span><span class="n">value_a</span><span class="p">,</span> <span class="n">value_b</span><span class="p">),</span> <span class="n">merged_vv</span>   <span class="c1"># e.g. merge = set.union for an add-only set
-</span></code></pre></div></div>
-
-<p>The pragmatic guidance: <strong>avoid multi-master writes to the same key when you can</strong> (route a given record’s writes to one leader, partition by user/region so concurrent writes to one key are rare). When you cannot, prefer <strong>CRDTs or keep-both</strong> over last-write-wins so you never silently lose a user’s data — LWW is acceptable only for caches and metrics where dropping a concurrent value is harmless.</p>
-
-<h2 id="putting-it-together-a-decision-guide">Putting It Together: A Decision Guide</h2>
+<h2 id="choosing-a-strategy">Choosing a Strategy</h2>
 
 <pre><code class="language-mermaid">flowchart TD
-    Start{What dominates?} --&gt; Single["Simplicity + strong consistency,&lt;br/&gt;one region"]
-    Start --&gt; Geo["Local writes in multiple regions"]
-    Start --&gt; Avail["Max availability, tunable consistency"]
-    Single --&gt; SL["Single-leader&lt;br/&gt;(Postgres, MySQL, Mongo RS)&lt;br/&gt;semi-sync, auto-failover, fencing"]
-    Geo --&gt; ML["Multi-leader&lt;br/&gt;(per-region leader)&lt;br/&gt;+ conflict handling / CRDTs"]
-    Avail --&gt; LL["Leaderless / quorum&lt;br/&gt;(Cassandra, Riak)&lt;br/&gt;tune R, W; read-repair; anti-entropy"]
+    Q1{"Do writes need to be local&lt;br/&gt;in several regions, or offline?"}
+    Q1 --&gt;|no| Q2{"Must failover be automatic&lt;br/&gt;and lossless without an&lt;br/&gt;external orchestrator?"}
+    Q1 --&gt;|yes| Q3{"Must every write be&lt;br/&gt;linearizable?"}
+    Q2 --&gt;|no| SL["Single-leader, semi-sync&lt;br/&gt;+ orchestrator + fencing&lt;br/&gt;(PostgreSQL + Patroni, MySQL)"]
+    Q2 --&gt;|yes| CR["Consensus replication&lt;br/&gt;(CockroachDB, YugabyteDB, etcd)"]
+    Q3 --&gt;|yes| CG["Geo-distributed consensus&lt;br/&gt;with leader pinning&lt;br/&gt;(pay a cross-region RTT per write)"]
+    Q3 --&gt;|no| Q4{"Mostly keyed writes, availability&lt;br/&gt;above all, tunable reads?"}
+    Q4 --&gt;|yes| LL["Leaderless quorum&lt;br/&gt;(Cassandra, ScyllaDB)"]
+    Q4 --&gt;|no| ML["Multi-leader&lt;br/&gt;+ CRDTs or siblings"]
 </code></pre>
 
 <ul>
-  <li><strong>Default to single-leader.</strong> It is the simplest correct thing and covers the vast majority of applications. Invest in robust failover (fencing, most-up-to-date promotion) and lag monitoring.</li>
-  <li><strong>Reach for multi-leader only</strong> when you genuinely need local writes in multiple regions or offline-capable clients — and budget for conflict handling from day one.</li>
-  <li><strong>Reach for leaderless/quorum</strong> when availability and write throughput trump strict consistency, and tune <code class="language-plaintext highlighter-rouge">R</code>/<code class="language-plaintext highlighter-rouge">W</code>/<code class="language-plaintext highlighter-rouge">N</code> to your durability needs, leaning on read-repair and anti-entropy.</li>
-  <li>Regardless of architecture, <strong>measure lag, fence aggressively on failover, and never silently drop concurrent writes</strong> to user data.</li>
+  <li><strong>Default to single-leader.</strong> It is the simplest correct design and suits most applications. Invest in fencing, promotion of the most up-to-date replica, and lag monitoring.</li>
+  <li><strong>Choose consensus replication</strong> when failover has to be automatic and lossless, or when data is sharded across many nodes. Expect the latency of a majority round-trip on every write.</li>
+  <li><strong>Choose multi-leader</strong> only for real multi-region write locality or offline clients, and plan conflict handling from the start.</li>
+  <li><strong>Choose leaderless quorums</strong> when write availability and throughput matter more than strict consistency. Tune $N$, $R$, and $W$ per workload and schedule anti-entropy repair.</li>
+  <li>In every case: measure lag, fence on failover, and never silently drop concurrent writes to user data.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">Distributed Systems Hub</a></strong> — CAP, consistency models, consensus, and the broader pattern catalog</li>
-  <li><strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — formal consistency models, the happens-before relation, FLP/CAP proofs, and consensus (Raft/Paxos)</li>
-  <li><strong><a href="../technology/database-design/">Database Design</a></strong> — partitioning/sharding, which combines with replication, and distributed-database tuning</li>
-  <li><strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — pod anti-affinity and topology spread for replica placement</li>
-  <li><strong><a href="../technology/aws/">AWS Cloud Services</a></strong> — availability zones and regions as failure domains for placement</li>
+  <li><a href="./">Distributed Systems Hub</a>: overview of the section and the results that constrain every design</li>
+  <li><a href="consensus-and-coordination.html">Consensus and Coordination</a>: CAP and PACELC, consistency models, Paxos, and Raft</li>
+  <li><a href="failure-detection.html">Failure Detection</a>: heartbeats, phi-accrual detectors, gossip, and Merkle-tree anti-entropy</li>
+  <li><a href="client-side-consistency.html">Client-Side Consistency</a>: offline-first clients, CRDTs, and session guarantees</li>
+  <li><a href="../technology/database-design/replication-and-consensus.html">Replication &amp; Consensus (Database Design)</a>: PostgreSQL and MySQL replication in operational detail</li>
+  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a>: formal consistency models, logical clocks, and impossibility results</li>
+  <li><a href="../technology/kubernetes/">Kubernetes</a> and <a href="../technology/aws/">AWS</a>: failure domains and topology-aware placement in practice</li>
 </ul>
 
       </section>

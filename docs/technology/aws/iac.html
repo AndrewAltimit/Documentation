@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="CloudFormation and the AWS CDK: templates, stacks, change sets, drift, refactoring, and how they compare with Terraform/OpenTofu and Pulumi.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AWS Infrastructure as Code">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="CloudFormation and the AWS CDK: templates, stacks, change sets, drift, refactoring, and how they compare with Terraform/OpenTofu and Pulumi.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/iac.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AWS Infrastructure as Code">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="CloudFormation and the AWS CDK: templates, stacks, change sets, drift, refactoring, and how they compare with Terraform/OpenTofu and Pulumi.">
 
 <title>AWS Infrastructure as Code | Andrews Notebook</title>
 
@@ -3131,488 +3131,498 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>The biggest shift in cloud operations is treating infrastructure like software. Instead of clicking through the console, you declare what you want in code, review it like any other change, and deploy it repeatably. This page covers CloudFormation (AWS’s native templating engine), how to choose among CloudFormation, Terraform, and the CDK, and a full AWS CDK microservices stack.</p>
+        <p><strong>Infrastructure as code (IaC)</strong> is the practice of declaring cloud resources in version-controlled files and letting a tool reconcile the real account with that declaration. On AWS the native engine is <strong>CloudFormation</strong>; the <strong>AWS Cloud Development Kit (CDK)</strong> is a programming-language front end that compiles to CloudFormation. This page covers the CloudFormation model (templates, stacks, change sets, drift, refactoring), the CDK, how both compare with third-party tools such as Terraform, and the operational practices that make IaC safe in production.</p>
 
 <hr />
 
-<h2 id="aws-cloudformation---infrastructure-as-code">AWS CloudFormation - Infrastructure as Code</h2>
-<p>CloudFormation lets you define your entire infrastructure in JSON or YAML templates. Instead of clicking through the console, you describe what you want and CloudFormation builds it.</p>
+<h2 id="why-infrastructure-as-code">Why infrastructure as code</h2>
 
-<p><strong>Why CloudFormation Matters</strong>:</p>
-<ul>
-  <li>Version control your infrastructure</li>
-  <li>Replicate environments exactly</li>
-  <li>Roll back changes if something breaks</li>
-  <li>Share templates with your team</li>
-</ul>
-
-<p><strong>Practical CloudFormation Example</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># template.yml - Complete web application stack</span>
-<span class="na">AWSTemplateFormatVersion</span><span class="pi">:</span> <span class="s1">'</span><span class="s">2010-09-09'</span>
-<span class="na">Description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Web</span><span class="nv"> </span><span class="s">application</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">auto-scaling'</span>
-
-<span class="na">Parameters</span><span class="pi">:</span>
-  <span class="na">KeyName</span><span class="pi">:</span>
-    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::EC2::KeyPair::KeyName</span>
-    <span class="na">Description</span><span class="pi">:</span> <span class="s">EC2 Key Pair for SSH access</span>
-
-<span class="na">Resources</span><span class="pi">:</span>
-  <span class="c1"># Application Load Balancer</span>
-  <span class="na">LoadBalancer</span><span class="pi">:</span>
-    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::ElasticLoadBalancingV2::LoadBalancer</span>
-    <span class="na">Properties</span><span class="pi">:</span>
-      <span class="na">Subnets</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="kt">!Ref</span> <span class="s">PublicSubnet1</span>
-        <span class="pi">-</span> <span class="kt">!Ref</span> <span class="s">PublicSubnet2</span>
-      <span class="na">SecurityGroups</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="kt">!Ref</span> <span class="s">LoadBalancerSecurityGroup</span>
-
-  <span class="c1"># Auto Scaling Group</span>
-  <span class="na">AutoScalingGroup</span><span class="pi">:</span>
-    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::AutoScaling::AutoScalingGroup</span>
-    <span class="na">Properties</span><span class="pi">:</span>
-      <span class="na">MinSize</span><span class="pi">:</span> <span class="m">2</span>
-      <span class="na">MaxSize</span><span class="pi">:</span> <span class="m">10</span>
-      <span class="na">DesiredCapacity</span><span class="pi">:</span> <span class="m">4</span>
-      <span class="na">LaunchTemplate</span><span class="pi">:</span>
-        <span class="na">LaunchTemplateId</span><span class="pi">:</span> <span class="kt">!Ref</span> <span class="s">LaunchTemplate</span>
-        <span class="na">Version</span><span class="pi">:</span> <span class="kt">!GetAtt</span> <span class="s">LaunchTemplate.LatestVersionNumber</span>
-      <span class="na">TargetGroupARNs</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="kt">!Ref</span> <span class="s">TargetGroup</span>
-      <span class="na">HealthCheckType</span><span class="pi">:</span> <span class="s">ELB</span>
-      <span class="na">HealthCheckGracePeriod</span><span class="pi">:</span> <span class="m">300</span>
-
-  <span class="c1"># Scaling Policy</span>
-  <span class="na">ScaleUpPolicy</span><span class="pi">:</span>
-    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::AutoScaling::ScalingPolicy</span>
-    <span class="na">Properties</span><span class="pi">:</span>
-      <span class="na">AutoScalingGroupName</span><span class="pi">:</span> <span class="kt">!Ref</span> <span class="s">AutoScalingGroup</span>
-      <span class="na">PolicyType</span><span class="pi">:</span> <span class="s">TargetTrackingScaling</span>
-      <span class="na">TargetTrackingConfiguration</span><span class="pi">:</span>
-        <span class="na">PredefinedMetricSpecification</span><span class="pi">:</span>
-          <span class="na">PredefinedMetricType</span><span class="pi">:</span> <span class="s">ASGAverageCPUUtilization</span>
-        <span class="na">TargetValue</span><span class="pi">:</span> <span class="m">70</span>
-
-<span class="na">Outputs</span><span class="pi">:</span>
-  <span class="na">LoadBalancerDNS</span><span class="pi">:</span>
-    <span class="na">Description</span><span class="pi">:</span> <span class="s">DNS name of load balancer</span>
-    <span class="na">Value</span><span class="pi">:</span> <span class="kt">!GetAtt</span> <span class="s">LoadBalancer.DNSName</span>
-    <span class="na">Export</span><span class="pi">:</span>
-      <span class="na">Name</span><span class="pi">:</span> <span class="kt">!Sub</span> <span class="s">${AWS::StackName}-LoadBalancer-DNS</span>
-</code></pre></div></div>
-
-<p><strong>Deploy with</strong>:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws cloudformation create-stack <span class="se">\</span>
-  <span class="nt">--stack-name</span> my-web-app <span class="se">\</span>
-  <span class="nt">--template-body</span> file://template.yml <span class="se">\</span>
-  <span class="nt">--parameters</span> <span class="nv">ParameterKey</span><span class="o">=</span>KeyName,ParameterValue<span class="o">=</span>my-key
-</code></pre></div></div>
-
-<hr />
-
-<h2 id="infrastructure-as-code-never-click-again">Infrastructure as Code: Never Click Again</h2>
-
-<h3 id="why-infrastructure-as-code-changes-everything">Why Infrastructure as Code Changes Everything</h3>
-
-<p>Defining infrastructure in code rather than console clicks unlocks version control, peer review, and automated deployment:</p>
+<p>Resources created by hand in the console have no reviewable history, cannot be reproduced reliably in another account or Region, and drift silently as people make one-off fixes. Declaring them in code turns infrastructure changes into ordinary software changes:</p>
 
 <table>
   <thead>
     <tr>
-      <th> </th>
-      <th>Console clicks</th>
-      <th>Infrastructure as Code</th>
+      <th>Concern</th>
+      <th>Console (“ClickOps”)</th>
+      <th>Infrastructure as code</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Source of truth</strong></td>
-      <td>A wiki nobody updates</td>
-      <td>Configuration files in version control</td>
+      <td>Source of truth</td>
+      <td>The live account, plus whatever someone wrote down</td>
+      <td>Files in version control</td>
     </tr>
     <tr>
-      <td><strong>Reproducibility</strong></td>
-      <td>Hope you can recreate it elsewhere</td>
-      <td>Deploy identical environments with one command</td>
+      <td>Reproducibility</td>
+      <td>Manual, error-prone</td>
+      <td>Same template deploys dev, staging, prod, and DR Regions</td>
     </tr>
     <tr>
-      <td><strong>Change safety</strong></td>
-      <td>Fear of breaking production</td>
-      <td>Diff, review, and test in staging first</td>
-    </tr>
-    <tr>
-      <td><strong>History</strong></td>
+      <td>Change review</td>
       <td>None</td>
-      <td>Version control shows exactly what changed and when</td>
+      <td>Pull request with a diff and a planned change set</td>
+    </tr>
+    <tr>
+      <td>Audit trail</td>
+      <td>CloudTrail events only</td>
+      <td>Commit history plus CloudTrail</td>
+    </tr>
+    <tr>
+      <td>Recovery</td>
+      <td>Rebuild from memory</td>
+      <td>Redeploy the stack</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="choosing-your-iac-tool">Choosing Your IaC Tool</h3>
+<p>The practical payoff is disaster recovery and environment parity: an account that is fully codified can be rebuilt from its repository, and staging differs from production only in parameters.</p>
+
+<hr />
+
+<h2 id="cloudformation">CloudFormation</h2>
+
+<p>CloudFormation is a managed service that takes a <strong>template</strong> (JSON or YAML) describing resources and creates, updates, or deletes them as a single unit called a <strong>stack</strong>. It computes dependency order from references between resources, runs independent operations in parallel, and rolls back the whole stack if any resource fails.</p>
+
+<h3 id="core-concepts">Core concepts</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Template</strong></td>
+      <td>Declarative document with <code class="language-plaintext highlighter-rouge">Parameters</code>, <code class="language-plaintext highlighter-rouge">Mappings</code>, <code class="language-plaintext highlighter-rouge">Conditions</code>, <code class="language-plaintext highlighter-rouge">Resources</code> (the only required section), and <code class="language-plaintext highlighter-rouge">Outputs</code></td>
+    </tr>
+    <tr>
+      <td><strong>Stack</strong></td>
+      <td>A deployed instance of a template; the unit of create, update, rollback, and delete</td>
+    </tr>
+    <tr>
+      <td><strong>Logical ID</strong></td>
+      <td>The resource’s name inside the template (<code class="language-plaintext highlighter-rouge">AppQueue</code>); CloudFormation uses it to track identity across updates</td>
+    </tr>
+    <tr>
+      <td><strong>Physical ID</strong></td>
+      <td>The real resource name or ARN in the account</td>
+    </tr>
+    <tr>
+      <td><strong>Change set</strong></td>
+      <td>A preview of what an update will add, modify, or replace, reviewed before execution</td>
+    </tr>
+    <tr>
+      <td><strong>Intrinsic functions</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">!Ref</code>, <code class="language-plaintext highlighter-rouge">!GetAtt</code>, <code class="language-plaintext highlighter-rouge">!Sub</code>, <code class="language-plaintext highlighter-rouge">!If</code>, <code class="language-plaintext highlighter-rouge">!ImportValue</code>, and others that wire resources together</td>
+    </tr>
+    <tr>
+      <td><strong>Nested stack / cross-stack reference</strong></td>
+      <td>Ways to compose large systems: a parent stack embeds children, or one stack exports outputs another imports</td>
+    </tr>
+    <tr>
+      <td><strong>StackSets</strong></td>
+      <td>Deploy one template to many accounts and Regions, typically across an AWS Organization</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="template-anatomy">Template anatomy</h3>
+
+<p>The template below is complete and deployable. It creates an encrypted, versioned S3 bucket and a work queue with a dead-letter queue, toggles behaviour per environment with a condition, and protects stateful resources from accidental deletion.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">AWSTemplateFormatVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2010-09-09"</span>
+<span class="na">Description</span><span class="pi">:</span> <span class="s">Upload bucket and processing queue</span>
+
+<span class="na">Parameters</span><span class="pi">:</span>
+  <span class="na">Environment</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span> <span class="s">String</span>
+    <span class="na">AllowedValues</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">dev</span><span class="pi">,</span> <span class="nv">prod</span><span class="pi">]</span>
+    <span class="na">Default</span><span class="pi">:</span> <span class="s">dev</span>
+
+<span class="na">Conditions</span><span class="pi">:</span>
+  <span class="na">IsProd</span><span class="pi">:</span> <span class="kt">!Equals</span> <span class="pi">[</span><span class="kt">!Ref</span> <span class="nv">Environment</span><span class="pi">,</span> <span class="nv">prod</span><span class="pi">]</span>
+
+<span class="na">Resources</span><span class="pi">:</span>
+  <span class="na">UploadBucket</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::S3::Bucket</span>
+    <span class="na">DeletionPolicy</span><span class="pi">:</span> <span class="s">Retain</span>          <span class="c1"># keep data if the stack is deleted</span>
+    <span class="na">UpdateReplacePolicy</span><span class="pi">:</span> <span class="s">Retain</span>     <span class="c1"># ...or if an update forces replacement</span>
+    <span class="na">Properties</span><span class="pi">:</span>
+      <span class="na">BucketEncryption</span><span class="pi">:</span>
+        <span class="na">ServerSideEncryptionConfiguration</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">ServerSideEncryptionByDefault</span><span class="pi">:</span>
+              <span class="na">SSEAlgorithm</span><span class="pi">:</span> <span class="s">aws:kms</span>
+      <span class="na">VersioningConfiguration</span><span class="pi">:</span>
+        <span class="na">Status</span><span class="pi">:</span> <span class="kt">!If</span> <span class="pi">[</span><span class="nv">IsProd</span><span class="pi">,</span> <span class="nv">Enabled</span><span class="pi">,</span> <span class="nv">Suspended</span><span class="pi">]</span>
+      <span class="na">PublicAccessBlockConfiguration</span><span class="pi">:</span>
+        <span class="na">BlockPublicAcls</span><span class="pi">:</span> <span class="kc">true</span>
+        <span class="na">BlockPublicPolicy</span><span class="pi">:</span> <span class="kc">true</span>
+        <span class="na">IgnorePublicAcls</span><span class="pi">:</span> <span class="kc">true</span>
+        <span class="na">RestrictPublicBuckets</span><span class="pi">:</span> <span class="kc">true</span>
+
+  <span class="na">DeadLetterQueue</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::SQS::Queue</span>
+    <span class="na">Properties</span><span class="pi">:</span>
+      <span class="na">MessageRetentionPeriod</span><span class="pi">:</span> <span class="m">1209600</span>   <span class="c1"># 14 days, the maximum</span>
+
+  <span class="na">WorkQueue</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span> <span class="s">AWS::SQS::Queue</span>
+    <span class="na">Properties</span><span class="pi">:</span>
+      <span class="na">VisibilityTimeout</span><span class="pi">:</span> <span class="m">120</span>
+      <span class="na">RedrivePolicy</span><span class="pi">:</span>
+        <span class="na">deadLetterTargetArn</span><span class="pi">:</span> <span class="kt">!GetAtt</span> <span class="s">DeadLetterQueue.Arn</span>
+        <span class="na">maxReceiveCount</span><span class="pi">:</span> <span class="m">5</span>
+
+<span class="na">Outputs</span><span class="pi">:</span>
+  <span class="na">BucketName</span><span class="pi">:</span>
+    <span class="na">Value</span><span class="pi">:</span> <span class="kt">!Ref</span> <span class="s">UploadBucket</span>
+  <span class="na">WorkQueueUrl</span><span class="pi">:</span>
+    <span class="na">Value</span><span class="pi">:</span> <span class="kt">!Ref</span> <span class="s">WorkQueue</span>
+    <span class="na">Export</span><span class="pi">:</span>
+      <span class="na">Name</span><span class="pi">:</span> <span class="kt">!Sub</span> <span class="s2">"</span><span class="s">${AWS::StackName}-WorkQueueUrl"</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">!Ref</code> on a bucket returns its name and on a queue returns its URL; <code class="language-plaintext highlighter-rouge">!GetAtt</code> retrieves other attributes such as an ARN. Because <code class="language-plaintext highlighter-rouge">WorkQueue</code> references <code class="language-plaintext highlighter-rouge">DeadLetterQueue</code>, CloudFormation creates the dead-letter queue first.</p>
+
+<h3 id="deploying-with-change-sets">Deploying with change sets</h3>
+
+<p>Every production update should go through a <strong>change set</strong> so reviewers see exactly which resources will be modified and, critically, which will be <strong>replaced</strong> (deleted and recreated, which destroys data for stateful resources). <code class="language-plaintext highlighter-rouge">aws cloudformation deploy</code> creates and executes a change set in one step; the explicit form separates review from execution:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a change set (stack is created if it does not exist)</span>
+aws cloudformation create-change-set <span class="se">\</span>
+  <span class="nt">--stack-name</span> uploads-prod <span class="se">\</span>
+  <span class="nt">--change-set-name</span> release-42 <span class="se">\</span>
+  <span class="nt">--change-set-type</span> UPDATE <span class="se">\</span>
+  <span class="nt">--template-body</span> file://template.yml <span class="se">\</span>
+  <span class="nt">--parameters</span> <span class="nv">ParameterKey</span><span class="o">=</span>Environment,ParameterValue<span class="o">=</span>prod
+
+<span class="c"># Review: look for "Replacement": "True" on stateful resources</span>
+aws cloudformation describe-change-set <span class="se">\</span>
+  <span class="nt">--stack-name</span> uploads-prod <span class="nt">--change-set-name</span> release-42 <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s1">'Changes[].ResourceChange.[Action,LogicalResourceId,Replacement]'</span> <span class="se">\</span>
+  <span class="nt">--output</span> table
+
+<span class="c"># Apply</span>
+aws cloudformation execute-change-set <span class="se">\</span>
+  <span class="nt">--stack-name</span> uploads-prod <span class="nt">--change-set-name</span> release-42
+</code></pre></div></div>
+
+<pre><code class="language-mermaid">flowchart LR
+    T[Template in Git] --&gt; V["Validate&lt;br/&gt;cfn-lint · cfn-guard · Hooks"]
+    V --&gt; CS[Create change set]
+    CS --&gt; R{Review diff}
+    R -- rejected --&gt; T
+    R -- approved --&gt; X[Execute change set]
+    X --&gt; U{All resources&lt;br/&gt;succeed?}
+    U -- yes --&gt; C[UPDATE_COMPLETE]
+    U -- no --&gt; RB["Automatic rollback&lt;br/&gt;UPDATE_ROLLBACK_COMPLETE"]
+</code></pre>
+
+<p>If an update fails, CloudFormation rolls every resource back to its previous state. Rollback can be disabled for debugging (<code class="language-plaintext highlighter-rouge">--disable-rollback</code>), after which a failed stack can be retried from the failure point rather than reverted. Rollback triggers can also tie an update to CloudWatch alarms so a deployment that trips an alarm during a monitoring window is reverted automatically.</p>
+
+<h3 id="drift">Drift</h3>
+
+<p><strong>Drift</strong> is any difference between a stack’s template and the real resource configuration, usually caused by someone changing a resource outside CloudFormation. Drift detection (<code class="language-plaintext highlighter-rouge">detect-stack-drift</code>) reports it; it does not fix it.</p>
+
+<p><strong>Drift-aware change sets</strong> go further. Created with <code class="language-plaintext highlighter-rouge">--deployment-mode REVERT_DRIFT</code>, they perform a three-way comparison of the <em>actual</em> resource state, the <em>previous deployment</em>, and the <em>new template</em>. The change set shows which out-of-band edits a deployment would overwrite, and executing it brings drifted resources back in line with the template. If the deployment fails, resources roll back to their actual pre-deployment state rather than to the last template. Properties that AWS manages on your behalf, such as an Auto Scaling group’s desired capacity under a scaling policy, are recognised and left alone.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws cloudformation create-change-set <span class="se">\</span>
+  <span class="nt">--stack-name</span> uploads-prod <span class="se">\</span>
+  <span class="nt">--change-set-name</span> reconcile-drift <span class="se">\</span>
+  <span class="nt">--template-body</span> file://template.yml <span class="se">\</span>
+  <span class="nt">--deployment-mode</span> REVERT_DRIFT
+</code></pre></div></div>
+
+<h3 id="refactoring-stacks">Refactoring stacks</h3>
+
+<p>CloudFormation tracks resources by logical ID, so historically moving a resource to another stack or renaming it meant deleting and recreating it. <strong>Stack refactoring</strong> removes that constraint: you submit revised templates for up to five stacks (<code class="language-plaintext highlighter-rouge">create-stack-refactor</code>), CloudFormation validates cross-stack dependencies and previews the moves, and <code class="language-plaintext highlighter-rouge">execute-stack-refactor</code> reassigns the existing physical resources without touching them. A refactor may only move or rename resources; property changes, new resources, and deletions must be deployed separately, and some resource types are not supported.</p>
+
+<h3 id="bringing-existing-resources-under-management">Bringing existing resources under management</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Situation</th>
+      <th>Tool</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A handful of existing resources should join a stack</td>
+      <td><strong>Resource import</strong> (<code class="language-plaintext highlighter-rouge">create-change-set --change-set-type IMPORT</code>), with <code class="language-plaintext highlighter-rouge">DeletionPolicy: Retain</code> set on each</td>
+    </tr>
+    <tr>
+      <td>A whole hand-built environment needs a template</td>
+      <td><strong>IaC generator</strong>: scans the Region, then generates a template from selected resources (up to 500 per template) that can be imported as a stack or converted to a CDK app with <code class="language-plaintext highlighter-rouge">cdk migrate</code></td>
+    </tr>
+    <tr>
+      <td>Templates should deploy from Git automatically</td>
+      <td><strong>Git sync</strong>: CloudFormation watches a repository branch and updates the stack when the template or its deployment file changes</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="guardrails">Guardrails</h3>
+
+<ul>
+  <li><strong>cfn-lint</strong> checks templates against the resource specification before deployment.</li>
+  <li><strong>CloudFormation Guard (cfn-guard)</strong> evaluates policy-as-code rules, for example “every bucket must block public access”.</li>
+  <li><strong>CloudFormation Hooks</strong> run those checks inside the service, before a resource is provisioned, and can warn or fail the operation. Hooks can be written as Guard rules or Lambda functions and apply to stacks, change sets, and Cloud Control API calls.</li>
+  <li><strong>Stack policies</strong> and <strong>termination protection</strong> prevent specific resources, or the whole stack, from being updated or deleted by mistake.</li>
+</ul>
+
+<hr />
+
+<h2 id="aws-cdk">AWS CDK</h2>
+
+<p>The <strong>AWS Cloud Development Kit</strong> defines infrastructure in TypeScript, Python, Java, C#, or Go. A CDK app is a tree of <strong>constructs</strong>; running <code class="language-plaintext highlighter-rouge">cdk synth</code> executes the program and emits CloudFormation templates plus assets (Lambda bundles, Docker images) that <code class="language-plaintext highlighter-rouge">cdk deploy</code> uploads and deploys. CloudFormation remains the deployment engine, so stack semantics, rollback, and drift behave exactly as above.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Code["CDK app&lt;br/&gt;(TypeScript, Python, ...)"] --&gt; Tree[Construct tree]
+    Tree -- cdk synth --&gt; Asm["Cloud assembly&lt;br/&gt;templates + assets"]
+    Asm -- cdk deploy --&gt; Boot["Bootstrap resources&lt;br/&gt;asset bucket · ECR repo · deploy roles"]
+    Boot --&gt; CFN[CloudFormation stacks]
+    CFN --&gt; Res[AWS resources]
+</code></pre>
+
+<h3 id="construct-levels">Construct levels</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>What it is</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>L1</strong> (<code class="language-plaintext highlighter-rouge">Cfn*</code>)</td>
+      <td>One-to-one mapping of a CloudFormation resource type, generated from the resource specification</td>
+      <td><code class="language-plaintext highlighter-rouge">s3.CfnBucket</code></td>
+    </tr>
+    <tr>
+      <td><strong>L2</strong></td>
+      <td>Curated resource with sensible defaults, helper methods, and grant APIs</td>
+      <td><code class="language-plaintext highlighter-rouge">s3.Bucket(...).grant_read(role)</code></td>
+    </tr>
+    <tr>
+      <td><strong>L3 / patterns</strong></td>
+      <td>Multi-resource architectures</td>
+      <td><code class="language-plaintext highlighter-rouge">ecs_patterns.ApplicationLoadBalancedFargateService</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>L2 constructs encode AWS best practice (encryption on, least-privilege grants, correct security-group rules), which is most of the CDK’s value; L1 is the escape hatch for properties an L2 does not expose.</p>
+
+<h3 id="example-containerised-service-with-a-database">Example: containerised service with a database</h3>
+
+<p>The stack below is written against CDK v2 (<code class="language-plaintext highlighter-rouge">aws-cdk-lib</code>). It creates a three-tier VPC, an Aurora PostgreSQL Serverless v2 cluster in isolated subnets, and a load-balanced Fargate service that mixes on-demand and Spot capacity, rolls back failed deployments automatically, and receives database credentials from Secrets Manager.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">aws_cdk</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">App</span><span class="p">,</span> <span class="n">Stack</span><span class="p">,</span> <span class="n">CfnOutput</span><span class="p">,</span> <span class="n">RemovalPolicy</span><span class="p">,</span>
+    <span class="n">aws_ec2</span> <span class="k">as</span> <span class="n">ec2</span><span class="p">,</span>
+    <span class="n">aws_ecs</span> <span class="k">as</span> <span class="n">ecs</span><span class="p">,</span>
+    <span class="n">aws_ecs_patterns</span> <span class="k">as</span> <span class="n">ecs_patterns</span><span class="p">,</span>
+    <span class="n">aws_rds</span> <span class="k">as</span> <span class="n">rds</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="n">constructs</span> <span class="kn">import</span> <span class="n">Construct</span>
+
+
+<span class="k">class</span> <span class="nc">WebServiceStack</span><span class="p">(</span><span class="n">Stack</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="n">Construct</span><span class="p">,</span> <span class="n">construct_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">(</span><span class="n">scope</span><span class="p">,</span> <span class="n">construct_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="n">vpc</span> <span class="o">=</span> <span class="n">ec2</span><span class="p">.</span><span class="nc">Vpc</span><span class="p">(</span>
+            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">Vpc</span><span class="sh">"</span><span class="p">,</span>
+            <span class="n">max_azs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">nat_gateways</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>  <span class="c1"># one per AZ in production
+</span>            <span class="n">subnet_configuration</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">ec2</span><span class="p">.</span><span class="nc">SubnetConfiguration</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">,</span> <span class="n">cidr_mask</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+                                        <span class="n">subnet_type</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="n">SubnetType</span><span class="p">.</span><span class="n">PUBLIC</span><span class="p">),</span>
+                <span class="n">ec2</span><span class="p">.</span><span class="nc">SubnetConfiguration</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span> <span class="n">cidr_mask</span><span class="o">=</span><span class="mi">22</span><span class="p">,</span>
+                                        <span class="n">subnet_type</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="n">SubnetType</span><span class="p">.</span><span class="n">PRIVATE_WITH_EGRESS</span><span class="p">),</span>
+                <span class="n">ec2</span><span class="p">.</span><span class="nc">SubnetConfiguration</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">,</span> <span class="n">cidr_mask</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+                                        <span class="n">subnet_type</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="n">SubnetType</span><span class="p">.</span><span class="n">PRIVATE_ISOLATED</span><span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="n">db</span> <span class="o">=</span> <span class="n">rds</span><span class="p">.</span><span class="nc">DatabaseCluster</span><span class="p">(</span>
+            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">Db</span><span class="sh">"</span><span class="p">,</span>
+            <span class="c1"># Pin to an engine version available in your Region.
+</span>            <span class="n">engine</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="n">DatabaseClusterEngine</span><span class="p">.</span><span class="nf">aurora_postgres</span><span class="p">(</span>
+                <span class="n">version</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="n">AuroraPostgresEngineVersion</span><span class="p">.</span><span class="n">VER_16_4</span><span class="p">),</span>
+            <span class="n">writer</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="n">ClusterInstance</span><span class="p">.</span><span class="nf">serverless_v2</span><span class="p">(</span><span class="sh">"</span><span class="s">writer</span><span class="sh">"</span><span class="p">),</span>
+            <span class="n">serverless_v2_min_capacity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">serverless_v2_max_capacity</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+            <span class="n">vpc</span><span class="o">=</span><span class="n">vpc</span><span class="p">,</span>
+            <span class="n">vpc_subnets</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="nc">SubnetSelection</span><span class="p">(</span><span class="n">subnet_type</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="n">SubnetType</span><span class="p">.</span><span class="n">PRIVATE_ISOLATED</span><span class="p">),</span>
+            <span class="n">credentials</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="n">Credentials</span><span class="p">.</span><span class="nf">from_generated_secret</span><span class="p">(</span><span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">),</span>
+            <span class="n">storage_encrypted</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+            <span class="n">deletion_protection</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+            <span class="n">removal_policy</span><span class="o">=</span><span class="n">RemovalPolicy</span><span class="p">.</span><span class="n">SNAPSHOT</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">cluster</span> <span class="o">=</span> <span class="n">ecs</span><span class="p">.</span><span class="nc">Cluster</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">Cluster</span><span class="sh">"</span><span class="p">,</span> <span class="n">vpc</span><span class="o">=</span><span class="n">vpc</span><span class="p">,</span>
+                              <span class="n">enable_fargate_capacity_providers</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+        <span class="n">web</span> <span class="o">=</span> <span class="n">ecs_patterns</span><span class="p">.</span><span class="nc">ApplicationLoadBalancedFargateService</span><span class="p">(</span>
+            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">Web</span><span class="sh">"</span><span class="p">,</span>
+            <span class="n">cluster</span><span class="o">=</span><span class="n">cluster</span><span class="p">,</span>
+            <span class="n">cpu</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>
+            <span class="n">memory_limit_mib</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+            <span class="n">desired_count</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">task_image_options</span><span class="o">=</span><span class="n">ecs_patterns</span><span class="p">.</span><span class="nc">ApplicationLoadBalancedTaskImageOptions</span><span class="p">(</span>
+                <span class="n">image</span><span class="o">=</span><span class="n">ecs</span><span class="p">.</span><span class="n">ContainerImage</span><span class="p">.</span><span class="nf">from_asset</span><span class="p">(</span><span class="sh">"</span><span class="s">./app</span><span class="sh">"</span><span class="p">),</span>  <span class="c1"># built and pushed by cdk deploy
+</span>                <span class="n">container_port</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span>
+                <span class="n">secrets</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">DB_CREDENTIALS</span><span class="sh">"</span><span class="p">:</span> <span class="n">ecs</span><span class="p">.</span><span class="n">Secret</span><span class="p">.</span><span class="nf">from_secrets_manager</span><span class="p">(</span><span class="n">db</span><span class="p">.</span><span class="n">secret</span><span class="p">)},</span>
+            <span class="p">),</span>
+            <span class="n">capacity_provider_strategies</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">ecs</span><span class="p">.</span><span class="nc">CapacityProviderStrategy</span><span class="p">(</span><span class="n">capacity_provider</span><span class="o">=</span><span class="sh">"</span><span class="s">FARGATE</span><span class="sh">"</span><span class="p">,</span> <span class="n">base</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                <span class="n">ecs</span><span class="p">.</span><span class="nc">CapacityProviderStrategy</span><span class="p">(</span><span class="n">capacity_provider</span><span class="o">=</span><span class="sh">"</span><span class="s">FARGATE_SPOT</span><span class="sh">"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="n">circuit_breaker</span><span class="o">=</span><span class="n">ecs</span><span class="p">.</span><span class="nc">DeploymentCircuitBreaker</span><span class="p">(</span><span class="n">rollback</span><span class="o">=</span><span class="bp">True</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="n">web</span><span class="p">.</span><span class="n">target_group</span><span class="p">.</span><span class="nf">configure_health_check</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="sh">"</span><span class="s">/health</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="c1"># Security-group rule from the service to the database port
+</span>        <span class="n">db</span><span class="p">.</span><span class="n">connections</span><span class="p">.</span><span class="nf">allow_default_port_from</span><span class="p">(</span><span class="n">web</span><span class="p">.</span><span class="n">service</span><span class="p">)</span>
+
+        <span class="n">scaling</span> <span class="o">=</span> <span class="n">web</span><span class="p">.</span><span class="n">service</span><span class="p">.</span><span class="nf">auto_scale_task_count</span><span class="p">(</span><span class="n">min_capacity</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_capacity</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">scaling</span><span class="p">.</span><span class="nf">scale_on_cpu_utilization</span><span class="p">(</span><span class="sh">"</span><span class="s">Cpu</span><span class="sh">"</span><span class="p">,</span> <span class="n">target_utilization_percent</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+
+        <span class="nc">CfnOutput</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">Url</span><span class="sh">"</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="sh">"</span><span class="s">http://</span><span class="sh">"</span> <span class="o">+</span> <span class="n">web</span><span class="p">.</span><span class="n">load_balancer</span><span class="p">.</span><span class="n">load_balancer_dns_name</span><span class="p">)</span>
+
+
+<span class="n">app</span> <span class="o">=</span> <span class="nc">App</span><span class="p">()</span>
+<span class="nc">WebServiceStack</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="sh">"</span><span class="s">WebService</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">app</span><span class="p">.</span><span class="nf">synth</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Roughly sixty lines of Python synthesise several hundred lines of CloudFormation, including IAM roles, security groups, route tables, the ALB listener and target group, log groups, and the secret. <code class="language-plaintext highlighter-rouge">db.connections.allow_default_port_from(...)</code> and <code class="language-plaintext highlighter-rouge">ecs.Secret.from_secrets_manager(...)</code> also generate the least-privilege security-group rule and IAM grant that would otherwise be written by hand.</p>
+
+<h3 id="cdk-workflow">CDK workflow</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>npm <span class="nb">install</span> <span class="nt">-g</span> aws-cdk          <span class="c"># CLI (Node.js), independent of the app's language</span>
+cdk bootstrap aws://123456789012/us-east-1   <span class="c"># once per account/Region</span>
+cdk synth                       <span class="c"># render templates into cdk.out/</span>
+cdk diff                        <span class="c"># compare against deployed stacks</span>
+cdk deploy WebService           <span class="c"># create change set and execute</span>
+</code></pre></div></div>
+
+<p>Points that trip people up:</p>
+
+<ul>
+  <li><strong>CDK v1 is end-of-life</strong> (support ended 1 June 2023). Imports of the form <code class="language-plaintext highlighter-rouge">from aws_cdk import core</code> or per-service packages such as <code class="language-plaintext highlighter-rouge">aws_cdk.aws_s3</code> are v1; v2 ships everything in <code class="language-plaintext highlighter-rouge">aws-cdk-lib</code> and uses <code class="language-plaintext highlighter-rouge">constructs</code> for the base class.</li>
+  <li><strong>The CLI and the library are versioned separately.</strong> Since early 2025 the CLI (<code class="language-plaintext highlighter-rouge">aws-cdk</code>) releases on its own <code class="language-plaintext highlighter-rouge">2.1xxx.0</code> line while <code class="language-plaintext highlighter-rouge">aws-cdk-lib</code> stays on <code class="language-plaintext highlighter-rouge">2.x</code>. A current CLI can deploy apps built with any v2 library, so keep the CLI up to date.</li>
+  <li><strong>Logical IDs come from the construct path.</strong> Renaming a construct or moving it to another stack changes its logical ID, which CloudFormation treats as delete-and-create. <code class="language-plaintext highlighter-rouge">cdk refactor</code> (in preview, enabled with <code class="language-plaintext highlighter-rouge">--unstable=refactor</code>) detects such moves and uses CloudFormation stack refactoring to preserve the resources.</li>
+  <li><strong>Deprecated subnet types.</strong> <code class="language-plaintext highlighter-rouge">SubnetType.PRIVATE</code> and <code class="language-plaintext highlighter-rouge">SubnetType.ISOLATED</code> were replaced by <code class="language-plaintext highlighter-rouge">PRIVATE_WITH_EGRESS</code> and <code class="language-plaintext highlighter-rouge">PRIVATE_ISOLATED</code>.</li>
+  <li><strong>Policy checks.</strong> <code class="language-plaintext highlighter-rouge">cdk-nag</code> applies rule packs (AWS Solutions, NIST, HIPAA) to the construct tree at synth time; CloudFormation Hooks enforce rules server-side regardless of which tool produced the template.</li>
+</ul>
+
+<p>The <strong>CDK Toolkit Library</strong> exposes synth, deploy, diff, and refactor as a programmatic API, for teams that want to drive CDK from their own tooling instead of the CLI.</p>
+
+<hr />
+
+<h2 id="choosing-a-tool">Choosing a tool</h2>
 
 <table>
   <thead>
     <tr>
       <th>Tool</th>
-      <th>Pros</th>
-      <th>Cons</th>
-      <th>Best for</th>
+      <th>Language</th>
+      <th>State</th>
+      <th>Scope</th>
+      <th>Strengths</th>
+      <th>Trade-offs</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>CloudFormation</strong> (AWS native)</td>
-      <td>Deep AWS integration, no extra tools</td>
-      <td>Verbose syntax, AWS-only</td>
-      <td>Teams fully committed to AWS</td>
+      <td><strong>CloudFormation</strong></td>
+      <td>YAML / JSON</td>
+      <td>Managed by AWS</td>
+      <td>AWS</td>
+      <td>No state to manage; day-one support for many new services; rollback, drift-aware change sets, StackSets, Hooks</td>
+      <td>Verbose; limited abstraction; AWS only</td>
     </tr>
     <tr>
-      <td><strong>Terraform</strong> (multi-cloud)</td>
-      <td>Works across providers, huge community</td>
-      <td>Must learn HCL</td>
-      <td>Multi-cloud or teams wanting flexibility</td>
+      <td><strong>AWS CDK</strong></td>
+      <td>TS, Python, Java, C#, Go</td>
+      <td>CloudFormation</td>
+      <td>AWS</td>
+      <td>Real languages, loops, types, testing; high-level L2/L3 constructs; generated least-privilege IAM</td>
+      <td>Adds a synth step and Node.js CLI; inherits CloudFormation limits (500 resources per stack)</td>
     </tr>
     <tr>
-      <td><strong>AWS CDK</strong> (developer-friendly)</td>
-      <td>Define infra in Python/TypeScript with loops and abstractions</td>
-      <td>Newer, smaller community</td>
-      <td>Dev teams reusing existing language skills</td>
+      <td><strong>AWS SAM</strong></td>
+      <td>YAML (CloudFormation transform)</td>
+      <td>CloudFormation</td>
+      <td>Serverless on AWS</td>
+      <td>Concise syntax for Lambda, API Gateway, Step Functions; local invoke and testing</td>
+      <td>Narrow focus</td>
+    </tr>
+    <tr>
+      <td><strong>Terraform</strong></td>
+      <td>HCL</td>
+      <td>State file (S3 backend with locking, or HCP Terraform)</td>
+      <td>Multi-cloud and SaaS</td>
+      <td>Largest provider ecosystem; <code class="language-plaintext highlighter-rouge">plan</code> before <code class="language-plaintext highlighter-rouge">apply</code>; mature module registry</td>
+      <td>State must be secured and locked; Business Source License since August 2023</td>
+    </tr>
+    <tr>
+      <td><strong>OpenTofu</strong></td>
+      <td>HCL</td>
+      <td>State file</td>
+      <td>Multi-cloud</td>
+      <td>Open-source (MPL 2.0) fork of Terraform under the Linux Foundation; largely compatible with Terraform configurations</td>
+      <td>Features diverge from Terraform over time</td>
+    </tr>
+    <tr>
+      <td><strong>Pulumi</strong></td>
+      <td>TS, Python, Go, C#, Java, YAML</td>
+      <td>Pulumi Cloud or self-managed backend</td>
+      <td>Multi-cloud</td>
+      <td>General-purpose languages across providers</td>
+      <td>Smaller community than Terraform</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="real-world-iac-evolution">Real-World IaC Evolution</h3>
+<p>Rules of thumb:</p>
 
-<p>A startup’s infrastructure journey:</p>
-
-<ol>
-  <li><strong>Month 1</strong>: Everything created via console clicks</li>
-  <li><strong>Month 3</strong>: Production breaks, nobody remembers how to rebuild</li>
-  <li><strong>Month 4</strong>: Team adopts Terraform, documents existing infrastructure</li>
-  <li><strong>Month 6</strong>: All changes go through pull requests</li>
-  <li><strong>Year 1</strong>: Disaster recovery test - entire production rebuilt in 30 minutes</li>
-</ol>
-
-<h3 id="advanced-patterns-that-save-your-sanity">Advanced Patterns That Save Your Sanity</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">aws_cdk</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">core</span> <span class="k">as</span> <span class="n">cdk</span><span class="p">,</span>
-    <span class="n">aws_ec2</span> <span class="k">as</span> <span class="n">ec2</span><span class="p">,</span>
-    <span class="n">aws_ecs</span> <span class="k">as</span> <span class="n">ecs</span><span class="p">,</span>
-    <span class="n">aws_ecs_patterns</span> <span class="k">as</span> <span class="n">ecs_patterns</span><span class="p">,</span>
-    <span class="n">aws_elasticloadbalancingv2</span> <span class="k">as</span> <span class="n">elbv2</span><span class="p">,</span>
-    <span class="n">aws_rds</span> <span class="k">as</span> <span class="n">rds</span><span class="p">,</span>
-    <span class="n">aws_secretsmanager</span> <span class="k">as</span> <span class="n">sm</span><span class="p">,</span>
-    <span class="n">aws_cloudwatch</span> <span class="k">as</span> <span class="n">cloudwatch</span><span class="p">,</span>
-    <span class="n">aws_cloudwatch_actions</span> <span class="k">as</span> <span class="n">cw_actions</span><span class="p">,</span>
-    <span class="n">aws_sns</span> <span class="k">as</span> <span class="n">sns</span><span class="p">,</span>
-    <span class="n">aws_lambda</span> <span class="k">as</span> <span class="n">lambda_</span><span class="p">,</span>
-    <span class="n">aws_apigateway</span> <span class="k">as</span> <span class="n">apigw</span><span class="p">,</span>
-    <span class="n">custom_resources</span> <span class="k">as</span> <span class="n">cr</span>
-<span class="p">)</span>
-<span class="kn">from</span> <span class="n">constructs</span> <span class="kn">import</span> <span class="n">Construct</span>
-<span class="kn">import</span> <span class="n">json</span>
-
-<span class="k">class</span> <span class="nc">MicroservicesStack</span><span class="p">(</span><span class="n">cdk</span><span class="p">.</span><span class="n">Stack</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="n">Construct</span><span class="p">,</span> <span class="n">construct_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
-        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">(</span><span class="n">scope</span><span class="p">,</span> <span class="n">construct_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-
-        <span class="c1"># Create VPC with custom configuration
-</span>        <span class="n">vpc</span> <span class="o">=</span> <span class="n">ec2</span><span class="p">.</span><span class="nc">Vpc</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">MicroservicesVPC</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">max_azs</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-            <span class="n">nat_gateways</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-            <span class="n">subnet_configuration</span><span class="o">=</span><span class="p">[</span>
-                <span class="n">ec2</span><span class="p">.</span><span class="nc">SubnetConfiguration</span><span class="p">(</span>
-                    <span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">Public</span><span class="sh">"</span><span class="p">,</span>
-                    <span class="n">subnet_type</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="n">SubnetType</span><span class="p">.</span><span class="n">PUBLIC</span><span class="p">,</span>
-                    <span class="n">cidr_mask</span><span class="o">=</span><span class="mi">24</span>
-                <span class="p">),</span>
-                <span class="n">ec2</span><span class="p">.</span><span class="nc">SubnetConfiguration</span><span class="p">(</span>
-                    <span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">Private</span><span class="sh">"</span><span class="p">,</span>
-                    <span class="n">subnet_type</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="n">SubnetType</span><span class="p">.</span><span class="n">PRIVATE</span><span class="p">,</span>
-                    <span class="n">cidr_mask</span><span class="o">=</span><span class="mi">24</span>
-                <span class="p">),</span>
-                <span class="n">ec2</span><span class="p">.</span><span class="nc">SubnetConfiguration</span><span class="p">(</span>
-                    <span class="n">name</span><span class="o">=</span><span class="sh">"</span><span class="s">Isolated</span><span class="sh">"</span><span class="p">,</span>
-                    <span class="n">subnet_type</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="n">SubnetType</span><span class="p">.</span><span class="n">ISOLATED</span><span class="p">,</span>
-                    <span class="n">cidr_mask</span><span class="o">=</span><span class="mi">24</span>
-                <span class="p">)</span>
-            <span class="p">]</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Create ECS Cluster with capacity providers
-</span>        <span class="n">cluster</span> <span class="o">=</span> <span class="n">ecs</span><span class="p">.</span><span class="nc">Cluster</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">Cluster</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">vpc</span><span class="o">=</span><span class="n">vpc</span><span class="p">,</span>
-            <span class="n">container_insights</span><span class="o">=</span><span class="bp">True</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Add Fargate Spot capacity provider
-</span>        <span class="n">cluster</span><span class="p">.</span><span class="nf">add_capacity_provider</span><span class="p">(</span>
-            <span class="n">ecs</span><span class="p">.</span><span class="nc">FargateCapacityProvider</span><span class="p">(</span>
-                <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">FargateSpotProvider</span><span class="sh">"</span><span class="p">,</span>
-                <span class="n">spot</span><span class="o">=</span><span class="bp">True</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Create RDS Aurora Serverless v2
-</span>        <span class="n">db_secret</span> <span class="o">=</span> <span class="n">sm</span><span class="p">.</span><span class="nc">Secret</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">DBSecret</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">generate_secret_string</span><span class="o">=</span><span class="n">sm</span><span class="p">.</span><span class="nc">SecretStringGenerator</span><span class="p">(</span>
-                <span class="n">secret_string_template</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">username</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">admin</span><span class="sh">"</span><span class="p">}),</span>
-                <span class="n">generate_string_key</span><span class="o">=</span><span class="sh">"</span><span class="s">password</span><span class="sh">"</span><span class="p">,</span>
-                <span class="n">exclude_characters</span><span class="o">=</span><span class="sh">"</span><span class="s"> %+~`#$&amp;*()|[]{}:;&lt;&gt;?!</span><span class="sh">'</span><span class="s">/</span><span class="se">\\</span><span class="sh">"</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="n">db_cluster</span> <span class="o">=</span> <span class="n">rds</span><span class="p">.</span><span class="nc">DatabaseCluster</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">AuroraCluster</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">engine</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="n">DatabaseClusterEngine</span><span class="p">.</span><span class="nf">aurora_mysql</span><span class="p">(</span>
-                <span class="c1"># Use a current Aurora MySQL 3.x version label; this is an
-</span>                <span class="c1"># example — pin to a version supported in your account/region.
-</span>                <span class="n">version</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="n">AuroraMysqlEngineVersion</span><span class="p">.</span><span class="n">VER_3_04_0</span>
-            <span class="p">),</span>
-            <span class="n">serverless_v2_scaling_configuration</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="nc">ServerlessV2ScalingConfiguration</span><span class="p">(</span>
-                <span class="n">min_capacity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
-                <span class="n">max_capacity</span><span class="o">=</span><span class="mi">2</span>
-            <span class="p">),</span>
-            <span class="n">credentials</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="n">Credentials</span><span class="p">.</span><span class="nf">from_secret</span><span class="p">(</span><span class="n">db_secret</span><span class="p">),</span>
-            <span class="n">vpc</span><span class="o">=</span><span class="n">vpc</span><span class="p">,</span>
-            <span class="n">vpc_subnets</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="nc">SubnetSelection</span><span class="p">(</span>
-                <span class="n">subnet_type</span><span class="o">=</span><span class="n">ec2</span><span class="p">.</span><span class="n">SubnetType</span><span class="p">.</span><span class="n">ISOLATED</span>
-            <span class="p">),</span>
-            <span class="n">backup</span><span class="o">=</span><span class="n">rds</span><span class="p">.</span><span class="nc">BackupProps</span><span class="p">(</span>
-                <span class="n">retention</span><span class="o">=</span><span class="n">cdk</span><span class="p">.</span><span class="n">Duration</span><span class="p">.</span><span class="nf">days</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
-            <span class="p">),</span>
-            <span class="n">deletion_protection</span><span class="o">=</span><span class="bp">True</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Create shared ALB
-</span>        <span class="n">alb</span> <span class="o">=</span> <span class="n">elbv2</span><span class="p">.</span><span class="nc">ApplicationLoadBalancer</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">ALB</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">vpc</span><span class="o">=</span><span class="n">vpc</span><span class="p">,</span>
-            <span class="n">internet_facing</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
-            <span class="n">http2_enabled</span><span class="o">=</span><span class="bp">True</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Add CloudWatch alarms
-</span>        <span class="n">alarm</span> <span class="o">=</span> <span class="n">cloudwatch</span><span class="p">.</span><span class="nc">Alarm</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">HighErrorRate</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">metric</span><span class="o">=</span><span class="n">alb</span><span class="p">.</span><span class="nf">metric_target_response_time</span><span class="p">(),</span>
-            <span class="n">threshold</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-            <span class="n">evaluation_periods</span><span class="o">=</span><span class="mi">2</span>
-        <span class="p">)</span>
-
-        <span class="c1"># SNS topic for alarms
-</span>        <span class="n">alarm_topic</span> <span class="o">=</span> <span class="n">sns</span><span class="p">.</span><span class="nc">Topic</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">AlarmTopic</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">display_name</span><span class="o">=</span><span class="sh">"</span><span class="s">Microservices Alarms</span><span class="sh">"</span>
-        <span class="p">)</span>
-
-        <span class="n">alarm</span><span class="p">.</span><span class="nf">add_alarm_action</span><span class="p">(</span><span class="n">cw_actions</span><span class="p">.</span><span class="nc">SnsAction</span><span class="p">(</span><span class="n">alarm_topic</span><span class="p">))</span>
-
-        <span class="c1"># Deploy microservices
-</span>        <span class="n">self</span><span class="p">.</span><span class="nf">deploy_microservice</span><span class="p">(</span>
-            <span class="n">cluster</span><span class="o">=</span><span class="n">cluster</span><span class="p">,</span>
-            <span class="n">alb</span><span class="o">=</span><span class="n">alb</span><span class="p">,</span>
-            <span class="n">service_name</span><span class="o">=</span><span class="sh">"</span><span class="s">users</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">image</span><span class="o">=</span><span class="sh">"</span><span class="s">users-service:latest</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">,</span>
-            <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-            <span class="n">path_pattern</span><span class="o">=</span><span class="sh">"</span><span class="s">/users/*</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">environment</span><span class="o">=</span><span class="p">{</span>
-                <span class="sh">"</span><span class="s">DB_SECRET_ARN</span><span class="sh">"</span><span class="p">:</span> <span class="n">db_secret</span><span class="p">.</span><span class="n">secret_arn</span><span class="p">,</span>
-                <span class="sh">"</span><span class="s">DB_CLUSTER_ARN</span><span class="sh">"</span><span class="p">:</span> <span class="n">db_cluster</span><span class="p">.</span><span class="n">cluster_arn</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
-
-        <span class="n">self</span><span class="p">.</span><span class="nf">deploy_microservice</span><span class="p">(</span>
-            <span class="n">cluster</span><span class="o">=</span><span class="n">cluster</span><span class="p">,</span>
-            <span class="n">alb</span><span class="o">=</span><span class="n">alb</span><span class="p">,</span>
-            <span class="n">service_name</span><span class="o">=</span><span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">image</span><span class="o">=</span><span class="sh">"</span><span class="s">orders-service:latest</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">port</span><span class="o">=</span><span class="mi">8081</span><span class="p">,</span>
-            <span class="n">priority</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-            <span class="n">path_pattern</span><span class="o">=</span><span class="sh">"</span><span class="s">/orders/*</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">environment</span><span class="o">=</span><span class="p">{</span>
-                <span class="sh">"</span><span class="s">DB_SECRET_ARN</span><span class="sh">"</span><span class="p">:</span> <span class="n">db_secret</span><span class="p">.</span><span class="n">secret_arn</span><span class="p">,</span>
-                <span class="sh">"</span><span class="s">DB_CLUSTER_ARN</span><span class="sh">"</span><span class="p">:</span> <span class="n">db_cluster</span><span class="p">.</span><span class="n">cluster_arn</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Create API Gateway for serverless endpoints
-</span>        <span class="n">api</span> <span class="o">=</span> <span class="n">apigw</span><span class="p">.</span><span class="nc">RestApi</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">MicroservicesAPI</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">deploy_options</span><span class="o">=</span><span class="n">apigw</span><span class="p">.</span><span class="nc">StageOptions</span><span class="p">(</span>
-                <span class="n">logging_level</span><span class="o">=</span><span class="n">apigw</span><span class="p">.</span><span class="n">MethodLoggingLevel</span><span class="p">.</span><span class="n">INFO</span><span class="p">,</span>
-                <span class="n">data_trace_enabled</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
-                <span class="n">tracing_enabled</span><span class="o">=</span><span class="bp">True</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Lambda function for async processing
-</span>        <span class="n">async_processor</span> <span class="o">=</span> <span class="n">lambda_</span><span class="p">.</span><span class="nc">Function</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">AsyncProcessor</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">runtime</span><span class="o">=</span><span class="n">lambda_</span><span class="p">.</span><span class="n">Runtime</span><span class="p">.</span><span class="n">PYTHON_3_12</span><span class="p">,</span>
-            <span class="n">handler</span><span class="o">=</span><span class="sh">"</span><span class="s">index.handler</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">code</span><span class="o">=</span><span class="n">lambda_</span><span class="p">.</span><span class="n">Code</span><span class="p">.</span><span class="nf">from_asset</span><span class="p">(</span><span class="sh">"</span><span class="s">lambda</span><span class="sh">"</span><span class="p">),</span>
-            <span class="n">vpc</span><span class="o">=</span><span class="n">vpc</span><span class="p">,</span>
-            <span class="n">environment</span><span class="o">=</span><span class="p">{</span>
-                <span class="sh">"</span><span class="s">DB_SECRET_ARN</span><span class="sh">"</span><span class="p">:</span> <span class="n">db_secret</span><span class="p">.</span><span class="n">secret_arn</span>
-            <span class="p">},</span>
-            <span class="n">reserved_concurrent_executions</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-            <span class="n">tracing</span><span class="o">=</span><span class="n">lambda_</span><span class="p">.</span><span class="n">Tracing</span><span class="p">.</span><span class="n">ACTIVE</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Grant permissions
-</span>        <span class="n">db_secret</span><span class="p">.</span><span class="nf">grant_read</span><span class="p">(</span><span class="n">async_processor</span><span class="p">)</span>
-        <span class="n">db_cluster</span><span class="p">.</span><span class="nf">grant_connect</span><span class="p">(</span><span class="n">async_processor</span><span class="p">)</span>
-
-        <span class="c1"># Custom resource for database initialization
-</span>        <span class="n">db_init</span> <span class="o">=</span> <span class="n">cr</span><span class="p">.</span><span class="nc">AwsCustomResource</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">DBInit</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">on_create</span><span class="o">=</span><span class="n">cr</span><span class="p">.</span><span class="nc">AwsSdkCall</span><span class="p">(</span>
-                <span class="n">service</span><span class="o">=</span><span class="sh">"</span><span class="s">RDS</span><span class="sh">"</span><span class="p">,</span>
-                <span class="n">action</span><span class="o">=</span><span class="sh">"</span><span class="s">executeStatement</span><span class="sh">"</span><span class="p">,</span>
-                <span class="n">parameters</span><span class="o">=</span><span class="p">{</span>
-                    <span class="sh">"</span><span class="s">resourceArn</span><span class="sh">"</span><span class="p">:</span> <span class="n">db_cluster</span><span class="p">.</span><span class="n">cluster_arn</span><span class="p">,</span>
-                    <span class="sh">"</span><span class="s">secretArn</span><span class="sh">"</span><span class="p">:</span> <span class="n">db_secret</span><span class="p">.</span><span class="n">secret_arn</span><span class="p">,</span>
-                    <span class="sh">"</span><span class="s">database</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">mysql</span><span class="sh">"</span><span class="p">,</span>
-                    <span class="sh">"</span><span class="s">sql</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">CREATE DATABASE IF NOT EXISTS microservices;</span><span class="sh">"</span>
-                <span class="p">},</span>
-                <span class="n">physical_resource_id</span><span class="o">=</span><span class="n">cr</span><span class="p">.</span><span class="n">PhysicalResourceId</span><span class="p">.</span><span class="nf">of</span><span class="p">(</span><span class="sh">"</span><span class="s">DBInit</span><span class="sh">"</span><span class="p">)</span>
-            <span class="p">),</span>
-            <span class="n">policy</span><span class="o">=</span><span class="n">cr</span><span class="p">.</span><span class="n">AwsCustomResourcePolicy</span><span class="p">.</span><span class="nf">from_sdk_calls</span><span class="p">(</span>
-                <span class="n">resources</span><span class="o">=</span><span class="p">[</span><span class="n">db_cluster</span><span class="p">.</span><span class="n">cluster_arn</span><span class="p">]</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Output values
-</span>        <span class="n">cdk</span><span class="p">.</span><span class="nc">CfnOutput</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">ALBDNSName</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">value</span><span class="o">=</span><span class="n">alb</span><span class="p">.</span><span class="n">load_balancer_dns_name</span><span class="p">,</span>
-            <span class="n">description</span><span class="o">=</span><span class="sh">"</span><span class="s">ALB DNS Name</span><span class="sh">"</span>
-        <span class="p">)</span>
-
-        <span class="n">cdk</span><span class="p">.</span><span class="nc">CfnOutput</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sh">"</span><span class="s">APIEndpoint</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">value</span><span class="o">=</span><span class="n">api</span><span class="p">.</span><span class="n">url</span><span class="p">,</span>
-            <span class="n">description</span><span class="o">=</span><span class="sh">"</span><span class="s">API Gateway Endpoint</span><span class="sh">"</span>
-        <span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">deploy_microservice</span><span class="p">(</span><span class="n">self</span><span class="p">,</span>
-                           <span class="n">cluster</span><span class="p">:</span> <span class="n">ecs</span><span class="p">.</span><span class="n">Cluster</span><span class="p">,</span>
-                           <span class="n">alb</span><span class="p">:</span> <span class="n">elbv2</span><span class="p">.</span><span class="n">ApplicationLoadBalancer</span><span class="p">,</span>
-                           <span class="n">service_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-                           <span class="n">image</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-                           <span class="n">port</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-                           <span class="n">priority</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-                           <span class="n">path_pattern</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-                           <span class="n">environment</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Deploy a microservice to ECS</span><span class="sh">"""</span>
-
-        <span class="c1"># Create task definition
-</span>        <span class="n">task_definition</span> <span class="o">=</span> <span class="n">ecs</span><span class="p">.</span><span class="nc">FargateTaskDefinition</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="s">TaskDef</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">memory_limit_mib</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>
-            <span class="n">cpu</span><span class="o">=</span><span class="mi">256</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Add container
-</span>        <span class="n">container</span> <span class="o">=</span> <span class="n">task_definition</span><span class="p">.</span><span class="nf">add_container</span><span class="p">(</span>
-            <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="s">Container</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">image</span><span class="o">=</span><span class="n">ecs</span><span class="p">.</span><span class="n">ContainerImage</span><span class="p">.</span><span class="nf">from_registry</span><span class="p">(</span><span class="n">image</span><span class="p">),</span>
-            <span class="n">logging</span><span class="o">=</span><span class="n">ecs</span><span class="p">.</span><span class="n">LogDrivers</span><span class="p">.</span><span class="nf">aws_logs</span><span class="p">(</span>
-                <span class="n">stream_prefix</span><span class="o">=</span><span class="n">service_name</span>
-            <span class="p">),</span>
-            <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
-            <span class="n">health_check</span><span class="o">=</span><span class="n">ecs</span><span class="p">.</span><span class="nc">HealthCheck</span><span class="p">(</span>
-                <span class="n">command</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">CMD-SHELL</span><span class="sh">"</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="s">curl -f http://localhost:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s">/health || exit 1</span><span class="sh">"</span><span class="p">],</span>
-                <span class="n">interval</span><span class="o">=</span><span class="n">cdk</span><span class="p">.</span><span class="n">Duration</span><span class="p">.</span><span class="nf">seconds</span><span class="p">(</span><span class="mi">30</span><span class="p">),</span>
-                <span class="n">timeout</span><span class="o">=</span><span class="n">cdk</span><span class="p">.</span><span class="n">Duration</span><span class="p">.</span><span class="nf">seconds</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span>
-                <span class="n">retries</span><span class="o">=</span><span class="mi">3</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="n">container</span><span class="p">.</span><span class="nf">add_port_mappings</span><span class="p">(</span>
-            <span class="n">ecs</span><span class="p">.</span><span class="nc">PortMapping</span><span class="p">(</span>
-                <span class="n">container_port</span><span class="o">=</span><span class="n">port</span><span class="p">,</span>
-                <span class="n">protocol</span><span class="o">=</span><span class="n">ecs</span><span class="p">.</span><span class="n">Protocol</span><span class="p">.</span><span class="n">TCP</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Create service
-</span>        <span class="n">service</span> <span class="o">=</span> <span class="n">ecs</span><span class="p">.</span><span class="nc">FargateService</span><span class="p">(</span>
-            <span class="n">self</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="s">Service</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">cluster</span><span class="o">=</span><span class="n">cluster</span><span class="p">,</span>
-            <span class="n">task_definition</span><span class="o">=</span><span class="n">task_definition</span><span class="p">,</span>
-            <span class="n">desired_count</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-            <span class="n">capacity_provider_strategies</span><span class="o">=</span><span class="p">[</span>
-                <span class="n">ecs</span><span class="p">.</span><span class="nc">CapacityProviderStrategy</span><span class="p">(</span>
-                    <span class="n">capacity_provider</span><span class="o">=</span><span class="sh">"</span><span class="s">FARGATE_SPOT</span><span class="sh">"</span><span class="p">,</span>
-                    <span class="n">weight</span><span class="o">=</span><span class="mi">2</span>
-                <span class="p">),</span>
-                <span class="n">ecs</span><span class="p">.</span><span class="nc">CapacityProviderStrategy</span><span class="p">(</span>
-                    <span class="n">capacity_provider</span><span class="o">=</span><span class="sh">"</span><span class="s">FARGATE</span><span class="sh">"</span><span class="p">,</span>
-                    <span class="n">weight</span><span class="o">=</span><span class="mi">1</span>
-                <span class="p">)</span>
-            <span class="p">],</span>
-            <span class="n">circuit_breaker</span><span class="o">=</span><span class="n">ecs</span><span class="p">.</span><span class="nc">DeploymentCircuitBreaker</span><span class="p">(</span>
-                <span class="n">rollback</span><span class="o">=</span><span class="bp">True</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Configure auto-scaling
-</span>        <span class="n">scaling</span> <span class="o">=</span> <span class="n">service</span><span class="p">.</span><span class="nf">auto_scale_task_count</span><span class="p">(</span>
-            <span class="n">min_capacity</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-            <span class="n">max_capacity</span><span class="o">=</span><span class="mi">10</span>
-        <span class="p">)</span>
-
-        <span class="n">scaling</span><span class="p">.</span><span class="nf">scale_on_cpu_utilization</span><span class="p">(</span>
-            <span class="sh">"</span><span class="s">CpuScaling</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">target_utilization_percent</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span>
-            <span class="n">scale_in_cooldown</span><span class="o">=</span><span class="n">cdk</span><span class="p">.</span><span class="n">Duration</span><span class="p">.</span><span class="nf">seconds</span><span class="p">(</span><span class="mi">60</span><span class="p">),</span>
-            <span class="n">scale_out_cooldown</span><span class="o">=</span><span class="n">cdk</span><span class="p">.</span><span class="n">Duration</span><span class="p">.</span><span class="nf">seconds</span><span class="p">(</span><span class="mi">60</span><span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="n">scaling</span><span class="p">.</span><span class="nf">scale_on_request_count</span><span class="p">(</span>
-            <span class="sh">"</span><span class="s">RequestScaling</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">requests_per_target</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-            <span class="n">target_group</span><span class="o">=</span><span class="n">alb</span><span class="p">.</span><span class="nf">add_targets</span><span class="p">(</span>
-                <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="s">TG</span><span class="sh">"</span><span class="p">,</span>
-                <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">,</span>
-                <span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">service</span><span class="p">],</span>
-                <span class="n">health_check</span><span class="o">=</span><span class="n">elbv2</span><span class="p">.</span><span class="nc">HealthCheck</span><span class="p">(</span>
-                    <span class="n">path</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">/</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="s">/health</span><span class="sh">"</span><span class="p">,</span>
-                    <span class="n">interval</span><span class="o">=</span><span class="n">cdk</span><span class="p">.</span><span class="n">Duration</span><span class="p">.</span><span class="nf">seconds</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-        <span class="p">)</span>
-
-        <span class="c1"># Add ALB listener rule
-</span>        <span class="n">alb</span><span class="p">.</span><span class="nf">add_listener</span><span class="p">(</span>
-            <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="s">Listener</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">port</span><span class="o">=</span><span class="mi">80</span>
-        <span class="p">).</span><span class="nf">add_targets</span><span class="p">(</span>
-            <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="s">Targets</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">port</span><span class="o">=</span><span class="n">port</span><span class="p">,</span>
-            <span class="n">targets</span><span class="o">=</span><span class="p">[</span><span class="n">service</span><span class="p">],</span>
-            <span class="n">priority</span><span class="o">=</span><span class="n">priority</span><span class="p">,</span>
-            <span class="n">conditions</span><span class="o">=</span><span class="p">[</span>
-                <span class="n">elbv2</span><span class="p">.</span><span class="n">ListenerCondition</span><span class="p">.</span><span class="nf">path_patterns</span><span class="p">([</span><span class="n">path_pattern</span><span class="p">])</span>
-            <span class="p">]</span>
-        <span class="p">)</span>
-</code></pre></div></div>
+<ul>
+  <li>AWS-only teams comfortable with a general-purpose language get the most leverage from the <strong>CDK</strong>.</li>
+  <li>Organisations that manage several clouds or many SaaS providers (DNS, monitoring, identity) usually standardise on <strong>Terraform or OpenTofu</strong>; see the <a href="../terraform/">Terraform guide</a>.</li>
+  <li>Plain <strong>CloudFormation</strong> remains the right output format for things that must be consumed by others: Service Catalog products, StackSets rolled out across an Organization, and Marketplace templates.</li>
+  <li>Mixing tools is common but each resource should have exactly one owner.</li>
+</ul>
 
 <hr />
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="operating-iac-in-production">Operating IaC in production</h2>
+
+<pre><code class="language-mermaid">flowchart LR
+    PR[Pull request] --&gt; CI["CI: lint, unit tests,&lt;br/&gt;policy checks, synth/plan"]
+    CI --&gt; Dev[Deploy to dev]
+    Dev --&gt; Stg["Deploy to staging&lt;br/&gt;integration tests"]
+    Stg --&gt; Gate{Manual approval&lt;br/&gt;of prod change set}
+    Gate --&gt; Prod[Deploy to prod]
+    Prod --&gt; Watch["Alarms during bake time&lt;br/&gt;auto-rollback on breach"]
+</code></pre>
 
 <ul>
-  <li><strong>Codify everything.</strong> CloudFormation, CDK, or Terraform turn clicks into reviewable, repeatable code. Manual console changes drift and cannot be reproduced.</li>
-  <li><strong>Pick the tool that fits the team.</strong> CloudFormation for AWS-native simplicity, Terraform for multi-cloud, CDK to define infrastructure in a real programming language with loops and abstractions.</li>
-  <li><strong>Review infrastructure like code.</strong> Send every change through pull requests and test in staging. The payoff is a disaster-recovery story measured in minutes, not days.</li>
+  <li><strong>Separate accounts per environment.</strong> Use AWS Organizations with one account per environment (or per workload and environment); the same template is promoted from account to account. See <a href="security.html">Security</a> for account structure.</li>
+  <li><strong>Deploy from pipelines, not laptops.</strong> CI assumes a deployment role through OIDC federation rather than long-lived access keys. Humans get read-only production access by default.</li>
+  <li><strong>Size stacks by lifecycle.</strong> Put resources that change together in the same stack, and keep long-lived stateful resources (VPCs, databases, buckets) in separate stacks from frequently deployed application code. This limits blast radius and keeps each stack under the 500-resource quota.</li>
+  <li><strong>Protect state.</strong> Set <code class="language-plaintext highlighter-rouge">DeletionPolicy</code>/<code class="language-plaintext highlighter-rouge">UpdateReplacePolicy: Retain</code> (CDK <code class="language-plaintext highlighter-rouge">RemovalPolicy.RETAIN</code> or <code class="language-plaintext highlighter-rouge">SNAPSHOT</code>) on anything holding data, enable termination protection on production stacks, and read every change set for <code class="language-plaintext highlighter-rouge">Replacement: True</code>.</li>
+  <li><strong>Avoid hard-coded names.</strong> Let CloudFormation generate physical names where possible; named resources cannot be replaced without a conflict, which blocks updates that require replacement.</li>
+  <li><strong>Treat drift as an incident.</strong> Out-of-band console fixes made during an outage should be codified afterwards; drift-aware change sets show which ones a deployment would otherwise overwrite.</li>
+  <li><strong>Parameterise environments, not code paths.</strong> Differences between environments belong in parameters or CDK context, not in divergent templates.</li>
 </ul>
 
 <hr />
@@ -3621,10 +3631,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <ul>
   <li><a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
+  <li><a href="../terraform/">Terraform</a> - Multi-cloud IaC with HCL, state, and modules</li>
+  <li><a href="../ci-cd/deployment.html">CI/CD: Deployment</a> - Pipeline patterns for promoting changes</li>
   <li><a href="architecture.html">Architecture Patterns &amp; Case Studies</a> - Where these stacks fit</li>
-  <li><a href="cost.html">Cost Optimization</a> - IaC-driven budgets and Spot management</li>
-  <li><a href="../terraform/">Terraform</a> - Alternative multi-cloud IaC approach</li>
-  <li><a href="compute.html">Compute Services</a> - EC2, Lambda, and container patterns</li>
+  <li><a href="monitoring.html">Monitoring &amp; Messaging</a> - Alarms that can gate and roll back deployments</li>
+  <li><a href="security.html">Security</a> - IAM, account structure, and guardrails</li>
+  <li><a href="cost.html">Cost Optimization</a> - Tagging and budgets driven from IaC</li>
 </ul>
 
       </section>

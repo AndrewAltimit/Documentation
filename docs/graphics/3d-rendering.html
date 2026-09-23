@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Real-time 3D rendering reference: the GPU pipeline, coordinate transforms, rasterization and ray tracing, lighting and global illumination, shadows, renderer...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="3D Graphics & Rendering">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Real-time 3D rendering reference: the GPU pipeline, coordinate transforms, rasterization and ray tracing, lighting and global illumination, shadows, renderer...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/graphics/3d-rendering.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="3D Graphics & Rendering">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Real-time 3D rendering reference: the GPU pipeline, coordinate transforms, rasterization and ray tracing, lighting and global illumination, shadows, renderer...">
 
 <title>3D Graphics & Rendering | Andrews Notebook</title>
 
@@ -3133,180 +3133,266 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <h1 id="3d-graphics--rendering">3D Graphics &amp; Rendering</h1>
 
-<p>3D graphics rendering transforms mathematical representations of three-dimensional scenes into two-dimensional images on screen. Modern pipelines combine geometry algorithms, parallel GPU architectures, and advanced shading to produce photorealistic or stylized visuals in real-time for games, simulations, and interactive applications. Four ideas frame the whole subject:</p>
+<p>Real-time 3D rendering turns a mathematical description of a scene (meshes, materials, lights, and a camera) into an image, many times per second. This page covers how a modern renderer works: the GPU pipeline, the transforms that carry vertices to the screen, the two ways of solving visibility (rasterization and ray tracing), lighting and global illumination, shadows, renderer architectures, anti-aliasing and upscaling, GPU hardware, graphics APIs, and the optimizations that keep a frame within budget. The programmable stages themselves, and the BRDF code for physically based shading, are covered in <a href="shaders.html">Shader Programming</a>.</p>
 
-<ul>
-  <li><strong>A pipeline, not magic.</strong> Every frame is a fixed sequence: transform geometry, decide which pixels it covers, then shade them. Knowing the stages tells you where time goes.</li>
-  <li><strong>Massively parallel.</strong> A GPU runs thousands of threads at once; performance comes from feeding that parallelism evenly, not from clever serial tricks.</li>
-  <li><strong>Rasterize vs trace.</strong> Rasterization is fast and approximate; ray tracing is accurate and expensive. Modern engines blend both (“hybrid rendering”).</li>
-  <li><strong>Budget-driven.</strong> At 60 FPS you have ~16 ms per frame — rendering is a constant negotiation between visual fidelity and that fixed time budget.</li>
-</ul>
+<h2 id="overview">Overview</h2>
+
+<p>A renderer answers two questions for every pixel: <em>which surface is visible here?</em> and <em>what color does that surface send toward the camera?</em> Every technique on this page solves one of those questions, or solves one of them faster.</p>
+
+<p>Real-time rendering works to a fixed <strong>frame budget</strong>. All CPU and GPU work for a frame has to finish within that time, so every feature is weighed against its cost in milliseconds:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Target</th>
+      <th style="text-align: right">Frame time</th>
+      <th>Typical context</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>30 FPS</td>
+      <td style="text-align: right">33.3 ms</td>
+      <td>Console “quality” modes, cinematic games</td>
+    </tr>
+    <tr>
+      <td>60 FPS</td>
+      <td style="text-align: right">16.7 ms</td>
+      <td>Standard target for action games</td>
+    </tr>
+    <tr>
+      <td>90 FPS</td>
+      <td style="text-align: right">11.1 ms</td>
+      <td>Minimum comfortable rate for most VR headsets</td>
+    </tr>
+    <tr>
+      <td>120 FPS</td>
+      <td style="text-align: right">8.3 ms</td>
+      <td>High-refresh displays, competitive games, “performance” modes</td>
+    </tr>
+    <tr>
+      <td>144+ FPS</td>
+      <td style="text-align: right">6.9 ms or less</td>
+      <td>Esports titles</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The CPU and GPU run as a pipeline, usually one or two frames apart. A frame is limited by whichever side is slower, so the first step in optimizing is to find out which side is the bottleneck (see <a href="../optimization/gpu-optimization.html">GPU Optimization</a>).</p>
 
 <h2 id="the-rendering-pipeline">The Rendering Pipeline</h2>
 
-<h3 id="overview">Overview</h3>
+<h3 id="classic-graphics-pipeline">Classic Graphics Pipeline</h3>
 
-<p>Rendering answers two questions for every pixel: <em>what surface is visible here?</em> and <em>what color is that surface?</em> The graphics pipeline processes geometry through a fixed sequence of stages to answer them. Vertices flow in at the top, get transformed and assembled into triangles, are converted to candidate pixels (fragments), and finally shaded and composited into the framebuffer.</p>
+<p>The graphics pipeline is a fixed sequence of stages. Some stages are <strong>programmable</strong> (shaders written by the application) and some are <strong>fixed-function</strong> (configured through state, but implemented in dedicated hardware).</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    A["Application Stage (CPU)&lt;br/&gt;scene setup, culling, draw calls"] --&gt; B["Vertex Shader&lt;br/&gt;transform vertices to clip space"]
-    B --&gt; C{"Optional&lt;br/&gt;geometry stages"}
-    C --&gt; D["Tessellation&lt;br/&gt;subdivide patches"]
-    C --&gt; E["Geometry Shader&lt;br/&gt;emit/modify primitives"]
-    D --&gt; F["Clipping &amp; Culling&lt;br/&gt;discard off-screen / backfaces"]
-    E --&gt; F
-    C --&gt; F
-    F --&gt; G["Rasterization&lt;br/&gt;triangles to fragments"]
-    G --&gt; H["Fragment / Pixel Shader&lt;br/&gt;compute color &amp; lighting"]
-    H --&gt; I["Depth &amp; Stencil Test"]
-    I --&gt; J["Blending"]
-    J --&gt; K["Framebuffer Output"]
+    A["Application (CPU)&lt;br/&gt;visibility, sorting, draw calls"] --&gt; IA["Input Assembly&lt;br/&gt;fetch vertices and indices"]
+    IA --&gt; VS["Vertex Shader&lt;br/&gt;object space to clip space"]
+    VS --&gt; T["Tessellation (optional)&lt;br/&gt;hull / tessellator / domain"]
+    T --&gt; GS["Geometry Shader (optional)"]
+    GS --&gt; CL["Clipping, perspective divide,&lt;br/&gt;viewport transform, face culling"]
+    CL --&gt; R["Rasterization&lt;br/&gt;triangles to fragments"]
+    R --&gt; EZ["Early depth / stencil test"]
+    EZ --&gt; FS["Fragment / Pixel Shader&lt;br/&gt;material and lighting"]
+    FS --&gt; OM["Output Merger&lt;br/&gt;late depth test, blending"]
+    OM --&gt; FB["Render targets / framebuffer"]
 </code></pre>
 
-<p>The CPU-side <strong>application stage</strong> is where your engine lives: it decides what to draw, performs high-level culling, and issues draw calls. Everything below it runs on the GPU. The fixed-function stages (rasterization, depth test, blend) are configured but not programmed; the programmable stages (vertex, fragment, and optionally tessellation/geometry/compute) are where shader code runs.</p>
+<ul>
+  <li>The <strong>application stage</strong> runs on the CPU. The engine decides what to draw, culls coarsely, builds command buffers, and submits them.</li>
+  <li>The <strong>vertex shader</strong> runs once per vertex and must output a homogeneous clip-space position.</li>
+  <li><strong>Tessellation</strong> and <strong>geometry shaders</strong> are optional, and modern engines rarely use them. Mesh shaders (below) replace both.</li>
+  <li>The <strong>rasterizer</strong> finds which pixel samples each triangle covers, and interpolates the vertex outputs to each sample with perspective correction.</li>
+  <li><strong>Early-Z</strong> rejects occluded fragments before they are shaded. A shader that writes depth or uses <code class="language-plaintext highlighter-rouge">discard</code> can turn it off, which makes the depth test run after shading instead.</li>
+  <li>The <strong>output merger</strong> runs the final depth and stencil tests and blends the result into the render target.</li>
+</ul>
 
-<h3 id="coordinate-spaces">Coordinate Spaces</h3>
+<h3 id="mesh-shader-pipeline">Mesh-Shader Pipeline</h3>
 
-<p>Transformations move vertices through coordinate systems:</p>
+<p>GPUs since NVIDIA Turing, AMD RDNA 2, and Intel Arc, plus Apple silicon, support a second geometry front end. It replaces input assembly, vertex, tessellation, and geometry shading with two compute-like stages. The API exposure is Direct3D 12 Shader Model 6.5, Vulkan <code class="language-plaintext highlighter-rouge">VK_EXT_mesh_shader</code>, and Metal 3 mesh shaders.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Classic["Classic front end"]
+      direction TB
+      a1["Input Assembly"] --&gt; a2["Vertex Shader"] --&gt; a3["Tessellation / Geometry"]
+    end
+    subgraph Mesh["Mesh-shader front end"]
+      direction TB
+      b1["Task / Amplification Shader&lt;br/&gt;cull meshlets, choose LOD"] --&gt; b2["Mesh Shader&lt;br/&gt;emit up to ~256 vertices / primitives&lt;br/&gt;per workgroup (meshlet)"]
+    end
+    a3 --&gt; R["Rasterizer and the rest of the pipeline"]
+    b2 --&gt; R
+</code></pre>
+
+<p>Geometry is pre-split into <strong>meshlets</strong>, which are small clusters of about 64–128 vertices and 64–256 triangles. A task shader can cull an entire meshlet against the frustum, occlusion data, or normal cones before any vertex work runs. This is the basis of <em>GPU-driven rendering</em>, in which the GPU, not the CPU, decides what gets drawn.</p>
+
+<h2 id="coordinate-spaces-and-transforms">Coordinate Spaces and Transforms</h2>
+
+<p>A vertex passes through a chain of coordinate spaces on its way to the screen:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    O["Object space"] -- "Model matrix M" --&gt; W["World space"]
+    W -- "View matrix V" --&gt; Vw["View / camera space"]
+    Vw -- "Projection matrix P" --&gt; C["Clip space&lt;br/&gt;(homogeneous)"]
+    C -- "divide by w" --&gt; N["NDC"]
+    N -- "viewport transform" --&gt; S["Window / screen space"]
+</code></pre>
 
 <table>
   <thead>
     <tr>
       <th>Space</th>
-      <th>Description</th>
-      <th>Transform</th>
+      <th>Meaning</th>
+      <th>Reached by</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Object/Model</strong></td>
-      <td>Local coordinates relative to mesh origin</td>
-      <td>-</td>
+      <td>Object (model)</td>
+      <td>Relative to the mesh’s own origin</td>
+      <td>—</td>
     </tr>
     <tr>
-      <td><strong>World</strong></td>
-      <td>Global scene coordinates</td>
-      <td>Model Matrix</td>
+      <td>World</td>
+      <td>Shared scene coordinates</td>
+      <td>Model matrix</td>
     </tr>
     <tr>
-      <td><strong>View/Camera</strong></td>
-      <td>Relative to camera position</td>
-      <td>View Matrix</td>
+      <td>View (camera)</td>
+      <td>Camera at the origin, looking down one axis</td>
+      <td>View matrix (inverse of the camera’s world transform)</td>
     </tr>
     <tr>
-      <td><strong>Clip</strong></td>
-      <td>Homogeneous coordinates for clipping</td>
-      <td>Projection Matrix</td>
+      <td>Clip</td>
+      <td>4D homogeneous coordinates in which the frustum becomes a box</td>
+      <td>Projection matrix</td>
     </tr>
     <tr>
-      <td><strong>NDC</strong></td>
-      <td>Normalized Device Coordinates [-1,1]</td>
-      <td>Perspective Division</td>
+      <td>NDC</td>
+      <td>Normalized device coordinates: $x, y \in [-1, 1]$; $z \in [0, 1]$ (D3D, Vulkan, Metal, WebGPU) or $[-1, 1]$ (OpenGL default)</td>
+      <td>Perspective divide</td>
     </tr>
     <tr>
-      <td><strong>Screen</strong></td>
-      <td>Final pixel coordinates</td>
-      <td>Viewport Transform</td>
+      <td>Screen (window)</td>
+      <td>Pixel coordinates plus depth</td>
+      <td>Viewport transform</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="vertex-processing">Vertex Processing</h3>
+<p>The vertex shader computes the clip-space position, and the fixed-function hardware does the rest:</p>
 
-<p>The vertex shader transforms each vertex:</p>
+\[\mathbf{p}_{\text{clip}} = P \, V \, M \, \mathbf{p}_{\text{obj}}, \qquad \mathbf{p}_{\text{ndc}} = \left( \frac{x_c}{w_c}, \frac{y_c}{w_c}, \frac{z_c}{w_c} \right)\]
 
-<div class="language-glsl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Basic vertex shader</span>
-<span class="cp">#version 450
-</span>
-<span class="k">layout</span><span class="p">(</span><span class="n">location</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">in</span> <span class="kt">vec3</span> <span class="n">inPosition</span><span class="p">;</span>
-<span class="k">layout</span><span class="p">(</span><span class="n">location</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="k">in</span> <span class="kt">vec3</span> <span class="n">inNormal</span><span class="p">;</span>
-<span class="k">layout</span><span class="p">(</span><span class="n">location</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span> <span class="k">in</span> <span class="kt">vec2</span> <span class="n">inTexCoord</span><span class="p">;</span>
+\[x_{\text{screen}} = \frac{x_{\text{ndc}} + 1}{2} \, W, \qquad y_{\text{screen}} = \frac{1 - y_{\text{ndc}}}{2} \, H\]
 
-<span class="k">layout</span><span class="p">(</span><span class="n">binding</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">uniform</span> <span class="n">Matrices</span> <span class="p">{</span>
-    <span class="kt">mat4</span> <span class="n">model</span><span class="p">;</span>
-    <span class="kt">mat4</span> <span class="n">view</span><span class="p">;</span>
-    <span class="kt">mat4</span> <span class="n">projection</span><span class="p">;</span>
-<span class="p">};</span>
+<p>(The $y$ flip shown is for APIs whose window origin is at the top left. The exact convention depends on the API.)</p>
 
-<span class="k">layout</span><span class="p">(</span><span class="n">location</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="k">out</span> <span class="kt">vec3</span> <span class="n">fragPosition</span><span class="p">;</span>
-<span class="k">layout</span><span class="p">(</span><span class="n">location</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="k">out</span> <span class="kt">vec3</span> <span class="n">fragNormal</span><span class="p">;</span>
-<span class="k">layout</span><span class="p">(</span><span class="n">location</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span> <span class="k">out</span> <span class="kt">vec2</span> <span class="n">fragTexCoord</span><span class="p">;</span>
+<p><strong>Normals</strong> transform differently from positions. Under non-uniform scaling a normal must be multiplied by the inverse-transpose of the upper-left 3×3 of the model matrix, $N_{\text{mat}} = \left(M_{3\times 3}^{-1}\right)^{T}$. Engines compute this once per object on the CPU rather than once per vertex.</p>
 
-<span class="kt">void</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
-    <span class="kt">vec4</span> <span class="n">worldPos</span> <span class="o">=</span> <span class="n">model</span> <span class="o">*</span> <span class="kt">vec4</span><span class="p">(</span><span class="n">inPosition</span><span class="p">,</span> <span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="p">);</span>
-    <span class="n">fragPosition</span> <span class="o">=</span> <span class="n">worldPos</span><span class="p">.</span><span class="n">xyz</span><span class="p">;</span>
-    <span class="n">fragNormal</span> <span class="o">=</span> <span class="kt">mat3</span><span class="p">(</span><span class="n">transpose</span><span class="p">(</span><span class="n">inverse</span><span class="p">(</span><span class="n">model</span><span class="p">)))</span> <span class="o">*</span> <span class="n">inNormal</span><span class="p">;</span>
-    <span class="n">fragTexCoord</span> <span class="o">=</span> <span class="n">inTexCoord</span><span class="p">;</span>
+<p><strong>Depth precision.</strong> A perspective projection stores a value proportional to $1/z$, so most of the depth range is spent close to the near plane. Distant surfaces then <strong>z-fight</strong>, flickering where two surfaces have nearly equal depth. The standard fix is <strong>reversed-Z</strong>: map the near plane to depth 1 and the far plane to 0, and use a 32-bit floating-point depth buffer. Floating-point numbers are densest near 0, which offsets the $1/z$ distribution and gives nearly uniform precision. With reversed-Z an infinite far plane is also practical. Most current engines use it.</p>
 
-    <span class="nb">gl_Position</span> <span class="o">=</span> <span class="n">projection</span> <span class="o">*</span> <span class="n">view</span> <span class="o">*</span> <span class="n">worldPos</span><span class="p">;</span>
-<span class="p">}</span>
-</code></pre></div></div>
+<h2 id="visibility-rasterization-and-ray-tracing">Visibility: Rasterization and Ray Tracing</h2>
 
-<h3 id="rasterization-vs-ray-tracing">Rasterization vs Ray Tracing</h3>
+<p>The two visibility algorithms have the same loops in opposite order:</p>
 
-<p>The two dominant paradigms for visibility determination take opposite approaches. <strong>Rasterization</strong> projects each triangle onto the screen and asks “which pixels does it cover?” — it iterates over geometry. <strong>Ray tracing</strong> shoots a ray through each pixel and asks “what does this ray hit?” — it iterates over pixels. Rasterization is the basis of real-time graphics because it maps perfectly onto GPU parallelism and avoids expensive scene-wide queries; ray tracing produces physically correct shadows, reflections, and global illumination but historically required offline render farms.</p>
+<ul>
+  <li><strong>Rasterization</strong> loops over triangles and asks <em>which pixels does this triangle cover?</em> A depth buffer (z-buffer) keeps the nearest surface at each sample.</li>
+  <li><strong>Ray tracing</strong> loops over pixels (rays) and asks <em>what does this ray hit first?</em> An acceleration structure keeps this from requiring a test against every triangle.</li>
+</ul>
 
 <table>
   <thead>
     <tr>
       <th>Aspect</th>
       <th>Rasterization</th>
-      <th>Ray Tracing</th>
+      <th>Ray tracing</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Core question</td>
-      <td>Which pixels does this triangle cover?</td>
-      <td>What does this ray hit?</td>
+      <td>Core query</td>
+      <td>Triangle coverage of a regular pixel grid</td>
+      <td>Nearest intersection along an arbitrary ray</td>
     </tr>
     <tr>
-      <td>Iterates over</td>
-      <td>Geometry (triangles)</td>
-      <td>Pixels (rays)</td>
+      <td>Cost scales with</td>
+      <td>Triangle count and overdraw</td>
+      <td>Rays × $O(\log n)$ BVH traversal</td>
     </tr>
     <tr>
-      <td>Cost scaling</td>
-      <td>Linear in triangles + overdraw</td>
-      <td>Scales with rays × scene complexity (mitigated by BVH)</td>
+      <td>Rays it can answer</td>
+      <td>Only coherent rays from one point (camera, light)</td>
+      <td>Any ray: incoherent, secondary, off-screen</td>
     </tr>
     <tr>
       <td>Shadows</td>
-      <td>Approximate (shadow maps)</td>
-      <td>Exact, soft from area lights</td>
+      <td>Shadow maps (resolution and bias artifacts)</td>
+      <td>Exact; soft shadows from area lights</td>
     </tr>
     <tr>
       <td>Reflections</td>
-      <td>Screen-space / probes (incomplete)</td>
-      <td>Accurate, off-screen reflections</td>
+      <td>Screen-space or probes; misses off-screen objects</td>
+      <td>Correct, including off-screen objects</td>
     </tr>
     <tr>
-      <td>Global illumination</td>
-      <td>Baked or screen-space approximations</td>
-      <td>Natural multi-bounce</td>
+      <td>Indirect light</td>
+      <td>Baked, probe-based, or screen-space approximations</td>
+      <td>Multi-bounce, but noisy at real-time sample counts</td>
     </tr>
     <tr>
       <td>Hardware</td>
-      <td>Universal, decades of optimization</td>
-      <td>RT cores (RTX, RDNA2+) needed for real-time</td>
-    </tr>
-    <tr>
-      <td>Typical use</td>
-      <td>Primary visibility, real-time base</td>
-      <td>Shadows, reflections, GI in hybrid pipelines</td>
+      <td>Every GPU</td>
+      <td>RT cores or ray accelerators (NVIDIA Turing+, AMD RDNA 2+, Intel Arc, Apple M3+/A17 Pro)</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Hybrid rendering is the norm.</strong> Modern engines (UE5, Frostbite, RED Engine) rasterize primary visibility for speed, then fire rays only for the effects where rasterization fails — shadows, reflections, and indirect light. This pays the ray-tracing cost only where it buys the most visual quality; UE5’s Lumen and ray-traced shadows are exactly this strategy.</p>
+<h3 id="acceleration-structures">Acceleration Structures</h3>
 
-<h2 id="lighting-and-shading">Lighting and Shading</h2>
+<p>Hardware ray tracing APIs (DXR, Vulkan ray tracing, Metal) organize the scene as a two-level <strong>bounding volume hierarchy (BVH)</strong>:</p>
 
-<h3 id="lighting-models">Lighting Models</h3>
+<pre><code class="language-mermaid">flowchart TD
+    TLAS["Top-level AS (TLAS)&lt;br/&gt;instances + transforms&lt;br/&gt;rebuilt or refit every frame"] --&gt; I1["Instance: car #1"]
+    TLAS --&gt; I2["Instance: car #2"]
+    TLAS --&gt; I3["Instance: building"]
+    I1 --&gt; B1["Bottom-level AS (BLAS)&lt;br/&gt;car mesh triangles"]
+    I2 --&gt; B1
+    I3 --&gt; B2["BLAS&lt;br/&gt;building mesh triangles"]
+</code></pre>
 
-<p><strong>Phong Reflection Model:</strong></p>
+<p>A <strong>BLAS</strong> holds the triangles of one mesh and is built once, then refit when the mesh deforms. The <strong>TLAS</strong> holds transformed instances that point to BLASes, so moving an object means rebuilding only the small TLAS. Traversal cost grows logarithmically with scene size. The expensive parts are building and updating these structures and the incoherent memory access that secondary rays cause. Features added in recent API versions target those costs:</p>
 
-\[I = I_a k_a + \sum_{\text{lights}} I_\ell\Big(k_d\,(\vec{N}\cdot\vec{L}) + k_s\,(\vec{R}\cdot\vec{V})^{\,n}\Big)\]
+<ul>
+  <li><strong>Opacity micromaps</strong> skip any-hit shader calls for alpha-tested foliage.</li>
+  <li><strong>Shader execution reordering (SER)</strong> regroups divergent hit shaders so they run coherently.</li>
+  <li><strong>Cluster (meshlet-level) acceleration structures</strong> are for very dense geometry.</li>
+</ul>
+
+<p>SER and opacity micromaps are standardized in Direct3D Shader Model 6.9.</p>
+
+<h3 id="hybrid-rendering-and-path-tracing">Hybrid Rendering and Path Tracing</h3>
+
+<p>Most shipping engines <strong>rasterize primary visibility</strong> and trace rays only where rasterization breaks down: shadows, reflections, and indirect light. This is <strong>hybrid rendering</strong>. UE5’s Lumen is an example. It combines screen-space tracing, software tracing against signed distance fields, and hardware ray tracing.</p>
+
+<p>Since about 2023, <strong>real-time path tracing</strong> has shipped in some games, for example the “Overdrive” mode of <em>Cyberpunk 2077</em> and <em>Alan Wake 2</em>. These titles trace one or two paths per pixel. Several techniques make that sample count usable:</p>
+
+<ul>
+  <li><strong>ReSTIR</strong> (reservoir-based spatiotemporal importance resampling) reuses light samples across neighboring pixels and previous frames. It lets many lights be sampled with only a few rays.</li>
+  <li><strong>Denoisers</strong> rebuild a clean image from very noisy input. Examples are SVGF-style filters and the ML-based NVIDIA Ray Reconstruction and AMD FSR Ray Regeneration.</li>
+  <li><strong>Radiance caches</strong> store indirect light so later bounces can end early.</li>
+</ul>
+
+<p>Some games now require hardware ray tracing, for example <em>Indiana Jones and the Great Circle</em> (2024) and <em>DOOM: The Dark Ages</em> (2025). These titles have no rasterized-lighting fallback.</p>
+
+<h2 id="lighting-and-materials">Lighting and Materials</h2>
+
+<h3 id="empirical-models-phong-and-blinn-phong">Empirical Models: Phong and Blinn-Phong</h3>
+
+<p>The classic <strong>Phong</strong> reflection model adds an ambient term to diffuse and specular terms summed over the lights:</p>
+
+\[I = k_a I_a + \sum_{\ell} I_\ell \left( k_d \, \max(0, \mathbf{n} \cdot \mathbf{l}) + k_s \, \max(0, \mathbf{r} \cdot \mathbf{v})^{s} \right)\]
 
 <table>
   <thead>
@@ -3318,471 +3404,611 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td>$I_a,\ k_a$</td>
-      <td>Ambient intensity and reflection coefficient</td>
+      <td>Ambient intensity and ambient coefficient</td>
     </tr>
     <tr>
       <td>$I_\ell$</td>
-      <td>Per-light intensity</td>
+      <td>Intensity of light $\ell$</td>
     </tr>
     <tr>
       <td>$k_d,\ k_s$</td>
       <td>Diffuse and specular coefficients</td>
     </tr>
     <tr>
-      <td>$\vec{N},\ \vec{L}$</td>
-      <td>Surface normal, light direction</td>
+      <td>$\mathbf{n},\ \mathbf{l},\ \mathbf{v}$</td>
+      <td>Unit surface normal, direction to the light, direction to the viewer</td>
     </tr>
     <tr>
-      <td>$\vec{R},\ \vec{V}$</td>
-      <td>Reflection direction, view direction</td>
+      <td>$\mathbf{r}$</td>
+      <td>$\mathbf{l}$ reflected about $\mathbf{n}$</td>
     </tr>
     <tr>
-      <td>$n$</td>
+      <td>$s$</td>
       <td>Shininess exponent</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Blinn-Phong (Optimized):</strong></p>
-<ul>
-  <li>Uses the halfway vector $\vec{H} = \operatorname{normalize}(\vec{L} + \vec{V})$</li>
-  <li>Specular term becomes $k_s\,(\vec{N}\cdot\vec{H})^{\,n}$</li>
-  <li>More efficient, with near-identical results</li>
-</ul>
+<p><strong>Blinn-Phong</strong> replaces $\mathbf{r} \cdot \mathbf{v}$ with $\mathbf{n} \cdot \mathbf{h}$, where $\mathbf{h} = \operatorname{normalize}(\mathbf{l} + \mathbf{v})$ is the half vector. Blinn-Phong highlights are wider for the same exponent; an exponent about four times larger gives a similar highlight size. The half-vector form behaves better at grazing angles, and it is the ancestor of the microfacet models below. Neither model conserves energy, and both are now used mainly for stylized or very low-end rendering.</p>
 
-<h3 id="physically-based-rendering-pbr">Physically Based Rendering (PBR)</h3>
+<h3 id="physically-based-rendering">Physically Based Rendering</h3>
 
-<p>Modern standard for realistic materials:</p>
+<p><strong>Physically based rendering (PBR)</strong> describes a surface with a <strong>BRDF</strong>, $f_r(\mathbf{l}, \mathbf{v})$, grounded in optics. Outgoing radiance comes from the reflectance equation, which is the non-emissive part of Kajiya’s rendering equation:</p>
 
-<p><strong>Core Parameters:</strong></p>
-<ul>
-  <li><strong>Albedo/Base Color</strong>: Surface color without lighting</li>
-  <li><strong>Metallic</strong>: Metal (1.0) vs dielectric (0.0)</li>
-  <li><strong>Roughness</strong>: Microsurface irregularity (0.0 = smooth, 1.0 = rough)</li>
-  <li><strong>Normal Map</strong>: Per-pixel surface detail</li>
-  <li><strong>Ambient Occlusion</strong>: Soft shadowing in crevices</li>
-</ul>
+\[L_o(\mathbf{v}) = \int_{\Omega} f_r(\mathbf{l}, \mathbf{v}) \, L_i(\mathbf{l}) \, (\mathbf{n} \cdot \mathbf{l}) \, d\omega_{\mathbf{l}}\]
 
-<p><strong>Cook-Torrance BRDF:</strong></p>
+<p>The real-time standard is a Lambertian diffuse lobe plus a <strong>Cook-Torrance microfacet</strong> specular lobe:</p>
 
-\[f(\vec{l},\vec{v}) = f_{\text{diffuse}} + f_{\text{specular}}, \qquad f_{\text{specular}} = \frac{D\,F\,G}{4\,(\vec{n}\cdot\vec{l})(\vec{n}\cdot\vec{v})}\]
+\[f_r = \frac{c_{\text{diff}}}{\pi} + \frac{D(\mathbf{h}) \, F(\mathbf{v}, \mathbf{h}) \, G(\mathbf{l}, \mathbf{v})}{4 \, (\mathbf{n} \cdot \mathbf{l}) (\mathbf{n} \cdot \mathbf{v})}\]
 
-<ul>
-  <li>$D$ — Normal Distribution Function (GGX / Trowbridge-Reitz)</li>
-  <li>$F$ — Fresnel term (Schlick approximation)</li>
-  <li>$G$ — Geometry / shadowing-masking (Smith GGX)</li>
-</ul>
+<p>Here $D$ is the GGX (Trowbridge-Reitz) normal distribution, $F$ is Schlick’s Fresnel approximation, and $G$ is Smith shadowing-masking. Materials are authored in the <strong>metallic-roughness</strong> workflow, with parameters base color, metallic, roughness, normal, and ambient occlusion. glTF 2.0 standardizes this workflow and extends it with <code class="language-plaintext highlighter-rouge">KHR_materials_*</code> layers such as clearcoat, sheen, transmission, and anisotropy. For film and design work, <strong>OpenPBR</strong> from the Academy Software Foundation unifies Autodesk Standard Surface and Adobe Standard Material. <a href="shaders.html#physically-based-shading">Shader Programming</a> derives each term and gives GLSL code.</p>
 
 <h3 id="global-illumination">Global Illumination</h3>
 
-<p>Simulating indirect lighting:</p>
+<p>Direct lighting accounts for only part of what makes an image look real. <strong>Global illumination (GI)</strong> adds light that has bounced off other surfaces. Real-time techniques trade accuracy, dynamism, and cost against each other:</p>
 
-<p><strong>Real-Time Techniques:</strong></p>
-<ul>
-  <li><strong>Screen-Space GI (SSGI)</strong>: Sample nearby pixels</li>
-  <li><strong>Voxel Cone Tracing</strong>: Voxelize scene, trace cones</li>
-  <li><strong>Light Probes</strong>: Precomputed irradiance at points</li>
-  <li><strong>Reflection Probes</strong>: Cubemap captures for reflections</li>
-  <li><strong>Ray Tracing</strong>: Hardware-accelerated path tracing</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>How it works</th>
+      <th style="text-align: center">Dynamic lights/geometry</th>
+      <th>Cost</th>
+      <th>Typical weakness</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Baked lightmaps</td>
+      <td>Offline path tracing stored in textures</td>
+      <td style="text-align: center">No</td>
+      <td>Near zero at runtime</td>
+      <td>Static only; memory; bake times</td>
+    </tr>
+    <tr>
+      <td>Irradiance probes (SH, DDGI)</td>
+      <td>Grid of probes storing incoming light; DDGI updates them with rays</td>
+      <td style="text-align: center">Partly / yes</td>
+      <td>Low–medium</td>
+      <td>Light leaking; low spatial detail</td>
+    </tr>
+    <tr>
+      <td>Reflection probes</td>
+      <td>Prefiltered cubemaps captured at points</td>
+      <td style="text-align: center">Partly</td>
+      <td>Low</td>
+      <td>Parallax errors; stale captures</td>
+    </tr>
+    <tr>
+      <td>Screen-space GI / reflections</td>
+      <td>Ray-march the depth buffer</td>
+      <td style="text-align: center">Yes</td>
+      <td>Medium</td>
+      <td>Misses anything off-screen or occluded</td>
+    </tr>
+    <tr>
+      <td>Voxel cone tracing</td>
+      <td>Voxelize the scene, trace cones through mip levels</td>
+      <td style="text-align: center">Yes</td>
+      <td>Medium–high</td>
+      <td>Coarse; leaking; memory</td>
+    </tr>
+    <tr>
+      <td>Signed-distance-field tracing</td>
+      <td>Trace against per-mesh or global SDFs (software Lumen)</td>
+      <td style="text-align: center">Yes</td>
+      <td>Medium</td>
+      <td>Approximate geometry</td>
+    </tr>
+    <tr>
+      <td>Hardware RT + denoising</td>
+      <td>Trace a few rays per pixel, denoise, cache radiance</td>
+      <td style="text-align: center">Yes</td>
+      <td>High</td>
+      <td>Noise, temporal lag</td>
+    </tr>
+    <tr>
+      <td>Path tracing (ReSTIR)</td>
+      <td>Full multi-bounce light transport</td>
+      <td style="text-align: center">Yes</td>
+      <td>Very high</td>
+      <td>Needs upscaling and denoising to be real-time</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Unreal Engine 5 Lumen:</strong></p>
-<ul>
-  <li>Hybrid software/hardware ray tracing</li>
-  <li>Infinite bounces for indirect light</li>
-  <li>Dynamic, no baking required</li>
-  <li>Screen-space fallback for efficiency</li>
-</ul>
+<p>Production engines layer several of these. <strong>Lumen</strong> in Unreal Engine 5, for example, combines screen traces, SDF or hardware ray tracing, a surface cache, and a final-gather denoiser. UE 5.5 added <strong>MegaLights</strong>, an experimental stochastic direct-lighting system that allows hundreds of shadow-casting lights.</p>
 
-<h2 id="shadow-rendering">Shadow Rendering</h2>
+<h2 id="shadows">Shadows</h2>
 
 <h3 id="shadow-mapping">Shadow Mapping</h3>
 
-<p>Standard real-time shadow technique:</p>
+<p><strong>Shadow mapping</strong> is the standard rasterized technique:</p>
 
 <ol>
-  <li><strong>Shadow Pass</strong>: Render depth from light’s perspective</li>
-  <li><strong>Main Pass</strong>: Compare fragment depth to shadow map</li>
-  <li><strong>Result</strong>: In shadow if fragment depth &gt; shadow map depth</li>
+  <li><strong>Shadow pass.</strong> Render depth from the light’s point of view into a shadow map.</li>
+  <li><strong>Main pass.</strong> Transform each shaded point into light space and compare its depth to the stored depth. If it is farther away, something blocks the light.</li>
 </ol>
 
-<p><strong>Common Issues and Solutions:</strong></p>
-<ul>
-  <li><strong>Shadow Acne</strong>: Add depth bias</li>
-  <li><strong>Peter Panning</strong>: Reduce bias, use slope-scaled bias</li>
-  <li><strong>Aliasing</strong>: PCF filtering, variance shadow maps</li>
-  <li><strong>Resolution</strong>: Cascaded shadow maps for large scenes</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Artifact</th>
+      <th>Cause</th>
+      <th>Mitigation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Shadow acne</td>
+      <td>A surface self-shadows because of depth quantization</td>
+      <td>Constant plus <strong>slope-scaled</strong> depth bias; normal-offset sampling</td>
+    </tr>
+    <tr>
+      <td>Peter-panning</td>
+      <td>Too much bias detaches shadows from their casters</td>
+      <td>Smaller bias; thicker casters; normal offset in place of depth bias</td>
+    </tr>
+    <tr>
+      <td>Aliasing / jagged edges</td>
+      <td>Shadow-map texels are larger than screen pixels</td>
+      <td>Cascades, higher resolution, filtering</td>
+    </tr>
+    <tr>
+      <td>Hard edges</td>
+      <td>A binary depth comparison</td>
+      <td>PCF, PCSS (contact-hardening), or VSM/EVSM/MSM filtering</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="cascaded-shadow-maps-csm">Cascaded Shadow Maps (CSM)</h3>
+<h3 id="cascaded-and-virtual-shadow-maps">Cascaded and Virtual Shadow Maps</h3>
 
-<p>Multiple shadow maps for different distance ranges:</p>
+<p>A directional light such as the sun covers the whole view frustum, so a single shadow map wastes resolution in the distance and has too little near the camera. <strong>Cascaded shadow maps (CSM)</strong> split the frustum by depth into $N$ ranges, each with its own shadow map. The “practical split scheme” blends logarithmic and uniform splits with a weight $\lambda \in [0, 1]$, where $n$ and $f$ are the near and far planes:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Near cascade: High resolution, close to camera
-Mid cascade: Medium resolution, mid-range
-Far cascade: Low resolution, distant objects
+\[z_i = \lambda \, n \left( \frac{f}{n} \right)^{i/N} + (1 - \lambda) \left( n + (f - n) \frac{i}{N} \right)\]
 
-Split distances based on:
-- Logarithmic distribution
-- Practical split scheme (PSSM)
-- Custom per-game tuning
-</code></pre></div></div>
+<p><strong>Virtual shadow maps</strong> (UE5) take the idea to its limit. A very large (16k × 16k) virtual shadow map is paged like virtual memory, and only the pages that visible pixels need are rendered and cached. The result is consistent texel density at every distance. Combined with Nanite geometry, this approach has largely replaced hand-tuned cascades in that engine.</p>
 
 <h3 id="ray-traced-shadows">Ray-Traced Shadows</h3>
 
-<p>Hardware ray tracing benefits:</p>
+<p>Tracing a shadow ray toward the light removes resolution and bias problems. Sampling an <strong>area light</strong> stochastically produces physically correct soft shadows that sharpen near contact. The cost is one or more rays per pixel per light plus denoising. For this reason games often trace only the sun or a few key lights, or use ReSTIR-style light sampling.</p>
+
+<h2 id="renderer-architectures">Renderer Architectures</h2>
+
+<p>A renderer’s architecture determines where lighting is computed and how its cost grows with the number of lights and objects.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Fwd["Forward"]
+      direction TB
+      f1["For each object:&lt;br/&gt;shade with all lights"] --&gt; f2["Color buffer"]
+    end
+    subgraph Def["Deferred"]
+      direction TB
+      d1["Geometry pass:&lt;br/&gt;write G-buffer&lt;br/&gt;(albedo, normal, roughness, depth)"] --&gt; d2["Lighting pass:&lt;br/&gt;per pixel, read G-buffer,&lt;br/&gt;loop over lights"] --&gt; d3["Color buffer"]
+    end
+    subgraph Clu["Forward+ / Clustered"]
+      direction TB
+      c1["Depth pre-pass"] --&gt; c2["Compute: assign lights&lt;br/&gt;to screen tiles or 3D clusters"] --&gt; c3["Forward shading with&lt;br/&gt;per-cluster light lists"]
+    end
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Architecture</th>
+      <th>Lighting cost</th>
+      <th style="text-align: center">Transparency</th>
+      <th style="text-align: center">MSAA</th>
+      <th>Material variety</th>
+      <th>Memory bandwidth</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Forward</td>
+      <td>Objects × lights</td>
+      <td style="text-align: center">Natural</td>
+      <td style="text-align: center">Yes</td>
+      <td>Unlimited</td>
+      <td>Low</td>
+    </tr>
+    <tr>
+      <td>Deferred</td>
+      <td>Pixels × lights in range</td>
+      <td style="text-align: center">Separate forward pass</td>
+      <td style="text-align: center">Hard</td>
+      <td>Limited by G-buffer layout</td>
+      <td>High (fat G-buffer)</td>
+    </tr>
+    <tr>
+      <td>Forward+ (tiled)</td>
+      <td>Pixels × lights in tile</td>
+      <td style="text-align: center">Natural</td>
+      <td style="text-align: center">Yes</td>
+      <td>Unlimited</td>
+      <td>Low–medium</td>
+    </tr>
+    <tr>
+      <td>Clustered (forward or deferred)</td>
+      <td>Pixels × lights in 3D cluster</td>
+      <td style="text-align: center">Natural (forward)</td>
+      <td style="text-align: center">Yes (forward)</td>
+      <td>Unlimited (forward)</td>
+      <td>Low–medium</td>
+    </tr>
+    <tr>
+      <td>Visibility buffer</td>
+      <td>Pixels × lights; materials resolved per pixel</td>
+      <td style="text-align: center">Separate pass</td>
+      <td style="text-align: center">Yes</td>
+      <td>Unlimited</td>
+      <td>Very low</td>
+    </tr>
+  </tbody>
+</table>
 
 <ul>
-  <li>Pixel-perfect accuracy</li>
-  <li>Natural soft shadows from area lights</li>
-  <li>No aliasing or bias issues</li>
-  <li>Higher performance cost</li>
+  <li><strong>Deferred shading</strong> writes surface attributes to a <strong>G-buffer</strong> first, then lights each pixel exactly once. This separates geometric complexity from lighting cost. Its drawbacks are bandwidth, trouble with transparency, and a fixed set of material parameters.</li>
+  <li><strong>Forward+</strong> and <strong>clustered</strong> shading use a compute pass to build lists of lights per screen tile, or per 3D cluster (tile × depth slice). Forward shading then loops only over the relevant lights. Clustering handles depth discontinuities better than 2D tiles. <em>DOOM</em> (2016) and many mobile engines use clustered forward shading.</li>
+  <li><strong>Visibility-buffer</strong> rendering writes only a triangle and instance ID per pixel, then reconstructs attributes and shades in screen-space passes. It suits very dense geometry, where tiny triangles waste quad-shading work. Nanite uses it.</li>
+  <li><strong>Tile-based mobile GPUs</strong> favor forward rendering, or deferred rendering that keeps the G-buffer in on-chip tile memory (subpasses or framebuffer fetch), because writing a full G-buffer to DRAM costs too much power.</li>
 </ul>
 
-<h2 id="advanced-rendering-techniques">Advanced Rendering Techniques</h2>
+<h3 id="anatomy-of-a-frame">Anatomy of a Frame</h3>
 
-<h3 id="deferred-rendering">Deferred Rendering</h3>
+<p>A typical modern deferred or hybrid frame runs the following passes (exact order varies by engine):</p>
 
-<p>Separate geometry from lighting:</p>
+<pre><code class="language-mermaid">flowchart TD
+    A["GPU culling&lt;br/&gt;(frustum, HZB occlusion)"] --&gt; B["Depth pre-pass / visibility buffer"]
+    B --&gt; C["G-buffer or material pass"]
+    C --&gt; D["Shadow maps / RT shadows"]
+    C --&gt; E["SSAO / GI / reflections"]
+    D --&gt; F["Lighting (deferred or clustered)"]
+    E --&gt; F
+    F --&gt; G["Transparent and volumetric passes (forward)"]
+    G --&gt; H["Temporal upscaling / anti-aliasing"]
+    H --&gt; I["Post: bloom, DOF, motion blur,&lt;br/&gt;tone mapping, color grading"]
+    I --&gt; J["UI composite and present"]
+</code></pre>
 
-<p><strong>G-Buffer Contents:</strong></p>
-<ul>
-  <li>Position (or depth for reconstruction)</li>
-  <li>Normal</li>
-  <li>Albedo/Diffuse</li>
-  <li>Specular/Roughness</li>
-  <li>Emissive (optional)</li>
-</ul>
+<h2 id="anti-aliasing-and-upscaling">Anti-Aliasing and Upscaling</h2>
 
-<p><strong>Advantages:</strong></p>
-<ul>
-  <li>Decouple geometry complexity from light count</li>
-  <li>Efficient many-light scenarios</li>
-  <li>Easy post-processing access to scene data</li>
-</ul>
-
-<p><strong>Disadvantages:</strong></p>
-<ul>
-  <li>High memory bandwidth</li>
-  <li>Difficult transparency handling</li>
-  <li>MSAA complications</li>
-</ul>
-
-<h3 id="forward-rendering">Forward+ Rendering</h3>
-
-<p>Hybrid approach:</p>
-
-<ol>
-  <li><strong>Depth Pre-Pass</strong>: Populate depth buffer</li>
-  <li><strong>Light Culling</strong>: Tile-based light assignment</li>
-  <li><strong>Shading</strong>: Forward pass with culled light lists</li>
-</ol>
-
-<p><strong>Benefits:</strong></p>
-<ul>
-  <li>Supports transparency naturally</li>
-  <li>Lower memory bandwidth than deferred</li>
-  <li>MSAA compatible</li>
-  <li>Efficient for moderate light counts</li>
-</ul>
-
-<h3 id="clustered-rendering">Clustered Rendering</h3>
-
-<p>3D extension of Forward+:</p>
-
-<ul>
-  <li>Divide view frustum into 3D clusters</li>
-  <li>Assign lights to clusters (not just tiles)</li>
-  <li>Better handling of depth discontinuities</li>
-  <li>More uniform light distribution</li>
-</ul>
-
-<h2 id="post-processing-effects">Post-Processing Effects</h2>
-
-<h3 id="screen-space-effects">Screen-Space Effects</h3>
-
-<p><strong>Ambient Occlusion:</strong></p>
-<ul>
-  <li>SSAO (Screen-Space Ambient Occlusion)</li>
-  <li>HBAO+ (Horizon-Based)</li>
-  <li>GTAO (Ground Truth)</li>
-</ul>
-
-<p><strong>Reflections:</strong></p>
-<ul>
-  <li>SSR (Screen-Space Reflections)</li>
-  <li>Hi-Z tracing for efficiency</li>
-  <li>Fallback to probes for missing data</li>
-</ul>
-
-<p><strong>Motion Blur:</strong></p>
-<ul>
-  <li>Per-object velocity buffers</li>
-  <li>Camera motion blur</li>
-  <li>Temporal reconstruction</li>
-</ul>
-
-<h3 id="color-grading-and-tone-mapping">Color Grading and Tone Mapping</h3>
-
-<p><strong>HDR to LDR Conversion:</strong></p>
-
-<div class="language-glsl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Reinhard tone mapping</span>
-<span class="kt">vec3</span> <span class="nf">toneMapReinhard</span><span class="p">(</span><span class="kt">vec3</span> <span class="n">hdrColor</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">return</span> <span class="n">hdrColor</span> <span class="o">/</span> <span class="p">(</span><span class="n">hdrColor</span> <span class="o">+</span> <span class="kt">vec3</span><span class="p">(</span><span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="p">));</span>
-<span class="p">}</span>
-
-<span class="c1">// ACES Filmic</span>
-<span class="kt">vec3</span> <span class="nf">toneMapACES</span><span class="p">(</span><span class="kt">vec3</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
-    <span class="kt">float</span> <span class="n">a</span> <span class="o">=</span> <span class="mi">2</span><span class="p">.</span><span class="mi">51</span><span class="p">;</span>
-    <span class="kt">float</span> <span class="n">b</span> <span class="o">=</span> <span class="mi">0</span><span class="p">.</span><span class="mo">03</span><span class="p">;</span>
-    <span class="kt">float</span> <span class="n">c</span> <span class="o">=</span> <span class="mi">2</span><span class="p">.</span><span class="mi">43</span><span class="p">;</span>
-    <span class="kt">float</span> <span class="n">d</span> <span class="o">=</span> <span class="mi">0</span><span class="p">.</span><span class="mi">59</span><span class="p">;</span>
-    <span class="kt">float</span> <span class="n">e</span> <span class="o">=</span> <span class="mi">0</span><span class="p">.</span><span class="mi">14</span><span class="p">;</span>
-    <span class="k">return</span> <span class="n">clamp</span><span class="p">((</span><span class="n">x</span><span class="o">*</span><span class="p">(</span><span class="n">a</span><span class="o">*</span><span class="n">x</span><span class="o">+</span><span class="n">b</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="n">x</span><span class="o">*</span><span class="p">(</span><span class="n">c</span><span class="o">*</span><span class="n">x</span><span class="o">+</span><span class="n">d</span><span class="p">)</span><span class="o">+</span><span class="n">e</span><span class="p">),</span> <span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p><strong>Color Grading:</strong></p>
-<ul>
-  <li>LUT (Look-Up Table) based</li>
-  <li>Split toning (shadows/highlights)</li>
-  <li>Color wheels adjustment</li>
-  <li>Film grain and vignette</li>
-</ul>
-
-<h3 id="anti-aliasing">Anti-Aliasing</h3>
-
-<p><strong>Techniques Comparison:</strong></p>
+<p>A pixel is a sample, not a small square. Edges, thin geometry, sharp specular highlights, and high-frequency textures all <strong>alias</strong>: they produce stair-steps and shimmer under motion.</p>
 
 <table>
   <thead>
     <tr>
       <th>Method</th>
-      <th>Quality</th>
-      <th>Performance</th>
-      <th>Motion</th>
-      <th>Transparency</th>
+      <th>How it works</th>
+      <th>Cost</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <td>SSAA</td>
+      <td>Render at higher resolution and downsample</td>
+      <td>Very high</td>
+      <td>Reference quality</td>
+      <td>Cost scales with sample count</td>
+    </tr>
+    <tr>
       <td>MSAA</td>
-      <td>Good</td>
-      <td>Medium</td>
-      <td>Poor</td>
-      <td>Good</td>
+      <td>Several coverage/depth samples per pixel, shaded once</td>
+      <td>Medium–high (bandwidth)</td>
+      <td>Sharp, temporally stable geometric edges</td>
+      <td>Ignores shader and texture aliasing; awkward with deferred</td>
     </tr>
     <tr>
-      <td>FXAA</td>
+      <td>FXAA / SMAA</td>
+      <td>Post-process edge detection and blur</td>
       <td>Low</td>
-      <td>Fast</td>
-      <td>Poor</td>
-      <td>Good</td>
-    </tr>
-    <tr>
-      <td>SMAA</td>
-      <td>Good</td>
-      <td>Fast</td>
-      <td>Poor</td>
-      <td>Good</td>
+      <td>Cheap, works anywhere</td>
+      <td>Blurs text; no temporal stability</td>
     </tr>
     <tr>
       <td>TAA</td>
-      <td>Excellent</td>
-      <td>Medium</td>
-      <td>Good</td>
-      <td>Medium</td>
+      <td>Jitter the camera sub-pixel each frame and accumulate history reprojected by motion vectors</td>
+      <td>Low</td>
+      <td>Resolves all aliasing types; stable</td>
+      <td>Ghosting, softness, disocclusion artifacts</td>
     </tr>
     <tr>
-      <td>DLSS/FSR</td>
-      <td>Excellent</td>
-      <td>Fast*</td>
-      <td>Good</td>
-      <td>Good</td>
+      <td>Temporal upscaling (TSR, FSR 2/3, XeSS)</td>
+      <td>TAA that also reconstructs a higher output resolution</td>
+      <td>Low, with net savings</td>
+      <td>Renders ~50–67% of output pixels</td>
+      <td>Same failure modes as TAA, amplified</td>
+    </tr>
+    <tr>
+      <td>ML upscaling (DLSS, FSR 4, XeSS XMX, PSSR)</td>
+      <td>A neural network replaces TAA’s hand-tuned heuristics</td>
+      <td>Low (tensor/matrix units)</td>
+      <td>Best quality per millisecond</td>
+      <td>Vendor- or hardware-specific</td>
     </tr>
   </tbody>
 </table>
 
-<p>*Upscaling provides net performance gain</p>
+<h3 id="temporal-accumulation">Temporal Accumulation</h3>
 
-<h3 id="temporal-anti-aliasing-taa">Temporal Anti-Aliasing (TAA)</h3>
-
-<p>Modern standard approach:</p>
+<p>TAA and every temporal upscaler work the same way:</p>
 
 <ol>
-  <li>Jitter projection matrix each frame</li>
-  <li>Accumulate samples over time</li>
-  <li>Reject samples using motion vectors</li>
-  <li>Apply neighborhood clamping</li>
+  <li><strong>Jitter</strong> the projection matrix by a sub-pixel offset each frame (Halton sequence) so successive frames sample different points within each pixel.</li>
+  <li><strong>Reproject.</strong> Use per-pixel motion vectors to find where each pixel was in the previous frame, and fetch the history buffer there.</li>
+  <li><strong>Rectify.</strong> Clamp or clip the history color to the range of the current frame’s local neighborhood so stale history does not smear (ghosting).</li>
+  <li><strong>Blend</strong> the current sample into the history, typically keeping ~90% history, and write the result back.</li>
 </ol>
 
-<p><strong>Challenges:</strong></p>
+<h3 id="upscaling-and-frame-generation-20252026">Upscaling and Frame Generation (2025–2026)</h3>
+
+<p>Upscaling is now the default in AAA titles, and some games are balanced for 1080p–1440p internal resolution even on high-end GPUs.</p>
+
 <ul>
-  <li>Ghosting on fast motion</li>
-  <li>Loss of fine detail</li>
-  <li>Requires motion vectors</li>
+  <li><strong>NVIDIA DLSS 4</strong> (January 2025) replaced DLSS’s convolutional network with a vision-transformer model, which reduces ghosting and improves stability. It also added <strong>Multi Frame Generation</strong> on RTX 50-series GPUs, which inserts several generated frames per rendered frame. DLSS 4.5 (CES 2026) introduced a second-generation transformer and dynamic frame generation.</li>
+  <li><strong>AMD FSR 4</strong> (2025) is ML-based and runs on RDNA 4 hardware. The FSR “Redstone” update (December 2025) added ML frame generation, <strong>Ray Regeneration</strong> (a denoiser), and radiance caching. FSR 3.1 remains the cross-vendor, non-ML option.</li>
+  <li><strong>Intel XeSS 2</strong> added frame generation and a low-latency mode. Sony’s <strong>PSSR</strong> is the ML upscaler on PS5 Pro.</li>
 </ul>
 
-<h2 id="gpu-architecture">GPU Architecture</h2>
+<p><strong>Frame generation</strong> raises the displayed frame rate but not responsiveness. Generated frames are interpolated between real ones, so input latency follows the <em>rendered</em> frame rate plus the interpolation delay. Vendors pair it with latency-reduction systems (Reflex, Anti-Lag), and it works best when the base frame rate is already about 60 FPS.</p>
 
-<h3 id="parallelism-model">Parallelism Model</h3>
+<h2 id="post-processing-and-tone-mapping">Post-Processing and Tone Mapping</h2>
 
-<p>GPUs execute thousands of threads simultaneously. Hardware is organized as a hierarchy of compute units, and the software thread model mirrors it:</p>
+<p>The lit scene is stored as <strong>high-dynamic-range</strong> linear radiance, usually in a 16-bit float target. Post-processing then applies camera and display effects, usually as full-screen compute passes:</p>
 
-<pre><code class="language-mermaid">flowchart TD
-    GPU["GPU"] --&gt; SM["Streaming Multiprocessors (SM)"]
-    GPU --&gt; L2["L2 Cache"]
-    GPU --&gt; VRAM["Video Memory (VRAM)"]
-    SM --&gt; Cores["CUDA Cores / Stream Processors"]
-    SM --&gt; SMem["Shared Memory"]
-    SM --&gt; L1["L1 Cache"]
-    subgraph Thread Model
-      Grid["Grid (whole dispatch)"] --&gt; Block["Thread Block (shares memory)"]
-      Block --&gt; Warp["Warp / Wavefront (32 / 64 lock-step threads)"]
-      Warp --&gt; Thread["Thread (one lane)"]
-    end
-</code></pre>
+<ul>
+  <li><strong>Bloom:</strong> light scattering in the lens and eye. Usually a mip-chain downsample and upsample of bright regions.</li>
+  <li><strong>Depth of field</strong> and <strong>motion blur:</strong> simulated with the depth buffer and velocity buffer.</li>
+  <li><strong>Ambient occlusion:</strong> SSAO, HBAO+, or GTAO. Ray-traced AO where available.</li>
+  <li><strong>Exposure:</strong> automatic eye adaptation from a luminance histogram.</li>
+  <li><strong>Tone mapping:</strong> compresses HDR radiance into the display’s range. <strong>Color grading</strong> through a 3D LUT follows, usually applied in a log or wide-gamut space before tone mapping.</li>
+</ul>
 
-<p>Threads within a <strong>warp</strong> execute in lock-step (SIMT). When threads in a warp take different branches, the GPU runs <em>both</em> paths and masks the inactive lanes — this is <strong>warp divergence</strong>, the reason branchy shaders are slow. Keeping all 32/64 lanes doing the same work is the single most important shader-performance principle.</p>
-
-<h3 id="memory-hierarchy">Memory Hierarchy</h3>
-
-<p>Optimizing for GPU memory access:</p>
+<p>Common tone-mapping operators:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Memory Type</th>
-      <th>Latency</th>
+      <th>Operator</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Reinhard, $c / (1 + c)$</td>
+      <td>Simple; desaturates and flattens contrast</td>
+    </tr>
+    <tr>
+      <td>ACES (RRT+ODT, or Narkowicz’s curve fit)</td>
+      <td>Film-like contrast; the popular per-channel fit shifts hues and oversaturates bright colors</td>
+    </tr>
+    <tr>
+      <td>AgX</td>
+      <td>Designed to desaturate gracefully toward white in highlights; Blender’s default view transform since 4.0</td>
+    </tr>
+    <tr>
+      <td>Khronos PBR Neutral</td>
+      <td>Keeps base colors close to their authored sRGB values; for product and e-commerce rendering</td>
+    </tr>
+    <tr>
+      <td>Hable / Uncharted 2, GT (Gran Turismo)</td>
+      <td>Filmic curves with tunable toe and shoulder</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-glsl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Reinhard: maps [0, inf) to [0, 1)</span>
+<span class="kt">vec3</span> <span class="nf">tonemapReinhard</span><span class="p">(</span><span class="kt">vec3</span> <span class="n">c</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">c</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span><span class="p">.</span><span class="mi">0</span> <span class="o">+</span> <span class="n">c</span><span class="p">);</span> <span class="p">}</span>
+
+<span class="c1">// ACES filmic approximation (Krzysztof Narkowicz, 2015).</span>
+<span class="c1">// Input is scene-linear; apply exposure first, output is display-linear.</span>
+<span class="kt">vec3</span> <span class="nf">tonemapACESFitted</span><span class="p">(</span><span class="kt">vec3</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">a</span> <span class="o">=</span> <span class="mi">2</span><span class="p">.</span><span class="mi">51</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="mi">0</span><span class="p">.</span><span class="mo">03</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="mi">2</span><span class="p">.</span><span class="mi">43</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="mi">0</span><span class="p">.</span><span class="mi">59</span><span class="p">,</span> <span class="n">e</span> <span class="o">=</span> <span class="mi">0</span><span class="p">.</span><span class="mi">14</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">clamp</span><span class="p">((</span><span class="n">x</span> <span class="o">*</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">b</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">d</span><span class="p">)</span> <span class="o">+</span> <span class="n">e</span><span class="p">),</span> <span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">.</span><span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>On <strong>HDR displays</strong> (HDR10 / PQ, scRGB), the tone mapper targets the display’s reported peak luminance rather than a fixed [0, 1] range. The UI is composited separately at a calibrated “paper white” level.</p>
+
+<h2 id="gpu-architecture">GPU Architecture</h2>
+
+<h3 id="hardware-and-execution-hierarchy">Hardware and Execution Hierarchy</h3>
+
+<p>A GPU is an array of <strong>streaming multiprocessors</strong> (NVIDIA SM; AMD Compute Unit / WGP; Intel Xe-core; Apple GPU core). Each one holds many SIMD lanes, a large register file, shared memory, and fixed-function units: texture samplers, and on recent parts ray-tracing and matrix (“tensor”) cores. The software thread hierarchy maps onto this hardware:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph SW["Software model"]
+      direction TB
+      G["Dispatch / draw"] --&gt; WG["Workgroup (thread block)&lt;br/&gt;shares on-chip memory"]
+      WG --&gt; WV["Warp / wavefront&lt;br/&gt;32 (NVIDIA, AMD wave32) or 64 lanes"]
+      WV --&gt; T["Invocation (one lane)"]
+    end
+    subgraph HW["Hardware"]
+      direction TB
+      GPU["GPU"] --&gt; SM["SM / CU / Xe-core&lt;br/&gt;schedulers, register file,&lt;br/&gt;L1 + shared memory"]
+      SM --&gt; U["SIMD ALUs, texture units,&lt;br/&gt;RT cores, tensor/matrix cores"]
+      GPU --&gt; L2["L2 / last-level cache"]
+      GPU --&gt; VRAM["VRAM (GDDR / HBM / unified)"]
+    end
+    WG -. "scheduled onto one" .-&gt; SM
+</code></pre>
+
+<p>Lanes in a warp execute in lock-step (<strong>SIMT</strong>). When lanes take different branches, the warp runs both paths with inactive lanes masked off (<strong>divergence</strong>). The GPU hides memory latency by switching among many resident warps, so <strong>occupancy</strong>, the number of warps resident per SM, matters. Occupancy is limited by register and shared-memory use per thread.</p>
+
+<h3 id="memory-hierarchy">Memory Hierarchy</h3>
+
+<p>Figures are order-of-magnitude values for recent desktop GPUs and vary by vendor and generation:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Approx. latency</th>
       <th>Scope</th>
-      <th>Size</th>
+      <th>Typical capacity</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Registers</td>
-      <td>1 cycle</td>
-      <td>Thread</td>
-      <td>~256 per thread</td>
+      <td>~1 cycle</td>
+      <td>Thread (lane)</td>
+      <td>~64k × 32-bit per SM (≈256 KB); up to 255 registers per thread</td>
     </tr>
     <tr>
-      <td>Shared Memory</td>
-      <td>~20 cycles</td>
-      <td>Block</td>
-      <td>48-96 KB</td>
+      <td>Shared memory / LDS</td>
+      <td>~20–30 cycles</td>
+      <td>Workgroup</td>
+      <td>64–228 KB per SM (shared with L1 on NVIDIA)</td>
     </tr>
     <tr>
-      <td>L1 Cache</td>
-      <td>~20 cycles</td>
+      <td>L1 / texture cache</td>
+      <td>~30 cycles</td>
       <td>SM</td>
-      <td>48-128 KB</td>
+      <td>Combined with shared memory above</td>
     </tr>
     <tr>
-      <td>L2 Cache</td>
-      <td>~200 cycles</td>
-      <td>Device</td>
-      <td>4-6 MB</td>
+      <td>L2 / Infinity Cache</td>
+      <td>~150–300 cycles</td>
+      <td>Whole GPU</td>
+      <td>~4–128 MB (large last-level caches since ~2020–2022)</td>
     </tr>
     <tr>
       <td>VRAM</td>
-      <td>~400 cycles</td>
-      <td>Global</td>
-      <td>8-24 GB</td>
+      <td>~400–800 cycles</td>
+      <td>Whole GPU</td>
+      <td>8–32 GB consumer; far more on data-center parts</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="graphics-apis">Graphics APIs</h3>
+<p>Bandwidth, not arithmetic, limits most rendering passes. This is why compressed textures, compact G-buffers, and large on-die caches matter so much.</p>
 
-<p><strong>Vulkan:</strong></p>
-<ul>
-  <li>Low-level, explicit control</li>
-  <li>Cross-platform</li>
-  <li>Best for engine developers</li>
-</ul>
+<h2 id="graphics-apis">Graphics APIs</h2>
 
-<p><strong>DirectX 12:</strong></p>
-<ul>
-  <li>Windows/Xbox exclusive</li>
-  <li>Similar to Vulkan</li>
-  <li>Better tooling ecosystem</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Platforms</th>
+      <th>Status (2026)</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Vulkan</strong></td>
+      <td>Windows, Linux, Android, Switch; macOS/iOS via MoltenVK</td>
+      <td>Vulkan 1.4 (December 2024)</td>
+      <td>Explicit, low-level; extensions for ray tracing, mesh shaders, dynamic rendering, shader objects</td>
+    </tr>
+    <tr>
+      <td><strong>Direct3D 12</strong></td>
+      <td>Windows, Xbox</td>
+      <td>Features ship through the Agility SDK</td>
+      <td>DXR ray tracing, mesh shaders, sampler feedback, <strong>work graphs</strong> (GPU-generated work, v1.0 in 2024); Microsoft has announced a move to SPIR-V as the future shader interchange format</td>
+    </tr>
+    <tr>
+      <td><strong>Metal</strong></td>
+      <td>Apple platforms</td>
+      <td>Metal 4 (announced 2025)</td>
+      <td>Unified memory, mesh shaders, hardware ray tracing on M3+/A17 Pro, ML tensor operations in shaders</td>
+    </tr>
+    <tr>
+      <td><strong>WebGPU</strong></td>
+      <td>Browsers, native via Dawn/wgpu</td>
+      <td>Shipped in Chrome/Edge (2023), Safari 26 and Firefox 141 (2025)</td>
+      <td>Modern explicit API for the web, with WGSL shaders</td>
+    </tr>
+    <tr>
+      <td><strong>OpenGL / WebGL 2</strong></td>
+      <td>Everywhere</td>
+      <td>Maintenance only (OpenGL 4.6, 2017)</td>
+      <td>Still common for tools, education, and legacy code; no new core features</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Metal:</strong></p>
-<ul>
-  <li>Apple platforms</li>
-  <li>Excellent iOS/macOS integration</li>
-  <li>Swift/Objective-C friendly</li>
-</ul>
+<p>The explicit APIs (Vulkan, D3D12, Metal, WebGPU) move work that drivers used to do onto the application: memory allocation, synchronization, resource state transitions, and pipeline creation. In exchange, command recording is cheap and multi-threaded, and CPU overhead is predictable. The main new cost is <strong>pipeline state objects</strong>. Shaders are compiled into PSOs, and compiling them when they are first needed causes hitches (“shader compilation stutter”). Engines work around it with precompilation, PSO caches, and newer mechanisms such as Vulkan graphics pipeline libraries and shader objects.</p>
 
-<p><strong>WebGPU:</strong></p>
-<ul>
-  <li>Browser-based 3D</li>
-  <li>Modern API design</li>
-  <li>Growing adoption</li>
-</ul>
-
-<h2 id="optimization-techniques">Optimization Techniques</h2>
+<h2 id="performance-techniques">Performance Techniques</h2>
 
 <h3 id="culling">Culling</h3>
 
-<p>Eliminate invisible geometry:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Removes</th>
+      <th>Where</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Frustum culling</td>
+      <td>Objects outside the camera volume</td>
+      <td>CPU or GPU compute</td>
+    </tr>
+    <tr>
+      <td>Occlusion culling</td>
+      <td>Objects hidden behind others; commonly tested against a hierarchical Z-buffer (HZB) built from the previous frame’s depth</td>
+      <td>GPU</td>
+    </tr>
+    <tr>
+      <td>Back-face culling</td>
+      <td>Triangles facing away from the camera</td>
+      <td>Fixed-function hardware</td>
+    </tr>
+    <tr>
+      <td>Small-primitive / cluster culling</td>
+      <td>Meshlets or triangles that cover no sample</td>
+      <td>Task/mesh or compute shaders</td>
+    </tr>
+    <tr>
+      <td>Distance / contribution culling</td>
+      <td>Objects too far away or too small on screen to matter</td>
+      <td>CPU or GPU</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="level-of-detail">Level of Detail</h3>
+
+<p>Discrete <strong>LOD</strong> chains swap in simpler meshes as screen size shrinks: for example 100% → 50% → 25% → 10% triangles, then a 2D <strong>impostor</strong> or billboard. Selection should depend on projected screen size rather than raw distance, so that it holds up under different fields of view and resolutions. Cross-fading or dithered transitions hide popping.</p>
+
+<p><strong>Nanite</strong> (UE5) replaces discrete LODs with a hierarchy of triangle clusters. The renderer picks a cut through that hierarchy each frame so the error stays below about one pixel. Most triangles go through a compute-shader software rasterizer, which is faster than hardware for pixel-sized triangles, and the rest through the hardware rasterizer. Both write a visibility buffer. Streaming makes the geometry “virtual”, so only the clusters that are needed stay resident.</p>
+
+<h3 id="draw-call-reduction-and-gpu-driven-rendering">Draw-Call Reduction and GPU-Driven Rendering</h3>
+
+<p>Each draw call costs CPU time for validation and state setup. The standard techniques are:</p>
 
 <ul>
-  <li><strong>Frustum Culling</strong>: Outside camera view</li>
-  <li><strong>Occlusion Culling</strong>: Hidden behind other objects</li>
-  <li><strong>Backface Culling</strong>: Faces pointing away from camera</li>
-  <li><strong>Distance Culling</strong>: Beyond view distance</li>
-  <li><strong>Small Object Culling</strong>: Sub-pixel geometry</li>
+  <li><strong>Instancing</strong> draws many copies of one mesh in a single call, with per-instance data held in a buffer.</li>
+  <li><strong>Batching / merging</strong> combines static meshes that share a material.</li>
+  <li><strong>Bindless resources</strong> index textures and buffers from large descriptor heaps, so draws stop needing per-draw rebinding.</li>
+  <li><strong>Indirect and GPU-driven rendering</strong> has compute shaders cull and write draw arguments into a buffer. Then <code class="language-plaintext highlighter-rouge">ExecuteIndirect</code> or <code class="language-plaintext highlighter-rouge">vkCmdDrawIndexedIndirectCount</code> submits thousands of draws in one command, and the CPU never touches individual objects.</li>
 </ul>
 
-<h3 id="level-of-detail-lod">Level of Detail (LOD)</h3>
-
-<p>Reduce complexity with distance:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>LOD 0: Full detail (0-50m)
-LOD 1: 50% triangles (50-100m)
-LOD 2: 25% triangles (100-200m)
-LOD 3: 10% triangles (200m+)
-Billboard: 2D impostor (very far)
-</code></pre></div></div>
-
-<p><strong>Modern Approaches:</strong></p>
-<ul>
-  <li><strong>Nanite</strong> (UE5): Virtualized geometry, automatic LOD</li>
-  <li><strong>Mesh Shaders</strong>: GPU-driven LOD selection</li>
-  <li><strong>Continuous LOD</strong>: Smooth transitions</li>
-</ul>
-
-<h3 id="batching-and-instancing">Batching and Instancing</h3>
-
-<p>Reduce draw calls:</p>
+<h2 id="emerging-directions">Emerging Directions</h2>
 
 <ul>
-  <li><strong>Static Batching</strong>: Combine static meshes</li>
-  <li><strong>Dynamic Batching</strong>: Runtime combination of small meshes</li>
-  <li><strong>GPU Instancing</strong>: Single draw call, multiple instances</li>
-  <li><strong>Indirect Drawing</strong>: GPU-driven draw commands</li>
-</ul>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>The pipeline is fixed.</strong> Vertices → triangles → fragments → framebuffer. Knowing which stage dominates a frame is the first step in optimizing it.</li>
-  <li><strong>Rasterize first, trace selectively.</strong> Rasterization wins on speed; ray tracing wins on accuracy. Hybrid pipelines rasterize visibility and trace only shadows, reflections, and GI.</li>
-  <li><strong>PBR is the material standard.</strong> Albedo, metallic, and roughness drive a physically grounded Cook-Torrance BRDF that behaves consistently under any lighting.</li>
-  <li><strong>Draw calls and overdraw cost.</strong> Batching, instancing, LODs, and culling exist to reduce CPU-side draw calls and wasted GPU shading.</li>
-  <li><strong>Avoid warp divergence.</strong> The GPU shades 32/64 threads in lock-step. Branchy shaders and uneven work waste lanes — keep work uniform.</li>
-  <li><strong>TAA + upscaling are default.</strong> Temporal accumulation (TAA) plus DLSS/FSR now deliver the best quality-per-millisecond for anti-aliasing.</li>
+  <li><strong>Neural rendering.</strong> Beyond upscaling and denoising, small neural networks are now evaluated <em>inside</em> shaders: neural texture compression, neural materials, and neural radiance caches. They run on matrix hardware through cooperative-vector and tensor extensions (Vulkan <code class="language-plaintext highlighter-rouge">VK_NV_cooperative_vector</code>, D3D12 cooperative vectors (preview), and Metal 4 tensor operations).</li>
+  <li><strong>Gaussian splatting.</strong> <em>3D Gaussian Splatting</em> (Kerbl et al., SIGGRAPH 2023) represents a captured scene as millions of anisotropic 3D Gaussians and rasterizes them by sorted alpha blending at real-time rates. It has largely replaced NeRFs for photogrammetry-style capture and is being adopted in engines and web viewers.</li>
+  <li><strong>Work graphs</strong> (D3D12) let shaders launch other shaders on the GPU, moving more scheduling decisions, such as culling, LOD selection, and procedural generation, off the CPU.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
+
 <ul>
-  <li><a href="../gamedev/">Game Development</a> - Game engines, physics, and multiplayer systems</li>
-  <li><a href="../optimization/">Performance Optimization</a> - GPU profiling and optimization techniques</li>
-  <li><a href="../technology/unreal.html">Unreal Engine</a> - UE5 Nanite, Lumen, and MetaSounds</li>
-  <li><a href="../vr-ar/">VR/AR Development</a> - Immersive rendering and XR techniques</li>
-  <li><a href="../physics/">Physics Documentation</a> - Mathematical foundations</li>
+  <li><a href="shaders.html">Shader Programming</a>: programmable stages, GLSL/HLSL, PBR shading code, and shader debugging</li>
+  <li><a href="../optimization/gpu-optimization.html">GPU Optimization</a>: profiling, occupancy, and draw-call optimization</li>
+  <li><a href="../gamedev/">Game Development</a>: engines, physics, and multiplayer systems</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a>: Nanite, Lumen, virtual shadow maps, and TSR in practice</li>
+  <li><a href="../vr-ar/">VR/AR Development</a>: stereo rendering and XR performance constraints</li>
+  <li><a href="../physics/">Physics Documentation</a>: optics and the mathematical foundations of light transport</li>
 </ul>
 
       </section>

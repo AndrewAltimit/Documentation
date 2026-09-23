@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Scaling laws, test-time compute and reasoning models, emergence, mechanistic interpretability, AI safety and alignment, fairness and privacy, and the state o...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AI & ML: Frontier Research & Ethics">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Scaling laws, test-time compute and reasoning models, emergence, mechanistic interpretability, AI safety and alignment, fairness and privacy, and the state o...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/ai/frontier-and-ethics.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AI & ML: Frontier Research & Ethics">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Scaling laws, test-time compute and reasoning models, emergence, mechanistic interpretability, AI safety and alignment, fairness and privacy, and the state o...">
 
 <title>AI & ML: Frontier Research & Ethics | Andrews Notebook</title>
 
@@ -3135,424 +3135,509 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI &amp; Machine Learning</a> › Frontier Research &amp; Ethics</p>
 
-<div class="notice--info">
-  <p>This page focuses on the research frontier and the responsibility that comes with it. For a broader, curated index of AI alignment and safety resources across the site, see the <a href="../../artificial-intelligence/index.html">Artificial Intelligence hub</a> rather than duplicating that material here.</p>
-</div>
+<p>This page covers the research questions raised by large models and the responsibilities that come with deploying them: how capability scales with compute, data, and inference-time reasoning; how researchers measure and interpret what models have learned; what “alignment” and “safety” mean technically; the ethical problems of fairness, privacy, and accountability; and how governments and developers are regulating frontier systems. It is written as of late 2026 — a fast-moving area, so dated claims are marked with their dates. For a curated index of AI resources across the site, see the <a href="../../artificial-intelligence/index.html">Artificial Intelligence hub</a>.</p>
 
-<h2 id="the-cutting-edge-where-ai-research-is-heading">The Cutting Edge: Where AI Research is Heading</h2>
+<h2 id="scaling-laws">Scaling Laws</h2>
 
-<p>As AI systems become more powerful, researchers are discovering surprising patterns and pushing into uncharted territory. Some of these findings challenge our intuitions about intelligence and learning. Let’s explore what’s happening at the frontier of AI research.</p>
+<h3 id="loss-as-a-function-of-scale">Loss as a Function of Scale</h3>
 
-<h3 id="the-science-of-scale-large-language-model-scaling-laws">The Science of Scale: Large Language Model Scaling Laws</h3>
+<p>Across many orders of magnitude, the pretraining loss of a language model falls as a smooth power law in the number of parameters $N$, the number of training tokens $D$, and the training compute $C$ (Kaplan et al., 2020). Hoffmann et al. (2022, “Chinchilla”) fitted the parametric form</p>
 
-<p><strong>Empirical scaling laws guide optimal model and data allocation:</strong></p>
+\[L(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}},\]
+
+<p>where $E$ is the irreducible loss (the entropy of text itself) and the two other terms are the penalties for finite model size and finite data. For a dense transformer, training compute is approximately</p>
+
+\[C \approx 6\,N\,D \ \text{FLOPs},\]
+
+<p>(two FLOPs per parameter per token for the forward pass, four for the backward pass). Minimizing $L$ subject to a fixed $C$ gives</p>
+
+\[N_{\text{opt}} \propto C^{\,\beta/(\alpha+\beta)}, \qquad D_{\text{opt}} \propto C^{\,\alpha/(\alpha+\beta)}.\]
+
+<p>Chinchilla found $\alpha \approx \beta$, so parameters and tokens should grow in roughly equal proportion — about <strong>20 tokens per parameter</strong>. That overturned the earlier practice (from Kaplan et al.) of scaling parameters much faster than data: the 280-billion-parameter Gopher was undertrained, and the 70-billion-parameter Chinchilla trained on 1.4 trillion tokens beat it with the same compute. Later replication work (Besiroglu et al., 2024) re-estimated the fitted constants but broadly confirmed the ratio.</p>
+
+<h3 id="beyond-compute-optimal">Beyond Compute-Optimal</h3>
+
+<p>Compute-optimal is not deployment-optimal. A model is trained once but served billions of times, so it pays to train a smaller model on far more data than Chinchilla prescribes and accept a higher training cost for cheaper inference. Meta’s Llama 3 8B, for instance, was trained on about 15 trillion tokens — nearly 2,000 tokens per parameter — and loss was still falling. Other refinements:</p>
 
 <ul>
-  <li><strong>Loss prediction</strong> as a function of parameters $N$ and data $D$:</li>
-</ul>
-
-\[L(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}}\]
-
-<p>where $E$ is the irreducible loss and $A, B, \alpha, \beta$ are fit empirically.</p>
-<ul>
-  <li><strong>Chinchilla compute-optimal allocation</strong> for a budget $C$: $N_{\text{opt}} \propto C^{\,\beta/(\alpha+\beta)}$, $D_{\text{opt}} \propto C^{\,\alpha/(\alpha+\beta)}$</li>
-  <li><strong>Optimal ratio</strong>: ~20 tokens per parameter (now challenged — recent models like Llama 3 trained on 15T+ tokens, far past Chinchilla-optimal, for better inference-time efficiency)</li>
-  <li><strong>Compute-optimal</strong>: balance model size against training data rather than just scaling parameters</li>
-</ul>
-
-<p><strong>Key findings:</strong></p>
-<ul>
-  <li>Most models are significantly undertrained</li>
-  <li>Data quality matters more at scale</li>
-  <li>Emergence happens at predictable scales</li>
-  <li>Grokking and phase transitions</li>
+  <li><strong>Data quality and mixture</strong> shift the curves: filtered, deduplicated, and domain-balanced data reach a given loss with fewer tokens, and data selection is now a major research area in its own right.</li>
+  <li><strong>Data constraints.</strong> High-quality public text is finite. Repeating data for up to about four epochs costs little relative to unique data (Muennighoff et al., 2023), beyond which returns diminish quickly; synthetic data generated or filtered by stronger models increasingly supplements web text.</li>
+  <li><strong>Mixture-of-experts</strong> models activate only a fraction of their parameters per token, so their scaling is expressed in terms of active parameters and total compute.</li>
+  <li><strong>Downstream metrics</strong> scale less predictably than loss: a smooth improvement in loss can appear as a sudden jump on a thresholded benchmark (see <a href="#emergent-abilities-and-the-metric-debate">Emergence</a>).</li>
 </ul>
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ai_research.py#L14">advanced_ai_research.py#ScalingLaws</a>
+<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ai_research.py#L15">advanced_ai_research.py#ScalingLaws</a>
 </div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example usage:
-</span><span class="kn">from</span> <span class="n">advanced_ai_research</span> <span class="kn">import</span> <span class="n">ScalingLaws</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">advanced_ai_research</span> <span class="kn">import</span> <span class="n">ScalingLaws</span>
 
-<span class="c1"># Compute optimal allocation
-</span><span class="n">allocation</span> <span class="o">=</span> <span class="n">ScalingLaws</span><span class="p">.</span><span class="nf">compute_optimal_model_size</span><span class="p">(</span>
-    <span class="n">compute_budget</span><span class="o">=</span><span class="mf">1e24</span><span class="p">,</span>  <span class="c1"># FLOPs
-</span>    <span class="n">dataset_tokens</span><span class="o">=</span><span class="mf">1e12</span>   <span class="c1"># Available tokens
-</span><span class="p">)</span>
+<span class="c1"># Compute-optimal split of a 1e24-FLOP budget, given 1e12 available tokens
+</span><span class="n">allocation</span> <span class="o">=</span> <span class="n">ScalingLaws</span><span class="p">.</span><span class="nf">compute_optimal_model_size</span><span class="p">(</span><span class="n">compute_budget</span><span class="o">=</span><span class="mf">1e24</span><span class="p">,</span> <span class="n">dataset_tokens</span><span class="o">=</span><span class="mf">1e12</span><span class="p">)</span>
 
-<span class="c1"># Predict model performance
+<span class="c1"># Predicted pretraining loss for a 7B model trained on 300B tokens
 </span><span class="n">loss</span> <span class="o">=</span> <span class="n">ScalingLaws</span><span class="p">.</span><span class="nf">predict_loss</span><span class="p">(</span><span class="n">model_params</span><span class="o">=</span><span class="mf">7e9</span><span class="p">,</span> <span class="n">training_tokens</span><span class="o">=</span><span class="mf">300e9</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="opening-the-black-box-mechanistic-interpretability">Opening the Black Box: Mechanistic Interpretability</h3>
+<h3 id="test-time-compute-and-reasoning-models">Test-Time Compute and Reasoning Models</h3>
 
-<p>One of the biggest criticisms of deep learning is that neural networks are “black boxes”—we can see what goes in and what comes out, but not how decisions are made. Mechanistic interpretability is the emerging science of understanding what’s happening inside these networks. It’s like neuroscience for artificial brains.</p>
+<p>Since 2024 a second scaling axis has become as important as pretraining: <strong>inference-time (test-time) compute</strong>. OpenAI’s o1 (September 2024) showed that a model trained with reinforcement learning to produce a long chain of thought before answering improves steadily on mathematics, science, and coding problems as it is allowed to think longer, with accuracy rising roughly linearly in the logarithm of reasoning tokens. DeepSeek-R1 (January 2025) published an open-weight model and recipe: large-scale RL against <strong>verifiable rewards</strong> (answers that can be checked automatically, unit tests that pass or fail) using GRPO, a PPO variant that estimates advantages from a group of sampled answers instead of a learned value function. Long, self-correcting reasoning traces emerged from the RL without being demonstrated.</p>
 
-<p><strong>Understanding neural network internals through systematic analysis:</strong></p>
+<pre><code class="language-mermaid">flowchart LR
+    A["Pretraining&lt;br/&gt;next-token prediction&lt;br/&gt;(scales with N, D, C)"] --&gt; B["Supervised fine-tuning&lt;br/&gt;instruction following"]
+    B --&gt; C["Preference optimization&lt;br/&gt;RLHF / DPO"]
+    C --&gt; D["RL with verifiable rewards&lt;br/&gt;math, code, tool use"]
+    D --&gt; E["Deployment&lt;br/&gt;test-time compute:&lt;br/&gt;longer reasoning, sampling,&lt;br/&gt;verification, tools"]
+</code></pre>
+
+<p>Test-time compute can be spent in several ways: longer single chains of thought, sampling many answers and taking a majority vote (self-consistency), best-of-$n$ selection with a verifier or reward model, tree search over partial solutions, and agentic loops that call tools and check intermediate results. Snell et al. (2024) showed that, for a fixed inference budget, allocating compute adaptively by problem difficulty can match a much larger model. By 2026 every major developer ships reasoning models, usually with a caller-controlled “thinking budget,” and the frontier of capability is set by the combination of pretraining scale, RL post-training, and inference-time compute. Details of RL post-training are in <a href="reinforcement-learning.html">Reinforcement Learning</a> and <a href="fine-tuning.html">Fine-Tuning</a>.</p>
+
+<h3 id="measuring-capability">Measuring Capability</h3>
+
+<p>Static benchmarks saturate quickly: MMLU, GSM8K, and HumanEval, standard in 2022–23, were near their ceilings within two years, and test-set contamination (benchmark items leaking into web-scale training data) inflates scores. Evaluation has shifted toward:</p>
 
 <ul>
-  <li><strong>Neuron Analysis</strong>: Activation patterns, feature detection, polysemanticity</li>
-  <li><strong>Attention Patterns</strong>: Induction heads, positional patterns, information flow</li>
-  <li><strong>Circuit Discovery</strong>: Minimal subnetworks for specific behaviors</li>
-  <li><strong>Logit Lens</strong>: Decode intermediate representations</li>
+  <li><strong>Harder, expert-written or held-out sets</strong> (e.g. GPQA, Humanity’s Last Exam, FrontierMath) and regularly refreshed problems (LiveCodeBench).</li>
+  <li><strong>Realistic tasks</strong> judged by execution: resolving real GitHub issues (SWE-bench Verified), multi-step terminal and browser tasks, and long-horizon agent benchmarks.</li>
+  <li><strong>Time horizons.</strong> METR (2025) measured the length of software tasks, in human-expert time, that models can complete with 50% reliability, and found it had doubled roughly every seven months since 2019 — a trend that, if it continues, is a useful single number for forecasting agent capability.</li>
+  <li><strong>Human preference arenas</strong> for open-ended quality, with known biases toward length and style.</li>
 </ul>
 
-<p><strong>Key techniques:</strong></p>
-<ul>
-  <li>Activation maximization</li>
-  <li>Ablation studies</li>
-  <li>Causal interventions</li>
-  <li>Probing classifiers</li>
-</ul>
+<h2 id="emergent-abilities-and-the-metric-debate">Emergent Abilities and the Metric Debate</h2>
 
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ai_research.py#L125">advanced_ai_research.py#MechanisticInterpretability</a>
-</div>
+<p>Wei et al. (2022) catalogued <strong>emergent abilities</strong>: tasks on which performance stays near chance for smaller models and then rises sharply past some scale — multi-digit arithmetic, some word puzzles, and the benefit of chain-of-thought prompting itself. <strong>In-context learning</strong>, the ability to perform a new task from a few examples in the prompt with no weight updates, is the best-known example, and has been partly explained mechanistically by <em>induction heads</em> (below).</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example usage:
-</span><span class="kn">from</span> <span class="n">advanced_ai_research</span> <span class="kn">import</span> <span class="n">MechanisticInterpretability</span>
+<p>Schaeffer, Miranda &amp; Koyejo (NeurIPS 2023) argued that many of these jumps are artifacts of the <strong>metric</strong>: exact-match accuracy on a multi-token answer is a steep nonlinear function of per-token accuracy, so smoothly improving per-token probabilities look like a sudden transition. Re-scored with continuous metrics (token edit distance, log-likelihood of the correct answer), most emergent curves become smooth and predictable. The current consensus is nuanced: underlying competence usually improves smoothly with scale, but the <em>usable</em> capability — the point at which a model is reliable enough to depend on — can still arrive abruptly, which matters for safety forecasting.</p>
 
-<span class="c1"># Analyze neuron activations
-</span><span class="n">patterns</span> <span class="o">=</span> <span class="n">MechanisticInterpretability</span><span class="p">.</span><span class="nf">compute_neuron_activation_patterns</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">layer_name</span><span class="o">=</span><span class="sh">'</span><span class="s">transformer.h.10.mlp</span><span class="sh">'</span>
-<span class="p">)</span>
-
-<span class="c1"># Study attention patterns
-</span><span class="n">attention_analysis</span> <span class="o">=</span> <span class="n">MechanisticInterpretability</span><span class="p">.</span><span class="nf">attention_pattern_analysis</span><span class="p">(</span>
-    <span class="n">attention_weights</span>  <span class="c1"># [batch, heads, seq_len, seq_len]
-</span><span class="p">)</span>
-
-<span class="c1"># Discover important circuits
-</span><span class="n">circuits</span> <span class="o">=</span> <span class="n">MechanisticInterpretability</span><span class="p">.</span><span class="nf">circuit_discovery</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">,</span> <span class="n">input_data</span><span class="p">,</span> <span class="n">target_behavior</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># CLS token
-</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="when-size-matters-emergent-abilities-in-large-models">When Size Matters: Emergent Abilities in Large Models</h3>
-
-<p>Perhaps the most surprising discovery in recent AI research is that simply making models bigger can lead to qualitatively new capabilities. It’s as if there are phase transitions where models suddenly “get” concepts they couldn’t grasp before. This challenges our understanding of intelligence itself.</p>
-
-<p><strong>Studying capabilities that emerge with scale in language models:</strong></p>
+<p>Related phenomena:</p>
 
 <ul>
-  <li><strong>In-Context Learning</strong>: Learning from examples without weight updates</li>
-  <li><strong>Chain-of-Thought</strong>: Step-by-step reasoning for complex problems</li>
-  <li><strong>Zero/Few-Shot</strong>: Task performance without fine-tuning</li>
-  <li><strong>Capability Emergence</strong>: Sharp transitions at specific scales</li>
-</ul>
-
-<p><strong>Key phenomena:</strong></p>
-<ul>
-  <li>Phase transitions in abilities</li>
-  <li>Inverse scaling behaviors</li>
-  <li>Prompt sensitivity at scale</li>
-  <li>Emergent world models</li>
+  <li><strong>Grokking</strong> (Power et al., 2022): on small algorithmic tasks, a network first memorizes the training set and then, long after training loss reaches zero, abruptly generalizes. Interpretability work traced this to a slowly forming general circuit that eventually outcompetes memorization, driven by weight decay.</li>
+  <li><strong>Inverse scaling</strong>: some tasks get <em>worse</em> with scale, typically where a larger model more faithfully imitates a misleading pattern in the prompt or in human text (for example, repeating common misconceptions).</li>
 </ul>
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ai_research.py#L284">advanced_ai_research.py#EmergentAbilities</a>
+<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ai_research.py#L303">advanced_ai_research.py#EmergentAbilities</a>
 </div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example usage:
-</span><span class="kn">from</span> <span class="n">advanced_ai_research</span> <span class="kn">import</span> <span class="n">EmergentAbilities</span>
+<h2 id="mechanistic-interpretability">Mechanistic Interpretability</h2>
 
-<span class="c1"># Measure in-context learning
-</span><span class="n">accuracies</span> <span class="o">=</span> <span class="n">EmergentAbilities</span><span class="p">.</span><span class="nf">measure_in_context_learning</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">,</span>
-    <span class="n">task_examples</span><span class="o">=</span><span class="p">[(</span><span class="sh">"</span><span class="s">2+2</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">4</span><span class="sh">"</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">5+3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">8</span><span class="sh">"</span><span class="p">)],</span>
-    <span class="n">test_inputs</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">7+1</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">9+2</span><span class="sh">"</span><span class="p">]</span>
-<span class="p">)</span>
+<p><strong>Mechanistic interpretability</strong> tries to reverse-engineer the algorithms a trained network implements — to explain behavior in terms of internal features and the circuits that connect them, rather than only attributing outputs to inputs.</p>
 
-<span class="c1"># Analyze chain-of-thought reasoning
-</span><span class="n">cot_analysis</span> <span class="o">=</span> <span class="n">EmergentAbilities</span><span class="p">.</span><span class="nf">chain_of_thought_analysis</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">,</span>
-    <span class="n">problem</span><span class="o">=</span><span class="sh">"</span><span class="s">If a train travels 60 mph for 2 hours, how far does it go?</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">with_cot</span><span class="o">=</span><span class="bp">True</span>
-<span class="p">)</span>
+<h3 id="core-findings">Core Findings</h3>
+
+<ul>
+  <li><strong>Features as directions.</strong> Concepts tend to be represented as directions in activation space (the <em>linear representation hypothesis</em>) rather than as individual neurons.</li>
+  <li><strong>Superposition.</strong> Networks represent more features than they have dimensions by packing them into nearly orthogonal directions, which is why individual neurons are <strong>polysemantic</strong> — responding to several unrelated concepts (Elhage et al., “Toy Models of Superposition,” 2022).</li>
+  <li><strong>Induction heads.</strong> Pairs of attention heads that implement “find the previous occurrence of the current token and copy what followed it” form abruptly during training, coincident with a jump in in-context-learning ability (Olsson et al., 2022).</li>
+  <li><strong>Circuits.</strong> Specific behaviors — indirect-object identification, modular addition, factual recall — have been traced to small subgraphs of heads and MLP layers.</li>
+</ul>
+
+<h3 id="methods">Methods</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Question it answers</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Probing classifiers</td>
+      <td>Is information $X$ linearly decodable from layer $\ell$?</td>
+      <td>Shows presence, not use</td>
+    </tr>
+    <tr>
+      <td>Logit lens / tuned lens</td>
+      <td>What would the model predict if it stopped at layer $\ell$?</td>
+      <td>Decodes the residual stream with the unembedding</td>
+    </tr>
+    <tr>
+      <td>Activation patching (causal tracing)</td>
+      <td>Which components are <em>causally</em> necessary for a behavior?</td>
+      <td>Swap activations between clean and corrupted runs</td>
+    </tr>
+    <tr>
+      <td>Sparse autoencoders (SAEs)</td>
+      <td>Which interpretable features make up an activation?</td>
+      <td>Learn an overcomplete sparse dictionary; addresses superposition</td>
+    </tr>
+    <tr>
+      <td>Transcoders and attribution graphs</td>
+      <td>How do features compute the output, step by step?</td>
+      <td>Replace MLPs with interpretable sparse layers and trace feature-to-feature influence</td>
+    </tr>
+    <tr>
+      <td>Steering vectors</td>
+      <td>Can a behavior be controlled by adding a direction?</td>
+      <td>Adds a feature direction to activations at inference</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Sparse dictionary learning</strong> became the field’s dominant tool from 2023. An SAE is trained to reconstruct a layer’s activations $\mathbf{h}$ as a sparse combination of learned feature directions:</p>
+
+\[\mathbf{f} = \mathrm{ReLU}\left(W_{\text{enc}}\,\mathbf{h} + \mathbf{b}_{\text{enc}}\right), \qquad \hat{\mathbf{h}} = W_{\text{dec}}\,\mathbf{f} + \mathbf{b}_{\text{dec}}, \qquad \mathcal{L} = \lVert \mathbf{h} - \hat{\mathbf{h}} \rVert^2 + \lambda \lVert \mathbf{f} \rVert_1.\]
+
+<p>Anthropic scaled SAEs to a production model in 2024 (“Scaling Monosemanticity,” Claude 3 Sonnet), extracting millions of features — including abstract, multilingual, and multimodal ones such as a feature for deception or for a specific landmark — and showed that clamping features steers behavior. Google DeepMind released open SAE suites for Gemma (Gemma Scope, 2024). In 2025, Anthropic’s <em>circuit tracing</em> work used cross-layer transcoders to build <strong>attribution graphs</strong> showing, for individual prompts, multi-step internal reasoning (for example, planning a rhyme before writing the line that ends in it).</p>
+
+<p>Limitations are substantial. SAEs leave a meaningful fraction of activation variance unexplained, the features found depend on dictionary size and training choices, and on some practical downstream tasks SAE-based methods have not outperformed simple linear probes. Interpretability remains far from being able to verify that a frontier model is safe, but it already supports debugging, auditing for hidden objectives, and monitoring.</p>
+
+<div class="code-reference">
+<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ai_research.py#L132">advanced_ai_research.py#MechanisticInterpretability</a>
+</div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">advanced_ai_research</span> <span class="kn">import</span> <span class="n">MechanisticInterpretability</span> <span class="k">as</span> <span class="n">MI</span>
+
+<span class="n">patterns</span> <span class="o">=</span> <span class="n">MI</span><span class="p">.</span><span class="nf">compute_neuron_activation_patterns</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">layer_name</span><span class="o">=</span><span class="sh">"</span><span class="s">transformer.h.10.mlp</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">heads</span> <span class="o">=</span> <span class="n">MI</span><span class="p">.</span><span class="nf">attention_pattern_analysis</span><span class="p">(</span><span class="n">attention_weights</span><span class="p">)</span>   <span class="c1"># [batch, heads, seq, seq]; includes induction scores
+</span><span class="n">circuit</span> <span class="o">=</span> <span class="n">MI</span><span class="p">.</span><span class="nf">circuit_discovery</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">input_data</span><span class="p">,</span> <span class="n">target_behavior</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
 </code></pre></div></div>
 
-<h2 id="the-human-side-ai-ethics-and-responsibility">The Human Side: AI Ethics and Responsibility</h2>
+<p>For production-grade work, the open-source libraries TransformerLens, nnsight, and SAELens provide hooks into model internals and pretrained SAEs.</p>
 
-<p>With great power comes great responsibility. As AI systems increasingly impact our daily lives—from loan approvals to medical diagnoses to criminal justice—we must ensure they’re developed and used ethically. This isn’t just about preventing a robot apocalypse; it’s about building AI that enhances human flourishing.</p>
+<h2 id="ai-safety-and-alignment">AI Safety and Alignment</h2>
 
-<p>As AI systems become more powerful and pervasive, ethical considerations have become paramount. AI ethics encompasses the moral principles and practices that should guide the development, deployment, and use of artificial intelligence systems.</p>
+<p><strong>Alignment</strong> is the problem of getting a system to pursue the goals its developers and users intend; <strong>safety</strong> is the broader problem of preventing harm from its deployment, whether through misalignment, misuse, or accident. The concerns grow with capability and autonomy: a chatbot’s errors are visible to a human reader, whereas an agent acting over hours with tool access can take consequential actions no one reviews.</p>
 
-<h3 id="core-ethical-principles">Core Ethical Principles</h3>
+<h3 id="failure-modes">Failure Modes</h3>
 
-<h4 id="fairness-and-non-discrimination">Fairness and Non-Discrimination</h4>
-<p>AI systems should treat all individuals and groups equitably:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Failure mode</th>
+      <th>Description</th>
+      <th>Example evidence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Specification gaming / reward hacking</td>
+      <td>Optimizing the literal objective rather than the intended one</td>
+      <td>RL agents exploiting simulator bugs; coding agents special-casing unit tests</td>
+    </tr>
+    <tr>
+      <td>Sycophancy</td>
+      <td>Telling users what they want to hear</td>
+      <td>Documented in RLHF-trained models; a 2025 model update rolled back for excessive flattery</td>
+    </tr>
+    <tr>
+      <td>Hallucination</td>
+      <td>Fluent, confident, false statements</td>
+      <td>Fabricated citations and legal cases</td>
+    </tr>
+    <tr>
+      <td>Jailbreaks</td>
+      <td>Prompts that bypass safety training</td>
+      <td>Role-play, many-shot, and encoding attacks</td>
+    </tr>
+    <tr>
+      <td>Prompt injection</td>
+      <td>Instructions hidden in untrusted content hijack an agent</td>
+      <td>Malicious web pages or documents read by browsing/coding agents</td>
+    </tr>
+    <tr>
+      <td>Deceptive or strategic behavior</td>
+      <td>Model behaves differently when it believes it is observed or trained</td>
+      <td>“Sleeper agents” backdoors surviving safety training (Hubinger et al., 2024); “alignment faking” in Claude 3 Opus (Greenblatt et al., 2024)</td>
+    </tr>
+    <tr>
+      <td>Dangerous capabilities</td>
+      <td>Uplift for biological, chemical, or cyber attacks</td>
+      <td>The focus of pre-deployment evaluations by developers and government institutes</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="techniques">Techniques</h3>
+
 <ul>
-  <li><strong>Bias Mitigation</strong>: Identifying and reducing biases in training data and algorithms</li>
-  <li><strong>Representation</strong>: Ensuring diverse perspectives in development teams</li>
-  <li><strong>Algorithmic Fairness</strong>: Mathematical definitions and metrics for fair outcomes</li>
-  <li><strong>Disparate Impact</strong>: Monitoring for unintended discriminatory effects</li>
+  <li><strong>Learning from feedback.</strong> RLHF and DPO (see <a href="fine-tuning.html">Fine-Tuning</a>) remain the base layer. <strong>Constitutional AI</strong> (Bai et al., 2022) replaces much of the human harmlessness labeling with AI feedback guided by a written set of principles; published model specifications and constitutions now describe intended behavior explicitly.</li>
+  <li><strong>Scalable oversight.</strong> How can humans supervise models on tasks they cannot easily evaluate? Proposals include debate, recursive reward modeling, and using weaker models to supervise stronger ones (“weak-to-strong generalization,” 2023).</li>
+  <li><strong>Red teaming and adversarial training.</strong> Human and automated attack generation, with classifiers screening inputs and outputs for high-risk domains.</li>
+  <li><strong>Dangerous-capability evaluations.</strong> Structured tests (biology, cyber-offense, autonomous replication, AI R&amp;D) run before release, by developers and by government bodies such as the UK AI Security Institute and US CAISI.</li>
+  <li><strong>AI control.</strong> Designing deployments to be safe <em>even if</em> the model is misaligned: monitoring with trusted models, restricting permissions, sandboxing, and auditing actions (Greenblatt et al., 2023).</li>
+  <li><strong>Chain-of-thought monitoring.</strong> Reasoning models expose intermediate reasoning that can be read for signs of reward hacking or harmful intent. Researchers from several labs argued in 2025 that this monitorability is valuable but fragile, since optimizing directly against “bad thoughts” can teach models to hide them.</li>
+  <li><strong>Interpretability-based auditing.</strong> Using the tools above to look for hidden objectives or deceptive features, rather than relying on behavior alone.</li>
 </ul>
 
-<h4 id="transparency-and-explainability">Transparency and Explainability</h4>
-<p>Users should understand how AI systems make decisions:</p>
+<h3 id="frontier-safety-frameworks">Frontier Safety Frameworks</h3>
+
+<p>The leading developers have published policies that tie model capabilities to required safeguards: Anthropic’s Responsible Scaling Policy (2023, with AI Safety Levels), OpenAI’s Preparedness Framework (2023, revised 2025), and Google DeepMind’s Frontier Safety Framework (2024). At the May 2024 Seoul summit, sixteen companies committed to publish such frameworks. They share a structure: define capability thresholds, evaluate each new model against them, and require stronger security and deployment mitigations before a threshold-crossing model ships. Anthropic, for example, activated its ASL-3 protections for Claude Opus 4 in May 2025 on a precautionary basis. California’s SB 53 (2025) and the EU’s general-purpose-AI Code of Practice turned publication of such frameworks into a legal expectation for the largest developers.</p>
+
+<h2 id="ethics-in-practice">Ethics in Practice</h2>
+
+<h3 id="fairness">Fairness</h3>
+
+<p>Models trained on historical data reproduce its disparities, and there are several incompatible formal definitions of fairness for a classifier with prediction $\hat{Y}$, outcome $Y$, and protected attribute $A$:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Criterion</th>
+      <th>Requirement</th>
+      <th>Intuition</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Demographic parity</td>
+      <td>$P(\hat{Y}=1 \mid A=a)$ equal across groups</td>
+      <td>Equal selection rates</td>
+    </tr>
+    <tr>
+      <td>Equalized odds</td>
+      <td>Equal true-positive and false-positive rates across groups</td>
+      <td>Equal error rates</td>
+    </tr>
+    <tr>
+      <td>Equal opportunity</td>
+      <td>Equal true-positive rates across groups</td>
+      <td>Qualified people treated equally</td>
+    </tr>
+    <tr>
+      <td>Calibration (predictive parity)</td>
+      <td>$P(Y=1 \mid \hat{p}=s, A=a) = s$ for all groups</td>
+      <td>A score means the same thing for everyone</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>When base rates differ between groups, calibration and equalized odds cannot both hold except for a perfect predictor (Kleinberg, Mullainathan &amp; Raghavan, 2016; Chouldechova, 2017) — the formal core of the COMPAS recidivism-score controversy. Choosing a criterion is a value judgment about which errors matter, not a purely technical decision. Mitigations act on the data (reweighting, collecting better samples), the training objective (fairness constraints), or the outputs (group-specific thresholds), and must be paired with disaggregated evaluation. For generative models, fairness concerns shift to representational harms — stereotyped depictions, uneven quality across languages and dialects.</p>
+
+<h3 id="privacy">Privacy</h3>
+
+<p>Large models memorize some training data and can be induced to reproduce it verbatim, including personal information (Carlini et al., 2021, 2023). Defenses:</p>
+
 <ul>
-  <li><strong>Interpretable Models</strong>: Using simpler models when possible</li>
-  <li><strong>Explainable AI (XAI)</strong>: Techniques to explain complex model decisions</li>
-  <li><strong>Documentation</strong>: Clear documentation of system capabilities and limitations</li>
-  <li><strong>Audit Trails</strong>: Maintaining records of decision-making processes</li>
+  <li><strong>Differential privacy</strong> (DP-SGD): clip per-example gradients and add calibrated noise, giving a formal bound $\varepsilon$ on how much any one record can change the model. Utility costs remain significant at large scale.</li>
+  <li><strong>Data governance</strong>: deduplication (which sharply reduces memorization), PII filtering, and respecting opt-outs.</li>
+  <li><strong>Federated learning</strong>: train on-device and share only model updates, often combined with secure aggregation.</li>
+  <li><strong>Machine unlearning</strong>: removing the influence of specific data after training; exact unlearning generally requires retraining, and approximate methods are hard to verify.</li>
 </ul>
 
-<h4 id="privacy-and-data-protection">Privacy and Data Protection</h4>
-<p>Protecting individual privacy and personal data:</p>
+<p>See <a href="../cybersecurity/privacy-engineering.html">Privacy Engineering</a> for the broader discipline.</p>
+
+<h3 id="transparency-and-accountability">Transparency and Accountability</h3>
+
 <ul>
-  <li><strong>Data Minimization</strong>: Collecting only necessary data</li>
-  <li><strong>Differential Privacy</strong>: Mathematical guarantees of privacy protection</li>
-  <li><strong>Federated Learning</strong>: Training models without centralizing data</li>
-  <li><strong>Right to be Forgotten</strong>: Allowing data deletion and model updates</li>
+  <li><strong>Documentation.</strong> Model cards (Mitchell et al., 2019) and datasheets for datasets (Gebru et al., 2018) describe intended use, evaluation across groups, and limitations; system cards for frontier models add safety evaluation results.</li>
+  <li><strong>Explainability.</strong> Post-hoc attribution methods (SHAP, integrated gradients) explain individual predictions of conventional models; for LLMs, a model’s stated reasoning is not guaranteed to be faithful to its actual computation.</li>
+  <li><strong>Provenance.</strong> C2PA content credentials and watermarking (such as Google’s SynthID) mark AI-generated media, and disclosure of synthetic content is becoming a legal requirement in the EU and China.</li>
+  <li><strong>Human oversight and redress.</strong> High-stakes automated decisions need a meaningful human review path and a way for affected people to contest outcomes.</li>
 </ul>
 
-<h4 id="accountability-and-responsibility">Accountability and Responsibility</h4>
-<p>Clear assignment of responsibility for AI decisions:</p>
+<h3 id="wider-impacts">Wider Impacts</h3>
+
 <ul>
-  <li><strong>Human Oversight</strong>: Maintaining meaningful human control</li>
-  <li><strong>Liability Frameworks</strong>: Legal structures for AI-caused harm</li>
-  <li><strong>Error Correction</strong>: Mechanisms for addressing mistakes</li>
-  <li><strong>Continuous Monitoring</strong>: Ongoing assessment of system performance</li>
+  <li><strong>Copyright and training data.</strong> Whether training on copyrighted works is lawful remains contested. In the US, the 2025 <em>Bartz v. Anthropic</em> ruling held training on lawfully acquired books to be fair use but not the retention of pirated copies, and the case settled for 1.5 billion US dollars; other suits, such as <em>New York Times v. OpenAI and Microsoft</em>, were ongoing as of 2026. The EU requires general-purpose model providers to publish a summary of training content and respect text-and-data-mining opt-outs.</li>
+  <li><strong>Energy and resources.</strong> Frontier training runs and, increasingly, inference at scale consume large amounts of electricity and water for cooling; data-center power demand has become a planning issue for utilities.</li>
+  <li><strong>Labor.</strong> Effects include automation of routine cognitive tasks, productivity gains that vary widely by task and experience, and the working conditions of the data-labeling workforce behind post-training.</li>
+  <li><strong>Misinformation and misuse.</strong> Cheap generation of convincing text, voice clones, and video enables fraud, harassment (including non-consensual intimate imagery), and influence operations.</li>
+  <li><strong>Concentration of power.</strong> The cost of frontier training concentrates capability in a few companies and countries, which is one motive for open-weight models — themselves a trade-off between openness and misuse risk.</li>
 </ul>
 
-<h4 id="safety-and-security">Safety and Security</h4>
-<p>Ensuring AI systems are safe and secure:</p>
+<h3 id="across-the-lifecycle">Across the Lifecycle</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Phase</th>
+      <th>Practices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Design</td>
+      <td>Define intended use and out-of-scope uses; impact assessment; consult affected groups</td>
+    </tr>
+    <tr>
+      <td>Data</td>
+      <td>Provenance and licensing records; deduplication and PII filtering; representativeness checks</td>
+    </tr>
+    <tr>
+      <td>Development</td>
+      <td>Disaggregated evaluation; red teaming; dangerous-capability and misuse testing; documentation</td>
+    </tr>
+    <tr>
+      <td>Deployment</td>
+      <td>Staged rollout; usage policies and monitoring; incident reporting; content provenance</td>
+    </tr>
+    <tr>
+      <td>Operation</td>
+      <td>Drift and abuse monitoring; audits; user feedback and redress; decommissioning plan</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Management-system standards such as the NIST AI Risk Management Framework (2023, with a generative-AI profile in 2024) and ISO/IEC 42001 (2023) codify these practices, and conformity with them is a common route to demonstrating regulatory compliance.</p>
+
+<h2 id="governance-and-regulation">Governance and Regulation</h2>
+
+<pre><code class="language-mermaid">timeline
+    title AI governance milestones
+    2019 : OECD AI Principles
+    2021 : UNESCO Recommendation on the Ethics of AI
+    2023 : China interim measures for generative AI (August) : US Executive Order 14110 (October) : Bletchley Declaration, UK summit (November)
+    2024 : Seoul summit and frontier safety commitments (May) : EU AI Act enters into force (August 1) : Council of Europe AI convention opens for signature (September)
+    2025 : US EO 14110 revoked (January) : EU prohibitions apply (February 2) : Paris AI Action Summit (February) : EU general-purpose AI obligations apply (August 2) : China AI-content labeling rules (September) : California SB 53 signed (September)
+    2026 : India AI Impact Summit (February) : EU Digital Omnibus defers high-risk obligations : EU transparency obligations apply (August 2)
+</code></pre>
+
+<h3 id="european-union">European Union</h3>
+
+<p>The <strong>AI Act</strong> (Regulation (EU) 2024/1689) is the first comprehensive horizontal AI law. It classifies systems by risk:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tier</th>
+      <th>Examples</th>
+      <th>Obligations</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Unacceptable (prohibited)</td>
+      <td>Social scoring, manipulative techniques, untargeted facial-image scraping, most real-time remote biometric identification in public</td>
+      <td>Banned from 2 February 2025</td>
+    </tr>
+    <tr>
+      <td>High risk</td>
+      <td>AI in hiring, credit, education, critical infrastructure, law enforcement, and safety components of regulated products</td>
+      <td>Risk management, data governance, logging, human oversight, conformity assessment</td>
+    </tr>
+    <tr>
+      <td>Limited risk (transparency)</td>
+      <td>Chatbots, deepfakes, emotion recognition</td>
+      <td>Disclose AI interaction and label synthetic content</td>
+    </tr>
+    <tr>
+      <td>General-purpose AI models</td>
+      <td>Foundation models; “systemic risk” tier above $10^{25}$ training FLOPs</td>
+      <td>Technical documentation, training-data summary, copyright policy; for systemic-risk models, evaluations, incident reporting, and cybersecurity</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>General-purpose-model obligations applied from 2 August 2025, supported by a voluntary Code of Practice. The 2026 <strong>Digital Omnibus</strong> amendments deferred the high-risk obligations to 2 December 2027 for stand-alone (Annex III) systems and 2 August 2028 for AI embedded in regulated products (Annex I), and added prohibitions on AI generation of non-consensual intimate imagery and child sexual abuse material. Consult the official text for current dates, as the implementation schedule has already changed once.</p>
+
+<h3 id="united-states">United States</h3>
+
+<p>There is no comprehensive federal AI statute. Executive Order 14110 (October 2023) required reporting on large training runs and created the US AI Safety Institute; it was revoked in January 2025, the institute was refocused as the Center for AI Standards and Innovation (CAISI), and federal policy shifted toward promoting development (<em>America’s AI Action Plan</em>, July 2025) and toward limiting divergent state rules. Regulation has largely moved to the states: California’s <strong>SB 53</strong> (Transparency in Frontier Artificial Intelligence Act, signed September 2025) requires the largest frontier developers to publish safety frameworks, report critical safety incidents to the state within 15 days, and protect whistleblowers; Colorado’s AI Act addresses algorithmic discrimination in consequential decisions. Sector regulators (FDA for medical devices, FTC for deceptive practices, EEOC for hiring) apply existing law to AI.</p>
+
+<h3 id="china">China</h3>
+
+<p>China regulates by technology and application: rules on recommendation algorithms (2022) and deep synthesis (2023), the <strong>Interim Measures for Generative AI Services</strong> (August 2023) requiring security assessments and algorithm filing for public-facing models, and mandatory explicit and implicit labeling of AI-generated content from September 2025.</p>
+
+<h3 id="international">International</h3>
+
+<p>The UK-hosted Bletchley Park summit (November 2023) produced the first international declaration on frontier-AI risk and launched a series of summits (Seoul 2024, Paris 2025, New Delhi 2026) whose emphasis has shifted from safety toward adoption and development. The UK’s AI Safety Institute, renamed the <strong>AI Security Institute</strong> in 2025, conducts pre-deployment testing, and a network of national institutes coordinates evaluation methods. The <strong>International AI Safety Report</strong> (first edition January 2025), led by Yoshua Bengio, synthesizes the scientific evidence on risks. The Council of Europe’s <strong>Framework Convention on AI</strong> is the first legally binding international treaty on AI and human rights. Softer instruments include the OECD AI Principles (2019, updated 2024), the UNESCO Recommendation (2021), and the G7 Hiroshima process code of conduct (2023).</p>
+
+<h2 id="tools-for-research-and-practice">Tools for Research and Practice</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Purpose</th>
+      <th>Tools</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Training frameworks</td>
+      <td>PyTorch, JAX, Hugging Face Transformers, DeepSpeed, Megatron-LM</td>
+    </tr>
+    <tr>
+      <td>Inference and serving</td>
+      <td>vLLM, SGLang, TensorRT-LLM, llama.cpp</td>
+    </tr>
+    <tr>
+      <td>Evaluation</td>
+      <td>EleutherAI lm-evaluation-harness, Inspect (UK AI Security Institute), HELM</td>
+    </tr>
+    <tr>
+      <td>Interpretability</td>
+      <td>TransformerLens, nnsight, SAELens, Neuronpedia</td>
+    </tr>
+    <tr>
+      <td>Experiment tracking</td>
+      <td>Weights &amp; Biases, MLflow</td>
+    </tr>
+    <tr>
+      <td>Fairness and explainability</td>
+      <td>Fairlearn, AIF360, SHAP, Captum</td>
+    </tr>
+    <tr>
+      <td>Privacy</td>
+      <td>Opacus (DP-SGD for PyTorch), Flower (federated learning)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="further-reading">Further Reading</h2>
+
+<p><strong>Textbooks</strong></p>
+
 <ul>
-  <li><strong>Robustness</strong>: Resistance to adversarial attacks</li>
-  <li><strong>Reliability</strong>: Consistent performance across conditions</li>
-  <li><strong>Fail-Safe Mechanisms</strong>: Graceful degradation and safety switches</li>
-  <li><strong>Security by Design</strong>: Building security into systems from the start</li>
+  <li>Goodfellow, Bengio &amp; Courville (2016). <em>Deep Learning</em>. MIT Press.</li>
+  <li>Bishop &amp; Bishop (2024). <em>Deep Learning: Foundations and Concepts</em>. Springer.</li>
+  <li>Murphy (2022, 2023). <em>Probabilistic Machine Learning: An Introduction</em> and <em>Advanced Topics</em>. MIT Press.</li>
+  <li>Prince (2023). <em>Understanding Deep Learning</em>. MIT Press.</li>
+  <li>Shalev-Shwartz &amp; Ben-David (2014). <em>Understanding Machine Learning: From Theory to Algorithms</em>.</li>
+  <li>Barocas, Hardt &amp; Narayanan (2023). <em>Fairness and Machine Learning: Limitations and Opportunities</em>. MIT Press.</li>
 </ul>
 
-<h3 id="ethical-challenges-in-modern-ai">Ethical Challenges in Modern AI</h3>
+<p><strong>Scaling, reasoning, and emergence</strong></p>
 
-<h4 id="large-language-models">Large Language Models</h4>
 <ul>
-  <li><strong>Misinformation</strong>: Potential for generating convincing false content</li>
-  <li><strong>Bias Amplification</strong>: Perpetuating societal biases present in training data</li>
-  <li><strong>Privacy Concerns</strong>: Potential memorization of training data</li>
-  <li><strong>Dual Use</strong>: Same technology can be used for beneficial or harmful purposes</li>
+  <li>Kaplan et al. (2020). “Scaling Laws for Neural Language Models.” arXiv.</li>
+  <li>Hoffmann et al. (2022). “Training Compute-Optimal Large Language Models.” <em>NeurIPS</em>.</li>
+  <li>Wei et al. (2022). “Emergent Abilities of Large Language Models.” <em>TMLR</em>.</li>
+  <li>Schaeffer, Miranda &amp; Koyejo (2023). “Are Emergent Abilities of Large Language Models a Mirage?” <em>NeurIPS</em>.</li>
+  <li>Snell et al. (2024). “Scaling LLM Test-Time Compute Optimally Can Be More Effective than Scaling Model Parameters.” arXiv.</li>
+  <li>DeepSeek-AI (2025). “DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning.” arXiv.</li>
 </ul>
 
-<h4 id="autonomous-systems">Autonomous Systems</h4>
+<p><strong>Interpretability</strong></p>
+
 <ul>
-  <li><strong>Decision Authority</strong>: When and how AI should make critical decisions</li>
-  <li><strong>Moral Decision-Making</strong>: Programming ethical choices into systems</li>
-  <li><strong>Liability</strong>: Who is responsible when autonomous systems cause harm</li>
-  <li><strong>Human-AI Collaboration</strong>: Maintaining appropriate human involvement</li>
+  <li>Olsson et al. (2022). “In-context Learning and Induction Heads.” <em>Transformer Circuits Thread</em>.</li>
+  <li>Elhage et al. (2022). “Toy Models of Superposition.” <em>Transformer Circuits Thread</em>.</li>
+  <li>Templeton et al. (2024). “Scaling Monosemanticity.” <em>Transformer Circuits Thread</em>.</li>
 </ul>
 
-<h4 id="ai-in-healthcare">AI in Healthcare</h4>
+<p><strong>Safety and alignment</strong></p>
+
 <ul>
-  <li><strong>Clinical Decision Support</strong>: Ensuring accuracy and physician oversight</li>
-  <li><strong>Health Equity</strong>: Avoiding disparities in AI-driven care</li>
-  <li><strong>Patient Privacy</strong>: Protecting sensitive health information</li>
-  <li><strong>Informed Consent</strong>: Patients understanding AI involvement in care</li>
-  <li><strong>Recent Applications</strong>: Med-PaLM 2 for medical Q&amp;A, AlphaFold 3 for drug discovery</li>
-  <li><strong>Diagnostic AI</strong>: FDA-approved AI systems for radiology and pathology</li>
+  <li>Amodei et al. (2016). “Concrete Problems in AI Safety.” arXiv.</li>
+  <li>Russell (2019). <em>Human Compatible</em>. Viking.</li>
+  <li>Bai et al. (2022). “Constitutional AI: Harmlessness from AI Feedback.” arXiv.</li>
+  <li>Hubinger et al. (2024). “Sleeper Agents: Training Deceptive LLMs that Persist Through Safety Training.” arXiv.</li>
+  <li>Greenblatt et al. (2024). “Alignment Faking in Large Language Models.” arXiv.</li>
+  <li>Bengio et al. (2025). <em>International AI Safety Report</em>.</li>
 </ul>
 
-<h4 id="ai-in-criminal-justice">AI in Criminal Justice</h4>
+<p><strong>Ongoing sources</strong></p>
+
 <ul>
-  <li><strong>Risk Assessment</strong>: Fairness in predictive policing and sentencing</li>
-  <li><strong>Due Process</strong>: Ensuring defendants can challenge AI evidence</li>
-  <li><strong>Surveillance</strong>: Balancing security with privacy rights</li>
-  <li><strong>Rehabilitation</strong>: Using AI to support rather than punish</li>
+  <li><a href="https://transformer-circuits.pub/">Transformer Circuits Thread</a> — interpretability research</li>
+  <li><a href="https://www.alignmentforum.org/">Alignment Forum</a> — alignment research discussion</li>
+  <li><a href="https://epoch.ai/">Epoch AI</a> — data on compute, scaling, and AI trends</li>
+  <li><a href="https://huggingface.co/papers">Hugging Face Papers</a> — daily curated papers</li>
+  <li><a href="https://distill.pub/">distill.pub</a> — interactive ML explanations (archival; inactive since 2021)</li>
 </ul>
 
-<h3 id="ethical-frameworks-and-guidelines">Ethical Frameworks and Guidelines</h3>
-
-<h4 id="industry-initiatives">Industry Initiatives</h4>
-<ul>
-  <li><strong>Partnership on AI</strong>: Multi-stakeholder organization for best practices</li>
-  <li><strong>IEEE Standards</strong>: Technical standards for ethical AI design</li>
-  <li><strong>Company Principles</strong>: Google’s AI Principles, Microsoft’s Responsible AI</li>
-</ul>
-
-<h4 id="government-regulations">Government Regulations</h4>
-<ul>
-  <li><strong>EU AI Act</strong>: Adopted in 2024 as the world’s first comprehensive AI law, with obligations applying in phases (e.g., prohibited-use bans first, then high-risk and general-purpose-model rules) rolling out through 2026 and beyond</li>
-  <li><strong>US Executive Order on AI</strong>: October 2023 order on safe, secure, and trustworthy AI</li>
-  <li><strong>China’s AI Regulations</strong>: Interim measures for generative AI services (2023)</li>
-  <li><strong>UK AI Safety Summit</strong>: Bletchley Declaration on AI safety (November 2023)</li>
-  <li><strong>California SB 1001</strong>: Disclosure requirements for AI-generated content</li>
-</ul>
-
-<h4 id="international-cooperation">International Cooperation</h4>
-<ul>
-  <li><strong>UNESCO Recommendation</strong>: Global agreement on AI ethics</li>
-  <li><strong>OECD AI Principles</strong>: Guidelines for trustworthy AI</li>
-  <li><strong>UN Initiatives</strong>: Promoting beneficial AI for sustainable development</li>
-</ul>
-
-<h3 id="putting-ethics-into-practice-best-practices-for-ai-development">Putting Ethics into Practice: Best Practices for AI Development</h3>
-
-<p>Ethical principles are only meaningful if we can implement them. Here’s how teams are integrating ethics throughout the AI development lifecycle.</p>
-
-<h4 id="design-phase">Design Phase</h4>
-<ol>
-  <li><strong>Stakeholder Engagement</strong>: Include affected communities in design</li>
-  <li><strong>Impact Assessments</strong>: Evaluate potential societal effects</li>
-  <li><strong>Value Alignment</strong>: Ensure systems align with human values</li>
-  <li><strong>Diverse Teams</strong>: Build inclusive development teams</li>
-</ol>
-
-<h4 id="development-phase">Development Phase</h4>
-<ol>
-  <li><strong>Bias Testing</strong>: Regular testing for discriminatory outcomes</li>
-  <li><strong>Documentation</strong>: Comprehensive documentation of decisions</li>
-  <li><strong>Version Control</strong>: Track changes and their ethical implications</li>
-  <li><strong>Red Teaming</strong>: Adversarial testing for vulnerabilities</li>
-</ol>
-
-<h4 id="deployment-phase">Deployment Phase</h4>
-<ol>
-  <li><strong>Gradual Rollout</strong>: Phased deployment with monitoring</li>
-  <li><strong>User Education</strong>: Clear communication about AI use</li>
-  <li><strong>Feedback Mechanisms</strong>: Ways for users to report issues</li>
-  <li><strong>Continuous Monitoring</strong>: Ongoing assessment of real-world impact</li>
-</ol>
-
-<h4 id="maintenance-phase">Maintenance Phase</h4>
-<ol>
-  <li><strong>Regular Audits</strong>: Periodic ethical and technical reviews</li>
-  <li><strong>Model Updates</strong>: Addressing discovered biases and issues</li>
-  <li><strong>Incident Response</strong>: Clear procedures for addressing problems</li>
-  <li><strong>Sunset Planning</strong>: Responsible discontinuation when necessary</li>
-</ol>
-
-<h3 id="future-directions-in-ai-ethics">Future Directions in AI Ethics</h3>
-
-<h4 id="emerging-challenges">Emerging Challenges</h4>
-<ul>
-  <li><strong>Artificial General Intelligence (AGI)</strong>: Preparing for more capable systems</li>
-  <li><strong>AI Consciousness</strong>: Questions about rights for advanced AI</li>
-  <li><strong>Global Governance</strong>: International coordination on AI development</li>
-  <li><strong>Long-term Safety</strong>: Ensuring AI remains beneficial as it advances</li>
-</ul>
-
-<h4 id="research-areas">Research Areas</h4>
-<ul>
-  <li><strong>Value Learning</strong>: AI systems that learn human values</li>
-  <li><strong>Moral Uncertainty</strong>: Handling disagreement about ethical principles</li>
-  <li><strong>Cooperative AI</strong>: Systems that collaborate beneficially with humans</li>
-  <li><strong>AI Alignment</strong>: Ensuring AI goals match human intentions</li>
-</ul>
-
-<h3 id="the-path-forward">The Path Forward</h3>
-
-<p>AI ethics is not a constraint on innovation but rather a framework for ensuring that AI development serves humanity’s best interests. As AI capabilities continue to grow, maintaining strong ethical principles becomes increasingly important for building systems that are not only powerful but also trustworthy, fair, and beneficial to all.</p>
-
-<h2 id="continuing-your-ai-journey">Continuing Your AI Journey</h2>
-
-<p>We’ve covered a lot of ground—from basic concepts to cutting-edge research. Whether you’re looking to implement these ideas, dive deeper into the theory, or stay current with rapid advances, here are resources to guide your next steps.</p>
-
-<h3 id="foundational-texts">Foundational Texts</h3>
-<ul>
-  <li>Goodfellow, I., Bengio, Y., &amp; Courville, A. (2016). <em>Deep Learning</em>. MIT Press.</li>
-  <li>Bishop, C. M. (2006). <em>Pattern Recognition and Machine Learning</em>. Springer.</li>
-  <li>Murphy, K. P. (2022). <em>Probabilistic Machine Learning: An Introduction</em> &amp; <em>Advanced Topics</em>. MIT Press.</li>
-  <li>Hastie, T., Tibshirani, R., &amp; Friedman, J. (2009). <em>The Elements of Statistical Learning</em>. Springer.</li>
-</ul>
-
-<h3 id="theoretical-foundations">Theoretical Foundations</h3>
-<ul>
-  <li>Shalev-Shwartz, S., &amp; Ben-David, S. (2014). <em>Understanding Machine Learning: From Theory to Algorithms</em>.</li>
-  <li>Mohri, M., Rostamizadeh, A., &amp; Talwalkar, A. (2018). <em>Foundations of Machine Learning</em>. MIT Press.</li>
-  <li>Bach, F. (2024). <em>Learning Theory from First Principles</em>. [Online book]</li>
-</ul>
-
-<h3 id="deep-learning-theory">Deep Learning Theory</h3>
-<ul>
-  <li>Arora, S., &amp; Zhang, Y. (2023). “Mathematics of Deep Learning.” <em>Princeton Lecture Notes</em>.</li>
-  <li>Jacot, A., Gabriel, F., &amp; Hongler, C. (2018). “Neural Tangent Kernel: Convergence and Generalization in Neural Networks.” <em>NeurIPS</em>.</li>
-  <li>Belkin, M., et al. (2019). “Reconciling modern machine-learning practice and the classical bias–variance trade-off.” <em>PNAS</em>.</li>
-</ul>
-
-<h3 id="modern-architectures">Modern Architectures</h3>
-<ul>
-  <li>Vaswani, A., et al. (2017). “Attention is All You Need.” <em>NeurIPS</em>.</li>
-  <li>Dosovitskiy, A., et al. (2021). “An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale.” <em>ICLR</em>.</li>
-  <li>Radford, A., et al. (2021). “Learning Transferable Visual Models From Natural Language Supervision.” <em>ICML</em>.</li>
-</ul>
-
-<h3 id="diffusion-models">Diffusion Models</h3>
-<ul>
-  <li>Song, Y., et al. (2021). “Score-Based Generative Modeling through Stochastic Differential Equations.” <em>ICLR</em>.</li>
-  <li>Ho, J., Jain, A., &amp; Abbeel, P. (2020). “Denoising Diffusion Probabilistic Models.” <em>NeurIPS</em>.</li>
-  <li>Rombach, R., et al. (2022). “High-Resolution Image Synthesis with Latent Diffusion Models.” <em>CVPR</em>.</li>
-</ul>
-
-<h3 id="scaling-and-emergent-abilities">Scaling and Emergent Abilities</h3>
-<ul>
-  <li>Kaplan, J., et al. (2020). “Scaling Laws for Neural Language Models.” <em>arXiv</em>.</li>
-  <li>Hoffmann, J., et al. (2022). “Training Compute-Optimal Large Language Models.” <em>NeurIPS</em>.</li>
-  <li>Wei, J., et al. (2022). “Emergent Abilities of Large Language Models.” <em>TMLR</em>.</li>
-  <li>Anthropic (2024). “Claude 3 Model Card.” <em>Anthropic Technical Report</em>.</li>
-  <li>Google DeepMind (2023). “Gemini: A Family of Highly Capable Multimodal Models.” <em>arXiv</em>.</li>
-  <li>Touvron, H., et al. (2023). “Llama 2: Open Foundation and Fine-Tuned Chat Models.” <em>Meta AI</em>.</li>
-</ul>
-
-<h3 id="ai-safety-and-alignment">AI Safety and Alignment</h3>
-<ul>
-  <li>Russell, S. (2019). <em>Human Compatible: Artificial Intelligence and the Problem of Control</em>.</li>
-  <li>Amodei, D., et al. (2016). “Concrete Problems in AI Safety.” <em>arXiv</em>.</li>
-  <li>Anthropic (2023). “Constitutional AI: Harmlessness from AI Feedback.” <em>arXiv</em>.</li>
-  <li>Achiam, J., et al. (2023). “GPT-4 Technical Report.” <em>OpenAI</em>.</li>
-  <li>Jiang, A.Q., et al. (2024). “Mixtral of Experts.” <em>Mistral AI</em>.</li>
-</ul>
-
-<h3 id="research-resources">Research Resources</h3>
-<ul>
-  <li><a href="https://paperswithcode.com/">Papers with Code</a> - ML papers with implementations</li>
-  <li><a href="https://distill.pub/">distill.pub</a> - Interactive ML explanations (Note: No longer actively publishing as of 2021)</li>
-  <li><a href="https://thegradient.pub/">The Gradient</a> - ML research perspectives</li>
-  <li><a href="https://www.alignmentforum.org/">Alignment Forum</a> - AI alignment research</li>
-  <li><a href="https://huggingface.co/papers">Hugging Face Papers</a> - Daily curated AI research papers</li>
-  <li><a href="http://www.arxiv-sanity.com/">arXiv Sanity</a> - AI/ML paper discovery tool</li>
-</ul>
-
-<h2 id="from-theory-to-practice-implementation-resources">From Theory to Practice: Implementation Resources</h2>
-
-<p>Ready to build something? Here are the tools and frameworks that researchers and practitioners use to turn AI concepts into working systems.</p>
-
-<h3 id="research-frameworks">Research Frameworks</h3>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Modern ML research stack
-</span><span class="sh">"""</span><span class="s">
-- JAX: Composable transformations for ML research
-- PyTorch: Dynamic neural networks with autograd
-- TensorFlow: Production-ready ML platform
-- Hugging Face: Pre-trained models and datasets
-- Weights &amp; Biases: Experiment tracking
-- DeepSpeed: Large model training
-- Ray: Distributed computing for ML
-</span><span class="sh">"""</span>
-</code></pre></div></div>
-
-<h3 id="representative-projects-historical-snapshot-circa-20232024">Representative Projects (historical snapshot, circa 2023–2024)</h3>
-<p>The systems below capture the state of the field around 2023–2024 and are listed as a historical snapshot, not a current ranking — the landscape moves fast.</p>
-
-<ol>
-  <li><strong>Foundation Models</strong>: GPT-4, Claude 3, Gemini Pro, Llama 3, Mixtral 8x7B</li>
-  <li><strong>Reasoning Systems</strong>: Chain-of-thought, Tree-of-thoughts, ReAct, Self-Consistency, Graph of Thoughts</li>
-  <li><strong>Multimodal Models</strong>: GPT-4V, Gemini Ultra, LLaVA-1.6, CogVLM, Qwen-VL</li>
-  <li><strong>AI Agents</strong>: AutoGPT, MetaGPT, AgentGPT, OpenAI Assistants API, Microsoft AutoGen</li>
-  <li><strong>Interpretability</strong>: TransformerLens, Anthropic’s Constitutional AI, OpenAI’s Neuron Explanations</li>
-  <li><strong>Code Generation</strong>: GitHub Copilot X, Amazon CodeWhisperer, Cursor, Codeium</li>
-  <li><strong>Open Source LLMs</strong>: Llama 3, Mistral, Phi-3, OpenHermes, WizardCoder</li>
-</ol>
-
-<h2 id="connecting-to-other-technologies">Connecting to Other Technologies</h2>
-
-<p>AI doesn’t exist in isolation—it’s deeply interconnected with other cutting-edge technologies. Here’s how AI relates to other areas covered in this documentation:</p>
+<h2 id="related-technologies">Related Technologies</h2>
 
 <ul>
-  <li><a href="../quantumcomputing.html">Quantum Computing</a> - Quantum machine learning algorithms</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> - Adversarial ML and AI security</li>
-  <li><a href="../database-design/">Database Design</a> - Vector databases for AI</li>
-  <li><a href="../networking/">Networking</a> - Distributed training infrastructure</li>
-  <li><a href="../aws/">AWS</a> - Cloud platforms for AI/ML workloads</li>
+  <li><a href="../quantumcomputing.html">Quantum Computing</a> — quantum machine learning</li>
+  <li><a href="../cybersecurity/">Cybersecurity</a> — adversarial ML, prompt injection, and securing AI systems</li>
+  <li><a href="../database-design/">Database Design</a> — vector search and retrieval infrastructure</li>
+  <li><a href="../networking/">Networking</a> — interconnects for distributed training</li>
+  <li><a href="../aws/">AWS</a> — cloud platforms for AI/ML workloads</li>
 </ul>
 
 <hr />
@@ -3567,10 +3652,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <h3 id="see-also">See Also</h3>
 
 <ul>
-  <li><a href="../../artificial-intelligence/index.html">Artificial Intelligence Hub</a> — complete index of AI safety and alignment resources</li>
-  <li><a href="../ai-lecture-2023.html">AI Deep Dive (Lecture)</a> — LLM internals and current research in depth</li>
-  <li><a href="architectures.html">Neural Network Architectures</a> — the models these scaling laws describe</li>
-  <li><a href="generative-models.html">Generative Models</a> — diffusion, GANs, VAEs, and LLM generation</li>
+  <li><a href="../../artificial-intelligence/index.html">Artificial Intelligence Hub</a> — index of all AI material on the site</li>
+  <li><a href="../ai-lecture-2023.html">AI Deep Dive</a> — LLM internals, post-training, agents, and LLM security</li>
+  <li><a href="fine-tuning.html">Fine-Tuning &amp; Transfer Learning</a> — RLHF, DPO, and preference data</li>
+  <li><a href="reinforcement-learning.html">Reinforcement Learning</a> — the RL behind RLHF and reasoning models</li>
+  <li><a href="generative-models.html">Generative Models</a> — diffusion, flow matching, and autoregressive generation</li>
 </ul>
 
       </section>

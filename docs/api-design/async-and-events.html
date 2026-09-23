@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Webhooks, Server-Sent Events, WebSockets, WebTransport, long polling, async request-reply, event streams, CloudEvents and AsyncAPI, plus the delivery semanti...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="API Design: Async & Event-Driven APIs">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Webhooks, Server-Sent Events, WebSockets, WebTransport, long polling, async request-reply, event streams, CloudEvents and AsyncAPI, plus the delivery semanti...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/api-design/async-and-events.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="API Design: Async & Event-Driven APIs">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Webhooks, Server-Sent Events, WebSockets, WebTransport, long polling, async request-reply, event streams, CloudEvents and AsyncAPI, plus the delivery semanti...">
 
 <title>API Design: Async & Event-Driven APIs | Andrews Notebook</title>
 
@@ -3133,214 +3133,310 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">API Design</a> » Async &amp; Event-Driven APIs</p>
 
-<p>A classic request-response API answers the client’s question and hangs up. But much of what an integration actually needs is the opposite shape: the server has news — a payment cleared, a build finished, a price ticked — and wants to tell the client <em>when it happens</em>, not when the client next asks. This page surveys the family of asynchronous and event-driven API styles — webhooks for server-to-server callbacks, Server-Sent Events and WebSockets for browser streams, long polling as the lowest-common-denominator fallback, the async request-reply pattern for slow operations behind a synchronous facade, and event/streaming APIs over brokers — then covers the <strong>AsyncAPI</strong> specification that documents them and the cross-cutting concerns that decide whether an async API is correct at all. Four ideas anchor it:</p>
-
-<ul>
-  <li><strong>Push beats poll.</strong> Webhooks and streams deliver events as they occur, eliminating the latency and wasted traffic of polling for “anything new yet?”.</li>
-  <li><strong>Pick the transport for the direction.</strong> One-way server-to-client favors SSE; bidirectional, low-latency interaction needs WebSockets; server-to-server uses webhooks.</li>
-  <li><strong>At-least-once is the default.</strong> Networks retry, so consumers must be idempotent — design every event handler to survive seeing the same event twice.</li>
-  <li><strong>AsyncAPI is the OpenAPI of events.</strong> A machine-readable contract for channels, messages, and bindings makes event-driven APIs documentable and tool-generatable.</li>
-</ul>
+<p>A request-response API answers a question and hangs up. Many integrations need the opposite: the server learns something (a payment cleared, a build finished, a price moved) and needs to tell the client <strong>when it happens</strong>, not when the client next asks. This page covers the asynchronous API styles that do this: <strong>long polling</strong>, <strong>webhooks</strong>, <strong>Server-Sent Events</strong>, <strong>WebSockets</strong>, <strong>WebTransport</strong>, the <strong>async request-reply</strong> pattern for slow operations, and <strong>event/streaming APIs</strong> over brokers. It then covers the contracts that describe them (<strong>CloudEvents</strong>, <strong>AsyncAPI</strong>) and the delivery semantics (at-least-once, idempotency, ordering, acknowledgement) that decide whether an async API is correct.</p>
 
 <h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
 <ol id="markdown-toc">
-  <li><a href="#why-asynchronous-apis" id="markdown-toc-why-asynchronous-apis">Why Asynchronous APIs</a></li>
+  <li><a href="#why-asynchronous-apis" id="markdown-toc-why-asynchronous-apis">Why Asynchronous APIs</a>    <ol>
+      <li><a href="#the-landscape" id="markdown-toc-the-landscape">The landscape</a></li>
+    </ol>
+  </li>
   <li><a href="#long-polling" id="markdown-toc-long-polling">Long Polling</a></li>
   <li><a href="#webhooks" id="markdown-toc-webhooks">Webhooks</a>    <ol>
-      <li><a href="#designing-a-webhook-receiver" id="markdown-toc-designing-a-webhook-receiver">Designing a webhook receiver</a></li>
-      <li><a href="#operational-concerns" id="markdown-toc-operational-concerns">Operational concerns</a></li>
+      <li><a href="#standard-webhooks" id="markdown-toc-standard-webhooks">Standard Webhooks</a></li>
+      <li><a href="#building-a-correct-receiver" id="markdown-toc-building-a-correct-receiver">Building a correct receiver</a></li>
+      <li><a href="#payload-design-fat-or-thin-events" id="markdown-toc-payload-design-fat-or-thin-events">Payload design: fat or thin events</a></li>
+      <li><a href="#operating-webhooks" id="markdown-toc-operating-webhooks">Operating webhooks</a></li>
     </ol>
   </li>
   <li><a href="#server-sent-events-sse" id="markdown-toc-server-sent-events-sse">Server-Sent Events (SSE)</a></li>
-  <li><a href="#websockets" id="markdown-toc-websockets">WebSockets</a>    <ol>
-      <li><a href="#sse-vs-websockets-choosing" id="markdown-toc-sse-vs-websockets-choosing">SSE vs WebSockets: choosing</a></li>
+  <li><a href="#websockets" id="markdown-toc-websockets">WebSockets</a></li>
+  <li><a href="#webtransport" id="markdown-toc-webtransport">WebTransport</a>    <ol>
+      <li><a href="#choosing-a-browser-transport" id="markdown-toc-choosing-a-browser-transport">Choosing a browser transport</a></li>
     </ol>
   </li>
   <li><a href="#async-request-reply" id="markdown-toc-async-request-reply">Async Request-Reply</a></li>
-  <li><a href="#event--streaming-apis" id="markdown-toc-event--streaming-apis">Event &amp; Streaming APIs</a></li>
+  <li><a href="#event-and-streaming-apis" id="markdown-toc-event-and-streaming-apis">Event and Streaming APIs</a></li>
+  <li><a href="#describing-events-cloudevents" id="markdown-toc-describing-events-cloudevents">Describing Events: CloudEvents</a></li>
   <li><a href="#the-asyncapi-specification" id="markdown-toc-the-asyncapi-specification">The AsyncAPI Specification</a></li>
-  <li><a href="#idempotency--delivery-guarantees" id="markdown-toc-idempotency--delivery-guarantees">Idempotency &amp; Delivery Guarantees</a>    <ol>
+  <li><a href="#delivery-semantics-and-idempotency" id="markdown-toc-delivery-semantics-and-idempotency">Delivery Semantics and Idempotency</a>    <ol>
       <li><a href="#the-three-delivery-guarantees" id="markdown-toc-the-three-delivery-guarantees">The three delivery guarantees</a></li>
+      <li><a href="#the-acknowledgement-contract" id="markdown-toc-the-acknowledgement-contract">The acknowledgement contract</a></li>
       <li><a href="#idempotency-in-practice" id="markdown-toc-idempotency-in-practice">Idempotency in practice</a></li>
       <li><a href="#ordering" id="markdown-toc-ordering">Ordering</a></li>
-      <li><a href="#the-acknowledgement-contract" id="markdown-toc-the-acknowledgement-contract">The acknowledgement contract</a></li>
     </ol>
   </li>
   <li><a href="#putting-it-together" id="markdown-toc-putting-it-together">Putting It Together</a></li>
-  <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
+  <li><a href="#see-also" id="markdown-toc-see-also">See Also</a>    <ol>
+      <li><a href="#further-reading" id="markdown-toc-further-reading">Further Reading</a></li>
+    </ol>
+  </li>
 </ol>
 
 <hr />
 
 <h2 id="why-asynchronous-apis">Why Asynchronous APIs</h2>
 
-<p>The request-response model assumes the answer exists at the moment the question is asked. That assumption breaks in two common situations:</p>
+<p>Request-response assumes the answer exists when the question is asked. Two common situations break that assumption:</p>
 
 <ol>
-  <li><strong>The server originates the information.</strong> The interesting moment (“your order shipped”, “the GPU job finished”) happens on the server’s clock, not in response to a client request. The client cannot ask for something it does not yet know to ask about.</li>
-  <li><strong>The work takes too long to wait for.</strong> A video transcode or a large report can take minutes. Holding an HTTP connection open that whole time wastes a socket, trips proxy timeouts, and gives the client nothing to do but block.</li>
+  <li><strong>The server is the source of the event.</strong> “Your order shipped” happens on the server’s schedule. The client cannot ask about something it does not know exists yet.</li>
+  <li><strong>The work is too slow to wait for.</strong> A video transcode or a large report can take minutes. Holding an HTTP request open that long ties up a socket, hits proxy idle timeouts, and blocks the client.</li>
 </ol>
 
-<p>Both push you toward an <strong>asynchronous</strong> style where the result arrives <em>out of band</em> relative to the original request. The naive solution — have the client <strong>poll</strong> (“is it done yet?”) on a timer — works but is wasteful: most polls return “nothing new,” and the latency of learning about an event is, on average, half the poll interval. The async and event-driven styles below are all, at heart, ways to avoid that waste by letting the server speak first.</p>
+<p>The simplest workaround is <strong>polling</strong>: the client asks “is it done yet?” on a timer. It works, but most polls return nothing, and on average the client learns of an event half a poll interval after it happens. Every style on this page avoids that waste by letting the server send first.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    subgraph Poll["Polling: client asks repeatedly"]
-      C1["Client"] --&gt;|"GET /status?"| S1["Server"]
-      S1 --&gt;|"not yet"| C1
-      C1 --&gt;|"GET /status?"| S1
-      S1 --&gt;|"not yet"| C1
-      C1 --&gt;|"GET /status?"| S1
-      S1 --&gt;|"done!"| C1
+    subgraph Poll["Polling: the client asks repeatedly"]
+      C1["Client"] --&gt;|"GET /status"| S1["Server"]
+      S1 --&gt;|"not yet ... not yet ... done"| C1
     end
-    subgraph Push["Push: server speaks when it happens"]
+    subgraph Push["Push: the server sends when it happens"]
       S2["Server"] --&gt;|"event: done"| C2["Client"]
     end
 </code></pre>
 
-<p>A useful way to organize the landscape is by <strong>direction</strong> and <strong>who holds the connection</strong>:</p>
+<h3 id="the-landscape">The landscape</h3>
+
+<p>The styles differ mainly in <strong>direction</strong> and in <strong>who holds the connection</strong>:</p>
 
 <table>
   <thead>
     <tr>
       <th>Style</th>
       <th>Direction</th>
-      <th>Connection holder</th>
+      <th>Who holds the connection</th>
+      <th>Resume after a disconnect</th>
       <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Long polling</td>
-      <td>server → client</td>
-      <td>client (re-opens)</td>
-      <td>fallback when nothing better is available</td>
+      <td>server to client</td>
+      <td>client (re-opens after each event)</td>
+      <td>client-held cursor</td>
+      <td>fallback when nothing better works</td>
     </tr>
     <tr>
       <td>Webhooks</td>
-      <td>server → client</td>
-      <td>server (calls client)</td>
-      <td>server-to-server callbacks</td>
+      <td>server to server</td>
+      <td>none; provider calls the consumer</td>
+      <td>provider retries</td>
+      <td>third-party callbacks (payments, CI, SaaS)</td>
     </tr>
     <tr>
-      <td>Server-Sent Events (SSE)</td>
-      <td>server → client</td>
-      <td>client (one long GET)</td>
-      <td>browser live feeds, notifications</td>
+      <td>Server-Sent Events</td>
+      <td>server to client</td>
+      <td>client (one long <code class="language-plaintext highlighter-rouge">GET</code>)</td>
+      <td>built in (<code class="language-plaintext highlighter-rouge">Last-Event-ID</code>)</td>
+      <td>browser feeds, notifications, LLM token streams</td>
     </tr>
     <tr>
       <td>WebSockets</td>
       <td>bidirectional</td>
-      <td>either</td>
+      <td>client opens, both use</td>
+      <td>application-defined</td>
       <td>chat, collaborative editing, games</td>
     </tr>
     <tr>
-      <td>Event/streaming APIs</td>
-      <td>server → consumers</td>
-      <td>broker</td>
-      <td>high-volume internal event distribution</td>
+      <td>WebTransport</td>
+      <td>bidirectional, multi-stream, datagrams</td>
+      <td>client opens (HTTP/3)</td>
+      <td>application-defined</td>
+      <td>low-latency media, games, telemetry</td>
     </tr>
     <tr>
       <td>Async request-reply</td>
-      <td>request now, reply later</td>
+      <td>request now, result later</td>
       <td>mixed</td>
-      <td>slow operations behind an HTTP facade</td>
+      <td>status resource</td>
+      <td>slow jobs behind an HTTP API</td>
+    </tr>
+    <tr>
+      <td>Event/streaming APIs</td>
+      <td>producer to many consumers</td>
+      <td>broker</td>
+      <td>consumer offsets</td>
+      <td>internal fan-out, data pipelines</td>
     </tr>
   </tbody>
 </table>
 
-<p>The rest of this page works through each, then the AsyncAPI contract that describes them and the delivery-semantics rules that make them correct.</p>
+<p>A quick way to choose:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    Q1{"Is the receiver another&lt;br/&gt;server you do not control?"} --&gt;|yes| WH["Webhooks"]
+    Q1 --&gt;|no| Q2{"Does one request start&lt;br/&gt;slow work with one result?"}
+    Q2 --&gt;|yes| ARR["Async request-reply&lt;br/&gt;(202 + status resource)"]
+    Q2 --&gt;|no| Q3{"Many internal consumers,&lt;br/&gt;replay needed?"}
+    Q3 --&gt;|yes| BR["Event broker / stream"]
+    Q3 --&gt;|no| Q4{"Must the client push&lt;br/&gt;over the same channel?"}
+    Q4 --&gt;|no| SSE["Server-Sent Events"]
+    Q4 --&gt;|yes| Q5{"Need unreliable datagrams or&lt;br/&gt;independent streams?"}
+    Q5 --&gt;|no| WS["WebSockets"]
+    Q5 --&gt;|yes| WT["WebTransport"]
+</code></pre>
+
+<p>Long polling is missing from the chart on purpose. It is the fallback when none of the push transports work in a given client or network.</p>
 
 <h2 id="long-polling">Long Polling</h2>
 
-<p><strong>Long polling</strong> is the bridge between naive polling and true push, and it requires no protocol beyond ordinary HTTP — which is exactly why it remains the universal fallback.</p>
-
-<p>The client issues a normal <code class="language-plaintext highlighter-rouge">GET</code>, but instead of replying immediately with “nothing new,” the server <strong>holds the request open</strong> until either an event is available or a timeout elapses. When an event arrives, the server responds; the client processes it and <em>immediately re-issues</em> the request to wait for the next one. The result is near-real-time delivery using only request-response semantics that every proxy, firewall, and HTTP client already supports.</p>
+<p><strong>Long polling</strong> needs nothing beyond ordinary HTTP, which is why it is still the universal fallback. The client sends a normal <code class="language-plaintext highlighter-rouge">GET</code>. Instead of answering “nothing new” right away, the server <strong>holds the request open</strong> until an event arrives or a timeout expires. Once it gets a response, the client immediately sends the next request.</p>
 
 <pre><code class="language-mermaid">sequenceDiagram
     participant C as Client
     participant S as Server
-    C-&gt;&gt;S: GET /events?since=42
-    Note over S: hold open... no events yet
+    C-&gt;&gt;S: GET /events?after=42
+    Note over S: hold open; no events yet
     Note over S: event 43 occurs
     S--&gt;&gt;C: 200 [event 43]
-    C-&gt;&gt;S: GET /events?since=43 (immediately re-poll)
-    Note over S: hold open until timeout (e.g. 30s)
-    S--&gt;&gt;C: 204 No Content (timed out)
-    C-&gt;&gt;S: GET /events?since=43 (re-poll)
+    C-&gt;&gt;S: GET /events?after=43 (re-poll at once)
+    Note over S: hold until timeout (about 30 s)
+    S--&gt;&gt;C: 204 No Content
+    C-&gt;&gt;S: GET /events?after=43
 </code></pre>
 
-<p>The two essential mechanics:</p>
+<p>Two mechanics make it correct:</p>
 
 <ul>
-  <li><strong>A cursor.</strong> The client passes a <code class="language-plaintext highlighter-rouge">since</code> (or <code class="language-plaintext highlighter-rouge">Last-Event-ID</code>) token so a re-poll resumes exactly after the last event it saw, even if events occurred during the gap between responses. Without a cursor, the brief window between responding and re-polling drops events.</li>
-  <li><strong>A bounded hold.</strong> The server caps how long it holds the connection (commonly 25–30 s, under typical proxy idle timeouts) and returns an empty <code class="language-plaintext highlighter-rouge">204</code> on timeout, prompting an immediate, cheap re-poll.</li>
+  <li><strong>A cursor.</strong> The client sends the ID of the last event it saw (<code class="language-plaintext highlighter-rouge">after=43</code>), so events that occur between one response and the next request are not lost.</li>
+  <li><strong>A bounded hold.</strong> The server returns <code class="language-plaintext highlighter-rouge">204</code> (or an empty list) before typical proxy and load-balancer idle timeouts, commonly 20–30 s, and the client re-polls.</li>
 </ul>
 
-<p>Long polling’s cost is one in-flight request per client at all times and a connection re-established on every event, which scales poorly compared to a single persistent stream. Use it as a fallback (the venerable <a href="https://github.com/sockjs">SockJS</a> and Socket.IO libraries degrade to it automatically) and reach for SSE or WebSockets when the client environment supports them.</p>
+<p>The cost is one request always in flight per client, plus a new request after every event. That scales worse than a single persistent stream. Libraries such as Socket.IO use long polling as the transport of last resort when WebSockets are blocked.</p>
 
 <h2 id="webhooks">Webhooks</h2>
 
-<p>A <strong>webhook</strong> inverts the client-server roles for delivery: instead of the consumer polling the provider, the <strong>provider makes an HTTP request to a URL the consumer registered</strong>. Stripe calls your <code class="language-plaintext highlighter-rouge">/webhooks/stripe</code> endpoint when a charge succeeds; GitHub <code class="language-plaintext highlighter-rouge">POST</code>s to your CI when a push lands. The consumer runs a small HTTP <em>server</em> to receive these callbacks. Webhooks are the dominant server-to-server async style because they require no persistent connection and reuse plain HTTP.</p>
+<p>A <strong>webhook</strong> reverses the usual roles: the <strong>provider sends an HTTP <code class="language-plaintext highlighter-rouge">POST</code> to a URL the consumer registered</strong>. Stripe calls your endpoint when a charge succeeds, and GitHub calls your CI when a push lands. The consumer runs a small HTTP server to receive these callbacks. Webhooks are the main server-to-server async style because they use plain HTTP and need no persistent connection.</p>
 
 <pre><code class="language-mermaid">sequenceDiagram
-    participant App as Your App (consumer)
-    participant P as Provider (e.g. Stripe)
-    App-&gt;&gt;P: register webhook URL + subscribe to events
-    Note over P: later... charge.succeeded occurs
-    P-&gt;&gt;App: POST /webhooks {event: charge.succeeded, ...}
-    App--&gt;&gt;P: 200 OK (ack within a few seconds)
-    Note over P: on non-2xx or timeout: retry with backoff
+    participant App as Consumer
+    participant P as Provider
+    App-&gt;&gt;P: register https://app.example/hooks, subscribe to charge.*
+    Note over P: later: charge.succeeded
+    P-&gt;&gt;App: POST /hooks (webhook-id, webhook-timestamp, webhook-signature)
+    App-&gt;&gt;App: verify signature, store event, enqueue
+    App--&gt;&gt;P: 2xx within a few seconds
+    Note over P: non-2xx or timeout: retry with backoff, same webhook-id
 </code></pre>
 
-<h3 id="designing-a-webhook-receiver">Designing a webhook receiver</h3>
+<h3 id="standard-webhooks">Standard Webhooks</h3>
 
-<p>A correct receiver must handle four realities of webhook delivery:</p>
+<p>Most providers used to invent their own header names and signing schemes. The <strong><a href="https://www.standardwebhooks.com/">Standard Webhooks</a></strong> specification defines a common scheme, and providers such as OpenAI, Anthropic, Kong, Supabase and Svix have adopted it. Every delivery carries three headers:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Header</th>
+      <th>Content</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">webhook-id</code></td>
+      <td>Unique event ID, the same on every retry</td>
+      <td>Deduplication key</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">webhook-timestamp</code></td>
+      <td>Unix seconds of this delivery attempt</td>
+      <td>Replay protection</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">webhook-signature</code></td>
+      <td><code class="language-plaintext highlighter-rouge">v1,&lt;base64 HMAC-SHA256&gt;</code> (a list, separated by spaces, to allow key rotation)</td>
+      <td>Authenticity</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The signature is computed over <code class="language-plaintext highlighter-rouge">"{id}.{timestamp}.{raw body}"</code>, so an attacker cannot reuse a captured body with a new timestamp. Official verification libraries exist for Python, JavaScript, Go and other languages. Use them instead of writing your own.</p>
+
+<h3 id="building-a-correct-receiver">Building a correct receiver</h3>
+
+<p>A receiver has to deal with five facts about webhook delivery:</p>
 
 <ol>
-  <li><strong>Verify authenticity.</strong> Anyone can <code class="language-plaintext highlighter-rouge">POST</code> to a public URL, so the provider signs each payload (typically HMAC-SHA256 over the raw body with a shared secret) and sends the signature in a header. The receiver recomputes the HMAC over the <strong>raw, unparsed</strong> body and compares in constant time. Reject on mismatch.</li>
-  <li><strong>Acknowledge fast, process later.</strong> Providers expect a <code class="language-plaintext highlighter-rouge">2xx</code> within a few seconds and will retry otherwise. Do <em>not</em> run the business logic inline; persist the event and return <code class="language-plaintext highlighter-rouge">200</code> immediately, then process from a queue. This keeps a slow downstream from causing duplicate deliveries.</li>
-  <li><strong>Deduplicate.</strong> Webhook delivery is <strong>at-least-once</strong>: a slow ack or a network blip causes the provider to retry, and your endpoint sees the same event twice. Every event carries a unique ID; record processed IDs and ignore repeats (see <a href="#idempotency--delivery-guarantees">Idempotency</a>).</li>
-  <li><strong>Tolerate reordering.</strong> Events can arrive out of order (retries, parallel delivery). Carry a sequence number or timestamp and ignore events that are older than the state you already have.</li>
+  <li><strong>Anyone can <code class="language-plaintext highlighter-rouge">POST</code> to a public URL.</strong> Recompute the HMAC over the <strong>raw, unparsed</strong> body and compare in constant time. Re-serialized JSON will not match byte for byte.</li>
+  <li><strong>Captured requests can be replayed.</strong> Reject deliveries whose timestamp is more than a few minutes old. Standard Webhooks libraries use a 5-minute tolerance.</li>
+  <li><strong>Providers time out quickly.</strong> Store the event and return <code class="language-plaintext highlighter-rouge">2xx</code> right away, then process it from a queue. Running business logic inline turns a slow database into duplicate deliveries.</li>
+  <li><strong>Delivery is at-least-once.</strong> A lost acknowledgement causes a retry with the same ID. Record IDs atomically, for example with a unique constraint, so the same event is never processed twice (see <a href="#idempotency-in-practice">Idempotency</a>).</li>
+  <li><strong>Order is not guaranteed.</strong> Retries and parallel delivery reorder events. Compare a version or timestamp with the state you already have, or treat the event as a notification and re-fetch the current resource.</li>
 </ol>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">hmac</span><span class="p">,</span> <span class="n">hashlib</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">base64</span><span class="p">,</span> <span class="n">hashlib</span><span class="p">,</span> <span class="n">hmac</span><span class="p">,</span> <span class="n">time</span>
+<span class="kn">from</span> <span class="n">flask</span> <span class="kn">import</span> <span class="n">Flask</span><span class="p">,</span> <span class="n">request</span>
 
-<span class="k">def</span> <span class="nf">verify_signature</span><span class="p">(</span><span class="n">raw_body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">signature</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">secret</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="n">expected</span> <span class="o">=</span> <span class="n">hmac</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="n">secret</span><span class="p">,</span> <span class="n">raw_body</span><span class="p">,</span> <span class="n">hashlib</span><span class="p">.</span><span class="n">sha256</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
-    <span class="c1"># constant-time compare defeats timing attacks
-</span>    <span class="k">return</span> <span class="n">hmac</span><span class="p">.</span><span class="nf">compare_digest</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="n">signature</span><span class="p">)</span>
+<span class="n">app</span> <span class="o">=</span> <span class="nc">Flask</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+<span class="n">TOLERANCE</span> <span class="o">=</span> <span class="mi">5</span> <span class="o">*</span> <span class="mi">60</span>  <span class="c1"># seconds
+</span>
+<span class="k">def</span> <span class="nf">verify</span><span class="p">(</span><span class="n">secret</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">msg_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ts</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">sig_header</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nf">abs</span><span class="p">(</span><span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span> <span class="o">-</span> <span class="nf">int</span><span class="p">(</span><span class="n">ts</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">TOLERANCE</span><span class="p">:</span>          <span class="c1"># replay protection
+</span>        <span class="k">return</span> <span class="bp">False</span>
+    <span class="n">signed</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">msg_id</span><span class="si">}</span><span class="s">.</span><span class="si">{</span><span class="n">ts</span><span class="si">}</span><span class="s">.</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span> <span class="o">+</span> <span class="n">body</span>          <span class="c1"># id.timestamp.body
+</span>    <span class="n">expected</span> <span class="o">=</span> <span class="n">base64</span><span class="p">.</span><span class="nf">b64encode</span><span class="p">(</span><span class="n">hmac</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="n">secret</span><span class="p">,</span> <span class="n">signed</span><span class="p">,</span> <span class="n">hashlib</span><span class="p">.</span><span class="n">sha256</span><span class="p">).</span><span class="nf">digest</span><span class="p">()).</span><span class="nf">decode</span><span class="p">()</span>
+    <span class="c1"># header may hold several "v1,&lt;sig&gt;" entries during key rotation
+</span>    <span class="k">return</span> <span class="nf">any</span><span class="p">(</span><span class="n">hmac</span><span class="p">.</span><span class="nf">compare_digest</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="n">s</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sh">"</span><span class="s">,</span><span class="sh">"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+               <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sig_header</span><span class="p">.</span><span class="nf">split</span><span class="p">()</span> <span class="k">if</span> <span class="n">s</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">"</span><span class="s">v1,</span><span class="sh">"</span><span class="p">))</span>
 
-<span class="c1"># Flask receiver
-</span><span class="nd">@app.post</span><span class="p">(</span><span class="sh">"</span><span class="s">/webhooks/payments</span><span class="sh">"</span><span class="p">)</span>
+<span class="nd">@app.post</span><span class="p">(</span><span class="sh">"</span><span class="s">/hooks/payments</span><span class="sh">"</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">receive</span><span class="p">():</span>
-    <span class="n">raw</span> <span class="o">=</span> <span class="n">request</span><span class="p">.</span><span class="nf">get_data</span><span class="p">()</span>  <span class="c1"># RAW bytes — do not use parsed JSON for the HMAC
-</span>    <span class="k">if</span> <span class="ow">not</span> <span class="nf">verify_signature</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">request</span><span class="p">.</span><span class="n">headers</span><span class="p">[</span><span class="sh">"</span><span class="s">X-Signature</span><span class="sh">"</span><span class="p">],</span> <span class="n">WEBHOOK_SECRET</span><span class="p">):</span>
+    <span class="n">raw</span> <span class="o">=</span> <span class="n">request</span><span class="p">.</span><span class="nf">get_data</span><span class="p">()</span>                             <span class="c1"># RAW bytes, not parsed JSON
+</span>    <span class="n">h</span> <span class="o">=</span> <span class="n">request</span><span class="p">.</span><span class="n">headers</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nf">verify</span><span class="p">(</span><span class="n">SECRET</span><span class="p">,</span> <span class="n">h</span><span class="p">[</span><span class="sh">"</span><span class="s">webhook-id</span><span class="sh">"</span><span class="p">],</span> <span class="n">h</span><span class="p">[</span><span class="sh">"</span><span class="s">webhook-timestamp</span><span class="sh">"</span><span class="p">],</span> <span class="n">raw</span><span class="p">,</span> <span class="n">h</span><span class="p">[</span><span class="sh">"</span><span class="s">webhook-signature</span><span class="sh">"</span><span class="p">]):</span>
         <span class="k">return</span> <span class="sh">""</span><span class="p">,</span> <span class="mi">401</span>
-
-    <span class="n">event</span> <span class="o">=</span> <span class="n">request</span><span class="p">.</span><span class="nf">get_json</span><span class="p">()</span>
-    <span class="k">if</span> <span class="nf">already_processed</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">]):</span>     <span class="c1"># dedupe — delivery is at-least-once
-</span>        <span class="k">return</span> <span class="sh">""</span><span class="p">,</span> <span class="mi">200</span>                     <span class="c1"># already handled; ack and move on
-</span>    <span class="nf">enqueue</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>                         <span class="c1"># hand off to a worker, do not block
-</span>    <span class="nf">mark_processed</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">])</span>
-    <span class="k">return</span> <span class="sh">""</span><span class="p">,</span> <span class="mi">200</span>                         <span class="c1"># ack FAST so the provider does not retry
+    <span class="c1"># INSERT ... ON CONFLICT DO NOTHING on webhook-id, in the same transaction
+</span>    <span class="c1"># as the enqueue: a retry of an already-stored event becomes a no-op.
+</span>    <span class="nf">store_and_enqueue_once</span><span class="p">(</span><span class="n">h</span><span class="p">[</span><span class="sh">"</span><span class="s">webhook-id</span><span class="sh">"</span><span class="p">],</span> <span class="n">raw</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sh">""</span><span class="p">,</span> <span class="mi">204</span>                                       <span class="c1"># ack fast
 </span></code></pre></div></div>
 
-<h3 id="operational-concerns">Operational concerns</h3>
+<h3 id="payload-design-fat-or-thin-events">Payload design: fat or thin events</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Style</th>
+      <th>Payload</th>
+      <th>Pros</th>
+      <th>Cons</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Fat</strong> (event-carried state)</td>
+      <td>Full resource snapshot</td>
+      <td>Consumer needs no callback</td>
+      <td>Snapshot can be stale when it arrives; larger surface of sensitive data</td>
+    </tr>
+    <tr>
+      <td><strong>Thin</strong> (notification)</td>
+      <td>Type plus resource ID</td>
+      <td>Consumer always fetches current state; small, safe to log</td>
+      <td>Extra API call per event; consumer needs read access</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Thin events avoid most of the ordering problem, because the consumer re-reads the latest state no matter what order notifications arrive in. Stripe’s newer v2 “thin events” work this way.</p>
+
+<h3 id="operating-webhooks">Operating webhooks</h3>
 
 <ul>
-  <li><strong>Retries and dead-lettering.</strong> Providers retry with exponential backoff for hours; well-behaved providers eventually give up and surface failed deliveries in a dashboard for manual replay. As a <em>provider</em>, cap retries and dead-letter persistently failing endpoints rather than retrying forever.</li>
-  <li><strong>The localhost problem.</strong> A receiver behind NAT/firewall is unreachable for delivery. Development uses tunneling (ngrok, the provider’s CLI <code class="language-plaintext highlighter-rouge">stripe listen</code>); production exposes a real HTTPS endpoint.</li>
-  <li><strong>Thundering events.</strong> A bulk operation can emit thousands of webhooks at once; receivers need rate-tolerant ingestion (queue first) and providers should batch where the semantics allow.</li>
+  <li><strong>Retries and dead-lettering.</strong> Providers retry with exponential backoff, typically for hours or days, and then mark the endpoint failed and show undelivered events for manual replay. A provider should cap retries and disable endpoints that keep failing.</li>
+  <li><strong>Provider-side SSRF.</strong> Delivering to URLs that users supply lets an attacker aim your delivery workers at internal addresses. Resolve the URL and block private and link-local ranges, or send from an isolated egress proxy.</li>
+  <li><strong>Local development.</strong> A laptop behind NAT cannot receive deliveries. Use a tunnel (ngrok, Cloudflare Tunnel) or a provider CLI that forwards events (<code class="language-plaintext highlighter-rouge">stripe listen</code>).</li>
+  <li><strong>Bursts.</strong> A bulk operation can emit thousands of events at once. Put a queue in front of the receiver and rate-limit on the provider side.</li>
 </ul>
 
-<blockquote>
-  <p><strong>WebSub / PubSubHubbub</strong> standardizes webhooks for content feeds: subscribers register a callback with a <em>hub</em>, publishers ping the hub, and the hub fans out webhook deliveries. It is the formalized, decoupled cousin of the bespoke webhook.</p>
-</blockquote>
+<p><strong>WebSub</strong> (a W3C Recommendation, formerly PubSubHubbub) standardizes a hub-based variant: subscribers register callbacks with a <em>hub</em>, publishers notify the hub, and the hub delivers to subscribers. It is used mainly for content feeds.</p>
 
 <h2 id="server-sent-events-sse">Server-Sent Events (SSE)</h2>
 
-<p><strong>Server-Sent Events</strong> is a W3C standard for a <strong>one-way, server-to-client</strong> stream over a single long-lived HTTP response. The client opens an ordinary <code class="language-plaintext highlighter-rouge">GET</code> with <code class="language-plaintext highlighter-rouge">Accept: text/event-stream</code>; the server keeps the connection open and writes events as a simple text format, one <code class="language-plaintext highlighter-rouge">data:</code> line at a time, flushing as it goes. The browser exposes this through the built-in <code class="language-plaintext highlighter-rouge">EventSource</code> API, which crucially <strong>reconnects automatically</strong> and replays missed events.</p>
+<p><strong>Server-Sent Events</strong> is a <strong>one-way, server-to-client</strong> stream carried in one long-lived HTTP response. It is defined in the WHATWG HTML Living Standard. The client sends a <code class="language-plaintext highlighter-rouge">GET</code> with <code class="language-plaintext highlighter-rouge">Accept: text/event-stream</code>, and the server keeps the response open and writes events in a simple text format. Browsers expose this as the <code class="language-plaintext highlighter-rouge">EventSource</code> API, which <strong>reconnects automatically</strong> and tells the server where it left off.</p>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GET /stream HTTP/1.1
 Accept: text/event-stream
@@ -3348,6 +3444,10 @@ Accept: text/event-stream
 HTTP/1.1 200 OK
 Content-Type: text/event-stream
 Cache-Control: no-cache
+
+retry: 5000
+
+: heartbeat comment, ignored by the client
 
 event: price
 id: 101
@@ -3359,56 +3459,126 @@ data: {"symbol": "ACME", "px": 42.15}
 
 </code></pre></div></div>
 
-<p>The wire format is deliberately trivial: blank-line-separated records of <code class="language-plaintext highlighter-rouge">field: value</code> lines. Three fields matter — <code class="language-plaintext highlighter-rouge">data</code> (the payload, repeatable for multi-line), <code class="language-plaintext highlighter-rouge">event</code> (a named type the client can listen for), and <code class="language-plaintext highlighter-rouge">id</code> (a cursor). When the connection drops, <code class="language-plaintext highlighter-rouge">EventSource</code> reconnects and sends the last <code class="language-plaintext highlighter-rouge">id</code> it saw in a <code class="language-plaintext highlighter-rouge">Last-Event-ID</code> header, letting the server resume the stream without gaps — the SSE protocol bakes the long-polling cursor in for free.</p>
+<p>Each event is a set of <code class="language-plaintext highlighter-rouge">field: value</code> lines followed by a blank line:</p>
 
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="nx">es</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">EventSource</span><span class="p">(</span><span class="dl">"</span><span class="s2">/stream</span><span class="dl">"</span><span class="p">);</span>
-<span class="nx">es</span><span class="p">.</span><span class="nf">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">price</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
-  <span class="kd">const</span> <span class="nx">tick</span> <span class="o">=</span> <span class="nx">JSON</span><span class="p">.</span><span class="nf">parse</span><span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">data</span><span class="p">);</span>
-  <span class="nf">render</span><span class="p">(</span><span class="nx">tick</span><span class="p">);</span>
-<span class="p">});</span>
-<span class="nx">es</span><span class="p">.</span><span class="nx">onerror</span> <span class="o">=</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="cm">/* EventSource auto-reconnects with Last-Event-ID */</span> <span class="p">};</span>
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">data</code></td>
+      <td>Payload. Repeat the field for multi-line data; lines are joined with <code class="language-plaintext highlighter-rouge">\n</code>.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">event</code></td>
+      <td>Event type. The client listens for it with <code class="language-plaintext highlighter-rouge">addEventListener(type, ...)</code>; the default type is <code class="language-plaintext highlighter-rouge">message</code>.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">id</code></td>
+      <td>Cursor. After a reconnect the browser sends it back as the <code class="language-plaintext highlighter-rouge">Last-Event-ID</code> request header.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">retry</code></td>
+      <td>Reconnect delay in milliseconds.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">:</code> (comment)</td>
+      <td>Ignored. Useful as a heartbeat that keeps proxies from closing an idle connection.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Resumption works only if the server can serve events after a given ID. It needs a replay buffer or a log to read from. The protocol carries the cursor, but the server has to keep the history.</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="nx">es</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">EventSource</span><span class="p">(</span><span class="dl">"</span><span class="s2">/stream</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span> <span class="na">withCredentials</span><span class="p">:</span> <span class="kc">true</span> <span class="p">});</span>
+<span class="nx">es</span><span class="p">.</span><span class="nf">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">price</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nf">render</span><span class="p">(</span><span class="nx">JSON</span><span class="p">.</span><span class="nf">parse</span><span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">data</span><span class="p">)));</span>
+<span class="nx">es</span><span class="p">.</span><span class="nx">onerror</span> <span class="o">=</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="cm">/* the browser reconnects and sends Last-Event-ID */</span> <span class="p">};</span>
 </code></pre></div></div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Flask SSE producer
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Flask producer: resume from Last-Event-ID if present
 </span><span class="nd">@app.get</span><span class="p">(</span><span class="sh">"</span><span class="s">/stream</span><span class="sh">"</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">stream</span><span class="p">():</span>
+    <span class="n">after</span> <span class="o">=</span> <span class="n">request</span><span class="p">.</span><span class="n">headers</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">Last-Event-ID</span><span class="sh">"</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">gen</span><span class="p">():</span>
-        <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="nf">subscribe_to_prices</span><span class="p">():</span>     <span class="c1"># blocking generator
-</span>            <span class="k">yield</span> <span class="sa">f</span><span class="sh">"</span><span class="s">event: price</span><span class="se">\n</span><span class="s">id: </span><span class="si">{</span><span class="n">event</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="se">\n</span><span class="s">data: </span><span class="si">{</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">event</span><span class="p">.</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="se">\n\n</span><span class="sh">"</span>
-    <span class="k">return</span> <span class="nc">Response</span><span class="p">(</span><span class="nf">gen</span><span class="p">(),</span> <span class="n">mimetype</span><span class="o">=</span><span class="sh">"</span><span class="s">text/event-stream</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
+        <span class="k">for</span> <span class="n">ev</span> <span class="ow">in</span> <span class="nf">prices_since</span><span class="p">(</span><span class="n">after</span><span class="p">):</span>          <span class="c1"># replay, then block for new events
+</span>            <span class="k">yield</span> <span class="sa">f</span><span class="sh">"</span><span class="s">event: price</span><span class="se">\n</span><span class="s">id: </span><span class="si">{</span><span class="n">ev</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="se">\n</span><span class="s">data: </span><span class="si">{</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">ev</span><span class="p">.</span><span class="n">data</span><span class="p">)</span><span class="si">}</span><span class="se">\n\n</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="nc">Response</span><span class="p">(</span><span class="nf">gen</span><span class="p">(),</span> <span class="n">mimetype</span><span class="o">=</span><span class="sh">"</span><span class="s">text/event-stream</span><span class="sh">"</span><span class="p">,</span>
+                    <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">X-Accel-Buffering</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">no</span><span class="sh">"</span><span class="p">})</span>   <span class="c1"># stop nginx buffering
+</span></code></pre></div></div>
 
-<p><strong>Strengths:</strong> dead-simple, runs over plain HTTP/HTTPS (no protocol upgrade, friendly to proxies and HTTP/2), automatic reconnection with replay, and a native browser API. It is the right default for <strong>server-to-client live feeds</strong>: notifications, progress bars, dashboards, log tails, and streaming LLM token output.</p>
+<p><strong>Strengths.</strong> SSE is plain HTTP, with no protocol upgrade. It works through proxies, multiplexes over HTTP/2 and HTTP/3, reconnects on its own, and has a native browser API. It is the right default for one-way live data: notifications, progress, dashboards, log tails, and streaming LLM output. Most model-provider APIs stream tokens as SSE.</p>
 
-<p><strong>Limits:</strong> strictly one-directional (the client cannot send over the same channel — it makes ordinary requests for that); text-only (binary must be base64-encoded); and, over HTTP/1.1, browsers cap the connections-per-domain at ~6, which HTTP/2 multiplexing removes.</p>
+<p><strong>Limits.</strong></p>
+
+<ul>
+  <li><strong>One direction only.</strong> The client sends data with ordinary requests.</li>
+  <li><strong>UTF-8 text only.</strong> Binary data has to be base64-encoded.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">EventSource</code> cannot set request headers</strong>, so <code class="language-plaintext highlighter-rouge">Authorization: Bearer</code> is not possible. Use cookies, or read the stream with <code class="language-plaintext highlighter-rouge">fetch()</code> and a <code class="language-plaintext highlighter-rouge">ReadableStream</code> parser. Non-browser clients and LLM SDKs usually do the latter.</li>
+  <li><strong>Connection limit on HTTP/1.1.</strong> Browsers allow about 6 connections per origin, so several open tabs can use them all. HTTP/2 and HTTP/3 remove the limit.</li>
+  <li><strong>Buffering.</strong> Reverse proxies and compression middleware that buffer the response stop events from arriving. Disable buffering on the stream route.</li>
+</ul>
 
 <h2 id="websockets">WebSockets</h2>
 
-<p>When the interaction is genuinely <strong>bidirectional and low-latency</strong> — chat, collaborative editing, multiplayer games, live trading — neither webhooks, SSE, nor polling fits. <strong>WebSockets</strong> (RFC 6455) provide a full-duplex, persistent, message-oriented channel over a single TCP connection.</p>
+<p>When both sides need to send at low latency (chat, collaborative editing, multiplayer games, trading), <strong>WebSockets</strong> (<a href="https://www.rfc-editor.org/rfc/rfc6455">RFC 6455</a>) provide a persistent, full-duplex, message-based channel.</p>
 
-<p>A WebSocket starts life as an HTTP request carrying an <code class="language-plaintext highlighter-rouge">Upgrade: websocket</code> header. If the server agrees, it responds <code class="language-plaintext highlighter-rouge">101 Switching Protocols</code> and the same TCP connection switches from HTTP framing to the WebSocket framing protocol. From then on, <strong>either side may send a message at any time</strong>, with no request-response pairing.</p>
+<p>A WebSocket starts as an HTTP/1.1 request with <code class="language-plaintext highlighter-rouge">Upgrade: websocket</code>. The server answers <code class="language-plaintext highlighter-rouge">101 Switching Protocols</code>, and from then on the TCP connection carries WebSocket frames instead of HTTP. Either side can send a message at any time, and messages are not paired as requests and responses. <a href="https://www.rfc-editor.org/rfc/rfc8441">RFC 8441</a> (HTTP/2) and <a href="https://www.rfc-editor.org/rfc/rfc9220">RFC 9220</a> (HTTP/3) add an <em>extended CONNECT</em> bootstrap, so a WebSocket can run as one stream of a multiplexed connection instead of taking a TCP connection of its own.</p>
 
 <pre><code class="language-mermaid">sequenceDiagram
     participant C as Client
     participant S as Server
-    C-&gt;&gt;S: GET /ws (Upgrade: websocket)
+    C-&gt;&gt;S: GET /ws  Upgrade: websocket, Sec-WebSocket-Protocol: chat.v2
     S--&gt;&gt;C: 101 Switching Protocols
     Note over C,S: full-duplex channel open
     C-&gt;&gt;S: {"type":"join","room":"42"}
-    S--&gt;&gt;C: {"type":"message","from":"bob",...}
+    S--&gt;&gt;C: {"type":"message","from":"bob","seq":917}
     C-&gt;&gt;S: {"type":"message","text":"hi"}
     S--&gt;&gt;C: {"type":"presence","online":7}
+    S--&gt;&gt;C: ping
+    C-&gt;&gt;S: pong
 </code></pre>
 
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="nx">ws</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">WebSocket</span><span class="p">(</span><span class="dl">"</span><span class="s2">wss://example.com/ws</span><span class="dl">"</span><span class="p">);</span>
-<span class="nx">ws</span><span class="p">.</span><span class="nx">onopen</span>  <span class="o">=</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="nx">ws</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="nx">JSON</span><span class="p">.</span><span class="nf">stringify</span><span class="p">({</span> <span class="na">type</span><span class="p">:</span> <span class="dl">"</span><span class="s2">join</span><span class="dl">"</span><span class="p">,</span> <span class="na">room</span><span class="p">:</span> <span class="dl">"</span><span class="s2">42</span><span class="dl">"</span> <span class="p">}));</span>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="nx">ws</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">WebSocket</span><span class="p">(</span><span class="dl">"</span><span class="s2">wss://example.com/ws</span><span class="dl">"</span><span class="p">,</span> <span class="p">[</span><span class="dl">"</span><span class="s2">chat.v2</span><span class="dl">"</span><span class="p">]);</span>
+<span class="nx">ws</span><span class="p">.</span><span class="nx">onopen</span>    <span class="o">=</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="nx">ws</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="nx">JSON</span><span class="p">.</span><span class="nf">stringify</span><span class="p">({</span> <span class="na">type</span><span class="p">:</span> <span class="dl">"</span><span class="s2">join</span><span class="dl">"</span><span class="p">,</span> <span class="na">room</span><span class="p">:</span> <span class="dl">"</span><span class="s2">42</span><span class="dl">"</span><span class="p">,</span> <span class="na">lastSeq</span><span class="p">:</span> <span class="mi">916</span> <span class="p">}));</span>
 <span class="nx">ws</span><span class="p">.</span><span class="nx">onmessage</span> <span class="o">=</span> <span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nf">handle</span><span class="p">(</span><span class="nx">JSON</span><span class="p">.</span><span class="nf">parse</span><span class="p">(</span><span class="nx">e</span><span class="p">.</span><span class="nx">data</span><span class="p">));</span>
-<span class="c1">// either side can send at any time; no request/response pairing</span>
+<span class="nx">ws</span><span class="p">.</span><span class="nx">onclose</span>   <span class="o">=</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="nf">scheduleReconnectWithBackoff</span><span class="p">();</span>   <span class="c1">// reconnect is your job</span>
 </code></pre></div></div>
 
-<p>WebSockets carry <strong>text or binary frames</strong>, support application-defined sub-protocols (negotiated via <code class="language-plaintext highlighter-rouge">Sec-WebSocket-Protocol</code>), and include built-in ping/pong control frames for liveness. The cost is operational weight: long-lived stateful connections complicate load balancing (you need sticky routing or a shared pub/sub backplane like Redis to broadcast across server instances), reconnection and message-resume logic are <em>your</em> responsibility (unlike SSE there is no built-in <code class="language-plaintext highlighter-rouge">Last-Event-ID</code>), and the persistent state caps how many connections one server holds.</p>
+<p>Frames carry text or binary data. Sub-protocols are negotiated with <code class="language-plaintext highlighter-rouge">Sec-WebSocket-Protocol</code>, and ping/pong control frames check that the connection is still alive. <strong>You have to design:</strong></p>
 
-<h3 id="sse-vs-websockets-choosing">SSE vs WebSockets: choosing</h3>
+<ul>
+  <li><strong>Your own message protocol.</strong> WebSocket is a framing layer only. Define message types, request IDs for correlation, and a version.</li>
+  <li><strong>Reconnect and resume.</strong> There is no <code class="language-plaintext highlighter-rouge">Last-Event-ID</code> equivalent. Clients send the last sequence number they processed, and the server replays from that point.</li>
+  <li><strong>Authentication.</strong> The browser <code class="language-plaintext highlighter-rouge">WebSocket</code> constructor cannot set an <code class="language-plaintext highlighter-rouge">Authorization</code> header. Use a cookie, a short-lived ticket in the URL or the first message, and <strong>always check the <code class="language-plaintext highlighter-rouge">Origin</code> header</strong>. Without that check, cross-site WebSocket hijacking can ride on the user’s cookies.</li>
+  <li><strong>Horizontal scale.</strong> Each connection is pinned to one server instance. To broadcast to a room whose members are on different instances, you need a pub/sub backplane (Redis, NATS, Kafka). Rolling deploys drop connections, so clients must reconnect smoothly.</li>
+</ul>
+
+<pre><code class="language-mermaid">flowchart LR
+    C1["Client A"] --- N1["WS server 1"]
+    C2["Client B"] --- N2["WS server 2"]
+    C3["Client C"] --- N2
+    N1 &lt;--&gt;|"publish / subscribe room:42"| PS[("Pub/sub backplane&lt;br/&gt;Redis / NATS")]
+    N2 &lt;--&gt; PS
+</code></pre>
+
+<h2 id="webtransport">WebTransport</h2>
+
+<p><strong>WebTransport</strong> is a W3C browser API over <strong>HTTP/3 (QUIC)</strong>. It gives a client multiple independent <strong>reliable streams</strong> plus <strong>unreliable datagrams</strong> on one connection. Streams do not block each other when a packet is lost, unlike the single ordered stream of a WebSocket. Datagrams suit data where a late packet is useless anyway, such as game state, cursor positions and live media. Chromium and Firefox have shipped it for years, and <strong>Safari 26.4 (March 2026)</strong> made it Baseline in all major browsers.</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="nx">wt</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">WebTransport</span><span class="p">(</span><span class="dl">"</span><span class="s2">https://example.com:4433/game</span><span class="dl">"</span><span class="p">);</span>
+<span class="k">await</span> <span class="nx">wt</span><span class="p">.</span><span class="nx">ready</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">writer</span> <span class="o">=</span> <span class="nx">wt</span><span class="p">.</span><span class="nx">datagrams</span><span class="p">.</span><span class="nx">writable</span><span class="p">.</span><span class="nf">getWriter</span><span class="p">();</span>
+<span class="nx">writer</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="nf">encodeState</span><span class="p">(</span><span class="nx">player</span><span class="p">));</span>                       <span class="c1">// unreliable, unordered</span>
+<span class="kd">const</span> <span class="nx">stream</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">wt</span><span class="p">.</span><span class="nf">createBidirectionalStream</span><span class="p">();</span>     <span class="c1">// reliable, ordered</span>
+</code></pre></div></div>
+
+<p>It needs an HTTP/3-capable server and UDP that is not blocked on the path, so production deployments usually keep a WebSocket fallback. Choose it when head-of-line blocking or the lack of datagrams actually hurts. For typical chat or notifications, WebSockets or SSE are simpler.</p>
+
+<h3 id="choosing-a-browser-transport">Choosing a browser transport</h3>
 
 <table>
   <thead>
@@ -3416,114 +3586,235 @@ data: {"symbol": "ACME", "px": 42.15}
       <th> </th>
       <th>SSE</th>
       <th>WebSockets</th>
+      <th>WebTransport</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Direction</td>
-      <td>server → client only</td>
+      <td>server to client</td>
+      <td>bidirectional</td>
       <td>bidirectional</td>
     </tr>
     <tr>
-      <td>Protocol</td>
-      <td>plain HTTP</td>
-      <td>HTTP upgrade → WS framing</td>
+      <td>Underlying protocol</td>
+      <td>HTTP/1.1, /2, /3 response</td>
+      <td>HTTP/1.1 upgrade (or extended CONNECT on /2, /3)</td>
+      <td>HTTP/3 over QUIC</td>
     </tr>
     <tr>
       <td>Payload</td>
-      <td>text (UTF-8)</td>
-      <td>text or binary</td>
+      <td>UTF-8 text</td>
+      <td>text or binary messages</td>
+      <td>byte streams and datagrams</td>
     </tr>
     <tr>
-      <td>Auto-reconnect + replay</td>
-      <td>yes (built in)</td>
-      <td>no (DIY)</td>
+      <td>Multiple independent streams</td>
+      <td>one per request</td>
+      <td>no (one ordered stream)</td>
+      <td>yes</td>
     </tr>
     <tr>
-      <td>Proxy / firewall friendliness</td>
-      <td>high</td>
-      <td>sometimes blocked</td>
+      <td>Unreliable delivery</td>
+      <td>no</td>
+      <td>no</td>
+      <td>yes (datagrams)</td>
+    </tr>
+    <tr>
+      <td>Automatic reconnect and resume</td>
+      <td>yes</td>
+      <td>no</td>
+      <td>no</td>
+    </tr>
+    <tr>
+      <td>Custom auth headers from the browser</td>
+      <td>no (<code class="language-plaintext highlighter-rouge">EventSource</code>)</td>
+      <td>no</td>
+      <td>no; uses a URL and cookies</td>
+    </tr>
+    <tr>
+      <td>Proxy and firewall friendliness</td>
+      <td>highest</td>
+      <td>good; some proxies break upgrades</td>
+      <td>UDP is sometimes blocked</td>
     </tr>
     <tr>
       <td>Best for</td>
-      <td>live feeds, notifications, streaming output</td>
-      <td>chat, games, collaborative editing</td>
+      <td>feeds, notifications, token streaming</td>
+      <td>chat, collaboration, games</td>
+      <td>real-time media, fast-paced games</td>
     </tr>
   </tbody>
 </table>
 
-<p>The decision rule: if the client never needs to <em>push</em> over the channel, prefer <strong>SSE</strong> for its simplicity and free reconnection; reach for <strong>WebSockets</strong> only when you truly need the client-to-server direction at low latency. Many “realtime” features (notifications, progress, streaming AI responses) are one-directional and over-use WebSockets.</p>
+<p>Use the simplest transport that fits. Notifications, progress updates and streamed AI responses only flow one way, and apps often use WebSockets for them when SSE would do.</p>
 
 <h2 id="async-request-reply">Async Request-Reply</h2>
 
-<p>Sometimes a client <em>does</em> want a result for a specific request, but the work is too slow to wait for synchronously. The <strong>async request-reply</strong> pattern (a.k.a. the <em>polling</em> or <em>status-monitor</em> pattern) keeps a clean HTTP facade while doing the work in the background.</p>
-
-<p>The shape, standardized by HTTP <code class="language-plaintext highlighter-rouge">202 Accepted</code>:</p>
+<p>Sometimes a client wants the result of one specific request, but the work is too slow to wait for. The <strong>async request-reply</strong> pattern (also called the <em>status-monitor</em> or <em>long-running operation</em> pattern) keeps a normal HTTP interface and does the work in the background:</p>
 
 <ol>
-  <li>The client <code class="language-plaintext highlighter-rouge">POST</code>s the request. The server validates it, kicks off background work, and immediately returns <code class="language-plaintext highlighter-rouge">202 Accepted</code> with a <code class="language-plaintext highlighter-rouge">Location</code> (or <code class="language-plaintext highlighter-rouge">Content-Location</code>) header pointing at a <strong>status resource</strong>.</li>
-  <li>The client polls the status resource. While the job runs it returns <code class="language-plaintext highlighter-rouge">200</code> with <code class="language-plaintext highlighter-rouge">{"status": "running"}</code>; when finished it returns the result (or a <code class="language-plaintext highlighter-rouge">303 See Other</code> redirecting to the completed resource).</li>
-  <li>Optionally, the client supplies a webhook/callback URL so the server <em>pushes</em> completion instead of being polled.</li>
+  <li>The client <code class="language-plaintext highlighter-rouge">POST</code>s the request. The server validates it, starts the job, and returns <strong><code class="language-plaintext highlighter-rouge">202 Accepted</code></strong> with a <code class="language-plaintext highlighter-rouge">Location</code> header that points to a <strong>status resource</strong>.</li>
+  <li>The client polls the status resource, honoring <code class="language-plaintext highlighter-rouge">Retry-After</code>. While the job runs, the resource returns <code class="language-plaintext highlighter-rouge">200 {"status":"running"}</code>. When the job finishes, it returns the result or a <code class="language-plaintext highlighter-rouge">303 See Other</code> to the created resource.</li>
+  <li>Optionally, the client registers a callback (webhook) or subscribes to an SSE stream, so it does not have to poll.</li>
 </ol>
 
 <pre><code class="language-mermaid">sequenceDiagram
     participant C as Client
-    participant S as Server
-    C-&gt;&gt;S: POST /reports {params}
-    S--&gt;&gt;C: 202 Accepted  Location: /reports/abc/status
-    C-&gt;&gt;S: GET /reports/abc/status
-    S--&gt;&gt;C: 200 {status: "running", progress: 0.4}
-    C-&gt;&gt;S: GET /reports/abc/status
-    S--&gt;&gt;C: 303 See Other  Location: /reports/abc
-    C-&gt;&gt;S: GET /reports/abc
-    S--&gt;&gt;C: 200 {report data}
+    participant S as API
+    participant W as Worker
+    C-&gt;&gt;S: POST /v1/reports (Idempotency-Key: 7f3c...)
+    S-&gt;&gt;W: enqueue job abc
+    S--&gt;&gt;C: 202 Accepted, Location: /v1/operations/abc, Retry-After: 5
+    C-&gt;&gt;S: GET /v1/operations/abc
+    S--&gt;&gt;C: 200 {"status":"running","progress":0.4}
+    W--&gt;&gt;S: job abc done
+    C-&gt;&gt;S: GET /v1/operations/abc
+    S--&gt;&gt;C: 303 See Other, Location: /v1/reports/abc
+    C-&gt;&gt;S: GET /v1/reports/abc
+    S--&gt;&gt;C: 200 {report}
 </code></pre>
 
 <div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">POST</span> <span class="nn">/v1/reports</span> <span class="k">HTTP</span><span class="o">/</span><span class="m">1.1</span>
 <span class="na">Content-Type</span><span class="p">:</span> <span class="s">application/json</span>
+<span class="na">Idempotency-Key</span><span class="p">:</span> <span class="s">7f3c2a8e-5a0b-4d6c-9b1e-2f4d8c6a1e90</span>
 
-<span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"monthly-revenue"</span><span class="p">,</span><span class="w"> </span><span class="nl">"month"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-05"</span><span class="w"> </span><span class="p">}</span><span class="w">
+<span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"monthly-revenue"</span><span class="p">,</span><span class="w"> </span><span class="nl">"month"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-08"</span><span class="w"> </span><span class="p">}</span><span class="w">
 
 </span><span class="err">HTTP/</span><span class="mf">1.1</span><span class="w"> </span><span class="mi">202</span><span class="w"> </span><span class="err">Accepted</span><span class="w">
-</span><span class="err">Location:</span><span class="w"> </span><span class="err">/v</span><span class="mi">1</span><span class="err">/reports/abc</span><span class="mi">123</span><span class="err">/status</span><span class="w">
+</span><span class="err">Location:</span><span class="w"> </span><span class="err">/v</span><span class="mi">1</span><span class="err">/operations/abc</span><span class="mi">123</span><span class="w">
 </span><span class="err">Retry-After:</span><span class="w"> </span><span class="mi">5</span><span class="w">
 </span></code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">Retry-After</code> header tells a polite client how long to wait before checking again, damping poll traffic. This pattern combines well with the others on this page: poll the status resource with <strong>long polling</strong>, stream progress over <strong>SSE</strong>, or register a <strong>webhook</strong> for completion — the <code class="language-plaintext highlighter-rouge">202</code>+status-resource contract is orthogonal to how the client learns of the result. It is the standard way to expose a long-running operation through an otherwise synchronous REST API.</p>
+<p>The <code class="language-plaintext highlighter-rouge">202</code>-plus-status-resource contract does not depend on how the client learns about completion. It can poll, long-poll, subscribe to SSE, or register a webhook. Google’s API design guidance (<a href="https://google.aip.dev/151">AIP-151</a>) standardizes the same idea as an <code class="language-plaintext highlighter-rouge">Operation</code> resource with <code class="language-plaintext highlighter-rouge">done</code>, <code class="language-plaintext highlighter-rouge">metadata</code>, and either <code class="language-plaintext highlighter-rouge">response</code> or <code class="language-plaintext highlighter-rouge">error</code>. Status resources should also support cancellation (<code class="language-plaintext highlighter-rouge">POST /operations/abc:cancel</code> or <code class="language-plaintext highlighter-rouge">DELETE</code>) and expire after a documented retention period.</p>
 
-<blockquote>
-  <p><strong>Idempotent submission.</strong> Because the client may retry the initial <code class="language-plaintext highlighter-rouge">POST</code> (it never saw the <code class="language-plaintext highlighter-rouge">202</code>), accept an <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header so a retried submission returns the <em>existing</em> job rather than starting a duplicate. See <a href="#idempotency--delivery-guarantees">Idempotency</a>.</p>
-</blockquote>
+<p>The client may resend the initial <code class="language-plaintext highlighter-rouge">POST</code> if it never received the <code class="language-plaintext highlighter-rouge">202</code>. Accept an <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header so that a resent request returns the <strong>existing</strong> operation and does not start a duplicate (see <a href="rest.html#idempotency-keys">REST idempotency</a>).</p>
 
-<h2 id="event--streaming-apis">Event &amp; Streaming APIs</h2>
+<h2 id="event-and-streaming-apis">Event and Streaming APIs</h2>
 
-<p>The styles above are point-to-point: one provider notifies one consumer. At higher volume and fan-out, async APIs are built on a <strong>message broker</strong> — a publish/subscribe backbone where producers publish events to named channels and any number of consumers subscribe. This is the API surface of an <strong>event-driven architecture</strong>: the contract is no longer “endpoints and verbs” but “channels and message schemas.”</p>
+<p>The styles above connect one provider to one consumer. At higher volume and fan-out, async APIs sit on a <strong>message broker</strong>: producers publish to named channels, and any number of consumers subscribe. The API contract becomes “channels and message schemas” instead of “endpoints and verbs.”</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    P["Producer&lt;br/&gt;(Order Service)"] --&gt;|publish OrderPlaced| B[("Broker / Log&lt;br/&gt;topic: orders")]
-    B --&gt;|subscribe| C1["Payments"]
-    B --&gt;|subscribe| C2["Inventory"]
-    B --&gt;|subscribe| C3["Analytics"]
+    P["Order service"] --&gt;|"publish OrderPlaced&lt;br/&gt;key = orderId"| B[("Broker / log&lt;br/&gt;topic: orders")]
+    B --&gt;|"consumer group"| C1["Payments"]
+    B --&gt;|"consumer group"| C2["Inventory"]
+    B --&gt;|"consumer group"| C3["Analytics"]
 </code></pre>
 
-<p>Two broker families shape the API’s semantics, exactly as covered on the event-driven hub:</p>
+<p>Two broker models give different semantics:</p>
 
-<ul>
-  <li><strong>Message queues</strong> (RabbitMQ, SQS) treat a message as a <em>task</em> delivered once to a competing-consumer group and then removed. Good for work distribution.</li>
-  <li><strong>Log-structured streams</strong> (Apache Kafka, Kinesis, Pulsar) treat a message as an <em>immutable, ordered fact</em> retained and replayable, with each consumer group tracking its own offset. Good for event streaming, multiple independent subscribers, and replay.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Message queue</th>
+      <th>Log-structured stream</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Examples</td>
+      <td>RabbitMQ, Amazon SQS, Kafka share groups</td>
+      <td>Apache Kafka, Amazon Kinesis, Apache Pulsar, Redpanda</td>
+    </tr>
+    <tr>
+      <td>A message is</td>
+      <td>a task, removed once acknowledged</td>
+      <td>an immutable, ordered fact kept for the retention period</td>
+    </tr>
+    <tr>
+      <td>Consumers</td>
+      <td>compete; each message goes to one of them</td>
+      <td>each group tracks its own offset; every group sees every message</td>
+    </tr>
+    <tr>
+      <td>Replay</td>
+      <td>no (unless dead-lettered)</td>
+      <td>yes, by rewinding the offset</td>
+    </tr>
+    <tr>
+      <td>Ordering</td>
+      <td>usually per queue, weakened by redelivery</td>
+      <td>per partition</td>
+    </tr>
+    <tr>
+      <td>Good for</td>
+      <td>work distribution</td>
+      <td>event streaming, many independent subscribers, rebuilding state</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>A <strong>streaming API</strong> can also be exposed directly to external clients. Twitter’s filtered stream, financial market-data feeds, and change-data-capture endpoints push a continuous flow of events over a held-open HTTP response (often SSE or chunked transfer) or a gRPC server-streaming call. The defining feature is that the response is <em>unbounded</em> — the client consumes events until it disconnects rather than receiving a finite body.</p>
+<p>The two models are converging. <strong>Apache Kafka 4.0</strong> (March 2025) removed ZooKeeper and runs only in KRaft mode. <strong>Kafka 4.2</strong> (February 2026) made <strong>share groups</strong> (<a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-932%3A+Queues+for+Kafka">KIP-932</a>, “Queues for Kafka”) production-ready. Share groups let consumers compete for records without partition assignment, with per-record acknowledgement and delivery-attempt counting, so one Kafka topic can serve both models.</p>
+
+<p>Streaming APIs can also be <strong>exposed to external clients</strong> directly: market-data feeds, change-data-capture endpoints, and model-inference token streams. They are usually carried over SSE, chunked HTTP, WebSockets, or a gRPC server-streaming call. What makes them streams is that the response has no end. The client keeps consuming until it disconnects.</p>
 
 <blockquote>
-  <p>This page covers async APIs as a <strong>contract surface</strong>. For the architecture behind them — brokers, Kafka partitions and offsets, choreography vs orchestration, the saga and transactional-outbox patterns, and event sourcing / CQRS — see the <a href="../distributed-systems/microservices-and-event-driven.html">Event-Driven Architecture hub</a>.</p>
+  <p>This page treats async APIs as a <strong>contract surface</strong>. For the architecture behind them (partitions and offsets, choreography vs orchestration, sagas, the transactional outbox, event sourcing and CQRS) see <a href="../distributed-systems/microservices-and-event-driven.html">Microservices &amp; Event-Driven Architecture</a>.</p>
 </blockquote>
+
+<h2 id="describing-events-cloudevents">Describing Events: CloudEvents</h2>
+
+<p>Every team tends to invent its own event envelope, with different names for the ID, type and timestamp. <strong><a href="https://cloudevents.io/">CloudEvents</a></strong> (a CNCF project, graduated in January 2024) standardizes that envelope so that routers, SDKs and tooling can handle events from any producer. The payload stays yours. The spec fixes only the metadata:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th style="text-align: center">Required</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">specversion</code></td>
+      <td style="text-align: center">yes</td>
+      <td>CloudEvents version, currently <code class="language-plaintext highlighter-rouge">1.0</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">id</code></td>
+      <td style="text-align: center">yes</td>
+      <td>Unique per <code class="language-plaintext highlighter-rouge">source</code>; the deduplication key</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">source</code></td>
+      <td style="text-align: center">yes</td>
+      <td>URI reference identifying the producer context</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">type</code></td>
+      <td style="text-align: center">yes</td>
+      <td>Reverse-DNS event type, e.g. <code class="language-plaintext highlighter-rouge">com.example.order.placed</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">subject</code>, <code class="language-plaintext highlighter-rouge">datacontenttype</code>, <code class="language-plaintext highlighter-rouge">dataschema</code></td>
+      <td style="text-align: center">no</td>
+      <td>Timestamp, sub-resource, payload media type, schema URI</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"specversion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"8d5c9e1a-2c3f-4b7e-9f10-6a4e2b1d7c33"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/services/orders"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"com.example.order.placed"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"subject"</span><span class="p">:</span><span class="w"> </span><span class="s2">"orders/9912"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"time"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-22T14:03:11Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"datacontenttype"</span><span class="p">:</span><span class="w"> </span><span class="s2">"application/json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"orderId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9912"</span><span class="p">,</span><span class="w"> </span><span class="nl">"amountCents"</span><span class="p">:</span><span class="w"> </span><span class="mi">4599</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><em>Protocol bindings</em> define how the envelope maps onto HTTP, Kafka, AMQP, MQTT and NATS. In <strong>structured mode</strong> the whole JSON above is the message body. In <strong>binary mode</strong> the attributes travel as headers (<code class="language-plaintext highlighter-rouge">ce-id</code>, <code class="language-plaintext highlighter-rouge">ce-type</code>, …) and the body is the raw <code class="language-plaintext highlighter-rouge">data</code>. Azure Event Grid, Google Eventarc, Knative Eventing and Argo Events all use CloudEvents natively.</p>
+
+<p>CloudEvents and AsyncAPI are complementary. CloudEvents fixes <em>the shape of one event</em>. AsyncAPI documents <em>the whole API</em>: which channels exist, what flows on each, and who sends and receives.</p>
 
 <h2 id="the-asyncapi-specification">The AsyncAPI Specification</h2>
 
-<p>REST APIs have OpenAPI; event-driven APIs have <strong>AsyncAPI</strong> — a machine-readable, JSON/YAML contract describing the channels an application publishes to and subscribes from, the message schemas, and the protocol <strong>bindings</strong> (Kafka, AMQP, MQTT, WebSocket, SSE, …). It enables the same tooling ecosystem: generated documentation, generated client/server code stubs, contract validation, and mocks.</p>
+<p>REST APIs have OpenAPI. Event-driven APIs have <strong><a href="https://www.asyncapi.com/">AsyncAPI</a></strong>, a JSON or YAML contract that describes the channels an application sends to and receives from, the message schemas, and protocol-specific <strong>bindings</strong> (Kafka, AMQP, MQTT, NATS, WebSockets, HTTP, and others). It supports the same kinds of tooling as OpenAPI: generated documentation, code generation, validation and mocking.</p>
 
-<p>AsyncAPI’s mental model deliberately mirrors and extends OpenAPI:</p>
+<p>Version <strong>3.0</strong> (December 2023) was a major redesign. It separated channels from operations, added first-class <strong>request/reply</strong>, and made channels reusable across operations. Version <strong>3.1.0</strong> (early 2026) is a compatible minor release that adds a ROS 2 binding among other changes. Moving a document from 3.0 to 3.1 only requires changing the version string.</p>
 
 <table>
   <thead>
@@ -3535,33 +3826,33 @@ data: {"symbol": "ACME", "px": 42.15}
   <tbody>
     <tr>
       <td>Path (<code class="language-plaintext highlighter-rouge">/orders</code>)</td>
-      <td>Channel (<code class="language-plaintext highlighter-rouge">order/placed</code>)</td>
+      <td>Channel (with an <code class="language-plaintext highlighter-rouge">address</code>, e.g. topic <code class="language-plaintext highlighter-rouge">order.placed</code>)</td>
     </tr>
     <tr>
-      <td>Operation (GET/POST)</td>
-      <td>Operation (<code class="language-plaintext highlighter-rouge">send</code> / <code class="language-plaintext highlighter-rouge">receive</code>)</td>
+      <td>Operation (<code class="language-plaintext highlighter-rouge">GET</code>, <code class="language-plaintext highlighter-rouge">POST</code>)</td>
+      <td>Operation (<code class="language-plaintext highlighter-rouge">action: send</code> or <code class="language-plaintext highlighter-rouge">receive</code>)</td>
     </tr>
     <tr>
       <td>Request/response body</td>
-      <td>Message (with payload schema)</td>
+      <td>Message (headers + payload schema)</td>
     </tr>
     <tr>
       <td>Server (base URL)</td>
-      <td>Server (broker URL + protocol)</td>
+      <td>Server (broker host + protocol)</td>
     </tr>
     <tr>
       <td>—</td>
-      <td>Bindings (protocol-specific config)</td>
+      <td>Bindings (protocol-specific settings: partition key, QoS, exchange)</td>
     </tr>
   </tbody>
 </table>
 
-<p>A key subtlety is <strong>perspective</strong>. AsyncAPI 3.x describes operations from the point of view of the <em>application being documented</em>: an operation is <code class="language-plaintext highlighter-rouge">send</code> (the app publishes) or <code class="language-plaintext highlighter-rouge">receive</code> (the app consumes). The same channel is therefore a <code class="language-plaintext highlighter-rouge">send</code> in the producer’s spec and a <code class="language-plaintext highlighter-rouge">receive</code> in the consumer’s — the document is written from one application’s vantage point, not the broker’s.</p>
+<p><strong>Perspective matters.</strong> A 3.x document describes operations from the point of view of <em>the application it documents</em>. The same channel is <code class="language-plaintext highlighter-rouge">send</code> in the producer’s document and <code class="language-plaintext highlighter-rouge">receive</code> in the consumer’s, and neither describes the broker.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">asyncapi</span><span class="pi">:</span> <span class="s">3.0.0</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">asyncapi</span><span class="pi">:</span> <span class="s">3.1.0</span>
 <span class="na">info</span><span class="pi">:</span>
   <span class="na">title</span><span class="pi">:</span> <span class="s">Orders Service</span>
-  <span class="na">version</span><span class="pi">:</span> <span class="s">1.0.0</span>
+  <span class="na">version</span><span class="pi">:</span> <span class="s">1.4.0</span>
 <span class="na">servers</span><span class="pi">:</span>
   <span class="na">production</span><span class="pi">:</span>
     <span class="na">host</span><span class="pi">:</span> <span class="s">broker.example.com:9092</span>
@@ -3574,99 +3865,164 @@ data: {"symbol": "ACME", "px": 42.15}
         <span class="na">$ref</span><span class="pi">:</span> <span class="s1">'</span><span class="s">#/components/messages/OrderPlaced'</span>
 <span class="na">operations</span><span class="pi">:</span>
   <span class="na">publishOrderPlaced</span><span class="pi">:</span>
-    <span class="na">action</span><span class="pi">:</span> <span class="s">send</span>                          <span class="c1"># this app PUBLISHES</span>
+    <span class="na">action</span><span class="pi">:</span> <span class="s">send</span>                          <span class="c1"># this application publishes</span>
     <span class="na">channel</span><span class="pi">:</span>
       <span class="na">$ref</span><span class="pi">:</span> <span class="s1">'</span><span class="s">#/channels/orderPlaced'</span>
+    <span class="na">bindings</span><span class="pi">:</span>
+      <span class="na">kafka</span><span class="pi">:</span>
+        <span class="na">key</span><span class="pi">:</span>                              <span class="c1"># partition by order for per-order ordering</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">string</span>
 <span class="na">components</span><span class="pi">:</span>
   <span class="na">messages</span><span class="pi">:</span>
     <span class="na">OrderPlaced</span><span class="pi">:</span>
+      <span class="na">contentType</span><span class="pi">:</span> <span class="s">application/json</span>
       <span class="na">payload</span><span class="pi">:</span>
         <span class="na">type</span><span class="pi">:</span> <span class="s">object</span>
+        <span class="na">required</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">orderId</span><span class="pi">,</span> <span class="nv">amountCents</span><span class="pi">,</span> <span class="nv">placedAt</span><span class="pi">]</span>
         <span class="na">properties</span><span class="pi">:</span>
-          <span class="na">orderId</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">type</span><span class="pi">:</span> <span class="nv">string</span> <span class="pi">}</span>
-          <span class="na">amount</span><span class="pi">:</span>  <span class="pi">{</span> <span class="nv">type</span><span class="pi">:</span> <span class="nv">number</span> <span class="pi">}</span>
-          <span class="na">placedAt</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">type</span><span class="pi">:</span> <span class="nv">string</span><span class="pi">,</span> <span class="nv">format</span><span class="pi">:</span> <span class="nv">date-time</span> <span class="pi">}</span>
+          <span class="na">orderId</span><span class="pi">:</span>     <span class="pi">{</span> <span class="nv">type</span><span class="pi">:</span> <span class="nv">string</span> <span class="pi">}</span>
+          <span class="na">amountCents</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">type</span><span class="pi">:</span> <span class="nv">integer</span> <span class="pi">}</span>
+          <span class="na">placedAt</span><span class="pi">:</span>    <span class="pi">{</span> <span class="nv">type</span><span class="pi">:</span> <span class="nv">string</span><span class="pi">,</span> <span class="nv">format</span><span class="pi">:</span> <span class="nv">date-time</span> <span class="pi">}</span>
 </code></pre></div></div>
 
-<p>From this single document, the AsyncAPI Generator can emit interactive HTML docs, a typed producer/consumer in several languages, and validators that reject malformed events — making event-driven APIs as discoverable and contract-tested as REST ones. Bindings carry the protocol-specific details (Kafka partition key, AMQP exchange type, MQTT QoS, WebSocket sub-protocol) without polluting the protocol-agnostic core.</p>
+<p>The AsyncAPI CLI and Generator produce HTML docs and typed producers and consumers from this document. Schema registries (Confluent, Apicurio) can enforce the payload schemas at runtime. Treat event schemas like any public API: add optional fields freely, never change a field’s meaning, and publish a new <code class="language-plaintext highlighter-rouge">type</code> or channel for a breaking change.</p>
 
-<h2 id="idempotency--delivery-guarantees">Idempotency &amp; Delivery Guarantees</h2>
+<h2 id="delivery-semantics-and-idempotency">Delivery Semantics and Idempotency</h2>
 
-<p>Asynchronous APIs live or die on their <strong>delivery semantics</strong>. Because every async style above involves retries — a webhook re-sent after a slow ack, a Kafka message re-read after a consumer crash, a <code class="language-plaintext highlighter-rouge">POST</code> re-submitted after a lost <code class="language-plaintext highlighter-rouge">202</code> — the correctness of the <em>consumer</em> hinges on what guarantee the channel provides and how the consumer handles duplicates.</p>
+<p>Every async style retries: a webhook resent after a slow acknowledgement, a Kafka record re-read after a consumer crash, a <code class="language-plaintext highlighter-rouge">POST</code> resent after a lost <code class="language-plaintext highlighter-rouge">202</code>. So a consumer is correct only if it knows what the channel guarantees and handles duplicates.</p>
 
 <h3 id="the-three-delivery-guarantees">The three delivery guarantees</h3>
 
-<pre><code class="language-mermaid">flowchart TD
-    AM["At-most-once&lt;br/&gt;fire and forget"] --&gt;|"may LOSE messages"| AMr["fast, lossy&lt;br/&gt;(metrics, telemetry)"]
-    AL["At-least-once&lt;br/&gt;retry until acked"] --&gt;|"may DUPLICATE"| ALr["safe default&lt;br/&gt;(needs idempotent consumer)"]
-    EO["Exactly-once&lt;br/&gt;no loss, no dup"] --&gt;|"hard / costly"| EOr["transactions or&lt;br/&gt;idempotent dedup"]
-</code></pre>
+<table>
+  <thead>
+    <tr>
+      <th>Guarantee</th>
+      <th>Behavior</th>
+      <th>Failure mode</th>
+      <th>Where used</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>At-most-once</strong></td>
+      <td>Send once; never retry</td>
+      <td>Messages can be <strong>lost</strong></td>
+      <td>Telemetry, presence, metrics where gaps are fine</td>
+    </tr>
+    <tr>
+      <td><strong>At-least-once</strong></td>
+      <td>Retry until acknowledged</td>
+      <td>Messages can be <strong>duplicated</strong></td>
+      <td>Default for webhooks, SQS, Kafka, almost every broker</td>
+    </tr>
+    <tr>
+      <td><strong>Exactly-once</strong></td>
+      <td>No loss, no duplicates</td>
+      <td>Hard; limited scope</td>
+      <td>Kafka transactions (read-process-write inside Kafka); otherwise simulated</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>At-most-once</strong> — send and forget; never retry. Messages can be lost but never duplicated. Acceptable only where loss is tolerable (high-frequency telemetry, presence pings).</li>
-  <li><strong>At-least-once</strong> — retry until acknowledged. No message is lost, but a crash <em>after</em> doing the work and <em>before</em> acking causes a duplicate. This is the <strong>default and the realistic baseline</strong> for webhooks, Kafka, SQS, and almost every broker.</li>
-  <li><strong>Exactly-once</strong> — neither loss nor duplication. Genuinely hard end-to-end: it requires either distributed transactions (Kafka’s transactional producer + read-process-write) or — far more commonly — <strong>at-least-once delivery plus an idempotent consumer</strong>, which yields exactly-once <em>effects</em> without exactly-once <em>delivery</em>.</li>
-</ul>
+<p>Exactly-once <em>delivery</em> across an unreliable network is not achievable in general. The sender cannot tell a lost message from a lost acknowledgement (the Two Generals problem). What systems actually provide is <strong>exactly-once effects</strong>: at-least-once delivery plus an idempotent consumer. Kafka’s exactly-once semantics are real, but they only cover reads and writes within Kafka. As soon as a consumer writes to an external database or calls an API, you need idempotency again.</p>
 
-<p>The practical conclusion is unavoidable: <strong>assume at-least-once and make consumers idempotent.</strong> “Exactly-once delivery” over an unreliable network is, in the general case, impossible (it reduces to the Two Generals problem); what you can achieve is exactly-once <em>processing</em> by deduplicating.</p>
-
-<h3 id="idempotency-in-practice">Idempotency in practice</h3>
-
-<p>An operation is <strong>idempotent</strong> if performing it twice has the same effect as performing it once. The standard techniques:</p>
-
-<ol>
-  <li><strong>Idempotency keys.</strong> The producer attaches a unique key per logical operation (a UUID, the event’s own ID, or a client-supplied <code class="language-plaintext highlighter-rouge">Idempotency-Key</code> header). The consumer records keys it has processed in a durable store and skips any it has seen. A short TTL bounds the dedup table’s size against the realistic retry window.</li>
-  <li><strong>Natural idempotency.</strong> Some operations are inherently idempotent: a <code class="language-plaintext highlighter-rouge">PUT</code> that <em>sets</em> a field, an upsert keyed by entity ID, or “mark order #42 as shipped.” Prefer designing events so that applying them is naturally idempotent (set-to-value rather than increment-by) when you can.</li>
-  <li><strong>Conditional / versioned writes.</strong> Carry a version or sequence number and apply an event only if it advances the state (<code class="language-plaintext highlighter-rouge">UPDATE ... WHERE version = n</code>). This both deduplicates and protects against out-of-order delivery.</li>
-</ol>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">handle_event</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
-    <span class="c1"># at-least-once delivery: dedupe on the event's unique id
-</span>    <span class="k">if</span> <span class="n">seen</span><span class="p">.</span><span class="nf">contains</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">]):</span>
-        <span class="k">return</span>                      <span class="c1"># already processed — no-op
-</span>    <span class="nf">apply</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>                    <span class="c1"># the actual business effect
-</span>    <span class="n">seen</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">],</span> <span class="n">ttl</span><span class="o">=</span><span class="n">DEDUP_WINDOW</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="ordering">Ordering</h3>
-
-<p>Most brokers guarantee order only within a partition/queue, not globally. If your domain needs per-entity ordering (all events for one account in order), <strong>partition by a stable key</strong> so related events share a partition — exactly the Kafka key-partitioning rule from the event-driven hub. Where order cannot be guaranteed, make handlers order-insensitive: carry a sequence number and ignore events older than the current state, so a late-arriving duplicate or reorder is a harmless no-op.</p>
+<p><strong>Assume at-least-once and make every consumer idempotent.</strong></p>
 
 <h3 id="the-acknowledgement-contract">The acknowledgement contract</h3>
 
-<p>Every reliable async channel rests on an <strong>ack</strong>: the consumer signals successful processing, and only then does the broker (or webhook sender) consider the message delivered. The ordering of <em>process</em> versus <em>ack</em> determines the guarantee:</p>
+<p>A consumer acknowledges (acks) a message to tell the broker it has been processed. Whether the ack comes before or after processing sets the guarantee:</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant B as Broker
+    participant C as Consumer
+    participant D as Database
+    B-&gt;&gt;C: deliver msg 17
+    C-&gt;&gt;D: apply effect (dedupe on msg id)
+    Note over C: crash here: no ack sent
+    B-&gt;&gt;C: redeliver msg 17 (at-least-once)
+    C-&gt;&gt;D: apply again: id already seen, no-op
+    C--&gt;&gt;B: ack 17
+</code></pre>
 
 <ul>
-  <li><strong>Ack before processing</strong> → at-most-once (a crash loses the message).</li>
-  <li><strong>Ack after processing</strong> → at-least-once (a crash between processing and ack redelivers).</li>
+  <li><strong>Ack before processing</strong> gives at-most-once: a crash after the ack loses the message.</li>
+  <li><strong>Ack after processing</strong> gives at-least-once: a crash before the ack causes a redelivery.</li>
 </ul>
 
-<p>Always <strong>ack after processing</strong>, and pair it with an idempotent consumer to neutralize the resulting duplicates. This single rule — process, then ack, then dedupe — is the backbone of correct asynchronous APIs.</p>
+<p>Ack after processing, and let the idempotent consumer absorb the duplicates.</p>
+
+<h3 id="idempotency-in-practice">Idempotency in practice</h3>
+
+<p>An operation is <strong>idempotent</strong> if applying it twice has the same effect as applying it once. Common techniques:</p>
+
+<ol>
+  <li><strong>Deduplication keys.</strong> Use the event’s <code class="language-plaintext highlighter-rouge">id</code> (CloudEvents <code class="language-plaintext highlighter-rouge">id</code>, <code class="language-plaintext highlighter-rouge">webhook-id</code>) or a client-supplied <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>. Record processed keys <strong>in the same transaction as the effect</strong>. If the key is recorded separately, a crash between the two writes lets a duplicate through. Expire keys after the longest realistic retry window.</li>
+  <li><strong>Naturally idempotent effects.</strong> “Set status to shipped” and upserts keyed by entity ID are idempotent. “Add 10 to balance” is not. Design events as state assertions where you can.</li>
+  <li><strong>Versioned (conditional) writes.</strong> Apply an event only if it moves the state forward, with <code class="language-plaintext highlighter-rouge">UPDATE ... WHERE version &lt; :v</code>. This rejects both duplicates and events that arrive out of order.</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">db</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">db</span><span class="p">.</span><span class="nf">transaction</span><span class="p">():</span>
+        <span class="n">inserted</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">INSERT INTO processed_events(id) VALUES (%s) ON CONFLICT DO NOTHING</span><span class="sh">"</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">],)).</span><span class="n">rowcount</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">inserted</span><span class="p">:</span>
+            <span class="k">return</span>                         <span class="c1"># duplicate: already applied
+</span>        <span class="nf">apply_effect</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">db</span><span class="p">)</span>            <span class="c1"># same transaction as the dedupe record
+</span></code></pre></div></div>
+
+<p>On the producer side, the <strong>transactional outbox</strong> solves the matching problem of how to update the database <em>and</em> publish the event without losing one of them. The event is written to an outbox table in the same transaction as the state change, and a relay (often change data capture) publishes it afterward.</p>
+
+<h3 id="ordering">Ordering</h3>
+
+<p>Brokers order messages within a partition or queue, not globally. If the domain needs per-entity ordering (all events for one account in order), <strong>partition by a stable key</strong> such as the account ID. Where ordering cannot be guaranteed (webhooks, multi-partition consumers, retries), make handlers insensitive to order: include a sequence number or version and ignore anything older than the current state.</p>
 
 <h2 id="putting-it-together">Putting It Together</h2>
 
-<p>A real system mixes these styles by direction and audience:</p>
+<p>A real system combines these styles according to direction and audience:</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    Client["Browser"] --&gt;|"SSE live updates"| Edge["Edge / API"]
-    Client --&gt;|"WebSocket chat"| Edge
-    Client --&gt;|"POST job → 202"| Edge
-    Edge --&gt;|"publish events"| Broker[("Event Broker / Log")]
-    Broker --&gt;|"webhook callback"| Partner["Partner System"]
-    Broker --&gt;|"subscribe"| Worker["Background Workers"]
-    Worker --&gt;|"job done → webhook / SSE"| Client
+    Browser["Browser"] --&gt;|"SSE: live updates"| Edge["API edge"]
+    Browser &lt;--&gt;|"WebSocket: chat"| Edge
+    Browser --&gt;|"POST job, 202 + status"| Edge
+    Edge --&gt;|"outbox relay publishes events"| Broker[("Event log")]
+    Broker --&gt;|"consumer groups"| Workers["Workers"]
+    Broker --&gt;|"webhook dispatcher&lt;br/&gt;(signed, retried)"| Partner["Partner systems"]
+    Workers --&gt;|"job done: SSE push or webhook"| Browser
 </code></pre>
 
-<p>Choose <strong>SSE</strong> for one-way browser feeds, <strong>WebSockets</strong> when the browser must push back, <strong>webhooks</strong> for server-to-server callbacks, <strong>long polling</strong> as the compatibility fallback, <strong>async request-reply</strong> to expose slow work behind a clean HTTP facade, and an <strong>event/streaming broker</strong> for high-fan-out internal distribution. Document whichever you pick with <strong>AsyncAPI</strong>, and — across all of them — assume at-least-once delivery and make every consumer idempotent. The transport varies; the discipline of <em>process, then ack, then dedupe</em> does not.</p>
+<ul>
+  <li><strong>SSE</strong> for one-way browser feeds.</li>
+  <li><strong>WebSockets</strong> when the browser has to send back.</li>
+  <li><strong>WebTransport</strong> when you need datagrams or independent streams.</li>
+  <li><strong>Webhooks</strong> (preferably Standard Webhooks) for callbacks to other servers.</li>
+  <li><strong>Long polling</strong> as the compatibility fallback.</li>
+  <li><strong>Async request-reply</strong> for slow work behind an HTTP API.</li>
+  <li><strong>A broker</strong> for internal fan-out.</li>
+</ul>
+
+<p>Describe events with <strong>CloudEvents</strong> and document the API with <strong>AsyncAPI</strong>. Whatever the transport, assume at-least-once delivery, process and then acknowledge, and deduplicate in the same transaction as the effect.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">API Design Hub</a></strong> — section overview: REST, GraphQL, gRPC, versioning, authentication, and the synchronous styles this page complements</li>
-  <li><strong><a href="../distributed-systems/microservices-and-event-driven.html">Event-Driven Architecture</a></strong> — the architecture behind event/streaming APIs: brokers, Kafka partitions and offsets, choreography vs orchestration, sagas, the transactional outbox, and event sourcing / CQRS</li>
-  <li><strong><a href="../distributed-systems/">Distributed Systems Hub</a></strong> — consistency models, resilience patterns, and observability for the async systems above</li>
-  <li><strong><a href="../technology/networking/">Networking</a></strong> — HTTP, TCP, and the transport beneath SSE, WebSockets, and webhooks</li>
-  <li><strong><a href="../distributed-systems/resilience-patterns.html">Resilience Patterns</a></strong> — retries, backoff, circuit breakers, and dead-letter queues for unreliable async delivery</li>
+  <li><strong><a href="./">API Design Hub</a></strong> — the synchronous styles this page complements, and concerns every style shares</li>
+  <li><strong><a href="rest.html">REST</a></strong> — <code class="language-plaintext highlighter-rouge">202 Accepted</code>, <code class="language-plaintext highlighter-rouge">Idempotency-Key</code>, and the HTTP semantics async request-reply builds on</li>
+  <li><strong><a href="grpc-and-protobuf.html">gRPC &amp; Protocol Buffers</a></strong> — server, client, and bidirectional streaming RPCs as an alternative to WebSockets between services</li>
+  <li><strong><a href="graphql.html">GraphQL</a></strong> — subscriptions over <code class="language-plaintext highlighter-rouge">graphql-ws</code> and SSE</li>
+  <li><strong><a href="../distributed-systems/microservices-and-event-driven.html">Microservices &amp; Event-Driven Architecture</a></strong> — brokers, partitions and offsets, sagas, the transactional outbox, event sourcing and CQRS</li>
+  <li><strong><a href="../distributed-systems/resilience-patterns.html">Resilience Patterns</a></strong> — retries with backoff and jitter, circuit breakers, and idempotency</li>
+  <li><strong><a href="../technology/networking/transport-and-protocols.html">Transport &amp; Protocols</a></strong> — TCP, QUIC, HTTP/2, and HTTP/3 underneath SSE, WebSockets, and WebTransport</li>
+</ul>
+
+<h3 id="further-reading">Further Reading</h3>
+
+<ul>
+  <li><a href="https://www.standardwebhooks.com/">Standard Webhooks specification</a></li>
+  <li><a href="https://html.spec.whatwg.org/multipage/server-sent-events.html">HTML Living Standard: Server-sent events</a></li>
+  <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/WebTransport">MDN: WebTransport API</a></li>
+  <li><a href="https://github.com/cloudevents/spec">CloudEvents specification</a></li>
+  <li><a href="https://www.asyncapi.com/docs/reference/specification/latest">AsyncAPI 3.x specification</a></li>
 </ul>
 
       </section>

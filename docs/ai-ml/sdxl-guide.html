@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Stable Diffusion XL in depth: dual text encoders, size and crop conditioning, native resolutions, the refiner, recommended settings, and the fine-tune ecosys...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AI/ML: SDXL Guide">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Stable Diffusion XL in depth: dual text encoders, size and crop conditioning, native resolutions, the refiner, recommended settings, and the fine-tune ecosys...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/ai-ml/sdxl-guide.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AI/ML: SDXL Guide">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Stable Diffusion XL in depth: dual text encoders, size and crop conditioning, native resolutions, the refiner, recommended settings, and the fine-tune ecosys...">
 
 <title>AI/ML: SDXL Guide | Andrews Notebook</title>
 
@@ -3135,25 +3135,40 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI/ML Documentation</a> » SDXL Guide</p>
 
-<p>Everything you need to work effectively with SDXL: how the architecture differs from SD 1.5, why it conditions on resolution and crop, when the refiner helps, what resolutions to use, and which fine-tunes (Pony, Illustrious, NoobAI) extend it.</p>
+<p><strong>Stable Diffusion XL (SDXL)</strong> is a latent diffusion text-to-image model released by Stability AI in July 2023. It keeps the U-Net design of SD 1.5 but scales it roughly threefold, reads the prompt with two text encoders, conditions on image size and crop geometry, and generates natively at about one megapixel. This page covers how the architecture works, the settings it expects, the optional refiner stage, and the fine-tunes (Pony V6, Illustrious, NoobAI) built on it. For choosing between SDXL and other base models, see the <a href="base-models-comparison.html">Base Models Comparison</a>; for the underlying diffusion process, see <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>.</p>
 
-<h2 id="why-sdxl-is-the-default-all-rounder">Why SDXL Is the Default All-Rounder</h2>
+<h2 id="position-in-2026">Position in 2026</h2>
 
-<p>SDXL (Stable Diffusion XL, released July 2023) was the first open Stable Diffusion model to combine native megapixel output, strong composition, and a broad, mature add-on ecosystem in one package. Years later it remains the <strong>safest all-around choice</strong>: it runs on consumer 8 GB cards, produces photorealistic and stylized work equally well, and sits at the center of the deepest collection of LoRAs, ControlNets, and fine-tunes outside the SD 1.5 legacy world.</p>
+<p>SDXL is no longer the most capable open image model. FLUX.1 (2024) and FLUX.2 (November 2025), Qwen-Image, and Z-Image all follow complex prompts and render text more reliably, using transformer backbones and rectified-flow training. SDXL is still widely used for three reasons:</p>
 
-<p>If you are deciding <em>which</em> base model to use at all, start with the <a href="base-models-comparison.html">Base Models Comparison</a>. This guide assumes you have already chosen SDXL (or one of its fine-tunes) and want to understand and exploit it fully. Three structural changes define it:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Reason</th>
+      <th>Detail</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Hardware</td>
+      <td>Runs well on 8 GB GPUs at fp16. Current flagship models need 16-24 GB or heavy quantization.</td>
+    </tr>
+    <tr>
+      <td>Ecosystem</td>
+      <td>Has the largest collection of LoRAs, ControlNets, IP-Adapters, and full fine-tunes of any architecture after SD 1.5.</td>
+    </tr>
+    <tr>
+      <td>Speed</td>
+      <td>A 1024×1024 image takes about 30 U-Net steps, or 4-8 steps with a distilled variant (Lightning, Hyper-SD, DMD2).</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>Two text encoders.</strong> CLIP ViT-L and OpenCLIP ViT-bigG read the prompt together, improving prompt comprehension and composition over SD 1.5’s single encoder.</li>
-  <li><strong>Conditioned on size and crop.</strong> SDXL is told the target resolution and crop offset, which reduces the zoom/crop artifacts that plagued earlier models.</li>
-  <li><strong>Optional refiner.</strong> A second model can finish the last ~20% of denoising for extra micro-detail — though modern fine-tunes often look excellent base-only.</li>
-</ul>
+<p>The anime and illustration community in particular still works mostly on SDXL, through Illustrious XL and NoobAI XL. The Pony line is the exception: Pony Diffusion V7 (November 2025) moved from SDXL to the AuraFlow architecture, so V6 is the last SDXL-based Pony.</p>
 
-<h2 id="architecture-overview">Architecture Overview</h2>
+<h2 id="architecture">Architecture</h2>
 
-<p>SDXL keeps the U-Net diffusion architecture of SD 1.5/2.x but scales it up and adds two structural changes — dual text encoding and conditioning augmentation — plus an optional second-stage refiner model.</p>
-
-<h3 id="technical-specifications">Technical Specifications</h3>
+<h3 id="specifications">Specifications</h3>
 
 <table>
   <thead>
@@ -3164,353 +3179,480 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>Architecture</td>
-      <td>Enlarged U-Net (+ optional Refiner)</td>
+      <td>Backbone</td>
+      <td>U-Net with transformer blocks, ~2.6B parameters</td>
     </tr>
     <tr>
-      <td>Parameters</td>
-      <td>~3.5B base (+ ~3.5B refiner)</td>
+      <td>Total base model</td>
+      <td>~3.5B parameters (U-Net + both text encoders + VAE)</td>
     </tr>
     <tr>
-      <td>Training resolution</td>
-      <td>1024×1024 (multi-aspect buckets)</td>
+      <td>Refiner</td>
+      <td>Separate ~2.3B U-Net; ~6.6B parameters for base + refiner together</td>
     </tr>
     <tr>
       <td>Text encoders</td>
-      <td>CLIP ViT-L + OpenCLIP ViT-bigG (77 tokens each)</td>
+      <td>CLIP ViT-L/14 (hidden size 768) + OpenCLIP ViT-bigG/14 (hidden size 1280)</td>
     </tr>
     <tr>
-      <td>Conditioning</td>
-      <td>Size + crop conditioning</td>
+      <td>Cross-attention context</td>
+      <td>77 tokens × 2048 channels</td>
     </tr>
     <tr>
-      <td>VAE</td>
-      <td>SDXL VAE (improved color accuracy)</td>
-    </tr>
-    <tr>
-      <td>File size</td>
-      <td>~6.5 GB (base only)</td>
+      <td>Extra conditioning</td>
+      <td>Pooled text embedding + original size, crop offset, target size</td>
     </tr>
     <tr>
       <td>Latent space</td>
-      <td>KL-f8 (8× downsample, 4 latent channels)</td>
+      <td>KL-f8 VAE: 8× spatial downsample, 4 channels (128×128×4 at 1024×1024)</td>
+    </tr>
+    <tr>
+      <td>Training objective</td>
+      <td>ε-prediction (noise prediction), discrete DDPM schedule</td>
+    </tr>
+    <tr>
+      <td>Native resolution</td>
+      <td>~1024×1024, multi-aspect buckets</td>
+    </tr>
+    <tr>
+      <td>Checkpoint size</td>
+      <td>~6.9 GB base, ~6.1 GB refiner (fp16 safetensors)</td>
+    </tr>
+    <tr>
+      <td>License</td>
+      <td>CreativeML Open RAIL++-M</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="how-the-pieces-fit-together">How the Pieces Fit Together</h3>
+<h3 id="data-flow">Data Flow</h3>
 
-<p>SDXL is a latent diffusion model: it denoises in a compressed latent space rather than at pixel resolution, then decodes once at the end. The encoders condition the U-Net through cross-attention, and the conditioning vector carries the extra size/crop information.</p>
+<p>SDXL is a latent diffusion model. It denoises a compressed latent rather than pixels and decodes to an image only once, at the end. Both text encoders feed the U-Net’s cross-attention layers. A separate global vector, which carries the pooled text embedding and the geometry values, is added to the timestep embedding.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    Prompt["Text prompt"] --&gt; E1["CLIP ViT-L&lt;br/&gt;(penultimate hidden states)"]
-    Prompt --&gt; E2["OpenCLIP ViT-bigG&lt;br/&gt;(hidden states + pooled)"]
-    E1 --&gt; Concat["Concatenated token embeddings"]
-    E2 --&gt; Concat
-    E2 --&gt; Pool["Pooled text embedding"]
-    Cond["Size + crop conditioning"] --&gt; Vec["Conditioning vector"]
-    Pool --&gt; Vec
-    Concat --&gt; UNet["Enlarged U-Net&lt;br/&gt;(cross-attention)"]
-    Vec --&gt; UNet
-    Noise["Latent noise (128×128×4)"] --&gt; UNet
-    UNet --&gt; Lat["Denoised latent"]
-    Lat --&gt; VAE["SDXL VAE Decode"]
-    VAE --&gt; Img["1024×1024 image"]
+    Prompt["Prompt"] --&gt; E1["CLIP ViT-L&lt;br/&gt;penultimate layer, 77×768"]
+    Prompt --&gt; E2["OpenCLIP ViT-bigG&lt;br/&gt;penultimate layer, 77×1280"]
+    E1 --&gt; Ctx["Context c: 77×2048"]
+    E2 --&gt; Ctx
+    E2 --&gt; Pool["Pooled embedding&lt;br/&gt;1280"]
+    Geo["original_size, crop_coords,&lt;br/&gt;target_size (6 integers)"] --&gt; Four["Fourier embedding&lt;br/&gt;6×256 = 1536"]
+    Pool --&gt; Vec["Global vector v: 2816"]
+    Four --&gt; Vec
+    T["Timestep t"] --&gt; TE["Timestep embedding"]
+    Vec --&gt; TE
+    Noise["Latent noise&lt;br/&gt;128×128×4"] --&gt; UNet["U-Net"]
+    Ctx --&gt;|cross-attention| UNet
+    TE --&gt;|added to every ResNet block| UNet
+    UNet --&gt;|repeat for N steps| Lat["Denoised latent"]
+    Lat --&gt; VAE["VAE decode"] --&gt; Img["1024×1024 image"]
 </code></pre>
 
-<p>At 1024×1024 the VAE’s 8× downsampling means the U-Net operates on a 128×128×4 latent — four times the latent area of SD 1.5’s 64×64, which is the main reason SDXL needs more VRAM and runs slower.</p>
+<h3 id="u-net-changes-relative-to-sd-15">U-Net Changes Relative to SD 1.5</h3>
+
+<p>The extra parameters are not spread evenly across the network. SDXL rebalances where computation happens:</p>
+
+<ul>
+  <li><strong>Three resolution levels instead of four.</strong> The lowest level (8× downsampling inside the U-Net) is removed.</li>
+  <li><strong>No attention at the highest resolution.</strong> The first level has only convolutional blocks. The second and third levels contain 2 and 10 transformer blocks respectively, so most attention runs on small feature maps, where it is cheap.</li>
+  <li><strong>Larger context.</strong> Cross-attention reads a 2048-channel context, compared with 768 in SD 1.5.</li>
+</ul>
+
+<p>At 1024×1024 the U-Net processes a 128×128×4 latent. That is four times the latent area of SD 1.5 at 512×512, and it is the main reason SDXL is slower and needs more VRAM.</p>
 
 <h2 id="dual-text-encoders">Dual Text Encoders</h2>
 
-<p>The single most consequential change from SD 1.5 is that SDXL reads the prompt with <strong>two</strong> text encoders at once and concatenates their outputs.</p>
-
-<h3 id="what-each-encoder-contributes">What Each Encoder Contributes</h3>
+<p>The most consequential change from SD 1.5 is that SDXL encodes the prompt with two text encoders and concatenates their outputs.</p>
 
 <table>
   <thead>
     <tr>
       <th>Encoder</th>
-      <th>Role</th>
-      <th>Output used</th>
+      <th>Origin</th>
+      <th>What SDXL uses</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>CLIP ViT-L/14</td>
-      <td>The same encoder SD 1.5 used; strong on concrete tags and learned tokens</td>
-      <td>Token-level hidden states</td>
+      <td>OpenAI; the same encoder SD 1.5 used</td>
+      <td>Penultimate-layer token states (768-d)</td>
     </tr>
     <tr>
       <td>OpenCLIP ViT-bigG/14</td>
-      <td>A much larger encoder; better at composition and broader semantics</td>
-      <td>Token-level hidden states <strong>and</strong> a pooled embedding</td>
+      <td>LAION-trained; about 5× larger</td>
+      <td>Penultimate-layer token states (1280-d) <strong>and</strong> the pooled embedding</td>
     </tr>
   </tbody>
 </table>
 
-<p>SDXL concatenates the per-token hidden states from both encoders along the feature dimension to form the cross-attention context, and uses the <strong>pooled</strong> embedding from the bigG encoder as part of the global conditioning vector. Each encoder still has a 77-token limit, so the practical prompt budget is unchanged from SD 1.5 — but the model understands those tokens better.</p>
+<p>If $h_L$ and $h_G$ are the per-token hidden states of the two encoders, the cross-attention context is their channel-wise concatenation:</p>
 
-<h3 id="practical-consequences">Practical Consequences</h3>
+\[c = \mathrm{concat}(h_L, h_G) \in \mathbb{R}^{77 \times 2048}\]
+
+<p>The global conditioning vector joins the pooled bigG embedding $p_G$ with Fourier-feature embeddings of the six geometry integers described in the next section:</p>
+
+\[v = \mathrm{concat}\big(p_G,\; \phi(h_{\text{orig}}, w_{\text{orig}}),\; \phi(c_{\text{top}}, c_{\text{left}}),\; \phi(h_{\text{tgt}}, w_{\text{tgt}})\big) \in \mathbb{R}^{1280 + 1536}\]
+
+<p>The U-Net reads $c$ in every cross-attention layer and adds $v$ to its timestep embedding, so both the words and the requested geometry affect every denoising step.</p>
+
+<h3 id="consequences-for-prompting">Consequences for Prompting</h3>
 
 <ul>
-  <li><strong>Natural language helps.</strong> The larger bigG encoder rewards descriptive phrasing. An SD 1.5 keyword soup like <code class="language-plaintext highlighter-rouge">1girl, best quality, masterpiece, park</code> underperforms a short sentence: <em>“a young woman sitting on a park bench on a sunny day, professional photography, shallow depth of field.”</em></li>
-  <li><strong>Quality-spam tags matter less.</strong> Tokens like <code class="language-plaintext highlighter-rouge">masterpiece, best quality</code> carry far less weight on base SDXL than on SD 1.5 (they regain importance on tag-trained fine-tunes like Pony).</li>
-  <li><strong>Dual-prompt control.</strong> Some tools (ComfyUI’s <code class="language-plaintext highlighter-rouge">CLIPTextEncodeSDXL</code>, certain A1111/Forge fields) let you feed the two encoders <em>different</em> text — e.g. a detailed description to one and style tags to the other. This is optional; feeding both the same prompt is the normal default.</li>
+  <li><strong>Descriptive phrasing works.</strong> The bigG encoder handles short natural-language sentences better than SD 1.5’s encoder did. For base SDXL and photographic fine-tunes, <em>“a young woman sitting on a park bench on a sunny afternoon, shallow depth of field”</em> usually beats a comma-separated tag list. CLIP is still a bag-of-concepts encoder, though. Complex spatial relations (“the red cube to the left of the blue sphere”) remain unreliable. Models with T5 or LLM text encoders handle those better.</li>
+  <li><strong>Quality tags have little effect on base SDXL.</strong> <code class="language-plaintext highlighter-rouge">masterpiece, best quality</code> carry much less weight than on SD 1.5. They matter again on fine-tunes trained with them, such as Illustrious and NoobAI (<code class="language-plaintext highlighter-rouge">masterpiece, best quality</code>) and Pony V6 (<code class="language-plaintext highlighter-rouge">score_9, score_8_up, ...</code>).</li>
+  <li><strong>Each encoder still has a 77-token window.</strong> Front-ends such as ComfyUI, A1111, and Forge encode longer prompts in 75-token chunks and concatenate the results. This works, but concepts in later chunks tend to have weaker influence.</li>
+  <li><strong>The two encoders can take different text.</strong> ComfyUI’s <code class="language-plaintext highlighter-rouge">CLIPTextEncodeSDXL</code> node exposes separate <code class="language-plaintext highlighter-rouge">text_g</code> and <code class="language-plaintext highlighter-rouge">text_l</code> inputs, and diffusers accepts <code class="language-plaintext highlighter-rouge">prompt</code> and <code class="language-plaintext highlighter-rouge">prompt_2</code>. Most people send the same text to both, and there is little evidence that splitting it helps consistently.</li>
 </ul>
-
-<h3 id="conditioning-math">Conditioning Math</h3>
-
-<p>For a prompt token sequence, let <code class="language-plaintext highlighter-rouge">h_L</code> be the CLIP-L hidden states and <code class="language-plaintext highlighter-rouge">h_G</code> the OpenCLIP-bigG hidden states. The cross-attention context <code class="language-plaintext highlighter-rouge">c</code> is their channel-wise concatenation:</p>
-
-\[c = \mathrm{concat}(h_L, h_G) \in \mathbb{R}^{77 \times (d_L + d_G)}\]
-
-<p>while the global conditioning vector combines the pooled bigG embedding <code class="language-plaintext highlighter-rouge">p_G</code> with the size/crop embeddings (next section):</p>
-
-\[v = \mathrm{concat}(p_G,\; e_{\text{orig}},\; e_{\text{crop}},\; e_{\text{target}})\]
-
-<p>The U-Net attends to <code class="language-plaintext highlighter-rouge">c</code> in its cross-attention layers and adds <code class="language-plaintext highlighter-rouge">v</code> to its timestep embedding, so both the <em>words</em> and the <em>geometry</em> steer every denoising step.</p>
 
 <h2 id="size-and-crop-conditioning">Size and Crop Conditioning</h2>
 
-<p>Earlier SD models were trained on whatever crops the dataset provided, so they learned spurious habits — e.g. associating low resolution with blur, or center-cropping people’s heads off. SDXL fixes this by <strong>telling the model, at training time, the geometry of each example</strong>, then letting you set those values at inference.</p>
-
-<h3 id="the-three-conditioning-signals">The Three Conditioning Signals</h3>
+<p>Earlier Stable Diffusion models had two training problems. Images below the training resolution were either discarded, which wasted data, or upscaled, which taught the model that blur is normal. Random crops also taught it to produce framing with subjects cut off at the edge, which is the source of SD 1.5’s cropped heads. SDXL addresses both by passing each training image’s geometry to the model as conditioning. At inference time you choose the values.</p>
 
 <table>
   <thead>
     <tr>
       <th>Signal</th>
-      <th>Meaning</th>
-      <th>Inference effect</th>
+      <th>Meaning during training</th>
+      <th>Effect at inference</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">original_size</code> (<code class="language-plaintext highlighter-rouge">width</code>, <code class="language-plaintext highlighter-rouge">height</code>)</td>
-      <td>The native resolution of the training image</td>
-      <td>Set high (e.g. 1024×1024 or larger) to request “high-quality source” behavior; setting it low induces low-res/blurry output</td>
+      <td><code class="language-plaintext highlighter-rouge">original_size</code> (h, w)</td>
+      <td>Resolution of the source image before resizing</td>
+      <td>Large values ask for “high-resolution source” behavior. Small values (e.g. 256×256) produce blurry, low-detail output.</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">crop_coords_top_left</code> (<code class="language-plaintext highlighter-rouge">crop_top</code>, <code class="language-plaintext highlighter-rouge">crop_left</code>)</td>
-      <td>The pixel offset of the training crop</td>
-      <td>Set to <code class="language-plaintext highlighter-rouge">(0, 0)</code> for a centered, uncropped composition; nonzero values shift/zoom the framing</td>
+      <td><code class="language-plaintext highlighter-rouge">crops_coords_top_left</code> (top, left)</td>
+      <td>Pixel offset of the random crop</td>
+      <td><code class="language-plaintext highlighter-rouge">(0, 0)</code> gives centered, uncropped framing. Non-zero values produce subjects cut off at the edges.</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">target_size</code> (<code class="language-plaintext highlighter-rouge">width</code>, <code class="language-plaintext highlighter-rouge">height</code>)</td>
-      <td>The output resolution bucket</td>
-      <td>Set to your intended output size</td>
+      <td><code class="language-plaintext highlighter-rouge">target_size</code> (h, w)</td>
+      <td>Output bucket resolution</td>
+      <td>Set it to the resolution you are generating.</td>
     </tr>
   </tbody>
 </table>
 
-<p>Because the model saw the <em>true</em> crop coordinates during training, it learned to disentangle “this is a cropped image” from content. At inference you exploit that: requesting <code class="language-plaintext highlighter-rouge">crop_top = crop_left = 0</code> reliably yields well-framed subjects instead of the head-cropping that SD 1.5 is notorious for.</p>
+<p>Because the model learned to treat “this image was cropped” or “this image was upscaled” as separate from content, you can ask for clean, well-framed, sharp output independently of the prompt. For normal use, set <code class="language-plaintext highlighter-rouge">original_size</code> and <code class="language-plaintext highlighter-rouge">target_size</code> to your working resolution (or <code class="language-plaintext highlighter-rouge">original_size</code> somewhat larger) and leave the crop at <code class="language-plaintext highlighter-rouge">(0, 0)</code>.</p>
 
-<h3 id="why-this-matters">Why This Matters</h3>
+<p>Where these values are set:</p>
 
-<p>This is why SDXL “just frames better” than SD 1.5 without any prompt tricks. In ComfyUI these values live on the <code class="language-plaintext highlighter-rouge">CLIPTextEncodeSDXL</code> and the SDXL-specific empty-latent/conditioning nodes; in A1111/Forge they are exposed as advanced fields and usually left at sensible defaults. For normal use, leave <code class="language-plaintext highlighter-rouge">original_size</code> and <code class="language-plaintext highlighter-rouge">target_size</code> at your working resolution and keep the crop at <code class="language-plaintext highlighter-rouge">(0, 0)</code>.</p>
+<ul>
+  <li><strong>ComfyUI:</strong> <code class="language-plaintext highlighter-rouge">width</code>, <code class="language-plaintext highlighter-rouge">height</code>, <code class="language-plaintext highlighter-rouge">crop_w</code>, <code class="language-plaintext highlighter-rouge">crop_h</code>, <code class="language-plaintext highlighter-rouge">target_width</code>, and <code class="language-plaintext highlighter-rouge">target_height</code> on <code class="language-plaintext highlighter-rouge">CLIPTextEncodeSDXL</code>. The plain <code class="language-plaintext highlighter-rouge">CLIPTextEncode</code> node fills in defaults.</li>
+  <li><strong>diffusers:</strong> <code class="language-plaintext highlighter-rouge">original_size</code>, <code class="language-plaintext highlighter-rouge">crops_coords_top_left</code>, and <code class="language-plaintext highlighter-rouge">target_size</code> on the SDXL pipelines, plus <code class="language-plaintext highlighter-rouge">negative_original_size</code> and related arguments for the negative branch. A common trick is to set <code class="language-plaintext highlighter-rouge">negative_original_size=(512, 512)</code> so that low-resolution appearance is steered away from.</li>
+  <li><strong>A1111 and Forge:</strong> handled internally with sensible defaults.</li>
+</ul>
 
 <h2 id="resolutions-and-aspect-ratios">Resolutions and Aspect Ratios</h2>
 
-<p>SDXL was trained with <strong>multi-aspect bucketing</strong>: instead of forcing everything to a square, the training pipeline sorted images into buckets of differing aspect ratios that all hold roughly 1024×1024 = ~1.05M pixels. The model therefore generates clean non-square images natively, as long as you stay near that pixel budget and use dimensions that are multiples of 64.</p>
-
-<h3 id="recommended-native-resolutions">Recommended Native Resolutions</h3>
+<p>SDXL was trained with <strong>multi-aspect bucketing</strong>. Images were grouped into buckets of different aspect ratios that all hold about 1024² ≈ 1.05 megapixels, with both sides a multiple of 64. Generating at one of these buckets gives the cleanest results.</p>
 
 <table>
   <thead>
     <tr>
       <th>Aspect ratio</th>
-      <th>Resolution</th>
-      <th>Use</th>
+      <th>Width × height</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>1:1</td>
       <td>1024×1024</td>
-      <td>Square / icons / general</td>
+      <td>General purpose</td>
     </tr>
     <tr>
-      <td>4:3</td>
-      <td>1152×896</td>
-      <td>Standard landscape</td>
+      <td>9:7 / 7:9</td>
+      <td>1152×896 / 896×1152</td>
+      <td>Standard landscape / portrait</td>
     </tr>
     <tr>
-      <td>3:4</td>
-      <td>896×1152</td>
-      <td>Standard portrait</td>
+      <td>19:13 / 13:19</td>
+      <td>1216×832 / 832×1216</td>
+      <td>Photographic 3:2-like</td>
     </tr>
     <tr>
-      <td>16:9</td>
-      <td>1344×768</td>
-      <td>Widescreen / cinematic</td>
+      <td>7:4 / 4:7</td>
+      <td>1344×768 / 768×1344</td>
+      <td>Widescreen / phone</td>
     </tr>
     <tr>
-      <td>9:16</td>
-      <td>768×1344</td>
-      <td>Phone / vertical</td>
-    </tr>
-    <tr>
-      <td>3:2</td>
-      <td>1216×832</td>
-      <td>Photographic landscape</td>
-    </tr>
-    <tr>
-      <td>2:3</td>
-      <td>832×1216</td>
-      <td>Photographic portrait</td>
-    </tr>
-    <tr>
-      <td>21:9</td>
-      <td>1536×640</td>
-      <td>Ultrawide</td>
+      <td>12:5 / 5:12</td>
+      <td>1536×640 / 640×1536</td>
+      <td>Ultrawide / banners</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="resolution-rules-of-thumb">Resolution Rules of Thumb</h3>
+<p>Practical rules:</p>
 
 <ul>
-  <li><strong>Stay near ~1 megapixel.</strong> Total pixel count should hover around 1024×1024. Drifting far above it (e.g. trying 2048×2048 directly) tends to produce duplicated subjects and “double-head” artifacts because the U-Net never saw that scale.</li>
-  <li><strong>Use multiples of 64.</strong> The 8× VAE downsample plus U-Net stride means non-multiples get padded or cropped, costing alignment.</li>
-  <li><strong>Go bigger with upscaling, not bigger latents.</strong> For 2K/4K output, generate at native resolution then use a <a href="advanced-techniques.html">high-resolution upscale pass</a> (img2img at low denoise, or a tiled/ControlNet upscaler) rather than asking SDXL for a huge canvas in one shot.</li>
+  <li><strong>Stay near one megapixel.</strong> Much larger latents (e.g. 2048×2048 in one pass) produce duplicated subjects, extra limbs, and tiled composition because the U-Net never saw that scale during training. Much smaller canvases (e.g. 512×512) look soft and badly composed.</li>
+  <li><strong>Use multiples of 64.</strong> Other sizes work but may be padded or cropped internally, and they fall between trained buckets.</li>
+  <li><strong>Upscale in a second pass for large output.</strong> Generate at a native bucket, then upscale and run img2img at low denoise (about 0.3-0.45), or use a tiled upscaler with a tile ControlNet. See <a href="advanced-techniques.html">Advanced Techniques</a> for multi-stage workflows.</li>
 </ul>
 
-<h2 id="strengths-and-weaknesses">Strengths and Weaknesses</h2>
+<h2 id="recommended-settings">Recommended Settings</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Strengths</th>
-      <th>Weaknesses</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Photorealistic quality, excellent micro-detail</td>
-      <td>Needs 8 GB+ VRAM</td>
-    </tr>
-    <tr>
-      <td>Native 1024×1024+, strong composition</td>
-      <td>40-50% slower than SD 1.5</td>
-    </tr>
-    <tr>
-      <td>Improved (if imperfect) text rendering</td>
-      <td>Best quality wants the two-model pipeline</td>
-    </tr>
-    <tr>
-      <td>Works across all styles; deepest modern ecosystem</td>
-      <td>~13 GB for the full base + refiner</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>Compared with the transformer/flow-matching models (SD3, FLUX), SDXL gives up some prompt-adherence precision and legible-text quality, but in exchange it runs lighter, faster, and on a far deeper ecosystem of community add-ons.</p>
-
-<h2 id="optimal-settings">Optimal Settings</h2>
+<p>These values are for base SDXL and most photographic fine-tunes. Anime fine-tunes publish their own recommendations, and those take precedence.</p>
 
 <table>
   <thead>
     <tr>
       <th>Setting</th>
-      <th>Value</th>
+      <th>Recommended</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Resolution</td>
-      <td>1024×1024 (or a native bucket above)</td>
+      <td>A native bucket (table above)</td>
+      <td> </td>
     </tr>
     <tr>
-      <td>Base steps</td>
+      <td>Steps</td>
       <td>25-35</td>
-    </tr>
-    <tr>
-      <td>Refiner steps</td>
-      <td>10-15 (if used)</td>
+      <td>Beyond ~40 there is little gain with DPM++ samplers</td>
     </tr>
     <tr>
       <td>CFG scale</td>
       <td>5-7</td>
+      <td>Lower than SD 1.5. Values of 8 or more oversaturate and “fry” the image.</td>
     </tr>
     <tr>
       <td>Sampler</td>
-      <td><code class="language-plaintext highlighter-rouge">dpmpp_2m_sde</code> (Karras)</td>
+      <td>DPM++ 2M or DPM++ 2M SDE; Euler a for anime fine-tunes</td>
+      <td> </td>
     </tr>
     <tr>
-      <td>Refiner switch</td>
-      <td>~0.8</td>
+      <td>Scheduler</td>
+      <td>Karras</td>
+      <td>Or <code class="language-plaintext highlighter-rouge">exponential</code> / <code class="language-plaintext highlighter-rouge">sgm_uniform</code> for distilled models</td>
+    </tr>
+    <tr>
+      <td>CLIP skip</td>
+      <td>Not applicable to base SDXL</td>
+      <td>SDXL already uses penultimate-layer states. Some anime fine-tunes recommend <code class="language-plaintext highlighter-rouge">clip skip 2</code>, which in A1111 means the same thing.</td>
     </tr>
     <tr>
       <td>Negative prompt</td>
-      <td>Critical for quality</td>
+      <td>Short and specific</td>
+      <td>Long SD 1.5-style negative lists help little</td>
+    </tr>
+    <tr>
+      <td>VAE precision</td>
+      <td>fp32, bf16, or the <code class="language-plaintext highlighter-rouge">sdxl-vae-fp16-fix</code> VAE</td>
+      <td>The original SDXL VAE overflows in fp16 and produces black or NaN images</td>
     </tr>
   </tbody>
 </table>
 
-<p>A few notes:</p>
+<h3 id="vae-precision">VAE Precision</h3>
 
-<ul>
-  <li><strong>CFG runs lower than SD 1.5.</strong> SDXL likes <code class="language-plaintext highlighter-rouge">cfg ≈ 5-7</code>; pushing it toward SD 1.5’s <code class="language-plaintext highlighter-rouge">7-9</code> oversaturates and “fries” output.</li>
-  <li><strong>Karras schedules pair well</strong> with the <code class="language-plaintext highlighter-rouge">dpmpp_2m</code> / <code class="language-plaintext highlighter-rouge">dpmpp_2m_sde</code> samplers for the best detail-per-step.</li>
-  <li><strong>Negative prompts still matter</strong>, though SDXL needs less aggressive negatives than SD 1.5 thanks to its cleaner training.</li>
-</ul>
+<p>The SDXL VAE has the same architecture as the SD 1.x VAE but was retrained, and it gives better color and fine detail. Its internal activations exceed the fp16 range, so decoding in pure fp16 can return an all-black image. There are three fixes: decode in fp32 (A1111’s <code class="language-plaintext highlighter-rouge">--no-half-vae</code>), decode in bf16, or use the community <code class="language-plaintext highlighter-rouge">madebyollin/sdxl-vae-fp16-fix</code> weights. That VAE is fine-tuned to stay in the fp16 range and decodes almost identically. Most current fine-tunes ship with the fixed VAE baked in.</p>
 
-<h2 id="the-refiner-pipeline">The Refiner Pipeline</h2>
+<h3 id="ε-prediction-vs-v-prediction-checkpoints">ε-Prediction vs v-Prediction Checkpoints</h3>
 
-<p>The SDXL release shipped <strong>two</strong> models: the <strong>base</strong> and a separate <strong>refiner</strong>. The refiner is a specialist trained only on the <em>low-noise</em> end of the diffusion process — the final timesteps where fine texture and micro-detail are resolved.</p>
+<p>Base SDXL predicts noise (ε). Some later fine-tunes, notably the <strong>NoobAI XL V-Pred</strong> series and later Illustrious v-pred releases, were retrained to predict <em>velocity</em> (v-prediction), often with a zero-terminal-SNR schedule. This extends the tonal range to true blacks and brights and fixes the washed-out mid-gray bias of ε-models. A v-pred checkpoint loaded as an ε-model produces gray, noisy garbage. In ComfyUI, add a <code class="language-plaintext highlighter-rouge">ModelSamplingDiscrete</code> node set to <code class="language-plaintext highlighter-rouge">v_prediction</code> (with <code class="language-plaintext highlighter-rouge">zsnr</code> if the model card says so). Forge and recent A1111 builds detect it from checkpoint metadata. LoRAs usually transfer between ε and v-pred models of the same family, but not always cleanly.</p>
 
-<h3 id="how-the-handoff-works">How the Handoff Works</h3>
+<h2 id="the-refiner">The Refiner</h2>
 
-<p>The two-stage handoff is a single latent passed between two samplers — the base stops early and the refiner finishes:</p>
+<p>SDXL 1.0 shipped a second model, the <strong>refiner</strong>. It is a U-Net trained only on the low-noise end of the schedule, the last ~20% of timesteps, where fine texture is resolved. It differs from the base model in three ways: it uses only the OpenCLIP bigG encoder, it has a different channel layout, and it adds an <strong>aesthetic-score</strong> conditioning input (diffusers defaults: 6.0 positive, 2.5 negative).</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    Base["Base model&lt;br/&gt;KSampler (end at ~80%)"] --&gt;|latent| Ref["Refiner model&lt;br/&gt;KSampler (start at ~80%)"]
-    Ref --&gt; Dec["VAE Decode"] --&gt; Img["Final image"]
+<h3 id="handoff">Handoff</h3>
+
+<p>The base model denoises from pure noise to about 80% of the schedule. It then passes the partially denoised <strong>latent</strong>, not a decoded image, to the refiner, which runs the remaining steps. The VAE decodes once, at the end.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant B as Base U-Net
+    participant R as Refiner U-Net
+    participant V as VAE
+    Note over B: steps 0 to 0.8 of the schedule&lt;br/&gt;(high to medium noise: composition)
+    B-&gt;&gt;R: noisy latent at t = 0.8
+    Note over R: steps 0.8 to 1.0&lt;br/&gt;(low noise: texture, micro-detail)
+    R-&gt;&gt;V: clean latent
+    V--&gt;&gt;V: decode to pixels
 </code></pre>
 
-<p>Concretely, the base model denoises from step 0 to roughly 80% of the schedule, then hands the partially-denoised <strong>latent</strong> (not a decoded image) to the refiner, which finishes the remaining ~20% before a single VAE decode. The switch point is the <code class="language-plaintext highlighter-rouge">refiner_switch</code> / <code class="language-plaintext highlighter-rouge">denoise</code> boundary near <code class="language-plaintext highlighter-rouge">0.8</code>.</p>
+<p>The SDXL paper calls this an <strong>ensemble of expert denoisers</strong>: two models, each specialized on part of the same noise schedule. A second, cruder mode also exists, in which the base finishes completely, the result is decoded, and the refiner runs as a low-denoise img2img pass. It works but wastes one decode and gives the refiner inputs it was not trained on.</p>
 
-<h3 id="should-you-use-the-refiner">Should You Use the Refiner?</h3>
+<p>In diffusers the handoff uses <code class="language-plaintext highlighter-rouge">denoising_end</code> and <code class="language-plaintext highlighter-rouge">denoising_start</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">from</span> <span class="n">diffusers</span> <span class="kn">import</span> <span class="n">StableDiffusionXLPipeline</span><span class="p">,</span> <span class="n">StableDiffusionXLImg2ImgPipeline</span>
+
+<span class="n">base</span> <span class="o">=</span> <span class="n">StableDiffusionXLPipeline</span><span class="p">.</span><span class="nf">from_pretrained</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">stabilityai/stable-diffusion-xl-base-1.0</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">float16</span><span class="p">,</span> <span class="n">variant</span><span class="o">=</span><span class="sh">"</span><span class="s">fp16</span><span class="sh">"</span><span class="p">,</span> <span class="n">use_safetensors</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+<span class="p">).</span><span class="nf">to</span><span class="p">(</span><span class="sh">"</span><span class="s">cuda</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">refiner</span> <span class="o">=</span> <span class="n">StableDiffusionXLImg2ImgPipeline</span><span class="p">.</span><span class="nf">from_pretrained</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">stabilityai/stable-diffusion-xl-refiner-1.0</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">text_encoder_2</span><span class="o">=</span><span class="n">base</span><span class="p">.</span><span class="n">text_encoder_2</span><span class="p">,</span> <span class="n">vae</span><span class="o">=</span><span class="n">base</span><span class="p">.</span><span class="n">vae</span><span class="p">,</span>   <span class="c1"># share weights
+</span>    <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">float16</span><span class="p">,</span> <span class="n">variant</span><span class="o">=</span><span class="sh">"</span><span class="s">fp16</span><span class="sh">"</span><span class="p">,</span> <span class="n">use_safetensors</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+<span class="p">).</span><span class="nf">to</span><span class="p">(</span><span class="sh">"</span><span class="s">cuda</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">prompt</span> <span class="o">=</span> <span class="sh">"</span><span class="s">a lighthouse on a basalt cliff at dusk, long exposure, sharp focus</span><span class="sh">"</span>
+<span class="n">latents</span> <span class="o">=</span> <span class="nf">base</span><span class="p">(</span><span class="n">prompt</span><span class="o">=</span><span class="n">prompt</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+               <span class="n">denoising_end</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">output_type</span><span class="o">=</span><span class="sh">"</span><span class="s">latent</span><span class="sh">"</span><span class="p">).</span><span class="n">images</span>
+<span class="n">image</span> <span class="o">=</span> <span class="nf">refiner</span><span class="p">(</span><span class="n">prompt</span><span class="o">=</span><span class="n">prompt</span><span class="p">,</span> <span class="n">num_inference_steps</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+                <span class="n">denoising_start</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">image</span><span class="o">=</span><span class="n">latents</span><span class="p">).</span><span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</code></pre></div></div>
+
+<p>In ComfyUI the same pattern uses two <code class="language-plaintext highlighter-rouge">KSamplerAdvanced</code> nodes. The base node gets <code class="language-plaintext highlighter-rouge">end_at_step = 32</code> and <code class="language-plaintext highlighter-rouge">return_with_leftover_noise = enable</code>. The refiner node gets <code class="language-plaintext highlighter-rouge">start_at_step = 32</code> and <code class="language-plaintext highlighter-rouge">add_noise = disable</code>, with the same total of 40 steps.</p>
+
+<h3 id="whether-to-use-the-refiner">Whether to Use the Refiner</h3>
+
+<p>In practice the community largely dropped it. Popular fine-tunes such as Juggernaut XL, RealVisXL, DreamShaper XL, and the entire anime branch were trained to look finished in one pass. A refiner trained against base SDXL can also pull a fine-tune’s style back toward the base look. The refiner is only compatible with base SDXL’s latent distribution, and LoRAs trained on the base do not apply to it.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Use the refiner when…</th>
-      <th>Skip the refiner when…</th>
+      <th>Use it when</th>
+      <th>Skip it when</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>You want maximum micro-detail on the base SDXL checkpoint</td>
-      <td>You are using a modern community fine-tune (most look great base-only)</td>
+      <td>Rendering with the original <code class="language-plaintext highlighter-rouge">sd_xl_base_1.0</code> checkpoint</td>
+      <td>Using any modern fine-tune</td>
     </tr>
     <tr>
-      <td>You have the VRAM/disk for ~13 GB of models</td>
-      <td>You are VRAM- or disk-constrained (8 GB cards)</td>
+      <td>You want maximum photographic micro-texture and have ~13 GB of disk and VRAM headroom</td>
+      <td>On 8 GB cards or iterating quickly</td>
     </tr>
     <tr>
-      <td>You are doing final, high-stakes renders</td>
-      <td>You are iterating quickly on prompts</td>
+      <td>No LoRA controls style</td>
+      <td>A LoRA or fine-tune controls style (the refiner ignores it)</td>
     </tr>
   </tbody>
 </table>
 
-<p>In practice, the ecosystem moved away from the refiner: most popular SDXL fine-tunes (Juggernaut, RealVisXL, DreamShaper XL, the Pony/Illustrious family) were trained to look excellent in a single base pass, and many users never load the refiner at all. Treat it as an optional finishing tool, not a requirement.</p>
+<p>A cheaper way to add detail is a hires-fix pass (upscale plus low-denoise img2img) with the same model.</p>
 
-<h3 id="ensemble-vs-two-stage">Ensemble vs. Two-Stage</h3>
+<h2 id="distilled-few-step-variants">Distilled Few-Step Variants</h2>
 
-<p>Two ways of combining base and refiner exist:</p>
+<p>Several distillation methods produce SDXL checkpoints or LoRAs that need far fewer steps. They run at CFG ≈ 1-2 (guidance is baked in), so negative prompts have little or no effect.</p>
 
-<ol>
-  <li><strong>Two-stage (sequential).</strong> Run the base to ~80%, then the refiner to 100%. This is the diagram above and the common workflow.</li>
-  <li><strong>Ensemble of experts.</strong> Conceptually, base and refiner are “experts” specialized on different noise levels of the <em>same</em> schedule, and the refiner only ever sees low-noise steps it was trained for. The two-stage workflow is the practical realization of this idea.</li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Variant</th>
+      <th>Method</th>
+      <th>Steps</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LCM / LCM-LoRA (2023)</td>
+      <td>Latent consistency distillation</td>
+      <td>4-8</td>
+      <td>Available as a LoRA that plugs into any SDXL fine-tune; softer detail</td>
+    </tr>
+    <tr>
+      <td>SDXL Turbo (Nov 2023)</td>
+      <td>Adversarial diffusion distillation (ADD)</td>
+      <td>1-4</td>
+      <td>Trained at 512×512; non-commercial license</td>
+    </tr>
+    <tr>
+      <td>SDXL Lightning (Feb 2024, ByteDance)</td>
+      <td>Progressive + adversarial distillation</td>
+      <td>1, 2, 4, 8</td>
+      <td>Full checkpoints and LoRAs; 1024px; good quality retention</td>
+    </tr>
+    <tr>
+      <td>Hyper-SD (2024, ByteDance)</td>
+      <td>Trajectory-segmented consistency + human feedback</td>
+      <td>1-8</td>
+      <td>LoRAs for SDXL, some CFG-preserving</td>
+    </tr>
+    <tr>
+      <td>DMD2 (2024)</td>
+      <td>Distribution matching distillation</td>
+      <td>4</td>
+      <td>Often the sharpest 4-step SDXL option; available as a LoRA</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="migrating-from-sd-15-to-sdxl">Migrating from SD 1.5 to SDXL</h2>
+<p>Distilled LoRAs are commonly stacked on a normal fine-tune for fast previews. For the final render you then either keep the LoRA or switch back to a full-step sampler. See the <a href="optimization-guide.html">Optimization Guide</a> for how distillation compares with other speed techniques.</p>
 
-<p>The biggest shift is from terse tags to natural description. An SD 1.5 prompt like <code class="language-plaintext highlighter-rouge">masterpiece, best quality, 1girl, sitting, park bench</code> becomes, for SDXL, something closer to a sentence: <em>“a young woman sitting on a park bench on a sunny day, professional photography, shallow depth of field.”</em> SDXL’s dual encoders reward this; quality-spam tags help much less than they did on SD 1.5.</p>
+<h2 id="fine-tune-ecosystem">Fine-Tune Ecosystem</h2>
 
-<p>A quick translation table:</p>
+<p>Every model below shares the SDXL architecture. SDXL LoRAs, ControlNets, and IP-Adapters therefore load on all of them, although a LoRA trained on a photographic checkpoint may look wrong on an anime one. The deeper a fine-tune’s continued training, the further it drifts from base SDXL, and cross-compatibility degrades accordingly.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    Base["SDXL 1.0 base&lt;br/&gt;(Stability AI, 2023)"]
+    Base --&gt; Photo["Photographic / general&lt;br/&gt;Juggernaut XL, RealVisXL,&lt;br/&gt;DreamShaper XL"]
+    Base --&gt; Pony["Pony Diffusion V6 XL&lt;br/&gt;(score_* tags)"]
+    Base --&gt; Ill["Illustrious XL&lt;br/&gt;(danbooru tags)"]
+    Ill --&gt; Noob["NoobAI XL&lt;br/&gt;(ε and v-pred)"]
+    Ill --&gt; Merges["Community merges&lt;br/&gt;(e.g. WAI-Illustrious)"]
+    Base --&gt; Fast["Distilled&lt;br/&gt;Turbo, Lightning, Hyper, DMD2"]
+    Pony -.-&gt;|"V7 moved to AuraFlow&lt;br/&gt;(not SDXL)"| PV7["Pony V7"]
+</code></pre>
+
+<h3 id="photographic-and-general">Photographic and General</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Fine-tune</th>
+      <th>Focus</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Juggernaut XL</td>
+      <td>Versatile photorealism; one of the most used SDXL checkpoints</td>
+    </tr>
+    <tr>
+      <td>RealVisXL</td>
+      <td>Photorealistic people and scenes</td>
+    </tr>
+    <tr>
+      <td>DreamShaper XL</td>
+      <td>Semi-realistic and stylized all-rounder</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="anime-and-illustration">Anime and Illustration</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Fine-tune</th>
+      <th>Prompt convention</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pony Diffusion V6 XL</td>
+      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, score_7_up, ...</code> prefix plus <code class="language-plaintext highlighter-rouge">source_*</code> tags</td>
+      <td>Huge LoRA library; separate LoRA ecosystem that only partly transfers to other SDXL models</td>
+    </tr>
+    <tr>
+      <td>Illustrious XL (v0.1 → v2.x; later v3.x v-pred)</td>
+      <td>Danbooru tags plus quality tags</td>
+      <td>Strong character and artist recall. v1.0 and later add higher native resolutions; v2.0 was released untuned as a training base.</td>
+    </tr>
+    <tr>
+      <td>NoobAI XL (ε and V-Pred 1.0)</td>
+      <td>Danbooru and e621 tags</td>
+      <td>Continued pretraining of Illustrious by Laxhar Lab (from November 2024); strong tag comprehension</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Pony’s quirk is <strong>score-based prompting</strong>: it learned a quality ladder (<code class="language-plaintext highlighter-rouge">score_9</code> down to <code class="language-plaintext highlighter-rouge">score_4</code>) that you prepend to steer toward higher-rated output. Illustrious and NoobAI use plain danbooru tags with conventional quality tags instead. See the <a href="pony-and-finetunes.html">Pony &amp; Fine-Tunes guide</a> for tag conventions and settings.</p>
+
+<h2 id="migrating-from-sd-15">Migrating from SD 1.5</h2>
 
 <table>
   <thead>
@@ -3524,17 +3666,17 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td>Prompt style</td>
       <td>Comma-separated tags</td>
-      <td>Natural language + a few tags</td>
+      <td>Natural language on base and photographic models; tags on anime fine-tunes</td>
     </tr>
     <tr>
       <td>Quality boosters</td>
-      <td><code class="language-plaintext highlighter-rouge">masterpiece, best quality</code> carry real weight</td>
-      <td>Mostly inert on base SDXL</td>
+      <td><code class="language-plaintext highlighter-rouge">masterpiece, best quality</code> carry weight</td>
+      <td>Mostly inert on base SDXL; they matter again on Illustrious and NoobAI</td>
     </tr>
     <tr>
       <td>Resolution</td>
       <td>512×512</td>
-      <td>1024×1024 native buckets</td>
+      <td>1024×1024-class buckets</td>
     </tr>
     <tr>
       <td>CFG</td>
@@ -3542,139 +3684,64 @@ document.addEventListener('DOMContentLoaded', function () {
       <td>5-7</td>
     </tr>
     <tr>
+      <td>Negative prompt</td>
+      <td>Long “bad anatomy” lists and negative embeddings</td>
+      <td>Short, targeted negatives</td>
+    </tr>
+    <tr>
+      <td>Framing</td>
+      <td>Prompt tricks to avoid cropped heads</td>
+      <td>Crop conditioning at <code class="language-plaintext highlighter-rouge">(0, 0)</code></td>
+    </tr>
+    <tr>
+      <td>VAE</td>
+      <td>Swap in <code class="language-plaintext highlighter-rouge">vae-ft-mse-840000</code></td>
+      <td>Built-in VAE, or the fp16-fix VAE</td>
+    </tr>
+    <tr>
       <td>Add-ons</td>
-      <td>SD 1.5 LoRAs/ControlNets</td>
-      <td><strong>Must</strong> use SDXL-specific LoRAs/ControlNets (not cross-compatible)</td>
-    </tr>
-    <tr>
-      <td>Framing tricks</td>
-      <td>Manual prompt wrangling</td>
-      <td>Built-in crop conditioning at <code class="language-plaintext highlighter-rouge">(0, 0)</code></td>
+      <td>SD 1.5 LoRAs, embeddings, ControlNets</td>
+      <td><strong>Must be SDXL versions.</strong> SD 1.5 add-ons do not load.</td>
     </tr>
   </tbody>
 </table>
 
-<p>The hard compatibility rule: <strong>SD 1.5 LoRAs, embeddings, and ControlNets do not load on SDXL.</strong> They target a different U-Net shape and text-encoder setup. You must download SDXL versions of any add-on.</p>
+<p>The compatibility rule is strict. SD 1.5 LoRAs, textual-inversion embeddings, and ControlNets target a different U-Net shape and text-encoder width, so they fail to load or have no effect on SDXL. SDXL embeddings contain two tensors, <code class="language-plaintext highlighter-rouge">clip_l</code> and <code class="language-plaintext highlighter-rouge">clip_g</code>, one for each encoder.</p>
 
-<h2 id="ecosystem-and-fine-tunes">Ecosystem and Fine-Tunes</h2>
+<h2 id="worked-example">Worked Example</h2>
 
-<p>SDXL’s lasting advantage is the breadth of work built on top of it. Because every fine-tune below shares the SDXL architecture, they also <strong>share its LoRAs and ControlNets</strong> — a LoRA trained for SDXL generally works on Pony, Illustrious, and the photorealistic checkpoints alike (with varying aesthetic fit).</p>
+<p>A base-only setup for an 8 GB card:</p>
 
-<h3 id="photorealistic-and-general-fine-tunes">Photorealistic and General Fine-Tunes</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Fine-tune</th>
-      <th>Focus</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Juggernaut XL</td>
-      <td>Versatile photorealism, very popular general checkpoint</td>
-    </tr>
-    <tr>
-      <td>RealVisXL</td>
-      <td>High-fidelity photorealistic people and scenes</td>
-    </tr>
-    <tr>
-      <td>DreamShaper XL</td>
-      <td>Balanced semi-realistic / stylized all-rounder</td>
-    </tr>
-    <tr>
-      <td>SDXL Turbo / Lightning / LCM</td>
-      <td>Distilled few-step variants for fast (1-8 step) generation</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="anime-and-stylized-fine-tunes">Anime and Stylized Fine-Tunes</h3>
-
-<p>The anime/stylized branch of SDXL is large enough to feel like its own model family. All three below are SDXL underneath and differ mainly in prompt convention and training data.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Fine-tune</th>
-      <th>Prompt convention</th>
-      <th>Notable for</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Pony Diffusion V6</td>
-      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, ...</code> prefix</td>
-      <td>Huge community, strong style control</td>
-    </tr>
-    <tr>
-      <td>Illustrious XL</td>
-      <td>Plain danbooru tags</td>
-      <td>Accurate character/tag recall</td>
-    </tr>
-    <tr>
-      <td>NoobAI XL</td>
-      <td>Plain danbooru tags</td>
-      <td>Recent training data, refined Illustrious base</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>Pony’s defining quirk is <strong>score-based prompting</strong>: it learned a quality ladder (<code class="language-plaintext highlighter-rouge">score_9</code>, <code class="language-plaintext highlighter-rouge">score_8_up</code>, …) that you prepend to steer toward higher-rated output. Illustrious and NoobAI drop that convention in favor of plain danbooru tags. For a fuller treatment of these and how they compare to other base models, see the Pony section of the <a href="pony-and-finetunes.html#pony-diffusion-v6-xl">Pony &amp; Fine-Tunes guide</a>.</p>
-
-<h3 id="distilled-speed-variants">Distilled Speed Variants</h3>
-
-<p>Several distillation techniques produce SDXL checkpoints that generate in a handful of steps:</p>
-
-<ul>
-  <li><strong>SDXL Turbo</strong> — 1-4 step generation via adversarial diffusion distillation; great for previews, weaker on fine detail.</li>
-  <li><strong>SDXL Lightning</strong> — 2-8 step variants with better quality retention than Turbo.</li>
-  <li><strong>LCM / LCM-LoRA</strong> — a Latent Consistency Model approach available as a LoRA you can drop onto an existing SDXL checkpoint for ~4-8 step inference.</li>
-</ul>
-
-<p>These trade some peak quality for a large speed gain and are ideal for rapid iteration before a final full-step render.</p>
-
-<h2 id="worked-example-a-clean-sdxl-generation">Worked Example: A Clean SDXL Generation</h2>
-
-<p>A reproducible base-only SDXL setup (no refiner), suitable for an 8 GB card:</p>
-
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Checkpoint:   Juggernaut XL (or any SDXL fine-tune)
-Resolution:   1216×832  (3:2 landscape, native bucket)
-Positive:     "a golden retriever puppy sitting in tall summer grass at
-               sunset, warm rim light, professional wildlife photography,
-               shallow depth of field, sharp focus"
-Negative:     "blurry, low quality, deformed, extra limbs, watermark, text"
-Steps:        30
-CFG:          6.0
-Sampler:      dpmpp_2m_sde
-Scheduler:    karras
-Crop cond:    crop_top = 0, crop_left = 0   (centered framing)
-Size cond:    original/target = 1216×832
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Checkpoint:  Juggernaut XL (any photographic SDXL fine-tune)
+Resolution:  1216×832 (native landscape bucket)
+Positive:    a golden retriever puppy sitting in tall summer grass at sunset,
+             warm rim light, professional wildlife photography,
+             shallow depth of field, sharp focus
+Negative:    blurry, lowres, watermark, text
+Steps:       30
+CFG:         6.0
+Sampler:     dpmpp_2m_sde
+Scheduler:   karras
+Size cond:   original_size = target_size = 1216×832
+Crop cond:   (0, 0)
+VAE:         fp16-fix (or decode in bf16/fp32)
 </code></pre></div></div>
 
-<p>If you want extra micro-detail and have the VRAM, add the refiner: stop the base at <code class="language-plaintext highlighter-rouge">0.8</code>, hand off to the refiner for the final 20%, then decode once.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>SDXL is the safe default</strong> — native 1024px output, strong composition, and the deepest mature ecosystem of LoRAs, ControlNets, and fine-tunes.</li>
-  <li><strong>Two text encoders</strong> (CLIP ViT-L + OpenCLIP bigG) make SDXL reward natural-language prompts and care less about SD 1.5 quality-spam tags.</li>
-  <li><strong>Size/crop conditioning</strong> is why SDXL frames subjects better than SD 1.5 — keep the crop at <code class="language-plaintext highlighter-rouge">(0, 0)</code> for centered compositions.</li>
-  <li><strong>Stay near ~1 megapixel</strong> using native aspect buckets and multiples of 64; upscale for bigger output rather than asking for a giant latent.</li>
-  <li><strong>The refiner is optional</strong> — most modern fine-tunes look excellent base-only; reach for it only for maximum micro-detail.</li>
-  <li><strong>Add-ons must be SDXL-specific</strong> — SD 1.5 LoRAs and ControlNets do not load on SDXL, but they are shared across SDXL fine-tunes (Pony, Illustrious, NoobAI).</li>
-</ul>
+<p>To go larger, upscale the result 1.5-2× with an ESRGAN-family model, then run img2img at denoise 0.35 with the same prompt. A tile ControlNet keeps composition locked while detail is added.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - How SDXL stacks up against SD 1.5, SD3, FLUX, and Pony</li>
+  <li><a href="base-models-comparison.html">Base Models Comparison</a> - SDXL against SD 1.5, SD3, FLUX, and others</li>
   <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - The diffusion process SDXL is built on</li>
-  <li><a href="model-types.html">Model Types</a> - Understanding LoRAs, VAEs, embeddings</li>
-  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Building the SDXL base+refiner workflow visually</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Train custom SDXL LoRAs</li>
-  <li><a href="controlnet.html">ControlNet</a> - Precise control over SDXL generation</li>
-  <li><a href="advanced-techniques.html">Advanced Techniques</a> - High-resolution upscaling and beyond</li>
+  <li><a href="pony-and-finetunes.html">Pony &amp; Fine-Tunes</a> - Pony, Illustrious, and NoobAI prompting in detail</li>
+  <li><a href="flux-guide.html">FLUX Guide</a> and <a href="sd3-guide.html">SD3 Guide</a> - The transformer and flow-matching successors</li>
+  <li><a href="model-types.html">Model Types</a> - LoRAs, VAEs, and embeddings</li>
+  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Building SDXL workflows visually</li>
+  <li><a href="lora-training.html">LoRA Training</a> - Training SDXL LoRAs</li>
+  <li><a href="controlnet.html">ControlNet</a> - Structural control for SDXL</li>
+  <li><a href="optimization-guide.html">Optimization Guide</a> - VRAM and speed techniques</li>
+  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Upscaling and multi-stage workflows</li>
   <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
 </ul>
 

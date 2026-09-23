@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Reference for securing AWS: account structure and organization policies, IAM and workload identity, KMS encryption, threat detection with GuardDuty and Secur...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AWS Security & Identity">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Reference for securing AWS: account structure and organization policies, IAM and workload identity, KMS encryption, threat detection with GuardDuty and Secur...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/security.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AWS Security & Identity">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Reference for securing AWS: account structure and organization policies, IAM and workload identity, KMS encryption, threat detection with GuardDuty and Secur...">
 
 <title>AWS Security & Identity | Andrews Notebook</title>
 
@@ -3131,669 +3131,525 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>Security in AWS isn’t a feature you add later — it’s woven into every decision from day one. This page covers identity (IAM), data protection (KMS), threat detection (Security Hub, GuardDuty), and edge protection (WAF), building from foundational principles up to automated, continuous compliance.</p>
+        <p>AWS security is mostly about controlling <em>who can call which API on which resource</em>, then proving that control holds over time. This page covers the layers in the order a request meets them: account boundaries and organization policies, IAM identities and policy evaluation, credentials for workloads, encryption with KMS, threat detection and posture management, and edge protection. A reference Terraform baseline closes the page.</p>
 
-<h2 id="the-problem-security-solves">The Problem Security Solves</h2>
+<h2 id="shared-responsibility">Shared responsibility</h2>
 
-<p>In an on-premises data center, a locked door and a firewall went a long way: an attacker had to physically reach the building or breach the network perimeter. In the cloud, every resource has a public API endpoint, and a single leaked access key or an over-permissive policy can expose your entire account from anywhere on the internet. Security in AWS is therefore less about a perimeter and more about <em>who can do what to which resource</em> — and proving it.</p>
+<p>AWS secures the infrastructure that runs the cloud: data centers, hardware, hypervisors and the global network. The customer secures everything configured <em>in</em> the cloud: identities, permissions, network rules, data classification, encryption settings, and application code. For managed services the line moves (AWS patches the RDS engine; you still own the database users and security groups), but identity and data are always on the customer side. Nearly every public AWS breach traces back to that side: a public bucket, a leaked access key, an <code class="language-plaintext highlighter-rouge">0.0.0.0/0</code> rule on an admin port, or an over-broad role.</p>
 
-<p>The good news: AWS gives you fine-grained controls for exactly this, and most of them cost nothing to turn on. The hard part is knowing which control addresses which risk. This guide is organized around four questions:</p>
+<p>The controls on this page map onto four questions:</p>
 
 <table>
   <thead>
     <tr>
       <th>Question</th>
-      <th>Risk it addresses</th>
+      <th>Main risk</th>
       <th>Primary services</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Who can act, and on what?</strong></td>
+      <td>Who can act, and on what?</td>
       <td>Stolen credentials, privilege escalation</td>
-      <td>IAM, IAM Identity Center, Organizations</td>
+      <td>Organizations, IAM Identity Center, IAM, Access Analyzer</td>
     </tr>
     <tr>
-      <td><strong>Is the data readable if stolen?</strong></td>
-      <td>Data exfiltration, lost disks</td>
-      <td>KMS, encryption defaults</td>
+      <td>Is the data unreadable if it leaks?</td>
+      <td>Exfiltration, lost snapshots</td>
+      <td>KMS, service default encryption, Secrets Manager</td>
     </tr>
     <tr>
-      <td><strong>Are we being attacked right now?</strong></td>
-      <td>Active intrusion, misconfiguration</td>
-      <td>GuardDuty, Security Hub, Config</td>
+      <td>Is something bad happening now?</td>
+      <td>Intrusion, drift, vulnerable software</td>
+      <td>CloudTrail, GuardDuty, Inspector, Macie, Config, Security Hub</td>
     </tr>
     <tr>
-      <td><strong>Can attacker traffic even reach us?</strong></td>
+      <td>Can hostile traffic reach the workload?</td>
       <td>DDoS, injection, scraping</td>
-      <td>WAF, Shield, Security Groups</td>
+      <td>WAF, Shield, security groups, Network Firewall</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="where-the-line-is-drawn-shared-responsibility">Where the Line Is Drawn: Shared Responsibility</h3>
+<h2 id="account-structure-and-organization-guardrails">Account structure and organization guardrails</h2>
 
-<p>AWS secures the cloud (physical data centers, hypervisors, the network backbone). You secure what is <em>in</em> the cloud (identities, configuration, data, application code). Almost every breach you read about lives on the customer side of that line — a public S3 bucket, a hardcoded key, an <code class="language-plaintext highlighter-rouge">0.0.0.0/0</code> rule. Internalizing this division tells you where to spend your effort.</p>
+<p>The AWS account is the strongest isolation boundary AWS offers: IAM permissions, quotas and most resources do not cross accounts unless explicitly shared. Mature environments therefore use many accounts (per workload and per environment) grouped under <strong>AWS Organizations</strong>, usually set up through <strong>AWS Control Tower</strong> or an equivalent landing-zone tool.</p>
 
-<h3 id="the-security-maturity-path">The Security Maturity Path</h3>
+<pre><code class="language-mermaid">flowchart TB
+    Mgmt["Management account&lt;br/&gt;billing, Organizations only"]
+    Mgmt --&gt; Root((Org root))
+    Root --&gt; SecOU["Security OU"]
+    Root --&gt; InfraOU["Infrastructure OU"]
+    Root --&gt; WlOU["Workloads OU"]
+    SecOU --&gt; LogArch["Log archive&lt;br/&gt;org CloudTrail, Config"]
+    SecOU --&gt; Audit["Security tooling&lt;br/&gt;delegated admin for GuardDuty,&lt;br/&gt;Security Hub, Inspector"]
+    InfraOU --&gt; Net["Network&lt;br/&gt;Transit Gateway, egress"]
+    WlOU --&gt; Prod["Prod OU"]
+    WlOU --&gt; NonProd["Non-prod OU"]
+    Prod --&gt; AppP["app-prod"]
+    NonProd --&gt; AppD["app-dev"]
+</code></pre>
 
-<p>Most teams progress through these stages. You do not need to reach the end on day one, but you should know what each stage protects against:</p>
+<p>Keep the management account empty of workloads: service control policies do not apply to it, so anything running there is outside your guardrails. Delegate security services to a dedicated security-tooling account and send org-wide CloudTrail and Config data to a separate log-archive account that application teams cannot modify.</p>
 
-<ol>
-  <li><strong>Basic protection</strong>: MFA on the root account, individual IAM users/roles, no long-lived keys in code.</li>
-  <li><strong>Defense in depth</strong>: Private subnets, encryption at rest and in transit, CloudTrail logging on.</li>
-  <li><strong>Automated compliance</strong>: Config rules and Security Hub flag drift; GuardDuty watches for active threats.</li>
-  <li><strong>Zero trust</strong>: Assume breach. Verify every request, scope every credential, segment every network.</li>
-</ol>
+<h3 id="organization-policy-types">Organization policy types</h3>
 
-<hr />
-
-<h2 id="iam-who-can-do-what">IAM: Who Can Do What</h2>
-
-<p>IAM (Identity and Access Management) is the foundation everything else rests on. Get IAM wrong and no amount of encryption or threat detection will save you. Get it right and most attacks have nowhere to go.</p>
-
-<h3 id="the-four-iam-building-blocks">The Four IAM Building Blocks</h3>
+<p>Organization policies never grant permissions; they set the maximum that identity and resource policies can grant.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Concept</th>
-      <th>What it is</th>
-      <th>When to use it</th>
+      <th>Policy</th>
+      <th>Restricts</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>User</strong></td>
-      <td>A long-lived identity for a human or legacy app</td>
-      <td>Rare today — prefer Identity Center for humans</td>
+      <td><strong>Service control policy (SCP)</strong></td>
+      <td>What principals <em>in</em> member accounts can do</td>
+      <td>Deny leaving the org, disabling CloudTrail/GuardDuty, using unapproved Regions</td>
     </tr>
     <tr>
-      <td><strong>Group</strong></td>
-      <td>A collection of users sharing permissions</td>
-      <td>Apply policies to many users at once (e.g. <code class="language-plaintext highlighter-rouge">Developers</code>)</td>
+      <td><strong>Resource control policy (RCP)</strong></td>
+      <td>What <em>any</em> principal, including external ones, can do to resources in member accounts</td>
+      <td>Enforce a data perimeter: S3, KMS, SQS, Secrets Manager and STS resources reachable only by org identities</td>
     </tr>
     <tr>
-      <td><strong>Role</strong></td>
-      <td>A temporary identity that anything can assume</td>
-      <td>The default for applications, EC2, Lambda, cross-account access</td>
-    </tr>
-    <tr>
-      <td><strong>Policy</strong></td>
-      <td>A JSON document granting or denying actions</td>
-      <td>Attached to users, groups, or roles to define permissions</td>
+      <td><strong>Declarative policies</strong></td>
+      <td>Service configuration baselines (e.g. EC2 settings)</td>
+      <td>Block public AMI sharing, require IMDSv2 across the org</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>The single most important rule:</strong> prefer <strong>roles</strong> over <strong>users with access keys</strong>. A role hands out short-lived, automatically-rotated credentials; a user’s access key sits in a config file or environment variable indefinitely, waiting to leak. EC2 instances, Lambda functions, and CI/CD pipelines should all assume roles, never carry static keys.</p>
+<p>RCPs (introduced November 2024) close a gap SCPs could not: an SCP cannot stop a principal from <em>another</em> organization using a permissive bucket policy, but an RCP attached to your OU can. Neither SCPs nor RCPs affect the management account or service-linked roles.</p>
 
-<h3 id="anatomy-of-an-iam-policy">Anatomy of an IAM Policy</h3>
+<h3 id="root-user">Root user</h3>
 
-<p>Every permission decision comes down to a policy document. Read this one as “allow reading objects from a specific bucket, but only over TLS”:</p>
+<p>Every account has a root user that bypasses IAM. Use it only for the handful of tasks that require it (closing a standalone account, restoring a locked-out administrator, a few billing tasks). AWS now enforces MFA for root sign-in, and in an organization you can enable <strong>centralized root access management</strong>: the management account (or a delegated IAM administrator) can delete root passwords, access keys and MFA devices from member accounts, and perform the few root-only actions, such as unlocking an S3 bucket whose policy denies everyone, as short-lived privileged sessions. New accounts created in the organization then have no root credentials at all.</p>
+
+<h2 id="iam-identities-and-permissions">IAM: identities and permissions</h2>
+
+<h3 id="identity-types">Identity types</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Identity</th>
+      <th>Credential</th>
+      <th>Use for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>IAM Identity Center user</strong></td>
+      <td>SSO sign-in, short-lived role sessions per account</td>
+      <td>All human access, federated from Okta, Entra ID, Google, or the built-in directory</td>
+    </tr>
+    <tr>
+      <td><strong>IAM role</strong></td>
+      <td>Temporary STS credentials (15 min to 12 h)</td>
+      <td>Workloads, cross-account access, CI/CD, humans via Identity Center permission sets</td>
+    </tr>
+    <tr>
+      <td><strong>IAM user</strong></td>
+      <td>Long-lived password and/or access keys</td>
+      <td>Only where nothing else works (some third-party tools); avoid for people</td>
+    </tr>
+    <tr>
+      <td><strong>Root user</strong></td>
+      <td>Account owner credentials</td>
+      <td>Root-only tasks; otherwise removed or locked away</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The rule that prevents most incidents: <strong>no long-lived access keys</strong>. A role hands out credentials that expire and rotate automatically; an access key sits in a file, environment variable, or git history until someone finds it.</p>
+
+<h3 id="policy-types">Policy types</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Attached to</th>
+      <th>Grants?</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Identity-based policy</td>
+      <td>User, group, role</td>
+      <td>Yes</td>
+      <td>AWS-managed, customer-managed, or inline</td>
+    </tr>
+    <tr>
+      <td>Resource-based policy</td>
+      <td>Bucket, key, queue, role trust policy, etc.</td>
+      <td>Yes</td>
+      <td>Names a <code class="language-plaintext highlighter-rouge">Principal</code>; the only way to grant cross-account access without assuming a role</td>
+    </tr>
+    <tr>
+      <td>Permissions boundary</td>
+      <td>User or role</td>
+      <td>No (caps)</td>
+      <td>Lets teams create roles without escalating beyond the boundary</td>
+    </tr>
+    <tr>
+      <td>Session policy</td>
+      <td>An <code class="language-plaintext highlighter-rouge">AssumeRole</code> session</td>
+      <td>No (caps)</td>
+      <td>Narrows a single session</td>
+    </tr>
+    <tr>
+      <td>SCP / RCP</td>
+      <td>Org root, OU, account</td>
+      <td>No (caps)</td>
+      <td>See above</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="policy-evaluation">Policy evaluation</h3>
+
+<p>Every request starts denied. It is allowed only if some applicable policy allows it and nothing denies it; any explicit <code class="language-plaintext highlighter-rouge">Deny</code> anywhere wins. For a request within one account, the logic is:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    Start([Request]) --&gt; D{Explicit Deny in any&lt;br/&gt;applicable policy?}
+    D --&gt;|Yes| Deny[Denied]
+    D --&gt;|No| O{SCPs and RCPs&lt;br/&gt;allow it?}
+    O --&gt;|No| Deny
+    O --&gt;|Yes| R{Resource policy&lt;br/&gt;allows it?}
+    R --&gt;|Yes| Allow[Allowed]
+    R --&gt;|No| I{Identity policy&lt;br/&gt;allows it?}
+    I --&gt;|No| Deny
+    I --&gt;|Yes| B{Permissions boundary and&lt;br/&gt;session policy allow it?}
+    B --&gt;|No| Deny
+    B --&gt;|Yes| Allow
+</code></pre>
+
+<p>Cross-account requests are stricter: both the caller’s identity policy <strong>and</strong> the target’s resource policy must allow the action. (Within one account, a resource policy that names an IAM role or user as principal can grant access on its own; KMS key policies and role trust policies are exceptions that must always allow the principal explicitly.)</p>
+
+<h3 id="anatomy-of-a-policy">Anatomy of a policy</h3>
+
+<p>A bucket policy that lets one role read objects, and refuses any request not sent over TLS:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"Sid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AppRoleRead"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::111122223333:role/app-reader"</span><span class="w"> </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s3:GetObject"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:s3:::my-app-bucket/*"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"Sid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"DenyInsecureTransport"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Deny"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s3:*"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"arn:aws:s3:::my-app-bucket"</span><span class="p">,</span><span class="w"> </span><span class="s2">"arn:aws:s3:::my-app-bucket/*"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"Bool"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"aws:SecureTransport"</span><span class="p">:</span><span class="w"> </span><span class="s2">"false"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<ul>
+  <li><strong>Effect</strong>: <code class="language-plaintext highlighter-rouge">Allow</code> or <code class="language-plaintext highlighter-rouge">Deny</code>; explicit <code class="language-plaintext highlighter-rouge">Deny</code> always wins.</li>
+  <li><strong>Principal</strong>: who the statement applies to (resource policies only).</li>
+  <li><strong>Action</strong>: API operations as <code class="language-plaintext highlighter-rouge">service:Operation</code>. Avoid <code class="language-plaintext highlighter-rouge">s3:*</code> in allows.</li>
+  <li><strong>Resource</strong>: exact ARNs. Note the bucket ARN and object ARN (<code class="language-plaintext highlighter-rouge">/*</code>) are different resources.</li>
+  <li><strong>Condition</strong>: context checks such as <code class="language-plaintext highlighter-rouge">aws:SecureTransport</code>, <code class="language-plaintext highlighter-rouge">aws:PrincipalOrgID</code>, <code class="language-plaintext highlighter-rouge">aws:SourceVpce</code>, <code class="language-plaintext highlighter-rouge">aws:MultiFactorAuthPresent</code>, or tag keys for attribute-based access control (ABAC).</li>
+</ul>
+
+<h3 id="least-privilege-with-iam-access-analyzer">Least privilege with IAM Access Analyzer</h3>
+
+<p>Guessing permissions produces either broken deploys or <code class="language-plaintext highlighter-rouge">AdministratorAccess</code>. IAM Access Analyzer turns it into a data-driven loop:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Capability</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>External access findings</td>
+      <td>Flags resources (buckets, keys, roles, queues, etc.) shared outside your account or organization</td>
+    </tr>
+    <tr>
+      <td>Internal access findings</td>
+      <td>Shows which principals inside the organization can reach critical resources</td>
+    </tr>
+    <tr>
+      <td>Unused access findings</td>
+      <td>Reports unused roles, access keys, passwords, and unused services/actions in attached policies</td>
+    </tr>
+    <tr>
+      <td>Policy generation</td>
+      <td>Builds a policy from a role’s actual CloudTrail activity</td>
+    </tr>
+    <tr>
+      <td>Policy validation and custom checks</td>
+      <td>Lints policies and, in CI, fails a change that grants new access or public access</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A practical sequence: grant a broad but bounded policy in development, generate a policy from observed activity, review it, deploy that to production, then watch unused-access findings to trim further.</p>
+
+<h3 id="common-iam-mistakes">Common IAM mistakes</h3>
+
+<ul>
+  <li><strong>Daily use of root or long-lived admin users.</strong> Use Identity Center with short sessions; keep break-glass access audited.</li>
+  <li><strong>Access keys in code, AMIs, or CI variables.</strong> Use roles and OIDC federation; scan repositories with a secret scanner and enable GitHub or GitLab push protection.</li>
+  <li><strong>Wildcards on both action and resource.</strong> <code class="language-plaintext highlighter-rouge">"Action": "*"</code> on <code class="language-plaintext highlighter-rouge">"Resource": "*"</code> is administrator access regardless of the policy’s name.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">iam:PassRole</code> on <code class="language-plaintext highlighter-rouge">*</code>.</strong> Lets a principal hand any role, including admin roles, to a service it controls. Scope it to specific role ARNs and use the <code class="language-plaintext highlighter-rouge">iam:PassedToService</code> condition.</li>
+  <li><strong>Trust policies that trust a whole account</strong> (<code class="language-plaintext highlighter-rouge">arn:aws:iam::&lt;id&gt;:root</code>) when a single role was intended, or third-party trust without an <code class="language-plaintext highlighter-rouge">sts:ExternalId</code> condition (the confused-deputy problem).</li>
+</ul>
+
+<h2 id="credentials-for-workloads">Credentials for workloads</h2>
+
+<p>Workloads should obtain temporary credentials from the platform, never from a stored key.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Workload</th>
+      <th>Mechanism</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EC2</td>
+      <td>Instance profile, delivered through the instance metadata service. Require <strong>IMDSv2</strong> (session-token based), which blocks the SSRF-to-metadata attacks that affected IMDSv1</td>
+    </tr>
+    <tr>
+      <td>Lambda, ECS/Fargate</td>
+      <td>Execution role / task role</td>
+    </tr>
+    <tr>
+      <td>EKS pods</td>
+      <td><strong>EKS Pod Identity</strong> (simpler, no OIDC provider per cluster) or IAM Roles for Service Accounts (IRSA)</td>
+    </tr>
+    <tr>
+      <td>CI/CD (GitHub Actions, GitLab)</td>
+      <td>OIDC federation: the pipeline’s signed token is exchanged for a role session via <code class="language-plaintext highlighter-rouge">sts:AssumeRoleWithWebIdentity</code></td>
+    </tr>
+    <tr>
+      <td>On-premises servers</td>
+      <td>IAM Roles Anywhere, using X.509 certificates from your CA</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The trust policy is where OIDC federation is secured. This one allows only the <code class="language-plaintext highlighter-rouge">main</code> branch of one GitHub repository to assume the role:</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
-    </span><span class="nl">"Sid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ReadAppBucketOverTLS"</span><span class="p">,</span><span class="w">
     </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"s3:GetObject"</span><span class="p">],</span><span class="w">
-    </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:s3:::my-app-bucket/*"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"Federated"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRoleWithWebIdentity"</span><span class="p">,</span><span class="w">
     </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"Bool"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"aws:SecureTransport"</span><span class="p">:</span><span class="w"> </span><span class="s2">"true"</span><span class="w"> </span><span class="p">}</span><span class="w">
+      </span><span class="nl">"StringEquals"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"token.actions.githubusercontent.com:aud"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts.amazonaws.com"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"token.actions.githubusercontent.com:sub"</span><span class="p">:</span><span class="w"> </span><span class="s2">"repo:example-org/example-repo:ref:refs/heads/main"</span><span class="w">
+      </span><span class="p">}</span><span class="w">
     </span><span class="p">}</span><span class="w">
   </span><span class="p">}]</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<ul>
-  <li><strong>Effect</strong>: <code class="language-plaintext highlighter-rouge">Allow</code> or <code class="language-plaintext highlighter-rouge">Deny</code>. An explicit <code class="language-plaintext highlighter-rouge">Deny</code> always wins over any <code class="language-plaintext highlighter-rouge">Allow</code>.</li>
-  <li><strong>Action</strong>: The API calls being permitted (<code class="language-plaintext highlighter-rouge">service:Operation</code>). Resist <code class="language-plaintext highlighter-rouge">s3:*</code>.</li>
-  <li><strong>Resource</strong>: The exact ARNs the actions apply to. Resist <code class="language-plaintext highlighter-rouge">"Resource": "*"</code>.</li>
-  <li><strong>Condition</strong>: Extra constraints — source IP, MFA present, encryption in transit, etc.</li>
-</ul>
+<p>Omitting or wildcarding the <code class="language-plaintext highlighter-rouge">sub</code> condition lets <em>any</em> repository on GitHub assume the role.</p>
 
-<h3 id="least-privilege-in-practice">Least Privilege in Practice</h3>
+<p>Application secrets that cannot be replaced by roles (database passwords, third-party API keys) belong in <strong>Secrets Manager</strong>, which supports automatic rotation, or in SSM Parameter Store <code class="language-plaintext highlighter-rouge">SecureString</code> parameters for simpler cases.</p>
 
-<p>Least privilege means granting only the permissions actually needed, then widening only when something breaks. The progression below shows the journey teams typically take:</p>
+<h2 id="data-protection-and-kms">Data protection and KMS</h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Stage</th>
-      <th>What it looks like</th>
-      <th>Why it is risky / better</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Bad</strong></td>
-      <td>Every developer has <code class="language-plaintext highlighter-rouge">AdministratorAccess</code></td>
-      <td>One leaked key compromises everything</td>
-    </tr>
-    <tr>
-      <td><strong>Better</strong></td>
-      <td>A shared <code class="language-plaintext highlighter-rouge">PowerUserAccess</code> role (no IAM rights)</td>
-      <td>Limits self-escalation, but still broad</td>
-    </tr>
-    <tr>
-      <td><strong>Best</strong></td>
-      <td>Per-team policies scoped to specific services and resources</td>
-      <td>Blast radius of any one credential stays small</td>
-    </tr>
-  </tbody>
-</table>
-
-<div class="tip-card">
-  <h4>Tighten policies with real usage data</h4>
-  <p>Do not guess at permissions. IAM Access Analyzer can generate a least-privilege policy from the actual CloudTrail history of what a role used. Start broad in dev, then let the data tell you what to remove before production.</p>
-</div>
-
-<h3 id="common-iam-pitfalls">Common IAM Pitfalls</h3>
-
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>Using the root account for daily work:</strong> The root user can do anything, including closing the account. Lock it behind MFA, create an admin role, and never use root again except for the handful of tasks that require it.</li>
-    <li><strong>Long-lived access keys in code:</strong> Keys committed to git or baked into AMIs are the #1 source of breaches. Use roles; if you must use keys, rotate them and scan repos with tools like git-secrets.</li>
-    <li><strong>Wildcards everywhere:</strong> <code>"Action": "*"</code> on <code>"Resource": "*"</code> is administrator access by another name. Scope both.</li>
-    <li><strong>Forgetting MFA:</strong> A password alone is one phished email away from compromise. Enforce MFA on all human identities via an IAM policy condition.</li>
-  </ul>
-</div>
-
-<hr />
-
-<h2 id="encryption-unreadable-if-stolen">Encryption: Unreadable If Stolen</h2>
-
-<p>Encryption is your fallback for when a control fails — if a disk, snapshot, or bucket leaks, encrypted data is just noise without the key. AWS makes this nearly free to enable, so the only wrong choice is leaving it off.</p>
+<h3 id="encryption-defaults">Encryption defaults</h3>
 
 <table>
   <thead>
     <tr>
       <th>Layer</th>
-      <th>What to enable</th>
-      <th>How</th>
+      <th>Current state</th>
+      <th>What to do</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>At rest</strong></td>
-      <td>Default encryption on S3, EBS, RDS, DynamoDB</td>
-      <td>Toggle in console/IaC; transparent to your app</td>
+      <td>S3 at rest</td>
+      <td>All new objects encrypted with SSE-S3 by default since January 2023</td>
+      <td>Use SSE-KMS where you need key-policy control or per-request audit; enable S3 Bucket Keys to cut KMS request costs</td>
     </tr>
     <tr>
-      <td><strong>In transit</strong></td>
-      <td>TLS for every connection</td>
-      <td>Enforce with the <code class="language-plaintext highlighter-rouge">aws:SecureTransport</code> condition shown above</td>
+      <td>EBS at rest</td>
+      <td>Opt-in per account and Region</td>
+      <td>Turn on EBS encryption by default in every Region you use</td>
     </tr>
     <tr>
-      <td><strong>Key management</strong></td>
-      <td>KMS keys with automatic rotation</td>
-      <td>Use AWS-managed keys to start; customer-managed keys when you need control over policy and rotation</td>
+      <td>RDS, DynamoDB, EFS</td>
+      <td>Encryption chosen at creation (DynamoDB always encrypts)</td>
+      <td>Enable at creation; an unencrypted RDS instance must be re-created from an encrypted snapshot copy</td>
+    </tr>
+    <tr>
+      <td>In transit</td>
+      <td>TLS on all AWS API endpoints</td>
+      <td>Deny non-TLS access in resource policies; use ACM certificates on load balancers and CloudFront</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Why KMS instead of managing keys yourself?</strong> KMS handles generation, storage, rotation, and access logging of keys, and integrates directly with S3/EBS/RDS so encryption is transparent. Every use of a key is recorded in CloudTrail, giving you an audit trail of who decrypted what.</p>
+<h3 id="kms-keys">KMS keys</h3>
 
-<p><strong>Real-world scenario</strong>: A healthcare startup turns on default encryption and KMS rotation from day one. When the HIPAA audit arrives, encryption-at-rest is already in place across every store — turning what is often months of remediation into a checkbox.</p>
+<p>KMS stores keys in FIPS 140-validated HSMs; plaintext key material never leaves the service. There are three ownership models:</p>
 
-<hr />
+<table>
+  <thead>
+    <tr>
+      <th>Key type</th>
+      <th>Who controls the key policy</th>
+      <th>Rotation</th>
+      <th>Visible in CloudTrail</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>AWS owned</td>
+      <td>The AWS service</td>
+      <td>Service-defined</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>AWS managed (<code class="language-plaintext highlighter-rouge">aws/s3</code>, <code class="language-plaintext highlighter-rouge">aws/ebs</code>, …)</td>
+      <td>AWS; you can view it</td>
+      <td>Yearly, automatic</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>Customer managed</td>
+      <td>You</td>
+      <td>Optional automatic (default 365 days, custom period configurable) and on-demand rotation</td>
+      <td>Yes</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="detection-are-we-being-attacked">Detection: Are We Being Attacked?</h2>
+<p>Use customer managed keys when you need to control who can decrypt independently of who can read the storage, share encrypted data across accounts, or revoke access by disabling the key. Rotation replaces only the current key material; KMS keeps old material to decrypt existing ciphertext, so rotation needs no re-encryption and no code change.</p>
 
-<p>Prevention is never perfect, so you also need to <em>see</em> what is happening. Three services cover the spectrum, and they complement rather than replace each other:</p>
+<p>Services use <strong>envelope encryption</strong>: KMS generates a data key, the service encrypts data locally with the plaintext data key and stores only the KMS-encrypted copy beside the data.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant S as Service (e.g. S3, EBS)
+    participant K as AWS KMS
+    S-&gt;&gt;K: GenerateDataKey(KeyId)
+    K--&gt;&gt;S: plaintext data key + encrypted data key
+    Note over S: Encrypt data with plaintext key,&lt;br/&gt;discard plaintext key,&lt;br/&gt;store encrypted key with data
+    S-&gt;&gt;K: Decrypt(encrypted data key)
+    Note over K: Key policy + IAM checked,&lt;br/&gt;call logged to CloudTrail
+    K--&gt;&gt;S: plaintext data key
+</code></pre>
+
+<p>Because every decrypt is an authorized, logged KMS call, the key policy becomes a second, independent access control on the data: a principal with <code class="language-plaintext highlighter-rouge">s3:GetObject</code> but without <code class="language-plaintext highlighter-rouge">kms:Decrypt</code> on the key gets <code class="language-plaintext highlighter-rouge">AccessDenied</code>.</p>
+
+<h2 id="detection-and-posture-management">Detection and posture management</h2>
+
+<p>Prevention eventually fails, so the second half of AWS security is visibility. The services divide the work as follows:</p>
 
 <table>
   <thead>
     <tr>
       <th>Service</th>
-      <th>What it answers</th>
-      <th>What it watches</th>
+      <th>Answers</th>
+      <th>Inputs</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>GuardDuty</strong></td>
-      <td>“Is something malicious happening?”</td>
-      <td>CloudTrail, VPC flow, DNS logs analyzed by ML for threats</td>
+      <td><strong>CloudTrail</strong></td>
+      <td>Who called which API, when, from where</td>
+      <td>Management events (always), data events (opt-in, e.g. S3 object reads, Lambda invokes)</td>
     </tr>
     <tr>
       <td><strong>Config</strong></td>
-      <td>“Did a resource drift from policy?”</td>
-      <td>Resource configuration changes against rules (e.g. “no public buckets”)</td>
+      <td>What did this resource look like, and does it comply?</td>
+      <td>Resource configuration history evaluated against rules</td>
+    </tr>
+    <tr>
+      <td><strong>GuardDuty</strong></td>
+      <td>Is something malicious happening?</td>
+      <td>CloudTrail, VPC flow logs, DNS logs, plus optional protection plans</td>
+    </tr>
+    <tr>
+      <td><strong>Inspector</strong></td>
+      <td>Which workloads have known vulnerabilities?</td>
+      <td>Continuous CVE and network-reachability scanning of EC2, ECR images, Lambda</td>
+    </tr>
+    <tr>
+      <td><strong>Macie</strong></td>
+      <td>Where is sensitive data stored?</td>
+      <td>Automated discovery and classification of S3 objects (PII, credentials)</td>
+    </tr>
+    <tr>
+      <td><strong>Security Hub CSPM</strong></td>
+      <td>Do we meet a benchmark?</td>
+      <td>Config-based controls for AWS FSBP, CIS AWS Foundations (v5.0.0 is current), NIST SP 800-53/800-171, PCI DSS</td>
     </tr>
     <tr>
       <td><strong>Security Hub</strong></td>
-      <td>“What is my overall posture?”</td>
-      <td>Aggregates GuardDuty + Config + standards (CIS, PCI-DSS) into one score</td>
+      <td>What should we fix first?</td>
+      <td>Correlates GuardDuty, Inspector, Macie and CSPM findings into exposure findings and attack paths (OCSF format)</td>
+    </tr>
+    <tr>
+      <td><strong>Detective</strong></td>
+      <td>What is the scope of this incident?</td>
+      <td>Graph of CloudTrail, flow logs and findings for investigation</td>
     </tr>
   </tbody>
 </table>
 
-<p>Think of it as layers: <strong>Config</strong> catches misconfiguration, <strong>GuardDuty</strong> catches active intrusion, and <strong>Security Hub</strong> is the dashboard that rolls both up against a compliance benchmark so you get a single prioritized findings list instead of scattered alarms.</p>
+<p>In 2025 AWS relaunched <strong>Security Hub</strong> as a unified security operations service that correlates signals across GuardDuty, Inspector, Macie and posture checks, surfacing <em>exposure findings</em> (a vulnerable, internet-reachable instance with an over-privileged role is one prioritized issue rather than three unrelated alerts) and visual attack paths. The original compliance-checking service continues as <strong>Security Hub CSPM</strong>, which still produces ASFF control findings and a per-standard security score.</p>
 
-<h3 id="security-hub-your-compliance-command-center">Security Hub: Your Compliance Command Center</h3>
+<p>GuardDuty’s foundational analysis of CloudTrail, VPC flow logs and DNS logs needs no agents. Additional <strong>protection plans</strong> extend it: S3 Protection (data events), EKS audit-log monitoring, Runtime Monitoring (agent-based, for EKS, ECS/Fargate and EC2), Malware Protection for EC2 and for S3 uploads, RDS login-activity monitoring, and Lambda network activity. <strong>Extended Threat Detection</strong> correlates individual signals into multi-stage attack sequence findings.</p>
 
-<p>Security Hub continuously evaluates your environment against industry standards (CIS, PCI-DSS, AWS Foundational Security Best Practices) and produces a real-time compliance score, so manual quarterly security reviews become continuous automated ones. The Terraform below shows the core wiring — enabling Security Hub, subscribing to standards, and routing high-severity findings to an automated remediation Lambda. The full configuration (GuardDuty, Macie, Inspector, Config rules, WAF) follows; treat it as a reference you adapt, not a block to copy wholesale.</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Sources
+      CT[CloudTrail]
+      Flow[VPC flow + DNS logs]
+      Res[Resource configs]
+      Wl[EC2 / ECR / Lambda]
+      S3d[S3 data]
+    end
+    CT --&gt; GD[GuardDuty]
+    Flow --&gt; GD
+    Res --&gt; CFG[Config] --&gt; CSPM[Security Hub CSPM]
+    Wl --&gt; INS[Inspector]
+    S3d --&gt; MAC[Macie]
+    GD --&gt; SH[Security Hub&lt;br/&gt;correlation, exposure findings]
+    INS --&gt; SH
+    MAC --&gt; SH
+    CSPM --&gt; SH
+    SH --&gt; EB[EventBridge] --&gt; Resp[Ticketing, chat,&lt;br/&gt;automated remediation]
+</code></pre>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># security-hub.tf - Security Hub configuration and custom checks</span>
+<p>Operational practices that matter more than any individual service:</p>
 
-<span class="c1"># Enable Security Hub</span>
-<span class="nx">resource</span> <span class="s2">"aws_securityhub_account"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="nx">aws_organizations_organization</span><span class="p">.</span><span class="nx">main</span>
-  <span class="p">]</span>
-<span class="p">}</span>
+<ul>
+  <li>Enable an <strong>organization trail</strong> covering all Regions, delivered to the log-archive account with S3 Object Lock or restrictive bucket policies so an attacker cannot erase their tracks.</li>
+  <li>Enable GuardDuty, Security Hub and Inspector <strong>organization-wide in every Region</strong>, including Regions you do not use; attackers favor them. An SCP that denies unused Regions complements this.</li>
+  <li>Use delegated administration so findings aggregate in the security account, and enable cross-Region aggregation.</li>
+  <li>Route high-severity findings through EventBridge to a human queue first; automate remediation only for well-understood, low-blast-radius fixes (revoking a public ACL, isolating an instance’s security group).</li>
+</ul>
 
-<span class="c1"># Enable security standards</span>
-<span class="nx">resource</span> <span class="s2">"aws_securityhub_standards_subscription"</span> <span class="s2">"cis"</span> <span class="p">{</span>
-  <span class="nx">standards_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${var.aws_region}::standards/cis-aws-foundations-benchmark/v/1.4.0"</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_securityhub_standards_subscription"</span> <span class="s2">"pci_dss"</span> <span class="p">{</span>
-  <span class="nx">standards_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${var.aws_region}::standards/pci-dss/v/3.2.1"</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_securityhub_standards_subscription"</span> <span class="s2">"aws_foundational"</span> <span class="p">{</span>
-  <span class="nx">standards_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${var.aws_region}::standards/aws-foundational-security-best-practices/v/1.0.0"</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># Custom Security Hub action</span>
-<span class="nx">resource</span> <span class="s2">"aws_securityhub_action_target"</span> <span class="s2">"remediate"</span> <span class="p">{</span>
-  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"Remediate"</span>
-  <span class="nx">identifier</span>  <span class="o">=</span> <span class="s2">"Remediate"</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Trigger automated remediation"</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># Lambda for custom security checks</span>
-<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"security_checker"</span> <span class="p">{</span>
-  <span class="nx">filename</span>         <span class="o">=</span> <span class="s2">"security_checker.zip"</span>
-  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-custom-security-checks"</span>
-  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">security_checker</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"index.handler"</span>
-  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"python3.12"</span>
-  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">900</span>
-  <span class="nx">memory_size</span>     <span class="o">=</span> <span class="mi">3008</span>
-  
-  <span class="nx">environment</span> <span class="p">{</span>
-    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">SECURITY_HUB_PRODUCT_ARN</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${var.aws_region}:${data.aws_caller_identity.current.account_id}:product/${data.aws_caller_identity.current.account_id}/default"</span>
-      <span class="nx">ENVIRONMENT</span>              <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">vpc_config</span> <span class="p">{</span>
-    <span class="nx">subnet_ids</span>         <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">private_subnet_ids</span>
-    <span class="nx">security_group_ids</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">lambda</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># EventBridge rule to trigger security checks</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"security_checks"</span> <span class="p">{</span>
-  <span class="nx">name</span>                <span class="o">=</span> <span class="s2">"${var.environment}-security-checks"</span>
-  <span class="nx">description</span>         <span class="o">=</span> <span class="s2">"Trigger custom security checks"</span>
-  <span class="nx">schedule_expression</span> <span class="o">=</span> <span class="s2">"rate(6 hours)"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_target"</span> <span class="s2">"security_checker"</span> <span class="p">{</span>
-  <span class="nx">rule</span>      <span class="o">=</span> <span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">security_checks</span><span class="p">.</span><span class="nx">name</span>
-  <span class="nx">target_id</span> <span class="o">=</span> <span class="s2">"SecurityChecker"</span>
-  <span class="nx">arn</span>       <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">security_checker</span><span class="p">.</span><span class="nx">arn</span>
-<span class="p">}</span>
-
-<span class="c1"># Config Rules for compliance</span>
-<span class="nx">resource</span> <span class="s2">"aws_config_config_rule"</span> <span class="s2">"encrypted_volumes"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-encrypted-volumes"</span>
-  
-  <span class="nx">source</span> <span class="p">{</span>
-    <span class="nx">owner</span>             <span class="o">=</span> <span class="s2">"AWS"</span>
-    <span class="nx">source_identifier</span> <span class="o">=</span> <span class="s2">"ENCRYPTED_VOLUMES"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_config_configuration_recorder</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_config_config_rule"</span> <span class="s2">"restricted_ssh"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-restricted-ssh"</span>
-  
-  <span class="nx">source</span> <span class="p">{</span>
-    <span class="nx">owner</span>             <span class="o">=</span> <span class="s2">"AWS"</span>
-    <span class="nx">source_identifier</span> <span class="o">=</span> <span class="s2">"INCOMING_SSH_DISABLED"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_config_configuration_recorder</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_config_config_rule"</span> <span class="s2">"s3_bucket_encryption"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-s3-bucket-encryption"</span>
-  
-  <span class="nx">source</span> <span class="p">{</span>
-    <span class="nx">owner</span>             <span class="o">=</span> <span class="s2">"AWS"</span>
-    <span class="nx">source_identifier</span> <span class="o">=</span> <span class="s2">"S3_BUCKET_SERVER_SIDE_ENCRYPTION_ENABLED"</span>
-  <span class="p">}</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_config_configuration_recorder</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># Custom Config rule with Lambda</span>
-<span class="nx">resource</span> <span class="s2">"aws_config_config_rule"</span> <span class="s2">"custom_security_check"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-custom-security-check"</span>
-  
-  <span class="nx">source</span> <span class="p">{</span>
-    <span class="nx">owner</span>             <span class="o">=</span> <span class="s2">"LAMBDA"</span>
-    <span class="nx">source_identifier</span> <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">config_rule_evaluator</span><span class="p">.</span><span class="nx">arn</span>
-    
-    <span class="nx">source_detail</span> <span class="p">{</span>
-      <span class="nx">message_type</span> <span class="o">=</span> <span class="s2">"ConfigurationItemChangeNotification"</span>
-    <span class="p">}</span>
-    
-    <span class="nx">source_detail</span> <span class="p">{</span>
-      <span class="nx">message_type</span> <span class="o">=</span> <span class="s2">"OversizedConfigurationItemChangeNotification"</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_config_configuration_recorder</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># GuardDuty configuration</span>
-<span class="nx">resource</span> <span class="s2">"aws_guardduty_detector"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">enable</span>                       <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">finding_publishing_frequency</span> <span class="o">=</span> <span class="s2">"FIFTEEN_MINUTES"</span>
-  
-  <span class="nx">datasources</span> <span class="p">{</span>
-    <span class="nx">s3_logs</span> <span class="p">{</span>
-      <span class="nx">enable</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-    <span class="nx">kubernetes</span> <span class="p">{</span>
-      <span class="nx">audit_logs</span> <span class="p">{</span>
-        <span class="nx">enable</span> <span class="o">=</span> <span class="kc">true</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-    <span class="nx">malware_protection</span> <span class="p">{</span>
-      <span class="nx">scan_ec2_instance_with_findings</span> <span class="p">{</span>
-        <span class="nx">ebs_volumes</span> <span class="p">{</span>
-          <span class="nx">enable</span> <span class="o">=</span> <span class="kc">true</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># GuardDuty threat intelligence sets</span>
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"threat_intel"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"${var.environment}-threat-intel-${data.aws_caller_identity.current.account_id}"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket_versioning"</span> <span class="s2">"threat_intel"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">threat_intel</span><span class="p">.</span><span class="nx">id</span>
-  
-  <span class="nx">versioning_configuration</span> <span class="p">{</span>
-    <span class="nx">status</span> <span class="o">=</span> <span class="s2">"Enabled"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_s3_object"</span> <span class="s2">"threat_list"</span> <span class="p">{</span>
-  <span class="nx">bucket</span>  <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">threat_intel</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">key</span>     <span class="o">=</span> <span class="s2">"threat-lists/malicious-ips.txt"</span>
-  <span class="nx">content</span> <span class="o">=</span> <span class="nx">file</span><span class="p">(</span><span class="s2">"${path.module}/threat-lists/malicious-ips.txt"</span><span class="p">)</span>
-  <span class="nx">etag</span>    <span class="o">=</span> <span class="nx">filemd5</span><span class="p">(</span><span class="s2">"${path.module}/threat-lists/malicious-ips.txt"</span><span class="p">)</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_guardduty_threatintelset"</span> <span class="s2">"malicious_ips"</span> <span class="p">{</span>
-  <span class="nx">activate</span>    <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">detector_id</span> <span class="o">=</span> <span class="nx">aws_guardduty_detector</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">format</span>      <span class="o">=</span> <span class="s2">"TXT"</span>
-  <span class="nx">location</span>    <span class="o">=</span> <span class="s2">"s3://${aws_s3_bucket.threat_intel.id}/${aws_s3_object.threat_list.key}"</span>
-  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"malicious-ips"</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_s3_object</span><span class="p">.</span><span class="nx">threat_list</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># GuardDuty member accounts</span>
-<span class="nx">resource</span> <span class="s2">"aws_guardduty_member"</span> <span class="s2">"member_accounts"</span> <span class="p">{</span>
-  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">member_accounts</span>
-  
-  <span class="nx">account_id</span>                 <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">account_id</span>
-  <span class="nx">detector_id</span>                <span class="o">=</span> <span class="nx">aws_guardduty_detector</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">email</span>                      <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">email</span>
-  <span class="nx">invite</span>                     <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">invitation_message</span>         <span class="o">=</span> <span class="s2">"You are invited to join GuardDuty"</span>
-  <span class="nx">disable_email_notification</span> <span class="o">=</span> <span class="kc">false</span>
-<span class="p">}</span>
-
-<span class="c1"># Inspector v2</span>
-<span class="nx">resource</span> <span class="s2">"aws_inspector2_enabler"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">account_ids</span>    <span class="o">=</span> <span class="p">[</span><span class="nx">data</span><span class="p">.</span><span class="nx">aws_caller_identity</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">account_id</span><span class="p">]</span>
-  <span class="nx">resource_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"EC2"</span><span class="p">,</span> <span class="s2">"ECR"</span><span class="p">,</span> <span class="s2">"LAMBDA"</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># Macie for S3 data protection</span>
-<span class="nx">resource</span> <span class="s2">"aws_macie2_account"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">finding_publishing_frequency</span> <span class="o">=</span> <span class="s2">"FIFTEEN_MINUTES"</span>
-  <span class="nx">status</span>                       <span class="o">=</span> <span class="s2">"ENABLED"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_macie2_classification_job"</span> <span class="s2">"s3_scan"</span> <span class="p">{</span>
-  <span class="nx">job_type</span> <span class="o">=</span> <span class="s2">"ONE_TIME"</span>
-  <span class="nx">name</span>     <span class="o">=</span> <span class="s2">"${var.environment}-s3-sensitive-data-scan"</span>
-  
-  <span class="nx">s3_job_definition</span> <span class="p">{</span>
-    <span class="nx">bucket_definitions</span> <span class="p">{</span>
-      <span class="nx">account_id</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_caller_identity</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">account_id</span>
-      <span class="nx">buckets</span>    <span class="o">=</span> <span class="p">[</span><span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">depends_on</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_macie2_account</span><span class="p">.</span><span class="nx">main</span><span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># Access Analyzer</span>
-<span class="nx">resource</span> <span class="s2">"aws_accessanalyzer_analyzer"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">analyzer_name</span> <span class="o">=</span> <span class="s2">"${var.environment}-access-analyzer"</span>
-  <span class="nx">type</span>          <span class="o">=</span> <span class="s2">"ACCOUNT"</span>  <span class="c1"># or "ORGANIZATION"</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Systems Manager compliance</span>
-<span class="nx">resource</span> <span class="s2">"aws_ssm_association"</span> <span class="s2">"patch_baseline"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"AWS-RunPatchBaseline"</span>
-  
-  <span class="nx">targets</span> <span class="p">{</span>
-    <span class="nx">key</span>    <span class="o">=</span> <span class="s2">"tag:Environment"</span>
-    <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span><span class="nx">var</span><span class="p">.</span><span class="nx">environment</span><span class="p">]</span>
-  <span class="p">}</span>
-  
-  <span class="nx">schedule_expression</span> <span class="o">=</span> <span class="s2">"cron(0 2 ? * SUN *)"</span>
-  
-  <span class="nx">parameters</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Operation</span>    <span class="o">=</span> <span class="s2">"Install"</span>
-    <span class="nx">RebootOption</span> <span class="o">=</span> <span class="s2">"RebootIfNeeded"</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># KMS key policies for security</span>
-<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"kms_key_policy"</span> <span class="p">{</span>
-  <span class="nx">statement</span> <span class="p">{</span>
-    <span class="nx">sid</span>    <span class="o">=</span> <span class="s2">"Enable IAM User Permissions"</span>
-    <span class="nx">effect</span> <span class="o">=</span> <span class="s2">"Allow"</span>
-    
-    <span class="nx">principals</span> <span class="p">{</span>
-      <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"AWS"</span>
-      <span class="nx">identifiers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"</span><span class="p">]</span>
-    <span class="p">}</span>
-    
-    <span class="nx">actions</span>   <span class="o">=</span> <span class="p">[</span><span class="s2">"kms:*"</span><span class="p">]</span>
-    <span class="nx">resources</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"*"</span><span class="p">]</span>
-  <span class="p">}</span>
-  
-  <span class="nx">statement</span> <span class="p">{</span>
-    <span class="nx">sid</span>    <span class="o">=</span> <span class="s2">"Allow use of the key for encryption"</span>
-    <span class="nx">effect</span> <span class="o">=</span> <span class="s2">"Allow"</span>
-    
-    <span class="nx">principals</span> <span class="p">{</span>
-      <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"Service"</span>
-      <span class="nx">identifiers</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">"logs.${var.aws_region}.amazonaws.com"</span><span class="p">,</span>
-        <span class="s2">"s3.amazonaws.com"</span><span class="p">,</span>
-        <span class="s2">"rds.amazonaws.com"</span>
-      <span class="p">]</span>
-    <span class="p">}</span>
-    
-    <span class="nx">actions</span> <span class="o">=</span> <span class="p">[</span>
-      <span class="s2">"kms:Decrypt"</span><span class="p">,</span>
-      <span class="s2">"kms:GenerateDataKey"</span><span class="p">,</span>
-      <span class="s2">"kms:CreateGrant"</span><span class="p">,</span>
-      <span class="s2">"kms:DescribeKey"</span>
-    <span class="p">]</span>
-    
-    <span class="nx">resources</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"*"</span><span class="p">]</span>
-    
-    <span class="nx">condition</span> <span class="p">{</span>
-      <span class="nx">test</span>     <span class="o">=</span> <span class="s2">"StringEquals"</span>
-      <span class="nx">variable</span> <span class="o">=</span> <span class="s2">"kms:ViaService"</span>
-      <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">"s3.${var.aws_region}.amazonaws.com"</span><span class="p">,</span>
-        <span class="s2">"rds.${var.aws_region}.amazonaws.com"</span>
-      <span class="p">]</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_kms_key"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">description</span>             <span class="o">=</span> <span class="s2">"${var.environment} master key"</span>
-  <span class="nx">deletion_window_in_days</span> <span class="o">=</span> <span class="mi">30</span>
-  <span class="nx">enable_key_rotation</span>     <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">policy</span>                  <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">kms_key_policy</span><span class="p">.</span><span class="nx">json</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># Security automation with EventBridge and Lambda</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"security_findings"</span> <span class="p">{</span>
-  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"${var.environment}-security-findings"</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Capture Security Hub findings for automated remediation"</span>
-  
-  <span class="nx">event_pattern</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-    <span class="nx">source</span>      <span class="o">=</span> <span class="p">[</span><span class="s2">"aws.securityhub"</span><span class="p">]</span>
-    <span class="nx">detail-type</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Security Hub Findings - Imported"</span><span class="p">]</span>
-    <span class="nx">detail</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">findings</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">Severity</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="nx">Label</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"CRITICAL"</span><span class="p">,</span> <span class="s2">"HIGH"</span><span class="p">]</span>
-        <span class="p">}</span>
-        <span class="nx">Workflow</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="nx">Status</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"NEW"</span><span class="p">]</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">})</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_target"</span> <span class="s2">"remediation"</span> <span class="p">{</span>
-  <span class="nx">rule</span>      <span class="o">=</span> <span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">security_findings</span><span class="p">.</span><span class="nx">name</span>
-  <span class="nx">target_id</span> <span class="o">=</span> <span class="s2">"RemediationFunction"</span>
-  <span class="nx">arn</span>       <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">auto_remediation</span><span class="p">.</span><span class="nx">arn</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"auto_remediation"</span> <span class="p">{</span>
-  <span class="nx">filename</span>         <span class="o">=</span> <span class="s2">"auto_remediation.zip"</span>
-  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-security-auto-remediation"</span>
-  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">remediation</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"index.handler"</span>
-  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"python3.12"</span>
-  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">300</span>
-  
-  <span class="nx">environment</span> <span class="p">{</span>
-    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">ENVIRONMENT</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># WAF rules for application protection</span>
-<span class="nx">resource</span> <span class="s2">"aws_wafv2_web_acl"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span>  <span class="o">=</span> <span class="s2">"${var.environment}-waf-acl"</span>
-  <span class="nx">scope</span> <span class="o">=</span> <span class="s2">"REGIONAL"</span>  <span class="c1"># or "CLOUDFRONT"</span>
-  
-  <span class="nx">default_action</span> <span class="p">{</span>
-    <span class="nx">allow</span> <span class="p">{}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">rule</span> <span class="p">{</span>
-    <span class="nx">name</span>     <span class="o">=</span> <span class="s2">"RateLimitRule"</span>
-    <span class="nx">priority</span> <span class="o">=</span> <span class="mi">1</span>
-    
-    <span class="nx">statement</span> <span class="p">{</span>
-      <span class="nx">rate_based_statement</span> <span class="p">{</span>
-        <span class="nx">limit</span>              <span class="o">=</span> <span class="mi">2000</span>
-        <span class="nx">aggregate_key_type</span> <span class="o">=</span> <span class="s2">"IP"</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-    
-    <span class="nx">action</span> <span class="p">{</span>
-      <span class="nx">block</span> <span class="p">{}</span>
-    <span class="p">}</span>
-    
-    <span class="nx">visibility_config</span> <span class="p">{</span>
-      <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"RateLimitRule"</span>
-      <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">rule</span> <span class="p">{</span>
-    <span class="nx">name</span>     <span class="o">=</span> <span class="s2">"ManagedRuleGroup"</span>
-    <span class="nx">priority</span> <span class="o">=</span> <span class="mi">2</span>
-    
-    <span class="nx">override_action</span> <span class="p">{</span>
-      <span class="nx">none</span> <span class="p">{}</span>
-    <span class="p">}</span>
-    
-    <span class="nx">statement</span> <span class="p">{</span>
-      <span class="nx">managed_rule_group_statement</span> <span class="p">{</span>
-        <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"AWSManagedRulesKnownBadInputsRuleSet"</span>
-        <span class="nx">vendor_name</span> <span class="o">=</span> <span class="s2">"AWS"</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-    
-    <span class="nx">visibility_config</span> <span class="p">{</span>
-      <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
-      <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"ManagedRuleGroup"</span>
-      <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
-  <span class="nx">visibility_config</span> <span class="p">{</span>
-    <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"${var.environment}-waf-acl"</span>
-    <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
-  <span class="p">}</span>
-  
-  <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<hr />
-
-<h2 id="edge-protection-can-attacker-traffic-reach-us">Edge Protection: Can Attacker Traffic Reach Us?</h2>
-
-<p>The final layer filters traffic before it touches your application. The <code class="language-plaintext highlighter-rouge">aws_wafv2_web_acl</code> above sits in front of CloudFront or an ALB and drops bad requests at the edge:</p>
+<h2 id="edge-and-network-protection">Edge and network protection</h2>
 
 <table>
   <thead>
@@ -3805,66 +3661,244 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>WAF</strong></td>
-      <td>SQL injection, XSS, bot scraping, request floods</td>
-      <td>CloudFront / ALB / API Gateway</td>
+      <td><strong>AWS WAF</strong></td>
+      <td>Injection, XSS, bots, credential stuffing, request floods</td>
+      <td>CloudFront, ALB, API Gateway, AppSync, Cognito, App Runner, Verified Access</td>
     </tr>
     <tr>
       <td><strong>Shield Standard</strong></td>
-      <td>Common network/transport DDoS (free, always on)</td>
-      <td>Edge, automatic</td>
+      <td>Common layer 3/4 DDoS</td>
+      <td>All AWS edge and Regional endpoints, free and automatic</td>
     </tr>
     <tr>
       <td><strong>Shield Advanced</strong></td>
-      <td>Large/sophisticated DDoS, with cost protection</td>
-      <td>Edge, paid</td>
+      <td>Large or targeted DDoS; includes a response team and cost protection for scaling during attacks</td>
+      <td>Paid subscription per organization</td>
     </tr>
     <tr>
-      <td><strong>Security Groups</strong></td>
-      <td>Unwanted inbound/outbound to a resource</td>
-      <td>Per ENI (stateful firewall)</td>
+      <td><strong>Security groups</strong></td>
+      <td>Unwanted connections to an ENI</td>
+      <td>Stateful, allow-only, per network interface</td>
+    </tr>
+    <tr>
+      <td><strong>Network ACLs</strong></td>
+      <td>Coarse subnet-level blocks</td>
+      <td>Stateless, ordered allow/deny rules</td>
+    </tr>
+    <tr>
+      <td><strong>Network Firewall</strong></td>
+      <td>Egress filtering, IDS/IPS, domain allow-lists</td>
+      <td>Dedicated firewall endpoints in the VPC</td>
+    </tr>
+    <tr>
+      <td><strong>Firewall Manager</strong></td>
+      <td>Drift in WAF, Shield, SG and firewall policy across accounts</td>
+      <td>Organization-wide policy enforcement</td>
     </tr>
   </tbody>
 </table>
 
-<p>The WAF rules above combine a <strong>rate-based rule</strong> (block any IP exceeding 2,000 requests in the evaluation window — a cheap defense against scraping and brute force) with an <strong>AWS-managed rule group</strong> (<code class="language-plaintext highlighter-rouge">KnownBadInputs</code>) that catches common exploit payloads without you maintaining signatures. Start with managed rule groups; write custom rules only for application-specific patterns.</p>
+<p>Start WAF with AWS managed rule groups (Core rule set, Known bad inputs, IP reputation, and the language-specific sets such as SQL database) plus a rate-based rule, and run new rules in <strong>Count</strong> mode before switching them to <strong>Block</strong>. Rate-based rules count requests per aggregation key (IP, forwarded IP, header, or custom keys) over a 1, 2, 5 or 10 minute evaluation window, with a minimum limit of 10 requests. Bot Control and Fraud Control (account-takeover and account-creation prevention) are paid managed rule groups for automated-traffic problems.</p>
 
-<h2 id="how-the-layers-fit-together">How the Layers Fit Together</h2>
+<h2 id="defense-in-depth">Defense in depth</h2>
 
-<p>Security is not one control but a stack — a request must clear every layer, and a breach of one is contained by the next:</p>
+<p>A request must clear every layer, and a failure in one is contained by the next:</p>
 
 <pre><code class="language-mermaid">flowchart TB
-    Req([Incoming request]) --&gt; WAF["WAF + Shield&lt;br/&gt;filter malicious traffic"]
-    WAF --&gt; SG["Security Group&lt;br/&gt;allow only expected ports"]
-    SG --&gt; App["Application / EC2 / Lambda"]
+    Req([Incoming request]) --&gt; Edge["WAF + Shield&lt;br/&gt;filter malicious traffic"]
+    Edge --&gt; SG["Security group&lt;br/&gt;only expected ports and sources"]
+    SG --&gt; App["Application on EC2 / Lambda / containers"]
     App --&gt; IAM["IAM role&lt;br/&gt;scoped, temporary credentials"]
-    IAM --&gt; Data["Encrypted data&lt;br/&gt;KMS keys, TLS in transit"]
-    GD["GuardDuty + Config + Security Hub"] -. "watch every layer" .-&gt; WAF
-    GD -. .-&gt; App
-    GD -. .-&gt; Data
+    IAM --&gt; Data["Data store&lt;br/&gt;KMS key policy, TLS in transit"]
+    Det["CloudTrail, GuardDuty,&lt;br/&gt;Security Hub"] -. observes .-&gt; Edge
+    Det -. observes .-&gt; App
+    Det -. observes .-&gt; IAM
+    Det -. observes .-&gt; Data
 </code></pre>
 
-<p>If WAF misses something, the security group still limits exposure. If a credential leaks, IAM scoping limits the blast radius. If data is exfiltrated, encryption renders it useless. And throughout, the detection services watch every layer for anomalies.</p>
+<p>If WAF misses an exploit, the security group still limits what the compromised process can reach. If a credential leaks, IAM scoping limits the blast radius and organization policies cap it further. If data is copied out, it is encrypted under a key the attacker cannot use. Detection services watch every layer throughout.</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="reference-terraform-baseline">Reference Terraform baseline</h2>
+
+<p>The following Terraform (AWS provider v5 or later) enables the core detection services in a single account with current APIs. In an organization, run the equivalent from the delegated administrator account and use the organization-configuration resources (<code class="language-plaintext highlighter-rouge">aws_guardduty_organization_configuration</code>, <code class="language-plaintext highlighter-rouge">aws_securityhub_organization_configuration</code>) instead of per-account enablement.</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">data</span> <span class="s2">"aws_caller_identity"</span> <span class="s2">"current"</span> <span class="p">{}</span>
+<span class="nx">data</span> <span class="s2">"aws_region"</span> <span class="s2">"current"</span> <span class="p">{}</span>
+
+<span class="nx">locals</span> <span class="p">{</span>
+  <span class="nx">region</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_region</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">name</span>
+<span class="p">}</span>
+
+<span class="c1"># --- Security Hub CSPM: subscribe to chosen standards explicitly ---</span>
+<span class="nx">resource</span> <span class="s2">"aws_securityhub_account"</span> <span class="s2">"this"</span> <span class="p">{</span>
+  <span class="nx">enable_default_standards</span>  <span class="o">=</span> <span class="kc">false</span>
+  <span class="nx">control_finding_generator</span> <span class="o">=</span> <span class="s2">"SECURITY_CONTROL"</span> <span class="c1"># consolidated control findings</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_securityhub_standards_subscription"</span> <span class="s2">"fsbp"</span> <span class="p">{</span>
+  <span class="nx">standards_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${local.region}::standards/aws-foundational-security-best-practices/v/1.0.0"</span>
+  <span class="nx">depends_on</span>    <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">this</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_securityhub_standards_subscription"</span> <span class="s2">"cis"</span> <span class="p">{</span>
+  <span class="nx">standards_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:securityhub:${local.region}::standards/cis-aws-foundations-benchmark/v/5.0.0"</span>
+  <span class="nx">depends_on</span>    <span class="o">=</span> <span class="p">[</span><span class="nx">aws_securityhub_account</span><span class="p">.</span><span class="nx">this</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># --- GuardDuty: detector plus protection plans as "features" ---</span>
+<span class="c1"># (the older `datasources` block is deprecated; newer plans exist only as features)</span>
+<span class="nx">resource</span> <span class="s2">"aws_guardduty_detector"</span> <span class="s2">"this"</span> <span class="p">{</span>
+  <span class="nx">enable</span>                       <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">finding_publishing_frequency</span> <span class="o">=</span> <span class="s2">"FIFTEEN_MINUTES"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_guardduty_detector_feature"</span> <span class="s2">"plans"</span> <span class="p">{</span>
+  <span class="nx">for_each</span>    <span class="o">=</span> <span class="nx">toset</span><span class="p">([</span><span class="s2">"S3_DATA_EVENTS"</span><span class="p">,</span> <span class="s2">"EKS_AUDIT_LOGS"</span><span class="p">,</span> <span class="s2">"EBS_MALWARE_PROTECTION"</span><span class="p">,</span> <span class="s2">"RDS_LOGIN_EVENTS"</span><span class="p">,</span> <span class="s2">"LAMBDA_NETWORK_LOGS"</span><span class="p">])</span>
+  <span class="nx">detector_id</span> <span class="o">=</span> <span class="nx">aws_guardduty_detector</span><span class="p">.</span><span class="nx">this</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">name</span>        <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span>
+  <span class="nx">status</span>      <span class="o">=</span> <span class="s2">"ENABLED"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_guardduty_detector_feature"</span> <span class="s2">"runtime"</span> <span class="p">{</span>
+  <span class="nx">detector_id</span> <span class="o">=</span> <span class="nx">aws_guardduty_detector</span><span class="p">.</span><span class="nx">this</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"RUNTIME_MONITORING"</span>
+  <span class="nx">status</span>      <span class="o">=</span> <span class="s2">"ENABLED"</span>
+
+  <span class="nx">additional_configuration</span> <span class="p">{</span>
+    <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"EKS_ADDON_MANAGEMENT"</span>
+    <span class="nx">status</span> <span class="o">=</span> <span class="s2">"ENABLED"</span>
+  <span class="p">}</span>
+  <span class="nx">additional_configuration</span> <span class="p">{</span>
+    <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"ECS_FARGATE_AGENT_MANAGEMENT"</span>
+    <span class="nx">status</span> <span class="o">=</span> <span class="s2">"ENABLED"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># --- Inspector and Access Analyzer ---</span>
+<span class="nx">resource</span> <span class="s2">"aws_inspector2_enabler"</span> <span class="s2">"this"</span> <span class="p">{</span>
+  <span class="nx">account_ids</span>    <span class="o">=</span> <span class="p">[</span><span class="nx">data</span><span class="p">.</span><span class="nx">aws_caller_identity</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">account_id</span><span class="p">]</span>
+  <span class="nx">resource_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"EC2"</span><span class="p">,</span> <span class="s2">"ECR"</span><span class="p">,</span> <span class="s2">"LAMBDA"</span><span class="p">,</span> <span class="s2">"LAMBDA_CODE"</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_accessanalyzer_analyzer"</span> <span class="s2">"external"</span> <span class="p">{</span>
+  <span class="nx">analyzer_name</span> <span class="o">=</span> <span class="s2">"external-access"</span>
+  <span class="nx">type</span>          <span class="o">=</span> <span class="s2">"ACCOUNT"</span> <span class="c1"># ORGANIZATION from the delegated admin account</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_accessanalyzer_analyzer"</span> <span class="s2">"unused"</span> <span class="p">{</span>
+  <span class="nx">analyzer_name</span> <span class="o">=</span> <span class="s2">"unused-access"</span>
+  <span class="nx">type</span>          <span class="o">=</span> <span class="s2">"ACCOUNT_UNUSED_ACCESS"</span>
+
+  <span class="nx">configuration</span> <span class="p">{</span>
+    <span class="nx">unused_access</span> <span class="p">{</span>
+      <span class="nx">unused_access_age</span> <span class="o">=</span> <span class="mi">90</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># --- Encryption defaults and a customer managed key ---</span>
+<span class="nx">resource</span> <span class="s2">"aws_ebs_encryption_by_default"</span> <span class="s2">"this"</span> <span class="p">{</span>
+  <span class="nx">enabled</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_kms_key"</span> <span class="s2">"data"</span> <span class="p">{</span>
+  <span class="nx">description</span>             <span class="o">=</span> <span class="s2">"Application data key"</span>
+  <span class="nx">enable_key_rotation</span>     <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">rotation_period_in_days</span> <span class="o">=</span> <span class="mi">180</span>
+  <span class="nx">deletion_window_in_days</span> <span class="o">=</span> <span class="mi">30</span>
+  <span class="c1"># Supply an explicit key policy in production; the default grants the</span>
+  <span class="c1"># account's IAM administrators control of the key.</span>
+<span class="p">}</span>
+
+<span class="c1"># --- Route high-severity findings to a responder ---</span>
+<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"high_findings"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"securityhub-high-findings"</span>
+  <span class="nx">event_pattern</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">source</span>        <span class="o">=</span> <span class="p">[</span><span class="s2">"aws.securityhub"</span><span class="p">]</span>
+    <span class="s2">"detail-type"</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"Security Hub Findings - Imported"</span><span class="p">]</span>
+    <span class="nx">detail</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">findings</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nx">Severity</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">Label</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"CRITICAL"</span><span class="p">,</span> <span class="s2">"HIGH"</span><span class="p">]</span> <span class="p">}</span>
+        <span class="nx">Workflow</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">Status</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"NEW"</span><span class="p">]</span> <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_target"</span> <span class="s2">"notify"</span> <span class="p">{</span>
+  <span class="nx">rule</span> <span class="o">=</span> <span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">high_findings</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">arn</span>  <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">security_alerts_sns_topic_arn</span>
+<span class="p">}</span>
+
+<span class="c1"># --- WAF web ACL with managed rules and a rate limit ---</span>
+<span class="nx">resource</span> <span class="s2">"aws_wafv2_web_acl"</span> <span class="s2">"app"</span> <span class="p">{</span>
+  <span class="nx">name</span>  <span class="o">=</span> <span class="s2">"app-web-acl"</span>
+  <span class="nx">scope</span> <span class="o">=</span> <span class="s2">"REGIONAL"</span> <span class="c1"># "CLOUDFRONT" must be created in us-east-1</span>
+
+  <span class="nx">default_action</span> <span class="p">{</span>
+    <span class="nx">allow</span> <span class="p">{}</span>
+  <span class="p">}</span>
+
+  <span class="nx">rule</span> <span class="p">{</span>
+    <span class="nx">name</span>     <span class="o">=</span> <span class="s2">"aws-common"</span>
+    <span class="nx">priority</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="nx">override_action</span> <span class="p">{</span>
+      <span class="nx">none</span> <span class="p">{}</span>
+    <span class="p">}</span>
+    <span class="nx">statement</span> <span class="p">{</span>
+      <span class="nx">managed_rule_group_statement</span> <span class="p">{</span>
+        <span class="nx">vendor_name</span> <span class="o">=</span> <span class="s2">"AWS"</span>
+        <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"AWSManagedRulesCommonRuleSet"</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="nx">visibility_config</span> <span class="p">{</span>
+      <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"aws-common"</span>
+      <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">rule</span> <span class="p">{</span>
+    <span class="nx">name</span>     <span class="o">=</span> <span class="s2">"rate-limit-per-ip"</span>
+    <span class="nx">priority</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="nx">action</span> <span class="p">{</span>
+      <span class="nx">block</span> <span class="p">{}</span>
+    <span class="p">}</span>
+    <span class="nx">statement</span> <span class="p">{</span>
+      <span class="nx">rate_based_statement</span> <span class="p">{</span>
+        <span class="nx">limit</span>                 <span class="o">=</span> <span class="mi">1000</span>
+        <span class="nx">evaluation_window_sec</span> <span class="o">=</span> <span class="mi">300</span>
+        <span class="nx">aggregate_key_type</span>    <span class="o">=</span> <span class="s2">"IP"</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="nx">visibility_config</span> <span class="p">{</span>
+      <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
+      <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"rate-limit-per-ip"</span>
+      <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">visibility_config</span> <span class="p">{</span>
+    <span class="nx">cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">metric_name</span>                <span class="o">=</span> <span class="s2">"app-web-acl"</span>
+    <span class="nx">sampled_requests_enabled</span>   <span class="o">=</span> <span class="kc">true</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Protection plans and Inspector scan types vary by Region, and each carries its own charges after the free trial. Check which ones your workloads need rather than enabling every feature by default.</p>
+
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><strong>Least privilege always.</strong> Grant the minimum permissions each user or service needs. Prefer scoped custom policies and IAM roles over broad managed policies like AdministratorAccess.</li>
-  <li><strong>Encrypt everywhere.</strong> Enable encryption at rest (S3, EBS, RDS) and in transit (TLS). Let KMS handle key management and rotation.</li>
-  <li><strong>Shared responsibility.</strong> AWS secures the cloud; you secure what’s in it — access control, configuration, and data. Know which side of the line each control sits on.</li>
-  <li><strong>Detect and automate.</strong> Turn on GuardDuty and Security Hub for continuous threat detection, and automate remediation so misconfigurations are caught fast.</li>
-</ul>
-
-<hr />
-
-<h2 id="see-also">See Also</h2>
-
-<ul>
-  <li><a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
-  <li><a href="compute.html">Compute Services</a> - EC2 and Lambda security configurations</li>
-  <li><a href="../networking/">Networking</a> - VPC security and WAF integration</li>
-  <li><a href="iac.html">Infrastructure as Code</a> - Security automation and compliance monitoring</li>
-  <li><a href="../cybersecurity/">Cybersecurity Guide</a> - General security concepts</li>
+  <li><a href="./">AWS Hub</a> - overview of all AWS documentation</li>
+  <li><a href="networking.html">Networking &amp; Content Delivery</a> - VPC design, security groups, CloudFront</li>
+  <li><a href="compute.html">Compute Services</a> - instance profiles, Lambda execution roles</li>
+  <li><a href="monitoring.html">Monitoring &amp; Messaging</a> - CloudWatch and CloudTrail operations</li>
+  <li><a href="troubleshooting.html">Troubleshooting</a> - diagnosing <code class="language-plaintext highlighter-rouge">AccessDenied</code> and connectivity failures</li>
+  <li><a href="iac.html">Infrastructure as Code</a> - managing security configuration as code</li>
+  <li><a href="../cybersecurity/cloud-and-container-security.html">Cloud and Container Security</a> - provider-neutral cloud security concepts</li>
+  <li><a href="../cybersecurity/">Cybersecurity</a> - general security fundamentals</li>
 </ul>
 
       </section>

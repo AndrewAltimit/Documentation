@@ -3136,26 +3136,72 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.1rem; margin-top: 0.75rem; opacity: 0.9;">Protecting systems, networks, and data from digital threats</p>
 </div>
 
-<p>Cybersecurity is the practice of protecting systems, networks, and data from digital attacks, unauthorized access, and damage. This hub builds from everyday risks (passwords, public WiFi) up through cryptography, web and cloud security, attack techniques, and incident response. The recurring theme is <strong>threat modeling</strong>: security reduces risk against a realistic set of attackers rather than achieving perfection, and every control is a trade-off between protection, cost, and usability.</p>
+<p><strong>Cybersecurity</strong> is the practice of protecting systems, networks, and data against unauthorized access, modification, and disruption. This hub covers the field in nine guides, from the cryptographic primitives that everything else depends on, through application, cloud, and network security, to the operational disciplines — security operations, incident response, governance, and privacy — that keep an organization defended over time. The recurring theme is <strong>risk</strong>: security does not aim for perfection but for reducing the likelihood and impact of realistic attacks at an acceptable cost.</p>
+
+<h2 id="core-concepts">Core Concepts</h2>
+
+<p>A handful of ideas recur across every guide.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>CIA triad</strong></td>
+      <td>The three properties security protects: <strong>confidentiality</strong> (only authorized parties can read), <strong>integrity</strong> (data and systems are not altered without authorization), and <strong>availability</strong> (they work when needed). Authenticity and non-repudiation are often added.</td>
+    </tr>
+    <tr>
+      <td><strong>Threat model</strong></td>
+      <td>An explicit statement of what you are protecting, from whom, and how they could attack. A control is only meaningful relative to a threat model: disk encryption stops a laptop thief, not malware running as the logged-in user.</td>
+    </tr>
+    <tr>
+      <td><strong>Attack surface</strong></td>
+      <td>Every point where an attacker can interact with the system — exposed services, APIs, identities, dependencies, people. Reducing it is often cheaper than defending it.</td>
+    </tr>
+    <tr>
+      <td><strong>Defense in depth</strong></td>
+      <td>Layered, independent controls so that one failure does not become a full compromise.</td>
+    </tr>
+    <tr>
+      <td><strong>Least privilege</strong></td>
+      <td>Every user, service, and workload gets only the access it needs, for only as long as it needs it — limiting the blast radius of any compromise.</td>
+    </tr>
+    <tr>
+      <td><strong>Zero trust</strong></td>
+      <td>No implicit trust from network location: every request is authenticated, authorized, and encrypted based on identity and device posture (NIST SP 800-207).</td>
+    </tr>
+    <tr>
+      <td><strong>Assume breach</strong></td>
+      <td>Design and staff on the assumption that some attacks will succeed; detection, containment, and recovery matter as much as prevention.</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="how-the-topics-fit-together">How the Topics Fit Together</h2>
 
-<p>Effective security is layered — no single control is trusted to stop everything. This <strong>defense-in-depth</strong> model means an attacker who breaches one layer still faces the next. Each layer maps onto the guides in this hub:</p>
+<p>Defense in depth places independent controls at each layer an attacker must cross, with security operations watching all of them. Each layer maps to a guide in this hub:</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    A["Attacker"] --&gt; E["Edge: firewall / WAF / DDoS protection"]
-    E --&gt; N["Network: segmentation, VPN, IDS/IPS"]
-    N --&gt; C["Cloud &amp; Host: IAM, posture, EDR, least privilege"]
-    C --&gt; APP["Application: input validation, authn/authz"]
-    APP --&gt; D["Data: encryption at rest &amp; in transit"]
-    SOC["Security Operations: monitoring, detection, response"] -.watches.-&gt; E
+    A["Attacker"] --&gt; ID["Identity: MFA, passkeys, SSO, conditional access"]
+    A --&gt; E["Edge: firewall, WAF, DDoS protection"]
+    E --&gt; N["Network: segmentation, VPN / ZTNA, IDS/IPS"]
+    ID --&gt; C["Cloud and host: IAM, posture management, EDR, hardening"]
+    N --&gt; C
+    C --&gt; APP["Application: input validation, authn/authz, dependencies"]
+    APP --&gt; D["Data: encryption at rest and in transit, key management"]
+    SOC["Security operations: telemetry, detection, response"] -.watches.-&gt; ID
+    SOC -.watches.-&gt; E
     SOC -.watches.-&gt; N
     SOC -.watches.-&gt; C
     SOC -.watches.-&gt; APP
-    style A fill:#ffebee,stroke:#c62828
-    style D fill:#e8f5e9,stroke:#2e7d32
-    style SOC fill:#e3f2fd,stroke:#1565c0
+    GOV["Governance: risk, policy, compliance, people"] -.directs.-&gt; SOC
 </code></pre>
+
+<p>Identity sits alongside the network edge as an entry point because, in cloud and SaaS environments, a stolen credential or session token often grants access without touching the network perimeter at all.</p>
 
 <table>
   <thead>
@@ -3166,33 +3212,35 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>Edge &amp; Network</td>
-      <td><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a></td>
-    </tr>
-    <tr>
-      <td>Host &amp; Cloud</td>
-      <td><a href="cloud-and-container-security.html">Cloud &amp; Container Security</a></td>
+      <td>Data and encryption</td>
+      <td><a href="cryptography.html">Cryptography</a></td>
     </tr>
     <tr>
       <td>Application</td>
       <td><a href="application-and-cloud-security.html">Application Security</a></td>
     </tr>
     <tr>
-      <td>Data (encryption)</td>
-      <td><a href="cryptography.html">Cryptography</a></td>
+      <td>Cloud, host, and identity</td>
+      <td><a href="cloud-and-container-security.html">Cloud &amp; Container Security</a></td>
     </tr>
     <tr>
-      <td>Detection &amp; Response</td>
-      <td><a href="operations-and-response.html">Security Operations</a></td>
+      <td>Edge and network</td>
+      <td><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a></td>
     </tr>
     <tr>
-      <td>People &amp; Privacy</td>
+      <td>Detection and response</td>
+      <td><a href="security-operations.html">Security Operations</a>, <a href="incident-response.html">Incident Response &amp; Forensics</a></td>
+    </tr>
+    <tr>
+      <td>Governance and people</td>
+      <td><a href="compliance-and-governance.html">Compliance &amp; Governance</a></td>
+    </tr>
+    <tr>
+      <td>Personal data</td>
       <td><a href="privacy-engineering.html">Privacy Engineering</a></td>
     </tr>
   </tbody>
 </table>
-
-<hr />
 
 <h2 id="guides-in-this-hub">Guides in This Hub</h2>
 
@@ -3206,190 +3254,144 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><a href="cryptography.html">Cryptography</a></td>
-      <td>Symmetric and public-key encryption, ECC, post-quantum, zero-knowledge and homomorphic encryption, and the math behind RSA, elliptic curves, and secret sharing</td>
+      <td>Authenticated encryption, hashing and password storage, key exchange and signatures, TLS 1.3 and the Web PKI, post-quantum migration (ML-KEM, ML-DSA), zero-knowledge proofs, homomorphic encryption, and the math behind RSA, elliptic curves, and secret sharing</td>
     </tr>
     <tr>
       <td><a href="application-and-cloud-security.html">Application Security</a></td>
-      <td>SQL injection, XSS, CSRF, authentication and session handling, JWTs, the OWASP Top 10, and secure-by-design development</td>
+      <td>The OWASP Top 10, injection, XSS and CSRF, SSRF, authentication and authorization (JWT, OAuth, OIDC), sessions, API security, and the secure development lifecycle</td>
     </tr>
     <tr>
       <td><a href="cloud-and-container-security.html">Cloud &amp; Container Security</a></td>
-      <td>Shared-responsibility model, IAM and identity, cloud posture management, container hardening, and Kubernetes workload security</td>
+      <td>Shared responsibility, cloud IAM and least privilege, posture management, image hardening, container and Kubernetes runtime security, and admission control</td>
     </tr>
     <tr>
       <td><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a></td>
-      <td>Firewalls, VPNs, and IDS/IPS; social engineering, supply chain and ransomware; side-channel and ML attacks</td>
-    </tr>
-    <tr>
-      <td><a href="operations-and-response.html">Security Operations &amp; Response</a></td>
-      <td>Hub for running security day to day — the SOC, incident response, and compliance; branches into the three guides below</td>
-    </tr>
-    <tr>
-      <td><a href="incident-response.html">Incident Response &amp; Forensics</a></td>
-      <td>When prevention fails: detect, contain, eradicate, recover, and run a blameless post-mortem</td>
+      <td>Firewalls, VPNs, and IDS/IPS; social engineering, supply-chain attacks, and ransomware; side-channel and ML attacks</td>
     </tr>
     <tr>
       <td><a href="security-operations.html">Security Operations</a></td>
-      <td>The SOC, SIEM pipelines, detection engineering, threat hunting, and offensive testing (pentests, red/blue/purple teams)</td>
+      <td>Running a SOC: SIEM pipelines, detection engineering with MITRE ATT&amp;CK, threat hunting, and offensive validation (penetration tests, red/blue/purple teams)</td>
+    </tr>
+    <tr>
+      <td><a href="incident-response.html">Incident Response &amp; Forensics</a></td>
+      <td>The IR lifecycle (NIST SP 800-61r3, SANS), the first hour, regulatory notification deadlines, memory/disk/cloud forensics, chain of custody, and MTTD/MTTR</td>
     </tr>
     <tr>
       <td><a href="compliance-and-governance.html">Compliance &amp; Governance</a></td>
-      <td>Turning security into a program — frameworks, risk management, GDPR/PCI, people, and metrics</td>
+      <td>GDPR, NIS2, DORA, and the Cyber Resilience Act; PCI DSS v4; SOC 2 and ISO 27001; NIST CSF 2.0; quantitative risk (ALE, FAIR); third-party risk; metrics and maturity</td>
     </tr>
     <tr>
       <td><a href="privacy-engineering.html">Privacy Engineering</a></td>
-      <td>Protecting people, not just data — privacy by design, data minimization, differential privacy, and legal obligations</td>
+      <td>Privacy by design, LINDDUN threat modeling, data minimization, tokenization, differential privacy, consent, and data-subject rights in practice</td>
+    </tr>
+    <tr>
+      <td><a href="operations-and-response.html">Foundations, Operations &amp; Research</a></td>
+      <td>Formal security (security games, universal composability) and research frontiers: secure multi-party computation, differential privacy, the quantum threat, and AI in attack and defense</td>
     </tr>
   </tbody>
 </table>
 
-<hr />
-
-<h2 id="your-digital-life-under-attack">Your Digital Life Under Attack</h2>
-
-<p>Every day, you face security threats that most people don’t even realize exist. When you type your password into a website, how do you know someone isn’t watching? When you connect to public WiFi, who else might be listening? These aren’t abstract concerns—they’re real vulnerabilities that attackers exploit every day.</p>
-
-<h3 id="the-password-problem">The Password Problem</h3>
-
-<p>Let’s start with something everyone uses: passwords. You’ve probably heard advice like “use strong passwords” and “don’t reuse them,” but understanding why reveals the first layer of cybersecurity.</p>
-
-<h4 id="why-your-password-isnt-safe">Why Your Password Isn’t Safe</h4>
-
-<p>When you create an account on a website, your password needs to be stored somehow. But here’s the problem: if the website stores your actual password and gets hacked, every user’s password is exposed. This happened to LinkedIn in 2012, initially exposing 6.5 million password hashes (later revealed to affect ~117M accounts).</p>
-
-<p>The solution? <strong>Hashing</strong>—a one-way mathematical function that transforms your password into a fixed-length string of characters. Even if hackers steal the database, they can’t reverse the hash to get your original password.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># This is what happens to your password
-</span><span class="kn">import</span> <span class="n">hashlib</span>
-
-<span class="n">password</span> <span class="o">=</span> <span class="sh">"</span><span class="s">MySecretPass123!</span><span class="sh">"</span>
-<span class="n">hashed</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">()).</span><span class="nf">hexdigest</span><span class="p">()</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Your password: </span><span class="si">{</span><span class="n">password</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">What gets stored: </span><span class="si">{</span><span class="n">hashed</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-<span class="c1"># Output: What gets stored: 7a37b85c8918eac19a9089c0fa5a2ab4dce3f90528dcdeec108b23ddf3607b99
-</span></code></pre></div></div>
-
-<p>But wait—if the same password always produces the same hash, couldn’t attackers just compute hashes for common passwords and look them up? They could, and they do. These are called <strong>rainbow tables</strong>.</p>
-
-<h4 id="adding-salt-making-each-password-unique">Adding Salt: Making Each Password Unique</h4>
-
-<p>To defeat rainbow tables, we add “salt”—random data mixed with your password before hashing. Now even if two users have the same password, their hashes are different:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">bcrypt</span>
-
-<span class="k">def</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">password</span><span class="p">):</span>
-    <span class="c1"># CRITICAL: Never use SHA256 for password hashing - it's too fast!
-</span>    <span class="c1"># Use bcrypt, scrypt, or Argon2 instead.
-</span>    <span class="c1">#
-</span>    <span class="c1"># bcrypt generates a fresh random salt each call and embeds it in the
-</span>    <span class="c1"># output, so identical passwords still produce different hashes — and
-</span>    <span class="c1"># there is no separate salt to store. Cost factor 12 is a good default;
-</span>    <span class="c1"># raise it as hardware gets faster.
-</span>    <span class="k">return</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">hashpw</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">),</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">gensalt</span><span class="p">(</span><span class="n">rounds</span><span class="o">=</span><span class="mi">12</span><span class="p">))</span>
-
-<span class="k">def</span> <span class="nf">verify_password</span><span class="p">(</span><span class="n">password</span><span class="p">,</span> <span class="n">hashed</span><span class="p">):</span>
-    <span class="c1"># Re-derives the hash using the salt embedded in `hashed`, in constant time
-</span>    <span class="k">return</span> <span class="n">bcrypt</span><span class="p">.</span><span class="nf">checkpw</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">),</span> <span class="n">hashed</span><span class="p">)</span>
-
-<span class="c1"># Even identical passwords get different hashes
-</span><span class="n">pwd</span> <span class="o">=</span> <span class="sh">"</span><span class="s">CommonPassword123</span><span class="sh">"</span>
-<span class="n">hash1</span> <span class="o">=</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">pwd</span><span class="p">)</span>
-<span class="n">hash2</span> <span class="o">=</span> <span class="nf">secure_password_storage</span><span class="p">(</span><span class="n">pwd</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Same password, different hashes:</span><span class="sh">"</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Hash 1: </span><span class="si">{</span><span class="n">hash1</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Hash 2: </span><span class="si">{</span><span class="n">hash2</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># differs from hash1, yet both verify
-</span></code></pre></div></div>
-
-<p>But modern attackers have GPUs that can compute billions of hashes per second. This is why security experts now recommend specialized password hashing functions like <strong>bcrypt</strong>, <strong>scrypt</strong>, or <strong>Argon2</strong> that are intentionally slow and memory-intensive, making brute-force attacks impractical.</p>
-
-<h3 id="the-wifi-youre-connected-to">The WiFi You’re Connected To</h3>
-
-<p>When you connect to a coffee shop’s WiFi, you’re essentially shouting your data across a crowded room. Anyone with the right tools can listen in. Here’s what an attacker might see:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># What an attacker sees on unsecured WiFi (simplified)</span>
-Packet captured: HTTP GET /login
-Host: example-bank.com
-Username: john.doe@email.com
-Password: MyBankPassword123
-</code></pre></div></div>
-
-<p>This is why websites use HTTPS—the ‘S’ stands for Secure. But how does HTTPS actually protect you? That brings us to one of the most important concepts in cybersecurity: <strong>encryption</strong>, covered in depth in <a href="cryptography.html">Cryptography</a>.</p>
-
-<hr />
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h3 id="suggested-reading-paths">Suggested Reading Paths</h3>
 
 <ul>
-  <li><strong>Basics stop most attacks.</strong> Strong unique passwords, MFA, encryption, and timely patching defeat the overwhelming majority of real-world intrusions.</li>
-  <li><strong>Defense in depth.</strong> No single control is perfect; layered, overlapping defenses ensure one failure does not become a full compromise.</li>
-  <li><strong>Think like an attacker.</strong> Understanding how injection, phishing, and lateral movement actually work is what lets you defend against them.</li>
-  <li><strong>Security is everyone’s job.</strong> Technology cannot protect against careless users — culture, training, and usable controls are part of the system.</li>
-  <li><strong>Plan for failure.</strong> Assume breaches will happen; detection, logging, and a rehearsed incident-response plan limit the damage when they do.</li>
-  <li><strong>It’s an ongoing journey.</strong> Every new technology brings new vulnerabilities and every defense spawns new attacks.</li>
+  <li><strong>Software engineers</strong>: <a href="cryptography.html">Cryptography</a> → <a href="application-and-cloud-security.html">Application Security</a> → <a href="cloud-and-container-security.html">Cloud &amp; Container Security</a> → <a href="privacy-engineering.html">Privacy Engineering</a>.</li>
+  <li><strong>Security operations and incident responders</strong>: <a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> → <a href="security-operations.html">Security Operations</a> → <a href="incident-response.html">Incident Response &amp; Forensics</a>.</li>
+  <li><strong>Security leaders and GRC</strong>: <a href="compliance-and-governance.html">Compliance &amp; Governance</a> → <a href="incident-response.html">Incident Response &amp; Forensics</a> → <a href="privacy-engineering.html">Privacy Engineering</a>.</li>
+  <li><strong>Theory</strong>: <a href="cryptography.html">Cryptography</a> → <a href="operations-and-response.html">Foundations, Operations &amp; Research</a> → <a href="../../advanced/cryptography/">Advanced Cryptography</a>.</li>
 </ul>
 
-<p>A practical starting checklist: enable MFA on important accounts, use a password manager, keep software updated, learn to recognize phishing, know what data you’re protecting, and rehearse incident response. Perfect security doesn’t exist, but every improvement makes you a harder target.</p>
+<h2 id="the-threat-landscape">The Threat Landscape</h2>
 
-<hr />
+<p>Attack techniques change quickly, but the ways attackers get in are remarkably stable. Mandiant’s M-Trends 2025 report, covering intrusions investigated in 2024, found that <strong>exploitation of vulnerabilities</strong> was the most common initial access vector (33%), followed by <strong>stolen credentials</strong> (16%) — the latter rising sharply with the growth of infostealer malware that harvests saved passwords and session cookies from personal and corporate devices. Other persistent patterns:</p>
+
+<ul>
+  <li><strong>Identity is the primary target.</strong> Cloud and SaaS breaches overwhelmingly begin with a valid credential or token rather than a network exploit, and attackers increasingly bypass MFA through adversary-in-the-middle phishing kits, MFA-fatigue prompts, and help-desk social engineering. Phishing-resistant authentication (FIDO2 security keys and passkeys) is the structural fix.</li>
+  <li><strong>Edge devices are exploited at scale.</strong> VPN concentrators, firewalls, and file-transfer appliances are internet-facing, run with high privilege, and often lack EDR; their vulnerabilities are regularly exploited within days of disclosure. CISA’s Known Exploited Vulnerabilities (KEV) catalog is the standard prioritization list.</li>
+  <li><strong>Ransomware is a data-theft business.</strong> Most groups now exfiltrate data before encrypting it, extorting victims twice, and some skip encryption entirely.</li>
+  <li><strong>Supply-chain compromise</strong> — malicious packages in public registries, compromised build systems, and breaches of shared service providers — turns one intrusion into thousands.</li>
+  <li><strong>AI on both sides.</strong> Attackers use generative AI for convincing phishing, voice cloning, and faster reconnaissance; defenders use it for alert triage and detection engineering. AI systems themselves add a new attack surface, including prompt injection against LLM-based agents.</li>
+</ul>
+
+<p>The implication is that the basics still stop most intrusions: patch internet-facing systems fast (especially KEV entries), deploy phishing-resistant MFA, remove standing administrative privilege, keep offline or immutable backups, and collect enough telemetry to detect what gets through.</p>
+
+<h2 id="protecting-passwords-a-worked-example">Protecting Passwords: A Worked Example</h2>
+
+<p>Password storage illustrates how several of these ideas combine. When a website’s user database is stolen — LinkedIn’s 2012 breach eventually exposed about 117 million unsalted SHA-1 hashes — the attacker attempts to recover passwords offline, at whatever speed their hardware allows.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Storage method</th>
+      <th>What an attacker with the database can do</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Plaintext</td>
+      <td>Read every password immediately</td>
+    </tr>
+    <tr>
+      <td>Unsalted fast hash (MD5, SHA-1, SHA-256)</td>
+      <td>Look up common passwords in precomputed (rainbow) tables; crack the rest at billions of guesses per second on GPUs</td>
+    </tr>
+    <tr>
+      <td>Salted fast hash</td>
+      <td>Tables no longer work, but each account can still be attacked at billions of guesses per second</td>
+    </tr>
+    <tr>
+      <td>Salted slow, memory-hard hash (Argon2id, scrypt, bcrypt)</td>
+      <td>Each guess costs milliseconds and megabytes of memory, making large-scale cracking expensive</td>
+    </tr>
+    <tr>
+      <td>Passkeys (no shared secret)</td>
+      <td>Nothing to crack: the server stores only a public key</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The correct choice is the last row where possible and Argon2id otherwise, with MFA protecting against the passwords that are reused or phished regardless of how they are stored. Parameter recommendations and code are in <a href="cryptography.html#password-hashing">Cryptography: Password Hashing</a>.</p>
 
 <h2 id="references-and-further-reading">References and Further Reading</h2>
 
-<h3 id="getting-started">Getting Started</h3>
+<h3 id="books">Books</h3>
+
 <ul>
-  <li><strong>“The Web Application Hacker’s Handbook”</strong> - Stuttard &amp; Pinto</li>
-  <li><strong>“Practical Cryptography”</strong> - Ferguson &amp; Schneier</li>
-  <li><strong>OWASP Top 10</strong> - Essential web security risks</li>
-  <li><strong>SANS Reading Room</strong> - Free security papers</li>
+  <li>Ferguson, Schneier &amp; Kohno — <em>Cryptography Engineering</em></li>
+  <li>Aumasson — <em>Serious Cryptography</em> (2nd ed., 2024)</li>
+  <li>Boneh &amp; Shoup — <em>A Graduate Course in Applied Cryptography</em> (free online)</li>
+  <li>Katz &amp; Lindell — <em>Introduction to Modern Cryptography</em></li>
+  <li>Anderson — <em>Security Engineering</em> (3rd ed.)</li>
+  <li>Dowd, McDonald &amp; Schuh — <em>The Art of Software Security Assessment</em></li>
+  <li>Zalewski — <em>The Tangled Web</em></li>
 </ul>
 
-<h3 id="intermediate-resources">Intermediate Resources</h3>
-<ul>
-  <li><strong>“Applied Cryptography”</strong> - Bruce Schneier</li>
-  <li><strong>“The Art of Software Security Assessment”</strong> - Dowd et al.</li>
-  <li><strong>“Network Security: Private Communication in a Public World”</strong> - Kaufman et al.</li>
-  <li><strong>Hack The Box</strong> - Hands-on penetration testing practice</li>
-</ul>
+<h3 id="standards-and-frameworks">Standards and Frameworks</h3>
 
-<h3 id="advanced-study">Advanced Study</h3>
 <ul>
-  <li><strong>“Introduction to Modern Cryptography”</strong> - Katz &amp; Lindell</li>
-  <li><strong>“A Graduate Course in Applied Cryptography”</strong> - Boneh &amp; Shoup</li>
-  <li><strong>“The Tangled Web”</strong> - Michal Zalewski</li>
-  <li><strong>Academic conferences</strong>: IEEE S&amp;P, USENIX Security, CCS, NDSS</li>
+  <li>OWASP Top 10, Application Security Verification Standard (ASVS), and Cheat Sheet Series</li>
+  <li>NIST Cybersecurity Framework 2.0, SP 800-53, SP 800-61r3, SP 800-207 (zero trust)</li>
+  <li>MITRE ATT&amp;CK — adversary tactics and techniques</li>
+  <li>CIS Controls v8.1 and CIS Benchmarks</li>
+  <li>CISA Known Exploited Vulnerabilities catalog</li>
 </ul>
 
 <h3 id="staying-current">Staying Current</h3>
+
 <ul>
-  <li><strong>Krebs on Security</strong> - Brian Krebs’ security journalism</li>
-  <li><strong>Schneier on Security</strong> - Bruce Schneier’s blog</li>
-  <li><strong>Google Project Zero</strong> - Cutting-edge vulnerability research</li>
-  <li><strong>The Hacker News</strong> - Daily security news</li>
-  <li><strong>SANS Internet Storm Center</strong> - Real-time threat intelligence</li>
-  <li><strong>Security podcasts</strong>: Darknet Diaries, Security Now, Risky Business, The CyberWire</li>
+  <li>Google Project Zero and vendor threat-intelligence reports (Mandiant M-Trends, Verizon DBIR, CrowdStrike Global Threat Report)</li>
+  <li>Krebs on Security; Schneier on Security</li>
+  <li>SANS Internet Storm Center</li>
+  <li>Podcasts: Risky Business, Darknet Diaries, Security Now</li>
+  <li>Academic venues: IEEE S&amp;P, USENIX Security, ACM CCS, NDSS, Real World Crypto</li>
 </ul>
 
-<h3 id="emerging-threats">Emerging Threats</h3>
-<ul>
-  <li><strong>AI-Powered Attacks</strong>: Automated vulnerability discovery, deepfakes, prompt injection</li>
-  <li><strong>Ransomware Evolution</strong>: Double/triple extortion, RaaS sophistication</li>
-  <li><strong>Cloud Security</strong>: Misconfigurations remain #1 issue</li>
-  <li><strong>IoT/OT Security</strong>: Critical infrastructure targeting</li>
-  <li><strong>API Security</strong>: Now the #1 attack vector for web apps</li>
-</ul>
+<h3 id="hands-on-practice">Hands-On Practice</h3>
 
-<h3 id="hands-on-learning">Hands-On Learning</h3>
 <ul>
-  <li><strong>CTF Platforms</strong>: PicoCTF, OverTheWire, HackTheBox, TryHackMe</li>
-  <li><strong>Bug bounty programs</strong>: HackerOne, Bugcrowd, Synack</li>
-  <li><strong>Cloud Security</strong>: AWS Security Hub, Azure Security Center labs</li>
-  <li><strong>Security certifications</strong>:
-    <ul>
-      <li>Entry: Security+, CySA+</li>
-      <li>Mid: CISSP, CEH, GSEC</li>
-      <li>Advanced: OSCP, OSCE, SANS expert tracks</li>
-    </ul>
-  </li>
-  <li><strong>Build your own lab</strong>: Docker containers for safe practice</li>
+  <li><strong>CTFs and labs</strong>: picoCTF, OverTheWire, Hack The Box, TryHackMe, PortSwigger Web Security Academy (free)</li>
+  <li><strong>Bug bounty platforms</strong>: HackerOne, Bugcrowd, Intigriti</li>
+  <li><strong>Cloud</strong>: intentionally vulnerable environments such as CloudGoat (AWS) and the cloud providers’ own security services (AWS Security Hub, Microsoft Defender for Cloud, Google Security Command Center)</li>
+  <li><strong>Certifications</strong>: entry — CompTIA Security+; practitioner — CySA+, GIAC GSEC/GCIH, OSCP; management — CISSP, CISM; advanced offensive — OffSec OSEP, OSWE, OSED (together OSCE3)</li>
 </ul>
 
 <div class="code-reference">
@@ -3397,18 +3399,20 @@ Password: MyBankPassword123
 <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/cybersecurity/cryptographic_foundations.py">cryptographic_foundations.py</a>
 <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/cybersecurity/advanced_attacks.py">advanced_attacks.py</a>
 <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/cybersecurity/ml_security.py">ml_security.py</a>
+<a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/cybersecurity/memory_forensics.py">memory_forensics.py</a>
 </div>
 
 <h2 id="see-also">See Also</h2>
 
-<p>The nine in-hub guides are listed in <a href="#guides-in-this-hub">Guides in This Hub</a> above. Related sections elsewhere on the site:</p>
+<p>Related sections elsewhere on the site:</p>
 
 <ul>
-  <li><a href="../networking/">Networking</a> — the protocols and routing security defends</li>
-  <li><a href="../aws/">AWS</a> — cloud security controls and the shared-responsibility model</li>
-  <li><a href="../docker/">Docker</a> — container isolation and image security</li>
+  <li><a href="../networking/">Networking</a> — the protocols and routing that network security defends</li>
+  <li><a href="../aws/security.html">AWS Security</a> — cloud security controls and the shared-responsibility model on AWS</li>
+  <li><a href="../docker/storage-security.html">Docker: Storage &amp; Security</a> — container isolation and image security</li>
   <li><a href="../kubernetes/">Kubernetes</a> — orchestration and workload security</li>
-  <li><a href="../quantumcomputing.html">Quantum Computing</a> — post-quantum cryptography and quantum threats</li>
+  <li><a href="../quantumcomputing.html">Quantum Computing</a> — the hardware behind the post-quantum threat</li>
+  <li><a href="../../advanced/cryptography/">Advanced Cryptography</a> — formal foundations of the primitives used here</li>
 </ul>
 
       </section>

@@ -3135,154 +3135,90 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Networking</a></p>
 
-<!-- Custom styles are now loaded via main.scss -->
+<p>Networks are built as a stack of layers, each solving one problem and hiding its details from the layer above. This page covers the two reference models (OSI and TCP/IP), how data is encapsulated as it moves down the stack, and the addressing system that lets a packet reach any host: MAC addresses on the local link, IPv4 and IPv6 across the internet, and CIDR subnetting to divide address space.</p>
 
-<p>Networks are built in layers, each solving a specific problem and hiding its complexity from the layer above. This page introduces the OSI and TCP/IP models, shows how data is wrapped (encapsulated) as it descends the stack, and then explains the addressing system — IPv4, IPv6, and CIDR subnetting — that lets a packet find any host in the world.</p>
+<h2 id="layered-models">Layered Models</h2>
 
-<h2 id="building-networks-layer-by-layer">Building Networks Layer by Layer</h2>
+<p>A layered model is a division of labour. Each layer offers a service to the one above (“deliver these bytes to that host”) and relies on the one below, so a layer can be replaced without disturbing the rest. That is why the same browser works over Wi-Fi, Ethernet, or 5G, and why QUIC could replace TCP for HTTP/3 without any change to IP.</p>
 
-<p>The OSI model breaks networking into seven layers, each solving specific problems. Think of it like building a house: you need a foundation before walls, and walls before a roof.</p>
+<h3 id="the-osi-model">The OSI Model</h3>
 
-<h3 id="the-osi-model-from-bits-to-applications">The OSI Model: From Bits to Applications</h3>
+<p>The seven-layer <strong>Open Systems Interconnection</strong> model (ISO/IEC 7498-1, 1984) is a <em>vocabulary</em> more than a blueprint. The protocols it was designed for largely lost to TCP/IP, but its layer numbers stuck: “an L7 load balancer”, “an L2 switch” and “an L3 VPN” all refer to it.</p>
 
-<p>Each layer provides services to the layer above while hiding complex details. This separation allows innovation at each layer without breaking the others—it’s why you can use the same web browser whether you’re on Wi-Fi or cellular.</p>
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Layer</th>
+      <th>Responsibility</th>
+      <th>Unit of data (PDU)</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>7</td>
+      <td>Application</td>
+      <td>Network services used by programs</td>
+      <td>Message</td>
+      <td>HTTP, DNS, SMTP, SSH</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Presentation</td>
+      <td>Data representation, encoding, encryption</td>
+      <td>Message</td>
+      <td>TLS (loosely), UTF-8, ASN.1</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Session</td>
+      <td>Opening, managing, and closing dialogues</td>
+      <td>Message</td>
+      <td>RPC sessions, TLS sessions (loosely)</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Transport</td>
+      <td>End-to-end delivery between <em>processes</em>; ports, reliability, flow control</td>
+      <td>Segment (TCP) / datagram (UDP)</td>
+      <td>TCP, UDP, QUIC</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Network</td>
+      <td>Delivery between <em>hosts</em> across networks; addressing and routing</td>
+      <td>Packet</td>
+      <td>IPv4, IPv6, ICMP</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Data link</td>
+      <td>Delivery between neighbours on one link; framing, error detection</td>
+      <td>Frame</td>
+      <td>Ethernet, Wi-Fi (802.11), PPP</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>Physical</td>
+      <td>Bits as signals on a medium</td>
+      <td>Bit / symbol</td>
+      <td>Copper, fibre, radio</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="layer-7-application---what-users-see">Layer 7: Application - What Users See</h3>
-<p>This is where networking meets user needs. Application layer protocols define how programs communicate over the network.</p>
+<p>Layers 5 and 6 have no clean counterpart in the internet stack. TLS, for example, performs presentation-layer work (encryption) but runs as a library inside the application on top of TCP; QUIC folds transport, encryption, and session management into one protocol. Treat the OSI numbering as a map, not a rule that every protocol fits exactly one box.</p>
 
-<p><strong>Common protocols you use daily:</strong></p>
-<ul>
-  <li><strong>HTTP/HTTPS</strong>: Web browsing (the S means secure/encrypted)</li>
-  <li><strong>SMTP/IMAP</strong>: Email sending and receiving</li>
-  <li><strong>SSH</strong>: Secure remote access to servers</li>
-  <li><strong>FTP/SFTP</strong>: File transfers</li>
-  <li><strong>DNS</strong>: Converting domain names to IP addresses</li>
-</ul>
+<h3 id="the-tcpip-model">The TCP/IP Model</h3>
 
-<p><strong>Why it matters:</strong> Each protocol is optimized for its specific use case. Email needs reliability but can tolerate delays. Video calls need low latency but can tolerate some loss.</p>
-
-<h3 id="layer-6-presentation---making-data-universal">Layer 6: Presentation - Making Data Universal</h3>
-<p>Different computers represent data differently. The presentation layer ensures everyone speaks the same language.</p>
-
-<p><strong>Key functions:</strong></p>
-<ul>
-  <li><strong>Encryption/Decryption</strong>: SSL/TLS keeps your data private</li>
-  <li><strong>Compression</strong>: Making files smaller for faster transfer</li>
-  <li><strong>Character encoding</strong>: Ensuring emojis work everywhere (UTF-8)</li>
-  <li><strong>File formats</strong>: JPEG for photos, MP3 for audio</li>
-</ul>
-
-<p><strong>Real-world impact:</strong> This layer is why you can send a photo from an iPhone to an Android, or why secure websites work regardless of your browser.</p>
-
-<h3 id="layer-5-session---managing-conversations">Layer 5: Session - Managing Conversations</h3>
-<p>The session layer coordinates communication between applications, like a moderator in a conference call.</p>
-
-<p><strong>Key responsibilities:</strong></p>
-<ul>
-  <li>Establishing and terminating sessions</li>
-  <li>Managing turn-taking in communications</li>
-  <li>Checkpointing long operations</li>
-  <li>Examples: SQL sessions, RPC calls, NetBIOS</li>
-</ul>
-
-<h3 id="layer-4-transport---reliable-communication">Layer 4: Transport - Reliable Communication</h3>
-<p>IP gets packets to the right computer, but which application should receive them? And what if packets arrive out of order or get lost? Layer 4 solves these problems.</p>
-
-<p><strong>Two approaches:</strong></p>
-<ul>
-  <li><strong>TCP</strong>: Guarantees delivery and order (like certified mail)
-    <ul>
-      <li>Used for: Web pages, email, file transfers</li>
-      <li>Overhead: Connection setup, acknowledgments, retransmissions</li>
-    </ul>
-  </li>
-  <li><strong>UDP</strong>: Fast but unreliable (like regular mail)
-    <ul>
-      <li>Used for: Video streaming, gaming, DNS</li>
-      <li>Advantage: Lower latency, no connection overhead</li>
-    </ul>
-  </li>
-</ul>
-
-<p><strong>Port numbers:</strong> Like apartment numbers in a building—they direct traffic to specific applications (web servers on port 80, SSH on port 22).</p>
-
-<blockquote>
-  <p>The transport layer gets a full treatment in <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a>, including TCP congestion control and the TCP-vs-UDP decision.</p>
-</blockquote>
-
-<h3 id="layer-3-network---internet-scale-routing">Layer 3: Network - Internet-Scale Routing</h3>
-<p>Layer 2 works great locally, but MAC addresses don’t scale to the internet. Layer 3 introduces IP addresses and routing—the technologies that make the global internet possible.</p>
-
-<p><strong>Key innovations:</strong></p>
-<ul>
-  <li>IP addresses: Hierarchical addressing (like 192.168.1.1)</li>
-  <li>Routers: Devices that forward packets between networks</li>
-  <li>Routing protocols: Algorithms for finding paths (OSPF for organizations, BGP for the internet)</li>
-  <li>ICMP: Network diagnostics (ping, traceroute)</li>
-</ul>
-
-<p><strong>The magic:</strong> Your packet finds its way across dozens of independent networks, each making local routing decisions, yet somehow arrives at the right destination.</p>
-
-<blockquote>
-  <p>How routers actually choose those paths is the subject of <a href="routing.html">Routing &amp; Switching</a>.</p>
-</blockquote>
-
-<h3 id="layer-2-data-link---reliable-local-delivery">Layer 2: Data Link - Reliable Local Delivery</h3>
-<p>The physical layer gives us raw bit transmission, but it’s prone to errors. Layer 2 adds error detection and manages access when multiple devices share the same physical medium (like Wi-Fi).</p>
-
-<p><strong>Key concepts:</strong></p>
-<ul>
-  <li>MAC addresses: Hardware identifiers (like 00:1B:44:11:3A:B7)</li>
-  <li>Ethernet frames: Packets with error-checking</li>
-  <li>Switches: Smart devices that learn where to send frames</li>
-  <li>ARP: Translating IP addresses to MAC addresses</li>
-</ul>
-
-<p><strong>Why it matters:</strong> Without Layer 2, your Wi-Fi would be chaos with devices talking over each other, and corrupted data would crash applications.</p>
-
-<h3 id="layer-1-physical---getting-bits-from-a-to-b">Layer 1: Physical - Getting Bits from A to B</h3>
-<p>This is where networking meets physics. Whether using electrical signals in copper cables, light pulses in fiber optics, or radio waves in Wi-Fi, we need to reliably transmit ones and zeros.</p>
-
-<p><strong>Real-world challenges:</strong></p>
-<ul>
-  <li>Signal degradation over distance</li>
-  <li>Interference from other devices</li>
-  <li>Physical damage to cables</li>
-</ul>
-
-<p><strong>Technologies:</strong></p>
-<ul>
-  <li>Ethernet cables (Cat5e, Cat6)</li>
-  <li>Fiber optics (single-mode, multi-mode)</li>
-  <li>Wireless (Wi-Fi, cellular)</li>
-</ul>
-
-<h2 id="the-tcpip-model-what-we-actually-use">The TCP/IP Model: What We Actually Use</h2>
-
-<p>While OSI provides a conceptual framework, the internet actually runs on the simpler TCP/IP model. It combines some OSI layers and focuses on practical implementation:</p>
-
-<ol>
-  <li><strong>Application Layer</strong>: Everything from OSI layers 5-7</li>
-  <li><strong>Transport Layer</strong>: TCP and UDP (OSI layer 4)</li>
-  <li><strong>Internet Layer</strong>: IP routing (OSI layer 3)</li>
-  <li><strong>Link Layer</strong>: Physical transmission and local delivery (OSI layers 1-2)</li>
-</ol>
-
-<p>This streamlined model reflects how protocols are actually implemented and is what you’ll encounter in practice.</p>
-
-<p>As data moves down the sending stack, each layer wraps it in its own header (encapsulation); the receiver peels each header off in reverse:</p>
-
-<pre><code class="language-mermaid">flowchart TD
-    APP["Application — HTTP data"] --&gt; T["Transport — + TCP/UDP header (port)"]
-    T --&gt; I["Internet — + IP header (addresses)"]
-    I --&gt; L["Link — + frame header/trailer (MAC)"]
-    L --&gt; WIRE(["bits on the wire"])
-</code></pre>
+<p>The internet runs on the four-layer <strong>TCP/IP</strong> (or Internet) model defined in RFC 1122. It merges OSI layers 5–7 into a single application layer and layers 1–2 into a link layer.</p>
 
 <table>
   <thead>
     <tr>
       <th>TCP/IP layer</th>
+      <th>OSI equivalent</th>
       <th>Adds</th>
       <th>Example protocols</th>
       <th>Addressing</th>
@@ -3291,106 +3227,445 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td>Application</td>
-      <td>Application data</td>
-      <td>HTTP, DNS, TLS</td>
+      <td>5–7</td>
+      <td>Application data and semantics</td>
+      <td>HTTP, DNS, TLS, SSH</td>
       <td>URLs, hostnames</td>
     </tr>
     <tr>
       <td>Transport</td>
-      <td>Ports, reliability</td>
+      <td>4</td>
+      <td>Ports, reliability, congestion control</td>
       <td>TCP, UDP, QUIC</td>
       <td>Port numbers</td>
     </tr>
     <tr>
       <td>Internet</td>
-      <td>Routing</td>
-      <td>IP, ICMP</td>
+      <td>3</td>
+      <td>Global addressing and routing</td>
+      <td>IPv4, IPv6, ICMP</td>
       <td>IP addresses</td>
     </tr>
     <tr>
       <td>Link</td>
-      <td>Local framing</td>
-      <td>Ethernet, Wi-Fi</td>
+      <td>1–2</td>
+      <td>Framing and delivery on one link</td>
+      <td>Ethernet, 802.11, cellular</td>
       <td>MAC addresses</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="ip-addressing-the-internets-phone-book">IP Addressing: The Internet’s Phone Book</h2>
+<p>The design principle at the centre is the <strong>end-to-end argument</strong>: keep the network core (IP) simple and stateless, and put reliability, ordering, and security in the end hosts. IP promises only <em>best-effort</em> delivery; packets may be lost, duplicated, or reordered, and TCP or QUIC on the hosts repairs that.</p>
 
-<p>Just as phone numbers let you call anyone in the world, IP addresses enable global internet communication. Let’s understand how this addressing system works and why we’re running out of numbers.</p>
+<h3 id="encapsulation">Encapsulation</h3>
 
-<h3 id="ipv4-the-original-design">IPv4: The Original Design</h3>
-<p>IPv4 uses 32-bit addresses, giving us about 4.3 billion possible addresses. In 1981, this seemed like plenty. Today, with billions of devices online, we’ve had to get creative.</p>
+<p>On the way down the sending stack, each layer treats everything it receives from above as opaque payload and prepends its own header (Ethernet also appends a trailer, the frame check sequence). The receiver strips the headers in reverse order, each layer reading only its own.</p>
 
-<p><strong>Address Classes</strong>:</p>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph S[Sender]
+        direction TB
+        A1["[data]"]
+        A2["[TCP hdr][data]"]
+        A3["[IP hdr][TCP hdr][data]"]
+        A4["[Eth hdr][IP][TCP][data][FCS]"]
+        A1 --&gt;|segment| A2 --&gt;|packet| A3 --&gt;|frame| A4
+    end
+    subgraph R[Receiver]
+        direction TB
+        B4["[Eth hdr][IP][TCP][data][FCS]"]
+        B3["[IP hdr][TCP hdr][data]"]
+        B2["[TCP hdr][data]"]
+        B1["[data] to application"]
+        B4 --&gt;|strip frame| B3 --&gt;|strip IP| B2 --&gt;|strip TCP| B1
+    end
+    A4 == bits on the wire ==&gt; B4
+</code></pre>
+
+<p>Typical header sizes on an Ethernet link:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Header</th>
+      <th>Size</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Ethernet II</td>
+      <td>14 B header + 4 B FCS trailer</td>
+      <td>An 802.1Q VLAN tag adds 4 B</td>
+    </tr>
+    <tr>
+      <td>IPv4</td>
+      <td>20 B minimum</td>
+      <td>Up to 60 B with options</td>
+    </tr>
+    <tr>
+      <td>IPv6</td>
+      <td>40 B fixed</td>
+      <td>Options move to extension headers</td>
+    </tr>
+    <tr>
+      <td>TCP</td>
+      <td>20 B minimum</td>
+      <td>Commonly 32 B with timestamps</td>
+    </tr>
+    <tr>
+      <td>UDP</td>
+      <td>8 B</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The <strong>maximum transmission unit (MTU)</strong> is the largest IP packet a link carries; standard Ethernet is 1500 bytes, so a TCP segment over IPv4 carries at most 1460 bytes of data (1500 − 20 − 20). Tunnels (VXLAN, IPsec, WireGuard) add their own headers and shrink the effective MTU, which is a frequent cause of connections that hang on large transfers. IPv4 routers may fragment oversized packets; IPv6 routers never do, relying on <strong>Path MTU Discovery</strong> and ICMPv6 “Packet Too Big” messages, so blocking ICMP breaks IPv6.</p>
+
+<h2 id="layer-2-links-and-mac-addresses">Layer 2: Links and MAC Addresses</h2>
+
+<p>The link layer moves frames between devices that share a link: one Ethernet segment, one VLAN, or one Wi-Fi network.</p>
+
 <ul>
-  <li>Class A: 1.0.0.0 to 126.255.255.255 (/8)</li>
-  <li>Class B: 128.0.0.0 to 191.255.255.255 (/16)</li>
-  <li>Class C: 192.0.0.0 to 223.255.255.255 (/24)</li>
+  <li>A <strong>MAC address</strong> is a 48-bit identifier written as six hex octets, e.g. <code class="language-plaintext highlighter-rouge">00:1b:44:11:3a:b7</code>. The first three octets are traditionally the vendor’s Organizationally Unique Identifier. Modern phones and laptops use <strong>randomised MAC addresses</strong> per network for privacy (the “locally administered” bit is set), so a MAC is no longer a stable device identity.</li>
+  <li>A <strong>switch</strong> learns which MAC addresses live behind which port by reading source addresses, then forwards each frame only to the port where its destination lives. Frames to unknown destinations, and broadcasts to <code class="language-plaintext highlighter-rouge">ff:ff:ff:ff:ff:ff</code>, are flooded to every port in the VLAN. The set of hosts a broadcast reaches is the <strong>broadcast domain</strong>; VLANs split one switch into several (<a href="routing.html#switching-and-vlans">Routing &amp; Switching</a>).</li>
+  <li><strong>Address resolution</strong> joins layers 2 and 3. Before sending an IPv4 packet to a neighbour, a host broadcasts an <strong>ARP</strong> request (“who has 10.0.1.7?”) and caches the reply. IPv6 replaces ARP with <strong>Neighbor Discovery (NDP)</strong>, which uses ICMPv6 and multicast instead of broadcast.</li>
 </ul>
 
-<p><strong>Private Address Ranges</strong>:</p>
-<ul>
-  <li>10.0.0.0/8</li>
-  <li>172.16.0.0/12</li>
-  <li>192.168.0.0/16</li>
-</ul>
+<p>MAC addresses never cross a router. At every IP hop the frame is rebuilt with new source and destination MACs, while the IP addresses inside stay the same (NAT aside).</p>
+
+<h2 id="layer-3-ip-addressing">Layer 3: IP Addressing</h2>
+
+<p>An IP address identifies an interface and, through its prefix, the network the interface belongs to. Routers forward on the prefix alone; only the last router needs to know about the individual host.</p>
+
+<h3 id="ipv4">IPv4</h3>
+
+<p>IPv4 addresses are 32 bits, written as four decimal octets (<code class="language-plaintext highlighter-rouge">192.0.2.10</code>), for about 4.3 billion addresses. IANA handed its last blocks to the regional registries in 2011, and the registries now issue only small final allocations or run waiting lists. IPv4 survives on address reuse: private ranges behind <strong>NAT</strong>, carrier-grade NAT (CGNAT) at ISPs, and a secondary market where addresses change hands for tens of US dollars each. Cloud providers now bill for public IPv4 addresses directly (see <a href="cloud-networking.html#egress-control-and-cost">Cloud Networking</a>).</p>
+
+<h4 id="classful-addressing-historical">Classful Addressing (Historical)</h4>
+
+<p>Until 1993, the leading bits of an address fixed its network size: Class A (<code class="language-plaintext highlighter-rouge">0.0.0.0/8</code> to <code class="language-plaintext highlighter-rouge">127.0.0.0/8</code>, 16.7 million hosts each), Class B (<code class="language-plaintext highlighter-rouge">128.0.0.0/16</code> to <code class="language-plaintext highlighter-rouge">191.255.0.0/16</code>, 65,534 hosts), Class C (<code class="language-plaintext highlighter-rouge">192.0.0.0/24</code> to <code class="language-plaintext highlighter-rouge">223.255.255.0/24</code>, 254 hosts). The gap between 254 and 65,534 hosts wasted address space and swelled routing tables, so <strong>CIDR</strong> (RFC 1519, now RFC 4632) replaced classes with arbitrary-length prefixes. “Class C” is still heard as slang for a /24, but no protocol uses classes any more. Class D (<code class="language-plaintext highlighter-rouge">224.0.0.0/4</code>) survives as the multicast range.</p>
+
+<h4 id="special-purpose-ipv4-ranges">Special-Purpose IPv4 Ranges</h4>
+
+<table>
+  <thead>
+    <tr>
+      <th>Block</th>
+      <th>Purpose</th>
+      <th>Defined in</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">10.0.0.0/8</code>, <code class="language-plaintext highlighter-rouge">172.16.0.0/12</code>, <code class="language-plaintext highlighter-rouge">192.168.0.0/16</code></td>
+      <td>Private addressing; not routed on the internet</td>
+      <td>RFC 1918</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">100.64.0.0/10</code></td>
+      <td>Shared address space for carrier-grade NAT</td>
+      <td>RFC 6598</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">127.0.0.0/8</code></td>
+      <td>Loopback (<code class="language-plaintext highlighter-rouge">127.0.0.1</code> is “this host”)</td>
+      <td>RFC 1122</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">169.254.0.0/16</code></td>
+      <td>Link-local; self-assigned when DHCP fails. Clouds serve instance metadata at <code class="language-plaintext highlighter-rouge">169.254.169.254</code></td>
+      <td>RFC 3927</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">192.0.2.0/24</code>, <code class="language-plaintext highlighter-rouge">198.51.100.0/24</code>, <code class="language-plaintext highlighter-rouge">203.0.113.0/24</code></td>
+      <td>Documentation and examples only</td>
+      <td>RFC 5737</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">224.0.0.0/4</code></td>
+      <td>Multicast</td>
+      <td>RFC 5771</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">0.0.0.0/8</code></td>
+      <td>“This network”; <code class="language-plaintext highlighter-rouge">0.0.0.0/0</code> as a route means <em>default</em></td>
+      <td>RFC 1122</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">255.255.255.255/32</code></td>
+      <td>Limited broadcast</td>
+      <td>RFC 919</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="ipv6">IPv6</h3>
-<p>128-bit addresses, written in hexadecimal (e.g., 2001:db8::1)</p>
 
-<p><strong>Address Types</strong>:</p>
+<p>IPv6 uses 128-bit addresses written as eight groups of four hex digits. Leading zeros in a group may be dropped, and one run of all-zero groups may be replaced by <code class="language-plaintext highlighter-rouge">::</code>:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>2001:0db8:0000:0000:0000:ff00:0042:8329
+2001:db8::ff00:42:8329            (compressed form, RFC 5952)
+</code></pre></div></div>
+
+<p>Scarcity is not a design constraint. The standard subnet size is a <strong>/64</strong>, which leaves 64 bits for the interface identifier, and a typical site receives a /48 (65,536 subnets) or an ISP customer a /56. A global unicast address therefore reads as a routing hierarchy:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>|&lt;---- 48 bits ----&gt;|&lt;- 16 -&gt;|&lt;---------- 64 bits ----------&gt;|
+|  global routing   | subnet |      interface identifier       |
+|  prefix (the site)|   ID   |  (SLAAC, DHCPv6, or manual)     |
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Prefix</th>
+      <th>Type</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">2000::/3</code></td>
+      <td>Global unicast</td>
+      <td>Publicly routable addresses</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fc00::/7</code> (in practice <code class="language-plaintext highlighter-rouge">fd00::/8</code>)</td>
+      <td>Unique local (ULA)</td>
+      <td>Private addressing, the analogue of RFC 1918</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fe80::/10</code></td>
+      <td>Link-local</td>
+      <td>Present on every IPv6 interface; used by NDP and routing protocols</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ff00::/8</code></td>
+      <td>Multicast</td>
+      <td>Replaces broadcast entirely</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">::1/128</code></td>
+      <td>Loopback</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">::/128</code></td>
+      <td>Unspecified</td>
+      <td>Source address before one is assigned</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">64:ff9b::/96</code></td>
+      <td>NAT64 well-known prefix</td>
+      <td>Embeds IPv4 addresses for IPv6-only clients</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">2001:db8::/32</code></td>
+      <td>Documentation</td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Other differences from IPv4 that matter in practice:</p>
+
 <ul>
-  <li>Unicast: Single interface</li>
-  <li>Multicast: Group of interfaces</li>
-  <li>Anycast: Nearest of group</li>
+  <li><strong>No broadcast.</strong> Functions that used broadcast (ARP, DHCP discovery) use multicast to specific groups instead.</li>
+  <li><strong>Stateless address autoconfiguration (SLAAC).</strong> Routers advertise the /64 prefix; hosts form their own addresses, usually with randomised interface identifiers (RFC 8981) rather than the older MAC-derived EUI-64. DHCPv6 is optional, and Android has never supported stateful DHCPv6 address assignment, so SLAAC is the only method that works on every client.</li>
+  <li><strong>Several addresses per interface</strong> are normal: a link-local, one or more global addresses, and temporary privacy addresses.</li>
+  <li><strong>No NAT by default.</strong> Every host can have a globally unique address; inbound access is controlled by stateful firewalls rather than by address translation.</li>
 </ul>
 
-<p><strong>Special Addresses</strong>:</p>
-<ul>
-  <li>::1 - Loopback</li>
-  <li>fe80::/10 - Link-local</li>
-  <li>2000::/3 - Global unicast</li>
-</ul>
+<h4 id="adoption-and-transition">Adoption and Transition</h4>
 
-<h3 id="subnetting-organizing-ip-addresses">Subnetting: Organizing IP Addresses</h3>
+<p>Google’s measurements show roughly 46–50% of its users reaching it over IPv6 in September 2026, higher on weekends when traffic shifts to residential and mobile networks, and with wide variation between countries. Most networks therefore run <strong>dual-stack</strong> (both protocols side by side, with clients preferring IPv6 through <em>Happy Eyeballs</em>, RFC 8305). Mobile carriers and some large enterprises run <strong>IPv6-only</strong> networks and reach the remaining IPv4 internet through <strong>NAT64/DNS64</strong> (the DNS server synthesises IPv6 addresses inside <code class="language-plaintext highlighter-rouge">64:ff9b::/96</code>, and a gateway translates) or <strong>464XLAT</strong>, which also covers applications that hard-code IPv4 literals.</p>
 
-<p>Subnetting is like dividing a large office building into departments. Instead of one giant network, we create smaller, manageable segments. This improves security, reduces broadcast traffic, and makes networks easier to manage.</p>
+<h2 id="subnetting-and-cidr">Subnetting and CIDR</h2>
 
-<p><strong>Understanding CIDR Notation</strong>
-When we write 192.168.1.0/24, we’re defining:</p>
-<ul>
-  <li><strong>Network portion</strong>: First 24 bits (192.168.1)</li>
-  <li><strong>Host portion</strong>: Last 8 bits (0-255)</li>
-  <li><strong>Network address</strong>: 192.168.1.0 (identifies the subnet)</li>
-  <li><strong>Broadcast address</strong>: 192.168.1.255 (reaches all hosts)</li>
-  <li><strong>Usable addresses</strong>: 192.168.1.1 to 192.168.1.254 (254 hosts)</li>
-</ul>
+<p>A <strong>subnet</strong> is a contiguous block of addresses that share a prefix. CIDR notation writes the prefix length after a slash: in <code class="language-plaintext highlighter-rouge">192.168.1.0/24</code>, the first 24 bits identify the network and the remaining 8 identify hosts. The equivalent <strong>subnet mask</strong> has the prefix bits set to 1, here <code class="language-plaintext highlighter-rouge">255.255.255.0</code>.</p>
 
-<p><strong>Why subtract 2?</strong> The network and broadcast addresses are reserved, so a /24 network has 256 total addresses but only 254 usable ones.</p>
+<p>Subnetting limits broadcast domains, gives each segment its own security policy, and lets routers summarise many subnets as one route.</p>
 
-<p><strong>Real-world example</strong>: A company might use:</p>
-<ul>
-  <li>10.0.1.0/24 for engineering (254 devices)</li>
-  <li>10.0.2.0/24 for sales</li>
-  <li>10.0.3.0/24 for guest Wi-Fi</li>
-</ul>
+<h3 id="subnet-arithmetic">Subnet Arithmetic</h3>
 
-<p>This separation means a broadcast on the guest network won’t affect engineering workstations. The same logical-segmentation idea, applied on shared switch hardware, gives you VLANs — covered in <a href="routing.html">Routing &amp; Switching</a>.</p>
+<p>For an IPv4 prefix of length $p$, the block contains $2^{32-p}$ addresses. The first (all host bits 0) is the <strong>network address</strong> and the last (all host bits 1) is the <strong>broadcast address</strong>, so on an ordinary LAN</p>
+
+\[N_{\text{usable}} = 2^{32-p} - 2\]
+
+<p>Two exceptions: a <strong>/31</strong> has two usable addresses for point-to-point links, with no network or broadcast address (RFC 3021), and a <strong>/32</strong> identifies a single host (loopbacks, host routes). Cloud providers reserve more: AWS keeps five addresses in every subnet, Azure five, and Google Cloud four.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Prefix</th>
+      <th>Mask</th>
+      <th>Addresses</th>
+      <th>Usable hosts (LAN)</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>/8</td>
+      <td>255.0.0.0</td>
+      <td>16,777,216</td>
+      <td>16,777,214</td>
+      <td>Whole private space <code class="language-plaintext highlighter-rouge">10.0.0.0/8</code></td>
+    </tr>
+    <tr>
+      <td>/16</td>
+      <td>255.255.0.0</td>
+      <td>65,536</td>
+      <td>65,534</td>
+      <td>A cloud VPC or a campus</td>
+    </tr>
+    <tr>
+      <td>/20</td>
+      <td>255.255.240.0</td>
+      <td>4,096</td>
+      <td>4,094</td>
+      <td>A large cloud subnet or Kubernetes pod range</td>
+    </tr>
+    <tr>
+      <td>/24</td>
+      <td>255.255.255.0</td>
+      <td>256</td>
+      <td>254</td>
+      <td>A typical LAN or cloud subnet</td>
+    </tr>
+    <tr>
+      <td>/27</td>
+      <td>255.255.255.224</td>
+      <td>32</td>
+      <td>30</td>
+      <td>A small server segment</td>
+    </tr>
+    <tr>
+      <td>/30</td>
+      <td>255.255.255.252</td>
+      <td>4</td>
+      <td>2</td>
+      <td>Legacy point-to-point link</td>
+    </tr>
+    <tr>
+      <td>/31</td>
+      <td>255.255.255.254</td>
+      <td>2</td>
+      <td>2</td>
+      <td>Point-to-point link (RFC 3021)</td>
+    </tr>
+    <tr>
+      <td>/32</td>
+      <td>255.255.255.255</td>
+      <td>1</td>
+      <td>1</td>
+      <td>Single host, loopback</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="worked-example">Worked Example</h3>
+
+<p>Dissecting <code class="language-plaintext highlighter-rouge">10.0.37.200/20</code>:</p>
+
+<ol>
+  <li>A /20 leaves 12 host bits, so blocks are $2^{12} = 4096$ addresses, which step through the third octet in increments of 16.</li>
+  <li>The third octet, 37, falls in the block starting at 32 (32–47).</li>
+  <li>Network address <code class="language-plaintext highlighter-rouge">10.0.32.0</code>; broadcast <code class="language-plaintext highlighter-rouge">10.0.47.255</code>; usable hosts <code class="language-plaintext highlighter-rouge">10.0.32.1</code>–<code class="language-plaintext highlighter-rouge">10.0.47.254</code> (4,094).</li>
+</ol>
+
+<p>The same calculation in Python’s standard library:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">ipaddress</span>
+
+<span class="n">iface</span> <span class="o">=</span> <span class="n">ipaddress</span><span class="p">.</span><span class="nf">ip_interface</span><span class="p">(</span><span class="sh">"</span><span class="s">10.0.37.200/20</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">net</span> <span class="o">=</span> <span class="n">iface</span><span class="p">.</span><span class="n">network</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">net</span><span class="p">)</span>                    <span class="c1"># 10.0.32.0/20
+</span><span class="nf">print</span><span class="p">(</span><span class="n">net</span><span class="p">.</span><span class="n">netmask</span><span class="p">)</span>            <span class="c1"># 255.255.240.0
+</span><span class="nf">print</span><span class="p">(</span><span class="n">net</span><span class="p">.</span><span class="n">broadcast_address</span><span class="p">)</span>  <span class="c1"># 10.0.47.255
+</span><span class="nf">print</span><span class="p">(</span><span class="n">net</span><span class="p">.</span><span class="n">num_addresses</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>  <span class="c1"># 4094 usable on a LAN
+</span>
+<span class="c1"># Carve the /20 into /24s, or split it unevenly (VLSM)
+</span><span class="nf">print</span><span class="p">([</span><span class="nf">str</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">net</span><span class="p">.</span><span class="nf">subnets</span><span class="p">(</span><span class="n">new_prefix</span><span class="o">=</span><span class="mi">22</span><span class="p">)])</span>
+<span class="c1"># ['10.0.32.0/22', '10.0.36.0/22', '10.0.40.0/22', '10.0.44.0/22']
+</span></code></pre></div></div>
+
+<h3 id="variable-length-subnet-masks">Variable-Length Subnet Masks</h3>
+
+<p>Subnets do not have to be the same size. <strong>VLSM</strong> allocates each segment only what it needs, largest first so that blocks stay aligned. Splitting <code class="language-plaintext highlighter-rouge">10.0.0.0/22</code> (1,024 addresses) for an office:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Segment</th>
+      <th>Hosts needed</th>
+      <th>Allocation</th>
+      <th>Range</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Engineering</td>
+      <td>400</td>
+      <td><code class="language-plaintext highlighter-rouge">10.0.0.0/23</code></td>
+      <td>10.0.0.0 – 10.0.1.255</td>
+    </tr>
+    <tr>
+      <td>Guest Wi-Fi</td>
+      <td>200</td>
+      <td><code class="language-plaintext highlighter-rouge">10.0.2.0/24</code></td>
+      <td>10.0.2.0 – 10.0.2.255</td>
+    </tr>
+    <tr>
+      <td>Sales</td>
+      <td>100</td>
+      <td><code class="language-plaintext highlighter-rouge">10.0.3.0/25</code></td>
+      <td>10.0.3.0 – 10.0.3.127</td>
+    </tr>
+    <tr>
+      <td>Servers</td>
+      <td>50</td>
+      <td><code class="language-plaintext highlighter-rouge">10.0.3.128/26</code></td>
+      <td>10.0.3.128 – 10.0.3.191</td>
+    </tr>
+    <tr>
+      <td>Router links</td>
+      <td>2 each</td>
+      <td><code class="language-plaintext highlighter-rouge">10.0.3.192/31</code>, <code class="language-plaintext highlighter-rouge">10.0.3.194/31</code>, …</td>
+      <td>from 10.0.3.192</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The reverse operation, <strong>route summarisation</strong> (supernetting), advertises the whole plan upstream as the single route <code class="language-plaintext highlighter-rouge">10.0.0.0/22</code>. Plan address space so that it summarises cleanly, and so that it does not overlap with networks you may later need to connect to. Overlapping ranges are the most expensive mistake in <a href="cloud-networking.html#choosing-an-address-range">cloud network design</a>.</p>
+
+<h3 id="how-a-host-uses-the-mask">How a Host Uses the Mask</h3>
+
+<p>The mask decides whether a packet is delivered directly or handed to a router. The host ANDs the destination address with its own mask and compares the result with its own network address:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    P["Packet for destination D"] --&gt; Q{"D AND mask&lt;br/&gt;= my network?"}
+    Q -- yes --&gt; L["On-link: resolve D's MAC&lt;br/&gt;(ARP / NDP), send frame to D"]
+    Q -- no --&gt; G["Off-link: resolve the default&lt;br/&gt;gateway's MAC, send frame to gateway"]
+    G --&gt; R["Router repeats the decision&lt;br/&gt;using longest-prefix match"]
+</code></pre>
+
+<p>In IPv6 the same decision uses the on-link prefixes learned from Router Advertisements. Routers extend the idea by choosing among many prefixes with <strong>longest-prefix match</strong>, covered in <a href="routing.html">Routing &amp; Switching</a>.</p>
 
 <hr />
 
 <h2 id="continue">Continue</h2>
 
-<p><strong>Up:</strong> <a href="./">Networking</a> — overview and navigation hub.  <strong>Next:</strong> <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — how the transport layer delivers data reliably.</p>
+<p><strong>Up:</strong> <a href="./">Networking</a>, the overview and navigation hub.  <strong>Next:</strong> <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a>, on how the transport layer delivers data reliably.</p>
 
 <h3 id="see-also">See Also</h3>
 
 <ul>
-  <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — TCP, UDP, and the protocols built on top of IP.</li>
-  <li><a href="routing.html">Routing &amp; Switching</a> — how Layer 3 packets find a path, plus VLANs at Layer 2.</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> — securing the stack you just learned.</li>
+  <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a>: TCP, UDP, QUIC, and the protocols built on IP.</li>
+  <li><a href="routing.html">Routing &amp; Switching</a>: how packets find a path, NAT, and VLANs at Layer 2.</li>
+  <li><a href="cloud-networking.html">Cloud Networking</a>: applying CIDR planning to VPCs and subnets.</li>
+  <li><a href="../cybersecurity/">Cybersecurity</a>: securing the stack described here.</li>
 </ul>
 
       </section>

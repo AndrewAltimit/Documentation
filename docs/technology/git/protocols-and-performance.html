@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How Git transfers objects between repositories (protocol v2, fetch and push negotiation), the packfile, index, bitmap and multi-pack-index formats, and the m...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Git Internals: Protocols, Packs & Performance">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How Git transfers objects between repositories (protocol v2, fetch and push negotiation), the packfile, index, bitmap and multi-pack-index formats, and the m...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git/protocols-and-performance.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Git Internals: Protocols, Packs & Performance">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How Git transfers objects between repositories (protocol v2, fetch and push negotiation), the packfile, index, bitmap and multi-pack-index formats, and the m...">
 
 <title>Git Internals: Protocols, Packs & Performance | Andrews Notebook</title>
 
@@ -3135,263 +3135,681 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Git Internals</a> ›</p>
 
-<p>How the object store synchronizes over the wire, the pack and index formats, and the tuning that keeps large repositories fast.</p>
+<p>The <a href="object-model.html">object model</a> explains what Git stores; this page explains how it moves and compacts that data. It covers the transports and the wire protocol, the negotiation that lets a fetch or push send only missing objects, the packfile and its auxiliary indexes, delta compression, and the maintenance and partial-clone features that keep repositories with millions of objects usable. Versions cited are current as of Git 2.55 (June 2026).</p>
 
-<h2 id="repository-operations-at-the-protocol-level">Repository Operations at the Protocol Level</h2>
+<h2 id="transports">Transports</h2>
 
-<p>Git’s network protocol enables efficient distributed repository synchronization through:</p>
+<p>Git can reach a remote repository in several ways. All of the “smart” transports run the same protocol; they differ only in how bytes get to the server-side <code class="language-plaintext highlighter-rouge">git upload-pack</code> (for fetch) or <code class="language-plaintext highlighter-rouge">git receive-pack</code> (for push) process.</p>
 
-<p><strong>Protocol Phases:</strong></p>
-<ol>
-  <li><strong>Reference Discovery</strong>: Client queries available refs from server</li>
-  <li><strong>Capability Negotiation</strong>: Client and server agree on protocol features</li>
-  <li><strong>Pack Negotiation</strong>: Client specifies wants/haves for minimal data transfer</li>
-  <li><strong>Pack Transfer</strong>: Server sends optimized pack file with only needed objects</li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Transport</th>
+      <th>URL form</th>
+      <th>Authentication</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Smart HTTP(S)</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">https://host/repo.git</code></td>
+      <td>HTTP auth, tokens, credential helpers</td>
+      <td>Most common; stateless request/response, works through proxies and CDNs</td>
+    </tr>
+    <tr>
+      <td><strong>SSH</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">git@host:repo.git</code>, <code class="language-plaintext highlighter-rouge">ssh://host/repo.git</code></td>
+      <td>SSH keys</td>
+      <td>One long-lived bidirectional connection</td>
+    </tr>
+    <tr>
+      <td><strong>Local</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">/path/to/repo</code>, <code class="language-plaintext highlighter-rouge">file:///path</code></td>
+      <td>Filesystem permissions</td>
+      <td>Plain paths hard-link objects on the same filesystem; <code class="language-plaintext highlighter-rouge">file://</code> uses the normal protocol</td>
+    </tr>
+    <tr>
+      <td><strong>Git daemon</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">git://host/repo.git</code></td>
+      <td>None</td>
+      <td>Unauthenticated and unencrypted; read-only mirrors only</td>
+    </tr>
+    <tr>
+      <td><strong>Dumb HTTP</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">https://host/repo.git</code></td>
+      <td>HTTP auth</td>
+      <td>Legacy: the client downloads raw files; no negotiation</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Protocol Features:</strong></p>
+<p>Authentication details (SSH keys, tokens, credential helpers) are covered in <a href="auth-and-access-control.html">Authentication &amp; Access Control</a>.</p>
+
+<h2 id="protocol-versions">Protocol Versions</h2>
+
+<p>The original protocol (v0, and v1, which only adds a version line) begins with the server advertising <strong>every ref</strong> it has. For a repository with hundreds of thousands of refs (forges store one ref per pull request), that advertisement alone can be megabytes, even when the client wants a single branch.</p>
+
+<p><strong>Protocol v2</strong> fixes this by making the conversation command-based: after a short capability advertisement, the client issues explicit commands and asks only for the refs it needs. It has been the default for fetch and clone since Git 2.26 (2020), and it falls back to v0 automatically when a server does not support it.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>v0 / v1</th>
+      <th>v2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>First message</strong></td>
+      <td>Server lists all refs plus capabilities</td>
+      <td>Server lists capabilities and commands only</td>
+    </tr>
+    <tr>
+      <td><strong>Ref listing</strong></td>
+      <td>Always complete</td>
+      <td><code class="language-plaintext highlighter-rouge">ls-refs</code> with prefix filters (for example, only <code class="language-plaintext highlighter-rouge">refs/heads/main</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>Structure</strong></td>
+      <td>One monolithic exchange per service</td>
+      <td>Separate commands: <code class="language-plaintext highlighter-rouge">ls-refs</code>, <code class="language-plaintext highlighter-rouge">fetch</code>, <code class="language-plaintext highlighter-rouge">object-info</code>, <code class="language-plaintext highlighter-rouge">bundle-uri</code></td>
+    </tr>
+    <tr>
+      <td><strong>Extensibility</strong></td>
+      <td>New capabilities squeezed into the ref advertisement</td>
+      <td>New commands and arguments without breaking old clients</td>
+    </tr>
+    <tr>
+      <td><strong>Push</strong></td>
+      <td>Supported</td>
+      <td>Not defined; <code class="language-plaintext highlighter-rouge">git push</code> still uses the v0 <code class="language-plaintext highlighter-rouge">receive-pack</code> exchange</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> protocol.version 2              <span class="c"># already the default</span>
+<span class="nv">GIT_TRACE_PACKET</span><span class="o">=</span>1 git ls-remote origin main        <span class="c"># watch the pkt-line exchange</span>
+</code></pre></div></div>
+
+<p>All versions frame messages as <em>pkt-lines</em>: a 4-hex-digit length prefix followed by the payload. The special packet <code class="language-plaintext highlighter-rouge">0000</code> (flush) ends a section, and in v2 <code class="language-plaintext highlighter-rouge">0001</code> (delimiter) separates the parts of a command.</p>
+
+<h2 id="fetching-wanthave-negotiation">Fetching: Want/Have Negotiation</h2>
+
+<p>A fetch has to answer one question cheaply: which objects does the server have that the client lacks? The client does not list its objects. Instead it names the commits it <em>wants</em> (the remote ref tips it is missing) and the commits it <em>has</em> (its own recent commits). Once the server finds enough common commits, it knows that everything reachable from a common commit is already on the client, and sends a pack containing only the rest.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client (git fetch)
+    participant S as Server (upload-pack)
+    C-&gt;&gt;S: connect, request protocol v2
+    S--&gt;&gt;C: capabilities: ls-refs, fetch, object-format, ...
+    C-&gt;&gt;S: ls-refs (ref-prefix refs/heads/main)
+    S--&gt;&gt;C: 9fceb02 refs/heads/main
+    C-&gt;&gt;S: fetch: want 9fceb02, have a1b2c3, have d4e5f6, ...
+    S--&gt;&gt;C: acknowledgments: ACK d4e5f6, ready
+    C-&gt;&gt;S: fetch: want 9fceb02, have d4e5f6, done
+    S--&gt;&gt;C: packfile over side-band (data, progress, errors)
+    Note over C: index-pack verifies the pack,&lt;br/&gt;then refs/remotes/origin/main is updated
+</code></pre>
+
+<p>Key details:</p>
+
 <ul>
-  <li><strong>Smart HTTP Protocol</strong>: Efficient bidirectional communication</li>
-  <li><strong>Pack Protocol</strong>: Optimized object transfer format</li>
-  <li><strong>Shallow Cloning</strong>: Fetch limited history depth</li>
-  <li><strong>Partial Cloning</strong>: Fetch subset of repository objects</li>
-  <li><strong>Protocol Extensions</strong>: Side-band, progress reporting, atomic push</li>
-</ul>
-
-<p><strong>Optimization Techniques:</strong></p>
-<ul>
-  <li>Delta compression between similar objects</li>
-  <li>Bitmap indexes for reachability queries</li>
-  <li>Multi-pack indexes for large repositories</li>
+  <li><strong>Haves are sent in batches</strong>, newest first. The default <code class="language-plaintext highlighter-rouge">consecutive</code> negotiation walks back one commit at a time; <code class="language-plaintext highlighter-rouge">fetch.negotiationAlgorithm=skipping</code> jumps exponentially further back, converging faster on long divergent histories at the cost of a possibly larger pack.</li>
+  <li><strong>The server replies <code class="language-plaintext highlighter-rouge">ready</code></strong> when it has found a common base for every want. The client then sends <code class="language-plaintext highlighter-rouge">done</code> and receives the pack.</li>
+  <li><strong>Side-band multiplexing</strong> carries the pack on channel 1, progress messages on channel 2 and fatal errors on channel 3 over the same stream.</li>
+  <li><strong>Reachability bitmaps</strong> (below) let the server compute “objects reachable from the wants but not from the haves” as a bitmap subtraction instead of walking the graph, which is what makes clones of very large repositories fast to start.</li>
+  <li><strong>Pack reuse</strong>: when bitmaps are available, the server can send whole runs of an existing packfile verbatim instead of re-deltifying objects.</li>
 </ul>
 
 <blockquote>
-  <p><strong>Code Reference</strong>: For complete Git protocol implementation including clone, fetch, and push operations, see <a href="../../../code-examples/technology/git/repository_operations.py"><code class="language-plaintext highlighter-rouge">repository_operations.py</code></a></p>
+  <p><strong>Code reference:</strong> <a href="../../../code-examples/technology/git/remote_protocol.py"><code class="language-plaintext highlighter-rouge">remote_protocol.py</code></a> simulates pack negotiation and delta compression, and <a href="../../../code-examples/technology/git/repository_operations.py"><code class="language-plaintext highlighter-rouge">repository_operations.py</code></a> models clone, fetch and push.</p>
 </blockquote>
 
-<h2 id="distributed-repository-synchronization">Distributed Repository Synchronization</h2>
+<h2 id="pushing">Pushing</h2>
 
-<h3 id="remote-protocol-implementation">Remote Protocol Implementation</h3>
+<p>Push runs in the other direction against <code class="language-plaintext highlighter-rouge">git receive-pack</code>, and uses the v0-style exchange even when fetches use v2.</p>
 
-<p>Git’s distributed nature relies on efficient protocols for synchronizing repositories:</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client (git push)
+    participant S as Server (receive-pack)
+    S--&gt;&gt;C: ref advertisement + capabilities (report-status, atomic, push-options, ...)
+    C-&gt;&gt;S: commands: "old-oid new-oid refs/heads/main"
+    C-&gt;&gt;S: thin pack with objects the server lacks
+    Note over S: index-pack, connectivity check,&lt;br/&gt;pre-receive and update hooks
+    S--&gt;&gt;C: report-status: "ok refs/heads/main" or "ng ... reason"
+    Note over S: post-receive hook (CI triggers, notifications)
+</code></pre>
 
-<p><strong>Protocol Capabilities:</strong></p>
 <ul>
-  <li><strong>multi_ack_detailed</strong>: Optimized negotiation with multiple acknowledgments</li>
-  <li><strong>side-band-64k</strong>: Multiplexed data streams for progress and errors</li>
-  <li><strong>ofs-delta</strong>: Offset-based delta encoding for better compression</li>
-  <li><strong>shallow</strong>: Support for shallow clones and fetches</li>
-  <li><strong>filter</strong>: Partial clone with object filtering</li>
-  <li><strong>atomic</strong>: All-or-nothing push transactions</li>
+  <li>Each command carries the ref’s <strong>expected old value</strong>, so a push is a compare-and-swap. A non-fast-forward update is rejected unless forced; <code class="language-plaintext highlighter-rouge">--force-with-lease</code> makes a forced push fail if the remote ref moved since you last fetched it.</li>
+  <li>The client sends a <strong>thin pack</strong>: deltas may refer to base objects the server already has but that are not in the pack. The server “fixes” the pack by appending those bases before storing it.</li>
+  <li><code class="language-plaintext highlighter-rouge">git push --atomic</code> requests that all ref updates in one push succeed or fail together. Without it, each ref is updated independently.</li>
+  <li>Server-side hooks (<code class="language-plaintext highlighter-rouge">pre-receive</code>, <code class="language-plaintext highlighter-rouge">update</code>, <code class="language-plaintext highlighter-rouge">post-receive</code>) enforce policy such as protected branches, signed commits or secret scanning; see <a href="algorithms-and-operations.html#hooks">Algorithms &amp; Advanced Operations</a> for hook mechanics.</li>
 </ul>
 
-<p><strong>Fetch Operation Phases:</strong></p>
-<ol>
-  <li><strong>Reference Discovery</strong>: Query remote for available refs and capabilities</li>
-  <li><strong>Negotiation</strong>: Find common commits to minimize transfer</li>
-  <li><strong>Pack Transfer</strong>: Receive optimized pack with only missing objects</li>
-  <li><strong>Reference Update</strong>: Atomically update local refs</li>
-</ol>
+<h3 id="capabilities-worth-knowing">Capabilities Worth Knowing</h3>
 
-<p><strong>Push Operation Phases:</strong></p>
-<ol>
-  <li><strong>Permission Check</strong>: Verify write access to remote</li>
-  <li><strong>Pack Building</strong>: Create pack with objects missing on remote</li>
-  <li><strong>Atomic Transaction</strong>: Upload pack and update refs atomically</li>
-  <li><strong>Hook Execution</strong>: Server-side hooks for policy enforcement</li>
-</ol>
-
-<p><strong>Delta Compression:</strong></p>
-<ul>
-  <li>Rolling hash for efficient block matching</li>
-  <li>Copy/insert instructions for minimal delta size</li>
-  <li>Window-based search for similar objects</li>
-</ul>
-
-<blockquote>
-  <p><strong>Code Reference</strong>: For complete remote protocol implementation with pack negotiation and delta compression, see <a href="../../../code-examples/technology/git/remote_protocol.py"><code class="language-plaintext highlighter-rouge">remote_protocol.py</code></a></p>
-</blockquote>
-
-<h2 id="wire-protocol">Wire Protocol</h2>
-
-<p><strong>Protocol Capabilities:</strong></p>
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">multi_ack_detailed</code></li>
-  <li><code class="language-plaintext highlighter-rouge">side-band-64k</code></li>
-  <li><code class="language-plaintext highlighter-rouge">ofs-delta</code></li>
-  <li><code class="language-plaintext highlighter-rouge">agent</code></li>
-  <li><code class="language-plaintext highlighter-rouge">shallow</code></li>
-  <li><code class="language-plaintext highlighter-rouge">filter</code></li>
-  <li><code class="language-plaintext highlighter-rouge">atomic</code></li>
-</ul>
-
-<p><strong>Packfile Negotiation:</strong></p>
-<ol>
-  <li>Reference discovery</li>
-  <li>Capability negotiation</li>
-  <li>Want/have exchange</li>
-  <li>Pack transmission</li>
-  <li>Reference update</li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Capability</th>
+      <th>Direction</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">side-band-64k</code></td>
+      <td>Both</td>
+      <td>Multiplex pack data, progress and errors</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ofs-delta</code></td>
+      <td>Both</td>
+      <td>Allow deltas that reference their base by pack offset (smaller than by OID)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">thin-pack</code></td>
+      <td>Both</td>
+      <td>Allow deltas against objects the receiver already has</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">shallow</code>, <code class="language-plaintext highlighter-rouge">deepen-since</code>, <code class="language-plaintext highlighter-rouge">deepen-not</code></td>
+      <td>Fetch</td>
+      <td>Truncated-history clones</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">filter</code></td>
+      <td>Fetch</td>
+      <td>Partial clone: omit objects matching a filter</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">object-format</code></td>
+      <td>Both</td>
+      <td>Negotiate SHA-1 or SHA-256</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">bundle-uri</code></td>
+      <td>Fetch (v2)</td>
+      <td>Point the client at pre-built bundles to download first</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">promisor-remote</code></td>
+      <td>Fetch (v2)</td>
+      <td>Advertise additional remotes (for example, large-object stores) that can serve missing objects</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">atomic</code>, <code class="language-plaintext highlighter-rouge">push-options</code>, <code class="language-plaintext highlighter-rouge">report-status</code></td>
+      <td>Push</td>
+      <td>All-or-nothing pushes, free-form options for server hooks, per-ref results</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="pack-and-index-formats">Pack and Index Formats</h2>
 
-<h3 id="pack-file-format">Pack File Format</h3>
+<p>A packfile stores many objects in one file, most of them as deltas against similar objects. Each <code class="language-plaintext highlighter-rouge">.pack</code> is accompanied by an <code class="language-plaintext highlighter-rouge">.idx</code> (and usually a <code class="language-plaintext highlighter-rouge">.rev</code>) with the same hash in its name.</p>
 
-<p><strong>Structure:</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>PACK Header (12 bytes)
-├── Signature: "PACK"
-├── Version: 2 or 3
-└── Object count: 32-bit
+<h3 id="the-packfile-pack">The Packfile (<code class="language-plaintext highlighter-rouge">.pack</code>)</h3>
 
-Objects (variable)
-├── Type and size encoding
-├── Delta base (if delta)
-└── Compressed data
-
-Checksum (20 bytes)
-└── SHA-1 of entire pack
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>+---------------------------------------------------+
+| "PACK" | version (2) | object count (32-bit)       |  12-byte header
++---------------------------------------------------+
+| type+size (varint) | [delta base] | zlib data     |  object 1
+| type+size (varint) | [delta base] | zlib data     |  object 2
+| ...                                               |
++---------------------------------------------------+
+| checksum of all of the above                      |  20 bytes (SHA-1) or 32 (SHA-256)
++---------------------------------------------------+
 </code></pre></div></div>
 
-<p><strong>Object Types:</strong></p>
+<p>Git reads pack versions 2 and 3 but writes only version 2. Each entry starts with a variable-length header whose first byte holds a 3-bit type and the low bits of the uncompressed size; further bytes (7 bits each) extend the size. Unlike loose objects, packed objects omit the <code class="language-plaintext highlighter-rouge">&lt;type&gt; &lt;size&gt;\0</code> header; Git reconstructs it when computing an object’s ID.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th style="text-align: center">Code</th>
+      <th>Stored as</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OBJ_COMMIT</code></td>
+      <td style="text-align: center">1</td>
+      <td>Whole object, zlib-compressed</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OBJ_TREE</code></td>
+      <td style="text-align: center">2</td>
+      <td>Whole object</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OBJ_BLOB</code></td>
+      <td style="text-align: center">3</td>
+      <td>Whole object</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OBJ_TAG</code></td>
+      <td style="text-align: center">4</td>
+      <td>Whole object</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OBJ_OFS_DELTA</code></td>
+      <td style="text-align: center">6</td>
+      <td>Delta; base identified by a negative offset within this pack</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OBJ_REF_DELTA</code></td>
+      <td style="text-align: center">7</td>
+      <td>Delta; base identified by its object ID (used in thin packs)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="delta-encoding">Delta Encoding</h3>
+
+<p>A delta is a small program that rebuilds the target object from a base. It starts with the base and target sizes, followed by two kinds of instruction:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Instruction</th>
+      <th>First byte</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Copy</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">1xxxxxxx</code></td>
+      <td>Copy <code class="language-plaintext highlighter-rouge">size</code> bytes starting at <code class="language-plaintext highlighter-rouge">offset</code> in the base. The seven low bits say which of up to 4 offset bytes and 3 size bytes follow</td>
+    </tr>
+    <tr>
+      <td><strong>Insert</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">0xxxxxxx</code> (non-zero)</td>
+      <td>Append the next 1-127 literal bytes carried in the instruction</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For example, a 10 KB source file where one line changed typically becomes: copy the first 6,000 bytes, insert the new line, copy the remaining bytes. That is a few dozen bytes instead of 10 KB. Git finds matching regions with a Rabin-style rolling hash over 16-byte blocks of the base.</p>
+
+<p>Deltas can chain: a base may itself be a delta. The chain length is capped by <code class="language-plaintext highlighter-rouge">pack.depth</code> (default 50), trading smaller packs against the CPU cost of resolving long chains on read. Git usually deltifies older versions against newer ones, so the most recently used versions are the cheapest to read.</p>
+
+<h3 id="the-pack-index-idx">The Pack Index (<code class="language-plaintext highlighter-rouge">.idx</code>)</h3>
+
+<p>A pack is only useful if an object can be found without scanning it. The version-2 index provides that lookup:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Section</th>
+      <th>Contents</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Header</td>
+      <td>Magic <code class="language-plaintext highlighter-rouge">\377tOc</code>, version 2</td>
+    </tr>
+    <tr>
+      <td>Fan-out table</td>
+      <td>256 counts: entry <em>i</em> is the number of objects whose first byte is at most <em>i</em></td>
+    </tr>
+    <tr>
+      <td>Object names</td>
+      <td>All object IDs in the pack, sorted</td>
+    </tr>
+    <tr>
+      <td>CRC32 table</td>
+      <td>Checksum of each packed entry, so data can be copied between packs during a repack without silently propagating corruption</td>
+    </tr>
+    <tr>
+      <td>Offsets</td>
+      <td>4-byte pack offsets; if the high bit is set, the value indexes the 8-byte table instead (for packs over 2 GiB)</td>
+    </tr>
+    <tr>
+      <td>Large offsets</td>
+      <td>8-byte offsets</td>
+    </tr>
+    <tr>
+      <td>Trailer</td>
+      <td>Pack checksum and index checksum</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Looking up an object is a fan-out lookup on its first byte, which narrows the search to about 1/256 of the table, followed by a binary search in that slice, and then a jump to the offset in the pack.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Q["find OID 9fceb02..."] --&gt; F["fan-out table&lt;br/&gt;entries for byte 0x9f"]
+    F --&gt;|"range 41,020..41,190"| B["binary search&lt;br/&gt;sorted OIDs"]
+    B --&gt;|"position 41,133"| O["offset table"]
+    O --&gt;|"offset 18,402,511"| P[".pack entry&lt;br/&gt;inflate, apply deltas"]
+</code></pre>
+
+<h3 id="companion-files">Companion Files</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pack-*.rev</code></td>
+      <td>Reverse index: maps pack position to index position, so “which object is at offset X” and on-disk ordering are cheap (written by default)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pack-*.bitmap</code></td>
+      <td>Reachability bitmaps for selected commits (below)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pack-*.mtimes</code></td>
+      <td>Per-object modification times for a <em>cruft pack</em>, which holds unreachable objects until they expire</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pack-*.keep</code>, <code class="language-plaintext highlighter-rouge">pack-*.promisor</code></td>
+      <td>Markers: do not repack this pack; objects here came from a promisor remote (partial clone)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">multi-pack-index</code></td>
+      <td>One sorted OID index across many packs (below)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The on-disk format of the staging-area index (<code class="language-plaintext highlighter-rouge">.git/index</code>) is a different file with a similar name; it is described in <a href="object-model.html#index-staging-area-structure">Object Model &amp; Storage</a>.</p>
+
+<h2 id="how-pack-objects-chooses-deltas">How <code class="language-plaintext highlighter-rouge">pack-objects</code> Chooses Deltas</h2>
+
+<p><code class="language-plaintext highlighter-rouge">git pack-objects</code> builds every pack, whether for a push, a fetch response or a local repack. Finding a good base for each object is the expensive part, so Git uses heuristics:</p>
+
+<ol>
+  <li><strong>Enumerate</strong> the objects to pack (by walking history, or from bitmaps).</li>
+  <li><strong>Sort</strong> candidates by type, then by a hash of their path name, then by size, so versions of the same file end up next to each other.</li>
+  <li><strong>Slide a window</strong> (<code class="language-plaintext highlighter-rouge">pack.window</code>, default 10) over the sorted list and try each object against the others in the window as a delta base, keeping the smallest result that respects <code class="language-plaintext highlighter-rouge">pack.depth</code>.</li>
+  <li><strong>Reuse</strong> existing deltas from source packs wherever possible instead of recomputing them. <code class="language-plaintext highlighter-rouge">git repack -f</code> forces recomputation.</li>
+</ol>
+
+<p>The weak point is step 2. The classic name hash is dominated by the last characters of the path, so in monorepos with many files named <code class="language-plaintext highlighter-rouge">index.js</code> or <code class="language-plaintext highlighter-rouge">CHANGELOG.md</code> in different directories, unrelated files collide and good bases fall outside the window. Two recent options address this:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Option</th>
+      <th>Since</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--name-hash-version=2</code> (<code class="language-plaintext highlighter-rouge">pack-objects</code>, <code class="language-plaintext highlighter-rouge">repack</code>)</td>
+      <td>Git 2.49</td>
+      <td>A path hash that also considers directory names, reducing collisions between same-named files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--path-walk</code> (<code class="language-plaintext highlighter-rouge">pack-objects</code>, <code class="language-plaintext highlighter-rouge">repack</code>)</td>
+      <td>Git 2.51, extended in 2.55</td>
+      <td>Walk objects grouped by full path, delta each path’s versions against each other, then run a normal cross-path pass. Can shrink packs of repositories with many same-named files considerably; since 2.55 it works with blobless and sparse filters</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Delta islands</strong> (<code class="language-plaintext highlighter-rouge">pack.island</code>) solve a different problem on servers that store many forks in one object pool: they restrict deltas to bases that belong to the same fork, so a fetch of one fork never has to send an object whose base only exists in another.</p>
+
+<h2 id="structures-for-fast-graph-queries">Structures for Fast Graph Queries</h2>
+
+<p>Large repositories are slow mainly because common operations need to walk millions of commits and objects. Git keeps several optional, rebuildable caches alongside the object store to avoid that.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Structure</th>
+      <th>Answers</th>
+      <th>How</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>commit-graph</strong></td>
+      <td>“What are this commit’s parents, tree and date?”, “Can A reach B?”</td>
+      <td>Fixed-width records per commit, plus <em>generation numbers</em> (corrected commit dates) that let walks stop early; can be split into incremental layers</td>
+    </tr>
+    <tr>
+      <td><strong>Changed-path Bloom filters</strong></td>
+      <td>“Did this commit touch <code class="language-plaintext highlighter-rouge">path</code>?”</td>
+      <td>A Bloom filter per commit stored in the commit-graph; <code class="language-plaintext highlighter-rouge">git log -- path</code> skips commits that definitely did not change the path</td>
+    </tr>
+    <tr>
+      <td><strong>Reachability bitmaps</strong></td>
+      <td>“Which objects are reachable from these commits?”</td>
+      <td>One EWAH-compressed bitmap per selected commit, one bit per object in the pack (or MIDX); set operations replace graph walks for clone, fetch and <code class="language-plaintext highlighter-rouge">rev-list --count</code></td>
+    </tr>
+    <tr>
+      <td><strong>Multi-pack index (MIDX)</strong></td>
+      <td>“Where is object X?” across many packs</td>
+      <td>One sorted index spanning all packs, avoiding a lookup per pack; can carry its own bitmaps and, since Git 2.50, be written incrementally as a chain of layers</td>
+    </tr>
+    <tr>
+      <td><strong>Pseudo-merge bitmaps</strong></td>
+      <td>Reachability from thousands of ref tips at once</td>
+      <td>Precomputed bitmaps for groups of refs (Git 2.46+), useful on servers with very many refs</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git commit-graph write <span class="nt">--reachable</span> <span class="nt">--changed-paths</span>
+git config commitGraph.changedPaths <span class="nb">true</span>        <span class="c"># write Bloom filters by default (Git 2.52+)</span>
+git multi-pack-index write <span class="nt">--bitmap</span>
+git rev-list <span class="nt">--count</span> <span class="nt">--all</span> <span class="nt">--use-bitmap-index</span>
+</code></pre></div></div>
+
+<h2 id="repository-maintenance">Repository Maintenance</h2>
+
+<p>Loose objects accumulate with every commit and fetch, packs multiply, and caches go stale. Two front-ends clean this up:</p>
+
 <ul>
-  <li>OBJ_COMMIT (1)</li>
-  <li>OBJ_TREE (2)</li>
-  <li>OBJ_BLOB (3)</li>
-  <li>OBJ_TAG (4)</li>
-  <li>OBJ_OFS_DELTA (6)</li>
-  <li>OBJ_REF_DELTA (7)</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">git gc</code></strong> runs as a foreground <code class="language-plaintext highlighter-rouge">--auto</code> check after many commands and does everything at once: packs refs, consolidates packs, writes a cruft pack for unreachable objects and prunes expired ones. On large repositories the all-into-one repack can take minutes.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">git maintenance</code></strong> splits the work into independent tasks that can run incrementally, on a schedule, in the background.</li>
 </ul>
 
-<h3 id="index-file-format">Index File Format</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">commit-graph</code></td>
+      <td>Incrementally updates the commit-graph</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">prefetch</code></td>
+      <td>Fetches from remotes into <code class="language-plaintext highlighter-rouge">refs/prefetch/</code> so the user’s next <code class="language-plaintext highlighter-rouge">git fetch</code> has little to download (does not touch <code class="language-plaintext highlighter-rouge">refs/remotes/</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">loose-objects</code></td>
+      <td>Packs loose objects in batches and deletes the loose copies</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">incremental-repack</code></td>
+      <td>Uses the MIDX to expire unreferenced packs and combine small ones, without an all-into-one repack</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gc</code></td>
+      <td>Runs <code class="language-plaintext highlighter-rouge">git gc</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pack-refs</code>, <code class="language-plaintext highlighter-rouge">reflog-expire</code>, <code class="language-plaintext highlighter-rouge">worktree-prune</code>, <code class="language-plaintext highlighter-rouge">rerere-gc</code></td>
+      <td>Housekeeping for refs, reflogs, worktrees and conflict-resolution records</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The on-disk <code class="language-plaintext highlighter-rouge">.git/index</code> (the staging area) records one entry per tracked path. Its version-2 layout:</p>
+<p>Which tasks run is controlled by <code class="language-plaintext highlighter-rouge">maintenance.strategy</code>:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>DIRC Header
-├── Signature: "DIRC"
-├── Version: 2
-└── Entry count
+<table>
+  <thead>
+    <tr>
+      <th>Strategy</th>
+      <th>Behaviour</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">geometric</code></td>
+      <td>Geometric repacking plus keeping auxiliary data up to date and expiring reflogs; recommended for large repositories and the default for manual <code class="language-plaintext highlighter-rouge">git maintenance run</code> since Git 2.54</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">incremental</code></td>
+      <td>Set by <code class="language-plaintext highlighter-rouge">git maintenance register</code>/<code class="language-plaintext highlighter-rouge">start</code>: hourly <code class="language-plaintext highlighter-rouge">prefetch</code> and <code class="language-plaintext highlighter-rouge">commit-graph</code>, daily <code class="language-plaintext highlighter-rouge">loose-objects</code> and <code class="language-plaintext highlighter-rouge">incremental-repack</code>, weekly <code class="language-plaintext highlighter-rouge">pack-refs</code>; never runs <code class="language-plaintext highlighter-rouge">gc</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gc</code></td>
+      <td>The classic behaviour: run <code class="language-plaintext highlighter-rouge">git gc</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">none</code></td>
+      <td>Nothing, unless tasks are enabled individually</td>
+    </tr>
+  </tbody>
+</table>
 
-Index entries
-├── ctime, mtime
-├── dev, ino, mode
-├── uid, gid, size
-├── SHA-1
-├── Flags
-└── Path (null-terminated)
+<p><strong>Geometric repacking</strong> (<code class="language-plaintext highlighter-rouge">git repack --geometric=2 -d</code>) keeps packs in a geometric progression by object count: each pack must hold at least twice as many objects as the next smaller one. A new small pack is merged only with the small packs above it until the progression holds again, so the cost of a repack is proportional to recent growth rather than to repository size. Git 2.55 extends this with an incremental repack strategy that compacts MIDX layers without ever repacking everything into one pack.</p>
 
-Extensions (optional)
-├── Tree cache
-├── Resolve undo
-└── Split index
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Scheduled, background maintenance (systemd timers, launchd, cron or Task Scheduler)</span>
+git maintenance start
+git maintenance run <span class="nt">--task</span><span class="o">=</span>commit-graph <span class="nt">--task</span><span class="o">=</span>incremental-repack
+git maintenance is-needed                  <span class="c"># Git 2.53+: report whether tasks are due</span>
 
-Checksum
+<span class="c"># Manual, heavier operations</span>
+git repack <span class="nt">--geometric</span><span class="o">=</span>2 <span class="nt">-d</span> <span class="nt">--write-midx</span>   <span class="c"># incremental consolidation</span>
+git repack <span class="nt">-a</span> <span class="nt">-d</span> <span class="nt">-f</span> <span class="nt">--window</span><span class="o">=</span>250 <span class="nt">--depth</span><span class="o">=</span>50 <span class="nt">--path-walk</span>   <span class="c"># full re-delta; slow, occasionally worthwhile</span>
+git gc <span class="nt">--prune</span><span class="o">=</span>now                         <span class="c"># only when no other Git process is running</span>
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">git gc --aggressive</code> recomputes every delta with a window of 250; it can shrink a repository imported from another VCS, but on ordinary repositories it is rarely worth its cost. Pruning with <code class="language-plaintext highlighter-rouge">--prune=now</code> while another process is writing objects can corrupt the repository, which is why the default grace period is two weeks.</p>
 
 <blockquote>
-  <p>See <a href="object-model.html#index-staging-area-structure">Object Model &amp; Storage</a> for the C-struct view of these index entries and how the cached <code class="language-plaintext highlighter-rouge">stat</code> data accelerates <code class="language-plaintext highlighter-rouge">git status</code>.</p>
+  <p><strong>Code reference:</strong> <a href="../../../code-examples/technology/git/performance_optimization.py"><code class="language-plaintext highlighter-rouge">performance_optimization.py</code></a> models geometric repacking, bitmap selection and pack statistics.</p>
 </blockquote>
 
-<h2 id="performance-optimization">Performance Optimization</h2>
+<h2 id="working-with-large-repositories">Working with Large Repositories</h2>
 
-<h3 id="git-performance-analysis">Git Performance Analysis</h3>
+<p>No single technique makes a huge repository fast; each one trims a different dimension.</p>
 
-<p>Git provides sophisticated tools and algorithms for optimizing repository performance:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Trims</th>
+      <th>Command</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Shallow clone</strong></td>
+      <td>History depth</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone --depth=1</code></td>
+      <td>Cheap for CI; <code class="language-plaintext highlighter-rouge">log</code>, <code class="language-plaintext highlighter-rouge">blame</code> and merge-base computation stop at the boundary, and deepening later is expensive for the server</td>
+    </tr>
+    <tr>
+      <td><strong>Blobless partial clone</strong></td>
+      <td>Historical file contents</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone --filter=blob:none</code></td>
+      <td>Full history of commits and trees; blobs are fetched on demand, so <code class="language-plaintext highlighter-rouge">blame</code> or diffs of old revisions trigger downloads</td>
+    </tr>
+    <tr>
+      <td><strong>Treeless partial clone</strong></td>
+      <td>Historical trees and blobs</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone --filter=tree:0</code></td>
+      <td>Smallest clone with full commit history; most history operations fetch trees on demand. Best for build machines that only check out</td>
+    </tr>
+    <tr>
+      <td><strong>Size-limited clone</strong></td>
+      <td>Large files</td>
+      <td><code class="language-plaintext highlighter-rouge">--filter=blob:limit=1m</code></td>
+      <td>Useful when a few binary files dominate</td>
+    </tr>
+    <tr>
+      <td><strong>Sparse checkout</strong></td>
+      <td>Files in the working tree</td>
+      <td><code class="language-plaintext highlighter-rouge">git sparse-checkout set &lt;dirs&gt;</code></td>
+      <td>Cone mode (the default) matches whole directories and is fast; combine with a blobless clone so unused blobs are never downloaded</td>
+    </tr>
+    <tr>
+      <td><strong>Sparse index</strong></td>
+      <td>Size of <code class="language-plaintext highlighter-rouge">.git/index</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git sparse-checkout set --sparse-index &lt;dirs&gt;</code></td>
+      <td>Directories outside the cone are single index entries</td>
+    </tr>
+    <tr>
+      <td><strong>Filesystem monitor</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">stat()</code> calls in <code class="language-plaintext highlighter-rouge">status</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git config core.fsmonitor true</code></td>
+      <td>Built-in daemon on macOS, Windows and (since 2.55) Linux</td>
+    </tr>
+    <tr>
+      <td><strong>Bundle URIs</strong></td>
+      <td>Server CPU on clone</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone --bundle-uri=&lt;url&gt;</code></td>
+      <td>Client first downloads a pre-built bundle (often from a CDN), then fetches only the rest</td>
+    </tr>
+    <tr>
+      <td><strong>Git LFS</strong></td>
+      <td>Large binaries in history</td>
+      <td><code class="language-plaintext highlighter-rouge">git lfs track "*.psd"</code></td>
+      <td>Separate storage service; pointer files in Git</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Performance Metrics:</strong></p>
-<ul>
-  <li><strong>Object Database</strong>: Loose objects vs pack files ratio</li>
-  <li><strong>Pack Efficiency</strong>: Compression ratios and delta chain depths</li>
-  <li><strong>Reference Performance</strong>: Loose vs packed refs</li>
-  <li><strong>Working Tree</strong>: Large files and untracked content</li>
-  <li><strong>Network Operations</strong>: Pack negotiation efficiency</li>
-</ul>
+<p>In a blobless clone, missing blobs are fetched one at a time as commands need them, which is slow for operations that touch many files. <strong><code class="language-plaintext highlighter-rouge">git backfill</code></strong> (Git 2.49+) downloads them in batches up front, grouped by path so the server can send good deltas; since Git 2.54 it accepts revision and pathspec arguments to limit what it fetches.</p>
 
-<p><strong>Optimization Strategies:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Monorepo-style setup: full history, no historical blobs, only the needed directories</span>
+git clone <span class="nt">--filter</span><span class="o">=</span>blob:none <span class="nt">--sparse</span> https://example.com/big/repo.git
+<span class="nb">cd </span>repo
+git sparse-checkout <span class="nb">set </span>services/payments libs/common
+git backfill                        <span class="c"># optional: prefetch blobs for the checked-out paths' history</span>
 
-<p><strong>Geometric Repacking:</strong></p>
-<ul>
-  <li>Groups pack files by size in geometric progression</li>
-  <li>Each pack ~2x size of previous</li>
-  <li>Reduces pack file count while maintaining efficiency</li>
-  <li>Optimal for large repositories with many packs</li>
-</ul>
-
-<p><strong>Bitmap Indexes:</strong></p>
-<ul>
-  <li>EWAH compressed bitmaps for reachability queries</li>
-  <li>Dramatically speeds up counting and traversal operations</li>
-  <li>Optimal commit selection for coverage</li>
-  <li>Used in fetch/push negotiations</li>
-</ul>
-
-<p><strong>Other Optimization Techniques:</strong></p>
-<ul>
-  <li>Multi-pack indexes for very large repositories</li>
-  <li>Commit graphs for faster traversal</li>
-  <li>Bloom filters for changed paths</li>
-  <li>Delta islands for fork networks</li>
-</ul>
-
-<p><strong>Performance Tuning Parameters:</strong></p>
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">pack.window</code>: Delta search window size</li>
-  <li><code class="language-plaintext highlighter-rouge">pack.depth</code>: Maximum delta chain length</li>
-  <li><code class="language-plaintext highlighter-rouge">pack.threads</code>: Parallel compression threads</li>
-  <li><code class="language-plaintext highlighter-rouge">core.preloadIndex</code>: Parallel index loading</li>
-</ul>
-
-<blockquote>
-  <p><strong>Code Reference</strong>: For complete performance analysis and optimization implementations, see <a href="../../../code-examples/technology/git/performance_optimization.py"><code class="language-plaintext highlighter-rouge">performance_optimization.py</code></a></p>
-</blockquote>
-
-<h3 id="repository-maintenance">Repository Maintenance</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Regular maintenance</span>
-git maintenance start          <span class="c"># Enable automatic maintenance</span>
-git maintenance run           <span class="c"># Run maintenance tasks</span>
-git maintenance stop          <span class="c"># Disable automatic maintenance</span>
-
-<span class="c"># Manual optimization</span>
-git gc <span class="nt">--aggressive</span> <span class="nt">--prune</span><span class="o">=</span>now
-git repack <span class="nt">-a</span> <span class="nt">-d</span> <span class="nt">-f</span> <span class="nt">--depth</span><span class="o">=</span>50 <span class="nt">--window</span><span class="o">=</span>100
-git prune <span class="nt">--expire</span><span class="o">=</span>now
-
-<span class="c"># Performance diagnostics</span>
-git count-objects <span class="nt">-vH</span>
-git rev-list <span class="nt">--all</span> <span class="nt">--objects</span> | <span class="nb">wc</span> <span class="nt">-l</span>
-<span class="nb">du</span> <span class="nt">-sh</span> .git/objects/pack/
+<span class="c"># Or let scalar apply the recommended settings (partial clone, sparse checkout,</span>
+<span class="c"># fsmonitor, background maintenance) in one step</span>
+scalar clone https://example.com/big/repo.git
 </code></pre></div></div>
 
-<h3 id="large-repository-strategies">Large Repository Strategies</h3>
+<p><code class="language-plaintext highlighter-rouge">scalar</code>, shipped with Git since 2.38, is a thin wrapper that configures the features above for large repositories and registers the clone for background maintenance.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Partial clone</span>
-git clone <span class="nt">--filter</span><span class="o">=</span>blob:none &lt;url&gt;     <span class="c"># Omit blobs</span>
-git clone <span class="nt">--filter</span><span class="o">=</span>tree:0 &lt;url&gt;        <span class="c"># Omit trees</span>
-git clone <span class="nt">--filter</span><span class="o">=</span>blob:limit<span class="o">=</span>1m &lt;url&gt; <span class="c"># Omit large blobs</span>
+<h3 id="diagnosing-repository-size-and-speed">Diagnosing Repository Size and Speed</h3>
 
-<span class="c"># Sparse checkout</span>
-git sparse-checkout init <span class="nt">--cone</span>
-git sparse-checkout <span class="nb">set</span> &lt;directory&gt;
-git sparse-checkout add &lt;pattern&gt;
-git sparse-checkout list
-
-<span class="c"># Shallow operations</span>
-git fetch <span class="nt">--depth</span><span class="o">=</span>1
-git pull <span class="nt">--depth</span><span class="o">=</span>1
-git fetch <span class="nt">--unshallow</span>              <span class="c"># Convert to full</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git count-objects <span class="nt">-vH</span>                 <span class="c"># loose vs packed objects, size on disk</span>
+git repo structure                    <span class="c"># Git 2.52+: counts and sizes of refs and objects</span>
+git verify-pack <span class="nt">-v</span> .git/objects/pack/pack-<span class="k">*</span>.idx | <span class="nb">sort</span> <span class="nt">-k3</span> <span class="nt">-n</span> | <span class="nb">tail</span>   <span class="c"># largest objects</span>
+<span class="nv">GIT_TRACE2_PERF</span><span class="o">=</span>1 git status          <span class="c"># per-phase timings</span>
+<span class="nv">GIT_TRACE_PACKET</span><span class="o">=</span>1 git fetch          <span class="c"># protocol traffic</span>
 </code></pre></div></div>
+
+<p>For a deeper audit (largest blobs, widest trees, longest delta chains), the third-party <code class="language-plaintext highlighter-rouge">git-sizer</code> tool reports repository metrics against thresholds known to cause trouble at hosting providers.</p>
 
 <hr />
 
-<p><strong>Previous:</strong> <a href="object-model.html">← Object Model &amp; Storage</a>. <strong>Next:</strong> <a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations →</a> — three-way merge, merge strategies, rebase and bisect, and advanced day-to-day operations.</p>
+<p><strong>Previous:</strong> <a href="object-model.html">← Object Model &amp; Storage</a>. <strong>Next:</strong> <a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations →</a>: merge-base computation, three-way merge, rebase, bisect and other history operations.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="object-model.html">Object Model &amp; Storage</a> — the objects and on-disk layout these protocols transfer.</li>
-  <li><a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a> — the merge, rebase, and bisect algorithms.</li>
-  <li><a href="../git-reference.html">Git Command Reference</a> — clone, fetch, push, gc, and maintenance command syntax.</li>
+  <li><a href="object-model.html">Object Model &amp; Storage</a>: the objects and on-disk layout these protocols transfer</li>
+  <li><a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a>: merge, rebase and bisect</li>
+  <li><a href="auth-and-access-control.html">Authentication &amp; Access Control</a>: credentials for SSH and HTTPS remotes</li>
+  <li><a href="../git-reference.html">Git Command Reference</a>: clone, fetch, push, gc and maintenance command syntax</li>
 </ul>
 
       </section>

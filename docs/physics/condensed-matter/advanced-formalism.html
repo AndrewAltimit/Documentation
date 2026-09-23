@@ -4,21 +4,21 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="The graduate toolkit of condensed matter physics: second quantization, many-body Green's functions, topological band theory, BdG and Ginzburg-Landau theory, ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
-<meta property="og:title" content="Condensed Matter: Graduate-Level Formalism & Experiment">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:title" content="Condensed Matter: Graduate-Level Formalism">
+<meta property="og:description" content="The graduate toolkit of condensed matter physics: second quantization, many-body Green's functions, topological band theory, BdG and Ginzburg-Landau theory, ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/condensed-matter/advanced-formalism.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Condensed Matter: Graduate-Level Formalism & Experiment">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:title" content="Condensed Matter: Graduate-Level Formalism">
+<meta name="twitter:description" content="The graduate toolkit of condensed matter physics: second quantization, many-body Green's functions, topological band theory, BdG and Ginzburg-Landau theory, ...">
 
-<title>Condensed Matter: Graduate-Level Formalism & Experiment | Andrews Notebook</title>
+<title>Condensed Matter: Graduate-Level Formalism | Andrews Notebook</title>
 
 
   <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
@@ -3128,812 +3128,1401 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="page__inner-wrap">
       <header>
         
-          <h1 id="page-title" class="page__title">Condensed Matter: Graduate-Level Formalism & Experiment</h1>
+          <h1 id="page-title" class="page__title">Condensed Matter: Graduate-Level Formalism</h1>
         
       </header>
 
       <section id="page-content" class="page__content">
         <p><a href="./">Condensed Matter Physics</a> » Graduate-Level Formalism</p>
 
-<!-- Custom styles are now loaded via main.scss -->
+<p>This page is the theory-first companion to the <a href="./">Condensed Matter hub</a>. It
+collects the graduate-level machinery that the narrative pages use informally:
+second quantization and many-body Green’s functions; band theory beyond the
+nearly-free-electron picture, including the topological invariants of band
+insulators; the field theories of superconductors and quantum Hall fluids; the
+methods for strongly correlated electrons; topological order; the
+renormalization-group theory of quantum phase transitions; and the numerical
+methods that make all of this quantitative. Each section states definitions and
+key results compactly and in standard notation; derivations are left to the
+references at the end. The physical phenomena themselves are treated on
+<a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> and
+<a href="disorder-and-localization.html">Disorder &amp; Localization</a>, and the probes that
+test the theory on <a href="experimental-techniques.html">Experimental Techniques</a>.</p>
 
-<h2 id="graduate-level-formalism--experiment">Graduate-Level Formalism &amp; Experiment</h2>
+<p><strong>Conventions.</strong> $\hbar = k_B = 1$ in the Green’s-function, correlated-electron,
+and field-theory sections unless a formula is written out in full; $\beta = 1/T$;
+$\xi_{\mathbf{k}} = \epsilon_{\mathbf{k}} - \mu$ is the band energy measured from
+the chemical potential; $0^+$ is a positive infinitesimal.</p>
 
-<p>This is the theory-first companion to the <a href="./">Condensed Matter hub</a>. It collects
-the graduate-level machinery — second quantization, Green’s functions, topological
-band theory, and the renormalization-group view of quantum criticality — that the
-narrative pages use informally. Theory comes first; the experimental probes that
-test it are gathered at the end and treated in full on the dedicated
-<a href="experimental-techniques.html">Experimental Techniques</a> page.</p>
+<h2 id="how-the-pieces-fit-together">How the pieces fit together</h2>
 
-<h2 id="current-research-areas">Current Research Areas</h2>
+<p>Most of the formalism below computes one of a small number of objects: a
+single-particle Green’s function (and hence the spectral function measured by
+photoemission and tunneling), a two-particle response function (measured by
+scattering and transport), or a topological invariant (measured by quantized
+responses). The diagram shows the dependencies.</p>
 
-<h3 id="2d-materials">2D Materials</h3>
-<ul>
-  <li>Graphene: Dirac fermions</li>
-  <li>Transition metal dichalcogenides</li>
-  <li>van der Waals heterostructures</li>
-  <li>Moiré superlattices</li>
-</ul>
+<pre><code class="language-mermaid">flowchart TD
+    SQ["Second quantization&lt;br/&gt;field operators, H in Fock space"] --&gt; GF["Many-body Green's functions&lt;br/&gt;G, self-energy, Matsubara"]
+    SQ --&gt; BAND["Band theory&lt;br/&gt;k·p, Wannier functions"]
+    BAND --&gt; TOPO["Topological band theory&lt;br/&gt;Berry curvature, Chern, Z2, tenfold way"]
+    GF --&gt; SC["Superconductivity&lt;br/&gt;BdG, Ginzburg-Landau"]
+    GF --&gt; CORR["Strong correlation&lt;br/&gt;t-J, Anderson impurity, DMFT, slave particles"]
+    TOPO --&gt; QH["Quantum Hall field theory&lt;br/&gt;LLL projection, composite fermions, Chern-Simons"]
+    QH --&gt; TO["Topological order and SPT phases"]
+    SC --&gt; TOPO
+    GF --&gt; RG["Quantum criticality&lt;br/&gt;scaling, RG, effective field theory"]
+    CORR --&gt; RG
+    GF --&gt; NUM["Numerical methods&lt;br/&gt;DFT, QMC, tensor networks"]
+    CORR --&gt; NUM
+    GF --&gt; EXP["Observables&lt;br/&gt;A(k,ω), χ(q,ω), σ_xy"]
+    TOPO --&gt; EXP
+</code></pre>
 
-<h3 id="quantum-materials">Quantum Materials</h3>
-<ul>
-  <li>Weyl and Dirac semimetals</li>
-  <li>Axion insulators</li>
-  <li>Quantum spin liquids</li>
-  <li>Majorana fermions</li>
-</ul>
+<h2 id="second-quantization">Second quantization</h2>
 
-<h3 id="non-equilibrium-physics">Non-equilibrium Physics</h3>
-<ul>
-  <li>Floquet engineering</li>
-  <li>Many-body localization</li>
-  <li>Time crystals</li>
-  <li>Driven-dissipative systems</li>
-</ul>
+<p>Second quantization describes a many-fermion system in Fock space, with
+antisymmetry built into the operator algebra instead of into Slater determinants.
+Given a complete single-particle basis $\phi_\alpha(\mathbf{r})$ with fermion
+operators $c_\alpha$, the field operators are</p>
 
-<h2 id="graduate-level-mathematical-formalism">Graduate-Level Mathematical Formalism</h2>
+\[\psi_\sigma(\mathbf{r}) = \sum_\alpha \phi_\alpha(\mathbf{r})\, c_{\alpha\sigma}, \qquad
+\psi_\sigma^\dagger(\mathbf{r}) = \sum_\alpha \phi_\alpha^*(\mathbf{r})\, c_{\alpha\sigma}^\dagger,\]
 
-<h3 id="second-quantization-in-condensed-matter">Second Quantization in Condensed Matter</h3>
+<p>obeying canonical anticommutation relations</p>
 
-<p><strong>Field operators for fermions:</strong></p>
+\[\{\psi_\sigma(\mathbf{r}), \psi_{\sigma'}^\dagger(\mathbf{r}')\} = \delta_{\sigma\sigma'}\,\delta(\mathbf{r} - \mathbf{r}'), \qquad
+\{\psi_\sigma(\mathbf{r}), \psi_{\sigma'}(\mathbf{r}')\} = 0 .\]
 
-\[\psi(\mathbf{r}) = \sum_k \phi_k(\mathbf{r}) c_k\]
+<p>A system of particles in an external potential $V(\mathbf{r})$ interacting through
+a two-body potential $U(\mathbf{r} - \mathbf{r}’)$ has the Hamiltonian</p>
 
-\[\psi^\dagger(\mathbf{r}) = \sum_k \phi_k^*(\mathbf{r}) c_k^\dagger\]
+\[H = \sum_\sigma \int d\mathbf{r}\, \psi_\sigma^\dagger(\mathbf{r})\left[-\frac{\hbar^2\nabla^2}{2m} + V(\mathbf{r})\right]\psi_\sigma(\mathbf{r})
++ \frac{1}{2}\sum_{\sigma\sigma'}\int d\mathbf{r}\, d\mathbf{r}'\, \psi_\sigma^\dagger(\mathbf{r})\psi_{\sigma'}^\dagger(\mathbf{r}')\,U(\mathbf{r}-\mathbf{r}')\,\psi_{\sigma'}(\mathbf{r}')\psi_\sigma(\mathbf{r}).\]
 
-<p><strong>Anticommutation relations:</strong></p>
+<p>Note the operator ordering in the interaction term: annihilating in the reverse
+order of creation removes the self-interaction. In a discrete basis (plane waves,
+Wannier orbitals) the same Hamiltonian reads</p>
 
-\[\{\psi(\mathbf{r}), \psi^\dagger(\mathbf{r}')\} = \delta(\mathbf{r} - \mathbf{r}')\]
+\[H = \sum_{\alpha\beta} t_{\alpha\beta}\, c_\alpha^\dagger c_\beta + \frac{1}{2}\sum_{\alpha\beta\gamma\delta} V_{\alpha\beta\gamma\delta}\, c_\alpha^\dagger c_\beta^\dagger c_\delta c_\gamma ,\]
 
-\[\{\psi(\mathbf{r}), \psi(\mathbf{r}')\} = \{\psi^\dagger(\mathbf{r}), \psi^\dagger(\mathbf{r}')\} = 0\]
+<p>and every lattice model on this page (Hubbard, t-J, Anderson, Kitaev) is a
+truncation of it to a few orbitals and short-range matrix elements.</p>
 
-<p><strong>General Hamiltonian:</strong></p>
+<h2 id="many-body-greens-functions">Many-body Green’s functions</h2>
 
-\[H = \int d\mathbf{r} \, \psi^\dagger(\mathbf{r})\left[-\frac{\hbar^2\nabla^2}{2m} + V(\mathbf{r})\right]\psi(\mathbf{r}) + \frac{1}{2}\int d\mathbf{r} \, d\mathbf{r}' \, \psi^\dagger(\mathbf{r})\psi^\dagger(\mathbf{r}')U(\mathbf{r}-\mathbf{r}')\psi(\mathbf{r}')\psi(\mathbf{r})\]
+<h3 id="definitions">Definitions</h3>
 
-<h3 id="many-body-greens-functions">Many-Body Green’s Functions</h3>
+<p>The time-ordered, retarded, and imaginary-time single-particle Green’s functions
+are</p>
 
-<h4 id="definitions">Definitions</h4>
+\[G(\mathbf{r}t;\mathbf{r}'t') = -i\langle T\,\psi(\mathbf{r},t)\psi^\dagger(\mathbf{r}',t')\rangle, \qquad
+G^R(\mathbf{r}t;\mathbf{r}'t') = -i\,\theta(t-t')\langle\{\psi(\mathbf{r},t),\psi^\dagger(\mathbf{r}',t')\}\rangle,\]
 
-<p><strong>Single-particle Green’s function:</strong></p>
+\[\mathcal{G}(\mathbf{r}\tau;\mathbf{r}'\tau') = -\langle T_\tau\,\psi(\mathbf{r},\tau)\psi^\dagger(\mathbf{r}',\tau')\rangle .\]
 
-\[G(\mathbf{r},t;\mathbf{r}',t') = -i\langle T[\psi(\mathbf{r},t)\psi^\dagger(\mathbf{r}',t')]\rangle\]
+<p>$G^R$ is the causal response (analytic in the upper half $\omega$-plane) and is
+what experiments measure; the time-ordered $G$ is what zero-temperature
+perturbation theory produces; $\mathcal{G}$ is what finite-temperature
+perturbation theory and quantum Monte Carlo produce.</p>
 
-<p><strong>Spectral function:</strong></p>
+<h3 id="spectral-representation">Spectral representation</h3>
 
-\[A(\mathbf{k},\omega) = -2\text{Im}[G^R(\mathbf{k},\omega)]\]
+<p>Inserting a complete set of many-body eigenstates gives the Lehmann
+representation. At $T = 0$, with energies measured from $\mu$,</p>
 
-<p><strong>Dyson equation:</strong></p>
+\[G^R(\mathbf{k},\omega) = \sum_n\left[\frac{|\langle n|c_{\mathbf{k}}^\dagger|0\rangle|^2}{\omega - (E_n - E_0) + i0^+} + \frac{|\langle n|c_{\mathbf{k}}|0\rangle|^2}{\omega + (E_n - E_0) + i0^+}\right].\]
 
-\[G = G_0 + G_0 \Sigma G\]
+<p>The <strong>spectral function</strong></p>
 
-<p>Where $\Sigma$ is the self-energy.</p>
+\[A(\mathbf{k},\omega) = -2\,\text{Im}\,G^R(\mathbf{k},\omega), \qquad \int\frac{d\omega}{2\pi}A(\mathbf{k},\omega) = 1,\]
 
-<h4 id="matsubara-formalism">Matsubara Formalism</h4>
+<p>is the probability density for adding ($\omega &gt; 0$) or removing ($\omega &lt; 0$) an
+electron of momentum $\mathbf{k}$ with energy $\omega$. Its occupied part,
+$f(\omega)A(\mathbf{k},\omega)$, is what ARPES measures; its momentum integral is
+the density of states seen by STM.</p>
 
-<p><strong>Imaginary time:</strong></p>
+<h3 id="self-energy-and-quasiparticles">Self-energy and quasiparticles</h3>
 
-\[G(\mathbf{r},\tau;\mathbf{r}',\tau') = -\langle T_\tau[\psi(\mathbf{r},\tau)\psi^\dagger(\mathbf{r}',\tau')]\rangle\]
+<p>All interaction effects in $G$ are collected in the self-energy $\Sigma$ through
+the <strong>Dyson equation</strong></p>
 
-<p><strong>Matsubara frequencies:</strong></p>
-<ul>
-  <li>Fermions: $\omega_n = (2n+1)\pi/\beta$</li>
-  <li>Bosons: $\omega_n = 2n\pi/\beta$</li>
-</ul>
+\[G = G_0 + G_0\,\Sigma\,G \quad\Longleftrightarrow\quad G^{-1}(\mathbf{k},\omega) = \omega - \xi_{\mathbf{k}} - \Sigma(\mathbf{k},\omega).\]
 
-<p><strong>Analytic continuation:</strong> $i\omega_n \to \omega + i\delta$</p>
+<p>If $\Sigma$ is small and smooth near the Fermi level, $G$ has a pole close to the
+real axis and can be written as a coherent quasiparticle part plus an incoherent
+background:</p>
 
-<h3 id="advanced-band-theory">Advanced Band Theory</h3>
+\[G^R(\mathbf{k},\omega) \approx \frac{Z_{\mathbf{k}}}{\omega - \tilde\xi_{\mathbf{k}} + i\Gamma_{\mathbf{k}}} + G_{\text{inc}}, \qquad
+Z_{\mathbf{k}} = \left[1 - \frac{\partial\,\text{Re}\,\Sigma(\mathbf{k},\omega)}{\partial\omega}\right]^{-1}_{\omega = \tilde\xi_{\mathbf{k}}} .\]
 
-<h4 id="kp-method">k·p Method</h4>
+<p>The quasiparticle residue $0 &lt; Z \le 1$ is the weight of the coherent peak and
+equals the jump in the momentum distribution $n_{\mathbf{k}}$ at $k_F$; the mass
+is renormalized as $m^\ast/m = 1/Z$ for a momentum-independent self-energy; and the
+lifetime is $1/(2\Gamma)$, with $\Gamma \propto \omega^2 + \pi^2 T^2$ in a Fermi
+liquid. A <strong>non-Fermi liquid</strong> is a metal in which this structure fails: $Z \to 0$
+at the Fermi surface, as in the marginal Fermi liquid
+$\text{Im}\,\Sigma \propto \max(|\omega|, T)$ used to describe the strange-metal
+phase of cuprates. The Fermi-liquid side is developed on
+<a href="metals-and-magnetism.html">Metals &amp; Magnetism</a>.</p>
 
-<p>Near band extrema:</p>
+<h3 id="matsubara-formalism">Matsubara formalism</h3>
 
-\[H = E_0 + \frac{\hbar^2 k^2}{2m^*} + \frac{\hbar}{m_0}\sum_i k_i p_i + O(k^2)\]
+<p>At finite temperature $\mathcal{G}(\tau)$ is (anti)periodic on $\tau \in [0,\beta)$,
+so it has a Fourier series over discrete <strong>Matsubara frequencies</strong></p>
 
-<p><strong>Kane model for narrow gap semiconductors:</strong></p>
+\[\mathcal{G}(i\omega_n) = \int_0^\beta d\tau\, e^{i\omega_n\tau}\,\mathcal{G}(\tau), \qquad
+\omega_n = \begin{cases}(2n+1)\pi/\beta &amp; \text{fermions}\\ 2n\pi/\beta &amp; \text{bosons}\end{cases}\]
 
-\[H = \begin{pmatrix}
-E_c + \frac{\hbar^2 k^2}{2m_c} &amp; Pk \\
-Pk &amp; E_v - \frac{\hbar^2 k^2}{2m_v}
-\end{pmatrix}\]
+<p>The free fermion propagator is $\mathcal{G}<em>0(\mathbf{k}, i\omega_n) = 1/(i\omega_n - \xi</em>{\mathbf{k}})$,
+and the Feynman rules are identical to $T = 0$ except that frequency integrals
+become sums $T\sum_n$. Real-frequency quantities follow by <strong>analytic
+continuation</strong> $i\omega_n \to \omega + i0^+$, which is exact for analytic
+expressions but ill-conditioned for numerical data (it is usually done with
+maximum-entropy or related regularized inversions).</p>
 
-<h4 id="wannier-functions">Wannier Functions</h4>
+<h3 id="linear-response">Linear response</h3>
 
-<p><strong>Construction from Bloch states:</strong></p>
+<p>Two-particle correlation functions describe the response to weak external fields.
+The Kubo formula gives the retarded response of an observable $A$ to a
+perturbation $-B\,F(t)$:</p>
 
-\[w_n(\mathbf{r} - \mathbf{R}) = \frac{V}{(2\pi)^3} \int_{BZ} d\mathbf{k} \, e^{-i\mathbf{k} \cdot \mathbf{R}} \psi_{n\mathbf{k}}(\mathbf{r})\]
+\[\chi_{AB}(t) = -\frac{i}{\hbar}\,\theta(t)\,\langle[A(t), B(0)]\rangle .\]
 
-<p><strong>Maximally localized Wannier functions:</strong> Minimize spread</p>
+<p>Conductivity (current-current), magnetic susceptibility (spin-spin), and the
+dynamic structure factor measured by neutron and X-ray scattering are all of this
+form. The fluctuation-dissipation theorem relates the absorptive part
+$\chi’’(\mathbf{q},\omega)$ to the scattering cross-section,
+$S(\mathbf{q},\omega) = 2\,[1 + n_B(\omega)]\,\chi’’(\mathbf{q},\omega)$.</p>
 
-\[\Omega = \sum_n\left[\langle w_n|\mathbf{r}^2|w_n\rangle - \langle w_n|\mathbf{r}|w_n\rangle^2\right]\]
+<h2 id="band-theory-beyond-free-electrons">Band theory beyond free electrons</h2>
 
-<h4 id="topological-band-theory">Topological Band Theory</h4>
+<h3 id="the-kp-method">The k·p method</h3>
 
-<p><strong>Berry connection:</strong></p>
+<p>Writing a Bloch state as $\psi_{n\mathbf{k}} = e^{i\mathbf{k}\cdot\mathbf{r}}u_{n\mathbf{k}}$
+turns the crystal Hamiltonian into one for the periodic part,</p>
 
-\[\mathbf{A}_n(\mathbf{k}) = i\langle u_{n\mathbf{k}}|\nabla_\mathbf{k}|u_{n\mathbf{k}}\rangle\]
+\[H_{\mathbf{k}} = \frac{p^2}{2m_0} + V(\mathbf{r}) + \frac{\hbar}{m_0}\,\mathbf{k}\cdot\mathbf{p} + \frac{\hbar^2k^2}{2m_0},\]
 
-<p><strong>Berry curvature:</strong></p>
+<p>and $\frac{\hbar}{m_0}\mathbf{k}\cdot\mathbf{p}$ can be treated as a perturbation
+about a band extremum (taken at $\mathbf{k} = 0$). Second-order perturbation
+theory gives the effective-mass tensor of band $n$:</p>
 
-\[\boldsymbol{\Omega}_n(\mathbf{k}) = \nabla_\mathbf{k} \times \mathbf{A}_n(\mathbf{k}) = i\sum_{m\neq n} \frac{\langle u_{n\mathbf{k}}|\nabla_\mathbf{k} H|u_{m\mathbf{k}}\rangle \times \langle u_{m\mathbf{k}}|\nabla_\mathbf{k} H|u_{n\mathbf{k}}\rangle}{(E_n - E_m)^2}\]
+\[\frac{m_0}{m^*_{ij}} = \delta_{ij} + \frac{2}{m_0}\sum_{m \neq n}\frac{\langle u_{n0}|p_i|u_{m0}\rangle\langle u_{m0}|p_j|u_{n0}\rangle}{E_n(0) - E_m(0)} .\]
 
-<p><strong>Z₂ invariant:</strong></p>
+<p>Nearby bands with large momentum matrix elements therefore make masses light. The
+<strong>Kane model</strong> keeps the coupled conduction and valence bands exactly. In its
+simplest two-band form, with interband matrix element $P$ (units of energy times
+length) and gap $E_g = E_c - E_v$,</p>
 
-\[(-1)^\nu = \prod_{i=1}^4 \frac{\text{Pf}[w(\mathbf{k}_i)]}{\sqrt{\det[w(\mathbf{k}_i)]}}\]
+\[H(\mathbf{k}) = \begin{pmatrix} E_c + \dfrac{\hbar^2k^2}{2m_0} &amp; P k \\ P k &amp; E_v + \dfrac{\hbar^2k^2}{2m_0}\end{pmatrix}, \qquad
+E_\pm(\mathbf{k}) \approx \frac{E_c + E_v}{2} \pm \sqrt{\frac{E_g^2}{4} + P^2k^2},\]
+
+<p>so $m^\ast \approx \hbar^2E_g/(2P^2)$ near the band edge: narrow-gap semiconductors
+(InSb, HgCdTe) have very light carriers and strongly non-parabolic bands. The
+full 8-band Kane model adds spin-orbit coupling and underlies the band-inversion
+mechanism of HgTe quantum wells.</p>
+
+<h3 id="wannier-functions">Wannier functions</h3>
+
+<p>Wannier functions are the lattice Fourier transforms of Bloch states,</p>
+
+\[w_n(\mathbf{r} - \mathbf{R}) = \frac{V_{\text{cell}}}{(2\pi)^3}\int_{\text{BZ}} d\mathbf{k}\; e^{-i\mathbf{k}\cdot\mathbf{R}}\,\psi_{n\mathbf{k}}(\mathbf{r}),\]
+
+<p>and give a localized orbital basis in which tight-binding and Hubbard models are
+defined. They are not unique: any $\mathbf{k}$-dependent unitary mixing
+$|u_{n\mathbf{k}}\rangle \to \sum_m U_{mn}(\mathbf{k})|u_{m\mathbf{k}}\rangle$
+of a group of bands gives valid Wannier functions. <strong>Maximally localized Wannier
+functions</strong> (Marzari and Vanderbilt) fix this gauge freedom by minimizing the
+total spread</p>
+
+\[\Omega = \sum_n\left[\langle w_n|r^2|w_n\rangle - |\langle w_n|\mathbf{r}|w_n\rangle|^2\right].\]
+
+<p>Wannier-function centres are the modern theory of electric polarization (their
+sum is the Berry phase of the occupied bands), and <strong>exponentially localized
+Wannier functions exist if and only if the bands are topologically trivial</strong>: a
+nonzero Chern number is an obstruction to Wannierization. This is the link between
+band theory and topology developed next. In practice Wannier functions are
+produced from DFT calculations by codes such as Wannier90 and used to build
+downfolded models for DMFT and transport.</p>
+
+<h3 id="topological-band-theory">Topological band theory</h3>
+
+<p>For a set of occupied bands, the <strong>Berry connection</strong> and <strong>Berry curvature</strong> are</p>
+
+\[\mathbf{A}_n(\mathbf{k}) = i\langle u_{n\mathbf{k}}|\nabla_{\mathbf{k}}u_{n\mathbf{k}}\rangle, \qquad
+\boldsymbol{\Omega}_n(\mathbf{k}) = \nabla_{\mathbf{k}}\times\mathbf{A}_n = i\sum_{m\neq n}\frac{\langle u_{n\mathbf{k}}|\nabla_{\mathbf{k}}H|u_{m\mathbf{k}}\rangle\times\langle u_{m\mathbf{k}}|\nabla_{\mathbf{k}}H|u_{n\mathbf{k}}\rangle}{(E_n - E_m)^2}.\]
+
+<p>The second form shows that curvature concentrates where bands nearly touch. Berry
+curvature enters semiclassical dynamics as an anomalous velocity,
+$\dot{\mathbf{r}} = \hbar^{-1}\nabla_{\mathbf{k}}E_n - \dot{\mathbf{k}}\times\boldsymbol{\Omega}_n$,
+which produces the intrinsic anomalous Hall effect.</p>
+
+<p><strong>Chern number and the TKNN formula.</strong> In two dimensions the integral of the
+curvature over the closed Brillouin zone is an integer, the Chern number, and the
+Kubo formula for the Hall conductance of a band insulator reduces to</p>
+
+\[C_n = \frac{1}{2\pi}\int_{\text{BZ}} d^2k\;\Omega_n^z(\mathbf{k}) \in \mathbb{Z}, \qquad
+\sigma_{xy} = \frac{e^2}{h}\sum_{n\,\in\,\text{occ}} C_n .\]
+
+<p>This is the TKNN result (Thouless, Kohmoto, Nightingale, den Nijs, 1982), which
+explains the integer quantum Hall effect and, with Haldane’s 1988 lattice model,
+shows that quantized Hall conductance does not require a net magnetic field
+(Chern insulators).</p>
+
+<p><strong>The Z2 invariant.</strong> With time-reversal symmetry ($\Theta^2 = -1$ for spin-1/2)
+the total Chern number vanishes, but a $\mathbb{Z}<em>2$ invariant survives. Fu and
+Kane expressed it through the sewing matrix
+$w</em>{mn}(\mathbf{k}) = \langle u_{m,-\mathbf{k}}|\Theta|u_{n\mathbf{k}}\rangle$,
+which is antisymmetric at the time-reversal-invariant momenta $\Gamma_i$:</p>
+
+\[(-1)^{\nu} = \prod_{i}\frac{\text{Pf}\,[w(\Gamma_i)]}{\sqrt{\det[w(\Gamma_i)]}},\]
+
+<p>with the product over the 4 TRIM in 2D or the 8 TRIM in 3D (the latter gives the
+strong index $\nu_0$; products over TRIM in a plane give the three weak indices).
+If the crystal also has inversion symmetry the formula simplifies to a product of
+parity eigenvalues $\xi_{2m}(\Gamma_i) = \pm 1$ of the occupied Kramers pairs,</p>
+
+\[(-1)^{\nu_0} = \prod_{i=1}^{8}\prod_{m=1}^{N}\xi_{2m}(\Gamma_i),\]
+
+<p>which is how Bi$_{1-x}$Sb$_x$ and Bi$_2$Se$_3$ were first identified as
+topological insulators.</p>
+
+<p><strong>The tenfold way.</strong> For non-interacting gapped fermions the possible
+invariants are fixed by the dimension and by the presence or absence of three
+antiunitary or chiral symmetries: time reversal $T$, particle-hole $C$, and their
+product, chiral (sublattice) symmetry $S$. The Altland-Zirnbauer classes and
+their invariants (the “periodic table” of Kitaev and Schnyder-Ryu-Furusaki-Ludwig)
+are:</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Class</th>
+      <th>$T$</th>
+      <th>$C$</th>
+      <th>$S$</th>
+      <th>$d=1$</th>
+      <th>$d=2$</th>
+      <th>$d=3$</th>
+      <th>Example</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>Where $w_{mn} = \langle u_{m\mathbf{k}}</td>
-      <td>-i\partial_{k_\mu}</td>
-      <td>u_{n\mathbf{k}}\rangle$</td>
+      <td>A</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>$\mathbb{Z}$</td>
+      <td>0</td>
+      <td>Quantum Hall, Chern insulator</td>
+    </tr>
+    <tr>
+      <td>AIII</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>$\mathbb{Z}$</td>
+      <td>0</td>
+      <td>$\mathbb{Z}$</td>
+      <td>Chiral-symmetric chains</td>
+    </tr>
+    <tr>
+      <td>AI</td>
+      <td>+1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>Spinless, time-reversal symmetric</td>
+    </tr>
+    <tr>
+      <td>BDI</td>
+      <td>+1</td>
+      <td>+1</td>
+      <td>1</td>
+      <td>$\mathbb{Z}$</td>
+      <td>0</td>
+      <td>0</td>
+      <td>SSH chain, Kitaev chain with $T$</td>
+    </tr>
+    <tr>
+      <td>D</td>
+      <td>0</td>
+      <td>+1</td>
+      <td>0</td>
+      <td>$\mathbb{Z}_2$</td>
+      <td>$\mathbb{Z}$</td>
+      <td>0</td>
+      <td>Kitaev chain, $p+ip$ superconductor</td>
+    </tr>
+    <tr>
+      <td>DIII</td>
+      <td>$-1$</td>
+      <td>+1</td>
+      <td>1</td>
+      <td>$\mathbb{Z}_2$</td>
+      <td>$\mathbb{Z}_2$</td>
+      <td>$\mathbb{Z}$</td>
+      <td>$^3$He-B</td>
+    </tr>
+    <tr>
+      <td>AII</td>
+      <td>$-1$</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>$\mathbb{Z}_2$</td>
+      <td>$\mathbb{Z}_2$</td>
+      <td>2D and 3D topological insulators</td>
+    </tr>
+    <tr>
+      <td>CII</td>
+      <td>$-1$</td>
+      <td>$-1$</td>
+      <td>1</td>
+      <td>$2\mathbb{Z}$</td>
+      <td>0</td>
+      <td>$\mathbb{Z}_2$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>C</td>
+      <td>0</td>
+      <td>$-1$</td>
+      <td>0</td>
+      <td>0</td>
+      <td>$2\mathbb{Z}$</td>
+      <td>0</td>
+      <td>$d+id$ superconductor</td>
+    </tr>
+    <tr>
+      <td>CI</td>
+      <td>+1</td>
+      <td>$-1$</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>$2\mathbb{Z}$</td>
+      <td> </td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="superconductivity-advanced-theory">Superconductivity: Advanced Theory</h3>
+<p>($\pm 1$ gives the square of the antiunitary operator; 0 means the symmetry is
+absent.) The table covers only internal symmetries. Crystalline symmetries
+(mirrors, rotations, glides) add many more <strong>topological crystalline</strong> phases,
+including higher-order phases with protected corner or hinge states. <strong>Topological
+quantum chemistry</strong> and the related <strong>symmetry-indicator</strong> method (2017 onward)
+diagnose band topology from the symmetry labels of Bloch states at high-symmetry
+momenta alone, which made high-throughput searches of materials databases
+possible; those surveys found that topological bands are common rather than
+exotic.</p>
 
-<h4 id="bogoliubov-de-gennes-formalism">Bogoliubov-de Gennes Formalism</h4>
+<h2 id="superconductivity-formalism">Superconductivity formalism</h2>
 
-<p><strong>BdG Hamiltonian:</strong></p>
+<h3 id="bogoliubov-de-gennes-formalism">Bogoliubov-de Gennes formalism</h3>
 
-\[H_{BdG} = \begin{pmatrix}
-H_0(\mathbf{k}) &amp; \Delta(\mathbf{k}) \\
-\Delta^*(\mathbf{k}) &amp; -H_0^*(-\mathbf{k})
-\end{pmatrix}\]
+<p>Mean-field pairing theory is written in the doubled (Nambu) space of particles and
+holes. With $\Psi_{\mathbf{k}} = (c_{\mathbf{k}\uparrow}, c_{\mathbf{k}\downarrow}, c_{-\mathbf{k}\uparrow}^\dagger, c_{-\mathbf{k}\downarrow}^\dagger)^T$,</p>
 
-<p><strong>Nambu spinor:</strong> $\Psi = (c_{\mathbf{k}\uparrow}, c_{-\mathbf{k}\downarrow}^\dagger)^T$</p>
+\[H = \frac{1}{2}\sum_{\mathbf{k}}\Psi_{\mathbf{k}}^\dagger H_{\text{BdG}}(\mathbf{k})\Psi_{\mathbf{k}}, \qquad
+H_{\text{BdG}}(\mathbf{k}) = \begin{pmatrix} h(\mathbf{k}) &amp; \Delta(\mathbf{k}) \\ \Delta^\dagger(\mathbf{k}) &amp; -h^T(-\mathbf{k})\end{pmatrix},\]
 
-<p><strong>Quasiparticle spectrum:</strong></p>
+<p>where $h$ is the normal-state Bloch Hamiltonian and the $2\times 2$ gap matrix
+satisfies $\Delta^T(\mathbf{k}) = -\Delta(-\mathbf{k})$ by Fermi statistics. The
+doubling builds in a particle-hole symmetry,</p>
 
-\[E_\mathbf{k} = \pm\sqrt{\xi_\mathbf{k}^2 + |\Delta_\mathbf{k}|^2}\]
+\[\tau_x H_{\text{BdG}}^*(\mathbf{k})\,\tau_x = -H_{\text{BdG}}(-\mathbf{k}),\]
 
-<h4 id="ginzburg-landau-theory">Ginzburg-Landau Theory</h4>
+<p>so eigenvalues come in $\pm E$ pairs. This is the symmetry $C$ of the tenfold way,
+and the reason a zero-energy BdG state can be its own antiparticle (a Majorana
+mode). For spin-singlet pairing in a single band the problem reduces to the
+reduced Nambu spinor $(c_{\mathbf{k}\uparrow}, c_{-\mathbf{k}\downarrow}^\dagger)$:</p>
 
-<p><strong>GL functional:</strong></p>
+\[H_{\mathbf{k}} = \begin{pmatrix}\xi_{\mathbf{k}} &amp; \Delta_{\mathbf{k}}\\ \Delta_{\mathbf{k}}^* &amp; -\xi_{\mathbf{k}}\end{pmatrix}, \qquad
+E_{\mathbf{k}} = \pm\sqrt{\xi_{\mathbf{k}}^2 + |\Delta_{\mathbf{k}}|^2},\]
 
-\[F = \int d^3\mathbf{r} \left[\alpha|\psi|^2 + \frac{\beta}{2}|\psi|^4 + \frac{1}{2m^*}|(-i\hbar\nabla - e^*\mathbf{A})\psi|^2 + \frac{B^2}{2\mu_0}\right]\]
+<p>with $\Delta_{\mathbf{k}}$ determined self-consistently by the BCS gap equation
+(see <a href="emergent-phases.html#bcs-theory">Emergent Phases</a>). In real space the same
+structure, the BdG equations, handles vortices, interfaces, and Andreev bound
+states.</p>
 
-<p><strong>GL equations:</strong></p>
+<h3 id="ginzburg-landau-theory">Ginzburg-Landau theory</h3>
 
-\[\alpha\psi + \beta|\psi|^2\psi + \frac{1}{2m^*}(-i\hbar\nabla - e^*\mathbf{A})^2\psi = 0\]
+<p>Near $T_c$ the free energy is expanded in a complex order parameter $\psi(\mathbf{r})$
+coupled minimally to the vector potential, with pair charge $e^\ast = 2e$ and mass
+$m^\ast$ (conventionally $2m$):</p>
 
-\[\mathbf{j} = \frac{e\hbar}{2m^*i}(\psi^*\nabla\psi - \psi\nabla\psi^*) - \frac{4e^2}{m^*}|\psi|^2\mathbf{A}\]
+\[F = \int d^3r\left[\alpha|\psi|^2 + \frac{\beta}{2}|\psi|^4 + \frac{1}{2m^*}\left|(-i\hbar\nabla - e^*\mathbf{A})\psi\right|^2 + \frac{(\nabla\times\mathbf{A})^2}{2\mu_0}\right], \qquad \alpha \propto (T - T_c).\]
+
+<p>Varying with respect to $\psi^\ast$ and $\mathbf{A}$ gives the two GL equations:</p>
+
+\[\alpha\psi + \beta|\psi|^2\psi + \frac{1}{2m^*}\left(-i\hbar\nabla - e^*\mathbf{A}\right)^2\psi = 0,\]
+
+\[\mathbf{j} = \frac{e^*\hbar}{2m^* i}\left(\psi^*\nabla\psi - \psi\nabla\psi^*\right) - \frac{e^{*2}}{m^*}|\psi|^2\mathbf{A}.\]
+
+<p>The two length scales are the <strong>coherence length</strong> and the <strong>penetration depth</strong>,</p>
+
+\[\xi = \frac{\hbar}{\sqrt{2m^*|\alpha|}}, \qquad \lambda = \sqrt{\frac{m^*}{\mu_0 e^{*2}|\psi_0|^2}}, \qquad |\psi_0|^2 = \frac{|\alpha|}{\beta},\]
+
+<p>both diverging as $(T_c - T)^{-1/2}$, so their ratio $\kappa = \lambda/\xi$ is
+nearly temperature independent. $\kappa &lt; 1/\sqrt{2}$ gives a type I
+superconductor (positive normal-superconductor surface energy); $\kappa &gt; 1/\sqrt{2}$
+gives type II, which admits Abrikosov vortices each carrying one flux quantum
+$\Phi_0 = h/2e$ between $H_{c1}$ and $H_{c2} = \Phi_0/(2\pi\mu_0\xi^2)$.</p>
+
+<h3 id="josephson-effects">Josephson effects</h3>
+
+<p>Two superconductors coupled through a weak link carry a supercurrent set by the
+gauge-invariant phase difference $\varphi$:</p>
+
+\[I = I_c\sin\varphi, \qquad \frac{d\varphi}{dt} = \frac{2eV}{\hbar}.\]
+
+<p>A real junction is modelled by the <strong>resistively and capacitively shunted
+junction</strong> (RCSJ): a Josephson element in parallel with a resistance $R$ and
+capacitance $C$. Current conservation gives</p>
+
+\[\frac{\hbar C}{2e}\frac{d^2\varphi}{dt^2} + \frac{\hbar}{2eR}\frac{d\varphi}{dt} + I_c\sin\varphi = I,\]
+
+<p>the equation of a damped particle in the tilted-washboard potential
+$U(\varphi) = -E_J\cos\varphi - (\hbar I/2e)\varphi$ with Josephson energy
+$E_J = \hbar I_c/2e$. The Stewart-McCumber parameter
+$\beta_c = 2eI_cR^2C/\hbar$ decides whether the $I$-$V$ curve is hysteretic
+($\beta_c \gg 1$). Under microwave irradiation at frequency $\omega$ the phase
+locks and the $I$-$V$ curve develops <strong>Shapiro steps</strong> at</p>
+
+\[V_n = n\,\frac{\hbar\omega}{2e},\]
+
+<p>which, because $K_J = 2e/h$ is exact in the 2019 SI, realize the volt. Quantizing
+$\varphi$ and its conjugate charge turns the same circuit into a superconducting
+qubit: the transmon is the $E_J \gg E_C$ limit of the Cooper-pair box.</p>
+
+<h2 id="quantum-hall-field-theory">Quantum Hall field theory</h2>
+
+<h3 id="landau-levels-and-the-lowest-landau-level">Landau levels and the lowest Landau level</h3>
+
+<p>In a field $B$ the kinetic energy of a 2D electron is quantized into Landau levels
+$E_n = \hbar\omega_c(n + \frac12)$, each with degeneracy $B/\Phi_0$ per unit area
+($\Phi_0 = h/e$). The magnetic length is $\ell_B = \sqrt{\hbar/eB}$ and the filling
+factor is $\nu = 2\pi\ell_B^2 n$. In the symmetric gauge the lowest-Landau-level
+(LLL) states are</p>
+
+\[\phi_m(z) = \frac{1}{\sqrt{2\pi\, 2^m m!}\;\ell_B}\;\left(\frac{z}{\ell_B}\right)^m e^{-|z|^2/4\ell_B^2}, \qquad m = 0, 1, 2, \ldots\]
+
+<p>with $z = x - iy$ (or $x + iy$, depending on the sign of the field). State $m$ is a
+ring of radius $\sqrt{2m}\,\ell_B$. Any LLL wavefunction is therefore an analytic
+function of the $z_i$ times a Gaussian, which is why trial states such as
+Laughlin’s are written as polynomials.</p>
+
+<h3 id="projected-density-algebra">Projected density algebra</h3>
+
+<p>Once the Landau-level spacing is the largest energy, the physics is that of the
+interaction projected onto a single level. The projected density operators
+$\bar\rho(\mathbf{q})$ no longer commute; they obey the
+Girvin-MacDonald-Platzman (GMP) algebra</p>
+
+\[[\bar\rho(\mathbf{q}), \bar\rho(\mathbf{q}')] = 2i\,e^{\ell_B^2\,\mathbf{q}\cdot\mathbf{q}'/2}\,\sin\!\left(\frac{\ell_B^2}{2}\,\mathbf{q}\times\mathbf{q}'\right)\bar\rho(\mathbf{q} + \mathbf{q}'),\]
+
+<p>(sign of the cross product depending on field orientation). The same algebra,
+approximately realized in flat Chern bands with near-uniform Berry curvature, is
+why fractional Chern and fractional quantum anomalous Hall states can form in
+moiré materials without a magnetic field.</p>
+
+<h3 id="composite-fermions">Composite fermions</h3>
+
+<p>Jain’s construction attaches two flux quanta to each electron. The composite
+fermions see a reduced effective field</p>
+
+\[B^* = B - 2\Phi_0\, n,\]
+
+<p>and fill an integer number $p$ of their own Landau levels (Lambda levels). The
+electron trial state is</p>
+
+\[\Psi_{\nu} = P_{\text{LLL}}\prod_{i&lt;j}(z_i - z_j)^2\;\Phi_{\pm p}, \qquad \nu = \frac{p}{2p \pm 1},\]
+
+<p>which reproduces the principal FQH sequence $1/3, 2/5, 3/7, \ldots$ and
+$2/3, 3/5, \ldots$. At $\nu = 1/2$, $B^\ast = 0$ and the composite fermions form a
+Fermi sea (the Halperin-Lee-Read state), observed through commensurability
+oscillations and surface acoustic waves. Dirac composite-fermion theory (Son, 2015)
+reformulated this state in a particle-hole symmetric way.</p>
+
+<h3 id="chern-simons-and-k-matrix-theory">Chern-Simons and K-matrix theory</h3>
+
+<p>The low-energy theory of an abelian quantum Hall fluid is a Chern-Simons theory of
+emergent gauge fields $a^I_\mu$ that encode the conserved current
+$j^\mu = \frac{1}{2\pi}\epsilon^{\mu\nu\lambda}\partial_\nu a_\lambda$:</p>
+
+\[\mathcal{L} = -\frac{K_{IJ}}{4\pi}\,\epsilon^{\mu\nu\lambda}a^I_\mu\partial_\nu a^J_\lambda + \frac{e}{2\pi}\,t_I\,\epsilon^{\mu\nu\lambda}A_\mu\partial_\nu a^I_\lambda + \ell_I\, a^I_\mu\, j^\mu_{\text{qp}} .\]
+
+<p>The integer symmetric <strong>K matrix</strong> and charge vector $t$ determine all universal
+data:</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Quantity</th>
+      <th>K-matrix expression</th>
+      <th>Laughlin $\nu = 1/m$ ($K = m$)</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td><strong>Coherence length:</strong> $\xi = \frac{\hbar}{\sqrt{2m^*</td>
-      <td>\alpha</td>
-      <td>}}$</td>
+      <td>Hall conductance</td>
+      <td>$\sigma_{xy} = \frac{e^2}{h}\,t^TK^{-1}t$</td>
+      <td>$\frac{1}{m}\frac{e^2}{h}$</td>
+    </tr>
+    <tr>
+      <td>Quasiparticle charge</td>
+      <td>$Q_\ell = e\,t^TK^{-1}\ell$</td>
+      <td>$e/m$</td>
+    </tr>
+    <tr>
+      <td>Exchange statistics</td>
+      <td>$\theta_\ell = \pi\,\ell^TK^{-1}\ell$</td>
+      <td>$\pi/m$</td>
+    </tr>
+    <tr>
+      <td>Torus ground-state degeneracy</td>
+      <td>$\lvert\det K\rvert$</td>
+      <td>$m$</td>
+    </tr>
+    <tr>
+      <td>Edge modes</td>
+      <td>signature of $K$ (chiral count)</td>
+      <td>one chiral boson</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Penetration depth:</strong> $\lambda = \sqrt{\frac{m^*}{\mu_0 4e^2 n_s}}$</p>
+<p>A single level-$k$ Chern-Simons term also implements <strong>flux attachment</strong>
+(statistical transmutation): binding $k$ flux quanta to a particle changes its
+exchange phase by $k\pi$, so fermions plus an odd number of flux quanta behave as
+bosons and vice versa. Non-abelian states such as the Moore-Read Pfaffian proposed
+for $\nu = 5/2$ require non-abelian Chern-Simons theories (e.g. $SU(2)_2$).</p>
 
-<h4 id="josephson-effects">Josephson Effects</h4>
+<h2 id="strongly-correlated-electrons">Strongly correlated electrons</h2>
 
-<p><strong>Josephson relations:</strong></p>
+<h3 id="t-j-and-anderson-impurity-models">t-J and Anderson impurity models</h3>
 
-\[I = I_c \sin(\phi)\]
+<p>At large on-site repulsion $U \gg t$ and near half filling, second-order
+perturbation theory in $t/U$ reduces the Hubbard model to the <strong>t-J model</strong>,</p>
 
-\[\frac{\partial\phi}{\partial t} = \frac{2eV}{\hbar}\]
+\[H_{tJ} = -t\sum_{\langle ij\rangle\sigma}P\left(c_{i\sigma}^\dagger c_{j\sigma} + \text{h.c.}\right)P + J\sum_{\langle ij\rangle}\left(\mathbf{S}_i\cdot\mathbf{S}_j - \frac{n_in_j}{4}\right), \qquad J = \frac{4t^2}{U},\]
 
-<p><strong>RCSJ model:</strong></p>
+<p>where $P$ projects out doubly occupied sites (a three-site hopping term of the
+same order is usually dropped). At half filling it is the Heisenberg
+antiferromagnet; doped, it is the standard minimal model for cuprates.</p>
 
-\[C \frac{d^2\phi}{dt^2} + \frac{1}{R}\frac{d\phi}{dt} + I_c \sin(\phi) = I\]
+<p>The <strong>single-impurity Anderson model</strong> describes one correlated orbital
+hybridized with a conduction band:</p>
 
-<p><strong>Shapiro steps:</strong> $V_n = \frac{n\hbar\omega}{2e}$</p>
+\[H = \sum_{\mathbf{k}\sigma}\epsilon_{\mathbf{k}}c_{\mathbf{k}\sigma}^\dagger c_{\mathbf{k}\sigma} + \epsilon_d\sum_\sigma n_{d\sigma} + U n_{d\uparrow}n_{d\downarrow} + \sum_{\mathbf{k}\sigma}\left(V_{\mathbf{k}}c_{\mathbf{k}\sigma}^\dagger d_\sigma + \text{h.c.}\right).\]
 
-<h3 id="quantum-hall-physics">Quantum Hall Physics</h3>
+<p>The bath enters only through the hybridization function
+$\Delta(\omega) = \sum_{\mathbf{k}}|V_{\mathbf{k}}|^2/(\omega - \epsilon_{\mathbf{k}})$.
+In the local-moment regime the Schrieffer-Wolff transformation maps it to the
+Kondo model, whose low-temperature screening of the moment below
+$T_K \sim D\,e^{-1/(\rho J_K)}$ is solved exactly by Wilson’s numerical
+renormalization group and the Bethe ansatz.</p>
 
-<h4 id="landau-levels">Landau Levels</h4>
+<h3 id="dynamical-mean-field-theory">Dynamical mean-field theory</h3>
 
-<p><strong>Single particle states:</strong></p>
+<p>DMFT (Georges, Kotliar, and collaborators, 1989-1996) maps a lattice model onto
+an Anderson impurity embedded in a self-consistently determined bath. The
+approximation is that the self-energy is local, $\Sigma(\mathbf{k},\omega) \to \Sigma(\omega)$,
+which becomes exact in infinite dimensions. The self-consistency loop is:</p>
 
-\[\psi_{n,m}(z) = (z - z_m)^n e^{-|z - z_m|^2/(4l_B^2)}\]
+\[G_{\text{loc}}(\omega) = \frac{1}{N}\sum_{\mathbf{k}}\frac{1}{\omega + \mu - \epsilon_{\mathbf{k}} - \Sigma(\omega)}, \qquad
+\mathcal{G}_0^{-1}(\omega) = G_{\text{loc}}^{-1}(\omega) + \Sigma(\omega) = \omega + \mu - \Delta(\omega),\]
 
-<p>Where $l_B = \sqrt{\hbar/(eB)}$ is magnetic length.</p>
+\[\Sigma(\omega) = \mathcal{G}_0^{-1}(\omega) - G_{\text{imp}}^{-1}(\omega), \qquad \text{converged when } G_{\text{imp}} = G_{\text{loc}} .\]
 
-<p><strong>Projected density operators:</strong></p>
+<pre><code class="language-mermaid">flowchart LR
+    S0["Initial guess&lt;br/&gt;Σ(ω)"] --&gt; L["Lattice Dyson equation&lt;br/&gt;G_loc = (1/N) Σ_k [ω + μ − ε_k − Σ]⁻¹"]
+    L --&gt; W["Weiss field&lt;br/&gt;𝒢₀⁻¹ = G_loc⁻¹ + Σ"]
+    W --&gt; I["Solve impurity problem&lt;br/&gt;CT-QMC, ED, NRG → G_imp"]
+    I --&gt; N["Update self-energy&lt;br/&gt;Σ = 𝒢₀⁻¹ − G_imp⁻¹"]
+    N --&gt; C{"G_imp = G_loc?"}
+    C -- no --&gt; L
+    C -- yes --&gt; D["Converged local Σ(ω)&lt;br/&gt;→ A(k,ω), Mott transition"]
+</code></pre>
 
-\[\rho_q = \sum_k c_{k+q}^\dagger c_k e^{iq \times k l_B^2/2}\]
+<p>DMFT captures the Mott transition, including the coexistence of a quasiparticle
+peak with Hubbard bands, which static mean-field theory cannot. Combined with DFT
+(DFT+DMFT) it is the standard first-principles method for correlated d- and
+f-electron materials; cluster and diagrammatic extensions (cellular DMFT, DCA,
+dual fermions, $D\Gamma A$) restore momentum dependence needed for d-wave
+superconductivity and pseudogap physics. Continuous-time quantum Monte Carlo is the
+usual impurity solver.</p>
 
-<h4 id="composite-fermion-theory">Composite Fermion Theory</h4>
+<h3 id="slave-particle-methods">Slave-particle methods</h3>
 
-<p><strong>CF transformation:</strong></p>
+<p>Slave-particle representations enforce the no-double-occupancy constraint by
+splitting the electron into auxiliary particles. In the $U \to \infty$ slave-boson
+representation</p>
 
-\[\Psi_{CF} = P_{LLL} \prod_{i&lt;j}(z_i - z_j)^2 \Phi_{fermions}\]
+\[c_{i\sigma}^\dagger = f_{i\sigma}^\dagger\, b_i, \qquad b_i^\dagger b_i + \sum_\sigma f_{i\sigma}^\dagger f_{i\sigma} = 1,\]
 
-<p><strong>Effective magnetic field:</strong></p>
+<p>the holon $b$ carries charge and the spinon $f$ carries spin. The constraint is
+imposed with a Lagrange multiplier, and fluctuations around mean-field theory
+generate an emergent U(1) gauge field. Condensation $\langle b\rangle \neq 0$
+gives a Fermi liquid with $Z \sim |\langle b\rangle|^2$; the uncondensed phase with
+a spinon Fermi surface is a U(1) spin liquid. Kotliar-Ruckenstein slave bosons
+(finite $U$), slave rotors, and the Schwinger-boson and Abrikosov-fermion
+representations of spins follow the same logic and are the standard language for
+parton constructions of fractionalized phases.</p>
 
-\[B_{eff} = B - 2\phi_0\rho\]
+<h2 id="topological-order-and-spt-phases">Topological order and SPT phases</h2>
 
-<p>Where $\phi_0 = h/e$ is flux quantum.</p>
+<h3 id="topological-quantum-field-theory">Topological quantum field theory</h3>
 
-<h4 id="chern-simons-theory">Chern-Simons Theory</h4>
+<p>Gapped phases with long-range entanglement are described at low energy by
+topological field theories whose correlation functions do not depend on the
+metric. Two families cover the common cases:</p>
 
-<p><strong>Effective action:</strong></p>
+\[S_{\text{CS}} = \frac{k}{4\pi}\int d^3x\;\epsilon^{\mu\nu\lambda}a_\mu\partial_\nu a_\lambda, \qquad
+S_{\text{BF}} = \frac{k}{2\pi}\int d^3x\;\epsilon^{\mu\nu\lambda}b_\mu\partial_\nu a_\lambda .\]
 
-\[S = \int d^3x \left[\frac{\epsilon^{\mu\nu\lambda}}{4\pi} a_\mu\partial_\nu a_\lambda + j^\mu a_\mu\right]\]
+<p>Level-$k$ Chern-Simons theory describes chiral states such as the Laughlin fluid;
+level-$k$ BF theory describes the time-reversal-symmetric $\mathbb{Z}_k$ gauge
+theory, with $k = 2$ the toric code and the $\mathbb{Z}_2$ spin liquid. BF theory
+is the special case of the K-matrix theory with
+$K = \begin{pmatrix}0 &amp; k\ k &amp; 0\end{pmatrix}$.</p>
 
-<p><strong>Statistical transmutation:</strong> Fermions $\leftrightarrow$ Bosons + flux</p>
+<h3 id="universal-data-of-topological-order">Universal data of topological order</h3>
 
-<h3 id="strongly-correlated-electrons">Strongly Correlated Electrons</h3>
+<p>A topologically ordered phase is characterized by its anyons $a$, their quantum
+dimensions $d_a$, fusion rules $a \times b = \sum_c N^c_{ab}\,c$, and topological
+spins $\theta_a = e^{2\pi i h_a}$. From these:</p>
 
-<h4 id="hubbard-model-extensions">Hubbard Model Extensions</h4>
+<p><strong>Ground-state degeneracy.</strong> On a torus it equals the number of anyon types; on a
+genus-$g$ surface it is $\lvert\det K\rvert^g$ for abelian states.</p>
 
-<p><strong>t-J model (large U limit):</strong></p>
+<p><strong>Modular matrices.</strong> The $S$ matrix encodes mutual braiding and the $T$ matrix
+the self-statistics:</p>
 
-\[H = -t\sum_{\langle ij\rangle,\sigma} P(c_{i\sigma}^\dagger c_{j\sigma} + \text{h.c.})P + J\sum_{\langle ij\rangle}\left(\mathbf{S}_i \cdot \mathbf{S}_j - \frac{n_i n_j}{4}\right)\]
+\[S_{ab} = \frac{1}{\mathcal{D}}\sum_c N^c_{\bar a b}\,\frac{\theta_c}{\theta_a\theta_b}\,d_c, \qquad
+T_{ab} = \delta_{ab}\,\theta_a\,e^{-2\pi i c_-/24}, \qquad
+\mathcal{D} = \sqrt{\textstyle\sum_a d_a^2},\]
 
-<p>Where $P$ projects out double occupancy.</p>
+<p>where $c_-$ is the chiral central charge. The fusion rules follow from $S$ by the
+Verlinde formula $N^c_{ab} = \sum_x S_{ax}S_{bx}S^\ast_{cx}/S_{0x}$.</p>
 
-<p><strong>Anderson model (impurity):</strong></p>
+<p><strong>Topological entanglement entropy.</strong> For a region with smooth boundary of length
+$L$,</p>
 
-\[H = \sum_{k\sigma}\epsilon_k c_{k\sigma}^\dagger c_{k\sigma} + \sum_\sigma \epsilon_d d_\sigma^\dagger d_\sigma + Un_{d\uparrow}n_{d\downarrow} + V\sum_{k\sigma}(c_{k\sigma}^\dagger d_\sigma + \text{h.c.})\]
+\[S_A = \alpha L - \gamma, \qquad \gamma = \ln\mathcal{D},\]
 
-<h4 id="dynamical-mean-field-theory-dmft">Dynamical Mean-Field Theory (DMFT)</h4>
+<p>so $\gamma = \ln 2$ for the toric code and $\gamma = \ln\sqrt{m}$ for the
+$\nu = 1/m$ Laughlin state. The constant $\gamma$ is isolated numerically by the
+Kitaev-Preskill or Levin-Wen constructions and is the standard diagnostic for spin
+liquids in DMRG studies.</p>
 
-<p><strong>Self-consistency equations:</strong></p>
+<h3 id="symmetry-protected-topological-phases">Symmetry-protected topological phases</h3>
 
-\[G_{loc}(\omega) = \sum_k G(\mathbf{k},\omega)\]
+<p>A symmetry-protected topological (SPT) phase has no intrinsic topological order
+(unique ground state, no anyons) but cannot be connected to a product state
+without breaking a symmetry $G$ or closing the gap. Bosonic SPT phases in $d$
+spatial dimensions are classified, for most groups, by the group cohomology
+$H^{d+1}(G, U(1))$ (Chen, Gu, Liu, Wen), with beyond-cohomology phases in
+$d \ge 3$; fermionic and crystalline SPTs are classified by generalized
+cohomology or cobordism.</p>
 
-\[G^{-1}(\mathbf{k},\omega) = \omega + \mu - \epsilon_\mathbf{k} - \Sigma(\omega)\]
+<p>In one dimension the classification can be seen directly in matrix product states</p>
 
-\[\Gamma(\omega) = G_0^{-1}(\omega) - G_{loc}^{-1}(\omega)\]
+\[|\psi\rangle = \sum_{s_1\ldots s_N}\text{Tr}\left[A^{s_1}\cdots A^{s_N}\right]|s_1\ldots s_N\rangle .\]
 
-<p><strong>Anderson impurity problem:</strong></p>
+<p>An on-site symmetry acts on the physical index as a gauge transformation on the
+virtual (bond) index,</p>
 
-\[H_{imp} = \epsilon_d d^\dagger d + Un_{d\uparrow}n_{d\downarrow} + \sum_k V_k(c_k^\dagger d + \text{h.c.}) + \sum_k \epsilon_k c_k^\dagger c_k\]
+\[\sum_{s'}u(g)_{ss'}A^{s'} = e^{i\theta_g}\,V_g^\dagger A^s V_g,\]
 
-<h4 id="slave-particle-methods">Slave Particle Methods</h4>
+<p>and the $V_g$ may form a <strong>projective representation</strong> of $G$. The classes of
+projective representations are $H^2(G, U(1))$. The spin-1 Haldane chain is the
+standard example: $V_g$ is a spin-1/2 representation of SO(3), so a chain with open
+ends carries two free spin-1/2 edge states.</p>
 
-<p><strong>Slave boson representation:</strong></p>
-
-\[c_{i\sigma} = b_i^\dagger f_{i\sigma}\]
-
-<p>Constraint: $b_i^\dagger b_i + \sum_\sigma f_{i\sigma}^\dagger f_{i\sigma} = 1$</p>
-
-<p><strong>Mean-field decoupling:</strong> $\langle b_i\rangle \neq 0$ describes coherent quasiparticles</p>
-
-<h3 id="topological-phases-advanced-topics">Topological Phases: Advanced Topics</h3>
-
-<h4 id="topological-field-theory">Topological Field Theory</h4>
-
-<p><strong>Chern-Simons term:</strong></p>
-
-\[S_{CS} = \frac{k}{4\pi} \int d^3x \, \epsilon^{\mu\nu\lambda} A_\mu\partial_\nu A_\lambda\]
-
-<p><strong>BF theory:</strong></p>
-
-\[S_{BF} = \frac{K_{IJ}}{2\pi} \int d^3x \, \epsilon^{\mu\nu\lambda} a_\mu^I\partial_\nu a_\lambda^J\]
-
-<h4 id="topological-order">Topological Order</h4>
-
-<p><strong>Ground state degeneracy on torus:</strong> Depends on topology</p>
-
-<p><strong>Modular matrices:</strong> $S$ and $T$ characterize anyon statistics</p>
-
-\[S_{ab} = \frac{1}{\mathcal{M}} \sum_c \frac{N_{ab}^c d_c}{d_a d_b}\]
-
-<p><strong>Topological entanglement entropy:</strong></p>
-
-\[S = \alpha L - \gamma\]
-
-<p>Where $\gamma = \ln(\mathcal{M})$ is universal.</p>
-
-<h4 id="symmetry-protected-topological-phases">Symmetry-Protected Topological Phases</h4>
-
-<p><strong>Classification by cohomology:</strong> $H^{d+1}(G, U(1))$</p>
-
-<p><strong>Matrix product state representation:</strong></p>
-
-\[|\psi\rangle = \sum_{s_1...s_N} \text{Tr}[A^{s_1}...A^{s_N}]|s_1...s_N\rangle\]
-
-<p>Symmetry: $u(g)A^s u^\dagger(g) = \sum_{s’} U(g)_{ss’} A^{s’}$</p>
-
-<h2 id="quantum-phase-transitions--scaling">Quantum Phase Transitions &amp; Scaling</h2>
+<h2 id="quantum-phase-transitions-and-scaling">Quantum phase transitions and scaling</h2>
 
 <p>A <strong>quantum phase transition (QPT)</strong> is a transition between distinct ground states
 of a many-body system, driven not by temperature but by a non-thermal coupling $g$
-(pressure, magnetic field, doping, chemical potential) at strictly $T = 0$. At the
-critical coupling $g_c$ the ground-state energy is non-analytic and a characteristic
-energy scale — the gap $\Delta$ — vanishes. Although the transition itself sits at
-$T=0$ and is unreachable in experiment, the quantum critical point (QCP) controls a
-wedge-shaped region of the finite-$T$ phase diagram, the <strong>quantum critical fan</strong>,
-where the only relevant scale is temperature itself. This is why a $T=0$ singularity
-leaves fingerprints (anomalous transport, $T$-linear resistivity, non-Fermi-liquid
-specific heat) at experimentally accessible temperatures.</p>
+(pressure, magnetic field, doping, chemical potential) at $T = 0$. At the critical
+coupling $g_c$ the ground-state energy is non-analytic and a characteristic
+energy scale, the gap $\Delta$, vanishes. Although the transition sits at $T=0$,
+the quantum critical point (QCP) controls a wedge-shaped region of the finite-$T$
+phase diagram, the <strong>quantum critical fan</strong>, where the only relevant scale is
+temperature itself. This is why a $T=0$ singularity leaves fingerprints
+($T$-linear resistivity, anomalous specific heat, $\omega/T$ scaling) at
+experimentally accessible temperatures.</p>
+
+<figure style="margin: 1.5rem auto; max-width: 480px;">
+<svg viewBox="0 0 480 300" role="img" aria-labelledby="qcf-title qcf-desc" style="width: 100%; height: auto; color: currentColor;">
+  <title id="qcf-title">Quantum critical fan</title>
+  <desc id="qcf-desc">Temperature versus tuning parameter g. Two crossover lines rise from the quantum critical point at g_c, T = 0, bounding a fan-shaped quantum critical region. To the left, at low temperature, is the ordered phase with a finite-temperature transition line ending at the QCP; to the right is the quantum disordered region.</desc>
+  <defs>
+    <marker id="qcf-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor" /></marker>
+  </defs>
+  <line x1="50" y1="260" x2="460" y2="260" stroke="currentColor" stroke-width="1.5" marker-end="url(#qcf-arrow)" />
+  <line x1="50" y1="260" x2="50" y2="20" stroke="currentColor" stroke-width="1.5" marker-end="url(#qcf-arrow)" />
+  <text x="455" y="282" font-size="14" fill="currentColor" text-anchor="end">tuning parameter g</text>
+  <text x="38" y="30" font-size="14" fill="currentColor" text-anchor="end">T</text>
+  <path d="M250,260 L150,40 L350,40 Z" fill="currentColor" fill-opacity="0.08" stroke="none" />
+  <line x1="250" y1="260" x2="150" y2="40" stroke="currentColor" stroke-width="1.2" stroke-dasharray="6,4" />
+  <line x1="250" y1="260" x2="350" y2="40" stroke="currentColor" stroke-width="1.2" stroke-dasharray="6,4" />
+  <path d="M60,160 C140,165 210,200 250,260" fill="none" stroke="currentColor" stroke-width="2.2" />
+  <circle cx="250" cy="260" r="5" fill="currentColor" />
+  <text x="250" y="280" font-size="13" fill="currentColor" text-anchor="middle">g_c (QCP)</text>
+  <text x="250" y="110" font-size="14" fill="currentColor" text-anchor="middle">quantum</text>
+  <text x="250" y="128" font-size="14" fill="currentColor" text-anchor="middle">critical</text>
+  <text x="250" y="146" font-size="12" fill="currentColor" text-anchor="middle">only scale: T</text>
+  <text x="110" y="220" font-size="14" fill="currentColor" text-anchor="middle">ordered</text>
+  <text x="385" y="220" font-size="14" fill="currentColor" text-anchor="middle">quantum</text>
+  <text x="385" y="237" font-size="14" fill="currentColor" text-anchor="middle">disordered</text>
+  <text x="95" y="150" font-size="11" fill="currentColor">T_c(g)</text>
+  <text x="340" y="30" font-size="11" fill="currentColor">T ~ |g − g_c|^(νz)</text>
+</svg>
+<figcaption style="text-align: center; font-size: 0.9em;">Generic phase diagram near a quantum critical point (ordered phase with a finite-temperature transition, as for a 3D magnet). Dashed lines are crossovers, not transitions.</figcaption>
+</figure>
 
 <h3 id="diverging-length-and-time">Diverging length and time</h3>
 
 <p>Approaching $g_c$ a correlation length and a correlation time both diverge:</p>
 
-\[\xi \sim |g - g_c|^{-\nu}, \qquad \xi_\tau \sim \xi^{z} \sim |g - g_c|^{-\nu z}\]
+\[\xi \sim |g - g_c|^{-\nu}, \qquad \xi_\tau \sim \xi^{z} \sim |g - g_c|^{-\nu z}.\]
 
-<p>The exponent $\nu$ is the same correlation-length exponent as in a classical
-transition, but <strong>space and time scale differently</strong>, encoded in the <strong>dynamic
-critical exponent</strong> $z$. Equivalently the characteristic energy (the gap, or
-$\hbar/\xi_\tau$) softens as</p>
+<p>The exponent $\nu$ is the correlation-length exponent, as in a classical
+transition, but space and time scale differently, as encoded in the <strong>dynamic
+critical exponent</strong> $z$. Equivalently the characteristic energy softens as</p>
 
 \[\Delta \sim |g - g_c|^{\nu z}, \qquad \omega \sim k^{z}.\]
 
-<p>For a Lorentz-invariant critical theory $z = 1$ (energy scales like momentum); for a
-metallic QCP with overdamped order-parameter dynamics one typically finds $z = 2$ or
-$z = 3$, reflecting Landau damping by the particle-hole continuum.</p>
+<p>For a Lorentz-invariant critical theory $z = 1$; for a metallic QCP with overdamped
+order-parameter dynamics one typically finds $z = 2$ (antiferromagnet) or $z = 3$
+(ferromagnet), reflecting Landau damping by the particle-hole continuum.</p>
 
 <h3 id="quantum-to-classical-mapping">Quantum-to-classical mapping</h3>
 
-<p>The Feynman path integral for a $d$-dimensional quantum system at $T=0$ is a
-statistical-mechanics problem in $d + z$ effective dimensions: imaginary time
-$\tau \in [0, \beta\hbar)$ acts as $z$ extra spatial directions. A $T=0$ quantum
-transition in $d$ space dimensions therefore maps onto a <em>classical</em> transition in</p>
+<p>The path integral of a $d$-dimensional quantum system is a statistical-mechanics
+problem in $d + z$ effective dimensions: imaginary time $\tau \in [0, \hbar\beta)$
+acts as $z$ extra spatial directions. A $T=0$ quantum transition in $d$
+dimensions therefore maps onto a classical transition in</p>
 
 \[d_{\text{eff}} = d + z\]
 
-<p>dimensions. The mapping is exact for many models (e.g. the transverse-field Ising
-chain $\leftrightarrow$ the 2D classical Ising model, with $z=1$). Finite temperature
-plays the role of a finite system size $L_\tau = \beta\hbar$ in the imaginary-time
-direction, so</p>
+<p>dimensions, provided the resulting classical weights are positive (Berry phases
+and fermion signs can spoil the mapping). The transverse-field Ising chain maps
+onto the 2D classical Ising model with $z=1$. Finite temperature acts as a finite
+size $L_\tau = \hbar\beta$ in the imaginary-time direction, so</p>
 
-\[\xi_\tau \lesssim \beta\hbar \;\Longrightarrow\; T \gtrsim \frac{\hbar}{\xi_\tau}
+\[\xi_\tau \lesssim \hbar\beta \;\Longrightarrow\; T \gtrsim \frac{\hbar}{\xi_\tau}
 \sim |g - g_c|^{\nu z},\]
 
-<p>and the boundary $T \sim |g - g_c|^{\nu z}$ traces the edges of the quantum critical
+<p>and the curves $T \sim |g - g_c|^{\nu z}$ trace the edges of the quantum critical
 fan.</p>
 
 <h3 id="scaling-hypothesis-and-exponents">Scaling hypothesis and exponents</h3>
 
-<p>Near the QCP the singular part of the free-energy density obeys a scaling form. With
-reduced coupling $t = (g - g_c)/g_c$ and a symmetry-breaking field $h$,</p>
+<p>Near the QCP the singular part of the free-energy density obeys a scaling form.
+With reduced coupling $t = (g - g_c)/g_c$ and a symmetry-breaking field $h$,</p>
 
-\[f_s(t, h, T) = b^{-(d+z)}\, f_s\!\left(b^{1/\nu}\,t,\; b^{y_h}\,h,\; b^{z}\,T\right),\]
+\[f_s(t, h, T) = b^{-(d+z)}\, f_s\!\left(b^{1/\nu}\,t,\; b^{y_h}\,h,\; b^{z}\,T\right)\]
 
-<p>for an arbitrary rescaling factor $b$. Choosing $b$ to remove one argument generates
-the standard exponents. Choosing $b = |t|^{-\nu}$ gives the order parameter, gap, and
-correlation functions; choosing $b = T^{-1/z}$ collapses finite-temperature data.
-The familiar critical exponents are then fixed by $\nu$, $z$, and the field dimension
-$y_h$:</p>
+<p>for an arbitrary rescaling factor $b$. Choosing $b = |t|^{-\nu}$ gives the order
+parameter, gap, and correlation functions; choosing $b = T^{-1/z}$ collapses
+finite-temperature data. The critical exponents are:</p>
 
 <table>
   <thead>
     <tr>
       <th>Exponent</th>
       <th>Definition</th>
-      <th>Scaling relation</th>
-      <th> </th>
-      <th> </th>
+      <th>Meaning</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>$\nu$</td>
-      <td>$\xi \sim</td>
-      <td>t</td>
-      <td>^{-\nu}$</td>
+      <td>$\xi \sim \lvert t\rvert^{-\nu}$</td>
       <td>correlation length</td>
     </tr>
     <tr>
       <td>$z$</td>
       <td>$\xi_\tau \sim \xi^{z}$</td>
-      <td>dynamic / time</td>
-      <td> </td>
-      <td> </td>
+      <td>dynamic scaling</td>
+    </tr>
+    <tr>
+      <td>$\alpha$</td>
+      <td>$f_s \sim \lvert t\rvert^{2-\alpha}$</td>
+      <td>ground-state energy / specific heat</td>
     </tr>
     <tr>
       <td>$\beta$</td>
-      <td>$m \sim</td>
-      <td>t</td>
-      <td>^{\beta}$</td>
+      <td>$m \sim \lvert t\rvert^{\beta}$</td>
       <td>order parameter</td>
     </tr>
     <tr>
       <td>$\gamma$</td>
-      <td>$\chi \sim</td>
-      <td>t</td>
-      <td>^{-\gamma}$</td>
+      <td>$\chi \sim \lvert t\rvert^{-\gamma}$</td>
       <td>susceptibility</td>
     </tr>
     <tr>
       <td>$\eta$</td>
-      <td>$G(k) \sim k^{-2+\eta}$</td>
+      <td>$G(k) \sim k^{-2+\eta}$ at $g_c$</td>
       <td>anomalous dimension</td>
-      <td> </td>
-      <td> </td>
     </tr>
     <tr>
       <td>$\delta$</td>
-      <td>$m \sim h^{1/\delta}$</td>
+      <td>$m \sim h^{1/\delta}$ at $g_c$</td>
       <td>critical isotherm</td>
-      <td> </td>
-      <td> </td>
     </tr>
   </tbody>
 </table>
 
-<p>Only two are independent; the rest follow from hyperscaling, which for a QPT uses the
-<em>effective</em> dimension $d + z$:</p>
+<p>Given $z$, only two static exponents are independent; the rest follow from
+hyperscaling, which for a QPT uses the effective dimension $d + z$:</p>
 
 \[2 - \alpha = \nu(d + z), \qquad \gamma = \nu(2 - \eta), \qquad
 \beta = \tfrac{1}{2}\nu(d + z - 2 + \eta).\]
 
-<p><strong>Finite-size / finite-$T$ scaling.</strong> On a system of linear size $L$ the
-magnetization obeys</p>
+<p><strong>Finite-size and finite-temperature scaling.</strong> On a system of linear size $L$ the
+order parameter obeys</p>
 
-\[M(t, h, L) = L^{-\beta/\nu}\, f\!\left(t\,L^{1/\nu},\; h\,L^{y_h}\right),\]
+\[M(t, h, L) = L^{-\beta/\nu}\, \mathcal{M}\!\left(t\,L^{1/\nu},\; h\,L^{y_h},\; L^z/L_\tau\right),\]
 
-<p>and at finite temperature the same form holds with $L_\tau = \beta\hbar$ in the time
-direction — the practical route to extracting exponents from quantum Monte Carlo.</p>
+<p>which is the practical route to extracting exponents from quantum Monte Carlo:
+data from different $L$ collapse onto one curve when the exponents are right.</p>
 
 <h3 id="renormalization-group-and-universality">Renormalization group and universality</h3>
 
-<p>The exponents follow from RG flow near the QCP. Linearizing the RG transformation
-about the fixed point, the eigenvalues $\lambda_i = b^{y_i}$ of the relevant couplings
-fix $\nu = 1/y_t$ and $y_h$. The <strong>upper critical dimension</strong> is $d_c^{+} = 4$ for the
-<em>effective</em> dimension, i.e. $d + z = 4$ separates the mean-field regime
-($d + z &gt; 4$, Gaussian fixed point, classical exponents with logarithmic
-corrections) from the fluctuation-dominated regime ($d + z &lt; 4$, Wilson–Fisher fixed
-point with non-trivial exponents). For a 2D antiferromagnet ($d=2$, $z=1$) one has
-$d + z = 3 &lt; 4$, so fluctuations matter and the transition is in the 3D classical
-Heisenberg/O(3) universality class.</p>
+<p>The exponents follow from the RG flow near the QCP. Linearizing the RG
+transformation about the fixed point, the eigenvalues $b^{y_i}$ of the relevant
+couplings fix $\nu = 1/y_t$ and $y_h$. The <strong>upper critical dimension</strong> for
+$\phi^4$-type theories is $d + z = 4$: above it ($d + z &gt; 4$) the Gaussian fixed
+point and mean-field exponents apply, at it there are logarithmic corrections, and
+below it fluctuations produce non-trivial Wilson-Fisher exponents. For a 2D
+insulating antiferromagnet ($d=2$, $z=1$), $d + z = 3 &lt; 4$, and the Néel-paramagnet
+transition is in the 3D classical O(3) universality class.</p>
 
-<p><strong>Universality</strong> is the central payoff: $\nu$, $z$, $\eta$ depend only on the
-spatial dimension, the order-parameter symmetry, and the range of interactions — not
-on microscopic details. Systems as different as a transverse-field magnet and a
-superfluid-insulator transition share exponents if they share a fixed point.</p>
+<p><strong>Universality</strong> is the payoff: $\nu$, $z$, and $\eta$ depend only on the
+dimension, the order-parameter symmetry, and the range of interactions, not on
+microscopic details.</p>
 
-<h4 id="representative-quantum-critical-points">Representative quantum critical points</h4>
+<table>
+  <thead>
+    <tr>
+      <th>Quantum critical point</th>
+      <th>Critical theory</th>
+      <th>$z$</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Transverse-field Ising chain, $H = -J\sum\sigma^z_i\sigma^z_{i+1} - h\sum\sigma^x_i$</td>
+      <td>2D Ising</td>
+      <td>1</td>
+      <td>Exact by Jordan-Wigner; $h_c = J$, $\nu = 1$, $\eta = 1/4$</td>
+    </tr>
+    <tr>
+      <td>Bose-Hubbard, superfluid-Mott at the lobe tip</td>
+      <td>$(d+1)$D XY</td>
+      <td>1</td>
+      <td>Particle-hole symmetric; realized in optical lattices</td>
+    </tr>
+    <tr>
+      <td>Bose-Hubbard, generic (density-driven) transition</td>
+      <td>dilute Bose gas</td>
+      <td>2</td>
+      <td>$\nu = 1/2$; mean-field for $d \ge 2$ (logarithms at $d = 2$)</td>
+    </tr>
+    <tr>
+      <td>Coupled-dimer antiferromagnet (TlCuCl$_3$ under pressure)</td>
+      <td>3D O(3)</td>
+      <td>1</td>
+      <td>Amplitude (Higgs) mode seen by neutrons</td>
+    </tr>
+    <tr>
+      <td>Heavy-fermion AFM QCP (CeCu$_{6-x}$Au$_x$, YbRh$_2$Si$_2$)</td>
+      <td>Hertz-Millis SDW, or Kondo breakdown</td>
+      <td>2 (SDW)</td>
+      <td>Kondo-breakdown (“local”) criticality gives $\omega/T$ scaling and a Fermi-surface jump</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>Transverse-field Ising chain</strong> $H = -J\sum_i \sigma_i^z\sigma_{i+1}^z - h\sum_i \sigma_i^x$. Exactly solvable by Jordan–Wigner; the QCP at $h = J$ has $z = 1$, $\nu = 1$, $\eta = 1/4$, mapping to the 2D classical Ising model.</li>
-  <li><strong>Bose–Hubbard / superfluid–Mott insulator.</strong> At integer filling the tip of the Mott lobe is a relativistic $z=1$ transition in the 3D XY class; away from the tip, density fluctuations give $z = 2$ (mean-field, $d + z = 4$).</li>
-  <li><strong>Heavy-fermion antiferromagnetic QCP.</strong> Field- or pressure-tuned (e.g. CeCu$_6$, YbRh$_2$Si$_2$). Spin-density-wave (Hertz–Millis) treatment gives $z = 2$ (AFM) or $z = 3$ (FM); Kondo-breakdown scenarios predict local quantum criticality with $\omega/T$ scaling.</li>
-  <li><strong>Dilute Bose gas / magnetization onset.</strong> A field-tuned transition with $z = 2$, $\nu = 1/2$ — the canonical $d + z = d + 2$ example.</li>
-</ul>
+<h3 id="beyond-landau-deconfined-quantum-criticality">Beyond Landau: deconfined quantum criticality</h3>
 
-<h4 id="beyond-landau-deconfined-quantum-criticality">Beyond Landau: deconfined quantum criticality</h4>
-
-<p>The Landau–Ginzburg–Wilson paradigm assumes a single order parameter. Some quantum
-transitions evade it. The <strong>Néel–VBS transition</strong> of a 2D quantum antiferromagnet is
-between two <em>different</em> broken symmetries (antiferromagnetic Néel order and
-valence-bond-solid order) that share no group-subgroup relation, so no single
-order-parameter field describes both phases. Instead the critical theory is written
-in terms of fractionalized <strong>spinons</strong> $z_\alpha$ ($CP^{1}$ field) coupled to an
-emergent U(1) gauge field $a_\mu$:</p>
+<p>The Landau-Ginzburg-Wilson paradigm assumes a single order parameter, which makes
+a direct continuous transition between two phases with unrelated broken symmetries
+non-generic. The <strong>Néel-VBS transition</strong> of a 2D spin-1/2 antiferromagnet is the
+proposed exception (Senthil, Vishwanath, Balents, Sachdev, Fisher, 2004): both
+orders emerge from fractionalized <strong>spinons</strong> $z_\alpha$ (a $CP^{1}$ field) coupled
+to an emergent U(1) gauge field $a_\mu$,</p>
 
 \[S = \int d^2x \, d\tau \left[|(\partial_\mu - i a_\mu)z|^2 + s\,|z|^2
-+ u\,(|z|^2)^2\right] + \frac{1}{2e^2}\int d^2x\, d\tau\, f_{\mu\nu}^2.\]
++ u\,(|z|^2)^2 + \frac{1}{2e^2}\,(\epsilon_{\mu\nu\lambda}\partial_\nu a_\lambda)^2\right].\]
 
-<p>The spinons are confined on both sides of the transition (recombining into magnons or
-VBS order) but become <em>deconfined</em> exactly at the critical point — a genuinely
-non-Landau, “beyond order-parameter” continuous transition.</p>
+<p>Spinons are confined on both sides (into magnons in the Néel phase, into valence
+bonds in the VBS phase) and deconfined only at the critical point, where monopoles
+of the gauge field, which carry the VBS order, become irrelevant. Large-scale
+numerics on the J-Q model and related systems find drifting finite-size exponents
+and conflicting estimates, and recent work, including fuzzy-sphere studies
+since 2023, favours a weakly first-order or “pseudo-critical” transition controlled
+by nearby complex fixed points rather than a true conformal critical point. The
+question remains open.</p>
 
-<h2 id="effective-field-theory-in-condensed-matter">Effective Field Theory in Condensed Matter</h2>
+<h2 id="effective-field-theory-in-condensed-matter">Effective field theory in condensed matter</h2>
 
 <p>The renormalization group reframes condensed-matter problems as <strong>effective field
 theories (EFTs)</strong>: rather than tracking every electron, one writes the most general
-local action consistent with the system’s symmetries for the relevant low-energy
-degrees of freedom (the order parameter, a Goldstone mode, a gauge field, a Dirac
-cone), then organizes terms by their importance under coarse-graining. The same logic
-that gives Ginzburg–Landau theory its $|\psi|^4$ form underlies the entire low-energy
-description of quantum matter.</p>
+local action consistent with the symmetries for the relevant low-energy degrees of
+freedom (an order parameter, a Goldstone mode, a gauge field, a Dirac cone), then
+organizes the terms by their importance under coarse-graining. Ginzburg-Landau
+theory is the prototype.</p>
 
 <h3 id="symmetries-fix-the-action">Symmetries fix the action</h3>
 
-<p>The construction is <strong>symmetry-first</strong>. One identifies the slow fields and the exact
-and emergent symmetries (translations, rotations, time reversal, particle–hole, a
-global U(1) or O(N), gauge invariance), and writes every local term compatible with
-them. Symmetry decides which terms may appear; the RG then decides which ones matter.
-Two consequences are immediate:</p>
+<p>One identifies the slow fields and the exact and emergent symmetries (translations,
+rotations, time reversal, particle-hole, a global U(1) or O(N), gauge invariance)
+and writes every local term compatible with them. Symmetry decides which terms may
+appear; the RG decides which ones matter. Two consequences are immediate:</p>
 
 <ul>
-  <li><strong>Goldstone modes.</strong> Spontaneously broken continuous symmetries guarantee gapless modes whose action is fixed by the broken symmetry — e.g. magnons in a Heisenberg magnet, the phase mode of a superfluid, $\mathcal{L} = \tfrac{1}{2}\rho_s(\nabla\theta)^2 + \ldots$</li>
-  <li><strong>Forbidden couplings.</strong> Time-reversal forbids a Chern–Simons term; particle–hole symmetry constrains the BdG Hamiltonian; lattice symmetry can protect band touchings (Dirac/Weyl points) against gapping.</li>
+  <li><strong>Goldstone modes.</strong> A spontaneously broken continuous symmetry guarantees gapless modes whose action is fixed by the symmetry, for example the superfluid phase mode, $\mathcal{L} = \frac{\rho_s}{2}(\nabla\theta)^2 + \frac{\kappa}{2}(\partial_\tau\theta)^2$. Nonrelativistic systems can have fewer Goldstone modes than broken generators with quadratic dispersion (ferromagnetic magnons), as classified by Watanabe and Murayama.</li>
+  <li><strong>Forbidden couplings.</strong> Time reversal and parity forbid a Chern-Simons term; particle-hole symmetry constrains the BdG Hamiltonian; lattice symmetries protect band touchings (Dirac and Weyl points) against gapping.</li>
 </ul>
 
 <h3 id="scaling-dimensions-and-relevance">Scaling dimensions and relevance</h3>
 
 <p>Under a coarse-graining step $x \to b\,x$, $\tau \to b^{z}\tau$ each field $\phi$
-acquires a <strong>scaling dimension</strong> $[\phi] = \Delta_\phi$ fixed by demanding the leading
-(Gaussian) part of the action be scale-invariant. For a relativistic scalar in
-$d+z$ effective dimensions, requiring $\int d^d x\, d\tau\,(\partial\phi)^2$ to be
-dimensionless gives</p>
+acquires a <strong>scaling dimension</strong> $\Delta_\phi$, fixed by demanding that the
+Gaussian part of the action be scale invariant. For a relativistic scalar in
+$D = d + z$ effective dimensions,</p>
 
-\[\Delta_\phi = \frac{d + z - 2}{2}.\]
+\[\Delta_\phi = \frac{D - 2}{2}.\]
 
-<p>A coupling $g_n$ multiplying an operator $\mathcal{O}_n$ of dimension $\Delta_n$ then
-has dimension $[g_n] = (d + z) - \Delta_n$, and flows as</p>
+<p>A coupling $g_n$ multiplying an operator $\mathcal{O}_n$ of dimension $\Delta_n$
+has dimension $D - \Delta_n$ and flows as</p>
 
-\[g_n(b) = b^{(d+z) - \Delta_n}\, g_n.\]
+\[g_n(b) = b^{D - \Delta_n}\, g_n .\]
 
-<p>This single counting classifies every term:</p>
+<p>Since $\Delta(\phi^{2k}) = k(D-2)$ at the Gaussian fixed point, this classifies
+every term:</p>
 
 <table>
   <thead>
     <tr>
-      <th> </th>
+      <th>Class</th>
       <th>Condition</th>
-      <th>Behavior under RG</th>
-      <th>Example</th>
-      <th> </th>
-      <th> </th>
+      <th>Behaviour under RG</th>
+      <th>Example at the Gaussian fixed point</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Relevant</strong></td>
-      <td>$\Delta_n &lt; d+z$</td>
-      <td>grows; drives system off fixed point</td>
-      <td>mass term $s</td>
-      <td>\psi</td>
-      <td>^2$</td>
+      <td>Relevant</td>
+      <td>$\Delta_n &lt; D$</td>
+      <td>grows; drives the system off the fixed point</td>
+      <td>mass term $s\lvert\phi\rvert^2$ (always)</td>
     </tr>
     <tr>
-      <td><strong>Marginal</strong></td>
-      <td>$\Delta_n = d+z$</td>
-      <td>logarithmic; needs higher order</td>
-      <td>$</td>
-      <td>\psi</td>
-      <td>^4$ at $d+z=4$</td>
+      <td>Marginal</td>
+      <td>$\Delta_n = D$</td>
+      <td>logarithmic; decided at higher order</td>
+      <td>$\lvert\phi\rvert^4$ at $D=4$; $\lvert\phi\rvert^6$ at $D=3$</td>
     </tr>
     <tr>
-      <td><strong>Irrelevant</strong></td>
-      <td>$\Delta_n &gt; d+z$</td>
+      <td>Irrelevant</td>
+      <td>$\Delta_n &gt; D$</td>
       <td>decays; drops out at low energy</td>
-      <td>gradient$^4$, $</td>
-      <td>\psi</td>
-      <td>^6$ in $d{+}z{&lt;}3$</td>
+      <td>$\lvert\phi\rvert^4$ for $D&gt;4$; $\lvert\phi\rvert^6$ for $D&gt;3$; higher gradients</td>
     </tr>
   </tbody>
 </table>
 
-<p>The handful of relevant and marginal couplings constitute the universal data; the
-infinite tower of irrelevant operators only supplies non-universal corrections to
-scaling. This is <em>why</em> universality holds — microscopic complexity is encoded in
-irrelevant operators that the flow discards.</p>
+<p>The few relevant and marginal couplings constitute the universal data; the
+infinite tower of irrelevant operators only supplies corrections to scaling. This
+is why universality holds.</p>
 
 <h3 id="rg-flow-and-fixed-points">RG flow and fixed points</h3>
 
-<p>Combining the linear scaling with loop corrections gives the <strong>beta functions</strong>
-$\beta_n = dg_n/d\ell$ (with $\ell = \ln b$). Their zeros are <strong>fixed points</strong>, where
-the theory is scale-invariant:</p>
+<p>Adding loop corrections to the linear scaling gives <strong>beta functions</strong>
+$\beta_n = dg_n/d\ell$ with $\ell = \ln b$. Their zeros are fixed points, where the
+theory is scale invariant. For the O(N) model with interaction
+$\frac{u}{4}(\phi_a\phi_a)^2$, in $D = 4 - \epsilon$,</p>
 
-<ul>
-  <li>The <strong>Gaussian fixed point</strong> $g_n = 0$ governs the mean-field regime above the upper critical dimension $d + z &gt; 4$.</li>
-  <li>A non-trivial <strong>Wilson–Fisher fixed point</strong> appears below it. The classic $\phi^4$ example, organized in $\epsilon = 4 - (d+z)$, has at one loop</li>
-</ul>
+\[\beta_u = -\epsilon\, u + \frac{N+8}{8\pi^2}\, u^2 + O(u^3),\]
 
-\[\beta_u = -\epsilon\, u + \frac{(N+8)}{8\pi^2}\, u^2,\]
+<p>with the Gaussian fixed point $u = 0$ (stable for $\epsilon &lt; 0$) and the
+infrared-stable <strong>Wilson-Fisher fixed point</strong> $u^{\ast} = 8\pi^2\epsilon/(N+8)$ for
+$\epsilon &gt; 0$. Linearizing about $u^\ast$ gives, to first order in $\epsilon$,</p>
 
-<p>with an infrared-stable zero at $u^{*} = 8\pi^2\epsilon/(N+8)$. Linearizing about a
-fixed point, the eigenvalues $y_i$ of the relevant directions fix the universal
-exponents ($\nu = 1/y_t$, etc.), tying this EFT section directly back to the
-<a href="#scaling-hypothesis-and-exponents">scaling exponents above</a>.</p>
+\[\nu = \frac{1}{2} + \frac{N+2}{4(N+8)}\,\epsilon, \qquad \eta = \frac{N+2}{2(N+8)^2}\,\epsilon^2,\]
 
-<p>Emergent IR symmetries are common: a lattice model with only discrete rotation
-symmetry can flow to a Lorentz- and conformally invariant fixed point, and gauge
-fields ($CP^{1}$, Chern–Simons, $\mathbb{Z}_2$) routinely emerge as low-energy
-descriptions of fractionalized phases even though the microscopic Hamiltonian has no
-gauge structure at all.</p>
+<p>connecting back to the <a href="#scaling-hypothesis-and-exponents">scaling exponents above</a>.
+Modern precision values for the 3D Ising and O(N) classes come from the conformal
+bootstrap and Monte Carlo rather than the $\epsilon$ expansion.</p>
 
-<h2 id="computational-methods">Computational Methods</h2>
+<p>Emergent infrared symmetries are common: a lattice model with only discrete
+rotation symmetry can flow to a Lorentz- and conformally invariant fixed point, and
+gauge fields ($CP^1$, Chern-Simons, $\mathbb{Z}_2$) routinely emerge as the
+low-energy description of fractionalized phases even though the microscopic
+Hamiltonian has no gauge structure.</p>
 
-<h3 id="density-functional-theory-for-solids">Density Functional Theory for Solids</h3>
+<h2 id="computational-methods">Computational methods</h2>
 
-<p><strong>Kohn-Sham equations:</strong></p>
+<p>No single numerical method covers condensed matter; each trades system size,
+accuracy, dimensionality, and the fermion sign problem differently.</p>
 
-\[\left[-\frac{\hbar^2\nabla^2}{2m} + v_{eff}(\mathbf{r})\right]\phi_i(\mathbf{r}) = \epsilon_i\phi_i(\mathbf{r})\]
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Computes</th>
+      <th>Strengths</th>
+      <th>Main limitation</th>
+      <th>Representative codes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DFT (LDA, GGA, meta-GGA, hybrids)</td>
+      <td>Ground-state density, band structures, forces</td>
+      <td>Scales to hundreds of atoms; routine for real materials</td>
+      <td>Approximate exchange-correlation; poor for strong correlation and band gaps (LDA/GGA)</td>
+      <td>VASP, Quantum ESPRESSO, ABINIT</td>
+    </tr>
+    <tr>
+      <td>GW and Bethe-Salpeter</td>
+      <td>Quasiparticle bands, optical spectra</td>
+      <td>Corrects DFT gaps</td>
+      <td>Cost; weakly correlated systems</td>
+      <td>BerkeleyGW, Yambo</td>
+    </tr>
+    <tr>
+      <td>DFT+DMFT</td>
+      <td>Local correlation, Mott physics, spectral functions</td>
+      <td>Handles d- and f-electron materials</td>
+      <td>Local self-energy; impurity-solver cost</td>
+      <td>TRIQS, w2dynamics</td>
+    </tr>
+    <tr>
+      <td>Exact diagonalization</td>
+      <td>All low-lying states of small clusters</td>
+      <td>Exact; any Hamiltonian</td>
+      <td>Exponential cost; roughly 40-50 spins-1/2 with symmetries</td>
+      <td>QuSpin, custom Lanczos</td>
+    </tr>
+    <tr>
+      <td>Quantum Monte Carlo (VMC, DMC, AFQMC, DQMC, SSE)</td>
+      <td>Ground-state and thermal properties</td>
+      <td>Unbiased for sign-free models; large sizes</td>
+      <td>Fermion/frustration sign problem (NP-hard in general)</td>
+      <td>QMCPACK, ALF</td>
+    </tr>
+    <tr>
+      <td>DMRG / MPS</td>
+      <td>1D and quasi-1D ground states, dynamics</td>
+      <td>Near-exact in 1D; entanglement diagnostics</td>
+      <td>Cost grows exponentially with cylinder width</td>
+      <td>ITensor, TeNPy</td>
+    </tr>
+    <tr>
+      <td>PEPS and other 2D tensor networks</td>
+      <td>2D ground states, including frustrated fermions</td>
+      <td>No sign problem; thermodynamic limit (iPEPS)</td>
+      <td>High cost in bond dimension; contraction is approximate</td>
+      <td>TeNPy, quimb, custom</td>
+    </tr>
+    <tr>
+      <td>Neural-network quantum states</td>
+      <td>Variational ground states and dynamics</td>
+      <td>Flexible ansatz; competitive on frustrated 2D models</td>
+      <td>Optimization is hard; limited error control</td>
+      <td>NetKet</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Exchange-correlation functionals:</strong></p>
-<ul>
-  <li>LDA: $\epsilon_{xc}[n] = \epsilon_{xc}(n)$</li>
-  <li>GGA: $\epsilon_{xc}[n,\nabla n]$</li>
-  <li>Hybrid: Mix exact exchange</li>
-</ul>
+<h3 id="density-functional-theory">Density functional theory</h3>
 
-<p><strong>Band structure calculations:</strong> Plane wave basis, pseudopotentials</p>
+<p>DFT replaces the interacting problem by non-interacting Kohn-Sham electrons moving
+in an effective potential that reproduces the true ground-state density:</p>
+
+\[\left[-\frac{\hbar^2\nabla^2}{2m} + v_{\text{ext}}(\mathbf{r}) + v_{H}[n](\mathbf{r}) + v_{xc}[n](\mathbf{r})\right]\phi_i(\mathbf{r}) = \epsilon_i\,\phi_i(\mathbf{r}), \qquad n(\mathbf{r}) = \sum_{i\,\in\,\text{occ}}|\phi_i(\mathbf{r})|^2 .\]
+
+<p>All the many-body physics is in the exchange-correlation functional, arranged on
+“Jacob’s ladder”: LDA uses $n$ only; GGA (PBE) adds $\nabla n$; meta-GGA (SCAN,
+r$^2$SCAN) adds the kinetic-energy density; hybrids (PBE0, HSE06) mix in a
+fraction of exact exchange and substantially improve band gaps. DFT+U adds a
+Hubbard correction on localized orbitals. Kohn-Sham eigenvalues are not formally
+quasiparticle energies, which is why band gaps from LDA/GGA are typically too small.</p>
 
 <h3 id="quantum-monte-carlo">Quantum Monte Carlo</h3>
 
-<p><strong>Variational QMC:</strong></p>
+<p>Variational Monte Carlo evaluates $E[\Psi_T] = \langle\Psi_T|H|\Psi_T\rangle/\langle\Psi_T|\Psi_T\rangle$
+by sampling $|\Psi_T|^2$. Projector methods filter the ground state out of a trial
+state,</p>
 
-\[E = \frac{\langle\Psi_T|H|\Psi_T\rangle}{\langle\Psi_T|\Psi_T\rangle}\]
+\[|\Psi_0\rangle \propto \lim_{\tau\to\infty} e^{-\tau(H - E_0)}|\Psi_T\rangle,\]
 
-<p><strong>Diffusion QMC:</strong> Project out ground state</p>
+<p>in real space (diffusion Monte Carlo, with a fixed-node approximation for
+fermions) or in a space of Slater determinants (auxiliary-field QMC). Determinant
+QMC and stochastic series expansion work at finite temperature. For fermions and
+frustrated magnets the sampled weights can be negative, and the average sign
+decays exponentially with system size and inverse temperature; Troyer and Wiese
+showed that a general solution of this <strong>sign problem</strong> would solve NP-hard
+problems. Sign-free models (half-filled Hubbard on bipartite lattices, many
+designer models) are therefore the testing ground for quantum criticality.</p>
 
-\[|\Psi_0\rangle = \lim_{t\to\infty} e^{-Ht}|\Psi_T\rangle\]
+<h3 id="tensor-networks">Tensor networks</h3>
 
-<p><strong>Sign problem:</strong> Constrains fermionic/frustrated systems</p>
+<p>Matrix product states (MPS) represent 1D states with area-law entanglement
+efficiently; DMRG optimizes them variationally, and time-evolving block decimation
+(TEBD) evolves them in real or imaginary time using Trotterized two-site gates.
+Projected entangled-pair states (PEPS, and iPEPS in the thermodynamic limit)
+generalize the idea to 2D, with observables computed by approximate contraction
+(corner transfer matrices or boundary MPS).</p>
 
-<h3 id="tensor-network-methods">Tensor Network Methods</h3>
-
-<p><strong>iPEPS for 2D systems:</strong></p>
-
-\[|\Psi\rangle = \sum_s \text{tTr}[A^{s_{1,1}}...A^{s_{N,N}}]|s\rangle\]
-
-<p><strong>Corner transfer matrix:</strong> Compute observables</p>
-
-<p><strong>Time evolution:</strong> TEBD, MPO methods</p>
+<p>The code below is a complete, minimal TEBD for the transverse-field Ising chain.
+It finds the ground state by imaginary-time evolution from a product state and
+checks the energy against exact diagonalization. Tensors follow the convention
+<code class="language-plaintext highlighter-rouge">A[left_bond, physical, right_bond]</code>.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">from</span> <span class="n">scipy.linalg</span> <span class="kn">import</span> <span class="n">expm</span>
 
-<span class="k">def</span> <span class="nf">tebd_step</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">U_bonds</span><span class="p">,</span> <span class="n">chi_max</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Time-evolving block decimation step</span><span class="sh">"""</span>
-    <span class="k">for</span> <span class="n">bond</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>  <span class="c1"># Even bonds
-</span>        <span class="n">psi</span> <span class="o">=</span> <span class="nf">apply_two_site_gate</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">U_bonds</span><span class="p">[</span><span class="n">bond</span><span class="p">],</span> <span class="n">bond</span><span class="p">,</span> <span class="n">chi_max</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">bond</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>  <span class="c1"># Odd bonds  
-</span>        <span class="n">psi</span> <span class="o">=</span> <span class="nf">apply_two_site_gate</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">U_bonds</span><span class="p">[</span><span class="n">bond</span><span class="p">],</span> <span class="n">bond</span><span class="p">,</span> <span class="n">chi_max</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">psi</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]])</span>
+<span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.</span><span class="p">]])</span>
+<span class="n">I2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">apply_two_site_gate</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">bond</span><span class="p">,</span> <span class="n">chi_max</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Apply two-site gate with truncation</span><span class="sh">"""</span>
-    <span class="c1"># Contract tensors
-</span>    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">tensordot</span><span class="p">(</span><span class="n">psi</span><span class="p">[</span><span class="n">bond</span><span class="p">],</span> <span class="n">psi</span><span class="p">[</span><span class="n">bond</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="n">axes</span><span class="o">=</span><span class="p">([</span><span class="mi">2</span><span class="p">],[</span><span class="mi">0</span><span class="p">]))</span>
-    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">tensordot</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mi">2</span><span class="p">]))</span>
-    
-    <span class="c1"># SVD and truncate
-</span>    <span class="n">theta</span> <span class="o">=</span> <span class="n">theta</span><span class="p">.</span><span class="nf">transpose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="n">d</span><span class="o">*</span><span class="n">chi_l</span><span class="p">,</span> <span class="n">d</span><span class="o">*</span><span class="n">chi_r</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">bond_hamiltonians</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">J</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">g</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">H = -J sum Z_i Z_{i+1} - g sum X_i, split into two-site terms.
+    Each interior site field is shared between its two bonds.</span><span class="sh">"""</span>
+    <span class="n">hs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">L</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">gl</span> <span class="o">=</span> <span class="n">g</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">g</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">gr</span> <span class="o">=</span> <span class="n">g</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">L</span> <span class="o">-</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">g</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="o">-</span><span class="n">J</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">Z</span><span class="p">)</span> <span class="o">-</span> <span class="n">gl</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">I2</span><span class="p">)</span> <span class="o">-</span> <span class="n">gr</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">I2</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+        <span class="n">hs</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">h</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>            <span class="c1"># indices (s1', s2', s1, s2)
+</span>    <span class="k">return</span> <span class="n">hs</span>
+
+<span class="k">def</span> <span class="nf">apply_gate</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">chi_max</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Contract A[a,s,b] B[b,t,c] with gate U[s</span><span class="sh">'</span><span class="s">,t</span><span class="sh">'</span><span class="s">,s,t], then SVD-truncate.</span><span class="sh">"""</span>
+    <span class="n">chi_l</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">A</span><span class="p">.</span><span class="n">shape</span>
+    <span class="n">chi_r</span> <span class="o">=</span> <span class="n">B</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">tensordot</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>                  <span class="c1"># (a, s, t, c)
+</span>    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">tensordot</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]))</span>    <span class="c1"># (s', t', a, c)
+</span>    <span class="n">theta</span> <span class="o">=</span> <span class="n">theta</span><span class="p">.</span><span class="nf">transpose</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="n">chi_l</span> <span class="o">*</span> <span class="n">d</span><span class="p">,</span> <span class="n">d</span> <span class="o">*</span> <span class="n">chi_r</span><span class="p">)</span>
     <span class="n">u</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">vh</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">svd</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-    
-    <span class="c1"># Truncate to chi_max
-</span>    <span class="n">chi_new</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="n">chi_max</span><span class="p">)</span>
-    <span class="n">u</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="p">:</span><span class="n">chi_new</span><span class="p">]</span>
-    <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="p">[:</span><span class="n">chi_new</span><span class="p">]</span>
-    <span class="n">vh</span> <span class="o">=</span> <span class="n">vh</span><span class="p">[:</span><span class="n">chi_new</span><span class="p">,</span> <span class="p">:]</span>
-    
-    <span class="c1"># Update MPS tensors
-</span>    <span class="n">psi</span><span class="p">[</span><span class="n">bond</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="n">chi_l</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">chi_new</span><span class="p">)</span>
-    <span class="n">psi</span><span class="p">[</span><span class="n">bond</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">@</span> <span class="n">vh</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="n">chi_new</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">chi_r</span><span class="p">)</span>
-    
-    <span class="k">return</span> <span class="n">psi</span>
-</code></pre></div></div>
+    <span class="n">keep</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">chi_max</span><span class="p">,</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">s</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">)))</span>
+    <span class="n">u</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">vh</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="p">:</span><span class="n">keep</span><span class="p">],</span> <span class="n">s</span><span class="p">[:</span><span class="n">keep</span><span class="p">],</span> <span class="n">vh</span><span class="p">[:</span><span class="n">keep</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">s</span> <span class="o">/=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>                                   <span class="c1"># renormalize after non-unitary step
+</span>    <span class="k">return</span> <span class="n">u</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="n">chi_l</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">keep</span><span class="p">),</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">@</span> <span class="n">vh</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="n">keep</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">chi_r</span><span class="p">)</span>
 
-<h2 id="research-frontiers">Research Frontiers</h2>
+<span class="k">def</span> <span class="nf">tebd</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">hs</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">steps</span><span class="p">,</span> <span class="n">chi_max</span><span class="p">,</span> <span class="n">imaginary</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">First-order Trotter TEBD: update even bonds, then odd bonds.</span><span class="sh">"""</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="o">-</span><span class="n">dt</span> <span class="k">if</span> <span class="n">imaginary</span> <span class="k">else</span> <span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">dt</span>
+    <span class="n">gates</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">hs</span><span class="p">:</span>                                  <span class="c1"># exp(f h) via eigendecomposition
+</span>        <span class="n">w</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">eigh</span><span class="p">(</span><span class="n">h</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+        <span class="n">gates</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">v</span> <span class="o">@</span> <span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">w</span><span class="p">))</span> <span class="o">@</span> <span class="n">v</span><span class="p">.</span><span class="nf">conj</span><span class="p">().</span><span class="n">T</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">steps</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">parity</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">parity</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">mps</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+                <span class="n">mps</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mps</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nf">apply_gate</span><span class="p">(</span><span class="n">mps</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">mps</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">gates</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">chi_max</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mps</span>
 
-<h3 id="quantum-materials-design">Quantum Materials Design</h3>
+<span class="k">def</span> <span class="nf">full_hamiltonian</span><span class="p">(</span><span class="n">hs</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="n">i</span><span class="p">),</span> <span class="n">h</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="p">(</span><span class="n">L</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)))</span>
+               <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">hs</span><span class="p">))</span>
 
-<p><strong>Materials informatics:</strong> Machine learning for materials discovery</p>
+<span class="k">def</span> <span class="nf">energy</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">H</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">&lt;H&gt; by contracting the MPS to a dense vector (fine for short chains).</span><span class="sh">"""</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="n">mps</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">A</span> <span class="ow">in</span> <span class="n">mps</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">tensordot</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="n">psi</span><span class="p">.</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">psi</span> <span class="o">/=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">psi</span><span class="p">.</span><span class="nf">conj</span><span class="p">()</span> <span class="o">@</span> <span class="n">H</span> <span class="o">@</span> <span class="n">psi</span><span class="p">)</span>
 
-<p><strong>Heterostructure engineering:</strong> Designer quantum phases</p>
+<span class="n">L</span><span class="p">,</span> <span class="n">chi</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">16</span>
+<span class="n">hs</span> <span class="o">=</span> <span class="nf">bond_hamiltonians</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">J</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">g</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>                      <span class="c1"># critical point g = J
+</span><span class="n">H</span> <span class="o">=</span> <span class="nf">full_hamiltonian</span><span class="p">(</span><span class="n">hs</span><span class="p">,</span> <span class="n">L</span><span class="p">)</span>
+<span class="n">mps</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]).</span><span class="nf">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">L</span><span class="p">)]</span>   <span class="c1"># product state |up...up&gt;
+</span><span class="k">for</span> <span class="n">dt</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.005</span><span class="p">):</span>                                <span class="c1"># shrink the Trotter step
+</span>    <span class="n">mps</span> <span class="o">=</span> <span class="nf">tebd</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">hs</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="nf">int</span><span class="p">(</span><span class="mi">5</span> <span class="o">/</span> <span class="n">dt</span><span class="p">),</span> <span class="n">chi_max</span><span class="o">=</span><span class="n">chi</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">TEBD  E0 =</span><span class="sh">"</span><span class="p">,</span> <span class="nf">energy</span><span class="p">(</span><span class="n">mps</span><span class="p">,</span> <span class="n">H</span><span class="p">))</span>                          <span class="c1"># about -12.38139
+</span><span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">exact E0 =</span><span class="sh">"</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">eigvalsh</span><span class="p">(</span><span class="n">H</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>                <span class="c1"># -12.38149
+</span></code></pre></div></div>
 
-<p><strong>Moiré systems:</strong> Tunable strongly correlated physics</p>
+<p>The residual error (about $10^{-5}$ relative) is Trotter error; a second-order
+(Strang) splitting, a smaller final step, or DMRG would remove it. For production
+work use a maintained library (ITensor, TeNPy, quimb), which provide DMRG, TEBD,
+TDVP, conserved quantum numbers, and infinite-system algorithms.</p>
 
-<h3 id="non-equilibrium-phenomena">Non-equilibrium Phenomena</h3>
+<h2 id="research-frontiers">Research frontiers</h2>
 
-<p><strong>Floquet engineering:</strong> Light-induced topological phases</p>
+<p>The narrative list of “hot topics” that used to open this page is collected here
+with the developments that have shaped the field through 2026.</p>
 
-\[H_F = H_0 + V \cos(\omega t)\]
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Key developments</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Moiré and rhombohedral graphene</td>
+      <td>Correlated insulators and superconductivity in magic-angle twisted bilayer graphene (2018); integer and fractional quantum anomalous Hall states in twisted MoTe$_2$ (2023) and rhombohedral pentalayer graphene on hBN (2024); reports of chiral superconductivity in rhombohedral multilayer graphene (2025)</td>
+      <td>Very active; pairing mechanism and FQAH phase diagram unsettled</td>
+    </tr>
+    <tr>
+      <td>Nickelate superconductors</td>
+      <td>Infinite-layer (Nd,Sr)NiO$_2$ films (2019); La$_3$Ni$_2$O$_7$ near 80 K above ~14 GPa (2023); ambient-pressure superconductivity in compressively strained La$_3$Ni$_2$O$_7$ thin films with onset near 40 K (2025)</td>
+      <td>Active; comparison with cuprates central</td>
+    </tr>
+    <tr>
+      <td>Hydrides under pressure</td>
+      <td>H$<em>3$S ($T_c \approx 203$ K near 150 GPa, 2015) and LaH$</em>{10}$ ($\approx 250$ K near 170 GPa, 2019)</td>
+      <td>Established; room-temperature claims of 2020 and 2023 were retracted, and LK-99 (2023) is not a superconductor</td>
+    </tr>
+    <tr>
+      <td>Altermagnetism</td>
+      <td>Collinear compensated magnets with spin-split bands and zero net magnetization, identified theoretically around 2019-2022 and confirmed by photoemission in MnTe and CrSb (2024)</td>
+      <td>Rapidly growing; spintronics interest</td>
+    </tr>
+    <tr>
+      <td>Majorana modes and topological qubits</td>
+      <td>Kitaev chain and proximitized nanowire proposals (2001, 2010); interferometric parity measurements in InAs-Al devices reported by Microsoft (2025)</td>
+      <td>Topological protection not yet demonstrated to community consensus</td>
+    </tr>
+    <tr>
+      <td>Kagome metals</td>
+      <td>$A$V$_3$Sb$_5$ (2020): charge order, possible time-reversal breaking, superconductivity</td>
+      <td>Active</td>
+    </tr>
+    <tr>
+      <td>Quantum spin liquids</td>
+      <td>$\alpha$-RuCl$_3$ (Kitaev candidate), herbertsmithite, and simulator realizations of $\mathbb{Z}_2$ spin liquids in Rydberg arrays (2021)</td>
+      <td>Materials evidence still debated</td>
+    </tr>
+    <tr>
+      <td>Non-equilibrium quantum matter</td>
+      <td>Floquet-Bloch states observed by time-resolved ARPES (2013); light-induced anomalous Hall effect in graphene (2020); discrete time crystals in spins, ions, and superconducting processors (2017-2022); prethermal and many-body localized regimes</td>
+      <td>See <a href="disorder-and-localization.html#many-body-localization">Disorder &amp; Localization</a></td>
+    </tr>
+    <tr>
+      <td>Machine learning for materials</td>
+      <td>Graph-network discovery of hundreds of thousands of predicted stable crystals (2023); machine-learned interatomic potentials; neural quantum states</td>
+      <td>Active; experimental validation lags prediction</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Ultrafast spectroscopy:</strong> Pump-probe dynamics</p>
+<h2 id="experimental-probes-of-the-formalism">Experimental probes of the formalism</h2>
 
-<p><strong>Many-body localization:</strong> Breakdown of thermalization</p>
+<p>Each standard probe measures a quantity computed directly by the formalism above.
+The full methodology is on <a href="experimental-techniques.html">Experimental Techniques</a>.</p>
 
-<h3 id="quantum-technologies">Quantum Technologies</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Probe</th>
+      <th>Measures</th>
+      <th>Formalism it tests</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ARPES</td>
+      <td>$I(\mathbf{k},\omega) \propto \lvert M_{fi}\rvert^2 f(\omega)A(\mathbf{k},\omega)$</td>
+      <td>Spectral function, self-energy, band topology (surface Dirac cones)</td>
+    </tr>
+    <tr>
+      <td>STM/STS</td>
+      <td>$dI/dV \propto \rho_s(\mathbf{r}, E_F + eV)$</td>
+      <td>Local density of states, quasiparticle interference, vortex cores</td>
+    </tr>
+    <tr>
+      <td>Inelastic neutron / RIXS</td>
+      <td>$S(\mathbf{q},\omega) \propto [1 + n_B(\omega)]\chi’’(\mathbf{q},\omega)$</td>
+      <td>Spin and lattice response functions, spinon continua</td>
+    </tr>
+    <tr>
+      <td>Quantum oscillations</td>
+      <td>Frequency $F = \frac{\hbar}{2\pi e}A_{\text{ext}}$; Lifshitz-Kosevich damping</td>
+      <td>Fermi-surface areas, $m^\ast$, Berry phase</td>
+    </tr>
+    <tr>
+      <td>Transport</td>
+      <td>$\sigma_{xx}$, $\sigma_{xy}$, thermal Hall $\kappa_{xy}$</td>
+      <td>Kubo formula, TKNN, edge-state chirality</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Topological quantum computing:</strong> Anyonic braiding</p>
+<p>Three relations are used constantly in data analysis.</p>
 
-<p><strong>Quantum sensors:</strong> NV centers, SQUIDs</p>
+<p><strong>ARPES self-energy.</strong> Fitting momentum distribution curves at fixed $\omega$
+gives the peak position $k_m(\omega)$ and half width $\Delta k(\omega)$. With a
+bare dispersion $\epsilon^0_{\mathbf{k}}$ and bare velocity $v_0$,</p>
 
-<p><strong>Coherent quantum devices:</strong> Josephson junctions, quantum dots</p>
+\[\text{Re}\,\Sigma(\omega) = \omega - \epsilon^0_{k_m(\omega)}, \qquad |\text{Im}\,\Sigma(\omega)| \approx v_0\,\Delta k(\omega).\]
 
-<h3 id="unconventional-superconductivity">Unconventional Superconductivity</h3>
+<p><strong>Lifshitz-Kosevich.</strong> For each extremal Fermi-surface orbit the oscillatory
+magnetization is</p>
 
-<p><strong>Iron-based superconductors:</strong> Multi-orbital physics</p>
+\[\tilde M \propto B^{1/2}\,R_T\,R_D\,R_S\,\sin\!\left(\frac{2\pi F}{B} + \phi\right), \qquad R_T = \frac{X}{\sinh X}, \quad X = \frac{2\pi^2 k_B T\, m^*}{\hbar e B}, \quad R_D = e^{-\pi m^*/(eB\tau_q)},\]
 
-<p><strong>Heavy fermion superconductors:</strong> Quantum criticality</p>
+<p>so the temperature dependence of the amplitude gives $m^\ast$, its field dependence
+gives the quantum lifetime $\tau_q$, and the phase $\phi$ contains the Berry phase
+of the orbit.</p>
 
-<p><strong>Organic superconductors:</strong> Low dimensionality</p>
+<p><strong>Tunneling.</strong> For a tip with a flat density of states $\rho_t$ and
+energy-independent transmission,</p>
 
-<p><strong>Interface superconductivity:</strong> STO/LAO, FeSe/STO</p>
+\[I(V) \propto \rho_t\int_0^{eV} d\epsilon\;\rho_s(\mathbf{r}, E_F + \epsilon), \qquad \frac{dI}{dV} \propto \rho_s(\mathbf{r}, E_F + eV),\]
 
-<h3 id="correlated-topology">Correlated Topology</h3>
+<p>and Fourier-transformed $dI/dV$ maps reveal scattering vectors
+$\mathbf{q} = \mathbf{k}_f - \mathbf{k}_i$ between regions of high spectral weight.</p>
 
-<p><strong>Twisted bilayer graphene:</strong> Flat bands and superconductivity</p>
+<h2 id="references-and-further-reading">References and further reading</h2>
 
-<p><strong>Magnetic topological insulators:</strong> Quantum anomalous Hall effect</p>
+<p><strong>Textbooks</strong></p>
 
-<p><strong>Weyl-Kondo semimetals:</strong> Topology meets strong correlations</p>
-
-<h2 id="experimental-probes-of-the-formalism">Experimental Probes of the Formalism</h2>
-
-<p>Theory is only as good as the spectra it predicts. The probes below close the loop —
-each measures a quantity that the formalism above computes directly (a spectral
-function, a Fermi-surface cross-section, a local density of states). They are
-summarized here for completeness; the full methodology, geometry, and worked
-data-analysis examples live on the dedicated
-<a href="experimental-techniques.html">Experimental Techniques</a> page, which also covers
-transport, neutron and X-ray scattering, and thermodynamic measurements.</p>
-
-<h3 id="transport-scattering-and-thermodynamics-at-a-glance">Transport, scattering, and thermodynamics at a glance</h3>
-
-<ul>
-  <li><strong>Transport.</strong> Four-probe resistivity, the Hall effect (carrier density and mobility), and quantum oscillations to map the Fermi surface.</li>
-  <li><strong>Spectroscopy.</strong> ARPES, STM/STS, neutron scattering (magnetic structure and excitations), and X-ray scattering (crystal structure).</li>
-  <li><strong>Thermodynamics.</strong> Specific heat (locating phase transitions), magnetization, and thermal expansion (lattice coupling).</li>
-</ul>
-
-<h3 id="arpes-angle-resolved-photoemission">ARPES (Angle-Resolved Photoemission)</h3>
-
-<p>Directly images the single-particle spectral function $A(\mathbf{k},\omega)$ of the
-Green’s-function section above.</p>
-
-<p><strong>Intensity:</strong></p>
-
-\[I(\mathbf{k},\omega) \propto |M_{fi}|^2 f(\omega) A(\mathbf{k},\omega)\]
-
-<p>Where $M_{fi}$ is matrix element, $f(\omega)$ is Fermi function.</p>
-
-<p><strong>Self-energy extraction:</strong></p>
-
-\[\Sigma'(\mathbf{k},\omega) = \omega - \epsilon_\mathbf{k}^0 - \text{Re}[\Sigma(\mathbf{k},\omega)]\]
-
-\[\Sigma''(\mathbf{k},\omega) = \text{Im}[\Sigma(\mathbf{k},\omega)]\]
-
-<h3 id="quantum-oscillations">Quantum Oscillations</h3>
-
-<p><strong>Lifshitz-Kosevich formula:</strong></p>
-
-\[M \propto \left(\frac{T}{B}\right)^{1/2} R_T R_D R_S \sin\left(\frac{2\pi F}{B} + \phi\right)\]
-
-<p>Where:</p>
-<ul>
-  <li>$R_T$ = thermal damping</li>
-  <li>$R_D$ = Dingle factor</li>
-  <li>$R_S$ = spin factor</li>
-  <li>$F$ = oscillation frequency</li>
-</ul>
-
-<p><strong>Fermiology:</strong> Extract Fermi surface, effective mass, scattering rate</p>
-
-<h3 id="stmsts">STM/STS</h3>
-
-<p><strong>Tunneling current:</strong></p>
-
-\[I \propto \int_{-eV}^0 d\omega \, \rho_s(\omega)\rho_t(\mathbf{r},\omega+eV)T(\omega,eV)\]
-
-<p><strong>Differential conductance:</strong></p>
-
-\[\frac{dI}{dV} \propto \rho_s(E_F)\rho_t(\mathbf{r},eV)\]
-
-<p><strong>Quasiparticle interference:</strong> Fourier transform reveals $\mathbf{q} = \mathbf{k}_f - \mathbf{k}_i$</p>
-
-<h2 id="references-and-further-reading">References and Further Reading</h2>
-
-<h3 id="classic-textbooks">Classic Textbooks</h3>
 <ol>
-  <li><strong>Ashcroft &amp; Mermin</strong> - <em>Solid State Physics</em></li>
-  <li><strong>Kittel</strong> - <em>Introduction to Solid State Physics</em></li>
-  <li><strong>Mahan</strong> - <em>Many-Particle Physics</em></li>
-  <li><strong>Abrikosov, Gorkov &amp; Dzyaloshinski</strong> - <em>Methods of Quantum Field Theory in Statistical Physics</em></li>
+  <li>N. W. Ashcroft and N. D. Mermin, <em>Solid State Physics</em> (1976).</li>
+  <li>G. D. Mahan, <em>Many-Particle Physics</em>, 3rd ed. (2000).</li>
+  <li>A. A. Abrikosov, L. P. Gorkov, I. E. Dzyaloshinski, <em>Methods of Quantum Field Theory in Statistical Physics</em> (1963).</li>
+  <li>A. Altland and B. Simons, <em>Condensed Matter Field Theory</em>, 3rd ed. (2023).</li>
+  <li>P. Coleman, <em>Introduction to Many-Body Physics</em> (2015).</li>
+  <li>X.-G. Wen, <em>Quantum Field Theory of Many-Body Systems</em> (2004).</li>
+  <li>S. M. Girvin and K. Yang, <em>Modern Condensed Matter Physics</em> (2019).</li>
+  <li>S. Sachdev, <em>Quantum Phase Transitions</em>, 2nd ed. (2011); <em>Quantum Phases of Matter</em> (2023).</li>
+  <li>B. A. Bernevig and T. L. Hughes, <em>Topological Insulators and Topological Superconductors</em> (2013).</li>
+  <li>D. Vanderbilt, <em>Berry Phases in Electronic Structure Theory</em> (2018).</li>
+  <li>M. Tinkham, <em>Introduction to Superconductivity</em>, 2nd ed. (1996).</li>
+  <li>T. Giamarchi, <em>Quantum Physics in One Dimension</em> (2004).</li>
 </ol>
 
-<h3 id="advanced-monographs">Advanced Monographs</h3>
-<ol>
-  <li><strong>Coleman</strong> - <em>Introduction to Many-Body Physics</em></li>
-  <li><strong>Wen</strong> - <em>Quantum Field Theory of Many-Body Systems</em></li>
-  <li><strong>Bernevig &amp; Hughes</strong> - <em>Topological Insulators and Topological Superconductors</em></li>
-  <li><strong>Tinkham</strong> - <em>Introduction to Superconductivity</em></li>
-</ol>
+<p><strong>Reviews</strong></p>
 
-<h3 id="specialized-topics">Specialized Topics</h3>
 <ol>
-  <li><strong>Giamarchi</strong> - <em>Quantum Physics in One Dimension</em></li>
-  <li><strong>Sachdev</strong> - <em>Quantum Phase Transitions</em></li>
-  <li><strong>Girvin &amp; Yang</strong> - <em>Modern Condensed Matter Physics</em></li>
-  <li><strong>Phillips</strong> - <em>Advanced Solid State Physics</em></li>
-</ol>
-
-<h3 id="recent-reviews">Recent Reviews</h3>
-<ol>
-  <li><strong>Keimer et al.</strong> - <em>From quantum matter to high-temperature superconductivity in copper oxides</em> (2015)</li>
-  <li><strong>Armitage, Mele &amp; Vishwanath</strong> - <em>Weyl and Dirac semimetals in three-dimensional solids</em> (2018)</li>
-  <li><strong>Balents et al.</strong> - <em>Superconductivity and strong correlations in moiré flat bands</em> (2020)</li>
-  <li><strong>Khajetoorians et al.</strong> - <em>Creating designer quantum states of matter atom-by-atom</em> (2019)</li>
+  <li>A. Georges, G. Kotliar, W. Krauth, M. J. Rozenberg, “Dynamical mean-field theory of strongly correlated fermion systems,” <em>Rev. Mod. Phys.</em> 68, 13 (1996).</li>
+  <li>M. Z. Hasan and C. L. Kane, “Colloquium: Topological insulators,” <em>Rev. Mod. Phys.</em> 82, 3045 (2010).</li>
+  <li>C.-K. Chiu, J. C. Y. Teo, A. P. Schnyder, S. Ryu, “Classification of topological quantum matter with symmetries,” <em>Rev. Mod. Phys.</em> 88, 035005 (2016).</li>
+  <li>N. Marzari et al., “Maximally localized Wannier functions: Theory and applications,” <em>Rev. Mod. Phys.</em> 84, 1419 (2012).</li>
+  <li>B. Keimer et al., “From quantum matter to high-temperature superconductivity in copper oxides,” <em>Nature</em> 518, 179 (2015).</li>
+  <li>N. P. Armitage, E. J. Mele, A. Vishwanath, “Weyl and Dirac semimetals in three-dimensional solids,” <em>Rev. Mod. Phys.</em> 90, 015001 (2018).</li>
+  <li>L. Balents, C. R. Dean, D. K. Efetov, A. F. Young, “Superconductivity and strong correlations in moiré flat bands,” <em>Nat. Phys.</em> 16, 725 (2020).</li>
+  <li>U. Schollwöck, “The density-matrix renormalization group in the age of matrix product states,” <em>Ann. Phys.</em> 326, 96 (2011).</li>
 </ol>
 
 <hr />
@@ -3946,11 +4535,14 @@ Green’s-function section above.</p>
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — the narrative treatment of these phases.</li>
+  <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — the phenomena this formalism describes.</li>
+  <li><a href="disorder-and-localization.html">Disorder &amp; Localization</a> — Anderson localization, scaling theory, and many-body localization.</li>
+  <li><a href="metals-and-magnetism.html">Metals &amp; Magnetism</a> — Fermi-liquid theory and magnetic order.</li>
   <li><a href="experimental-techniques.html">Experimental Techniques</a> — full methodology for the probes that test this formalism.</li>
-  <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and magnetism.</li>
+  <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and semiconductors.</li>
   <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic methods for collective excitations.</li>
-  <li><a href="../computational-physics/">Computational Physics</a> — DFT, Monte Carlo, and tensor-network simulations.</li>
+  <li><a href="../renormalization.html">Renormalization</a> — the renormalization group in field theory and statistical mechanics.</li>
+  <li><a href="../computational-physics/">Computational Physics</a> — DFT, Monte Carlo, and tensor-network simulations in more depth.</li>
 </ul>
 
       </section>

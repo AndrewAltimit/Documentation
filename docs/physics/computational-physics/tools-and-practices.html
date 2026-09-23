@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="The scientific Python stack for physics, reproducible environments, performance tools, data formats, visualization, standard analysis routines, domain librar...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Computational Physics: Visualization, Libraries & Best Practices">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="The scientific Python stack for physics, reproducible environments, performance tools, data formats, visualization, standard analysis routines, domain librar...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/computational-physics/tools-and-practices.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Computational Physics: Visualization, Libraries & Best Practices">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="The scientific Python stack for physics, reproducible environments, performance tools, data formats, visualization, standard analysis routines, domain librar...">
 
 <title>Computational Physics: Visualization, Libraries & Best Practices | Andrews Notebook</title>
 
@@ -2875,448 +2875,644 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Computational Physics</a> › Visualization, Libraries &amp; Best Practices</p>
 
-<p>Turning raw arrays into insight, the Python physics ecosystem, and the habits that keep simulations trustworthy.</p>
+<p>This page is a cross-cutting reference for the software side of computational physics. It covers the Python ecosystem most simulations are written in, how to keep environments and results reproducible, where performance comes from, how to store and visualize data, a set of standard analysis routines, and how to <strong>verify and validate</strong> a simulation so you can trust its output. The algorithms themselves are on the method pages linked from the <a href="./">hub</a>. Parallel and GPU performance is covered in depth on <a href="hpc-and-ml.html">Parallel &amp; High-Performance Computing</a>.</p>
 
-<h2 id="visualization-and-analysis">Visualization and Analysis</h2>
+<h2 id="the-scientific-python-stack">The Scientific Python Stack</h2>
 
-<h3 id="advanced-scientific-visualization">Advanced Scientific Visualization</h3>
+<p>Most modern computational-physics work is written in Python on top of compiled libraries (C, C++, Fortran, CUDA). Python handles orchestration, while the heavy numerical work runs in optimized kernels such as BLAS/LAPACK, FFTW or pocketfft, and vendor GPU libraries.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">from</span> <span class="n">matplotlib</span> <span class="kn">import</span> <span class="n">cm</span>
-<span class="kn">from</span> <span class="n">mpl_toolkits.mplot3d</span> <span class="kn">import</span> <span class="n">Axes3D</span>
-<span class="kn">import</span> <span class="n">matplotlib.animation</span> <span class="k">as</span> <span class="n">animation</span>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph APP["Domain libraries"]
+        direction LR
+        A1["QuTiP"]
+        A2["ASE / PySCF"]
+        A3["MDAnalysis"]
+        A4["FEniCSx"]
+        A5["NetKet"]
+    end
+    subgraph ACC["Acceleration and autodiff"]
+        direction LR
+        B1["Numba"]
+        B2["JAX"]
+        B3["CuPy"]
+        B4["PyTorch"]
+    end
+    subgraph CORE["Core numerics"]
+        direction LR
+        C1["NumPy"]
+        C2["SciPy"]
+        C3["SymPy"]
+    end
+    subgraph IO["Data and visualization"]
+        direction LR
+        D1["h5py / xarray / Zarr"]
+        D2["Matplotlib"]
+        D3["PyVista / ParaView"]
+    end
+    subgraph NAT["Compiled back ends"]
+        direction LR
+        E1["BLAS / LAPACK"]
+        E2["FFT libraries"]
+        E3["MPI"]
+        E4["CUDA / ROCm"]
+    end
+    APP --&gt; ACC --&gt; CORE --&gt; NAT
+    APP --&gt; IO
+</code></pre>
 
-<span class="k">class</span> <span class="nc">PhysicsVisualizer</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Advanced visualization for physics simulations</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">)):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">figsize</span> <span class="o">=</span> <span class="n">figsize</span>
-    
-    <span class="k">def</span> <span class="nf">plot_phase_space</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">trajectories</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sh">"</span><span class="s">Phase Space</span><span class="sh">"</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Plot phase space trajectories</span><span class="sh">"""</span>
-        <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">figsize</span><span class="p">)</span>
-        
-        <span class="k">for</span> <span class="n">traj</span> <span class="ow">in</span> <span class="n">trajectories</span><span class="p">:</span>
-            <span class="c1"># Position vs velocity
-</span>            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">traj</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Position</span><span class="sh">'</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Velocity</span><span class="sh">'</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Phase Portrait</span><span class="sh">'</span><span class="p">)</span>
-            
-            <span class="c1"># Poincaré section
-</span>            <span class="c1"># (simplified: when x crosses zero with positive velocity)
-</span>            <span class="n">crossings</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">traj</span><span class="p">)):</span>
-                <span class="k">if</span> <span class="n">traj</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">traj</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="c1"># Linear interpolation
-</span>                    <span class="n">alpha</span> <span class="o">=</span> <span class="o">-</span><span class="n">traj</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">traj</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
-                    <span class="n">v_crossing</span> <span class="o">=</span> <span class="n">traj</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">traj</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
-                    <span class="n">crossings</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">v_crossing</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="n">crossings</span><span class="p">:</span>
-                <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">].</span><span class="nf">scatter</span><span class="p">(</span><span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">crossings</span><span class="p">)),</span> <span class="n">crossings</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">].</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Crossing Number</span><span class="sh">'</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">].</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Velocity at x=0</span><span class="sh">'</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">].</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Poincaré Section</span><span class="sh">'</span><span class="p">)</span>
-            
-            <span class="c1"># Energy over time
-</span>            <span class="n">E</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">traj</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">traj</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span>  <span class="c1"># Example: harmonic oscillator
-</span>            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">plot</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Time Step</span><span class="sh">'</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Total Energy</span><span class="sh">'</span><span class="p">)</span>
-            <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Energy Conservation</span><span class="sh">'</span><span class="p">)</span>
-            
-            <span class="c1"># 3D trajectory (if available)
-</span>            <span class="k">if</span> <span class="n">traj</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
-                <span class="n">ax3d</span> <span class="o">=</span> <span class="n">fig</span><span class="p">.</span><span class="nf">add_subplot</span><span class="p">(</span><span class="mi">224</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="sh">'</span><span class="s">3d</span><span class="sh">'</span><span class="p">)</span>
-                <span class="n">ax3d</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">traj</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">traj</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span>
-                <span class="n">ax3d</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">X</span><span class="sh">'</span><span class="p">)</span>
-                <span class="n">ax3d</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Y</span><span class="sh">'</span><span class="p">)</span>
-                <span class="n">ax3d</span><span class="p">.</span><span class="nf">set_zlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Z</span><span class="sh">'</span><span class="p">)</span>
-                <span class="n">ax3d</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">3D Trajectory</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="n">plt</span><span class="p">.</span><span class="nf">suptitle</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
-        <span class="n">plt</span><span class="p">.</span><span class="nf">tight_layout</span><span class="p">()</span>
-        <span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">animate_field</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">field_data</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sh">"</span><span class="s">Field Evolution</span><span class="sh">"</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Animate 2D field evolution</span><span class="sh">"""</span>
-        <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
-        
-        <span class="c1"># Initial plot
-</span>        <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="p">.</span><span class="nf">imshow</span><span class="p">(</span><span class="n">field_data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="sh">'</span><span class="s">viridis</span><span class="sh">'</span><span class="p">,</span> <span class="n">animated</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-        <span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s"> - Time: </span><span class="si">{</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">cbar</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">)</span>
-        
-        <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
-            <span class="n">im</span><span class="p">.</span><span class="nf">set_array</span><span class="p">(</span><span class="n">field_data</span><span class="p">[</span><span class="n">frame</span><span class="p">])</span>
-            <span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s"> - Time: </span><span class="si">{</span><span class="n">times</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="sh">'</span><span class="p">)</span>
-            <span class="k">return</span> <span class="p">[</span><span class="n">im</span><span class="p">]</span>
-        
-        <span class="n">ani</span> <span class="o">=</span> <span class="n">animation</span><span class="p">.</span><span class="nc">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">update</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="nf">len</span><span class="p">(</span><span class="n">field_data</span><span class="p">),</span>
-                                    <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">blit</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">ani</span>
-    
-    <span class="k">def</span> <span class="nf">plot_spectrum</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">amplitudes</span><span class="p">,</span> <span class="n">log_scale</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Plot frequency spectrum</span><span class="sh">"""</span>
-        <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
-        
-        <span class="c1"># Amplitude spectrum
-</span>        <span class="k">if</span> <span class="n">log_scale</span><span class="p">:</span>
-            <span class="n">ax1</span><span class="p">.</span><span class="nf">semilogy</span><span class="p">(</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">))</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">ax1</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">))</span>
-        <span class="n">ax1</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Frequency</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax1</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Amplitude</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax1</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Amplitude Spectrum</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax1</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
-        
-        <span class="c1"># Phase spectrum
-</span>        <span class="n">phase</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">angle</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">phase</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Frequency</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Phase (radians)</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Phase Spectrum</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
-        
-        <span class="n">plt</span><span class="p">.</span><span class="nf">tight_layout</span><span class="p">()</span>
-        <span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">vector_field_plot</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sh">"</span><span class="s">Vector Field</span><span class="sh">"</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Plot 2D vector field with streamlines</span><span class="sh">"""</span>
-        <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">figsize</span><span class="p">)</span>
-        
-        <span class="c1"># Quiver plot
-</span>        <span class="n">magnitude</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">U</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">V</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-        <span class="n">ax1</span><span class="p">.</span><span class="nf">quiver</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">magnitude</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="sh">'</span><span class="s">plasma</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax1</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s"> - Quiver Plot</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax1</span><span class="p">.</span><span class="nf">set_aspect</span><span class="p">(</span><span class="sh">'</span><span class="s">equal</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="c1"># Streamline plot
-</span>        <span class="n">ax2</span><span class="p">.</span><span class="nf">streamplot</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">U</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">magnitude</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="sh">'</span><span class="s">plasma</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="si">{</span><span class="n">title</span><span class="si">}</span><span class="s"> - Streamlines</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">set_aspect</span><span class="p">(</span><span class="sh">'</span><span class="s">equal</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="n">plt</span><span class="p">.</span><span class="nf">tight_layout</span><span class="p">()</span>
-        <span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">contour_analysis</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Detailed contour analysis of 2D data</span><span class="sh">"""</span>
-        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
-        
-        <span class="c1"># 3D surface plot
-</span>        <span class="n">ax1</span> <span class="o">=</span> <span class="n">fig</span><span class="p">.</span><span class="nf">add_subplot</span><span class="p">(</span><span class="mi">221</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="sh">'</span><span class="s">3d</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">surf</span> <span class="o">=</span> <span class="n">ax1</span><span class="p">.</span><span class="nf">plot_surface</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="sh">'</span><span class="s">viridis</span><span class="sh">'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
-        <span class="n">ax1</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">3D Surface</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="c1"># Filled contour
-</span>        <span class="n">ax2</span> <span class="o">=</span> <span class="n">fig</span><span class="p">.</span><span class="nf">add_subplot</span><span class="p">(</span><span class="mi">222</span><span class="p">)</span>
-        <span class="n">cf</span> <span class="o">=</span> <span class="n">ax2</span><span class="p">.</span><span class="nf">contourf</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="sh">'</span><span class="s">viridis</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">contour</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">,</span> <span class="n">colors</span><span class="o">=</span><span class="sh">'</span><span class="s">black</span><span class="sh">'</span><span class="p">,</span> <span class="n">linewidths</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-        <span class="n">plt</span><span class="p">.</span><span class="nf">colorbar</span><span class="p">(</span><span class="n">cf</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax2</span><span class="p">)</span>
-        <span class="n">ax2</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Filled Contour</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="c1"># Gradient magnitude
-</span>        <span class="n">ax3</span> <span class="o">=</span> <span class="n">fig</span><span class="p">.</span><span class="nf">add_subplot</span><span class="p">(</span><span class="mi">223</span><span class="p">)</span>
-        <span class="n">Zy</span><span class="p">,</span> <span class="n">Zx</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">gradient</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
-        <span class="n">grad_mag</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">Zx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">Zy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-        <span class="n">im</span> <span class="o">=</span> <span class="n">ax3</span><span class="p">.</span><span class="nf">imshow</span><span class="p">(</span><span class="n">grad_mag</span><span class="p">,</span> <span class="n">extent</span><span class="o">=</span><span class="p">[</span><span class="n">X</span><span class="p">.</span><span class="nf">min</span><span class="p">(),</span> <span class="n">X</span><span class="p">.</span><span class="nf">max</span><span class="p">(),</span> <span class="n">Y</span><span class="p">.</span><span class="nf">min</span><span class="p">(),</span> <span class="n">Y</span><span class="p">.</span><span class="nf">max</span><span class="p">()],</span>
-                       <span class="n">origin</span><span class="o">=</span><span class="sh">'</span><span class="s">lower</span><span class="sh">'</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="sh">'</span><span class="s">hot</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">plt</span><span class="p">.</span><span class="nf">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax3</span><span class="p">)</span>
-        <span class="n">ax3</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Gradient Magnitude</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="c1"># Critical points
-</span>        <span class="n">ax4</span> <span class="o">=</span> <span class="n">fig</span><span class="p">.</span><span class="nf">add_subplot</span><span class="p">(</span><span class="mi">224</span><span class="p">)</span>
-        <span class="n">ax4</span><span class="p">.</span><span class="nf">contour</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="sh">'</span><span class="s">viridis</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="c1"># Find approximate critical points (where gradient is small)
-</span>        <span class="n">threshold</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">grad_mag</span><span class="p">)</span>
-        <span class="n">critical</span> <span class="o">=</span> <span class="n">grad_mag</span> <span class="o">&lt;</span> <span class="n">threshold</span>
-        <span class="n">ax4</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">critical</span><span class="p">],</span> <span class="n">Y</span><span class="p">[</span><span class="n">critical</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">'</span><span class="s">red</span><span class="sh">'</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Critical regions</span><span class="sh">'</span><span class="p">)</span>
-        <span class="n">ax4</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
-        <span class="n">ax4</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Critical Points</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="n">plt</span><span class="p">.</span><span class="nf">tight_layout</span><span class="p">()</span>
-        <span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Library</th>
+      <th>Role</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>NumPy</strong></td>
+      <td>N-dimensional arrays, vectorized math, FFT, random numbers</td>
+      <td>NumPy 2.x (since 2024) changed scalar type promotion (NEP 50) and removed old aliases such as <code class="language-plaintext highlighter-rouge">np.float_</code> and <code class="language-plaintext highlighter-rouge">np.Inf</code>. Use <code class="language-plaintext highlighter-rouge">np.random.default_rng()</code>, not the legacy <code class="language-plaintext highlighter-rouge">np.random.seed</code> API</td>
+    </tr>
+    <tr>
+      <td><strong>SciPy</strong></td>
+      <td>Integration (<code class="language-plaintext highlighter-rouge">solve_ivp</code>), optimization, sparse matrices and solvers, special functions, signal processing, <code class="language-plaintext highlighter-rouge">scipy.stats.qmc</code>
+</td>
+      <td>Sparse <strong>arrays</strong> (<code class="language-plaintext highlighter-rouge">csr_array</code>) are the recommended interface over the older <code class="language-plaintext highlighter-rouge">csr_matrix</code>
+</td>
+    </tr>
+    <tr>
+      <td><strong>SymPy</strong></td>
+      <td>Symbolic algebra, derivations, code generation</td>
+      <td>Useful for deriving Jacobians and checking series expansions</td>
+    </tr>
+    <tr>
+      <td><strong>Numba</strong></td>
+      <td>JIT-compiles numerical Python loops to machine code</td>
+      <td>Best for loop-heavy kernels that do not vectorize well</td>
+    </tr>
+    <tr>
+      <td><strong>JAX</strong></td>
+      <td>NumPy-like API with <code class="language-plaintext highlighter-rouge">jit</code>, <code class="language-plaintext highlighter-rouge">grad</code>, <code class="language-plaintext highlighter-rouge">vmap</code>, and GPU/TPU back ends</td>
+      <td>The basis of differentiable simulation (JAX-MD, NetKet)</td>
+    </tr>
+    <tr>
+      <td><strong>CuPy</strong></td>
+      <td>Near drop-in NumPy/SciPy replacement on NVIDIA and AMD GPUs</td>
+      <td>Custom kernels via <code class="language-plaintext highlighter-rouge">RawKernel</code> or <code class="language-plaintext highlighter-rouge">ElementwiseKernel</code>
+</td>
+    </tr>
+    <tr>
+      <td><strong>Matplotlib</strong></td>
+      <td>Publication-quality 2D plots and animation</td>
+      <td>The reference plotting library</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="data-analysis-tools">Data Analysis Tools</h3>
+<p>As of September 2026 the current releases are NumPy 2.5, SciPy 1.18, and Matplotlib 3.11. NumPy and SciPy now require Python 3.12 or newer.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">PhysicsDataAnalysis</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Tools for analyzing physics simulation data</span><span class="sh">"""</span>
-    
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">autocorrelation</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">max_lag</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate autocorrelation function</span><span class="sh">"""</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">max_lag</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="n">max_lag</span> <span class="o">=</span> <span class="n">n</span> <span class="o">//</span> <span class="mi">4</span>
-        
-        <span class="c1"># Normalize data
-</span>        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-        <span class="n">c0</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
-        
-        <span class="n">acf</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">max_lag</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">lag</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">max_lag</span><span class="p">):</span>
-            <span class="n">c_lag</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">data</span><span class="p">[:</span><span class="o">-</span><span class="n">lag</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="n">lag</span><span class="o">+</span><span class="mi">1</span><span class="p">:])</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">lag</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="n">acf</span><span class="p">[</span><span class="n">lag</span><span class="p">]</span> <span class="o">=</span> <span class="n">c_lag</span> <span class="o">/</span> <span class="n">c0</span>
-        
-        <span class="k">return</span> <span class="n">acf</span>
-    
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">power_spectrum</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate power spectrum using Welch</span><span class="sh">'</span><span class="s">s method</span><span class="sh">"""</span>
-        <span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">signal</span>
-        
-        <span class="c1"># Welch's method for smoother spectrum
-</span>        <span class="n">frequencies</span><span class="p">,</span> <span class="n">psd</span> <span class="o">=</span> <span class="n">signal</span><span class="p">.</span><span class="nf">welch</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">1</span><span class="o">/</span><span class="n">dt</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="nf">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">//</span><span class="mi">8</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">psd</span>
-    
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">lyapunov_exponent</span><span class="p">(</span><span class="n">trajectory</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Estimate largest Lyapunov exponent</span><span class="sh">"""</span>
-        <span class="n">n_steps</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">trajectory</span><span class="p">)</span>
-        <span class="n">n_dim</span> <span class="o">=</span> <span class="n">trajectory</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        
-        <span class="c1"># Initialize nearby trajectory
-</span>        <span class="n">eps</span> <span class="o">=</span> <span class="mf">1e-8</span>
-        <span class="n">separation</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">n_dim</span><span class="p">)</span>
-        
-        <span class="n">lyap_sum</span> <span class="o">=</span> <span class="mi">0</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
-            <span class="c1"># Evolution of separation vector (linearized dynamics)
-</span>            <span class="c1"># This is simplified - real implementation needs Jacobian
-</span>            <span class="n">separation_new</span> <span class="o">=</span> <span class="n">separation</span> <span class="o">*</span> <span class="mf">1.1</span>  <span class="c1"># Placeholder
-</span>            
-            <span class="c1"># Renormalization
-</span>            <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">separation_new</span><span class="p">)</span>
-            <span class="n">lyap_sum</span> <span class="o">+=</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">d</span> <span class="o">/</span> <span class="n">eps</span><span class="p">)</span>
-            
-            <span class="n">separation</span> <span class="o">=</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">separation_new</span> <span class="o">/</span> <span class="n">d</span>
-        
-        <span class="n">lyapunov</span> <span class="o">=</span> <span class="n">lyap_sum</span> <span class="o">/</span> <span class="p">(</span><span class="n">n_steps</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">lyapunov</span>
-    
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">structure_factor</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">k_vectors</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate structure factor S(k) for particle system</span><span class="sh">"""</span>
-        <span class="n">n_particles</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">positions</span><span class="p">)</span>
-        <span class="n">n_k</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">k_vectors</span><span class="p">)</span>
-        
-        <span class="n">S_k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">n_k</span><span class="p">)</span>
-        
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">k_vectors</span><span class="p">):</span>
-            <span class="c1"># Calculate density fluctuation
-</span>            <span class="n">rho_k</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">positions</span><span class="p">:</span>
-                <span class="n">rho_k</span> <span class="o">+=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">r</span><span class="p">))</span>
-            
-            <span class="n">S_k</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">rho_k</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">n_particles</span>
-        
-        <span class="k">return</span> <span class="n">S_k</span>
-</code></pre></div></div>
+<h2 id="environments-and-reproducibility">Environments and Reproducibility</h2>
 
-<hr>
+<p>A result you cannot regenerate is not a result. Package versions, compiler flags, BLAS back ends, and random seeds all change numerical output, sometimes only in the last bits and sometimes a great deal.</p>
 
-<h2 id="popular-physics-libraries">Popular Physics Libraries</h2>
-
-<h3 id="core-libraries">Core Libraries</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Essential imports for computational physics
-</span><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">import</span> <span class="n">scipy</span>
-<span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">integrate</span><span class="p">,</span> <span class="n">optimize</span><span class="p">,</span> <span class="n">linalg</span>
-<span class="kn">from</span> <span class="n">scipy.sparse</span> <span class="kn">import</span> <span class="n">csr_matrix</span><span class="p">,</span> <span class="n">diags</span>
-<span class="kn">from</span> <span class="n">scipy.fft</span> <span class="kn">import</span> <span class="n">fft</span><span class="p">,</span> <span class="n">ifft</span><span class="p">,</span> <span class="n">fft2</span><span class="p">,</span> <span class="n">ifft2</span>
-
-<span class="c1"># Specialized physics libraries
-</span><span class="kn">import</span> <span class="n">sympy</span>  <span class="c1"># Symbolic mathematics
-</span><span class="kn">import</span> <span class="n">h5py</span>   <span class="c1"># HDF5 for large datasets
-</span><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>  <span class="c1"># Data analysis
-</span>
-<span class="c1"># Visualization
-</span><span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">import</span> <span class="n">plotly.graph_objects</span> <span class="k">as</span> <span class="n">go</span>  <span class="c1"># Interactive plots
-</span>
-<span class="c1"># Example: Using SciPy for physics problems
-</span><span class="kn">from</span> <span class="n">scipy.integrate</span> <span class="kn">import</span> <span class="n">solve_ivp</span>
-<span class="kn">from</span> <span class="n">scipy.optimize</span> <span class="kn">import</span> <span class="n">minimize</span>
-<span class="kn">from</span> <span class="n">scipy.special</span> <span class="kn">import</span> <span class="n">jv</span><span class="p">,</span> <span class="n">yv</span>  <span class="c1"># Bessel functions
-</span></code></pre></div></div>
-
-<h3 id="qutip---quantum-toolbox-in-python">QuTiP - Quantum Toolbox in Python</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">qutip</span> <span class="k">as</span> <span class="n">qt</span>
-
-<span class="c1"># Quantum harmonic oscillator
-</span><span class="n">N</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># Number of Fock states
-</span><span class="n">a</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">destroy</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>  <span class="c1"># Annihilation operator
-</span><span class="n">H</span> <span class="o">=</span> <span class="n">a</span><span class="p">.</span><span class="nf">dag</span><span class="p">()</span> <span class="o">*</span> <span class="n">a</span>  <span class="c1"># Hamiltonian
-</span>
-<span class="c1"># Initial state: coherent state
-</span><span class="n">alpha</span> <span class="o">=</span> <span class="mf">2.0</span>
-<span class="n">psi0</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">coherent</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
-
-<span class="c1"># Time evolution
-</span><span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">mesolve</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">psi0</span><span class="p">,</span> <span class="n">times</span><span class="p">)</span>
-
-<span class="c1"># Expectation values
-</span><span class="n">n_expect</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">expect</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="nf">dag</span><span class="p">()</span> <span class="o">*</span> <span class="n">a</span><span class="p">,</span> <span class="n">result</span><span class="p">.</span><span class="n">states</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="mdanalysis---molecular-dynamics-analysis">MDAnalysis - Molecular Dynamics Analysis</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">MDAnalysis</span> <span class="k">as</span> <span class="n">mda</span>
-
-<span class="c1"># Load trajectory
-</span><span class="n">u</span> <span class="o">=</span> <span class="n">mda</span><span class="p">.</span><span class="nc">Universe</span><span class="p">(</span><span class="sh">'</span><span class="s">topology.pdb</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">trajectory.dcd</span><span class="sh">'</span><span class="p">)</span>
-
-<span class="c1"># Analysis example: Radial distribution function
-</span><span class="kn">from</span> <span class="n">MDAnalysis.analysis</span> <span class="kn">import</span> <span class="n">rdf</span>
-
-<span class="n">g</span> <span class="o">=</span> <span class="n">rdf</span><span class="p">.</span><span class="nc">InterRDF</span><span class="p">(</span><span class="n">u</span><span class="p">.</span><span class="nf">select_atoms</span><span class="p">(</span><span class="sh">'</span><span class="s">name O</span><span class="sh">'</span><span class="p">),</span>
-                 <span class="n">u</span><span class="p">.</span><span class="nf">select_atoms</span><span class="p">(</span><span class="sh">'</span><span class="s">name O</span><span class="sh">'</span><span class="p">),</span>
-                 <span class="n">nbins</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-<span class="n">g</span><span class="p">.</span><span class="nf">run</span><span class="p">()</span>
-</code></pre></div></div>
-
-<h3 id="fenics---finite-element-library">FEniCS - Finite Element Library</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">fenics</span> <span class="kn">import</span> <span class="o">*</span>
-
-<span class="c1"># Create mesh and function space
-</span><span class="n">mesh</span> <span class="o">=</span> <span class="nc">UnitSquareMesh</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
-<span class="n">V</span> <span class="o">=</span> <span class="nc">FunctionSpace</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="sh">'</span><span class="s">Lagrange</span><span class="sh">'</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-
-<span class="c1"># Define boundary condition
-</span><span class="n">u_D</span> <span class="o">=</span> <span class="nc">Expression</span><span class="p">(</span><span class="sh">'</span><span class="s">1 + x[0]*x[0] + 2*x[1]*x[1]</span><span class="sh">'</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<span class="n">bc</span> <span class="o">=</span> <span class="nc">DirichletBC</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">u_D</span><span class="p">,</span> <span class="sh">'</span><span class="s">on_boundary</span><span class="sh">'</span><span class="p">)</span>
-
-<span class="c1"># Define variational problem
-</span><span class="n">u</span> <span class="o">=</span> <span class="nc">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-<span class="n">v</span> <span class="o">=</span> <span class="nc">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-<span class="n">f</span> <span class="o">=</span> <span class="nc">Constant</span><span class="p">(</span><span class="o">-</span><span class="mf">6.0</span><span class="p">)</span>
-<span class="n">a</span> <span class="o">=</span> <span class="nf">dot</span><span class="p">(</span><span class="nf">grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="nf">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span><span class="o">*</span><span class="n">dx</span>
-<span class="n">L</span> <span class="o">=</span> <span class="n">f</span><span class="o">*</span><span class="n">v</span><span class="o">*</span><span class="n">dx</span>
-
-<span class="c1"># Solve
-</span><span class="n">u</span> <span class="o">=</span> <span class="nc">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
-<span class="nf">solve</span><span class="p">(</span><span class="n">a</span> <span class="o">==</span> <span class="n">L</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">bc</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="pycudapyopencl---gpu-computing">PyCUDA/PyOpenCL - GPU Computing</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pycuda.autoinit</span>
-<span class="kn">import</span> <span class="n">pycuda.driver</span> <span class="k">as</span> <span class="n">cuda</span>
-<span class="kn">from</span> <span class="n">pycuda.compiler</span> <span class="kn">import</span> <span class="n">SourceModule</span>
-
-<span class="c1"># CUDA kernel
-</span><span class="n">mod</span> <span class="o">=</span> <span class="nc">SourceModule</span><span class="p">(</span><span class="sh">"""</span><span class="s">
-__global__ void add_vectors(float *a, float *b, float *c, int n)
-{
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx &lt; n)
-        c[idx] = a[idx] + b[idx];
-}
-</span><span class="sh">"""</span><span class="p">)</span>
-
-<span class="n">add_vectors</span> <span class="o">=</span> <span class="n">mod</span><span class="p">.</span><span class="nf">get_function</span><span class="p">(</span><span class="sh">"</span><span class="s">add_vectors</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
-
-<hr>
-
-<h2 id="best-practices-and-tips">Best Practices and Tips</h2>
-
-<h3 id="performance-optimization">Performance Optimization</h3>
-
-<ol>
-  <li>
-<strong>Vectorization</strong>: Always use NumPy operations instead of loops</li>
-  <li>
-<strong>Memory Management</strong>: Pre-allocate arrays, use in-place operations</li>
-  <li>
-<strong>Profiling</strong>: Use <code class="language-plaintext highlighter-rouge">cProfile</code> and <code class="language-plaintext highlighter-rouge">line_profiler</code> to find bottlenecks</li>
-  <li>
-<strong>Numba</strong>: JIT compilation for numerical functions</li>
-</ol>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">numba</span> <span class="kn">import</span> <span class="n">jit</span><span class="p">,</span> <span class="n">njit</span><span class="p">,</span> <span class="n">prange</span>
-
-<span class="nd">@njit</span><span class="p">(</span><span class="n">parallel</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">fast_matrix_multiply</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Numba-accelerated matrix multiplication</span><span class="sh">"""</span>
-    <span class="n">m</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">A</span><span class="p">.</span><span class="n">shape</span>
-    <span class="n">n2</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">B</span><span class="p">.</span><span class="n">shape</span>
-    <span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">m</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span>
-    
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">prange</span><span class="p">(</span><span class="n">m</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-                <span class="n">C</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+=</span> <span class="n">A</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">B</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
-    
-    <span class="k">return</span> <span class="n">C</span>
-</code></pre></div></div>
-
-<h3 id="debugging-and-validation">Debugging and Validation</h3>
-
-<ol>
-  <li>
-<strong>Conservation Laws</strong>: Always check energy, momentum conservation</li>
-  <li>
-<strong>Dimensional Analysis</strong>: Verify units are consistent</li>
-  <li>
-<strong>Limiting Cases</strong>: Test known analytical solutions</li>
-  <li>
-<strong>Convergence Studies</strong>: Vary discretization parameters</li>
-</ol>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">validate_simulation</span><span class="p">(</span><span class="n">results</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Validation checks for physics simulations</span><span class="sh">"""</span>
-    <span class="c1"># Energy conservation
-</span>    <span class="n">energy</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="sh">'</span><span class="s">kinetic</span><span class="sh">'</span><span class="p">]</span> <span class="o">+</span> <span class="n">results</span><span class="p">[</span><span class="sh">'</span><span class="s">potential</span><span class="sh">'</span><span class="p">]</span>
-    <span class="n">energy_drift</span> <span class="o">=</span> <span class="p">(</span><span class="n">energy</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">energy</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="n">energy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="k">assert</span> <span class="nf">abs</span><span class="p">(</span><span class="n">energy_drift</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="s">Energy drift: </span><span class="si">{</span><span class="n">energy_drift</span><span class="si">}</span><span class="sh">"</span>
-    
-    <span class="c1"># Momentum conservation
-</span>    <span class="n">momentum</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="sh">'</span><span class="s">momenta</span><span class="sh">'</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">momentum_change</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">momentum</span> <span class="o">-</span> <span class="n">momentum</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
-    <span class="k">assert</span> <span class="n">momentum_change</span> <span class="o">&lt;</span> <span class="mf">1e-10</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="s">Momentum not conserved: </span><span class="si">{</span><span class="n">momentum_change</span><span class="si">}</span><span class="sh">"</span>
-    
-    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">✓ Validation passed</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
-
-<hr>
-
-<h2 id="essential-resources">Essential Resources</h2>
-
-<h3 id="software-libraries">Software Libraries</h3>
 <ul>
   <li>
-<strong>NumPy/SciPy</strong>: Foundation for scientific computing in Python</li>
+<strong>Pin environments with a lockfile.</strong> <a href="https://docs.astral.sh/uv/">uv</a> (<code class="language-plaintext highlighter-rouge">uv lock</code>, <code class="language-plaintext highlighter-rouge">uv sync</code>) is fast and PyPI-native. <a href="https://pixi.sh/">pixi</a> or conda/mamba with conda-forge handle compiled non-Python dependencies (MPI, HDF5, CUDA toolkits, Fortran codes). Commit the lockfile alongside the code.</li>
   <li>
-<strong>LAMMPS</strong>: Large-scale molecular dynamics</li>
+<strong>Containerize for clusters.</strong> Apptainer (formerly Singularity) is the standard container runtime on HPC systems, where Docker is usually not allowed. Build the image from the same lockfile.</li>
   <li>
-<strong>Quantum ESPRESSO</strong>: Electronic structure calculations</li>
+<strong>Record provenance with every output.</strong> Store the code version (git commit), parameters, library versions, and seeds in the output file’s metadata. Workflow managers such as Snakemake, Nextflow, and signac automate this for parameter sweeps.</li>
   <li>
-<strong>FEniCS</strong>: Automated finite element methods</li>
-  <li>
-<strong>PETSc</strong>: Scalable solution of PDEs</li>
-  <li>
-<strong>JAX</strong>: Differentiable physics and machine learning</li>
+<strong>Seed deliberately, especially in parallel.</strong> Give every worker an <em>independent</em> stream derived from one root seed. Reusing the same seed on every MPI rank silently correlates all the replicas.</li>
 </ul>
 
-<h3 id="references">References</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="n">root</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nc">SeedSequence</span><span class="p">(</span><span class="mi">20260922</span><span class="p">)</span>            <span class="c1"># log this number with the results
+</span><span class="n">streams</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">root</span><span class="p">.</span><span class="nf">spawn</span><span class="p">(</span><span class="mi">64</span><span class="p">)]</span>   <span class="c1"># 64 independent workers
+</span></code></pre></div></div>
+
+<p>Bitwise reproducibility across hardware is generally not achievable. Floating-point reductions on GPUs and multithreaded BLAS change summation order. The realistic goal is <strong>statistical reproducibility</strong>: results that agree within the stated error bars.</p>
+
+<h2 id="performance">Performance</h2>
+
+<p>Profile before you optimize. Most programs spend nearly all of their time in a small fraction of the code.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Measures</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+<code class="language-plaintext highlighter-rouge">cProfile</code> + snakeviz</td>
+      <td>Function-level time</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">line_profiler</code></td>
+      <td>Line-by-line time in chosen functions</td>
+    </tr>
+    <tr>
+      <td>py-spy</td>
+      <td>Sampling profiler; attaches to running processes with no code changes</td>
+    </tr>
+    <tr>
+      <td>Scalene</td>
+      <td>CPU, GPU, and memory, separating Python time from native time</td>
+    </tr>
+    <tr>
+      <td>NVIDIA Nsight Systems / Compute</td>
+      <td>GPU timelines and kernel-level metrics</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The usual order of improvements is: <strong>better algorithm</strong> (e.g. a neighbour list instead of all pairs) → <strong>vectorize</strong> with NumPy → <strong>compile</strong> hot loops with Numba or JAX → <strong>parallelize</strong> or move to the GPU. Numba suits kernels with data-dependent loops, such as a pairwise potential with a cutoff:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">numba</span> <span class="kn">import</span> <span class="n">njit</span><span class="p">,</span> <span class="n">prange</span>
+
+<span class="nd">@njit</span><span class="p">(</span><span class="n">parallel</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">fastmath</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">lj_energy</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">2.5</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Total Lennard-Jones energy with minimum image and cutoff (reduced units).</span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">pos</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">rc2</span> <span class="o">=</span> <span class="n">rc</span> <span class="o">*</span> <span class="n">rc</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">prange</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>                     <span class="c1"># outer loop split across threads
+</span>        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+            <span class="n">r2</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span>
+                <span class="n">d</span> <span class="o">-=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">d</span> <span class="o">/</span> <span class="n">box</span><span class="p">)</span>
+                <span class="n">r2</span> <span class="o">+=</span> <span class="n">d</span> <span class="o">*</span> <span class="n">d</span>
+            <span class="k">if</span> <span class="n">r2</span> <span class="o">&lt;</span> <span class="n">rc2</span><span class="p">:</span>
+                <span class="n">inv6</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">r2</span> <span class="o">*</span> <span class="n">r2</span> <span class="o">*</span> <span class="n">r2</span><span class="p">)</span>
+                <span class="n">energy</span> <span class="o">+=</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">inv6</span> <span class="o">*</span> <span class="n">inv6</span> <span class="o">-</span> <span class="n">inv6</span><span class="p">)</span>   <span class="c1"># Numba recognizes the reduction
+</span>    <span class="k">return</span> <span class="n">energy</span>
+</code></pre></div></div>
+
+<p>JAX takes a different approach. You write the <em>energy</em>, and automatic differentiation gives exact forces. The same function can be compiled for CPU, GPU, or TPU:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">jax</span>
+<span class="kn">import</span> <span class="n">jax.numpy</span> <span class="k">as</span> <span class="n">jnp</span>
+
+<span class="k">def</span> <span class="nf">lj_energy</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">2.5</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">d</span> <span class="o">-</span> <span class="n">box</span> <span class="o">*</span> <span class="n">jnp</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">d</span> <span class="o">/</span> <span class="n">box</span><span class="p">)</span>
+    <span class="n">r2</span> <span class="o">=</span> <span class="n">jnp</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">d</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">jnp</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>       <span class="c1"># avoid r = 0 on the diagonal: keeps grads finite
+</span>    <span class="n">inv6</span> <span class="o">=</span> <span class="n">jnp</span><span class="p">.</span><span class="nf">where</span><span class="p">((</span><span class="n">r2</span> <span class="o">&lt;</span> <span class="n">rc</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">jnp</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span> <span class="n">r2</span><span class="o">**-</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">jnp</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">inv6</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">inv6</span><span class="p">))</span>
+
+<span class="n">forces</span> <span class="o">=</span> <span class="n">jax</span><span class="p">.</span><span class="nf">jit</span><span class="p">(</span><span class="n">jax</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">box</span><span class="p">:</span> <span class="o">-</span><span class="nf">lj_energy</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">box</span><span class="p">)))</span>   <span class="c1"># F = -dE/dr
+</span></code></pre></div></div>
+
+<p>For MPI, CUDA kernels, the roofline model, and scaling analysis, see <a href="hpc-and-ml.html">Parallel &amp; High-Performance Computing</a>.</p>
+
+<h2 id="data-storage-and-io">Data Storage and I/O</h2>
+
+<p>Simulation output quickly outgrows text files. Use a self-describing binary format that stores metadata and units next to the arrays.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Format</th>
+      <th>Python interface</th>
+      <th>Strengths</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>HDF5</strong></td>
+      <td>h5py, PyTables</td>
+      <td>Hierarchical, chunked, compressed; parallel I/O via MPI-IO; the de facto standard for simulation output</td>
+    </tr>
+    <tr>
+      <td><strong>NetCDF-4</strong></td>
+      <td>netCDF4, xarray</td>
+      <td>HDF5 underneath plus conventions (CF) for labelled geophysical grids</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Zarr</strong> (v3)</td>
+      <td>zarr, xarray</td>
+      <td>Chunked arrays as separate objects; well suited to cloud object storage and parallel writes</td>
+    </tr>
+    <tr>
+      <td><strong>ADIOS2</strong></td>
+      <td>adios2</td>
+      <td>High-throughput I/O and in-situ streaming at extreme scale</td>
+    </tr>
+    <tr>
+      <td><strong>Parquet / Arrow</strong></td>
+      <td>pandas, polars, pyarrow</td>
+      <td>Columnar tables (event lists, parameter sweeps)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><a href="https://xarray.dev/">xarray</a> wraps these formats with <em>named</em> dimensions and coordinates (<code class="language-plaintext highlighter-rouge">temperature.sel(time=..., x=...)</code>), which removes a whole class of axis-order bugs. A minimal HDF5 layout with chunking and metadata:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">h5py</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="n">traj</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>          <span class="c1"># (frames, atoms, xyz)
+</span><span class="k">with</span> <span class="n">h5py</span><span class="p">.</span><span class="nc">File</span><span class="p">(</span><span class="sh">"</span><span class="s">run_0001.h5</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">w</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">f</span><span class="p">.</span><span class="nf">create_dataset</span><span class="p">(</span><span class="sh">"</span><span class="s">positions</span><span class="sh">"</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">traj</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+                           <span class="n">compression</span><span class="o">=</span><span class="sh">"</span><span class="s">gzip</span><span class="sh">"</span><span class="p">,</span> <span class="n">compression_opts</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">pos</span><span class="p">.</span><span class="n">attrs</span><span class="p">[</span><span class="sh">"</span><span class="s">units</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">sigma</span><span class="sh">"</span>
+    <span class="n">f</span><span class="p">.</span><span class="n">attrs</span><span class="p">.</span><span class="nf">update</span><span class="p">({</span><span class="sh">"</span><span class="s">dt</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.005</span><span class="p">,</span> <span class="sh">"</span><span class="s">temperature</span><span class="sh">"</span><span class="p">:</span> <span class="mf">1.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">git_commit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">abc1234</span><span class="sh">"</span><span class="p">})</span>
+
+<span class="k">with</span> <span class="n">h5py</span><span class="p">.</span><span class="nc">File</span><span class="p">(</span><span class="sh">"</span><span class="s">run_0001.h5</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">r</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="sh">"</span><span class="s">positions</span><span class="sh">"</span><span class="p">][</span><span class="mi">42</span><span class="p">]</span>                               <span class="c1"># reads one chunk only
+</span></code></pre></div></div>
+
+<p>Choose the chunk shape to match the access pattern. One frame per chunk suits frame-by-frame analysis; time-major chunks suit per-atom time series.</p>
+
+<h2 id="visualization">Visualization</h2>
+
+<h3 id="principles">Principles</h3>
+
 <ul>
   <li>
-<strong>Books</strong>: “Computational Physics” by Newman, “Numerical Recipes” series</li>
+<strong>Use perceptually uniform colormaps.</strong> <code class="language-plaintext highlighter-rouge">viridis</code>, <code class="language-plaintext highlighter-rouge">cividis</code>, <code class="language-plaintext highlighter-rouge">magma</code>, and <code class="language-plaintext highlighter-rouge">inferno</code> have monotonic lightness, so equal steps in data look like equal steps in colour. Rainbow maps such as <code class="language-plaintext highlighter-rouge">jet</code> create false boundaries and hide real ones.</li>
   <li>
-<strong>Courses</strong>: MIT OCW Computational Physics, Coursera Scientific Computing</li>
+<strong>Match the colormap to the data.</strong> Sequential maps suit magnitudes. Diverging maps (<code class="language-plaintext highlighter-rouge">RdBu</code>, <code class="language-plaintext highlighter-rouge">coolwarm</code>) centred on zero suit signed quantities such as vorticity, spin, or wavefunction phase. Cyclic maps (<code class="language-plaintext highlighter-rouge">twilight</code>) suit angles.</li>
   <li>
-<strong>Communities</strong>: Stack Exchange Physics, GitHub Physics repositories</li>
+<strong>Use log scales for data spanning decades.</strong> Use <code class="language-plaintext highlighter-rouge">semilogy</code> for spectra and convergence plots and <code class="language-plaintext highlighter-rouge">loglog</code> for power laws. The slope of a log–log convergence plot is the order of accuracy.</li>
+  <li>
+<strong>Label units and show uncertainty.</strong> Every axis gets a quantity and a unit. Every Monte Carlo point gets an error bar.</li>
+  <li>
+<strong>Plot the conserved quantities.</strong> An energy-versus-time panel next to every dynamics plot catches integrator and time-step problems immediately.</li>
+</ul>
+
+<p>A typical diagnostic figure for an oscillator shows the phase portrait next to the relative energy error on a log scale:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+<span class="k">def</span> <span class="nf">leapfrog</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>                                <span class="c1"># symplectic, for H = (v^2 + x^2)/2
+</span>    <span class="n">xs</span><span class="p">,</span> <span class="n">vs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">v</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">x</span>
+        <span class="n">x</span> <span class="o">+=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span>
+        <span class="n">v</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">x</span>
+        <span class="n">xs</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">vs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">v</span>
+    <span class="k">return</span> <span class="n">xs</span><span class="p">,</span> <span class="n">vs</span>
+
+<span class="k">def</span> <span class="nf">euler</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>                                   <span class="c1"># non-symplectic, for contrast
+</span>    <span class="n">xs</span><span class="p">,</span> <span class="n">vs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">x</span>
+        <span class="n">xs</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">vs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">v</span>
+    <span class="k">return</span> <span class="n">xs</span><span class="p">,</span> <span class="n">vs</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">layout</span><span class="o">=</span><span class="sh">"</span><span class="s">constrained</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">[(</span><span class="sh">"</span><span class="s">leapfrog</span><span class="sh">"</span><span class="p">,</span> <span class="n">leapfrog</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">explicit Euler</span><span class="sh">"</span><span class="p">,</span> <span class="n">euler</span><span class="p">)]:</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="nf">method</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">v</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="p">.</span><span class="nf">semilogy</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">E</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">E</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">/</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+<span class="n">ax1</span><span class="p">.</span><span class="nf">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="sh">"</span><span class="s">position $x$</span><span class="sh">"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="sh">"</span><span class="s">velocity $v$</span><span class="sh">"</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sh">"</span><span class="s">Phase portrait</span><span class="sh">"</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="sh">"</span><span class="s">equal</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">ax2</span><span class="p">.</span><span class="nf">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="sh">"</span><span class="s">relative energy error</span><span class="sh">"</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sh">"</span><span class="s">Energy conservation</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">ax1</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
+<span class="n">fig</span><span class="p">.</span><span class="nf">savefig</span><span class="p">(</span><span class="sh">"</span><span class="s">diagnostics.png</span><span class="sh">"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Explicit Euler spirals outward and its energy error grows without bound. Leapfrog’s error stays bounded below $10^{-3}$ and oscillates, which is the signature of a symplectic integrator. For time-dependent fields, <code class="language-plaintext highlighter-rouge">matplotlib.animation.FuncAnimation</code> with <code class="language-plaintext highlighter-rouge">blit=True</code> updates only the changed artists, and <code class="language-plaintext highlighter-rouge">ani.save("field.mp4")</code> writes video through ffmpeg.</p>
+
+<h3 id="tools-by-task">Tools by task</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Tools</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2D plots, publication figures</td>
+      <td>Matplotlib (with <code class="language-plaintext highlighter-rouge">layout="constrained"</code>), seaborn for statistical plots</td>
+    </tr>
+    <tr>
+      <td>Interactive exploration in notebooks</td>
+      <td>Plotly, Bokeh, HoloViews/hvPlot</td>
+    </tr>
+    <tr>
+      <td>3D fields, meshes, isosurfaces</td>
+      <td>
+<a href="https://pyvista.org/">PyVista</a> (Pythonic VTK), ParaView and VisIt (large and parallel data)</td>
+    </tr>
+    <tr>
+      <td>Particles and molecular trajectories</td>
+      <td>OVITO, VMD, nglview (in Jupyter)</td>
+    </tr>
+    <tr>
+      <td>Very large simulations</td>
+      <td>In-situ visualization (ParaView Catalyst, Ascent) so full data never has to be written to disk</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="analysis-toolkit">Analysis Toolkit</h2>
+
+<p>Several routines come up again and again in simulation analysis. Straightforward loop implementations are $O(N^2)$ and far too slow, so use the vectorized or FFT-based forms below.</p>
+
+<h3 id="autocorrelation-and-power-spectrum">Autocorrelation and power spectrum</h3>
+
+<p>The autocorrelation function $C(t) = \langle A(0) A(t) \rangle$ describes memory in a time series. It gives transport coefficients through Green–Kubo relations and the statistical efficiency of Monte Carlo chains. By the Wiener–Khinchin theorem it is the inverse Fourier transform of the power spectrum, so an FFT computes it in $O(N \log N)$:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">signal</span>
+
+<span class="k">def</span> <span class="nf">autocorrelation</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Normalized autocorrelation via FFT, O(N log N).</span><span class="sh">"""</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">rfft</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span>                 <span class="c1"># zero-pad to avoid circular wrap-around
+</span>    <span class="n">acf</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">irfft</span><span class="p">(</span><span class="n">spec</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">conj</span><span class="p">(</span><span class="n">spec</span><span class="p">))[:</span><span class="n">n</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">acf</span> <span class="o">/</span> <span class="n">acf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">power_spectrum</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Welch</span><span class="sh">'</span><span class="s">s method: averaged, windowed periodograms (lower variance than one FFT).</span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">signal</span><span class="p">.</span><span class="nf">welch</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">dt</span><span class="p">,</span> <span class="n">nperseg</span><span class="o">=</span><span class="nf">min</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="mi">4096</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p>Error bars on means of correlated data need the integrated autocorrelation time; see <a href="monte-carlo-and-md.html#error-analysis-for-correlated-samples">error analysis for MCMC</a>.</p>
+
+<h3 id="static-structure-factor">Static structure factor</h3>
+
+<p>For $N$ particles, $S(\mathbf{k}) = \frac{1}{N} \left\lvert \sum_j e^{i \mathbf{k} \cdot \mathbf{r}_j} \right\rvert^2$ is what X-ray and neutron scattering measure. It is the Fourier-space partner of the radial distribution function $g(r)$. In a periodic box of side $L$, only wavevectors $\mathbf{k} = 2\pi \mathbf{n}/L$ with integer $\mathbf{n}$ are valid.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">structure_factor</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">k_vectors</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">S(k) for each row of k_vectors; positions (N, 3), k_vectors (M, 3).</span><span class="sh">"""</span>
+    <span class="n">rho_k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">positions</span> <span class="o">@</span> <span class="n">k_vectors</span><span class="p">.</span><span class="n">T</span><span class="p">).</span><span class="nf">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>     <span class="c1"># (M,)
+</span>    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">rho_k</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">positions</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="largest-lyapunov-exponent">Largest Lyapunov exponent</h3>
+
+<p>The largest Lyapunov exponent $\lambda_1$ measures how fast nearby trajectories separate, $\delta(t) \sim \delta_0 e^{\lambda_1 t}$. A positive $\lambda_1$ is the standard test for chaos. The <strong>Benettin algorithm</strong> evolves a reference trajectory and a nearby partner, measures their separation at regular intervals, logs the growth, and rescales the separation back to $\delta_0$ before it saturates:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy.integrate</span> <span class="kn">import</span> <span class="n">solve_ivp</span>
+
+<span class="k">def</span> <span class="nf">lorenz</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">rho</span><span class="o">=</span><span class="mf">28.0</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">8.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">s</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">sigma</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">x</span><span class="p">),</span> <span class="n">x</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho</span> <span class="o">-</span> <span class="n">z</span><span class="p">)</span> <span class="o">-</span> <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span> <span class="o">-</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">z</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">largest_lyapunov</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">s0</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">n_renorm</span><span class="o">=</span><span class="mi">20_000</span><span class="p">,</span> <span class="n">d0</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">n_transient</span><span class="o">=</span><span class="mi">1_000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">advance</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dt</span><span class="p">),</span> <span class="n">s</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">DOP853</span><span class="sh">"</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">).</span><span class="n">y</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">s0</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_transient</span><span class="p">):</span>                   <span class="c1"># settle onto the attractor
+</span>        <span class="n">s</span> <span class="o">=</span> <span class="nf">advance</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">).</span><span class="nf">standard_normal</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">partner</span> <span class="o">=</span> <span class="n">s</span> <span class="o">+</span> <span class="n">d0</span> <span class="o">*</span> <span class="n">u</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+    <span class="n">log_growth</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_renorm</span><span class="p">):</span>
+        <span class="n">s</span><span class="p">,</span> <span class="n">partner</span> <span class="o">=</span> <span class="nf">advance</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="nf">advance</span><span class="p">(</span><span class="n">partner</span><span class="p">)</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">partner</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span>
+        <span class="n">log_growth</span> <span class="o">+=</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">d</span> <span class="o">/</span> <span class="n">d0</span><span class="p">)</span>
+        <span class="n">partner</span> <span class="o">=</span> <span class="n">s</span> <span class="o">+</span> <span class="p">(</span><span class="n">d0</span> <span class="o">/</span> <span class="n">d</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">partner</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span>     <span class="c1"># renormalize the separation
+</span>    <span class="k">return</span> <span class="n">log_growth</span> <span class="o">/</span> <span class="p">(</span><span class="n">n_renorm</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="nf">largest_lyapunov</span><span class="p">(</span><span class="n">lorenz</span><span class="p">,</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]))</span>   <span class="c1"># approaches ~0.906 for the Lorenz attractor
+</span></code></pre></div></div>
+
+<p>The estimate converges slowly, as roughly $1/\sqrt{T}$ in total integration time $T$. The full spectrum needs the tangent-space (Jacobian) dynamics with repeated QR re-orthonormalization.</p>
+
+<h2 id="domain-libraries">Domain Libraries</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Domain</th>
+      <th>Library</th>
+      <th>What it provides</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Open quantum systems</td>
+      <td>
+<a href="https://qutip.org/">QuTiP</a> 5</td>
+      <td>States, operators, master and stochastic equations, optimal control</td>
+    </tr>
+    <tr>
+      <td>Many-body quantum</td>
+      <td>NetKet, QuSpin, TeNPy, ITensor</td>
+      <td>Neural quantum states, exact diagonalization, tensor networks</td>
+    </tr>
+    <tr>
+      <td>Electronic structure</td>
+      <td>PySCF, GPAW, Quantum ESPRESSO, CP2K, VASP</td>
+      <td>DFT and wavefunction methods (see <a href="quantum-methods.html#density-functional-theory-dft">Quantum Methods</a>)</td>
+    </tr>
+    <tr>
+      <td>Atomistic workflows</td>
+      <td>
+<a href="https://wiki.fysik.dtu.dk/ase/">ASE</a>, pymatgen</td>
+      <td>Structure building, calculators, optimizers, MD, and a common interface to ML potentials</td>
+    </tr>
+    <tr>
+      <td>Molecular dynamics</td>
+      <td>LAMMPS, GROMACS, OpenMM, JAX-MD</td>
+      <td>Production MD engines (see <a href="monte-carlo-and-md.html#production-md-software">MD software</a>)</td>
+    </tr>
+    <tr>
+      <td>Trajectory analysis</td>
+      <td>MDAnalysis, MDTraj</td>
+      <td>Selections, RDFs, RMSD, hydrogen bonds, diffusion</td>
+    </tr>
+    <tr>
+      <td>PDEs</td>
+      <td>FEniCSx (DOLFINx), Firedrake, deal.II, Dedalus, PETSc/petsc4py</td>
+      <td>Finite elements, spectral methods, scalable solvers</td>
+    </tr>
+    <tr>
+      <td>Differential equations in Julia</td>
+      <td>DifferentialEquations.jl</td>
+      <td>Very broad ODE/SDE/DAE solver suite; Julia is a strong alternative to Python for new numerical code</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="qutip-a-damped-harmonic-oscillator">QuTiP: a damped harmonic oscillator</h3>
+
+<p>QuTiP 5 (2024) rewrote the internals around a pluggable data layer (dense, sparse CSR, and GPU back ends) and a unified solver interface. In current releases, <code class="language-plaintext highlighter-rouge">e_ops</code> and <code class="language-plaintext highlighter-rouge">options</code> are keyword-only arguments. A coherent state in a lossy cavity, with $\langle n \rangle(t) = \lvert\alpha\rvert^2 e^{-\kappa t}$:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">qutip</span> <span class="k">as</span> <span class="n">qt</span>
+
+<span class="n">N</span> <span class="o">=</span> <span class="mi">20</span>                                           <span class="c1"># Fock-space truncation
+</span><span class="n">a</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">destroy</span><span class="p">(</span><span class="n">N</span><span class="p">)</span>
+<span class="n">H</span> <span class="o">=</span> <span class="n">a</span><span class="p">.</span><span class="nf">dag</span><span class="p">()</span> <span class="o">*</span> <span class="n">a</span>                                  <span class="c1"># harmonic oscillator, hbar*omega = 1
+</span><span class="n">psi0</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">coherent</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>                       <span class="c1"># |alpha = 2&gt;, &lt;n&gt; = 4
+</span><span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+<span class="n">kappa</span> <span class="o">=</span> <span class="mf">0.1</span>                                      <span class="c1"># photon-loss rate
+</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">qt</span><span class="p">.</span><span class="nf">mesolve</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">psi0</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">c_ops</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">kappa</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span><span class="p">],</span> <span class="n">e_ops</span><span class="o">=</span><span class="p">[</span><span class="n">a</span><span class="p">.</span><span class="nf">dag</span><span class="p">()</span> <span class="o">*</span> <span class="n">a</span><span class="p">])</span>
+<span class="n">n_t</span> <span class="o">=</span> <span class="n">result</span><span class="p">.</span><span class="n">expect</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>                           <span class="c1"># n_t[-1] ~ 4 exp(-1) = 1.47
+</span></code></pre></div></div>
+
+<h3 id="mdanalysis-radial-distribution-function">MDAnalysis: radial distribution function</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">MDAnalysis</span> <span class="k">as</span> <span class="n">mda</span>
+<span class="kn">from</span> <span class="n">MDAnalysis.analysis</span> <span class="kn">import</span> <span class="n">rdf</span>
+
+<span class="n">u</span> <span class="o">=</span> <span class="n">mda</span><span class="p">.</span><span class="nc">Universe</span><span class="p">(</span><span class="sh">"</span><span class="s">topology.pdb</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">trajectory.dcd</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">oxygen</span> <span class="o">=</span> <span class="n">u</span><span class="p">.</span><span class="nf">select_atoms</span><span class="p">(</span><span class="sh">"</span><span class="s">name OW</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">rdf</span><span class="p">.</span><span class="nc">InterRDF</span><span class="p">(</span><span class="n">oxygen</span><span class="p">,</span> <span class="n">oxygen</span><span class="p">,</span> <span class="n">nbins</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">),</span> <span class="n">exclusion_block</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="n">g</span><span class="p">.</span><span class="nf">run</span><span class="p">()</span>
+<span class="n">r</span><span class="p">,</span> <span class="n">g_r</span> <span class="o">=</span> <span class="n">g</span><span class="p">.</span><span class="n">results</span><span class="p">.</span><span class="n">bins</span><span class="p">,</span> <span class="n">g</span><span class="p">.</span><span class="n">results</span><span class="p">.</span><span class="n">rdf</span>           <span class="c1"># results live under .results since 2.0
+</span></code></pre></div></div>
+
+<h3 id="fenicsx-the-poisson-equation">FEniCSx: the Poisson equation</h3>
+
+<p>The legacy <code class="language-plaintext highlighter-rouge">fenics</code>/<code class="language-plaintext highlighter-rouge">dolfin</code> package is no longer developed. Its successor, <strong>FEniCSx</strong> (DOLFINx with UFL and Basix), is MPI-parallel from the ground up and has a different API. Code written for legacy FEniCS (<code class="language-plaintext highlighter-rouge">UnitSquareMesh</code>, <code class="language-plaintext highlighter-rouge">FunctionSpace</code>, <code class="language-plaintext highlighter-rouge">Expression</code>, <code class="language-plaintext highlighter-rouge">solve(a == L, ...)</code>) will not run on it. The same problem as the classic tutorial, solving $-\nabla^2 u = -6$ with $u = 1 + x^2 + 2y^2$ on the boundary:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="kn">import</span> <span class="n">ufl</span>
+<span class="kn">from</span> <span class="n">dolfinx</span> <span class="kn">import</span> <span class="n">fem</span><span class="p">,</span> <span class="n">mesh</span>
+<span class="kn">from</span> <span class="n">dolfinx.fem.petsc</span> <span class="kn">import</span> <span class="n">LinearProblem</span>
+
+<span class="n">domain</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">.</span><span class="nf">create_unit_square</span><span class="p">(</span><span class="n">MPI</span><span class="p">.</span><span class="n">COMM_WORLD</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">fem</span><span class="p">.</span><span class="nf">functionspace</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="p">(</span><span class="sh">"</span><span class="s">Lagrange</span><span class="sh">"</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="n">u_D</span> <span class="o">=</span> <span class="n">fem</span><span class="p">.</span><span class="nc">Function</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">u_D</span><span class="p">.</span><span class="nf">interpolate</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">tdim</span> <span class="o">=</span> <span class="n">domain</span><span class="p">.</span><span class="n">topology</span><span class="p">.</span><span class="n">dim</span>
+<span class="n">domain</span><span class="p">.</span><span class="n">topology</span><span class="p">.</span><span class="nf">create_connectivity</span><span class="p">(</span><span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tdim</span><span class="p">)</span>
+<span class="n">boundary_facets</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">.</span><span class="nf">exterior_facet_indices</span><span class="p">(</span><span class="n">domain</span><span class="p">.</span><span class="n">topology</span><span class="p">)</span>
+<span class="n">bc</span> <span class="o">=</span> <span class="n">fem</span><span class="p">.</span><span class="nf">dirichletbc</span><span class="p">(</span><span class="n">u_D</span><span class="p">,</span> <span class="n">fem</span><span class="p">.</span><span class="nf">locate_dofs_topological</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">tdim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">boundary_facets</span><span class="p">))</span>
+
+<span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">ufl</span><span class="p">.</span><span class="nc">TrialFunction</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="n">ufl</span><span class="p">.</span><span class="nc">TestFunction</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">fem</span><span class="p">.</span><span class="nc">Constant</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="o">-</span><span class="mf">6.0</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">ufl</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">ufl</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">ufl</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">*</span> <span class="n">ufl</span><span class="p">.</span><span class="n">dx</span>
+<span class="n">L</span> <span class="o">=</span> <span class="n">f</span> <span class="o">*</span> <span class="n">v</span> <span class="o">*</span> <span class="n">ufl</span><span class="p">.</span><span class="n">dx</span>
+
+<span class="n">problem</span> <span class="o">=</span> <span class="nc">LinearProblem</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">bcs</span><span class="o">=</span><span class="p">[</span><span class="n">bc</span><span class="p">],</span> <span class="n">petsc_options_prefix</span><span class="o">=</span><span class="sh">"</span><span class="s">poisson</span><span class="sh">"</span><span class="p">,</span>
+                        <span class="n">petsc_options</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">ksp_type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">preonly</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">pc_type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">lu</span><span class="sh">"</span><span class="p">})</span>
+<span class="n">uh</span> <span class="o">=</span> <span class="n">problem</span><span class="p">.</span><span class="nf">solve</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>DOLFINx changes its API between minor releases (0.10 made <code class="language-plaintext highlighter-rouge">petsc_options_prefix</code> required, for example). Pin the version and check the <a href="https://jsdokken.com/dolfinx-tutorial/">FEniCSx tutorial</a> for the release you use. The theory behind the method is on <a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a>.</p>
+
+<h2 id="verification-and-validation">Verification and Validation</h2>
+
+<p>Trusting a simulation takes two separate questions, and they are often confused:</p>
+
+<ul>
+  <li>
+<strong>Verification</strong>: <em>are we solving the equations right?</em> Does the code solve its mathematical model to the claimed accuracy?</li>
+  <li>
+<strong>Validation</strong>: <em>are we solving the right equations?</em> Does the model describe reality well enough for the intended use?</li>
+</ul>
+
+<p>Verification must come first. Comparing an unverified code against experiment can hide a bug behind a cancelling modelling error.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    M["Mathematical model"] --&gt; C["Code"]
+    C --&gt; VE["Verification&lt;br/&gt;(convergence order, manufactured solutions,&lt;br/&gt;conservation, known limits)"]
+    VE --&gt; S["Simulation with error estimates"]
+    S --&gt; VA["Validation&lt;br/&gt;(compare with experiment or&lt;br/&gt;higher-level theory)"]
+    VA --&gt; P["Prediction with&lt;br/&gt;uncertainty quantification"]
+    VA -.-&gt;|"model inadequate"| M
+    VE -.-&gt;|"bug or wrong order"| C
+</code></pre>
+
+<h3 id="verification-checklist">Verification checklist</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Check</th>
+      <th>What it catches</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+<strong>Observed order of convergence</strong>: halve $h$ or $\Delta t$ and confirm the error falls as $h^p$ with the method’s design order $p$</td>
+      <td>Bugs in stencils, boundary conditions, and time-stepping; the single most powerful test</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Method of manufactured solutions</strong>: pick an analytic $u$, derive the source term that makes it exact, and check convergence to it</td>
+      <td>Any equation, including nonlinear ones with no known solution</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Conservation laws</strong>: energy, momentum, mass, charge, norm</td>
+      <td>Integrator errors, wrong forces, leaking boundaries</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Known limits and exact solutions</strong>: harmonic oscillator, Onsager’s Ising solution, Poiseuille flow</td>
+      <td>Gross modelling or unit errors</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Symmetry tests</strong>: rotate, translate, or permute the input; the output should transform accordingly</td>
+      <td>Indexing and sign errors, broken periodic images</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Dimensional analysis and units</strong>: nondimensionalize, or use a units library such as <code class="language-plaintext highlighter-rouge">pint</code>
+</td>
+      <td>Mixed unit systems (Å vs bohr, eV vs Ha)</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Statistical checks</strong> for stochastic codes: compare means within error bars across seeds, run lengths, and independent codes</td>
+      <td>Undersampling, correlated random streams</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Estimating the observed order takes a few lines, and it belongs in the test suite:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">observed_order</span><span class="p">(</span><span class="n">solve</span><span class="p">,</span> <span class="n">exact</span><span class="p">,</span> <span class="n">hs</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">p from errors at successively refined step sizes: p = log(e1/e2) / log(h1/h2).</span><span class="sh">"""</span>
+    <span class="n">errs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">abs</span><span class="p">(</span><span class="nf">solve</span><span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="n">exact</span><span class="p">)</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">hs</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">errs</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">errs</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">hs</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">hs</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+
+<span class="n">central</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">h</span><span class="p">:</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">h</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span>       <span class="c1"># d/dx sin at x = 1
+</span><span class="nf">print</span><span class="p">(</span><span class="nf">observed_order</span><span class="p">(</span><span class="n">central</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">,</span> <span class="mf">0.0125</span><span class="p">]))</span>   <span class="c1"># [2.0 2.0 2.0]
+</span></code></pre></div></div>
+
+<p>Put these checks in an automated test suite (<code class="language-plaintext highlighter-rouge">pytest</code>, with <code class="language-plaintext highlighter-rouge">np.testing.assert_allclose</code> and explicit tolerances) and run it in continuous integration. Floating-point results should be compared with tolerances, never with <code class="language-plaintext highlighter-rouge">==</code>. Tolerances should reflect the method’s truncation error, not machine epsilon.</p>
+
+<h2 id="further-reading">Further Reading</h2>
+
+<p><strong>Books</strong></p>
+
+<ul>
+  <li>M. Newman, <em>Computational Physics</em> (2013): an accessible Python-based introduction.</li>
+  <li>J. M. Thijssen, <em>Computational Physics</em>, 2nd ed. (2007): methods for quantum and statistical physics.</li>
+  <li>D. Frenkel and B. Smit, <em>Understanding Molecular Simulation</em>, 3rd ed. (2023): the standard MC and MD reference.</li>
+  <li>M. P. Allen and D. J. Tildesley, <em>Computer Simulation of Liquids</em>, 2nd ed. (2017).</li>
+  <li>D. P. Landau and K. Binder, <em>A Guide to Monte Carlo Simulations in Statistical Physics</em>.</li>
+  <li>R. M. Martin, <em>Electronic Structure: Basic Theory and Practical Methods</em>, 2nd ed. (2020).</li>
+  <li>W. H. Press et al., <em>Numerical Recipes</em>, 3rd ed. (2007): broad algorithm coverage; use library implementations in practice.</li>
+</ul>
+
+<p><strong>Online</strong></p>
+
+<ul>
+  <li>
+<a href="https://lectures.scientific-python.org/">Scientific Python lectures</a>: NumPy, SciPy, and Matplotlib in depth.</li>
+  <li>
+<a href="https://jsdokken.com/dolfinx-tutorial/">FEniCSx tutorial</a>, <a href="https://qutip.org/documentation">QuTiP documentation</a>, and <a href="https://pyscf.org/user.html">PySCF user guide</a>.</li>
+  <li>Software Carpentry and the <a href="https://bssw.io/">Better Scientific Software</a> community for testing, version control, and reproducibility practices.</li>
 </ul>
 
 <hr>
@@ -3327,11 +3523,15 @@ __global__ void add_vectors(float *a, float *b, float *c, int n)
 
 <ul>
   <li>
-<a href="./">Computational Physics Hub</a> — back to the overview and numerical-methods foundations.</li>
+<a href="./">Computational Physics Hub</a>: the overview and numerical-methods foundations (integration, ODEs, PDEs).</li>
   <li>
-<a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a> — FEniCS in action for solving PDEs.</li>
+<a href="hpc-and-ml.html">Parallel &amp; High-Performance Computing</a>: MPI, GPUs, and the roofline model.</li>
   <li>
-<a href="../statistical-mechanics/">Statistical Mechanics</a> — the physics behind autocorrelation and structure factors.</li>
+<a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a>: the finite-element method behind FEniCSx.</li>
+  <li>
+<a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a>: the simulations whose output these tools analyse.</li>
+  <li>
+<a href="../statistical-mechanics/">Statistical Mechanics</a>: the theory behind correlation functions and structure factors.</li>
 </ul>
 
       </section>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="The working formalism of non-relativistic quantum mechanics: Hilbert space and Dirac notation, observables and commutators, measurement, the Schrödinger equa...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Quantum Mechanics: States, Operators & Dynamics">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="The working formalism of non-relativistic quantum mechanics: Hilbert space and Dirac notation, observables and commutators, measurement, the Schrödinger equa...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/quantum-mechanics/formalism.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Quantum Mechanics: States, Operators & Dynamics">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="The working formalism of non-relativistic quantum mechanics: Hilbert space and Dirac notation, observables and commutators, measurement, the Schrödinger equa...">
 
 <title>Quantum Mechanics: States, Operators & Dynamics | Andrews Notebook</title>
 
@@ -3137,370 +3137,596 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Quantum Mechanics</a> » States, Operators &amp; Dynamics</p>
 
-<h2 id="the-schrödinger-equation">The Schrödinger Equation</h2>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon" /><a href="https://www.fisica.net/mecanica-quantica/Schrodinger_1926.pdf"> Paper: <b><i>An Undulatory Theory of the Mechanics of Atoms and Molecules</i></b> - Erwin Schrödinger</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon" /><a href="http://hyperphysics.phy-astr.gsu.edu/hbase/quantum/schrcn.html"> Article: <b><i>The Schrödinger Equation - HyperPhysics</i></b></a></p>
+<p>This page sets out the standard formalism of non-relativistic quantum mechanics: how states are represented, how observables and measurement work, how states evolve in time, the algebra of angular momentum, the main approximation methods, and how decoherence and the measurement problem fit on top of that machinery. The postulates themselves are summarized on the <a href="./#the-postulates-of-quantum-mechanics">hub page</a>; the solvable systems (box, oscillator, hydrogen) are on <a href="systems-and-phenomena.html">Systems &amp; Phenomena</a>; mixed states, path integrals and open-system dynamics are developed in <a href="qm-advanced-formalism.html">Advanced Formalism</a>.</p>
 
-<h3 id="time-dependent-schrödinger-equation">Time-Dependent Schrödinger Equation</h3>
+<p>Two different rules change a quantum state, and most of the page is about one or the other:</p>
 
-<p>The fundamental equation of quantum mechanics:</p>
+<pre><code class="language-mermaid">flowchart LR
+    P["Preparation&lt;br/&gt;state |psi(0)&amp;gt;"] --&gt; U["Unitary evolution&lt;br/&gt;U(t) = exp(-iHt/hbar)&lt;br/&gt;deterministic, reversible"]
+    U --&gt; M{"Measurement of A"}
+    M -- "Born rule&lt;br/&gt;probabilities" --&gt; C["Post-measurement state&lt;br/&gt;eigenstate |a_n&amp;gt;"]
+    C --&gt; U
+    U -. "entanglement with&lt;br/&gt;environment" .-&gt; D["Decoherence&lt;br/&gt;(interference suppressed)"]
+</code></pre>
 
-\[i\hbar\,\frac{\partial \psi}{\partial t} = \hat{H}\psi\]
+<h2 id="hilbert-space-and-dirac-notation">Hilbert Space and Dirac Notation</h2>
 
-<p>Where $\hat{H}$ is the Hamiltonian operator:
-\(\hat{H} = -\frac{\hbar^2}{2m}\nabla^2 + V(x,t)\)</p>
-
-<p>It plays the role for quantum mechanics that $F = ma$ plays for classical mechanics: given the state now, it determines the state at every future time.</p>
-
-<h3 id="time-independent-schrödinger-equation">Time-Independent Schrödinger Equation</h3>
-
-<p>For stationary states with definite energy:</p>
-
-\[\hat{H}\psi = E\psi\]
-
-<p>Or explicitly:
-\(-\frac{\hbar^2}{2m}\frac{d^2\psi}{dx^2} + V(x)\psi = E\psi\)</p>
-
-<h2 id="quantum-states-and-operators">Quantum States and Operators</h2>
-
-<h3 id="dirac-notation">Dirac Notation</h3>
-
-<p>Quantum states are represented as vectors in Hilbert space:</p>
-<ul>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Ket:</strong> $</td>
-          <td>\psi\rangle$ represents a quantum state</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Bra:</strong> $\langle\psi</td>
-          <td>$ represents the complex conjugate (dual vector)</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Inner product:</strong> $\langle\phi</td>
-          <td>\psi\rangle$ gives a probability amplitude</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Outer product:</strong> $</td>
-          <td>\phi\rangle\langle\psi</td>
-          <td>$ represents an operator</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-</ul>
-
-<h3 id="observable-quantities">Observable Quantities</h3>
-
-<p>Physical quantities are represented by Hermitian operators:</p>
-
-<p><strong>Position operator:</strong> $\hat{x} = x$</p>
-
-<p><strong>Momentum operator:</strong> $\hat{p} = -i\hbar\,\dfrac{\partial}{\partial x}$</p>
-
-<p><strong>Energy operator (Hamiltonian):</strong> $\hat{H} = \dfrac{\hat{p}^2}{2m} + V(\hat{x})$</p>
-
-<p><strong>Angular momentum:</strong> $\hat{\mathbf{L}} = \hat{\mathbf{r}} \times \hat{\mathbf{p}}$</p>
-
-<h3 id="eigenvalues-and-eigenstates">Eigenvalues and Eigenstates</h3>
-
-<p>Measurement of an observable $\hat{A}$ yields eigenvalues:</p>
-
-\[\hat{A}|\psi_n\rangle = a_n|\psi_n\rangle\]
-
-<p>The probability of measuring eigenvalue $a_n$ is:
-\(P(a_n) = |\langle\psi_n|\psi\rangle|^2\)</p>
-
-<h2 id="decoherence">Decoherence</h2>
-
-<p>Decoherence is a concrete, calculable physical process — not an interpretation. It follows directly from the standard linear, unitary dynamics applied to a system <em>together with</em> its environment, and it explains why macroscopic superpositions are never observed in practice. Crucially, decoherence makes definite experimental predictions (timescales, loss of interference fringe visibility) that have been measured in the laboratory. Keep it firmly separated from the <em>interpretational</em> questions discussed in the next section: decoherence tells you why interference disappears, but on its own it does <strong>not</strong> answer why a single definite outcome is observed.</p>
-
-<h3 id="how-decoherence-arises">How Decoherence Arises</h3>
-
-<p><strong>Decoherence</strong> explains why we don’t see quantum superpositions in everyday life:</p>
-
-<ol>
-  <li><strong>Environment interaction</strong>: System entangles with environment</li>
-  <li><strong>Information leakage</strong>: Quantum information spreads to environment</li>
-  <li><strong>Apparent collapse</strong>: System appears classical to local observers</li>
-</ol>
-
-<table>
-  <tbody>
-    <tr>
-      <td>A system prepared in a superposition $</td>
-      <td>\psi\rangle = \alpha</td>
-      <td>0\rangle + \beta</td>
-      <td>1\rangle$ does not stay isolated. Each branch becomes correlated with a distinct environmental state, $</td>
-      <td>0\rangle</td>
-      <td>E_0\rangle +</td>
-      <td>1\rangle</td>
-      <td>E_1\rangle$. Once $\langle E_0</td>
-      <td>E_1\rangle \to 0$, the off-diagonal (coherence) terms of the system’s reduced density matrix vanish and the system behaves, <em>locally</em>, like a classical statistical mixture. No interference between $</td>
-      <td>0\rangle$ and $</td>
-      <td>1\rangle$ can be recovered without re-collecting the information that leaked into the environment — which is, for a macroscopic environment, practically impossible.</td>
-    </tr>
-  </tbody>
-</table>
-
-<p><strong>Decoherence timescales:</strong></p>
-<ul>
-  <li>Electron in vacuum: ~10¹⁰ years</li>
-  <li>Dust particle in air: ~10⁻³¹ seconds</li>
-  <li>Schrödinger’s cat: ~10⁻²³ seconds</li>
-</ul>
-
-<p>The enormous range is the whole point: it is what makes a dust grain or a cat effectively classical while leaving an isolated electron coherent for cosmological times. This explains why cats are never observed alive-and-dead but electrons readily display interference.</p>
-
-<h3 id="mathematical-framework">Mathematical Framework</h3>
-
-<p>The system-environment interaction Hamiltonian:
-\(\hat{H}_{\text{int}} = \sum_\alpha g_\alpha\, \hat{S}_\alpha \otimes \hat{E}_\alpha\)
-Where $\hat{S}<em>\alpha$ are system operators and $\hat{E}</em>\alpha$ are environment operators.</p>
-
-<p>Tracing out the environment yields the reduced density matrix $\rho_S$, whose evolution follows a master equation:
-\(\frac{\partial \rho_S}{\partial t} = -\frac{i}{\hbar}[\hat{H}_S, \rho_S] - \sum_\alpha \gamma_\alpha\,[\hat{S}_\alpha, [\hat{S}_\alpha, \rho_S]]\)
-Where $\gamma_\alpha$ are decoherence rates determined by environmental coupling strengths and correlation times. The first (commutator) term is ordinary unitary evolution; the second (double-commutator) term suppresses the off-diagonal elements in the pointer basis selected by $\hat{S}<em>\alpha$, driving $\rho_S$ toward a diagonal, classical-looking mixture at rate $\gamma</em>\alpha$.</p>
-
-<h3 id="quantum-zeno-effect">Quantum Zeno Effect</h3>
-
-<p>Frequent measurements can “freeze” quantum evolution:</p>
-<ul>
-  <li>Continuous observation prevents transitions</li>
-  <li>Used in quantum error correction</li>
-  <li>Demonstrated with trapped ions</li>
-</ul>
-
-<p><strong>Example</strong>: Watched pot never boils… quantum mechanically!</p>
-
-<h2 id="the-measurement-problem--interpretations">The Measurement Problem &amp; Interpretations</h2>
-
-<p>The previous section is settled physics; this one is not. Decoherence explains why interference disappears, but it leaves the <em>measurement problem</em> untouched: even after the reduced density matrix has become diagonal, the full system-plus-environment state is still a superposition, and unitary evolution alone never picks out the single outcome we actually observe. The questions below are about what the formalism <em>means</em> — they are genuinely open, and different answers correspond to different <strong>interpretations</strong> rather than different experimental predictions.</p>
-
-<h3 id="the-measurement-problem">The Measurement Problem</h3>
-
-<p>One of the most profound mysteries in quantum mechanics is measurement. When we measure a quantum system:</p>
-
-<ol>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Before measurement</strong>: System in superposition $</td>
-          <td>\psi\rangle = \alpha</td>
-          <td>0\rangle + \beta</td>
-          <td>1\rangle$</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li><strong>During measurement</strong>: Wave function “collapses” to eigenstate of measured observable</li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>After measurement</strong>: System in definite state $</td>
-          <td>0\rangle$ with probability $</td>
-          <td>\alpha</td>
-          <td>^2$ OR $</td>
-          <td>1\rangle$ with probability $</td>
-          <td>\beta</td>
-          <td>^2$</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-</ol>
-
-<p><strong>Key Questions:</strong></p>
-<ul>
-  <li>What constitutes a measurement?</li>
-  <li>Why do we see definite outcomes, not superpositions?</li>
-  <li>Is collapse real or apparent?</li>
-</ul>
-
-<p>The linear, unitary Schrödinger evolution that governs every other process <em>never</em> produces step 2 on its own. Reconciling this with our experience of single, definite outcomes is precisely the measurement problem, and it is what the interpretations below attempt to address.</p>
-
-<h3 id="interpretations-of-quantum-mechanics">Interpretations of Quantum Mechanics</h3>
-
-<p>The mathematics of quantum mechanics is not in dispute — every interpretation makes the <em>same</em> experimental predictions. What they disagree about is what the formalism <em>means</em>: is the wave function a real physical object, or just a bookkeeping device for our knowledge? Does collapse actually happen, or only appear to? These are questions about the measurement problem (postulates 3 and 4), and they remain genuinely open. The table contrasts the major positions before the descriptions below.</p>
+<p>The state of a closed quantum system is a unit vector (more precisely, a ray: vectors differing by a global phase are the same state) in a complex Hilbert space $\mathcal{H}$. Dirac notation writes vectors as <strong>kets</strong> $\lvert\psi\rangle$ and linear functionals on them as <strong>bras</strong> $\langle\phi\rvert$.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Interpretation</th>
+      <th>Object</th>
+      <th>Notation</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Ket</td>
+      <td>$\lvert\psi\rangle$</td>
+      <td>State vector</td>
+    </tr>
+    <tr>
+      <td>Bra</td>
+      <td>$\langle\psi\rvert = (\lvert\psi\rangle)^\dagger$</td>
+      <td>Dual (conjugate-transpose) vector</td>
+    </tr>
+    <tr>
+      <td>Inner product</td>
+      <td>$\langle\phi\vert\psi\rangle$</td>
+      <td>Probability amplitude; $\langle\phi\vert\psi\rangle = \langle\psi\vert\phi\rangle^*$</td>
+    </tr>
+    <tr>
+      <td>Outer product</td>
+      <td>$\lvert\phi\rangle\langle\psi\rvert$</td>
+      <td>Operator mapping $\lvert\psi\rangle \mapsto \lvert\phi\rangle$</td>
+    </tr>
+    <tr>
+      <td>Projector</td>
+      <td>$\hat P_n = \lvert n\rangle\langle n\rvert$</td>
+      <td>Projects onto basis state $\lvert n\rangle$</td>
+    </tr>
+    <tr>
+      <td>Expectation value</td>
+      <td>$\langle\psi\rvert\hat A\lvert\psi\rangle$</td>
+      <td>Mean of many measurements of $\hat A$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>An orthonormal basis ${\lvert n\rangle}$ satisfies $\langle m\vert n\rangle = \delta_{mn}$ and the <strong>completeness relation</strong></p>
+
+\[\sum_n |n\rangle\langle n| = \hat{1}, \qquad |\psi\rangle = \sum_n c_n |n\rangle, \quad c_n = \langle n|\psi\rangle, \quad \sum_n |c_n|^2 = 1.\]
+
+<p>For continuous observables the sum becomes an integral and the Kronecker delta a Dirac delta. The familiar wave function is simply the component of the state in the position basis, and the momentum-space wave function is its Fourier transform:</p>
+
+\[\psi(x) = \langle x|\psi\rangle, \qquad \langle x|p\rangle = \frac{1}{\sqrt{2\pi\hbar}}\,e^{ipx/\hbar}, \qquad \tilde\psi(p) = \frac{1}{\sqrt{2\pi\hbar}}\int e^{-ipx/\hbar}\,\psi(x)\,dx.\]
+
+<p>States like $\lvert x\rangle$ and $\lvert p\rangle$ are not normalizable and are not strictly elements of $\mathcal{H}$; the rigged-Hilbert-space construction that makes them rigorous is covered in <a href="qm-advanced-formalism.html#rigged-hilbert-spaces">Advanced Formalism</a>.</p>
+
+<h2 id="observables-and-operators">Observables and Operators</h2>
+
+<h3 id="hermitian-operators-and-the-spectral-theorem">Hermitian operators and the spectral theorem</h3>
+
+<p>Every measurable quantity is represented by a self-adjoint (Hermitian) operator $\hat A = \hat A^\dagger$. Hermiticity guarantees real eigenvalues and orthogonal eigenvectors for distinct eigenvalues, and the spectral theorem lets the operator be written in terms of its eigenvalues $a_n$ and eigenprojectors:</p>
+
+\[\hat A\,|a_n\rangle = a_n|a_n\rangle, \qquad \hat A = \sum_n a_n\,|a_n\rangle\langle a_n|.\]
+
+<table>
+  <thead>
+    <tr>
+      <th>Observable</th>
+      <th>Operator (position representation)</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Position</td>
+      <td>$\hat x = x$</td>
+      <td>Multiplication operator</td>
+    </tr>
+    <tr>
+      <td>Momentum</td>
+      <td>$\hat p = -i\hbar\,\partial_x$</td>
+      <td>Generator of translations</td>
+    </tr>
+    <tr>
+      <td>Kinetic energy</td>
+      <td>$\hat T = \hat p^2/2m = -\frac{\hbar^2}{2m}\nabla^2$</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Hamiltonian</td>
+      <td>$\hat H = \hat p^2/2m + V(\hat x)$</td>
+      <td>Generator of time evolution</td>
+    </tr>
+    <tr>
+      <td>Orbital angular momentum</td>
+      <td>$\hat{\mathbf L} = \hat{\mathbf r}\times\hat{\mathbf p}$</td>
+      <td>Generator of rotations</td>
+    </tr>
+    <tr>
+      <td>Parity</td>
+      <td>$\hat\Pi\,\psi(x) = \psi(-x)$</td>
+      <td>Eigenvalues $\pm 1$</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="commutators-and-compatibility">Commutators and compatibility</h3>
+
+<p>The commutator $[\hat A, \hat B] = \hat A\hat B - \hat B\hat A$ decides whether two observables can have simultaneous definite values. Commuting Hermitian operators share a complete eigenbasis (they are <strong>compatible</strong>); non-commuting ones do not. The defining relation of quantum kinematics is the <strong>canonical commutation relation</strong></p>
+
+\[[\hat x_i, \hat p_j] = i\hbar\,\delta_{ij}, \qquad [\hat x_i, \hat x_j] = [\hat p_i, \hat p_j] = 0.\]
+
+<p>Useful identities: $[\hat A, \hat B\hat C] = [\hat A,\hat B]\hat C + \hat B[\hat A,\hat C]$, and $[\hat x, f(\hat p)] = i\hbar\,f’(\hat p)$, $[\hat p, g(\hat x)] = -i\hbar\,g’(\hat x)$.</p>
+
+<h3 id="the-uncertainty-relation">The uncertainty relation</h3>
+
+<p>For any two observables and any state, the standard deviations $\sigma_A = \sqrt{\langle\hat A^2\rangle - \langle\hat A\rangle^2}$ obey the <strong>Robertson uncertainty relation</strong></p>
+
+\[\sigma_A\,\sigma_B \geq \frac{1}{2}\left|\langle[\hat A,\hat B]\rangle\right|.\]
+
+<p>With $[\hat x,\hat p] = i\hbar$ this gives Heisenberg’s $\sigma_x\sigma_p \ge \hbar/2$, saturated only by Gaussian wave packets. The relation is a statement about the spread of outcomes over an ensemble of identically prepared systems; it is not primarily about disturbance by a measuring device (error–disturbance relations are a separate, later development due to Ozawa and others).</p>
+
+<p>Time is a parameter, not an operator, so the <strong>energy–time</strong> relation has a different status. In the Mandelstam–Tamm form, if $\tau_A = \sigma_A / \lvert d\langle\hat A\rangle/dt\rvert$ is the time for $\langle\hat A\rangle$ to change by one standard deviation, then $\sigma_E\,\tau_A \ge \hbar/2$. It bounds how fast a state with energy spread $\sigma_E$ can evolve, and it underlies the relation between the lifetime of an unstable state and its natural linewidth.</p>
+
+<h2 id="measurement">Measurement</h2>
+
+<p>For an observable $\hat A = \sum_n a_n \hat P_n$, with $\hat P_n$ the projector onto the eigenspace of $a_n$:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th>Statement</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Outcomes</td>
+      <td>Only eigenvalues $a_n$ can be observed</td>
+    </tr>
+    <tr>
+      <td>Born rule</td>
+      <td>$P(a_n) = \langle\psi\rvert\hat P_n\lvert\psi\rangle$, which is $\lvert\langle a_n\vert\psi\rangle\rvert^2$ for a non-degenerate eigenvalue</td>
+    </tr>
+    <tr>
+      <td>State update</td>
+      <td>$\lvert\psi\rangle \to \hat P_n\lvert\psi\rangle / \sqrt{P(a_n)}$ (projection, “collapse”)</td>
+    </tr>
+    <tr>
+      <td>Mean value</td>
+      <td>$\langle\hat A\rangle = \sum_n a_n P(a_n) = \langle\psi\rvert\hat A\lvert\psi\rangle$</td>
+    </tr>
+    <tr>
+      <td>Repeatability</td>
+      <td>An immediate second measurement of $\hat A$ returns $a_n$ with certainty</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>This is the textbook <strong>projective</strong> (von Neumann) measurement. The general description of real measurements, including inefficient detectors and weak or unsharp measurements, uses <strong>positive operator-valued measures</strong> (POVMs): a set of positive operators $\hat E_k$ with $\sum_k \hat E_k = \hat 1$ and $P(k) = \langle\psi\rvert\hat E_k\lvert\psi\rangle$. Every POVM can be realized as a projective measurement on a larger system (Naimark’s theorem), so nothing new is postulated.</p>
+
+<h2 id="the-schrödinger-equation">The Schrödinger Equation</h2>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon" /><a href="https://www.fisica.net/mecanica-quantica/Schrodinger_1926.pdf"> Paper: <b><i>An Undulatory Theory of the Mechanics of Atoms and Molecules</i></b> - Erwin Schrödinger</a></p>
+
+<h3 id="time-dependent-equation">Time-dependent equation</h3>
+
+<p>Between measurements, the state of a closed system evolves according to</p>
+
+\[i\hbar\,\frac{\partial}{\partial t}|\psi(t)\rangle = \hat H\,|\psi(t)\rangle, \qquad \text{for one particle:} \quad i\hbar\,\frac{\partial\psi}{\partial t} = -\frac{\hbar^2}{2m}\nabla^2\psi + V(\mathbf r, t)\,\psi.\]
+
+<p>The equation is linear (superpositions of solutions are solutions) and first order in time, so the state at $t=0$ determines it at all later times. It plays the role that Hamilton’s equations play in classical mechanics.</p>
+
+<h3 id="stationary-states">Stationary states</h3>
+
+<p>If $\hat H$ does not depend on time, separation of variables gives the <strong>time-independent Schrödinger equation</strong>, an eigenvalue problem for the energy:</p>
+
+\[\hat H\,|E_n\rangle = E_n|E_n\rangle, \qquad -\frac{\hbar^2}{2m}\frac{d^2\psi_n}{dx^2} + V(x)\,\psi_n = E_n\psi_n.\]
+
+<p>Each energy eigenstate evolves only by a phase, so all its measurable properties are constant in time — hence “stationary.” A general state is a superposition, and its dynamics come entirely from the relative phases between components:</p>
+
+\[|\psi(t)\rangle = \sum_n c_n\, e^{-iE_n t/\hbar}\,|E_n\rangle, \qquad c_n = \langle E_n|\psi(0)\rangle.\]
+
+<p>Expectation values of such a superposition oscillate at the <strong>Bohr frequencies</strong> $\omega_{mn} = (E_m - E_n)/\hbar$ — the frequencies of the spectral lines the system emits or absorbs.</p>
+
+<h3 id="probability-current">Probability current</h3>
+
+<p>Probability is locally conserved. With $\rho = \lvert\psi\rvert^2$, the Schrödinger equation implies a continuity equation</p>
+
+\[\frac{\partial\rho}{\partial t} + \nabla\cdot\mathbf j = 0, \qquad \mathbf j = \frac{\hbar}{m}\,\mathrm{Im}\left(\psi^*\nabla\psi\right).\]
+
+<p>The current $\mathbf j$ is what one uses to define reflection and transmission coefficients in scattering and tunneling problems.</p>
+
+<h2 id="time-evolution-and-pictures">Time Evolution and Pictures</h2>
+
+<h3 id="the-evolution-operator">The evolution operator</h3>
+
+<p>The solution of the Schrödinger equation is a unitary operator acting on the initial state, $\lvert\psi(t)\rangle = \hat U(t,t_0)\lvert\psi(t_0)\rangle$. For a time-independent Hamiltonian it is a simple exponential; when $\hat H(t)$ does not commute with itself at different times, the exponential must be time-ordered (the Dyson series):</p>
+
+\[\hat U(t) = e^{-i\hat H t/\hbar} \quad (\hat H \text{ constant}), \qquad \hat U(t,t_0) = \mathcal{T}\exp\left(-\frac{i}{\hbar}\int_{t_0}^{t}\hat H(t')\,dt'\right) \quad (\text{general}).\]
+
+<p>Unitarity ($\hat U^\dagger\hat U = \hat 1$) preserves norms and inner products, so probabilities always sum to one and evolution is reversible.</p>
+
+<h3 id="schrödinger-heisenberg-and-interaction-pictures">Schrödinger, Heisenberg and interaction pictures</h3>
+
+<p>Only matrix elements $\langle\phi\rvert\hat A\lvert\psi\rangle$ are measurable, so the time dependence can be placed in the states, in the operators, or split between them:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Picture</th>
+      <th>States</th>
+      <th>Operators</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Schrödinger</td>
+      <td>$\lvert\psi_S(t)\rangle = \hat U(t)\lvert\psi(0)\rangle$</td>
+      <td>Fixed, $\hat A_S$</td>
+      <td>Wave mechanics, numerics</td>
+    </tr>
+    <tr>
+      <td>Heisenberg</td>
+      <td>Fixed, $\lvert\psi(0)\rangle$</td>
+      <td>$\hat A_H(t) = \hat U^\dagger(t)\,\hat A_S\,\hat U(t)$</td>
+      <td>Operator dynamics, correlation functions, QFT</td>
+    </tr>
+    <tr>
+      <td>Interaction (Dirac)</td>
+      <td>Evolve under $\hat V_I(t)$ only</td>
+      <td>Evolve under $\hat H_0$</td>
+      <td>Perturbation theory, scattering</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In the Heisenberg picture the operators obey the <strong>Heisenberg equation of motion</strong>, the quantum analogue of Hamilton’s equations with Poisson brackets replaced by commutators (${A,B} \to [\hat A,\hat B]/i\hbar$):</p>
+
+\[\frac{d\hat A_H}{dt} = \frac{i}{\hbar}\,[\hat H, \hat A_H] + \left(\frac{\partial\hat A}{\partial t}\right)_H.\]
+
+<p>In the interaction picture with $\hat H = \hat H_0 + \hat V(t)$, states are defined by $\lvert\psi_I(t)\rangle = e^{i\hat H_0 t/\hbar}\lvert\psi_S(t)\rangle$ and obey $i\hbar\,\partial_t\lvert\psi_I\rangle = \hat V_I(t)\lvert\psi_I\rangle$ with $\hat V_I(t) = e^{i\hat H_0 t/\hbar}\,\hat V(t)\,e^{-i\hat H_0 t/\hbar}$, which isolates the effect of the perturbation.</p>
+
+<h3 id="ehrenfests-theorem-and-the-classical-limit">Ehrenfest’s theorem and the classical limit</h3>
+
+<p>Taking expectation values of the Heisenberg equations for $\hat x$ and $\hat p$ gives</p>
+
+\[\frac{d\langle\hat x\rangle}{dt} = \frac{\langle\hat p\rangle}{m}, \qquad \frac{d\langle\hat p\rangle}{dt} = -\left\langle V'(\hat x)\right\rangle.\]
+
+<p>These reproduce Newton’s law for the centroid only when $\langle V’(\hat x)\rangle \approx V’(\langle\hat x\rangle)$, i.e. when the wave packet is narrow compared with the scale on which the force varies. That is exact for free particles, uniform fields and harmonic potentials, and approximate otherwise; wave-packet spreading and decoherence together explain why macroscopic bodies look classical.</p>
+
+<h2 id="symmetries-and-conservation-laws">Symmetries and Conservation Laws</h2>
+
+<p>A symmetry is a unitary (or, for time reversal, antiunitary) transformation that commutes with the Hamiltonian. If a Hermitian operator $\hat G$ generates the symmetry through $\hat U(\alpha) = e^{-i\alpha\hat G/\hbar}$ and $[\hat G,\hat H] = 0$, the Heisenberg equation gives $d\langle\hat G\rangle/dt = 0$ — the quantum form of Noether’s theorem. Commuting symmetries also label energy eigenstates with good quantum numbers and produce degeneracies.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symmetry</th>
+      <th>Generator</th>
+      <th>Conserved quantity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Time translation</td>
+      <td>$\hat H$</td>
+      <td>Energy</td>
+    </tr>
+    <tr>
+      <td>Spatial translation</td>
+      <td>$\hat{\mathbf p}$</td>
+      <td>Linear momentum</td>
+    </tr>
+    <tr>
+      <td>Rotation</td>
+      <td>$\hat{\mathbf J} = \hat{\mathbf L} + \hat{\mathbf S}$</td>
+      <td>Angular momentum</td>
+    </tr>
+    <tr>
+      <td>Spatial inversion</td>
+      <td>$\hat\Pi$ (discrete)</td>
+      <td>Parity</td>
+    </tr>
+    <tr>
+      <td>Permutation of identical particles</td>
+      <td>Exchange operator (discrete)</td>
+      <td>Bosonic/fermionic symmetry</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="angular-momentum">Angular Momentum</h2>
+
+<h3 id="the-angular-momentum-algebra">The angular momentum algebra</h3>
+
+<p>Any three Hermitian operators obeying</p>
+
+\[[\hat J_i, \hat J_j] = i\hbar\,\varepsilon_{ijk}\,\hat J_k, \qquad [\hat J^2, \hat J_i] = 0\]
+
+<p>are called angular momentum. From this algebra alone, using the ladder operators $\hat J_\pm = \hat J_x \pm i\hat J_y$, the spectrum follows:</p>
+
+\[\hat J^2|j,m\rangle = \hbar^2 j(j+1)\,|j,m\rangle, \qquad \hat J_z|j,m\rangle = \hbar m\,|j,m\rangle, \qquad m = -j, -j+1, \ldots, j,\]
+
+\[\hat J_\pm|j,m\rangle = \hbar\sqrt{j(j+1) - m(m\pm 1)}\;|j,m\pm 1\rangle,\]
+
+<p>with $j \in {0, \tfrac12, 1, \tfrac32, \ldots}$. Only one component (conventionally $\hat J_z$) can be sharp at a time, because the components do not commute.</p>
+
+<h3 id="orbital-angular-momentum-and-spin">Orbital angular momentum and spin</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Orbital, $\hat{\mathbf L} = \hat{\mathbf r}\times\hat{\mathbf p}$</th>
+      <th>Spin, $\hat{\mathbf S}$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Quantum number</td>
+      <td>$\ell = 0, 1, 2, \ldots$ (integer only)</td>
+      <td>$s = 0, \tfrac12, 1, \ldots$ (fixed per particle)</td>
+    </tr>
+    <tr>
+      <td>Eigenfunctions</td>
+      <td>Spherical harmonics $Y_\ell^m(\theta,\phi)$</td>
+      <td>Spinors, no position dependence</td>
+    </tr>
+    <tr>
+      <td>Classical analogue</td>
+      <td>Yes</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>Examples</td>
+      <td>Atomic orbitals s, p, d, f</td>
+      <td>Electron, proton, neutron: $s=\tfrac12$; photon: helicity $\pm 1$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For spin-½, $\hat{\mathbf S} = \tfrac{\hbar}{2}\boldsymbol\sigma$ with the Pauli matrices</p>
+
+\[\sigma_x = \begin{pmatrix} 0 &amp; 1 \\ 1 &amp; 0 \end{pmatrix}, \quad \sigma_y = \begin{pmatrix} 0 &amp; -i \\ i &amp; 0 \end{pmatrix}, \quad \sigma_z = \begin{pmatrix} 1 &amp; 0 \\ 0 &amp; -1 \end{pmatrix}, \qquad \sigma_i\sigma_j = \delta_{ij}\hat 1 + i\,\varepsilon_{ijk}\,\sigma_k.\]
+
+<p>The spin component along a unit vector $\mathbf n = (\sin\theta\cos\phi, \sin\theta\sin\phi, \cos\theta)$ is $\tfrac{\hbar}{2}\,\boldsymbol\sigma\cdot\mathbf n$, with “up” eigenstate</p>
+
+\[|{+}\mathbf n\rangle = \cos\frac{\theta}{2}\,|{\uparrow}\rangle + e^{i\phi}\sin\frac{\theta}{2}\,|{\downarrow}\rangle.\]
+
+<p>The half-angles are the origin of the Bloch-sphere picture of a qubit and of the fact that a $2\pi$ rotation multiplies a spinor by $-1$ (observed in neutron interferometry).</p>
+
+<h3 id="addition-of-angular-momenta">Addition of angular momenta</h3>
+
+<p>Combining two angular momenta $j_1$ and $j_2$ yields total $J = \lvert j_1 - j_2\rvert, \ldots, j_1 + j_2$; the change of basis from $\lvert j_1 m_1\rangle\lvert j_2 m_2\rangle$ to $\lvert J M\rangle$ is given by <strong>Clebsch–Gordan coefficients</strong>. The most important case, two spin-½ particles, splits the four-dimensional product space into a spin-1 <strong>triplet</strong> and a spin-0 <strong>singlet</strong>:</p>
+
+\[|1,1\rangle = |{\uparrow\uparrow}\rangle, \quad |1,0\rangle = \frac{|{\uparrow\downarrow}\rangle + |{\downarrow\uparrow}\rangle}{\sqrt 2}, \quad |1,-1\rangle = |{\downarrow\downarrow}\rangle, \qquad |0,0\rangle = \frac{|{\uparrow\downarrow}\rangle - |{\downarrow\uparrow}\rangle}{\sqrt 2}.\]
+
+<p>The singlet is the entangled state used in the EPR argument and in <a href="bell-inequalities-and-tests.html">Bell tests</a>; the triplet/singlet split also underlies exchange interactions, the helium spectrum, and hyperfine structure (including the 21 cm line of hydrogen).</p>
+
+<h2 id="approximation-methods">Approximation Methods</h2>
+
+<p>Few Hamiltonians are exactly solvable. The standard toolkit:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Applies when</th>
+      <th>Delivers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Time-independent perturbation theory</td>
+      <td>$\hat H = \hat H_0 + \lambda\hat V$, $\hat H_0$ solvable, $\hat V$ small</td>
+      <td>Energy shifts and corrected states</td>
+    </tr>
+    <tr>
+      <td>Degenerate perturbation theory</td>
+      <td>Same, but $\hat H_0$ has degenerate levels</td>
+      <td>Splitting of degenerate levels</td>
+    </tr>
+    <tr>
+      <td>Variational method</td>
+      <td>Good trial wave function available</td>
+      <td>Rigorous upper bound on ground-state energy</td>
+    </tr>
+    <tr>
+      <td>WKB (semiclassical)</td>
+      <td>Potential varies slowly on the scale of the local wavelength</td>
+      <td>Quantization conditions, tunneling rates</td>
+    </tr>
+    <tr>
+      <td>Time-dependent perturbation theory</td>
+      <td>Weak or brief time-dependent perturbation</td>
+      <td>Transition amplitudes and rates</td>
+    </tr>
+    <tr>
+      <td>Adiabatic approximation</td>
+      <td>$\hat H(t)$ changes slowly compared with gap frequencies</td>
+      <td>State follows instantaneous eigenstate plus Berry phase</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="time-independent-perturbation-theory">Time-independent perturbation theory</h3>
+
+<p>Write $\hat H = \hat H_0 + \lambda\hat V$ with known non-degenerate eigenstates $\lvert n^{(0)}\rangle$ and energies $E_n^{(0)}$, and let $V_{mn} = \langle m^{(0)}\rvert\hat V\lvert n^{(0)}\rangle$. To second order in $\lambda$ (set $\lambda = 1$ at the end):</p>
+
+\[E_n = E_n^{(0)} + V_{nn} + \sum_{m\neq n}\frac{|V_{mn}|^2}{E_n^{(0)} - E_m^{(0)}} + \cdots, \qquad |n\rangle = |n^{(0)}\rangle + \sum_{m\neq n}\frac{V_{mn}}{E_n^{(0)} - E_m^{(0)}}\,|m^{(0)}\rangle + \cdots\]
+
+<p>Two consequences are worth remembering: the second-order correction to the ground state is always negative, and nearby levels “repel.” The expansion is valid when $\lvert V_{mn}\rvert \ll \lvert E_n^{(0)} - E_m^{(0)}\rvert$; perturbation series in quantum mechanics are frequently asymptotic rather than convergent.</p>
+
+<p><strong>Degenerate levels.</strong> If $E_n^{(0)}$ is degenerate, the denominators vanish. The fix is to diagonalize $\hat V$ within the degenerate subspace first; its eigenvalues are the first-order shifts and its eigenvectors the correct zeroth-order states. The linear Stark effect in hydrogen and the Zeeman splitting of atomic levels are standard examples.</p>
+
+<h3 id="variational-principle">Variational principle</h3>
+
+<p>For any normalizable trial state, the energy expectation value bounds the true ground-state energy from above:</p>
+
+\[E_0 \leq \frac{\langle\psi_{\text{trial}}|\hat H|\psi_{\text{trial}}\rangle}{\langle\psi_{\text{trial}}|\psi_{\text{trial}}\rangle}.\]
+
+<p>Minimizing over a parameterized family gives the best estimate within that family. The same principle drives Hartree–Fock, variational Monte Carlo, neural-network wave functions, and the variational quantum eigensolver (see <a href="qm-computational-methods.html">Computational Methods</a> and <a href="qm-computing.html">Quantum Computing</a>).</p>
+
+<h3 id="wkb-approximation">WKB approximation</h3>
+
+<p>When the local de Broglie wavelength $\lambda(x) = h/p(x)$, with $p(x) = \sqrt{2m(E - V(x))}$, changes slowly, the wave function is approximately</p>
+
+\[\psi(x) \approx \frac{C}{\sqrt{p(x)}}\exp\left(\pm\frac{i}{\hbar}\int^x p(x')\,dx'\right).\]
+
+<p>In classically forbidden regions $p$ becomes imaginary and the solution decays; the transmission probability through a barrier between turning points $x_1$ and $x_2$ is</p>
+
+\[T \approx \exp\left(-\frac{2}{\hbar}\int_{x_1}^{x_2}\sqrt{2m\,(V(x) - E)}\;dx\right),\]
+
+<p>the formula behind Gamow’s theory of alpha decay, field emission, and scanning tunneling microscopy. Matching at turning points gives the Bohr–Sommerfeld rule $\oint p\,dx = 2\pi\hbar\,(n + \tfrac12)$.</p>
+
+<h3 id="time-dependent-perturbation-theory-and-fermis-golden-rule">Time-dependent perturbation theory and Fermi’s golden rule</h3>
+
+<p>For $\hat H = \hat H_0 + \hat V(t)$, the first-order amplitude to go from $\lvert i\rangle$ to $\lvert f\rangle$ is</p>
+
+\[c_f^{(1)}(t) = -\frac{i}{\hbar}\int_0^t \langle f|\hat V(t')|i\rangle\,e^{i\omega_{fi}t'}\,dt', \qquad \omega_{fi} = \frac{E_f - E_i}{\hbar}.\]
+
+<p>For a constant (or harmonic) perturbation coupling to a continuum of final states, $\lvert c_f\rvert^2$ grows linearly in time at long times, giving a constant <strong>transition rate</strong> — <strong>Fermi’s golden rule</strong>:</p>
+
+\[\Gamma_{i\to f} = \frac{2\pi}{\hbar}\,\left|\langle f|\hat V|i\rangle\right|^2\,\rho(E_f),\]
+
+<p>where $\rho(E_f)$ is the density of final states at the energy allowed by conservation (for a harmonic perturbation at frequency $\omega$, $E_f = E_i \pm \hbar\omega$). It is a rate, not a probability, and it governs spontaneous and stimulated emission, beta decay, photoemission, and scattering cross sections in the Born approximation.</p>
+
+<h2 id="decoherence">Decoherence</h2>
+
+<p>Decoherence is a physical process, not an interpretation. It follows from ordinary unitary dynamics applied to a system <em>together with</em> its environment, and it makes testable predictions — timescales and loss of fringe visibility — that have been measured. It explains why interference between macroscopically distinct states is never seen; on its own it does not explain why a single definite outcome occurs (that is the measurement problem, below).</p>
+
+<h3 id="mechanism">Mechanism</h3>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant S as System
+    participant E as Environment
+    Note over S: Coherent superposition of states 0 and 1
+    S-&gt;&gt;E: Interaction (scattered photons, gas molecules, phonons)
+    Note over S,E: Joint state entangled: each branch tagged by an environment record
+    E--&gt;&gt;E: Records E0 and E1 become orthogonal
+    Note over S: Reduced state: off-diagonal terms vanish, looks like a classical mixture
+</code></pre>
+
+<p>A system in $\alpha\lvert 0\rangle + \beta\lvert 1\rangle$ interacts with its surroundings, and each branch becomes correlated with a different environmental state. Tracing out the environment gives the system’s reduced density matrix (see <a href="qm-advanced-formalism.html#density-matrices-and-mixed-states">Advanced Formalism</a>):</p>
+
+\[\rho_S = \mathrm{Tr}_E\,|\Psi\rangle\langle\Psi| = \begin{pmatrix} |\alpha|^2 &amp; \alpha\beta^*\langle E_1|E_0\rangle \\ \alpha^*\beta\,\langle E_0|E_1\rangle &amp; |\beta|^2 \end{pmatrix}.\]
+
+<p>As the environment records which-state information, $\langle E_0\vert E_1\rangle \to 0$ and the coherences vanish. Interference could in principle be restored only by recovering and reversing everything the environment learned — practically impossible for a macroscopic environment. The interaction also selects a preferred <strong>pointer basis</strong>: the states that are least disturbed by the coupling (for macroscopic objects, typically well-localized positions), which is why the classical world appears in position rather than in arbitrary superpositions.</p>
+
+<h3 id="master-equation-and-timescales">Master equation and timescales</h3>
+
+<p>For a system coupled through operators $\hat S_\alpha$ to a large Markovian environment, the reduced dynamics take the form</p>
+
+\[\frac{d\rho_S}{dt} = -\frac{i}{\hbar}\,[\hat H_S, \rho_S] - \sum_\alpha \gamma_\alpha\,\big[\hat S_\alpha, [\hat S_\alpha, \rho_S]\big],\]
+
+<p>a special case of the Lindblad equation (see <a href="qm-advanced-formalism.html#open-quantum-systems-and-the-lindblad-equation">Advanced Formalism</a>). The commutator is unitary evolution; the double commutator damps off-diagonal elements in the eigenbasis of $\hat S_\alpha$. For a particle of mass $m$ in a thermal environment at temperature $T$ (the Caldeira–Leggett model), Zurek’s estimate for the decoherence time of a superposition of two positions separated by $\Delta x$ is</p>
+
+\[\tau_D \approx \tau_R\left(\frac{\lambda_{\text{th}}}{\Delta x}\right)^2, \qquad \lambda_{\text{th}} = \frac{\hbar}{\sqrt{2mk_BT}},\]
+
+<p>where $\tau_R$ is the classical relaxation (friction) time. For $m = 1\ \mathrm{g}$, $T = 300\ \mathrm{K}$ and $\Delta x = 1\ \mathrm{cm}$, $\lambda_{\text{th}} \sim 10^{-23}\ \mathrm{m}$ and $\tau_D/\tau_R \sim 10^{-40}$: macroscopic superpositions decohere essentially instantaneously even when friction is negligible, while isolated microscopic systems can stay coherent for long times.</p>
+
+<h3 id="experimental-observations">Experimental observations</h3>
+
+<ul>
+  <li><strong>Cavity QED (1996).</strong> Haroche’s group at ENS Paris prepared a microwave field in a superposition of two coherent states (“Schrödinger cat” states) and watched the coherence decay faster for larger separations, as decoherence theory predicts.</li>
+  <li><strong>Molecule interferometry (2004).</strong> Vienna experiments with C<sub>70</sub> fullerenes showed interference fringes disappearing as the molecules were heated and emitted enough thermal photons to reveal their path.</li>
+  <li><strong>Quantum hardware.</strong> Qubit $T_1$ (energy relaxation) and $T_2$ (dephasing) times are decoherence times, and extending them is the central engineering problem of <a href="qm-computing.html#decoherence-why-quantum-computers-are-hard">quantum computing</a>.</li>
+</ul>
+
+<h3 id="quantum-zeno-effect">Quantum Zeno effect</h3>
+
+<p>Repeated measurement can inhibit evolution. For short times the survival probability of an initial state falls quadratically, $P(t) \approx 1 - (\Delta H\,t/\hbar)^2$, where $\Delta H$ is the energy spread. Dividing an interval $t$ into $N$ projective measurements gives</p>
+
+\[P_N(t) \approx \left[1 - \left(\frac{\Delta H\,t}{\hbar N}\right)^2\right]^N \longrightarrow 1 \quad \text{as } N \to \infty.\]
+
+<p>Itano and collaborators demonstrated the effect in 1990 by interrupting an RF-driven transition in trapped beryllium ions with laser pulses. The opposite regime — measurement accelerating decay — is the anti-Zeno effect. The same physics appears as measurement-induced dynamics in monitored quantum circuits (see <a href="qm-research-frontiers.html#measurement-induced-phenomena">Research Frontiers</a>).</p>
+
+<h2 id="the-measurement-problem-and-interpretations">The Measurement Problem and Interpretations</h2>
+
+<p>The previous section is settled physics; this one is not. Unitary evolution of system plus apparatus plus environment produces an entangled superposition of all outcomes. Decoherence makes the branches effectively non-interfering, but the global state is still a superposition, and nothing in the linear dynamics selects the single outcome that is actually recorded. The measurement problem is the question of how to reconcile the two rules in the diagram at the top of this page:</p>
+
+<ul>
+  <li>What physical process, if any, counts as a measurement?</li>
+  <li>Is the state update (“collapse”) a physical event, an update of information, or an illusion?</li>
+  <li>Why are outcomes definite, and why do their frequencies follow the Born rule?</li>
+</ul>
+
+<h3 id="interpretations-compared">Interpretations compared</h3>
+
+<p>Most interpretations are empirically equivalent to standard quantum mechanics. Objective-collapse models are the exception: they modify the dynamics and are therefore testable.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
       <th>Is the wave function real?</th>
-      <th>Does collapse happen?</th>
-      <th>Determinism</th>
-      <th>Notable feature</th>
+      <th>Collapse?</th>
+      <th>Deterministic?</th>
+      <th>Key idea / status</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Copenhagen</td>
-      <td>Epistemic / agnostic</td>
-      <td>Yes (on measurement)</td>
+      <td>Instrumental; classical apparatus assumed</td>
+      <td>Yes, at measurement</td>
       <td>No</td>
-      <td>The orthodox “textbook” view</td>
+      <td>The operational textbook view</td>
     </tr>
     <tr>
-      <td>Many-Worlds</td>
+      <td>Many-worlds (Everett)</td>
       <td>Yes</td>
-      <td>No — all branches persist</td>
+      <td>No; all branches persist</td>
       <td>Yes</td>
-      <td>No collapse; the universe splits</td>
+      <td>Decoherent branches; Born rule derivation debated</td>
     </tr>
     <tr>
-      <td>Pilot Wave (de Broglie–Bohm)</td>
-      <td>Yes, plus hidden particle positions</td>
-      <td>No</td>
-      <td>Yes (but nonlocal)</td>
-      <td>Definite trajectories restored</td>
+      <td>De Broglie–Bohm (pilot wave)</td>
+      <td>Yes, plus particle positions</td>
+      <td>No (effective)</td>
+      <td>Yes, explicitly nonlocal</td>
+      <td>Definite trajectories; hard to make relativistic</td>
     </tr>
     <tr>
-      <td>QBism</td>
-      <td>No — it encodes an agent’s beliefs</td>
-      <td>Belief update, not physical</td>
+      <td>Objective collapse (GRW, CSL, Diósi–Penrose)</td>
+      <td>Yes</td>
+      <td>Yes, spontaneous and physical</td>
       <td>No</td>
-      <td>Observer-centric, subjective</td>
+      <td>Modifies Schrödinger dynamics; being experimentally constrained</td>
+    </tr>
+    <tr>
+      <td>QBism / epistemic views</td>
+      <td>No; encodes an agent’s beliefs</td>
+      <td>Belief update</td>
+      <td>No</td>
+      <td>Probabilities are personal and Bayesian</td>
+    </tr>
+    <tr>
+      <td>Relational QM</td>
+      <td>States are relative to other systems</td>
+      <td>Relative</td>
+      <td>No</td>
+      <td>No observer-independent state</td>
+    </tr>
+    <tr>
+      <td>Consistent (decoherent) histories</td>
+      <td>Yes, as a tool for assigning probabilities to histories</td>
+      <td>No</td>
+      <td>No</td>
+      <td>Probabilities for sets of consistent histories</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Why this debate persists.</strong> Because all interpretations agree on every measurable outcome, no experiment yet devised can decisively choose between them — the disagreement is about ontology, not predictions. They are best judged on parsimony, how naturally they handle the measurement problem, and whether they can be extended to relativity and gravity. For doing physics you can stay agnostic; for understanding what quantum mechanics says about reality, the choice matters.</p>
+<p><strong>Testing collapse models.</strong> Spontaneous-collapse models predict tiny departures from quantum mechanics: extra heating, spontaneous radiation from charged particles, and a mass-dependent limit on interference. Matter-wave interferometry with ever larger molecules, levitated nanoparticles and optomechanical systems, and low-background X-ray searches constrain their parameters. An underground measurement at Gran Sasso (Donadi et al., <em>Nature Physics</em>, 2021) ruled out the natural, parameter-free version of the Diósi–Penrose gravity-related collapse model. Wigner’s-friend-type no-go theorems (2018–2020) add further constraints on what combinations of assumptions an interpretation can keep.</p>
 
-<ul>
-  <li><strong>Copenhagen:</strong> Wave function collapses upon measurement; complementarity; no definite reality until measurement.</li>
-  <li><strong>Many-Worlds:</strong> All possible outcomes occur in parallel branches; no collapse; deterministic evolution.</li>
-  <li><strong>Pilot Wave (de Broglie–Bohm):</strong> Particles have definite positions guided by a pilot wave; non-local hidden variables; deterministic but non-local.</li>
-  <li><strong>QBism (Quantum Bayesianism):</strong> Wave functions represent an agent’s subjective beliefs; measurement updates those beliefs; observer-centric.</li>
-</ul>
-
-<p><strong>Decoherence is not a substitute for an interpretation.</strong> A common confusion is to treat decoherence as “solving” the measurement problem. It does not: it explains the <em>disappearance of interference</em> and the emergence of a preferred (pointer) basis, but the global state remains a superposition and the question of why <em>one</em> outcome is realized still requires an interpretation. Decoherence is therefore an ingredient that every interpretation uses, not a replacement for them.</p>
-
-<h2 id="angular-momentum">Angular Momentum</h2>
-
-<h3 id="orbital-angular-momentum">Orbital Angular Momentum</h3>
-
-<p><strong>Operators:</strong>
-\(\begin{aligned}
-\hat{L}^2 |\ell,m\rangle &amp;= \hbar^2\ell(\ell+1)|\ell,m\rangle \\
-\hat{L}_z |\ell,m\rangle &amp;= \hbar m\,|\ell,m\rangle
-\end{aligned}\)</p>
-
-<p><strong>Commutation relations:</strong>
-\([\hat{L}_i, \hat{L}_j] = i\hbar\,\varepsilon_{ijk}\hat{L}_k\)</p>
-
-<h3 id="spin">Spin</h3>
-
-<p>Intrinsic angular momentum of particles:</p>
-
-<p><strong>Spin-½ particles (fermions):</strong></p>
-<ul>
-  <li>Electrons, protons, neutrons</li>
-  <li>Pauli matrices represent spin operators</li>
-</ul>
-
-<p><strong>Pauli Matrices:</strong>
-\(\sigma_x = \begin{pmatrix} 0 &amp; 1 \\ 1 &amp; 0 \end{pmatrix}, \quad
-\sigma_y = \begin{pmatrix} 0 &amp; -i \\ i &amp; 0 \end{pmatrix}, \quad
-\sigma_z = \begin{pmatrix} 1 &amp; 0 \\ 0 &amp; -1 \end{pmatrix}\)</p>
-
-<p><strong>Spin states:</strong></p>
-<ul>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td>Spin up: $</td>
-          <td>!\uparrow\rangle =</td>
-          <td>\tfrac{1}{2}, \tfrac{1}{2}\rangle$</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td>Spin down: $</td>
-          <td>!\downarrow\rangle =</td>
-          <td>\tfrac{1}{2}, -\tfrac{1}{2}\rangle$</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-</ul>
-
-<h2 id="time-evolution">Time Evolution</h2>
-
-<h3 id="schrödinger-picture">Schrödinger Picture</h3>
-
-<p>States evolve in time according to:</p>
-
-\[|\psi(t)\rangle = \hat{U}(t)|\psi(0)\rangle\]
-
-<p>Where the time evolution operator is:
-\(\hat{U}(t) = e^{-i\hat{H}t/\hbar}\)
-Note: this form assumes a time-independent Hamiltonian $\hat{H}$.</p>
-
-<h3 id="heisenberg-picture">Heisenberg Picture</h3>
-
-<p>Operators evolve while states remain fixed:</p>
-
-\[\hat{A}(t) = \hat{U}^\dagger(t)\,\hat{A}(0)\,\hat{U}(t)\]
-
-<p><strong>Heisenberg equation of motion:</strong>
-\(\frac{d\hat{A}}{dt} = \frac{i}{\hbar}[\hat{H},\hat{A}] + \frac{\partial \hat{A}}{\partial t}\)</p>
-
-<h2 id="perturbation-theory">Perturbation Theory</h2>
-
-<h3 id="time-independent-perturbation-theory">Time-Independent Perturbation Theory</h3>
-
-<p>For $\hat{H} = \hat{H}_0 + \lambda\hat{V}$:</p>
-
-<p><strong>First-order energy correction:</strong>
-\(E_n^{(1)} = \langle n^{(0)}|\hat{V}|n^{(0)}\rangle\)</p>
-
-<p><strong>First-order wave function correction:</strong>
-\(|n^{(1)}\rangle = \sum_{m \neq n} \frac{\langle m^{(0)}|\hat{V}|n^{(0)}\rangle}{E_n^{(0)} - E_m^{(0)}} |m^{(0)}\rangle\)</p>
-
-<table>
-  <tbody>
-    <tr>
-      <td>If the perturbation series diverges, check that the perturbation is genuinely small ($</td>
-      <td>\langle\hat{V}\rangle</td>
-      <td>\ll</td>
-      <td>\langle\hat{H}_0\rangle</td>
-      <td>$), that the unperturbed states are orthogonal, and whether the level is degenerate — degenerate levels require degenerate perturbation theory.</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="time-dependent-perturbation-theory">Time-Dependent Perturbation Theory</h3>
-
-<p><strong>Transition probability (Fermi’s Golden Rule):</strong>
-\(P_{i \to f} = \frac{2\pi}{\hbar} |\langle f|\hat{V}|i\rangle|^2 \delta(E_f - E_i)\)</p>
+<p><strong>Decoherence is not an interpretation.</strong> Decoherence explains the suppression of interference and the emergence of a pointer basis, and every interpretation uses it. It does not, by itself, explain why one outcome is realized.</p>
 
 <hr />
 
@@ -3508,14 +3734,16 @@ Note: this form assumes a time-independent Hamiltonian $\hat{H}$.</p>
 
 <ul>
   <li><strong>Next:</strong> <a href="systems-and-phenomena.html">Systems &amp; Phenomena</a> — the box, oscillator, and hydrogen atom; tunneling, entanglement, and superposition.</li>
+  <li><strong>Related:</strong> <a href="bell-inequalities-and-tests.html">Bell’s Theorem &amp; Experimental Tests</a> — spin measurements on the singlet state, and why local hidden variables fail.</li>
   <li><strong>Up:</strong> <a href="./">Quantum Mechanics Hub</a></li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
+  <li><a href="qm-advanced-formalism.html">Advanced Formalism</a> — density matrices, rigged Hilbert spaces, path integrals, Lindblad dynamics.</li>
   <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — the Heisenberg picture and operator dynamics extended to fields.</li>
-  <li><a href="../classical-mechanics/">Classical Mechanics</a> — the Hamiltonian and the classical limit of these equations.</li>
+  <li><a href="../classical-mechanics/">Classical Mechanics</a> — Hamiltonian mechanics, Poisson brackets, and the classical limit of these equations.</li>
 </ul>
 
       </section>

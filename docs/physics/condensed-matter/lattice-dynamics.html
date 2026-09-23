@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Harmonic lattice dynamics, phonon dispersion, acoustic and optical branches, Debye and Einstein heat capacity, anharmonicity and thermal conductivity, and el...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Condensed Matter: Lattice Dynamics & Phonons">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Harmonic lattice dynamics, phonon dispersion, acoustic and optical branches, Debye and Einstein heat capacity, anharmonicity and thermal conductivity, and el...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/condensed-matter/lattice-dynamics.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Condensed Matter: Lattice Dynamics & Phonons">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Harmonic lattice dynamics, phonon dispersion, acoustic and optical branches, Debye and Einstein heat capacity, anharmonicity and thermal conductivity, and el...">
 
 <title>Condensed Matter: Lattice Dynamics & Phonons | Andrews Notebook</title>
 
@@ -3135,309 +3135,529 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Condensed Matter Physics</a> » Lattice Dynamics &amp; Phonons</p>
 
-<!-- Custom styles are now loaded via main.scss -->
-
 <h2 id="lattice-dynamics--phonons">Lattice Dynamics &amp; Phonons</h2>
 
-<p><strong>The big idea: vibrations are particles.</strong> A crystal is not a rigid scaffold of frozen atoms. At any nonzero temperature the ions are perpetually in motion, oscillating about their equilibrium positions. Because the lattice is periodic, those oscillations organize themselves into collective <strong>normal modes</strong> — travelling waves of displacement, each labelled by a wavevector $\mathbf{k}$ and a polarization. Quantizing a normal mode turns it into a harmonic oscillator whose energy comes in discrete quanta $\hbar\omega_{\mathbf{k}}$. These quanta are <strong>phonons</strong>: emergent particles that carry the crystal’s heat, scatter its electrons, and — by gluing electrons into Cooper pairs — make conventional superconductivity possible. The phonon is the cleanest example of a quasiparticle on this site: a genuinely collective excitation of $10^{23}$ atoms that you can nonetheless count, scatter, and assign a momentum, just like a free particle.</p>
+<p><strong>Lattice dynamics</strong> is the theory of how the ions of a crystal vibrate about their equilibrium positions. Because the lattice is periodic, the vibrations organize into collective <strong>normal modes</strong> — plane waves of displacement labelled by a wavevector $\mathbf{k}$ and a branch index $j$. Quantizing each mode gives a harmonic oscillator whose excitation quanta, of energy $\hbar\omega_j(\mathbf{k})$, are <strong>phonons</strong>: bosonic quasiparticles that carry most of the heat in insulators, set the low-temperature heat capacity, scatter conduction electrons, and mediate the pairing in conventional superconductors.</p>
 
-<p>This page builds the theory of lattice vibrations from the ground up: from the geometry of the lattice, through the harmonic approximation and its normal modes, to the phonon dispersion relations that determine a solid’s thermal properties, and finally to the electron–phonon coupling that underlies conventional superconductivity. It assumes the crystallography recap on the <a href="./">hub page</a> (Bravais lattices, reciprocal space, Brillouin zones) and expands it where lattice dynamics needs more.</p>
+<p>This page covers the harmonic approximation and the dynamical matrix, the acoustic/optical branch structure, phonon quantization and the density of states, the Einstein and Debye models, polar-crystal effects (LO–TO splitting), anharmonic effects (thermal expansion, thermal conductivity, soft modes), electron–phonon coupling through Eliashberg theory and the hydrides, and how phonon spectra are measured and computed today. It assumes the crystallography on the <a href="./">hub page</a> (Bravais lattices, reciprocal space, Brillouin zones).</p>
 
-<h2 id="bravais-lattices-and-reciprocal-space-recap">Bravais Lattices and Reciprocal Space (Recap)</h2>
+<p>The logical chain of the subject is short:</p>
 
-<p>A <strong>Bravais lattice</strong> is the set of points</p>
+<pre><code class="language-mermaid">flowchart LR
+    U["Crystal potential U(u)"] --&gt;|"2nd derivatives"| FC["Force constants Φ"]
+    FC --&gt;|"mass-weighted Fourier transform"| D["Dynamical matrix D(k)"]
+    D --&gt;|"diagonalize at each k"| W["Dispersion ω_j(k)"]
+    W --&gt; G["Density of states g(ω)"]
+    G --&gt; TH["Heat capacity, free energy"]
+    W --&gt;|"+ cubic terms of U"| AN["Anharmonicity: expansion, κ"]
+    W --&gt;|"+ coupling to electrons"| EP["Resistivity, superconductivity"]
+</code></pre>
 
-\[\mathbf{R} = n_1\mathbf{a}_1 + n_2\mathbf{a}_2 + n_3\mathbf{a}_3, \qquad n_i \in \mathbb{Z},\]
+<h2 id="lattice-and-reciprocal-space-recap">Lattice and Reciprocal Space (Recap)</h2>
 
-<p>generated by three primitive vectors $\mathbf{a}_1, \mathbf{a}_2, \mathbf{a}_3$. Every point looks identical to every other — this discrete translational symmetry is the single fact from which everything below follows. A real crystal is a Bravais lattice decorated with a <strong>basis</strong> of one or more atoms per primitive cell; the basis is what distinguishes, say, diamond (two-atom basis on an FCC lattice) from a monatomic FCC metal.</p>
+<p>A <strong>Bravais lattice</strong> is the set of points $\mathbf{R} = n_1\mathbf{a}_1 + n_2\mathbf{a}_2 + n_3\mathbf{a}_3$ with integer $n_i$. A crystal is a Bravais lattice decorated with a <strong>basis</strong> of $p$ atoms at positions $\boldsymbol{\tau}_s$ ($s = 1,\dots,p$) in each primitive cell. The <strong>reciprocal lattice</strong> vectors $\mathbf{G}$ are defined by $e^{i\mathbf{G}\cdot\mathbf{R}} = 1$ for every $\mathbf{R}$, with primitive vectors</p>
 
-<p>The <strong>reciprocal lattice</strong> is spanned by vectors $\mathbf{b}_i$ defined by</p>
+\[\mathbf{a}_i \cdot \mathbf{b}_j = 2\pi\,\delta_{ij}, \qquad \mathbf{b}_1 = 2\pi\,\frac{\mathbf{a}_2 \times \mathbf{a}_3}{\mathbf{a}_1 \cdot (\mathbf{a}_2 \times \mathbf{a}_3)}\]
 
-\[\mathbf{a}_i \cdot \mathbf{b}_j = 2\pi\,\delta_{ij}, \qquad \mathbf{b}_1 = 2\pi\,\frac{\mathbf{a}_2 \times \mathbf{a}_3}{\mathbf{a}_1 \cdot (\mathbf{a}_2 \times \mathbf{a}_3)},\]
-
-<p>with $\mathbf{b}_2, \mathbf{b}_3$ obtained by cyclic permutation. A reciprocal lattice vector is $\mathbf{G} = m_1\mathbf{b}_1 + m_2\mathbf{b}_2 + m_3\mathbf{b}_3$, and it satisfies $e^{i\mathbf{G}\cdot\mathbf{R}} = 1$ for every direct-lattice $\mathbf{R}$. This is the algebraic engine of lattice dynamics: any function with the periodicity of the lattice — the potential, the charge density, a normal-mode pattern — can be expanded in plane waves $e^{i\mathbf{G}\cdot\mathbf{r}}$ over the reciprocal lattice only.</p>
-
-<p>The <strong>first Brillouin zone (BZ)</strong> is the Wigner–Seitz cell of the reciprocal lattice: the set of wavevectors closer to the origin than to any other reciprocal lattice point. Two consequences drive everything that follows:</p>
+<p>and cyclic permutations. Three consequences matter for vibrations:</p>
 
 <ul>
-  <li><strong>Wavevectors live in the BZ.</strong> A wave $e^{i\mathbf{k}\cdot\mathbf{R}}$ sampled only at lattice points is unchanged by $\mathbf{k} \to \mathbf{k} + \mathbf{G}$, because $e^{i\mathbf{G}\cdot\mathbf{R}} = 1$. So $\mathbf{k}$ and $\mathbf{k}+\mathbf{G}$ describe the <em>same</em> physical mode, and we may restrict $\mathbf{k}$ to one BZ. There is no such thing as a lattice vibration with a wavelength shorter than twice the lattice spacing.</li>
-  <li><strong>Mode counting.</strong> For a crystal of $N$ primitive cells under periodic (Born–von Kármán) boundary conditions, the allowed $\mathbf{k}$ form a uniform mesh of exactly $N$ points filling the BZ. This finite count is what makes thermodynamic sums tractable.</li>
+  <li><strong>Wavevectors live in the first Brillouin zone (BZ).</strong> A displacement wave sampled only at lattice sites is unchanged by $\mathbf{k} \to \mathbf{k} + \mathbf{G}$, so $\mathbf{k}$ and $\mathbf{k}+\mathbf{G}$ label the same mode. In a monatomic chain of spacing $a$ no mode has a wavelength shorter than $2a$.</li>
+  <li><strong>Mode counting.</strong> With $N$ primitive cells and periodic (Born–von Kármán) boundary conditions, the allowed $\mathbf{k}$ form a uniform mesh of exactly $N$ points in the BZ. With $3p$ branches this gives $3pN$ modes — one per degree of freedom.</li>
+  <li><strong>Crystal momentum is conserved only modulo $\mathbf{G}$.</strong> Discrete translation symmetry conserves $\hbar\mathbf{k}$ up to a reciprocal lattice vector. Collisions that transfer a nonzero $\hbar\mathbf{G}$ to the lattice as a whole are <strong>Umklapp</strong> processes; they are what give a perfect insulating crystal a finite thermal resistance (see <a href="#anharmonic-effects">Anharmonic Effects</a>).</li>
 </ul>
 
-<p><strong>Crystal momentum is conserved only modulo G.</strong> Because the lattice breaks continuous translational symmetry down to discrete translations, momentum is not strictly conserved in a crystal — only <em>crystal momentum</em> $\hbar\mathbf{k}$, and only up to a reciprocal lattice vector $\hbar\mathbf{G}$. A scattering process that transfers $\mathbf{G}$ to the lattice as a whole is called an <strong>Umklapp</strong> (“flip-over”) process, and it is precisely these Umklapp events — not ordinary momentum-conserving collisions — that give a perfect insulating crystal a finite thermal resistance.</p>
+<h2 id="the-harmonic-approximation">The Harmonic Approximation</h2>
 
-<h2 id="the-harmonic-crystal">The Harmonic Crystal</h2>
+<p>Let $\mathbf{u}_{\mathbf{R}s}$ be the displacement of the atom of mass $M_s$ at $\mathbf{R} + \boldsymbol{\tau}_s$. Expanding the potential energy about the equilibrium configuration,</p>
 
-<p>Let the equilibrium position of the atom in cell $\mathbf{R}$ on basis site $s$ be $\mathbf{R} + \boldsymbol{\tau}<em>s$, and let $\mathbf{u}</em>{\mathbf{R}s}$ be its small displacement away from equilibrium. The crystal’s potential energy $U$ is some complicated function of all the displacements. The key move is to Taylor-expand $U$ about the equilibrium configuration and <em>keep only the leading nontrivial term</em>:</p>
+\[U = U_0 + \frac{1}{2}\sum_{\mathbf{R}s\alpha}\sum_{\mathbf{R}'s'\beta} \Phi_{\alpha\beta}^{ss'}(\mathbf{R}-\mathbf{R}')\, u_{\mathbf{R}s\alpha}\, u_{\mathbf{R}'s'\beta} + \mathcal{O}(u^3),\]
 
-\[U = U_0 + \frac{1}{2}\sum_{\mathbf{R}s\alpha}\sum_{\mathbf{R}'s'\beta} \Phi_{\alpha\beta}^{ss'}(\mathbf{R}-\mathbf{R}')\, u_{\mathbf{R}s\alpha}\, u_{\mathbf{R}'s'\beta} + \cdots\]
+<p>where the linear term vanishes because equilibrium is a minimum and $\alpha,\beta \in {x,y,z}$. The <strong>force-constant matrix</strong></p>
 
-<p>The linear term vanishes because we expand about a minimum (zero net force at equilibrium). The constant $U_0$ is just the static binding energy. The quadratic term defines the <strong>force-constant matrix</strong></p>
+\[\Phi_{\alpha\beta}^{ss'}(\mathbf{R}-\mathbf{R}') = \left.\frac{\partial^2 U}{\partial u_{\mathbf{R}s\alpha}\,\partial u_{\mathbf{R}'s'\beta}}\right|_{\mathrm{eq}}\]
 
-\[\Phi_{\alpha\beta}^{ss'}(\mathbf{R}-\mathbf{R}') = \left.\frac{\partial^2 U}{\partial u_{\mathbf{R}s\alpha}\,\partial u_{\mathbf{R}'s'\beta}}\right|_{\mathrm{eq}},\]
+<p>depends only on $\mathbf{R}-\mathbf{R}’$ by translation symmetry. Dropping the cubic and higher terms is the <strong>harmonic approximation</strong>; the equations of motion are then linear:</p>
 
-<p>where $\alpha,\beta \in {x,y,z}$. Truncating here is the <strong>harmonic approximation</strong>: every atom feels a restoring force that is <em>linear</em> in the displacements, so the whole crystal is a giant coupled system of harmonic oscillators. The classical equation of motion for each atom is then</p>
+\[M_s\,\ddot{u}_{\mathbf{R}s\alpha} = -\sum_{\mathbf{R}'s'\beta}\Phi_{\alpha\beta}^{ss'}(\mathbf{R}-\mathbf{R}')\,u_{\mathbf{R}'s'\beta}.\]
 
-\[M_s\,\ddot{u}_{\mathbf{R}s\alpha} = -\frac{\partial U}{\partial u_{\mathbf{R}s\alpha}} = -\sum_{\mathbf{R}'s'\beta}\Phi_{\alpha\beta}^{ss'}(\mathbf{R}-\mathbf{R}')\,u_{\mathbf{R}'s'\beta}.\]
-
-<p>The force constants are constrained by the crystal’s symmetry. Translational invariance — moving the whole crystal rigidly costs no energy — forces the <strong>acoustic sum rule</strong></p>
+<p>Symmetry constrains $\Phi$. Rigid translation of the whole crystal costs no energy, which imposes the <strong>acoustic sum rule</strong></p>
 
 \[\sum_{\mathbf{R}'s'}\Phi_{\alpha\beta}^{ss'}(\mathbf{R}-\mathbf{R}') = 0,\]
 
-<p>which we will see guarantees the existence of gapless acoustic phonons. Point-group symmetry further relates different $\Phi$ components, drastically reducing the number of independent constants.</p>
+<p>and guarantees three gapless acoustic branches. Point-group symmetry further reduces the number of independent constants. (Numerically computed force constants violate the sum rule slightly; phonon codes re-impose it, otherwise the acoustic modes acquire small spurious frequencies at $\mathbf{k}=0$.)</p>
 
-<p><strong>Why “harmonic” is a good first approximation — and where it fails.</strong> Near a potential minimum every smooth potential looks parabolic, so the harmonic model is exact in the limit of small amplitude. It captures the existence of well-defined, infinitely long-lived normal modes and gives the correct low-temperature heat capacity. What it <em>cannot</em> capture are effects that require phonons to interact: thermal expansion, finite phonon lifetimes, and the temperature dependence of the thermal conductivity all come from the cubic and higher (<strong>anharmonic</strong>) terms we dropped. A purely harmonic crystal would have infinite thermal conductivity and would never expand on heating.</p>
+<p>The harmonic model is exact in the small-amplitude limit and gives infinitely long-lived normal modes and the correct low-temperature heat capacity. It cannot give thermal expansion, finite phonon lifetimes, or a finite thermal conductivity — all of which require the anharmonic terms.</p>
 
-<h2 id="normal-modes-and-phonon-dispersion">Normal Modes and Phonon Dispersion</h2>
+<h2 id="normal-modes-and-the-dynamical-matrix">Normal Modes and the Dynamical Matrix</h2>
 
-<p>Translational symmetry lets us solve the coupled equations exactly with a plane-wave ansatz. Seek solutions of the form</p>
+<p>Translational symmetry lets the equations be solved with a plane-wave ansatz,</p>
 
 \[u_{\mathbf{R}s\alpha}(t) = \frac{1}{\sqrt{M_s}}\,\epsilon_{s\alpha}\,e^{i(\mathbf{k}\cdot\mathbf{R} - \omega t)},\]
 
-<p>where $\boldsymbol{\epsilon}_s$ is a (mass-weighted) polarization vector to be determined. Substituting into the equation of motion turns the infinite set of coupled differential equations into a single small <strong>eigenvalue problem</strong> at each $\mathbf{k}$:</p>
+<p>which reduces the infinite coupled system to a $3p \times 3p$ Hermitian eigenvalue problem at each $\mathbf{k}$:</p>
 
-\[\omega^2\,\epsilon_{s\alpha} = \sum_{s'\beta} D_{\alpha\beta}^{ss'}(\mathbf{k})\,\epsilon_{s'\beta},\]
+\[\omega^2\,\epsilon_{s\alpha} = \sum_{s'\beta} D_{\alpha\beta}^{ss'}(\mathbf{k})\,\epsilon_{s'\beta}, \qquad D_{\alpha\beta}^{ss'}(\mathbf{k}) = \frac{1}{\sqrt{M_s M_{s'}}}\sum_{\mathbf{R}} \Phi_{\alpha\beta}^{ss'}(\mathbf{R})\,e^{-i\mathbf{k}\cdot\mathbf{R}}.\]
 
-<p>where the <strong>dynamical matrix</strong> is the mass-weighted Fourier transform of the force constants:</p>
+<p>$D(\mathbf{k})$ is the <strong>dynamical matrix</strong>. Its $3p$ eigenvalues $\omega_j^2(\mathbf{k})$ define the <strong>phonon dispersion relations</strong> — the central output of lattice dynamics — and its eigenvectors $\boldsymbol{\epsilon}_j(\mathbf{k})$ give the pattern of atomic motion (longitudinal, transverse, or mixed). A negative eigenvalue $\omega^2 &lt; 0$ signals a <strong>dynamical instability</strong>: the assumed structure is not a minimum and will distort along that eigenvector.</p>
 
-\[D_{\alpha\beta}^{ss'}(\mathbf{k}) = \frac{1}{\sqrt{M_s M_{s'}}}\sum_{\mathbf{R}} \Phi_{\alpha\beta}^{ss'}(\mathbf{R})\,e^{-i\mathbf{k}\cdot\mathbf{R}}.\]
+<h3 id="monatomic-chain">Monatomic chain</h3>
 
-<p>For a crystal with $p$ atoms in the basis, $D(\mathbf{k})$ is a $3p \times 3p$ Hermitian matrix. Diagonalizing it at each $\mathbf{k}$ yields $3p$ eigenvalues $\omega_j^2(\mathbf{k})$ and eigenvectors $\boldsymbol{\epsilon}_j(\mathbf{k})$. The functions $\omega_j(\mathbf{k})$ are the <strong>phonon dispersion relations</strong> — the central output of lattice dynamics — and the index $j = 1,\dots,3p$ labels the <strong>branches</strong>. The eigenvector tells you the pattern of atomic motion: longitudinal (along $\mathbf{k}$), transverse, or some mixture.</p>
+<p>A chain of atoms of mass $M$, spacing $a$, and nearest-neighbour spring constant $C$ obeys</p>
 
-<h3 id="the-monatomic-1d-chain">The monatomic 1D chain</h3>
+\[M\,\ddot{u}_n = C\,(u_{n+1} + u_{n-1} - 2u_n),\]
 
-<p>The smallest nontrivial example fixes intuition. Take a chain of identical atoms of mass $M$, spacing $a$, connected by springs of constant $C$ to nearest neighbours only. The equation of motion for atom $n$ is</p>
+<p>and the ansatz $u_n \propto e^{i(kna - \omega t)}$ gives</p>
 
-\[M\,\ddot{u}_n = C\,(u_{n+1} + u_{n-1} - 2u_n).\]
+\[\omega(k) = 2\sqrt{\frac{C}{M}}\,\left|\sin\frac{ka}{2}\right|.\]
 
-<p>The plane-wave ansatz $u_n = \epsilon\,e^{i(kna - \omega t)}$ gives, after using $e^{ika} + e^{-ika} = 2\cos(ka)$,</p>
-
-\[\omega(k) = 2\sqrt{\frac{C}{M}}\left|\sin\!\left(\frac{ka}{2}\right)\right|.\]
-
-<p>This single curve is the whole dispersion. Note its features, which generalize to every acoustic branch:</p>
+<p>Three features generalize to every acoustic branch:</p>
 
 <ul>
   <li>
     <table>
       <tbody>
         <tr>
-          <td><strong>Gapless and linear at small $k$:</strong> $\omega \approx \sqrt{C/M}\,a\,</td>
+          <td><strong>Linear at small $k$:</strong> $\omega \approx v_s</td>
           <td>k</td>
-          <td>= v_s</td>
-          <td>k</td>
-          <td>$, where $v_s = a\sqrt{C/M}$ is the sound speed. Long-wavelength vibrations are ordinary sound waves. The gaplessness is the acoustic sum rule at work.</td>
+          <td>$ with sound speed $v_s = a\sqrt{C/M}$. Long-wavelength phonons are ordinary sound.</td>
         </tr>
       </tbody>
     </table>
   </li>
-  <li><strong>Zone-boundary flattening:</strong> at $k = \pi/a$ the group velocity $d\omega/dk$ vanishes — the wave is a standing wave (neighbouring atoms exactly out of phase) and carries no energy. This is a van Hove singularity in the density of states.</li>
-  <li><strong>Periodicity:</strong> $\omega(k)$ is periodic in $k \to k + 2\pi/a$, confirming that only the first BZ $(-\pi/a, \pi/a]$ contains distinct modes.</li>
+  <li><strong>Flat at the zone boundary:</strong> at $k = \pi/a$ the group velocity $d\omega/dk$ vanishes; neighbouring atoms move exactly out of phase and the wave is standing. Flat regions produce <strong>van Hove singularities</strong> in the density of states.</li>
+  <li><strong>Periodic in $k$</strong> with period $2\pi/a$, so only $-\pi/a &lt; k \le \pi/a$ is distinct.</li>
 </ul>
 
-<p><strong>From classical wave to quantum phonon.</strong> Each normal mode $(\mathbf{k},j)$ is an independent harmonic oscillator of frequency $\omega_j(\mathbf{k})$. Quantizing it gives energy levels $E_{n} = \hbar\omega_j(\mathbf{k})\,(n + \tfrac{1}{2})$. We reinterpret the integer $n$ as the <strong>number of phonons</strong> in that mode: adding a quantum of energy $\hbar\omega_j(\mathbf{k})$ means creating one phonon of crystal momentum $\hbar\mathbf{k}$. Phonons are <strong>bosons</strong> — a mode can hold any number — so their thermal population follows the Bose–Einstein distribution $\bar{n}_j(\mathbf{k}) = \big[e^{\hbar\omega_j(\mathbf{k})/k_BT} - 1\big]^{-1}$, the fact that powers all the thermodynamics below.</p>
+<h3 id="diatomic-chain-acoustic-and-optical-branches">Diatomic chain: acoustic and optical branches</h3>
 
-<h2 id="acoustic-vs-optical-branches">Acoustic vs. Optical Branches</h2>
-
-<p>When the basis contains more than one atom, the $3p$ branches split into two qualitatively different families. The cleanest illustration is the <strong>diatomic 1D chain</strong>: alternating masses $M_1$ and $M_2$ on a lattice of period $a$, joined by identical springs $C$. There are now two atoms per cell, so $p=2$ and we expect $3p = 6$ branches in 3D, or $2$ branches in this 1D model. Solving the $2\times 2$ dynamical matrix gives</p>
+<p>With alternating masses $M_1 &lt; M_2$, period $a$, and identical springs $C$, there are two atoms per cell and two branches:</p>
 
 \[\omega^2_\pm(k) = C\left(\frac{1}{M_1} + \frac{1}{M_2}\right) \pm C\sqrt{\left(\frac{1}{M_1} + \frac{1}{M_2}\right)^2 - \frac{4\sin^2(ka/2)}{M_1 M_2}}.\]
 
-<p>The two signs give two branches with sharply different character:</p>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Acoustic branch ($\omega_-$)</th>
+      <th>Optical branch ($\omega_+$)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$k \to 0$</td>
+      <td>$\omega \to v_s\lvert k\rvert$ (gapless)</td>
+      <td>$\omega \to \sqrt{2C(1/M_1 + 1/M_2)}$ (finite)</td>
+    </tr>
+    <tr>
+      <td>$k = \pi/a$</td>
+      <td>$\sqrt{2C/M_2}$</td>
+      <td>$\sqrt{2C/M_1}$</td>
+    </tr>
+    <tr>
+      <td>Motion within a cell at small $k$</td>
+      <td>atoms move in phase; the cell translates</td>
+      <td>atoms move against each other; centre of mass fixed</td>
+    </tr>
+    <tr>
+      <td>Couples to light?</td>
+      <td>no</td>
+      <td>yes, if the two atoms carry opposite charge (infrared active)</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Acoustic branch ($\omega_-$).</strong> As $k\to 0$, $\omega_- \to v_s</td>
-          <td>k</td>
-          <td>$ — gapless and linear, exactly like the monatomic chain. Here the two atoms in a cell move <em>in phase</em> (the cell translates as a unit), so this is the long-wavelength sound mode. Every crystal has exactly <strong>3 acoustic branches</strong> (one longitudinal, two transverse), guaranteed gapless by the acoustic sum rule.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li><strong>Optical branch ($\omega_+$).</strong> As $k\to 0$, $\omega_+ \to \sqrt{2C(1/M_1 + 1/M_2)}$ — a <em>finite</em> frequency at zero wavevector. Here the two atoms move <em>out of phase</em> (against each other), so the cell’s centre of mass stays fixed while the bond stretches and compresses. The remaining $3p - 3$ branches are <strong>optical</strong>. In an ionic crystal these out-of-phase motions create an oscillating electric dipole that couples directly to infrared light — hence “optical.”</li>
-</ul>
+<p>The frequency window between $\sqrt{2C/M_2}$ and $\sqrt{2C/M_1}$ contains no modes: waves at those frequencies are evanescent. The gap closes as $M_1 \to M_2$, when the diatomic chain becomes a monatomic chain of spacing $a/2$ and the optical branch is just the acoustic branch folded back into the smaller zone.</p>
 
-<div class="diagram-container" style="background: #fafbfc; border-radius: 8px; padding: 1rem; margin: 1.5rem 0;">
-  <svg viewBox="0 0 460 320" style="max-width: 520px; width: 100%; display: block; margin: 0 auto;">
-    <text x="230" y="22" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Diatomic Chain: Acoustic and Optical Branches</text>
-    <defs>
-      <marker id="ld-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-        <path d="M0,0 L8,4 L0,8 L2,4 Z" fill="#333" />
-      </marker>
-    </defs>
-    <!-- Axes -->
-    <line x1="60" y1="270" x2="420" y2="270" stroke="#333" stroke-width="2" marker-end="url(#ld-arrow)" />
-    <line x1="240" y1="285" x2="240" y2="50" stroke="#333" stroke-width="2" marker-end="url(#ld-arrow)" />
-    <text x="425" y="288" font-size="14" font-weight="bold" fill="#333">k</text>
-    <text x="246" y="48" font-size="14" font-weight="bold" fill="#333">&#969;</text>
-    <!-- BZ boundaries -->
-    <line x1="120" y1="270" x2="120" y2="60" stroke="#95a5a6" stroke-width="1.5" stroke-dasharray="4,2" />
-    <text x="120" y="288" text-anchor="middle" font-size="13" fill="#555">-&#960;/a</text>
-    <line x1="360" y1="270" x2="360" y2="60" stroke="#95a5a6" stroke-width="1.5" stroke-dasharray="4,2" />
-    <text x="360" y="288" text-anchor="middle" font-size="13" fill="#555">+&#960;/a</text>
-    <text x="240" y="288" text-anchor="middle" font-size="13" fill="#555">0</text>
-    <!-- Optical gap reference lines -->
-    <line x1="65" y1="90" x2="415" y2="90" stroke="#ddd" stroke-width="1" stroke-dasharray="2,2" />
-    <line x1="65" y1="130" x2="415" y2="130" stroke="#ddd" stroke-width="1" stroke-dasharray="2,2" />
-    <line x1="65" y1="175" x2="415" y2="175" stroke="#ddd" stroke-width="1" stroke-dasharray="2,2" />
-    <!-- Optical branch (top, finite at k=0) -->
-    <path d="M 120 130 Q 180 95, 240 90 Q 300 95, 360 130" fill="none" stroke="#e74c3c" stroke-width="3.5" />
-    <text x="240" y="80" text-anchor="middle" font-size="14" font-weight="bold" fill="#c0392b">Optical branch</text>
-    <!-- Acoustic branch (bottom, gapless) -->
-    <path d="M 120 175 Q 180 230, 240 270 Q 300 230, 360 175" fill="none" stroke="#3498db" stroke-width="3.5" />
-    <text x="240" y="255" text-anchor="middle" font-size="14" font-weight="bold" fill="#2980b9">Acoustic branch</text>
-    <!-- Optical gap annotation -->
-    <line x1="430" y1="130" x2="430" y2="175" stroke="#27ae60" stroke-width="2" />
-    <line x1="425" y1="130" x2="435" y2="130" stroke="#27ae60" stroke-width="2" />
-    <line x1="425" y1="175" x2="435" y2="175" stroke="#27ae60" stroke-width="2" />
-    <text x="438" y="158" font-size="11" font-weight="bold" fill="#1e8449">gap</text>
-    <!-- Motion cartoons -->
-    <text x="240" y="155" text-anchor="middle" font-size="10" fill="#c0392b" font-style="italic">atoms out of phase</text>
-    <text x="240" y="240" text-anchor="middle" font-size="10" fill="#2980b9" font-style="italic">atoms in phase</text>
-  </svg>
-  <p style="text-align: center; font-size: 0.85rem; color: #777; margin-top: 0.5rem;">A diatomic basis splits the spectrum into a gapless acoustic branch (cells translate together) and a finite-frequency optical branch (atoms within a cell beat against each other).</p>
+<div class="diagram-container" style="margin: 1.5rem 0;">
+<svg viewBox="0 0 480 300" role="img" aria-label="Dispersion of the diatomic chain for M2 = 2 M1: a gapless acoustic branch rising from zero at k = 0 to a maximum at the zone boundary, and an optical branch with a maximum at k = 0 and a minimum at the zone boundary, separated by a frequency gap." style="max-width: 560px; width: 100%; display: block; margin: 0 auto; color: currentColor;">
+  <defs>
+    <marker id="ld-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 L2,4 Z" fill="currentColor" />
+    </marker>
+  </defs>
+  <g fill="none" stroke="currentColor">
+    <line x1="60" y1="250" x2="430" y2="250" stroke-width="1.5" marker-end="url(#ld-arrow)" />
+    <line x1="240" y1="262" x2="240" y2="22" stroke-width="1.5" marker-end="url(#ld-arrow)" />
+    <line x1="70" y1="250" x2="70" y2="30" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" />
+    <line x1="410" y1="250" x2="410" y2="30" stroke-width="1" stroke-dasharray="4,3" opacity="0.5" />
+    <rect x="70" y="80.3" width="340" height="49.7" fill="currentColor" fill-opacity="0.08" stroke="none" />
+    <path d="M70.0,80.3 L78.5,79.8 L87.0,78.3 L95.5,76.1 L104.0,73.5 L112.5,70.5 L121.0,67.5 L129.5,64.4 L138.0,61.4 L146.5,58.5 L155.0,55.8 L163.5,53.3 L172.0,51.1 L180.5,49.0 L189.0,47.2 L197.5,45.7 L206.0,44.4 L214.5,43.4 L223.0,42.7 L231.5,42.3 L240.0,42.2 L248.5,42.3 L257.0,42.7 L265.5,43.4 L274.0,44.4 L282.5,45.7 L291.0,47.2 L299.5,49.0 L308.0,51.1 L316.5,53.3 L325.0,55.8 L333.5,58.5 L342.0,61.4 L350.5,64.4 L359.0,67.5 L367.5,70.5 L376.0,73.5 L384.5,76.1 L393.0,78.3 L401.5,79.8 L410.0,80.3" stroke-width="3" />
+    <path d="M70.0,130.0 L78.5,130.7 L87.0,132.8 L95.5,136.1 L104.0,140.3 L112.5,145.2 L121.0,150.6 L129.5,156.4 L138.0,162.6 L146.5,169.1 L155.0,175.8 L163.5,182.7 L172.0,189.8 L180.5,197.1 L189.0,204.4 L197.5,211.9 L206.0,219.4 L214.5,227.0 L223.0,234.6 L231.5,242.3 L240.0,250.0 L248.5,242.3 L257.0,234.6 L265.5,227.0 L274.0,219.4 L282.5,211.9 L291.0,204.4 L299.5,197.1 L308.0,189.8 L316.5,182.7 L325.0,175.8 L333.5,169.1 L342.0,162.6 L350.5,156.4 L359.0,150.6 L367.5,145.2 L376.0,140.3 L384.5,136.1 L393.0,132.8 L401.5,130.7 L410.0,130.0" stroke-width="3" stroke-dasharray="9,5" />
+  </g>
+  <g fill="currentColor" font-family="sans-serif" font-size="13">
+    <text x="436" y="262">k</text>
+    <text x="248" y="26">&#969;</text>
+    <text x="70" y="270" text-anchor="middle">&#8722;&#960;/a</text>
+    <text x="410" y="270" text-anchor="middle">+&#960;/a</text>
+    <text x="240" y="270" text-anchor="middle">0</text>
+    <text x="300" y="36">optical (&#969;&#8330;)</text>
+    <text x="276" y="226">acoustic (&#969;&#8331;)</text>
+    <text x="96" y="110" font-size="12">band gap</text>
+    <text x="418" y="84" font-size="11">&#8730;(2C/M&#8321;)</text>
+    <text x="418" y="134" font-size="11">&#8730;(2C/M&#8322;)</text>
+  </g>
+</svg>
+<p style="text-align: center; font-size: 0.85rem; margin-top: 0.5rem;">Exact dispersion of the diatomic chain for $M_2 = 2M_1$. The acoustic branch (dashed) is gapless; the optical branch (solid) has finite frequency at $k=0$. The shaded band between the zone-boundary frequencies contains no propagating modes.</p>
 </div>
 
-<p>In general, for $p$ atoms per primitive cell in 3D there are $3p$ branches: <strong>3 acoustic</strong> and <strong>$3p-3$ optical</strong>. Silicon ($p=2$) has 6 branches; a complex oxide with a large unit cell has dozens. The optical branches sit at higher frequency and, when polar, dominate a crystal’s infrared optical response and its dielectric behaviour.</p>
+<h3 id="branch-counting-in-three-dimensions">Branch counting in three dimensions</h3>
 
-<h2 id="the-debye-and-einstein-models">The Debye and Einstein Models</h2>
+<p>For $p$ atoms per primitive cell there are $3p$ branches: <strong>3 acoustic</strong> (one longitudinal, two transverse, all gapless) and <strong>$3p-3$ optical</strong>. Labels such as LA, TA, LO, TO combine the character (acoustic/optical) with the polarization (longitudinal/transverse); away from high-symmetry directions the modes are mixed.</p>
 
-<p>The full dispersion $\omega_j(\mathbf{k})$ is generally known only numerically, but two classic idealizations capture the thermal physics with a single parameter each. Both target the long-standing puzzle that classical equipartition predicts a constant heat capacity (Dulong–Petit, $C_V = 3Nk_B$) while experiments show $C_V \to 0$ as $T \to 0$.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Crystal</th>
+      <th>Basis $p$</th>
+      <th>Branches</th>
+      <th>Acoustic / optical</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Cu, Al (FCC metals)</td>
+      <td>1</td>
+      <td>3</td>
+      <td>3 / 0</td>
+    </tr>
+    <tr>
+      <td>Si, Ge, diamond</td>
+      <td>2</td>
+      <td>6</td>
+      <td>3 / 3</td>
+    </tr>
+    <tr>
+      <td>NaCl, GaAs</td>
+      <td>2</td>
+      <td>6</td>
+      <td>3 / 3 (polar: LO–TO split)</td>
+    </tr>
+    <tr>
+      <td>Graphene</td>
+      <td>2</td>
+      <td>6</td>
+      <td>3 / 3 (including a quadratic out-of-plane ZA branch)</td>
+    </tr>
+    <tr>
+      <td>SrTiO$_3$ (cubic perovskite)</td>
+      <td>5</td>
+      <td>15</td>
+      <td>3 / 12</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="einstein-model-optical-phonons">Einstein model (optical phonons)</h3>
+<h2 id="quantization-phonons">Quantization: Phonons</h2>
 
-<p>Einstein (1907) made the crudest possible assumption: <em>every</em> one of the $3N$ modes has the <strong>same</strong> frequency $\omega_E$. This is a good caricature of a narrow optical branch, where $\omega_j(\mathbf{k})$ is nearly flat across the BZ. The energy of $3N$ identical quantum oscillators gives</p>
+<p>Each normal mode $(\mathbf{k}, j)$ is an independent harmonic oscillator. Introducing bosonic operators $a_{\mathbf{k}j}$, $a^\dagger_{\mathbf{k}j}$ with $[a_{\mathbf{k}j}, a^\dagger_{\mathbf{k}’j’}] = \delta_{\mathbf{k}\mathbf{k}’}\delta_{jj’}$, the displacement field and Hamiltonian are</p>
 
-\[C_V = 3Nk_B\left(\frac{\theta_E}{T}\right)^2 \frac{e^{\theta_E/T}}{\left(e^{\theta_E/T}-1\right)^2}, \qquad \theta_E = \frac{\hbar\omega_E}{k_B}.\]
+\[u_{\mathbf{R}s\alpha} = \sum_{\mathbf{k}j} \sqrt{\frac{\hbar}{2NM_s\,\omega_j(\mathbf{k})}}\;\epsilon^{(j)}_{s\alpha}(\mathbf{k})\,e^{i\mathbf{k}\cdot\mathbf{R}}\left(a_{\mathbf{k}j} + a^\dagger_{-\mathbf{k}j}\right),\]
 
-<p>This was the first model to <em>derive</em> the fall-off of $C_V$ at low $T$ from quantization, a landmark result. But it fails quantitatively at low temperature: it predicts an <strong>exponential</strong> freeze-out $C_V \sim e^{-\theta_E/T}$, because every mode has a finite excitation gap $\hbar\omega_E$. Real solids have gapless acoustic modes, so their heat capacity dies as a power law instead.</p>
+\[H = \sum_{\mathbf{k}j} \hbar\omega_j(\mathbf{k})\left(a^\dagger_{\mathbf{k}j}a_{\mathbf{k}j} + \frac{1}{2}\right).\]
 
-<h3 id="debye-model-acoustic-phonons">Debye model (acoustic phonons)</h3>
+<p>The occupation $n_{\mathbf{k}j}$ is the <strong>number of phonons</strong> in the mode; each carries energy $\hbar\omega_j(\mathbf{k})$ and crystal momentum $\hbar\mathbf{k}$. (Crystal momentum is not true momentum: a phonon with $\mathbf{k} \neq 0$ carries no net mechanical momentum.) Phonon number is not conserved, so the chemical potential is zero and thermal occupation follows the Planck form</p>
 
-<p>Debye (1912) fixed the low-$T$ behaviour by focusing on the gapless acoustic modes. He approximated the three acoustic branches by a single linear dispersion $\omega = v_s k$ extending isotropically, and cut off the $\mathbf{k}$-sum at a <strong>Debye wavevector</strong> $k_D$ chosen so that the sphere of radius $k_D$ contains exactly $3N$ modes:</p>
+\[\bar{n}_j(\mathbf{k}) = \frac{1}{e^{\hbar\omega_j(\mathbf{k})/k_BT} - 1}.\]
 
-\[\frac{V}{(2\pi)^3}\cdot\frac{4}{3}\pi k_D^3 \cdot 3 = 3N \;\Longrightarrow\; k_D = \left(6\pi^2 \frac{N}{V}\right)^{1/3}.\]
-
-<p>This defines the <strong>Debye frequency</strong> $\omega_D = v_s k_D$ and <strong>Debye temperature</strong> $\theta_D = \hbar\omega_D/k_B$ — a single material constant (typically $100$–$2000\,\mathrm{K}$) that sets the scale separating “cold” quantum behaviour from “hot” classical behaviour. The heat capacity becomes</p>
-
-\[C_V = 9Nk_B\left(\frac{T}{\theta_D}\right)^3 \int_0^{\theta_D/T} \frac{x^4 e^x}{(e^x-1)^2}\,dx.\]
-
-<p>The two limits are exactly what experiment demands:</p>
-
-<ul>
-  <li><strong>Low temperature ($T \ll \theta_D$):</strong> the integral saturates to a constant ($\tfrac{4\pi^4}{15}$), giving the famous <strong>Debye $T^3$ law</strong></li>
-</ul>
-
-\[C_V = \frac{12\pi^4}{5}Nk_B\left(\frac{T}{\theta_D}\right)^3.\]
-
-<p>The power law (not exponential) is a direct fingerprint of gapless, linearly dispersing phonons in 3D. In a metal this lattice $T^3$ adds to the electronic $\gamma T$, so plotting $C_V/T$ against $T^2$ gives a straight line whose slope and intercept separate the two contributions.</p>
-
-<ul>
-  <li><strong>High temperature ($T \gg \theta_D$):</strong> every mode is classically excited and $C_V \to 3Nk_B$, recovering Dulong–Petit.</li>
-</ul>
-
-<p><strong>Debye for acoustics, Einstein for optics — use both.</strong> Neither model is “right”; each idealizes one part of the spectrum. The acoustic branches, being gapless, dominate the low-temperature heat capacity and are well described by Debye’s linear dispersion. The optical branches, being high-frequency and flat, are well described by one or more Einstein terms and contribute mainly above their characteristic temperature. A practical fit to a real solid’s $C_V(T)$ often superposes a Debye term for the acoustic modes with one Einstein term per optical branch.</p>
+<p>The zero-point term $\tfrac{1}{2}\hbar\omega$ has measurable consequences: it produces atomic motion at $T = 0$ (visible as a nonzero Debye–Waller factor in diffraction), shifts lattice constants through the isotope dependence of zero-point energy, and in light-atom solids such as helium and hydrogen-rich compounds it is large enough to change which crystal structure is stable.</p>
 
 <h2 id="phonon-density-of-states">Phonon Density of States</h2>
 
-<p>To turn dispersion relations into thermodynamics we need the <strong>phonon density of states (DOS)</strong> $g(\omega)$ — the number of modes per unit frequency interval:</p>
+<p>The <strong>phonon density of states</strong> counts modes per unit frequency,</p>
 
-\[g(\omega) = \sum_j \int_{\mathrm{BZ}} \frac{V\,d^3k}{(2\pi)^3}\,\delta\big(\omega - \omega_j(\mathbf{k})\big),\]
+\[g(\omega) = \sum_j \int_{\mathrm{BZ}} \frac{V\,d^3k}{(2\pi)^3}\,\delta\big(\omega - \omega_j(\mathbf{k})\big), \qquad \int_0^\infty g(\omega)\,d\omega = 3pN.\]
 
-<p>normalized so that $\int_0^\infty g(\omega)\,d\omega = 3N$. Any phonon thermodynamic average becomes a one-dimensional integral over $\omega$ weighted by $g(\omega)$.</p>
-
-<p>The DOS inherits two signature features from the dispersion:</p>
+<p>Any harmonic thermodynamic quantity is a one-dimensional integral over $g(\omega)$. Two features are generic:</p>
 
 <ul>
-  <li><strong>Low-frequency behaviour.</strong> Near $\omega = 0$ the acoustic branches give $g(\omega) \propto \omega^2$ in 3D (the surface area of a sphere of radius $k = \omega/v_s$). This $\omega^2$ density of low-energy modes is the microscopic origin of the Debye $T^3$ law.</li>
-  <li><strong>Van Hove singularities.</strong> Wherever the group velocity $\nabla_{\mathbf{k}}\,\omega_j(\mathbf{k})$ vanishes — at zone boundaries, band edges, and saddle points — the DOS develops a sharp peak or kink. In 3D these appear as square-root cusps; in lower dimensions they diverge. Measured phonon DOS spectra (by inelastic neutron or X-ray scattering) are dominated by these van Hove peaks, which serve as fingerprints of the dispersion.</li>
+  <li><strong>Low-frequency behaviour.</strong> Linear acoustic branches give $g(\omega) \propto \omega^{d-1}$ in $d$ dimensions — $\omega^2$ in 3D — which is the origin of the Debye $T^3$ law.</li>
+  <li><strong>Van Hove singularities.</strong> Wherever $\nabla_{\mathbf{k}}\omega_j = 0$ (zone boundaries, band extrema, saddle points) $g(\omega)$ has a singularity: a square-root kink in 3D, a step or logarithmic divergence in 2D, an inverse-square-root divergence in 1D. Measured phonon DOS spectra are dominated by these features.</li>
 </ul>
 
-<p>Within the two simple models the DOS is explicit:</p>
+<h2 id="heat-capacity">Heat Capacity</h2>
 
-\[g_{\text{Debye}}(\omega) = \frac{9N}{\omega_D^3}\,\omega^2 \;\;(\omega \le \omega_D), \qquad g_{\text{Einstein}}(\omega) = 3N\,\delta(\omega - \omega_E).\]
-
-<p>Debye’s $\omega^2$ ramp captures the acoustic modes; Einstein’s delta function captures a single flat optical branch.</p>
-
-<h2 id="heat-capacity-from-the-full-spectrum">Heat Capacity from the Full Spectrum</h2>
-
-<p>With $g(\omega)$ in hand, the lattice internal energy is a sum over all modes of the average oscillator energy (zero-point plus thermally excited):</p>
+<p>The harmonic internal energy is the sum of zero-point and thermal oscillator energies,</p>
 
 \[U = \int_0^\infty d\omega\, g(\omega)\,\hbar\omega\left(\frac{1}{2} + \frac{1}{e^{\hbar\omega/k_BT}-1}\right),\]
 
-<p>and the heat capacity is its temperature derivative,</p>
+<p>so the heat capacity is</p>
 
-\[C_V = \int_0^\infty d\omega\, g(\omega)\,k_B\left(\frac{\hbar\omega}{k_BT}\right)^2 \frac{e^{\hbar\omega/k_BT}}{\left(e^{\hbar\omega/k_BT}-1\right)^2}.\]
+\[C_V = k_B\int_0^\infty d\omega\, g(\omega)\,\left(\frac{\hbar\omega}{k_BT}\right)^2 \frac{e^{\hbar\omega/k_BT}}{\left(e^{\hbar\omega/k_BT}-1\right)^2}.\]
 
-<p>The bracketed factor is the heat capacity of a single oscillator: it equals $k_B$ when $k_BT \gg \hbar\omega$ (classically excited) and is exponentially small when $k_BT \ll \hbar\omega$ (frozen out). So at temperature $T$ only modes with $\hbar\omega \lesssim k_BT$ contribute — raising $T$ progressively “switches on” higher-frequency modes until, above $\theta_D$, all $3N$ are active and $C_V$ saturates at Dulong–Petit. The Debye and Einstein formulas above are just this master integral evaluated with their respective model DOS.</p>
+<p>The weight function equals 1 when $k_BT \gg \hbar\omega$ and is exponentially small when $k_BT \ll \hbar\omega$: raising $T$ progressively activates higher-frequency modes until all $3pN$ contribute $k_B$ each (<strong>Dulong–Petit</strong>, $C_V = 3pNk_B$). For a monatomic crystal ($p = 1$), the Einstein and Debye models are this integral with two idealized forms of $g(\omega)$:</p>
 
-<p><strong>What heat capacity measures.</strong> The temperature dependence of $C_V$ is a thermometer for the phonon spectrum. The low-$T$ exponent (here $T^3$) reveals the dimensionality and dispersion of the gapless modes; the value of $\theta_D$ extracted from a fit measures the stiffness of the lattice ($\theta_D \propto v_s \propto \sqrt{C/M}$); and any deviation from a single Debye curve flags optical branches or, in a metal, the electronic $\gamma T$ term. Heat capacity was historically the first quantitative evidence that lattice vibrations are quantized.</p>
+\[g_{\text{Einstein}}(\omega) = 3N\,\delta(\omega - \omega_E), \qquad g_{\text{Debye}}(\omega) = \frac{9N}{\omega_D^3}\,\omega^2\;\;(\omega \le \omega_D).\]
+
+<h3 id="einstein-model">Einstein model</h3>
+
+<p>Einstein (1907) assigned every mode the same frequency $\omega_E$, a good caricature of a flat optical branch:</p>
+
+\[C_V = 3Nk_B\left(\frac{\theta_E}{T}\right)^2 \frac{e^{\theta_E/T}}{\left(e^{\theta_E/T}-1\right)^2}, \qquad \theta_E = \frac{\hbar\omega_E}{k_B}.\]
+
+<p>It was the first derivation of the low-temperature fall of $C_V$ from quantization, but it predicts an exponential freeze-out $C_V \sim e^{-\theta_E/T}$, because every mode is gapped. Real solids have gapless acoustic modes and a power-law decrease.</p>
+
+<h3 id="debye-model">Debye model</h3>
+
+<p>Debye (1912) replaced all three acoustic branches by a single linear, isotropic dispersion $\omega = v_s k$, cut off at the radius $k_D$ of a sphere holding $N$ wavevectors:</p>
+
+\[\frac{V}{(2\pi)^3}\cdot\frac{4\pi}{3}k_D^3 = N \;\Longrightarrow\; k_D = \left(6\pi^2 \frac{N}{V}\right)^{1/3}, \qquad \theta_D = \frac{\hbar v_s k_D}{k_B}.\]
+
+<p>The heat capacity is</p>
+
+\[C_V = 9Nk_B\left(\frac{T}{\theta_D}\right)^3 \int_0^{\theta_D/T} \frac{x^4 e^x}{(e^x-1)^2}\,dx,\]
+
+<p>with limits</p>
+
+\[C_V \xrightarrow{T \ll \theta_D} \frac{12\pi^4}{5}Nk_B\left(\frac{T}{\theta_D}\right)^3, \qquad C_V \xrightarrow{T \gg \theta_D} 3Nk_B.\]
+
+<p>The $T^3$ law holds in practice only below roughly $\theta_D/50$, where just the linear part of the acoustic branches is populated. In a metal it adds to the electronic Sommerfeld term, $C = \gamma T + \beta T^3$, so a plot of $C/T$ against $T^2$ is a straight line with intercept $\gamma$ and slope $\beta$ (see <a href="metals-and-magnetism.html">Metals &amp; Magnetism</a>).</p>
+
+<p>Representative Debye temperatures (low-temperature values, Kittel):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Material</th>
+      <th>$\theta_D$ (K)</th>
+      <th>Comment</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pb</td>
+      <td>105</td>
+      <td>heavy, soft; classical at room temperature</td>
+    </tr>
+    <tr>
+      <td>Na</td>
+      <td>158</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Cu</td>
+      <td>343</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Al</td>
+      <td>428</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Fe</td>
+      <td>470</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Si</td>
+      <td>645</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Diamond</td>
+      <td>2230</td>
+      <td>light, stiff bonds; strongly quantum at room temperature</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Because $\theta_D \propto v_s \propto \sqrt{C/M}$, it measures lattice stiffness per unit mass. Neither model is exact: a practical fit to a measured $C_V(T)$ superposes a Debye term for the acoustic modes and Einstein terms for flat optical branches, and a temperature-dependent “effective $\theta_D(T)$” is a common way of displaying how a real $g(\omega)$ departs from the Debye form. In glasses, an excess of low-frequency modes over the Debye $\omega^2$ law (the <strong>boson peak</strong>) appears as a bump in $C/T^3$.</p>
+
+<h2 id="polar-crystals-loto-splitting">Polar Crystals: LO–TO Splitting</h2>
+
+<p>In an ionic crystal a long-wavelength longitudinal optical (LO) mode sets up a macroscopic polarization and hence an electric field that stiffens it; the transverse optical (TO) mode produces no such field. The two therefore split at $\mathbf{k} \to 0$, and the splitting is fixed by the dielectric constants through the <strong>Lyddane–Sachs–Teller relation</strong></p>
+
+\[\frac{\omega_{LO}^2}{\omega_{TO}^2} = \frac{\varepsilon(0)}{\varepsilon(\infty)}.\]
+
+<p>The lattice contribution to the dielectric function is</p>
+
+\[\varepsilon(\omega) = \varepsilon(\infty)\,\frac{\omega_{LO}^2 - \omega^2}{\omega_{TO}^2 - \omega^2}.\]
+
+<p>Between $\omega_{TO}$ and $\omega_{LO}$, $\varepsilon(\omega) &lt; 0$: light cannot propagate and is almost totally reflected (the <strong>Reststrahlen band</strong>). Photons and TO phonons hybridize into <strong>phonon polaritons</strong>, which in thin polar crystals such as hexagonal boron nitride are used to confine infrared light far below the diffraction limit. In first-principles calculations the LO–TO splitting requires a non-analytic correction built from the Born effective charges and $\varepsilon(\infty)$.</p>
+
+<p>A <strong>soft mode</strong> — a TO frequency that falls toward zero as temperature is lowered — drives $\varepsilon(0)$ to diverge through the LST relation. This is the Cochran mechanism of displacive ferroelectricity (see <a href="#soft-modes-and-structural-transitions">Soft modes</a>).</p>
+
+<h2 id="anharmonic-effects">Anharmonic Effects</h2>
+
+<p>The cubic and quartic terms dropped in the harmonic approximation let phonons interact. Three observable consequences follow.</p>
+
+<h3 id="thermal-expansion-and-the-grüneisen-parameter">Thermal expansion and the Grüneisen parameter</h3>
+
+<p>In the <strong>quasi-harmonic approximation</strong> the phonon frequencies are taken to depend on volume. The dependence is summarized by the mode <strong>Grüneisen parameters</strong></p>
+
+\[\gamma_j(\mathbf{k}) = -\frac{\partial \ln \omega_j(\mathbf{k})}{\partial \ln V},\]
+
+<p>and the volumetric thermal expansion coefficient is</p>
+
+\[\alpha_V = \frac{\gamma\, C_V}{B\,V},\]
+
+<p>where $B$ is the bulk modulus and $\gamma$ the heat-capacity-weighted average of the $\gamma_j$ (typically 1–3). A strictly harmonic crystal has $\gamma = 0$ and does not expand. Negative mode Grüneisen parameters, usually on low-frequency transverse “rocking” modes of open framework structures such as ZrW$_2$O$_8$, produce <strong>negative thermal expansion</strong>.</p>
+
+<h3 id="phononphonon-scattering-and-thermal-conductivity">Phonon–phonon scattering and thermal conductivity</h3>
+
+<p>Kinetic theory gives the lattice thermal conductivity as a sum over modes,</p>
+
+\[\kappa = \frac{1}{3}\sum_{\mathbf{k}j} c_{\mathbf{k}j}\, v_{\mathbf{k}j}^2\, \tau_{\mathbf{k}j} \approx \frac{1}{3}\,C\,\bar{v}\,\ell,\]
+
+<p>with mode heat capacity $c$, group velocity $v$, lifetime $\tau$, and mean free path $\ell = v\tau$. The cubic anharmonicity allows <strong>three-phonon processes</strong> $\mathbf{k}_1 + \mathbf{k}_2 = \mathbf{k}_3 + \mathbf{G}$. Normal ($\mathbf{G}=0$) processes conserve total crystal momentum and so cannot relax a heat current on their own; only <strong>Umklapp</strong> processes ($\mathbf{G} \neq 0$), which require phonons with wavevector of order half the zone, degrade it. The competition of scattering mechanisms gives the characteristic curve of a pure insulating crystal:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Temperature range</th>
+      <th>Dominant scattering</th>
+      <th>$\kappa(T)$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$T \ll \theta_D$ (lowest)</td>
+      <td>sample boundaries; $\ell$ = sample size</td>
+      <td>$\propto T^3$ (follows $C$)</td>
+    </tr>
+    <tr>
+      <td>intermediate</td>
+      <td>point defects, isotopes; Umklapp freezing out</td>
+      <td>peak; Umklapp rate $\propto e^{-\theta_D/bT}$, $b \approx 2$</td>
+    </tr>
+    <tr>
+      <td>$T \gtrsim \theta_D$</td>
+      <td>Umklapp</td>
+      <td>$\propto 1/T$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Materials with light atoms, stiff bonds and weak anharmonicity conduct heat best: diamond (around 2000 W m$^{-1}$ K$^{-1}$ at room temperature), and cubic boron arsenide, whose unusual phonon band structure suppresses three-phonon scattering and gives values above 1000 W m$^{-1}$ K$^{-1}$. At the other extreme, strongly anharmonic compounds such as SnSe are studied as thermoelectrics precisely because their $\kappa$ is low. Modern first-principles work solves the phonon Boltzmann transport equation with computed third- (and increasingly fourth-) order force constants; four-phonon scattering turns out to be significant in many materials at high temperature.</p>
+
+<p>In very pure crystals at low temperature, where Normal processes dominate but Umklapp and boundary scattering are rare, heat can propagate collectively as a temperature wave — <strong>second sound</strong> — and flow in a viscous, <strong>hydrodynamic</strong> regime. Once seen only in solid helium and a few crystals near 10 K, it has been observed in graphite at considerably higher temperatures.</p>
+
+<h3 id="soft-modes-and-structural-transitions">Soft modes and structural transitions</h3>
+
+<p>If an anharmonic crystal is stable only because thermal fluctuations stabilize a mode that would be unstable in the harmonic approximation, that mode’s frequency softens as $T$ falls, typically as $\omega^2 \propto (T - T_c)$ in Landau theory, and the structure distorts along its eigenvector at $T_c$. A zone-centre polar soft mode gives a ferroelectric (as in PbTiO$_3$); a zone-boundary soft mode multiplies the unit cell, as in the antiferrodistortive octahedral-rotation transition of SrTiO$_3$ near 105 K. SrTiO$_3$’s polar mode also softens but never condenses — zero-point fluctuations keep it paraelectric down to $T = 0$ (a <strong>quantum paraelectric</strong>).</p>
 
 <h2 id="electronphonon-coupling">Electron–Phonon Coupling</h2>
 
-<p>So far the lattice has vibrated in isolation. But the same ionic displacements that constitute a phonon also shift the periodic potential that the conduction electrons feel — so electrons and phonons are inevitably coupled. When an ion moves by $\mathbf{u}_{\mathbf{R}s}$, the crystal potential changes, and to linear order this gives an interaction in which an electron can <strong>absorb or emit a phonon</strong>, scattering from Bloch state $\mathbf{k}$ to $\mathbf{k}’$ while the lattice gains or loses crystal momentum $\hbar\mathbf{q} = \hbar(\mathbf{k}’-\mathbf{k})$ (modulo $\mathbf{G}$):</p>
+<p>The ionic displacements that make up a phonon also modulate the potential felt by the electrons. To linear order in $u$ this gives the Fröhlich-type interaction</p>
 
-\[H_{\text{el-ph}} = \sum_{\mathbf{k},\mathbf{q},j} g_{\mathbf{q}j}\,c^\dagger_{\mathbf{k}+\mathbf{q}}\,c_{\mathbf{k}}\left(a_{\mathbf{q}j} + a^\dagger_{-\mathbf{q}j}\right),\]
+\[H_{\text{el-ph}} = \frac{1}{\sqrt{N}}\sum_{\mathbf{k},\mathbf{q},j} g_{j}(\mathbf{k},\mathbf{q})\,c^\dagger_{\mathbf{k}+\mathbf{q}}\,c_{\mathbf{k}}\left(a_{\mathbf{q}j} + a^\dagger_{-\mathbf{q}j}\right),\]
 
-<p>where $c^\dagger, c$ create/annihilate electrons, $a^\dagger, a$ create/annihilate phonons, and $g_{\mathbf{q}j}$ is the <strong>electron–phonon coupling matrix element</strong>. This single interaction controls a remarkable range of observable physics:</p>
+<p>in which an electron scatters from $\mathbf{k}$ to $\mathbf{k}+\mathbf{q}$ by absorbing a phonon $\mathbf{q}$ or emitting one with $-\mathbf{q}$ (crystal momentum conserved modulo $\mathbf{G}$). The matrix element $g$ contains the factor $\sqrt{\hbar/2M\omega}$ from the displacement field.</p>
 
-<ul>
-  <li><strong>Electrical resistivity of metals.</strong> Phonons are the dominant scatterers of conduction electrons at ordinary temperatures. The number of available phonons grows with $T$, so the resistivity rises — linearly at high $T$ ($\rho \propto T$, since the phonon population $\bar{n} \propto T$) and as the <strong>Bloch–Grüneisen</strong> $\rho \propto T^5$ at low $T$, where both the phonon number and the small-angle scattering geometry suppress momentum relaxation.</li>
-  <li><strong>Indirect optical transitions.</strong> In an indirect-gap semiconductor like silicon, the band extrema sit at different $\mathbf{k}$, so a photon (which carries negligible momentum) cannot bridge the gap alone. A phonon must supply the momentum difference, making silicon a poor light emitter — a direct consequence of electron–phonon coupling.</li>
-  <li><strong>Temperature-dependent band structure.</strong> Electron–phonon interaction renormalizes electron energies and lifetimes (the “kinks” seen in ARPES near $E_F$) and shifts band gaps with temperature.</li>
-  <li><strong>Polarons.</strong> A strongly coupled electron drags a cloud of lattice distortion with it, forming a heavier composite quasiparticle — the polaron — with an enhanced effective mass.</li>
-</ul>
+<pre><code class="language-mermaid">flowchart TB
+    EP["Electron–phonon coupling g"] --&gt; R["Resistivity of metals&lt;br/&gt;ρ ∝ T (high T), T⁵ (low T)"]
+    EP --&gt; K["Kohn anomalies&lt;br/&gt;phonon dips at q = 2k_F"]
+    EP --&gt; I["Indirect optical transitions&lt;br/&gt;(Si, Ge)"]
+    EP --&gt; P["Polarons and band renormalization&lt;br/&gt;(mass enhancement, ARPES kinks, gap shifts)"]
+    EP --&gt; SC["Effective electron–electron attraction&lt;br/&gt;→ conventional superconductivity"]
+</code></pre>
 
-<h3 id="role-in-superconductivity">Role in superconductivity</h3>
-
-<p>The deepest consequence of electron–phonon coupling is <strong>conventional (BCS) superconductivity</strong>. An electron moving through the lattice attracts the positive ions, leaving a transient region of excess positive charge in its wake. A second electron is drawn to this region — so the lattice mediates an <strong>effective attraction between electrons</strong>. Because the ions respond slowly (on the phonon timescale $1/\omega_D \sim 10^{-13}\,\mathrm{s}$) compared to the fast electrons, the attraction is <em>retarded</em>: the second electron arrives long after the first has passed, which lets the attraction overcome the screened Coulomb repulsion.</p>
-
-<p>This phonon-mediated attraction binds electrons of opposite momentum and spin into <strong>Cooper pairs</strong>, the bosonic objects that condense into the superconducting ground state. Within BCS theory the critical temperature reflects the coupling strength and the relevant phonon energy scale:</p>
-
-\[k_B T_c \approx 1.13\,\hbar\omega_D\,e^{-1/N(E_F)V},\]
-
-<p>where $N(E_F)$ is the electronic DOS at the Fermi level and $V$ measures the (phonon-derived) pairing interaction. Two predictions of this expression are experimental cornerstones:</p>
+<h3 id="normal-state-consequences">Normal-state consequences</h3>
 
 <ul>
-  <li><strong>Isotope effect.</strong> Since $\omega_D \propto M^{-1/2}$, the prefactor predicts $T_c \propto M^{-1/2}$ — heavier isotopes superconduct at lower temperature. Measuring $T_c$ across isotopes of mercury and tin confirmed that <em>phonons</em> are the glue, a decisive clue that led to BCS theory.</li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Coupling-strength control.</strong> $T_c$ rises with both $N(E_F)$ and the coupling $\lambda \sim N(E_F)\,</td>
-          <td>g</td>
-          <td>^2/\omega$. The search for high $T_c$ in phonon-mediated superconductors is largely a search for materials with strong, high-frequency phonons — culminating in the hydrogen-rich hydrides (e.g. $\mathrm{H_3S}$, $\mathrm{LaH_{10}}$) where light hydrogen atoms give enormous $\omega_D$ and near-room-temperature $T_c$ under pressure.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
+  <li><strong>Resistivity.</strong> Phonon scattering dominates metallic resistivity at ordinary temperatures. The <strong>Bloch–Grüneisen formula</strong> for the phonon part is</li>
 </ul>
 
-<p><strong>Phonons: heat carriers and superconducting glue, all at once.</strong> The same vibrations that carry a crystal’s heat and scatter its electrons (creating resistance) can, at low temperature, mediate the attraction that <em>eliminates</em> resistance entirely. There is no contradiction: above $T_c$ phonons relax electron momentum and cause resistivity; below $T_c$ the retarded phonon-mediated attraction binds electrons into a coherent condensate that flows without dissipation. Phonons are simultaneously the villain of normal-state transport and the hero of conventional superconductivity.</p>
+\[\rho_{\text{ph}}(T) = A\left(\frac{T}{\Theta_R}\right)^5 \int_0^{\Theta_R/T} \frac{x^5}{(e^x - 1)(1 - e^{-x})}\,dx,\]
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p>with $\Theta_R$ close to $\theta_D$. It is linear in $T$ for $T \gtrsim \Theta_R/5$ (phonon population $\propto T$) and $\propto T^5$ at low $T$, where there are few phonons and each changes the electron direction only by a small angle. The high-temperature slope measures the transport coupling constant $\lambda_{tr}$.</p>
+<ul>
+  <li><strong>Kohn anomalies.</strong> Electrons screen the ionic motion; because the screening response is non-analytic at $q = 2k_F$ (see <a href="metals-and-magnetism.html#screening">screening</a>), phonon branches show kinks or dips at wavevectors that span the Fermi surface. In low dimensions the dip can go to zero frequency, producing a <strong>Peierls</strong> or charge-density-wave transition.</li>
+  <li><strong>Indirect gaps.</strong> In silicon the conduction-band minimum and valence-band maximum lie at different $\mathbf{k}$, so absorption and emission across the gap require a phonon to supply the momentum. This is why silicon is a poor light emitter.</li>
+  <li><strong>Renormalization and polarons.</strong> Coupling enhances the electron effective mass by $(1 + \lambda)$ near $E_F$, produces kinks in ARPES dispersions at phonon energies, and shifts band gaps with temperature (including a zero-point renormalization at $T = 0$ that can reach tenths of an eV in light-atom materials). A strongly coupled carrier dragging its own lattice distortion is a <strong>polaron</strong>.</li>
+</ul>
+
+<h3 id="phonon-mediated-superconductivity">Phonon-mediated superconductivity</h3>
+
+<p>An electron passing through the lattice attracts the positive ions; because the ions respond on the slow timescale $1/\omega_D \sim 10^{-13}$ s, the resulting positive-charge wake persists after the electron has gone, and attracts a second electron. This <strong>retarded</strong> attraction can exceed the screened Coulomb repulsion for electrons within $\sim\hbar\omega_D$ of the Fermi surface, and binds them into Cooper pairs (the full theory is on <a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a>). In weak-coupling BCS theory</p>
+
+\[k_B T_c \approx 1.13\,\hbar\omega_D\,e^{-1/N(0)V},\]
+
+<p>with $N(0)$ the density of states per spin at $E_F$ and $V$ the pairing interaction.</p>
+
+<p>Quantitative work uses <strong>Migdal–Eliashberg theory</strong>, justified because the phonon energy is small compared with the Fermi energy ($\hbar\omega_D/E_F \sim 10^{-2}$). The coupling is encoded in the <strong>Eliashberg spectral function</strong> $\alpha^2F(\omega)$ — the phonon DOS weighted by the Fermi-surface-averaged coupling — from which</p>
+
+\[\lambda = 2\int_0^\infty \frac{\alpha^2F(\omega)}{\omega}\,d\omega, \qquad \ln\omega_{\log} = \frac{2}{\lambda}\int_0^\infty \frac{\alpha^2F(\omega)}{\omega}\ln\omega\,d\omega.\]
+
+<p>The <strong>Allen–Dynes (modified McMillan) formula</strong> then estimates</p>
+
+\[T_c = \frac{\omega_{\log}}{1.2}\exp\!\left[-\frac{1.04\,(1+\lambda)}{\lambda - \mu^*(1 + 0.62\lambda)}\right],\]
+
+<p>where $\mu^* \approx 0.1$–$0.15$ is the retarded Coulomb pseudopotential and $\omega_{\log}$ is expressed in kelvin. Density-functional perturbation theory can now compute $\alpha^2F(\omega)$ from first principles, making conventional $T_c$ one of the few superconducting properties that is genuinely predictable.</p>
+
+<p>Two consequences are experimental landmarks:</p>
 
 <ul>
-  <li><strong>Vibrations are quantized.</strong> A crystal’s normal modes, quantized, become phonons — bosonic quasiparticles with crystal momentum $\hbar\mathbf{k}$ and energy $\hbar\omega_j(\mathbf{k})$.</li>
-  <li><strong>The dynamical matrix gives the dispersion.</strong> Diagonalizing the $3p\times 3p$ dynamical matrix at each $\mathbf{k}$ yields the $3p$ phonon branches of the spectrum.</li>
-  <li><strong>Acoustic vs. optical.</strong> Three gapless acoustic branches (sound) plus $3p-3$ finite-frequency optical branches (atoms beating within a cell).</li>
-  <li><strong>Heat capacity probes the spectrum.</strong> The Debye $T^3$ law at low $T$ and Dulong–Petit at high $T$ both follow from counting thermally excited phonon modes.</li>
-  <li><strong>Electrons feel the lattice.</strong> Electron–phonon coupling sets the temperature-dependent resistivity of metals and enables indirect optical transitions.</li>
-  <li><strong>Phonons glue Cooper pairs.</strong> The retarded, phonon-mediated attraction binds electrons into Cooper pairs — the microscopic origin of BCS superconductivity.</li>
+  <li><strong>Isotope effect.</strong> Since $\omega_D \propto M^{-1/2}$, $T_c \propto M^{-\alpha}$ with $\alpha \approx 1/2$. Its discovery in mercury (1950) identified the lattice as the pairing glue. Deviations from $\alpha = 1/2$ (Coulomb effects, anharmonicity) are informative.</li>
+  <li><strong>Light atoms and strong coupling give high $T_c$.</strong> MgB$<em>2$ (39 K, discovered 2001) holds the ambient-pressure record for a conventional superconductor, driven by strongly coupled boron in-plane stretching modes. Hydrogen, the lightest atom, gives very high phonon frequencies: compressed H$_3$S superconducts at about 203 K near 150 GPa (2015) and LaH$</em>{10}$ at about 250 K near 150–170 GPa (2019), both predicted by first-principles calculations before or alongside the experiments.</li>
 </ul>
+
+<p>Claims of room-temperature superconductivity in hydrides need care: two high-profile reports — carbonaceous sulfur hydride (2020) and nitrogen-doped lutetium hydride (2023) — were retracted. The current research direction is ternary hydrides that might retain high $T_c$ at lower pressure, guided by high-throughput Eliashberg calculations.</p>
+
+<p>Phonons are thus both the main source of resistance in the normal state and the source of its disappearance below $T_c$: above $T_c$ they relax electron momentum; below it the same coupling binds electrons into a coherent condensate.</p>
+
+<h2 id="measuring-and-computing-phonons">Measuring and Computing Phonons</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>What it measures</th>
+      <th>Range / notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Inelastic neutron scattering (triple-axis, time-of-flight)</td>
+      <td>$\omega_j(\mathbf{q})$ across the whole BZ, phonon DOS, linewidths</td>
+      <td>the reference technique; needs large crystals</td>
+    </tr>
+    <tr>
+      <td>Inelastic X-ray scattering (meV resolution)</td>
+      <td>dispersion in small samples, under pressure</td>
+      <td>synchrotron; complements neutrons</td>
+    </tr>
+    <tr>
+      <td>Raman scattering</td>
+      <td>zone-centre Raman-active optical modes</td>
+      <td>fast, table-top; symmetry-selective; linewidths give anharmonic lifetimes</td>
+    </tr>
+    <tr>
+      <td>Infrared / THz spectroscopy</td>
+      <td>zone-centre IR-active (polar) modes, $\omega_{TO}$, $\omega_{LO}$</td>
+      <td>Reststrahlen reflectivity</td>
+    </tr>
+    <tr>
+      <td>Heat capacity, thermal conductivity</td>
+      <td>integrals over $g(\omega)$ and lifetimes</td>
+      <td>indirect but cheap</td>
+    </tr>
+    <tr>
+      <td>Ultrafast (pump–probe, time-resolved diffraction)</td>
+      <td>coherent phonons, electron–phonon energy transfer</td>
+      <td>femtosecond time resolution</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Probe details are on <a href="experimental-techniques.html">Experimental Techniques</a>.</p>
+
+<p>Computationally, force constants come from <strong>density-functional perturbation theory</strong> (linear response, e.g. in Quantum ESPRESSO or ABINIT) or from <strong>finite displacements in supercells</strong> (e.g. Phonopy driving any DFT code). Anharmonic force constants for thermal-conductivity calculations are obtained the same way at third and fourth order, and strongly anharmonic or dynamically stabilized structures are handled by temperature-dependent effective-potential or self-consistent-phonon methods. Increasingly, <strong>machine-learned interatomic potentials</strong> trained on DFT data are used to obtain phonons, lifetimes and thermal conductivity at a small fraction of the cost, which has made high-throughput phonon databases practical.</p>
+
+<p>A further recent theme is <strong>phonon angular momentum</strong>: in crystals lacking inversion or time-reversal symmetry, phonons can be circularly polarized (<strong>chiral phonons</strong>) and carry angular momentum, observed for example by circularly polarized resonant X-ray scattering in quartz (2023). They contribute to the phonon (thermal) Hall effect and to angular-momentum transfer in ultrafast demagnetization.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, reciprocal space, band theory, and magnetism.</li>
-  <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — how Cooper pairs and BCS theory build the superconducting state.</li>
-  <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — second quantization, Green’s functions, and the inelastic-scattering probes that map phonon dispersions.</li>
-  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — Bose–Einstein statistics and the thermodynamics behind phonon heat capacity.</li>
+  <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, reciprocal space, band theory.</li>
+  <li><a href="metals-and-magnetism.html">Metals &amp; Magnetism</a> — the electronic heat capacity, resistivity, screening, and magnons (the magnetic analogue of phonons).</li>
+  <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — BCS theory and the superconducting state.</li>
+  <li><a href="experimental-techniques.html">Experimental Techniques</a> — neutron, X-ray, Raman and infrared probes of phonons.</li>
+  <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — second quantization, Green’s functions, and DFT for solids.</li>
+  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — Bose–Einstein statistics and the thermodynamics of oscillators.</li>
   <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the harmonic oscillator whose quanta are phonons.</li>
-  <li><a href="../thermodynamics.html">Thermodynamics</a> — heat capacity, thermal expansion, and the macroscopic thermal behaviour of solids.</li>
-  <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
+  <li><a href="../thermodynamics.html">Thermodynamics</a> — heat capacity and thermal expansion at the macroscopic level.</li>
 </ul>
 
       </section>

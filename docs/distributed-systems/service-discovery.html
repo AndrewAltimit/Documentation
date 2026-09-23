@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How services find healthy instances of each other (registries, DNS, APIs, xDS, Kubernetes) and how configuration changes reach a running fleet without a rede...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Distributed Systems: Service Discovery & Configuration">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How services find healthy instances of each other (registries, DNS, APIs, xDS, Kubernetes) and how configuration changes reach a running fleet without a rede...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/distributed-systems/service-discovery.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Distributed Systems: Service Discovery & Configuration">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How services find healthy instances of each other (registries, DNS, APIs, xDS, Kubernetes) and how configuration changes reach a running fleet without a rede...">
 
 <title>Distributed Systems: Service Discovery & Configuration | Andrews Notebook</title>
 
@@ -3133,414 +3133,603 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Distributed Systems</a> » Service Discovery &amp; Configuration</p>
 
-<p>How services find each other, stay healthy, and absorb configuration changes without a redeploy.</p>
+<p><strong>Service discovery</strong> is how a caller turns a logical service name such as <code class="language-plaintext highlighter-rouge">payments</code> into the network address of a healthy instance, in a fleet where instances start, stop, and move all the time. <strong>Dynamic configuration</strong> is the closely related problem of changing how running instances behave (timeouts, feature flags, rate limits) without redeploying them. This page covers the service registry, client-side and server-side discovery, DNS versus API-based lookup, the xDS protocol used by service meshes, registration and health checking, load-balancing choices, and how to propagate configuration changes safely.</p>
 
-<h2 id="why-service-discovery-exists">Why Service Discovery Exists</h2>
+<h2 id="the-problem">The Problem</h2>
 
-<p>In a monolith, calling another component is a function call — the callee’s address is its memory location, resolved by the linker. In a distributed system, the “callee” is a <em>fleet</em> of process instances scattered across hosts, each with an ephemeral IP and port, each able to crash, scale, or migrate at any moment. The fundamental question becomes: <strong>given the logical name of a service, how does a caller obtain a current, healthy network address for an instance of it?</strong></p>
-
-<p>Hard-coding addresses fails immediately because the address set is <em>dynamic</em>:</p>
+<p>Inside one process, calling another component is a function call. In a distributed system, the callee is a set of processes on different hosts, each with its own IP address and port, and that set keeps changing:</p>
 
 <ul>
-  <li><strong>Autoscaling</strong> adds and removes instances minute-to-minute.</li>
-  <li><strong>Schedulers</strong> (Kubernetes, Nomad) move containers between hosts, changing IPs.</li>
-  <li><strong>Failures</strong> make a previously-good address a black hole until it is removed.</li>
-  <li><strong>Deployments</strong> roll instances of a new version in while draining the old.</li>
+  <li><strong>Autoscaling</strong> adds and removes instances from minute to minute.</li>
+  <li><strong>Schedulers</strong> such as Kubernetes and Nomad reschedule containers onto other hosts, giving them new IP addresses.</li>
+  <li><strong>Failures</strong> turn a working address into one that drops or refuses traffic until someone removes it.</li>
+  <li><strong>Deployments</strong> add instances running the new version and drain the old ones.</li>
 </ul>
 
-<p>Service discovery is the indirection layer that decouples a <em>logical service identity</em> (<code class="language-plaintext highlighter-rouge">payments</code>) from its <em>current physical locations</em> (<code class="language-plaintext highlighter-rouge">10.4.2.7:8080</code>, <code class="language-plaintext highlighter-rouge">10.4.5.1:8080</code>, …). It rests on three moving parts that recur in every implementation:</p>
+<p>Hard-coded addresses therefore go stale almost immediately. Service discovery adds a level of indirection between a stable <strong>logical identity</strong> (<code class="language-plaintext highlighter-rouge">payments</code>) and its current <strong>locations</strong> (<code class="language-plaintext highlighter-rouge">10.4.2.7:8080</code>, <code class="language-plaintext highlighter-rouge">10.4.5.1:8080</code>, and so on). Every implementation does the same four things:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    subgraph Lifecycle
-        Reg["1 Registration&lt;br/&gt;instance announces itself"] --&gt; Health["2 Health checking&lt;br/&gt;registry prunes dead instances"]
-        Health --&gt; Disc["3 Discovery&lt;br/&gt;caller resolves name to address"]
-        Disc --&gt; LB["4 Load balancing&lt;br/&gt;caller picks one instance"]
-    end
-    LB -.-&gt;|instance dies| Health
+    Reg["1. Registration&lt;br/&gt;instance is added&lt;br/&gt;to the registry"] --&gt; Health["2. Health checking&lt;br/&gt;dead or unready&lt;br/&gt;instances are removed"]
+    Health --&gt; Disc["3. Discovery&lt;br/&gt;caller resolves the&lt;br/&gt;name to instances"]
+    Disc --&gt; LB["4. Load balancing&lt;br/&gt;one instance is&lt;br/&gt;chosen per request"]
+    LB -.-&gt;|instance fails| Health
 </code></pre>
 
-<p>A <strong>service registry</strong> is the authoritative database mapping service names to the set of currently-registered instances, their addresses, health status, and metadata. Everything below is a different answer to <em>who reads the registry</em> and <em>who keeps it accurate</em>.</p>
+<p>The <strong>service registry</strong> is the authoritative mapping from service name to the current set of instances, with their addresses, health, and metadata such as zone, version, and weight. The designs below differ in who keeps the registry accurate and who reads it.</p>
 
 <h2 id="client-side-vs-server-side-discovery">Client-Side vs Server-Side Discovery</h2>
 
-<p>The first architectural fork is <strong>where the lookup-and-choose logic lives</strong>. This single decision shapes latency, operational surface, and how language-agnostic your platform is.</p>
+<p>The first design decision is where the lookup and instance-selection logic runs.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    subgraph "Client-side discovery"
-        C1["Client&lt;br/&gt;(discovery-aware library)"] --&gt;|query| R1[("Registry")]
-        R1 --&gt;|instance list| C1
-        C1 --&gt;|direct call to chosen instance| S1["Service instance"]
+    subgraph CS["Client-side discovery"]
+        C1["Client with a&lt;br/&gt;discovery-aware library"] --&gt;|1. query| R1[("Registry")]
+        R1 --&gt;|2. instance list| C1
+        C1 --&gt;|3. call chosen instance| S1["Instance"]
     end
-    subgraph "Server-side discovery"
-        C2["Client&lt;br/&gt;(no discovery logic)"] --&gt;|call virtual address| LB2["Load balancer / router"]
-        LB2 --&gt;|query| R2[("Registry")]
-        R2 --&gt;|instance list| LB2
-        LB2 --&gt;|forward| S2["Service instance"]
+    subgraph SS["Server-side discovery"]
+        C2["Client with no&lt;br/&gt;discovery logic"] --&gt;|1. call stable address| LB2["Load balancer&lt;br/&gt;or proxy"]
+        LB2 -.-&gt;|watches| R2[("Registry")]
+        LB2 --&gt;|2. forward| S2["Instance"]
     end
 </code></pre>
 
-<h3 id="client-side-discovery">Client-Side Discovery</h3>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Client-side</th>
+      <th>Server-side</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Where selection happens</td>
+      <td>In the calling process</td>
+      <td>In a load balancer, proxy, or kernel dataplane</td>
+    </tr>
+    <tr>
+      <td>Extra network hop</td>
+      <td>No</td>
+      <td>Yes, unless the proxy runs on the same node</td>
+    </tr>
+    <tr>
+      <td>Language support</td>
+      <td>Needs a client library for every language</td>
+      <td>Any client that can open a connection</td>
+    </tr>
+    <tr>
+      <td>Routing context</td>
+      <td>Can use application knowledge (request hashing for cache locality, zone preference)</td>
+      <td>Limited to what the proxy can see in the request</td>
+    </tr>
+    <tr>
+      <td>Operational cost</td>
+      <td>Library upgrades across every service</td>
+      <td>Running a highly available proxy tier</td>
+    </tr>
+    <tr>
+      <td>Examples</td>
+      <td>gRPC name resolvers and LB policies, Spring Cloud LoadBalancer with Eureka or Consul, Finagle</td>
+      <td>Kubernetes <code class="language-plaintext highlighter-rouge">ClusterIP</code> Services, AWS ALB/NLB target groups, NGINX or HAProxy with a registry-driven upstream</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The client queries the registry directly, receives the full list of healthy instances, and applies its own load-balancing algorithm before connecting straight to a chosen instance.</p>
+<p>Netflix’s Eureka registry and Ribbon client were the canonical client-side stack of the 2010s. Ribbon has been retired (Spring Cloud replaced it with Spring Cloud LoadBalancer in 2020), and Eureka is the one Spring Cloud Netflix component still maintained.</p>
 
-<ul>
-  <li><strong>Examples:</strong> Netflix Eureka + Ribbon, Consul with a smart client library, gRPC’s built-in name resolver + <code class="language-plaintext highlighter-rouge">pick_first</code>/<code class="language-plaintext highlighter-rouge">round_robin</code> policies.</li>
-  <li><strong>Pros:</strong> One fewer network hop (no proxy in the data path); the client can make application-aware routing decisions (e.g. zone affinity, request-hashing for cache locality); no shared load-balancer to provision or scale.</li>
-  <li><strong>Cons:</strong> Discovery logic must be implemented per language — a polyglot estate needs a maintained client library for each runtime. Clients are coupled to the registry’s API and to the registry being reachable.</li>
-</ul>
+<p>A <strong>service mesh</strong> combines the two. A proxy running next to each workload (an Envoy sidecar in classic Istio, a per-node <code class="language-plaintext highlighter-rouge">ztunnel</code> plus optional waypoint proxies in Istio’s ambient mode, which became GA in Istio 1.24 in November 2024, or Linkerd’s Rust micro-proxy) does client-side-style discovery and load balancing. The application only sees a plain hostname, as with server-side discovery. <strong>Proxyless gRPC</strong> goes one step further: the gRPC library itself speaks the mesh’s discovery protocol (<a href="#xds-the-control-plane-protocol">xDS</a>), so there is no proxy at all.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Client-side discovery against a Consul HTTP catalog.
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Client-side discovery against Consul's health API.
 </span><span class="kn">import</span> <span class="n">random</span>
 <span class="kn">import</span> <span class="n">requests</span>
 
-<span class="k">class</span> <span class="nc">ConsulClientDiscovery</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">consul_addr</span><span class="o">=</span><span class="sh">"</span><span class="s">http://localhost:8500</span><span class="sh">"</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">consul</span> <span class="o">=</span> <span class="n">consul_addr</span>
+<span class="k">def</span> <span class="nf">healthy_instances</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">consul</span><span class="o">=</span><span class="sh">"</span><span class="s">http://localhost:8500</span><span class="sh">"</span><span class="p">):</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/health/service/</span><span class="si">{</span><span class="n">service</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span>
+                     <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">passing</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">true</span><span class="sh">"</span><span class="p">},</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">r</span><span class="p">.</span><span class="nf">raise_for_status</span><span class="p">()</span>
+    <span class="c1"># Service.Address may be empty, in which case the node address applies
+</span>    <span class="k">return</span> <span class="p">[(</span><span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Service</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Address</span><span class="sh">"</span><span class="p">]</span> <span class="ow">or</span> <span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Node</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Address</span><span class="sh">"</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Service</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Port</span><span class="sh">"</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">r</span><span class="p">.</span><span class="nf">json</span><span class="p">()]</span>
 
-    <span class="k">def</span> <span class="nf">resolve</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">service_name</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Return only passing (healthy) instances for a service.</span><span class="sh">"""</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span>
-            <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/health/service/</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">passing</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">true</span><span class="sh">"</span><span class="p">},</span>  <span class="c1"># filter to checks in 'passing' state
-</span>        <span class="p">)</span>
-        <span class="n">r</span><span class="p">.</span><span class="nf">raise_for_status</span><span class="p">()</span>
-        <span class="k">return</span> <span class="p">[</span>
-            <span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Service</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Address</span><span class="sh">"</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Service</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Port</span><span class="sh">"</span><span class="p">])</span>
-            <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">r</span><span class="p">.</span><span class="nf">json</span><span class="p">()</span>
-        <span class="p">]</span>
-
-    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">service_name</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
-        <span class="n">instances</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">resolve</span><span class="p">(</span><span class="n">service_name</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">instances</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="nc">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">no healthy instances for </span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-        <span class="n">host</span><span class="p">,</span> <span class="n">port</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="nf">choice</span><span class="p">(</span><span class="n">instances</span><span class="p">)</span>  <span class="c1"># naive client-side LB
-</span>        <span class="k">return</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">http://</span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s">:</span><span class="si">{</span><span class="n">port</span><span class="si">}{</span><span class="n">path</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+    <span class="n">instances</span> <span class="o">=</span> <span class="nf">healthy_instances</span><span class="p">(</span><span class="n">service</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">instances</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">no healthy instances of </span><span class="si">{</span><span class="n">service</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">host</span><span class="p">,</span> <span class="n">port</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="nf">choice</span><span class="p">(</span><span class="n">instances</span><span class="p">)</span>          <span class="c1"># naive load balancing
+</span>    <span class="k">return</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">http://</span><span class="si">{</span><span class="n">host</span><span class="si">}</span><span class="s">:</span><span class="si">{</span><span class="n">port</span><span class="si">}{</span><span class="n">path</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="server-side-discovery">Server-Side Discovery</h3>
+<h2 id="discovery-in-kubernetes">Discovery in Kubernetes</h2>
 
-<p>The client makes a request to a stable virtual address — a load balancer, reverse proxy, or the platform’s router — and that component owns the registry lookup and instance selection.</p>
+<p>Kubernetes is the most common discovery system in use today, and it is a third-party, server-side design by default.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Pod["Pod passes&lt;br/&gt;readiness probe"] --&gt; Ctl["EndpointSlice&lt;br/&gt;controller"]
+    Ctl --&gt;|writes| ES[("EndpointSlices&lt;br/&gt;(API server, etcd)")]
+    ES --&gt;|watch| KP["kube-proxy or&lt;br/&gt;eBPF dataplane"]
+    ES --&gt;|watch| DNS["CoreDNS"]
+    ES --&gt;|watch| Mesh["Mesh control plane&lt;br/&gt;(istiod, Linkerd)"]
+    Client["Client pod"] --&gt;|payments.default.svc.cluster.local| DNS
+    DNS --&gt;|ClusterIP| Client
+    Client --&gt;|packets to ClusterIP| KP
+    KP --&gt;|DNAT to a ready pod| Target["Backend pod"]
+</code></pre>
 
 <ul>
-  <li><strong>Examples:</strong> A Kubernetes <code class="language-plaintext highlighter-rouge">Service</code> (kube-proxy / a CNI dataplane resolves the ClusterIP to a pod), an AWS ALB fronting an ECS service, an NGINX/Envoy proxy reading an upstream from Consul.</li>
-  <li><strong>Pros:</strong> Clients stay dumb and language-agnostic — they just call a DNS name or a stable IP. Routing policy is centralized and operated by the platform team. This is the model a <strong>service mesh</strong> generalizes: a per-pod Envoy sidecar performs server-side discovery transparently, so even the “client library” disappears.</li>
-  <li><strong>Cons:</strong> The router is an extra hop and a component that must itself be highly available and scaled. Routing decisions cannot easily use application-specific context the proxy does not see.</li>
+  <li><strong>Services and EndpointSlices.</strong> A <code class="language-plaintext highlighter-rouge">Service</code> selects pods by label. The EndpointSlice controller records each matching pod’s IP, port, readiness, and zone in <strong>EndpointSlice</strong> objects. The older <code class="language-plaintext highlighter-rouge">Endpoints</code> API was deprecated in Kubernetes 1.33 (April 2025). Newer features such as dual-stack networking and traffic distribution exist only in EndpointSlices, so any tooling that reads endpoints should use them.</li>
+  <li><strong>DNS.</strong> CoreDNS answers <code class="language-plaintext highlighter-rouge">payments.&lt;namespace&gt;.svc.cluster.local</code> with the Service’s stable <code class="language-plaintext highlighter-rouge">ClusterIP</code>. It also serves SRV records for named ports.</li>
+  <li><strong>Dataplane.</strong> kube-proxy (iptables, IPVS, or the nftables mode added in recent releases) or an eBPF dataplane such as Cilium translates the virtual <code class="language-plaintext highlighter-rouge">ClusterIP</code> to a ready pod IP on each node.</li>
+  <li><strong>Headless Services</strong> (<code class="language-plaintext highlighter-rouge">clusterIP: None</code>) skip the virtual IP. DNS returns the pod IPs directly, for client-side load balancing (for example with gRPC) or for stateful sets whose members need stable individual names.</li>
+  <li><strong>Topology-aware routing.</strong> Setting <code class="language-plaintext highlighter-rouge">spec.trafficDistribution</code> on a Service prefers nearby endpoints. <code class="language-plaintext highlighter-rouge">PreferSameZone</code> (the renamed <code class="language-plaintext highlighter-rouge">PreferClose</code>) and <code class="language-plaintext highlighter-rouge">PreferSameNode</code> were added in Kubernetes 1.34, and both fall back to more distant endpoints when no local one is ready. Keeping traffic in-zone reduces both latency and cross-zone data-transfer cost.</li>
 </ul>
 
-<p>In practice modern platforms blur the line: Kubernetes gives you server-side discovery by default (ClusterIP), while a mesh sidecar gives you client-side-style flexibility with server-side-style transparency.</p>
+<p>Across clusters and outside Kubernetes, the same role is filled by the Multi-Cluster Services API (<code class="language-plaintext highlighter-rouge">ServiceExport</code> and <code class="language-plaintext highlighter-rouge">ServiceImport</code>), mesh federation, Consul, or cloud registries such as AWS Cloud Map, which ECS Service Connect is built on. <a href="../technology/kubernetes/fundamentals-networking.html">Kubernetes Networking</a> covers Services, kube-proxy, and Ingress and Gateway API in more depth.</p>
 
 <h2 id="dns-based-vs-api-based-discovery">DNS-Based vs API-Based Discovery</h2>
 
-<p>The second fork is the <strong>protocol</strong> the caller uses to read the registry. The two dominant styles are plain DNS and a purpose-built HTTP/gRPC API, and they trade <em>ubiquity</em> against <em>freshness and richness</em>.</p>
+<p>The second design decision is the protocol clients use to read the registry. DNS works everywhere. A dedicated API gives fresher and richer data.</p>
 
 <table>
   <thead>
     <tr>
       <th>Dimension</th>
-      <th>DNS-based</th>
-      <th>API-based (Consul/etcd)</th>
+      <th>DNS</th>
+      <th>Registry API (Consul, etcd, xDS)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Client support</td>
-      <td>Universal — every language and OS resolves DNS</td>
-      <td>Needs a client library or sidecar</td>
+      <td>Universal</td>
+      <td>Needs a library, agent, or proxy</td>
     </tr>
     <tr>
-      <td>Data carried</td>
-      <td>Address (A/AAAA) + port (SRV); little metadata</td>
-      <td>Full instance metadata, tags, health, KV</td>
+      <td>Data</td>
+      <td>Addresses (A/AAAA); ports, priority, and weight (SRV)</td>
+      <td>Full metadata: zone, version, weights, health, tags</td>
     </tr>
     <tr>
       <td>Freshness</td>
-      <td>Bounded by TTL and resolver caching (often stale)</td>
-      <td>Push/watch updates in milliseconds</td>
-    </tr>
-    <tr>
-      <td>Health awareness</td>
-      <td>Usually only healthy records published, but TTL lag</td>
-      <td>Streaming health state, immediate removal</td>
+      <td>Limited by TTL and by caches you do not control</td>
+      <td>Changes pushed within milliseconds to seconds</td>
     </tr>
     <tr>
       <td>Load balancing</td>
-      <td>Round-robin by record order; client rarely controls it</td>
-      <td>Caller sees the list and chooses freely</td>
+      <td>Record order or client choice; little control</td>
+      <td>Caller sees the full set and chooses</td>
+    </tr>
+    <tr>
+      <td>Failure behavior</td>
+      <td>Stale records keep sending traffic to dead instances</td>
+      <td>Subscribers see removals almost immediately</td>
     </tr>
   </tbody>
 </table>
 
 <h3 id="dns-based-discovery">DNS-Based Discovery</h3>
 
-<p>The registry exposes itself as a DNS server. A lookup of <code class="language-plaintext highlighter-rouge">payments.service.consul</code> returns <code class="language-plaintext highlighter-rouge">A</code> records for healthy instances; an <code class="language-plaintext highlighter-rouge">SRV</code> lookup additionally returns ports and weights. Kubernetes does the same with <code class="language-plaintext highlighter-rouge">payments.default.svc.cluster.local</code>.</p>
+<p>The registry acts as a DNS server. Consul answers <code class="language-plaintext highlighter-rouge">payments.service.consul</code> with A records for passing instances only. An SRV query also returns ports and weights:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Consul publishes a DNS interface on port 8600.</span>
-<span class="c"># A-record lookup: just the addresses of healthy instances.</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Consul's DNS interface listens on port 8600 by default.</span>
 dig @127.0.0.1 <span class="nt">-p</span> 8600 payments.service.consul +short
 <span class="c"># 10.4.2.7</span>
 <span class="c"># 10.4.5.1</span>
 
-<span class="c"># SRV lookup: address, port, priority and weight together.</span>
 dig @127.0.0.1 <span class="nt">-p</span> 8600 payments.service.consul SRV +short
-<span class="c"># 1 1 8080 ip-10-4-2-7.node.dc1.consul.</span>
-<span class="c"># 1 1 8080 ip-10-4-5-1.node.dc1.consul.</span>
+<span class="c"># 1 1 8080 0a040207.addr.dc1.consul.</span>
+<span class="c"># 1 1 8080 0a040501.addr.dc1.consul.</span>
 </code></pre></div></div>
 
-<p>The appeal is <strong>zero client integration</strong>: any process that can resolve a hostname participates. The cost is <strong>staleness</strong>. DNS was designed for slowly-changing records, so resolvers, language runtimes, and connection pools cache aggressively. A 60-second TTL means a crashed instance can keep receiving traffic for up to a minute, and many JVM/glibc resolvers ignore short TTLs entirely. Mitigations: publish very low TTLs (Consul uses 0 by default for service records), keep healthy-only records, and disable resolver caching where you can — but you can never fully escape the protocol’s caching assumptions.</p>
+<p>The advantage is that nothing in the client changes: any process that can resolve a hostname can use it. The cost is <strong>staleness</strong>, because DNS was designed for records that rarely change and caching happens at many layers:</p>
 
-<h3 id="api-based-discovery">API-Based Discovery</h3>
+<ul>
+  <li><strong>Recursive resolvers</strong> (the node-local cache, <code class="language-plaintext highlighter-rouge">systemd-resolved</code>, <code class="language-plaintext highlighter-rouge">dnsmasq</code>, NodeLocal DNSCache) respect TTLs, but some enforce a minimum.</li>
+  <li><strong>The JVM caches lookups itself</strong> for 30 seconds by default (<code class="language-plaintext highlighter-rouge">networkaddress.cache.ttl</code>), regardless of the record’s TTL, and forever if a security manager is installed. glibc does not cache at all unless <code class="language-plaintext highlighter-rouge">nscd</code> or a local resolver is in use.</li>
+  <li><strong>Connection pools</strong> keep connections to an address open long after its DNS record has changed. This is often the largest source of staleness in practice: long-lived HTTP/2 and gRPC connections never re-resolve unless the client is told to (for example with a maximum connection age on the server).</li>
+</ul>
 
-<p>The caller (or its sidecar) talks to the registry over a rich API and, crucially, can <strong>watch</strong> for changes rather than polling on a TTL. This is how Consul, etcd, and ZooKeeper-based systems achieve sub-second propagation.</p>
+<p>Consul serves service records with a TTL of 0 by default for this reason. Low TTLs, healthy-only answers, and a bounded connection lifetime reduce staleness, but DNS-based discovery is always somewhat eventual. The newer <strong>SVCB and HTTPS</strong> record types (RFC 9460, 2023) let DNS carry ports, ALPN protocols, and alternative endpoints, which closes some of the gap with SRV for HTTP clients.</p>
 
-<p>The decisive feature is the <strong>blocking query / watch</strong>: the client sends a request carrying the index it last saw, and the server holds the connection open until something changes, then responds immediately. This converts polling into push without sacrificing a simple request/response transport.</p>
+<h3 id="api-based-discovery-and-watches">API-Based Discovery and Watches</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Consul blocking query: long-poll that returns the instant the
-# service's instance set changes, not on a fixed timer.
+<p>With a registry API, the caller (or its proxy) subscribes to changes instead of polling a cached answer. Consul’s <strong>blocking queries</strong> are the simplest form. The client sends the last index it saw, and the server holds the request open until something changes or the wait times out. etcd and ZooKeeper provide watch streams. The client-side code is still a plain request loop, but updates arrive as soon as the data changes.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Consul blocking query: returns as soon as the healthy set changes.
 </span><span class="kn">import</span> <span class="n">requests</span>
 
-<span class="k">def</span> <span class="nf">watch_service</span><span class="p">(</span><span class="n">service_name</span><span class="p">,</span> <span class="n">consul</span><span class="o">=</span><span class="sh">"</span><span class="s">http://localhost:8500</span><span class="sh">"</span><span class="p">):</span>
-    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Consul's monotonically increasing change index
-</span>    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span>
-            <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/health/service/</span><span class="si">{</span><span class="n">service_name</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span>
-            <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">passing</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">true</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">index</span><span class="sh">"</span><span class="p">:</span> <span class="n">index</span><span class="p">,</span> <span class="sh">"</span><span class="s">wait</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">55s</span><span class="sh">"</span><span class="p">},</span>
-            <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
-        <span class="p">)</span>
+<span class="k">def</span> <span class="nf">watch_service</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">consul</span><span class="o">=</span><span class="sh">"</span><span class="s">http://localhost:8500</span><span class="sh">"</span><span class="p">):</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/health/service/</span><span class="si">{</span><span class="n">service</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span>
+                         <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">passing</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">true</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">index</span><span class="sh">"</span><span class="p">:</span> <span class="n">index</span><span class="p">,</span> <span class="sh">"</span><span class="s">wait</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">55s</span><span class="sh">"</span><span class="p">},</span>
+                         <span class="n">timeout</span><span class="o">=</span><span class="mi">65</span><span class="p">)</span>
+        <span class="n">r</span><span class="p">.</span><span class="nf">raise_for_status</span><span class="p">()</span>
         <span class="n">new_index</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">headers</span><span class="p">[</span><span class="sh">"</span><span class="s">X-Consul-Index</span><span class="sh">"</span><span class="p">])</span>
-        <span class="k">if</span> <span class="n">new_index</span> <span class="o">!=</span> <span class="n">index</span><span class="p">:</span>           <span class="c1"># something actually changed
-</span>            <span class="n">index</span> <span class="o">=</span> <span class="n">new_index</span>
-            <span class="n">instances</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Service</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Address</span><span class="sh">"</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Service</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Port</span><span class="sh">"</span><span class="p">])</span>
-                <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">r</span><span class="p">.</span><span class="nf">json</span><span class="p">()</span>
-            <span class="p">]</span>
-            <span class="k">yield</span> <span class="n">instances</span>              <span class="c1"># push the fresh set to the caller
-</span></code></pre></div></div>
+        <span class="k">if</span> <span class="n">new_index</span> <span class="o">&lt;</span> <span class="n">index</span><span class="p">:</span>           <span class="c1"># index went backwards (e.g. snapshot restore): reset
+</span>            <span class="n">new_index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">new_index</span> <span class="o">!=</span> <span class="n">index</span><span class="p">:</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">new_index</span>
+            <span class="k">yield</span> <span class="p">[(</span><span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Service</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Address</span><span class="sh">"</span><span class="p">]</span> <span class="ow">or</span> <span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Node</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Address</span><span class="sh">"</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="sh">"</span><span class="s">Service</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">Port</span><span class="sh">"</span><span class="p">])</span>
+                   <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">r</span><span class="p">.</span><span class="nf">json</span><span class="p">()]</span>
+</code></pre></div></div>
 
-<h3 id="consul-vs-etcd-vs-zookeeper">Consul vs etcd vs ZooKeeper</h3>
+<h3 id="xds-the-control-plane-protocol">xDS: The Control-Plane Protocol</h3>
 
-<p>These are the registries you will actually encounter; they differ in scope and consistency posture.</p>
+<p><strong>xDS</strong> began as Envoy’s discovery API and is now the common protocol between service-mesh control planes and their data planes: Envoy, Istio’s ztunnel, and proxyless gRPC clients. A control plane (istiod, Consul, Kuma, Google Cloud Service Mesh, or a custom one built with <code class="language-plaintext highlighter-rouge">go-control-plane</code>) watches the registry and streams configuration to every proxy over one gRPC stream (ADS, the aggregated discovery service):</p>
 
 <table>
   <thead>
     <tr>
-      <th>System</th>
-      <th>Consensus</th>
+      <th>Resource</th>
+      <th>Discovery service</th>
+      <th>Describes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Listener</td>
+      <td>LDS</td>
+      <td>Ports and protocols the proxy accepts</td>
+    </tr>
+    <tr>
+      <td>Route</td>
+      <td>RDS</td>
+      <td>How requests are matched to clusters (paths, headers, weights)</td>
+    </tr>
+    <tr>
+      <td>Cluster</td>
+      <td>CDS</td>
+      <td>Upstream services and their load-balancing, timeout, and circuit-breaking settings</td>
+    </tr>
+    <tr>
+      <td>Endpoint</td>
+      <td>EDS</td>
+      <td>The current healthy instances of each cluster, with zone and weight</td>
+    </tr>
+    <tr>
+      <td>Secret</td>
+      <td>SDS</td>
+      <td>TLS certificates and keys for mTLS</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart LR
+    Reg[("Registry&lt;br/&gt;(K8s API, Consul)")] --&gt;|watch| CP["Control plane&lt;br/&gt;(istiod, etc.)"]
+    CP --&gt;|ADS stream:&lt;br/&gt;LDS, RDS, CDS, EDS, SDS| E1["Envoy / ztunnel"]
+    CP --&gt;|ADS stream| G1["Proxyless gRPC&lt;br/&gt;client"]
+    E1 --&gt;|traffic| Svc["Service instances"]
+    G1 --&gt;|traffic| Svc
+</code></pre>
+
+<p>Discovery through xDS carries more than addresses: it also delivers routing rules, retry and timeout policies, outlier-detection settings, and certificates. This is how a mesh applies the <a href="resilience-patterns.html">resilience patterns</a> outside application code.</p>
+
+<h3 id="choosing-a-registry">Choosing a Registry</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Registry</th>
       <th>Consistency</th>
+      <th>Replication</th>
       <th>Built for</th>
       <th>Discovery interface</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>etcd</strong></td>
+      <td>Kubernetes API (etcd)</td>
+      <td>CP</td>
       <td>Raft</td>
-      <td>Strongly consistent (CP)</td>
-      <td>A reliable key-value store; the backing store of Kubernetes</td>
-      <td>gRPC/HTTP KV + lease + watch</td>
+      <td>Container orchestration</td>
+      <td>Watches on EndpointSlices; DNS via CoreDNS</td>
     </tr>
     <tr>
-      <td><strong>Consul</strong></td>
-      <td>Raft (server quorum)</td>
-      <td>CP for the catalog, with an explicit gossip-based health layer</td>
-      <td>Turnkey service discovery + health + KV + mesh</td>
-      <td>DNS <em>and</em> HTTP API + watch</td>
+      <td>etcd</td>
+      <td>CP</td>
+      <td>Raft</td>
+      <td>Reliable key-value store for coordination</td>
+      <td>KV plus leases plus watch (gRPC)</td>
     </tr>
     <tr>
-      <td><strong>ZooKeeper</strong></td>
+      <td>Consul</td>
+      <td>CP catalog; gossip for node liveness</td>
+      <td>Raft among servers; Serf/SWIM gossip</td>
+      <td>Turnkey discovery, health checks, KV, mesh</td>
+      <td>DNS, HTTP API with blocking queries, xDS</td>
+    </tr>
+    <tr>
+      <td>ZooKeeper</td>
+      <td>CP</td>
       <td>Zab</td>
-      <td>Strongly consistent (CP)</td>
-      <td>Coordination primitives (locks, leader election, ephemeral nodes)</td>
-      <td>Custom client; ephemeral znodes</td>
+      <td>Coordination (locks, ephemeral nodes)</td>
+      <td>Custom client; ephemeral znodes plus watches</td>
+    </tr>
+    <tr>
+      <td>Eureka</td>
+      <td>AP</td>
+      <td>Peer-to-peer copying, no consensus</td>
+      <td>Availability of the registry above all</td>
+      <td>REST; clients cache the full registry</td>
     </tr>
   </tbody>
 </table>
 
-<p>etcd and ZooKeeper are general coordination stores onto which discovery is <em>built</em> (an instance writes a key/znode keyed by a lease/session; readers watch the prefix). Consul ships service discovery, health checking, a DNS interface, and a multi-datacenter gossip layer as first-class features, which is why it is the canonical “service discovery” product. All three are <strong>CP</strong> under the <a href="consensus-and-coordination.html#cap-theorem">CAP theorem</a>: during a partition the minority side stops accepting writes to preserve a single consistent view of the registry — the right trade-off, because a registry that returns <em>contradictory</em> membership is worse than one that briefly returns <em>stale-but-consistent</em> membership. (Eureka deliberately chose AP instead, favoring availability of the registry over strict consistency.)</p>
+<p>etcd and ZooKeeper are general coordination stores that discovery is built on. An instance creates a key or ephemeral znode tied to its lease or session, and readers watch the prefix. Consul provides discovery, health checking, DNS, multi-datacenter federation, and a mesh control plane in one product. (Consul, like other HashiCorp products, moved from the MPL to the Business Source License in 2023, and IBM completed its acquisition of HashiCorp in February 2025. Check the license terms if you embed or redistribute it.)</p>
+
+<p>The CP registries follow the <a href="consensus-and-coordination.html#cap-theorem">CAP theorem</a>: during a partition, the minority side cannot write, so every reader sees one consistent membership list. Eureka made the opposite choice deliberately. Its servers keep serving possibly stale registrations during a partition, and a “self-preservation” mode stops them from expiring instances en masse when many heartbeats stop at once, on the theory that a network problem is more likely than a mass failure. Clients of any registry should cache the last known instance list and keep using it if the registry becomes unreachable. A registry outage should stop <em>changes</em> to routing, not routing itself.</p>
 
 <h2 id="registration-self-vs-third-party">Registration: Self vs Third-Party</h2>
 
-<p>A registry is only as good as the freshness of its contents, and freshness starts at <strong>registration</strong> — how an instance gets <em>into</em> the registry. There are two patterns.</p>
+<p>The registry can only be as accurate as the process that adds and removes entries.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    subgraph "Self-registration"
-        I1["Instance"] --&gt;|on startup: register&lt;br/&gt;on shutdown: deregister&lt;br/&gt;periodically: heartbeat| R1[("Registry")]
+    subgraph Self["Self-registration"]
+        I1["Instance"] --&gt;|register on start&lt;br/&gt;heartbeat while alive&lt;br/&gt;deregister on shutdown| R1[("Registry")]
     end
-    subgraph "Third-party registration"
-        Sched["Scheduler / Registrar&lt;br/&gt;(e.g. Kubernetes, registrator)"] --&gt;|observes instance lifecycle| I2["Instance"]
-        Sched --&gt;|register / deregister on its behalf| R2[("Registry")]
+    subgraph Third["Third-party registration"]
+        Sched["Scheduler or registrar&lt;br/&gt;(Kubernetes, Nomad, ECS)"] --&gt;|observes lifecycle| I2["Instance"]
+        Sched --&gt;|registers and deregisters&lt;br/&gt;on its behalf| R2[("Registry")]
     end
 </code></pre>
 
 <ul>
-  <li><strong>Self-registration:</strong> the instance calls the registry’s API itself — registering on boot, sending periodic heartbeats tied to a <em>lease</em>, and deregistering on graceful shutdown. Simple and requires no extra component, but couples every service to the registry’s client API and leaves <em>stale</em> entries if a process dies before deregistering (the lease/heartbeat is what eventually cleans those up).</li>
-  <li><strong>Third-party registration:</strong> a separate <strong>registrar</strong> watches instance lifecycles and maintains registry entries on their behalf. Kubernetes is the archetype — the kubelet and endpoints controller register/deregister pod IPs into the cluster’s Endpoints/EndpointSlice objects automatically, so application code stays oblivious to discovery entirely. Cleaner separation of concerns at the cost of running and trusting the registrar.</li>
+  <li><strong>Self-registration.</strong> The instance calls the registry’s API itself: it registers at startup, heartbeats against a lease or TTL, and deregisters on graceful shutdown. No extra component is needed, but every service depends on the registry client, and an instance that crashes leaves its entry behind until the lease expires.</li>
+  <li><strong>Third-party registration.</strong> A registrar that already knows instance lifecycles maintains the entries. Kubernetes is the standard example: the scheduler and kubelet know when a pod starts, becomes ready, and terminates, and the EndpointSlice controller updates the registry accordingly. Nomad with its built-in service catalog, ECS with Cloud Map, and Consul’s catalog sync for Kubernetes work the same way. Application code has no discovery logic at all, which is why this model has largely won.</li>
 </ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Self-registration with a lease/TTL so a crashed instance self-expires.
-</span><span class="kn">import</span> <span class="n">requests</span><span class="p">,</span> <span class="n">socket</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Self-registration in Consul with a TTL check, so a crashed instance expires.
+</span><span class="kn">import</span> <span class="n">socket</span>
+<span class="kn">import</span> <span class="n">requests</span>
 
-<span class="k">class</span> <span class="nc">SelfRegistration</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">ConsulRegistration</span><span class="p">:</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">consul</span><span class="o">=</span><span class="sh">"</span><span class="s">http://localhost:8500</span><span class="sh">"</span><span class="p">):</span>
         <span class="n">self</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">port</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">consul</span> <span class="o">=</span> <span class="n">name</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">consul</span>
         <span class="n">self</span><span class="p">.</span><span class="nb">id</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s">-</span><span class="si">{</span><span class="n">socket</span><span class="p">.</span><span class="nf">gethostname</span><span class="p">()</span><span class="si">}</span><span class="s">-</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="sh">"</span>
 
     <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
         <span class="n">requests</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/agent/service/register</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
-            <span class="sh">"</span><span class="s">ID</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Name</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">name</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Address</span><span class="sh">"</span><span class="p">:</span> <span class="n">socket</span><span class="p">.</span><span class="nf">gethostbyname</span><span class="p">(</span><span class="n">socket</span><span class="p">.</span><span class="nf">gethostname</span><span class="p">()),</span>
-            <span class="sh">"</span><span class="s">Port</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">port</span><span class="p">,</span>
-            <span class="sh">"</span><span class="s">Check</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>                       <span class="c1"># tie liveness to a TTL check
-</span>                <span class="sh">"</span><span class="s">CheckID</span><span class="sh">"</span><span class="p">:</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">-ttl</span><span class="sh">"</span><span class="p">,</span>
-                <span class="sh">"</span><span class="s">TTL</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">15s</span><span class="sh">"</span><span class="p">,</span>                <span class="c1"># must heartbeat within 15s
-</span>                <span class="sh">"</span><span class="s">DeregisterCriticalServiceAfter</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1m</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># reap if dead 1m
+            <span class="sh">"</span><span class="s">ID</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="p">,</span> <span class="sh">"</span><span class="s">Name</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="sh">"</span><span class="s">Port</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">port</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">Check</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="sh">"</span><span class="s">CheckID</span><span class="sh">"</span><span class="p">:</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">-ttl</span><span class="sh">"</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">TTL</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">15s</span><span class="sh">"</span><span class="p">,</span>                                <span class="c1"># heartbeat at least every 15 s
+</span>                <span class="sh">"</span><span class="s">DeregisterCriticalServiceAfter</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1m</span><span class="sh">"</span><span class="p">,</span>      <span class="c1"># remove after 1 min critical
 </span>            <span class="p">},</span>
-        <span class="p">}).</span><span class="nf">raise_for_status</span><span class="p">()</span>
+        <span class="p">},</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">2</span><span class="p">).</span><span class="nf">raise_for_status</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">heartbeat</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Call on a timer &lt; TTL; failing to do so marks the check critical.
-</span>        <span class="n">requests</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/agent/check/pass/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">-ttl</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">heartbeat</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>                                     <span class="c1"># call every ~5 s
+</span>        <span class="n">requests</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/agent/check/pass/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s">-ttl</span><span class="sh">"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">deregister</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">requests</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/agent/service/deregister/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">requests</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/agent/service/deregister/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </code></pre></div></div>
 
 <h2 id="health-checking-integration">Health-Checking Integration</h2>
 
-<p>Registration gets an instance <em>in</em>; health checking keeps the registry <em>honest</em> by removing instances that can no longer serve. Discovery without health checking is actively dangerous: it routes traffic into black holes. The registry must continuously answer “is this instance still able to serve?” and publish only those that pass.</p>
+<p>Registration adds instances. Health checking removes the ones that can no longer serve. Discovery without health checking is harmful, because it keeps sending traffic to instances that drop or refuse it.</p>
 
-<p>Three complementary mechanisms cover the failure modes:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism</th>
+      <th>How it works</th>
+      <th>Detects</th>
+      <th>Misses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>TTL / heartbeat (push)</td>
+      <td>Instance must report “alive” periodically</td>
+      <td>Crashes and hangs</td>
+      <td>An instance that heartbeats but cannot serve</td>
+    </tr>
+    <tr>
+      <td>Active probe (pull)</td>
+      <td>Agent or kubelet calls <code class="language-plaintext highlighter-rouge">/ready</code>, opens a TCP connection, or calls gRPC <code class="language-plaintext highlighter-rouge">Health/Check</code></td>
+      <td>Unready or broken instances</td>
+      <td>Problems visible only from other network locations</td>
+    </tr>
+    <tr>
+      <td>Gossip (SWIM)</td>
+      <td>Nodes probe each other at random and spread suspicions</td>
+      <td>Node failures, in seconds, at scale</td>
+      <td>Service-level problems on a live node</td>
+    </tr>
+    <tr>
+      <td>Passive (outlier detection)</td>
+      <td>Proxy ejects hosts that return consecutive 5xx errors or time out</td>
+      <td>Instances failing real traffic</td>
+      <td>Nothing until real traffic fails</td>
+    </tr>
+  </tbody>
+</table>
 
-<ol>
-  <li><strong>Active (push) checks — TTL / heartbeat.</strong> The instance must periodically prove liveness (the <code class="language-plaintext highlighter-rouge">TTL</code> check above). If a heartbeat is missed, the check goes <em>critical</em> and the instance is dropped from discovery results. Detects crashes and hangs <em>from the instance’s own perspective</em>, but cannot detect an instance that is alive yet partitioned from its dependencies.</li>
-  <li><strong>Active (pull) checks — probes.</strong> The registry (or an agent next to the instance) periodically hits an <code class="language-plaintext highlighter-rouge">HTTP /health</code> endpoint, opens a TCP socket, or runs a script. Detects an instance that is up but <em>unhealthy</em> (e.g. its database connection is dead). This is exactly Kubernetes’ <strong>readiness</strong> and <strong>liveness</strong> probes — a pod failing its readiness probe is removed from its Service’s Endpoints (discovery), while a failing liveness probe gets it restarted.</li>
-  <li><strong>Gossip / failure detection.</strong> Consul agents run a SWIM-style gossip protocol so that node-level failures are detected by peers in seconds and propagated without every check hammering a central server — this scales health detection to thousands of nodes.</li>
-</ol>
+<p>Production systems combine several. Kubernetes uses readiness probes to control EndpointSlice membership, Consul pairs agent-run checks with gossip-based node liveness (see <a href="failure-detection.html#swim">SWIM</a>), and a mesh adds passive outlier detection on top.</p>
 
-<p>A subtle but critical design rule: <strong>distinguish liveness from readiness</strong>. Liveness asks “is the process alive (else restart it)?”; readiness asks “can it serve traffic <em>right now</em> (else stop sending it requests, but don’t kill it)?” A starting instance is alive-but-not-ready; an instance whose dependency is briefly down is alive-and-should-not-receive-traffic-yet. Conflating them causes restart loops or routing to instances that 503.</p>
+<p><strong>Readiness controls discovery, liveness controls restarts.</strong> A pod failing its readiness probe is marked not-ready in its EndpointSlices, so the dataplane and mesh stop routing to it, but it is not restarted. A failing liveness probe restarts the container but does not by itself change discovery. Mixing the two causes restart loops, or traffic sent to instances that answer every request with 503. <a href="resilience-patterns.html#health-checks">Resilience Patterns</a> covers probe design, including why liveness must not check shared dependencies.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Kubernetes ties health checks directly to discovery:</span>
-<span class="c1"># a pod failing its readiness probe is pulled from the Service's</span>
-<span class="c1"># Endpoints (so kube-proxy / the mesh stops routing to it) WITHOUT</span>
-<span class="c1"># being restarted, while a failing liveness probe triggers a restart.</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Readiness gates Service membership; liveness gates restarts.</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">payments</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">containers</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">payments</span>
-      <span class="na">image</span><span class="pi">:</span> <span class="s">payments:v2</span>
-      <span class="na">ports</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">8080</span>
-      <span class="na">readinessProbe</span><span class="pi">:</span>            <span class="c1"># gates inclusion in Service discovery</span>
-        <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">path</span><span class="pi">:</span> <span class="nv">/ready</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">8080</span> <span class="pi">}</span>
-        <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">5</span>   <span class="c1"># allow warm-up before first probe</span>
-        <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
-        <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">3</span>      <span class="c1"># 3 consecutive fails -&gt; removed from endpoints</span>
-      <span class="na">livenessProbe</span><span class="pi">:</span>             <span class="c1"># gates restart, NOT discovery</span>
-        <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">path</span><span class="pi">:</span> <span class="nv">/healthz</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">8080</span> <span class="pi">}</span>
-        <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
-        <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">app</span><span class="pi">:</span> <span class="nv">payments</span> <span class="pi">}</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">app</span><span class="pi">:</span> <span class="nv">payments</span> <span class="pi">}</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">payments</span>
+          <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/payments:2.4.1</span>
+          <span class="na">ports</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">8080</span>
+          <span class="na">readinessProbe</span><span class="pi">:</span>              <span class="c1"># failing: removed from EndpointSlices</span>
+            <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">path</span><span class="pi">:</span> <span class="nv">/readyz</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">8080</span> <span class="pi">}</span>
+            <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
+            <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">3</span>
+          <span class="na">livenessProbe</span><span class="pi">:</span>               <span class="c1"># failing: container restarted</span>
+            <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">path</span><span class="pi">:</span> <span class="nv">/livez</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">8080</span> <span class="pi">}</span>
+            <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">10</span>
+            <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">3</span>
 </code></pre></div></div>
 
-<p>Because a registry is itself a <a href="./#the-distributed-systems-challenge">distributed system</a>, health checks must tolerate transient blips: use a <code class="language-plaintext highlighter-rouge">failureThreshold</code> so a single dropped packet does not evict a healthy instance, and a <code class="language-plaintext highlighter-rouge">DeregisterCriticalServiceAfter</code> grace window so a brief crash-restart does not lose the registration entirely.</p>
+<p>Health signals are noisy, so use thresholds: a <code class="language-plaintext highlighter-rouge">failureThreshold</code> so one lost probe does not evict a healthy instance, and a grace window (Consul’s <code class="language-plaintext highlighter-rouge">DeregisterCriticalServiceAfter</code>) so a quick crash and restart does not lose the registration. Removal also takes time to propagate: the registry, then DNS or xDS, then every client or proxy. Graceful shutdown should therefore stop reporting ready and keep serving for a few seconds before exiting.</p>
 
-<h2 id="dynamic-configuration-propagation">Dynamic Configuration Propagation</h2>
+<h2 id="load-balancing-after-discovery">Load Balancing After Discovery</h2>
 
-<p>Service discovery answers <em>where</em> a service is; <strong>dynamic configuration</strong> answers <em>how it should behave</em> — feature flags, timeouts, log levels, rate limits, connection strings — and changes them at runtime <strong>without a redeploy</strong>. The same registries used for discovery (Consul KV, etcd) double as the configuration substrate, because the hard part is identical: get a change from one writer to every running instance, fast and consistently.</p>
+<p>Discovery produces a set of instances. The load-balancing policy chooses one per request (or per connection) and has a large effect on tail latency.</p>
 
-<h3 id="the-watch-and-reload-pattern">The Watch-and-Reload Pattern</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Policy</th>
+      <th>How it chooses</th>
+      <th>Good for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Round robin</td>
+      <td>Rotates through the instances</td>
+      <td>Uniform instances and request costs</td>
+    </tr>
+    <tr>
+      <td>Weighted round robin</td>
+      <td>Rotation proportional to weights, which may come from server-reported load</td>
+      <td>Mixed instance sizes; gradual traffic shifts</td>
+    </tr>
+    <tr>
+      <td>Least request / power of two choices (P2C)</td>
+      <td>Picks two instances at random and sends to the one with fewer outstanding requests</td>
+      <td>Variable request costs; Envoy’s and Linkerd’s usual choice</td>
+    </tr>
+    <tr>
+      <td>Ring hash / Maglev</td>
+      <td>Consistent hashing on a request key</td>
+      <td>Cache affinity and sticky sessions with minimal reshuffling when instances change</td>
+    </tr>
+    <tr>
+      <td>Zone-aware / locality</td>
+      <td>Prefers the caller’s zone, spills over when it is unhealthy or overloaded</td>
+      <td>Lower latency and cross-zone cost</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The mechanism mirrors API-based discovery exactly: instances <strong>watch</strong> a configuration key (or prefix) and atomically swap in the new value when it changes, rather than restarting.</p>
+<p>gRPC deserves a specific note. HTTP/2 multiplexes every request over one long-lived connection, so a connection-level (L4) load balancer such as a plain <code class="language-plaintext highlighter-rouge">ClusterIP</code> pins each client to one backend. Use request-level balancing: a gRPC client with a headless Service and the <code class="language-plaintext highlighter-rouge">round_robin</code> policy (the default policy, <code class="language-plaintext highlighter-rouge">pick_first</code>, uses a single connection), an L7 proxy or mesh, or proxyless gRPC with xDS.</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    Admin["Operator / CD pipeline"] --&gt;|PUT config/payments/timeout = 2s| KV[("Consul KV / etcd")]
-    KV --&gt;|watch fires| A1["Instance A"]
-    KV --&gt;|watch fires| A2["Instance B"]
-    KV --&gt;|watch fires| A3["Instance C"]
-    A1 --&gt;|hot-reload, no restart| Live["New behavior live in &amp;lt;1s"]
+<h2 id="dynamic-configuration">Dynamic Configuration</h2>
+
+<p>Service discovery says <em>where</em> a service is. <strong>Dynamic configuration</strong> controls <em>how it behaves</em>: feature flags, timeouts, log levels, rate limits, routing weights. The goal is to change these at runtime without a redeploy. The same stores used for discovery (Consul KV, etcd, the Kubernetes API) often hold configuration too, because the problem is the same: get a change from one writer to every running instance quickly and consistently.</p>
+
+<h3 id="watch-validate-swap">Watch, Validate, Swap</h3>
+
+<p>Instances watch a key or prefix, validate each new value, and swap it in atomically. If validation fails, they keep the last known good value.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Op as Operator / CD pipeline
+    participant KV as Config store
+    participant I as Instance (x N)
+    Op-&gt;&gt;KV: CAS write config/payments (expect version 41)
+    KV--&gt;&gt;Op: ok, version 42
+    KV--&gt;&gt;I: watch fires (version 42)
+    I-&gt;&gt;I: parse and validate
+    alt valid
+        I-&gt;&gt;I: atomically swap, report version 42
+    else invalid
+        I-&gt;&gt;I: keep version 41, raise alert
+    end
 </code></pre>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Watch a config key in etcd and hot-reload on every change.
-# The instance never restarts; it swaps the live value atomically.
-</span><span class="kn">import</span> <span class="n">etcd3</span><span class="p">,</span> <span class="n">json</span><span class="p">,</span> <span class="n">threading</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Watch a JSON config document in Consul KV; validate before swapping in.
+</span><span class="kn">import</span> <span class="n">base64</span><span class="p">,</span> <span class="n">json</span><span class="p">,</span> <span class="n">logging</span><span class="p">,</span> <span class="n">threading</span>
+<span class="kn">import</span> <span class="n">requests</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nf">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
 
 <span class="k">class</span> <span class="nc">DynamicConfig</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="sh">"</span><span class="s">localhost</span><span class="sh">"</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">key</span> <span class="o">=</span> <span class="n">key</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">etcd3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="n">host</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_load</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="p">.</span><span class="nc">Lock</span><span class="p">()</span>
-        <span class="c1"># watch_prefix delivers an event on every PUT under the key.
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">client</span><span class="p">.</span><span class="nf">add_watch_prefix_callback</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">_on_change</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">validate</span><span class="p">,</span> <span class="n">consul</span><span class="o">=</span><span class="sh">"</span><span class="s">http://localhost:8500</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">validate</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">consul</span> <span class="o">=</span> <span class="n">key</span><span class="p">,</span> <span class="n">validate</span><span class="p">,</span> <span class="n">consul</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">current</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">version</span> <span class="o">=</span> <span class="p">{},</span> <span class="mi">0</span>
+        <span class="n">threading</span><span class="p">.</span><span class="nc">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">_watch</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="bp">True</span><span class="p">).</span><span class="nf">start</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_load</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">raw</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">client</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">key</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span> <span class="k">if</span> <span class="n">raw</span> <span class="k">else</span> <span class="p">{}</span>
-
-    <span class="k">def</span> <span class="nf">_on_change</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">self</span><span class="p">.</span><span class="n">_lock</span><span class="p">:</span>               <span class="c1"># atomic swap — readers never see a torn value
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_load</span><span class="p">()</span>
-
+    <span class="k">def</span> <span class="nf">_watch</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">consul</span><span class="si">}</span><span class="s">/v1/kv/</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">key</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span>
+                                 <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">index</span><span class="sh">"</span><span class="p">:</span> <span class="n">index</span><span class="p">,</span> <span class="sh">"</span><span class="s">wait</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">55s</span><span class="sh">"</span><span class="p">},</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">65</span><span class="p">)</span>
+                <span class="n">index</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">headers</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">X-Consul-Index</span><span class="sh">"</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">r</span><span class="p">.</span><span class="n">status_code</span> <span class="o">!=</span> <span class="mi">200</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">entry</span> <span class="o">=</span> <span class="n">r</span><span class="p">.</span><span class="nf">json</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">candidate</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">base64</span><span class="p">.</span><span class="nf">b64decode</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="sh">"</span><span class="s">Value</span><span class="sh">"</span><span class="p">]))</span>
+                <span class="n">self</span><span class="p">.</span><span class="nf">validate</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>                  <span class="c1"># raises on a bad config
+</span>                <span class="n">self</span><span class="p">.</span><span class="n">current</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">candidate</span><span class="p">,</span> <span class="n">entry</span><span class="p">[</span><span class="sh">"</span><span class="s">ModifyIndex</span><span class="sh">"</span><span class="p">]</span>  <span class="c1"># atomic rebind
+</span>            <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">log</span><span class="p">.</span><span class="nf">warning</span><span class="p">(</span><span class="sh">"</span><span class="s">config %s rejected or unavailable: %s</span><span class="sh">"</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>  <span class="c1"># keep last known good
+</span>
     <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="k">with</span> <span class="n">self</span><span class="p">.</span><span class="n">_lock</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">_value</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
-
-<span class="c1"># Usage: the running service reads the *current* timeout each request,
-# and an operator changing it in etcd takes effect within milliseconds.
-</span><span class="n">cfg</span> <span class="o">=</span> <span class="nc">DynamicConfig</span><span class="p">(</span><span class="sh">"</span><span class="s">config/payments</span><span class="sh">"</span><span class="p">)</span>
-<span class="n">timeout</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">request_timeout_s</span><span class="sh">"</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">current</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">default</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="consistency-and-safety-of-config-changes">Consistency and Safety of Config Changes</h3>
+<p>On Kubernetes, the usual equivalent is a <strong>ConfigMap</strong> mounted as a volume. The kubelet updates the mounted files after a delay of up to about a minute by default (its sync period plus cache TTL), and the application watches the files. ConfigMaps consumed as environment variables or through <code class="language-plaintext highlighter-rouge">subPath</code> mounts are <strong>not</strong> updated; those require a pod restart, which tools such as Reloader automate by rolling the Deployment.</p>
 
-<p>Pushing configuration to a fleet is itself a distributed operation, and the same hazards apply as to any state change:</p>
+<h3 id="making-config-changes-safe">Making Config Changes Safe</h3>
+
+<p>Pushing configuration to a whole fleet at once is a deployment without a deployment’s safeguards. The same precautions apply:</p>
 
 <ul>
-  <li><strong>Atomic, versioned writes.</strong> Use the store’s compare-and-swap (etcd’s revision-guarded <code class="language-plaintext highlighter-rouge">Txn</code>, Consul’s <code class="language-plaintext highlighter-rouge">cas</code> index) so two operators cannot clobber each other, and so each instance can detect which version it is running.</li>
-  <li><strong>Validate before apply.</strong> A bad config pushed simultaneously to every instance is a fleet-wide outage with no rolling-deploy safety net. Validate the new value <em>in each instance</em> before swapping it in, and keep the last-known-good to fall back to.</li>
-  <li><strong>Stagger / canary the rollout.</strong> Propagating instantly to 100% of instances removes the blast-radius protection a phased deployment gives you. Gate risky changes behind a flag that ramps, or namespace config by deployment ring.</li>
-  <li><strong>Make reload idempotent and side-effect-aware.</strong> Re-reading the same value must be a no-op; a config change that, say, reopens database pools must do so without dropping in-flight work.</li>
+  <li><strong>Versioned, compare-and-set writes.</strong> Use etcd transactions on <code class="language-plaintext highlighter-rouge">mod_revision</code> or Consul’s <code class="language-plaintext highlighter-rouge">?cas=&lt;index&gt;</code> so two operators cannot silently overwrite each other, and have each instance report the version it is running.</li>
+  <li><strong>Validate before applying.</strong> Validate against a schema in CI and again inside each instance before swapping, and keep the last known good value. A bad value pushed everywhere at once is a fleet-wide outage.</li>
+  <li><strong>Roll out in stages.</strong> Instant propagation to 100% of instances removes the blast-radius limit a phased deployment provides. Scope configuration by deployment ring (canary, then 10%, then everyone), or put risky changes behind a percentage-based flag.</li>
+  <li><strong>Make reloads idempotent and non-disruptive.</strong> Reapplying the same value should do nothing, and a change that rebuilds a connection pool must drain in-flight work first.</li>
+  <li><strong>Audit and roll back.</strong> Keep a history of who changed what and when, and make returning to the previous version a single action.</li>
 </ul>
 
-<p>This is why feature-flag systems (LaunchDarkly, Unleash, or a homegrown Consul-KV scheme) layer targeting, gradual rollout, and audit logging on top of the raw watch primitive — the primitive gives you <em>fast propagation</em>, and the safety machinery is what makes fast propagation survivable.</p>
+<p>Feature-flag platforms (LaunchDarkly, Unleash, Flagsmith, flagd) add targeting, percentage rollouts, and audit logs on top of this basic watch mechanism. <strong>OpenFeature</strong>, a CNCF incubating project, standardizes the SDK API so application code is not tied to one vendor.</p>
 
 <h2 id="putting-it-together">Putting It Together</h2>
 
-<p>A production discovery-and-config stack composes all of the above:</p>
-
-<ol>
-  <li>A <strong>registry</strong> (Consul / etcd, or the Kubernetes API) holds service membership and configuration, kept consistent by Raft.</li>
-  <li>Instances enter it via <strong>registration</strong> — self-registration with leases, or third-party registration by the scheduler.</li>
-  <li><strong>Health checks</strong> (readiness probes + heartbeats + gossip) continuously prune the registry so only servable instances appear.</li>
-  <li>Callers <strong>discover</strong> instances either client-side (library/sidecar reads the registry and load-balances) or server-side (a proxy/<code class="language-plaintext highlighter-rouge">Service</code> does it for them), over <strong>DNS</strong> for ubiquity or an <strong>API/watch</strong> for freshness.</li>
-  <li><strong>Dynamic configuration</strong> rides the same watch machinery so behavior can change at runtime without redeploys, guarded by CAS writes, validation, and staged rollout.</li>
-</ol>
-
 <pre><code class="language-mermaid">flowchart TD
-    subgraph Registry["Registry (CP, Raft-backed)"]
-        Catalog[("Service catalog&lt;br/&gt;+ health state")]
-        Config[("Config / KV store")]
+    subgraph Store["Registry and config store (CP, Raft)"]
+        Catalog[("Service catalog&lt;br/&gt;and health")]
+        Config[("Config and flags")]
     end
-    Sched["Scheduler"] --&gt;|3rd-party register| Catalog
-    Inst["Service instances"] --&gt;|self-register + heartbeat| Catalog
-    Probe["Health probes / gossip"] --&gt;|prune unhealthy| Catalog
-    Caller["Caller / sidecar"] --&gt;|discover (DNS or watch)| Catalog
-    Caller --&gt;|watch| Config
+    Sched["Scheduler&lt;br/&gt;(third-party registration)"] --&gt; Catalog
+    Probes["Probes, gossip,&lt;br/&gt;outlier detection"] --&gt;|remove unhealthy| Catalog
+    Catalog --&gt;|watch| CP["DNS / xDS control plane"]
+    CP --&gt; Proxy["Proxy, mesh, or&lt;br/&gt;gRPC client"]
+    Proxy --&gt;|load-balanced call| Svc["Healthy instances"]
     Ops["Operator / CD"] --&gt;|CAS write| Config
+    Config --&gt;|watch, validate, swap| Svc
 </code></pre>
 
-<p>The throughline: <strong>service discovery and dynamic configuration are the same problem viewed twice</strong> — propagating a small, frequently-changing piece of authoritative state (an address set, or a config value) from a consistent store to a fleet of consumers, quickly, while a <a href="consensus-and-coordination.html#cap-theorem">partition-tolerant</a> registry guarantees they all see a coherent view.</p>
+<ol>
+  <li>A <strong>registry</strong> (the Kubernetes API, Consul, or etcd) holds membership and configuration, kept consistent by Raft.</li>
+  <li>Instances enter it through <strong>registration</strong>, almost always done by the scheduler today.</li>
+  <li><strong>Health checks</strong> (readiness probes, gossip, passive outlier detection) keep only instances that can serve in the registry.</li>
+  <li>Callers <strong>discover</strong> instances through DNS, which works everywhere, or through watches and xDS, which are faster and carry more data, and choose one with a <strong>load-balancing</strong> policy suited to the traffic.</li>
+  <li><strong>Dynamic configuration</strong> uses the same watch mechanism, protected by compare-and-set writes, validation, and staged rollout.</li>
+</ol>
+
+<p>Service discovery and dynamic configuration are the same problem seen twice: delivering a small, frequently changing piece of authoritative state (an address set or a config value) from a consistent store to a large fleet of consumers, quickly, while tolerating the store being briefly unreachable.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">Distributed Systems Hub</a></strong> — CAP theorem, consistency models, and the patterns this page builds on</li>
-  <li><strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — the consensus (Raft/Paxos) that makes a CP registry possible, and the impossibility results behind health-check timeouts</li>
-  <li><strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — Services, Endpoints, and readiness/liveness probes as built-in server-side discovery</li>
-  <li><strong><a href="../technology/database-design/">Database Design</a></strong> — replication and consistency models shared by distributed registries</li>
-  <li><strong><a href="../technology/networking/">Networking</a></strong> — DNS, TCP, and the resolver-caching behavior that limits DNS-based discovery</li>
+  <li><a href="./#why-distributed-systems-are-hard">Distributed Systems Hub</a>: why dynamic topology is one of the fallacies of distributed computing</li>
+  <li><a href="consensus-and-coordination.html">Consensus and Coordination</a>: the Raft consensus behind CP registries, and CAP</li>
+  <li><a href="failure-detection.html">Failure Detection</a>: heartbeats, phi-accrual detection, and SWIM gossip as used by Consul</li>
+  <li><a href="resilience-patterns.html">Resilience Patterns</a>: health-probe design, timeouts, retries, and circuit breakers</li>
+  <li><a href="microservices-and-event-driven.html#service-mesh">Microservices and Event-Driven Architecture</a>: API gateways and service meshes</li>
+  <li><a href="../technology/kubernetes/fundamentals-networking.html">Kubernetes Networking</a>: Services, EndpointSlices, DNS, and Ingress</li>
+  <li><a href="../technology/networking/">Networking</a>: DNS and resolver caching behavior</li>
 </ul>
 
       </section>

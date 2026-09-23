@@ -3135,111 +3135,345 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="cryptography">Cryptography</h1>
 
-<p>Cryptography is the foundation every other security control rests on. This page builds from symmetric and public-key encryption through modern techniques — elliptic curves, post-quantum algorithms, zero-knowledge proofs, and homomorphic encryption — and finishes with the mathematical foundations of RSA, elliptic curves, and secret sharing.</p>
+<p>Cryptography provides the confidentiality, integrity, and authenticity guarantees that most other security controls depend on. This page covers the working primitives (authenticated encryption, hashing, key exchange, signatures), how they combine in TLS 1.3 and the Web PKI, the migration to post-quantum algorithms now under way, privacy-preserving techniques such as zero-knowledge proofs and homomorphic encryption, and the number theory behind RSA, elliptic curves, and secret sharing. The emphasis is applied: which algorithm to choose, how it fails, and what changed recently. For formal definitions and security proofs, see <a href="../../advanced/cryptography/">Advanced Cryptography</a>.</p>
 
-<h2 id="the-foundation-encryption">The Foundation: Encryption</h2>
+<h2 id="the-primitives-at-a-glance">The Primitives at a Glance</h2>
 
-<p>Encryption is like a lock that protects your data. But unlike physical locks, digital encryption relies on mathematical problems that are easy to do in one direction but practically impossible to reverse without the key.</p>
+<p>Real systems are built by combining a small set of primitives. Each does one job; most cryptographic failures come from using one where another was needed (encrypting without authenticating, hashing passwords with a fast hash, signing with a reused nonce).</p>
 
-<h3 id="symmetric-encryption-one-key-for-everything">Symmetric Encryption: One Key for Everything</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Primitive</th>
+      <th>Guarantees</th>
+      <th>Current recommendation</th>
+      <th>Avoid</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Authenticated encryption (AEAD)</td>
+      <td>Confidentiality + integrity</td>
+      <td>AES-256-GCM, ChaCha20-Poly1305</td>
+      <td>ECB mode; CBC without a MAC; RC4, 3DES</td>
+    </tr>
+    <tr>
+      <td>Cryptographic hash</td>
+      <td>Collision/preimage resistance</td>
+      <td>SHA-256/384, SHA-3, BLAKE2/BLAKE3</td>
+      <td>MD5, SHA-1</td>
+    </tr>
+    <tr>
+      <td>Message authentication code</td>
+      <td>Integrity + authenticity (shared key)</td>
+      <td>HMAC-SHA-256, KMAC, Poly1305 (inside AEAD)</td>
+      <td><code class="language-plaintext highlighter-rouge">hash(key + message)</code> (length extension)</td>
+    </tr>
+    <tr>
+      <td>Password hashing</td>
+      <td>Slow, memory-hard verification</td>
+      <td>Argon2id, scrypt, bcrypt</td>
+      <td>Any fast hash, even salted</td>
+    </tr>
+    <tr>
+      <td>Key derivation</td>
+      <td>Stretch/split a secret into keys</td>
+      <td>HKDF</td>
+      <td>Ad hoc hashing</td>
+    </tr>
+    <tr>
+      <td>Key exchange / KEM</td>
+      <td>Establish a shared secret</td>
+      <td>X25519; hybrid X25519MLKEM768</td>
+      <td>Static RSA key transport; finite-field DH &lt; 2048 bits</td>
+    </tr>
+    <tr>
+      <td>Digital signature</td>
+      <td>Authenticity + non-repudiation</td>
+      <td>Ed25519, ECDSA P-256, RSA-PSS; ML-DSA for PQ</td>
+      <td>RSA PKCS#1 v1.5 for new designs; DSA</td>
+    </tr>
+    <tr>
+      <td>Random number generation</td>
+      <td>Unpredictable keys and nonces</td>
+      <td>OS CSPRNG (<code class="language-plaintext highlighter-rouge">getrandom</code>, <code class="language-plaintext highlighter-rouge">secrets</code>, <code class="language-plaintext highlighter-rouge">os.urandom</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">random</code>, <code class="language-plaintext highlighter-rouge">Math.random</code>, time-seeded PRNGs</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The simplest form of encryption uses the same key to lock and unlock data. Imagine you and a friend have identical keys to a lockbox:</p>
+<p>The rule that sits above all of these is <strong>do not design your own</strong>: use a vetted, high-level library (libsodium, Google Tink, the Python <code class="language-plaintext highlighter-rouge">cryptography</code> package, Go’s <code class="language-plaintext highlighter-rouge">crypto/*</code>) and prefer its misuse-resistant APIs over raw primitives.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">cryptography.fernet</span> <span class="kn">import</span> <span class="n">Fernet</span>
+<h2 id="symmetric-encryption">Symmetric Encryption</h2>
 
-<span class="c1"># Generate a key (both parties need this)
-</span><span class="n">key</span> <span class="o">=</span> <span class="n">Fernet</span><span class="p">.</span><span class="nf">generate_key</span><span class="p">()</span>
-<span class="n">cipher</span> <span class="o">=</span> <span class="nc">Fernet</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+<p>Symmetric ciphers use one secret key for both encryption and decryption. They are fast (AES runs at many GB/s with the AES-NI or ARMv8 crypto instructions) and carry almost all bulk data; public-key cryptography is used only to agree on or transport the symmetric key.</p>
 
-<span class="c1"># Encrypt a message
-</span><span class="n">message</span> <span class="o">=</span> <span class="sh">"</span><span class="s">Meet me at midnight</span><span class="sh">"</span>
-<span class="n">encrypted</span> <span class="o">=</span> <span class="n">cipher</span><span class="p">.</span><span class="nf">encrypt</span><span class="p">(</span><span class="n">message</span><span class="p">.</span><span class="nf">encode</span><span class="p">())</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Encrypted: </span><span class="si">{</span><span class="n">encrypted</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-<span class="c1"># Output: b'gAAAAABh...long random-looking string...'
+<h3 id="authenticated-encryption-aead">Authenticated Encryption (AEAD)</h3>
+
+<p>A cipher alone provides confidentiality but not integrity: an attacker who flips ciphertext bits flips plaintext bits, and CBC-mode decryption errors have repeatedly produced <strong>padding-oracle</strong> attacks. Modern designs therefore use <strong>AEAD</strong> (authenticated encryption with associated data), which encrypts and authenticates in one operation and refuses to decrypt anything that has been modified. The “associated data” is authenticated but not encrypted — typically a header, record number, or user ID that binds the ciphertext to its context.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">os</span>
+<span class="kn">from</span> <span class="n">cryptography.hazmat.primitives.ciphers.aead</span> <span class="kn">import</span> <span class="n">AESGCM</span>
+
+<span class="n">key</span> <span class="o">=</span> <span class="n">AESGCM</span><span class="p">.</span><span class="nf">generate_key</span><span class="p">(</span><span class="n">bit_length</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>
+<span class="n">aead</span> <span class="o">=</span> <span class="nc">AESGCM</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+<span class="n">nonce</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="nf">urandom</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span>                  <span class="c1"># 96-bit nonce: MUST be unique per key
+</span><span class="n">header</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">user-id=42</span><span class="sh">"</span>                  <span class="c1"># authenticated, not encrypted
+</span><span class="n">ciphertext</span> <span class="o">=</span> <span class="n">aead</span><span class="p">.</span><span class="nf">encrypt</span><span class="p">(</span><span class="n">nonce</span><span class="p">,</span> <span class="sa">b</span><span class="sh">"</span><span class="s">Meet me at midnight</span><span class="sh">"</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
+
+<span class="c1"># Decryption verifies the tag first; any tampering raises InvalidTag
+</span><span class="n">plaintext</span> <span class="o">=</span> <span class="n">aead</span><span class="p">.</span><span class="nf">decrypt</span><span class="p">(</span><span class="n">nonce</span><span class="p">,</span> <span class="n">ciphertext</span><span class="p">,</span> <span class="n">header</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The one rule AES-GCM does not forgive is <strong>nonce reuse</strong>. Encrypting two messages under the same key and nonce leaks their XOR and lets an attacker recover the authentication key and forge messages. Random 96-bit nonces are safe for roughly $2^{32}$ messages per key; beyond that, use a counter nonce, rotate keys, or choose a nonce-misuse-resistant mode such as <strong>AES-GCM-SIV</strong> (RFC 8452). <strong>ChaCha20-Poly1305</strong> (RFC 8439) is the standard alternative on CPUs without AES hardware, where software AES is both slow and prone to cache-timing leaks; <strong>XChaCha20-Poly1305</strong> extends the nonce to 192 bits so random nonces are always safe.</p>
+
+<p>Higher-level wrappers remove the nonce problem entirely. The <code class="language-plaintext highlighter-rouge">cryptography</code> package’s <code class="language-plaintext highlighter-rouge">Fernet</code> token format (AES-128-CBC with HMAC-SHA-256) and libsodium’s <code class="language-plaintext highlighter-rouge">secretbox</code> generate nonces internally and are appropriate for application developers who just need “encrypt this blob”.</p>
+
+<h3 id="block-cipher-modes">Block Cipher Modes</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Authenticated</th>
+      <th>Parallelizable</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ECB</td>
+      <td>No</td>
+      <td>Yes</td>
+      <td>Identical blocks give identical ciphertext — leaks structure. Never use.</td>
+    </tr>
+    <tr>
+      <td>CBC</td>
+      <td>No</td>
+      <td>Decrypt only</td>
+      <td>Needs a random IV and a separate MAC (encrypt-then-MAC); padding-oracle history</td>
+    </tr>
+    <tr>
+      <td>CTR</td>
+      <td>No</td>
+      <td>Yes</td>
+      <td>Turns a block cipher into a stream cipher; needs a MAC</td>
+    </tr>
+    <tr>
+      <td>GCM</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>CTR + GHASH; the default AEAD in TLS; catastrophic on nonce reuse</td>
+    </tr>
+    <tr>
+      <td>GCM-SIV</td>
+      <td>Yes</td>
+      <td>Partly</td>
+      <td>Nonce reuse only reveals whether two messages were identical</td>
+    </tr>
+    <tr>
+      <td>XTS</td>
+      <td>No</td>
+      <td>Yes</td>
+      <td>Disk encryption (sector-addressed, no room for a tag)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="key-sizes-and-quantum-computers">Key Sizes and Quantum Computers</h3>
+
+<p>AES-128 provides 128-bit security against classical attack. Grover’s algorithm gives a quantum computer only a square-root speed-up on key search, and it parallelizes poorly, so NIST continues to treat AES-128 as acceptable; AES-256 is the conservative choice for long-lived data and is required by the NSA’s CNSA 2.0 suite.</p>
+
+<h2 id="hashing-macs-and-password-storage">Hashing, MACs, and Password Storage</h2>
+
+<p>A cryptographic hash maps any input to a fixed-size digest such that finding a collision (two inputs with the same digest) or a preimage (an input for a given digest) is infeasible. Hashes underpin signatures, integrity checks, commitments, and forensic evidence handling.</p>
+
+<ul>
+  <li><strong>MD5</strong> and <strong>SHA-1</strong> are broken for collision resistance. The 2017 SHAttered attack produced two different PDFs with the same SHA-1 hash, and chosen-prefix collisions followed in 2020. NIST has announced that SHA-1 is to be phased out entirely by the end of 2030.</li>
+  <li><strong>SHA-2</strong> (SHA-256, SHA-384, SHA-512) is the workhorse and remains secure. Its Merkle–Damgård construction is vulnerable to <strong>length extension</strong>, which is why a MAC must be HMAC rather than <code class="language-plaintext highlighter-rouge">SHA256(key || message)</code>.</li>
+  <li><strong>SHA-3</strong> (Keccak, FIPS 202) uses a different sponge construction and is immune to length extension; its XOFs SHAKE128/256 appear throughout the post-quantum standards.</li>
+  <li><strong>BLAKE2</strong> and <strong>BLAKE3</strong> are fast, secure non-NIST alternatives widely used in software (e.g. WireGuard, content-addressed storage).</li>
+</ul>
+
+<h3 id="password-hashing">Password Hashing</h3>
+
+<p>Password databases are stolen routinely, so the stored value must make offline guessing expensive. General-purpose hashes are the wrong tool: a single modern GPU computes billions of SHA-256 hashes per second. Salting defeats precomputed rainbow tables but does nothing to slow an attacker guessing one account at a time. Password hashes are deliberately <strong>slow and memory-hard</strong>, so that GPU and ASIC parallelism buys the attacker little.</p>
+
+<p>The OWASP Password Storage Cheat Sheet recommends, in order of preference:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Algorithm</th>
+      <th>Minimum parameters (OWASP)</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Argon2id</strong></td>
+      <td>19 MiB memory, 2 iterations, parallelism 1</td>
+      <td>Winner of the 2015 Password Hashing Competition; RFC 9106</td>
+    </tr>
+    <tr>
+      <td><strong>scrypt</strong></td>
+      <td>$N = 2^{17}$, $r = 8$, $p = 1$</td>
+      <td>Memory-hard; older and widely available</td>
+    </tr>
+    <tr>
+      <td><strong>bcrypt</strong></td>
+      <td>Cost factor 10 or more</td>
+      <td>Truncates input at 72 bytes; not memory-hard</td>
+    </tr>
+    <tr>
+      <td><strong>PBKDF2-HMAC-SHA-256</strong></td>
+      <td>600,000 iterations</td>
+      <td>Only when FIPS 140 validation is required</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">argon2</span> <span class="kn">import</span> <span class="n">PasswordHasher</span>          <span class="c1"># pip install argon2-cffi
+</span><span class="kn">from</span> <span class="n">argon2.exceptions</span> <span class="kn">import</span> <span class="n">VerifyMismatchError</span>
+
+<span class="n">ph</span> <span class="o">=</span> <span class="nc">PasswordHasher</span><span class="p">()</span>                       <span class="c1"># Argon2id, RFC 9106 low-memory profile
 </span>
-<span class="c1"># Only someone with the key can decrypt
-</span><span class="n">decrypted</span> <span class="o">=</span> <span class="n">cipher</span><span class="p">.</span><span class="nf">decrypt</span><span class="p">(</span><span class="n">encrypted</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Decrypted: </span><span class="si">{</span><span class="n">decrypted</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-<span class="c1"># Output: Meet me at midnight
-</span></code></pre></div></div>
-
-<p>This is how messaging apps like Signal protect your conversations. But there’s a problem: how do you securely share that key with your friend? If you send it over the internet, an attacker might intercept it. This chicken-and-egg problem stumped cryptographers for centuries.</p>
-
-<h3 id="the-public-key-revolution">The Public Key Revolution</h3>
-
-<p>In 1976, Whitfield Diffie and Martin Hellman proposed something radical: what if you could have two different keys—one to lock (encrypt) and another to unlock (decrypt)? This idea seemed impossible, but they found a way using the mathematics of prime numbers.</p>
-
-<h4 id="why-rsa-works-the-power-of-prime-numbers">Why RSA Works: The Power of Prime Numbers</h4>
-
-<p>RSA encryption, named after Rivest, Shamir, and Adleman, relies on a simple fact: multiplying two large prime numbers is easy, but factoring the result back into those primes is extraordinarily difficult.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Easy direction: multiplication
-</span><span class="n">p</span> <span class="o">=</span> <span class="mi">104729</span>  <span class="c1"># prime number
-</span><span class="n">q</span> <span class="o">=</span> <span class="mi">103591</span>  <span class="c1"># prime number
-</span><span class="n">n</span> <span class="o">=</span> <span class="n">p</span> <span class="o">*</span> <span class="n">q</span>   <span class="c1"># = 10,848,583,639
+<span class="n">stored</span> <span class="o">=</span> <span class="n">ph</span><span class="p">.</span><span class="nf">hash</span><span class="p">(</span><span class="sh">"</span><span class="s">correct horse battery staple</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># '$argon2id$v=19$m=65536,t=3,p=4$&lt;salt&gt;$&lt;hash&gt;' — salt and parameters are embedded
 </span>
-<span class="c1"># Hard direction: factoring
-# Given only n = 10,848,583,639, find p and q
-# With small numbers, this is doable. With a 2048-bit modulus?
-# It would take all the computers on Earth far longer than the
-# age of the universe.
-#
-# Note: 1024-bit RSA is now considered weak and is deprecated;
-# 2048-bit is today's practical minimum, with 3072/4096-bit
-# recommended for long-lived keys.
-</span></code></pre></div></div>
+<span class="k">def</span> <span class="nf">login</span><span class="p">(</span><span class="n">stored_hash</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">attempt</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">ph</span><span class="p">.</span><span class="nf">verify</span><span class="p">(</span><span class="n">stored_hash</span><span class="p">,</span> <span class="n">attempt</span><span class="p">)</span>     <span class="c1"># constant-time comparison
+</span>    <span class="k">except</span> <span class="n">VerifyMismatchError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">if</span> <span class="n">ph</span><span class="p">.</span><span class="nf">check_needs_rehash</span><span class="p">(</span><span class="n">stored_hash</span><span class="p">):</span>  <span class="c1"># parameters raised since this hash was made
+</span>        <span class="p">...</span>                                 <span class="c1"># re-hash `attempt` and update the stored value
+</span>    <span class="k">return</span> <span class="bp">True</span>
+</code></pre></div></div>
 
-<p>This asymmetry—easy one way, hard the other—is the foundation of modern internet security. When you see the padlock icon in your browser, it’s using this principle to protect your connection.</p>
+<p>Because the salt and cost parameters are encoded in the hash string, parameters can be raised over time and old hashes upgraded transparently at the next successful login.</p>
 
-<h3 id="how-https-protects-your-banking">How HTTPS Protects Your Banking</h3>
+<h2 id="public-key-cryptography">Public-Key Cryptography</h2>
 
-<p>Now we can understand how HTTPS keeps your data safe:</p>
+<p>Symmetric encryption leaves one problem unsolved: two parties who have never met need a shared key, and sending it over the network exposes it. Public-key (asymmetric) cryptography, introduced by Diffie and Hellman in 1976 and made practical by Rivest, Shamir, and Adleman in 1977, solves it with key pairs whose public half can be published freely.</p>
 
-<ol>
-  <li><strong>Your browser asks the bank’s website for its public key</strong></li>
-  <li><strong>The website sends its public key (anyone can see this)</strong></li>
-  <li><strong>Your browser generates a random session key for fast symmetric encryption</strong></li>
-  <li><strong>Your browser encrypts the session key with the bank’s public key</strong></li>
-  <li><strong>Only the bank can decrypt it with their private key</strong></li>
-  <li><strong>Now you both have the same session key for fast, secure communication</strong></li>
-</ol>
+<p>Public-key primitives are used for two purposes, never for bulk data:</p>
 
-<p>This elegant dance happens in milliseconds every time you visit a secure website.</p>
+<ul>
+  <li><strong>Key establishment</strong> — agreeing on a symmetric key (Diffie–Hellman, or a key encapsulation mechanism).</li>
+  <li><strong>Digital signatures</strong> — proving who produced a message (certificates, software updates, Git commits, JWTs).</li>
+</ul>
+
+<h3 id="diffiehellman-key-exchange">Diffie–Hellman Key Exchange</h3>
+
+<p>Each party combines its own private value with the other’s public value and arrives at the same secret, which an eavesdropper seeing only the public values cannot compute.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant A as Alice
+    participant B as Bob
+    Note over A,B: Public parameters: group generator g (e.g. the X25519 base point)
+    A-&gt;&gt;A: pick secret a, compute A = g^a
+    B-&gt;&gt;B: pick secret b, compute B = g^b
+    A-&gt;&gt;B: A
+    B-&gt;&gt;A: B
+    A-&gt;&gt;A: shared = B^a = g^(ab)
+    B-&gt;&gt;B: shared = A^b = g^(ab)
+    Note over A,B: Eavesdropper sees g, A, B but cannot compute g^(ab)
+    A-&gt;&gt;B: AEAD traffic under keys = HKDF(shared)
+</code></pre>
+
+<p>Unauthenticated Diffie–Hellman is vulnerable to a man-in-the-middle who runs a separate exchange with each side, so real protocols <strong>sign</strong> the exchange (TLS signs the handshake transcript with the server’s certificate key). Using fresh, ephemeral key pairs for every session provides <strong>forward secrecy</strong>: stealing a long-term signing key later does not decrypt past sessions.</p>
+
+<h3 id="rsa-elliptic-curves-and-key-sizes">RSA, Elliptic Curves, and Key Sizes</h3>
+
+<p><strong>RSA</strong> rests on the difficulty of factoring $n = pq$. <strong>Elliptic-curve cryptography (ECC)</strong> rests on the elliptic-curve discrete logarithm problem: given points $P$ and $Q = kP$, find $k$. The best known attacks on ECC are fully exponential, while factoring has sub-exponential algorithms (the general number field sieve), so ECC reaches the same security with far smaller keys and faster operations.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Security strength (bits)</th>
+      <th>Symmetric</th>
+      <th>RSA / finite-field DH modulus</th>
+      <th>ECC key</th>
+      <th>Status (NIST SP 800-57)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>80</td>
+      <td>2TDEA</td>
+      <td>1024</td>
+      <td>160</td>
+      <td>Disallowed</td>
+    </tr>
+    <tr>
+      <td>112</td>
+      <td>3TDEA</td>
+      <td>2048</td>
+      <td>224</td>
+      <td>Minimum acceptable today</td>
+    </tr>
+    <tr>
+      <td>128</td>
+      <td>AES-128</td>
+      <td>3072</td>
+      <td>256 (P-256, Curve25519)</td>
+      <td>Recommended</td>
+    </tr>
+    <tr>
+      <td>192</td>
+      <td>AES-192</td>
+      <td>7680</td>
+      <td>384 (P-384)</td>
+      <td>High assurance</td>
+    </tr>
+    <tr>
+      <td>256</td>
+      <td>AES-256</td>
+      <td>15360</td>
+      <td>512+ (P-521)</td>
+      <td>High assurance</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In practice:</p>
+
+<ul>
+  <li><strong>Curve25519 / Ed25519</strong> (RFC 7748, RFC 8032) are the modern defaults for key exchange (X25519) and signatures (Ed25519): fast, constant-time by design, and free of the invalid-curve and bad-randomness pitfalls of older ECDSA implementations.</li>
+  <li><strong>ECDSA with P-256</strong> remains ubiquitous in the Web PKI and hardware tokens. Its signatures need a unique secret nonce per signature — reusing one (as in the 2010 PlayStation 3 key leak) reveals the private key — so implementations should derive nonces deterministically (RFC 6979).</li>
+  <li><strong>RSA</strong> is still the most common certificate key type. Use at least 2048-bit keys (3072-bit for data that must stay secure past 2030), <strong>OAEP</strong> padding for encryption and <strong>PSS</strong> for signatures. “Textbook” RSA without padding is deterministic and malleable, and PKCS#1 v1.5 encryption padding is the source of the Bleichenbacher oracle family (ROBOT, 2017).</li>
+</ul>
+
+<p>Both RSA and ECC fall to Shor’s algorithm on a large quantum computer; see <a href="#the-quantum-threat-why-we-need-new-cryptography">the quantum threat</a>.</p>
+
+<h3 id="hybrid-encryption-and-kems">Hybrid Encryption and KEMs</h3>
+
+<p>Public-key operations are slow and can only process short inputs, so everything that “encrypts with a public key” is really <strong>hybrid</strong>: a public-key step establishes a random symmetric key, and an AEAD encrypts the data. Modern designs express the public-key step as a <strong>key encapsulation mechanism (KEM)</strong> — <code class="language-plaintext highlighter-rouge">Encaps(pk)</code> returns a shared secret and a ciphertext, <code class="language-plaintext highlighter-rouge">Decaps(sk, ct)</code> recovers the secret — which is also the interface of the post-quantum ML-KEM. <strong>HPKE</strong> (Hybrid Public Key Encryption, RFC 9180) standardizes this pattern and is used by Encrypted Client Hello and Messaging Layer Security (MLS, RFC 9420).</p>
 
 <h2 id="tls-in-practice">TLS in Practice</h2>
 
-<p>The handshake sketched above is the <em>idea</em> behind HTTPS; <strong>TLS (Transport Layer Security)</strong> is the protocol that actually implements it on the wire. TLS is where the symmetric and public-key primitives from the previous sections come together into a single negotiated, authenticated, forward-secret channel. This section covers the modern handshake, how a cipher suite is chosen, how the server’s identity is vouched for by certificates, and the operational machinery — issuance, renewal, and revocation — that keeps those certificates trustworthy.</p>
+<p><strong>TLS (Transport Layer Security)</strong> is where these primitives come together into a negotiated, authenticated, forward-secret channel; it secures HTTPS, most API traffic, SMTP between mail servers, and service-mesh traffic. TLS 1.3 (RFC 8446, 2018) is the current version; TLS 1.2 remains widely deployed and acceptable with modern cipher suites, while SSL 3.0, TLS 1.0, and TLS 1.1 are formally deprecated (RFC 8996).</p>
 
 <h3 id="the-tls-13-handshake">The TLS 1.3 Handshake</h3>
 
-<p>TLS 1.3 (RFC 8446, 2018) is a ground-up redesign of the protocol. The headline change is latency: where TLS 1.2 needed <strong>two round trips</strong> (2-RTT) before any application data could flow, TLS 1.3 completes the handshake in <strong>one round trip</strong> (1-RTT), and can resume an earlier session in <strong>zero round trips</strong> (0-RTT).</p>
+<p>TLS 1.2 needed two round trips before application data could flow. TLS 1.3 needs one, because the client no longer waits to be told which key-exchange group to use: it <em>guesses</em>, sending an ephemeral public key (a “key share”) for its preferred group in the first message. If the server accepts that group, both sides can derive keys immediately; if not, the server sends a <code class="language-plaintext highlighter-rouge">HelloRetryRequest</code> and the handshake costs an extra round trip.</p>
 
-<p>The key insight is that the client stops waiting to be told which key-exchange group to use. Instead it <em>guesses</em>: in its very first message it sends not just the list of groups it supports but an actual ephemeral Diffie–Hellman public key (a “key share”) for its preferred group. If the server is happy with that group, it replies with its own key share and both sides can derive the shared secret immediately.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C-&gt;&gt;S: ClientHello: versions, cipher suites, key_share (e.g. X25519MLKEM768), signature algorithms, SNI
+    S-&gt;&gt;C: ServerHello: chosen suite, server key_share
+    Note over C,S: Both derive handshake keys from the shared secret (HKDF). Everything below is encrypted.
+    S-&gt;&gt;C: EncryptedExtensions, Certificate, CertificateVerify (signs transcript), Finished
+    C-&gt;&gt;S: Finished
+    Note over C,S: Application keys derived. 1 round trip total.
+    C-&gt;&gt;S: Application data
+    S-&gt;&gt;C: Application data
+</code></pre>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Client                                              Server
-
-ClientHello
-  + supported_versions (1.3)
-  + key_share (X25519 ephemeral pubkey)   --------&gt;
-  + signature_algorithms
-  + cipher suites
-                                                ServerHello
-                                          + key_share (server ephemeral pubkey)
-                                          {EncryptedExtensions}
-                                          {Certificate}
-                                          {CertificateVerify}   (signs the transcript)
-                                          {Finished}
-                                  &lt;--------  [Application Data possible]
-{Finished}
-[Application Data]              &lt;-------&gt;  [Application Data]
-
-   { } = encrypted with handshake keys
-   [ ] = encrypted with application keys
-</code></pre></div></div>
-
-<p>After the single <code class="language-plaintext highlighter-rouge">ClientHello</code> / <code class="language-plaintext highlighter-rouge">ServerHello</code> exchange, <em>everything else is encrypted</em>. The server’s certificate, which travelled in plaintext under TLS 1.2, is now protected under the handshake keys — a meaningful privacy improvement, since a passive observer can no longer trivially see which site you are connecting to from the certificate alone (the SNI hostname in the ClientHello is the remaining leak, addressed separately by Encrypted Client Hello).</p>
-
-<p><strong>Improvements over TLS 1.2.</strong> TLS 1.3 is as much about <em>removing</em> footguns as adding speed:</p>
+<p>After <code class="language-plaintext highlighter-rouge">ServerHello</code>, every handshake message is encrypted, including the server certificate that TLS 1.2 sent in the clear. The remaining plaintext leak — the server name (SNI) in the <code class="language-plaintext highlighter-rouge">ClientHello</code> — is closed by <strong>Encrypted Client Hello (ECH)</strong>, published as RFC 9849 in March 2026. ECH encrypts the real <code class="language-plaintext highlighter-rouge">ClientHello</code> under a public key the server publishes in its DNS <code class="language-plaintext highlighter-rouge">HTTPS</code> record (RFC 9460), leaving only a shared, innocuous outer name visible; it is supported by current Firefox and Chrome and by large CDNs.</p>
 
 <table>
   <thead>
@@ -3257,23 +3491,18 @@ ClientHello
     </tr>
     <tr>
       <td>Forward secrecy</td>
-      <td>Optional (static-RSA key exchange allowed)</td>
-      <td>Mandatory (ephemeral (EC)DHE only)</td>
-    </tr>
-    <tr>
-      <td>Key exchange</td>
-      <td>RSA, DH, ECDH (static or ephemeral)</td>
-      <td>(EC)DHE only</td>
+      <td>Optional (static-RSA key transport allowed)</td>
+      <td>Mandatory (ephemeral (EC)DHE or hybrid KEM only)</td>
     </tr>
     <tr>
       <td>Bulk ciphers</td>
       <td>CBC, RC4, 3DES, AEAD</td>
-      <td>AEAD only (AES-GCM, ChaCha20-Poly1305, AES-CCM)</td>
+      <td>AEAD only</td>
     </tr>
     <tr>
       <td>Renegotiation</td>
       <td>Yes (source of attacks)</td>
-      <td>Removed (replaced by key update + post-handshake auth)</td>
+      <td>Removed (replaced by key update)</td>
     </tr>
     <tr>
       <td>Compression</td>
@@ -3281,411 +3510,494 @@ ClientHello
       <td>Removed</td>
     </tr>
     <tr>
-      <td>Cert / handshake privacy</td>
+      <td>Certificate privacy</td>
       <td>Sent in cleartext</td>
       <td>Encrypted</td>
+    </tr>
+    <tr>
+      <td>Downgrade protection</td>
+      <td>Weak</td>
+      <td>Signed transcript plus a sentinel in <code class="language-plaintext highlighter-rouge">ServerHello.random</code></td>
     </tr>
   </tbody>
 </table>
 
-<p>The static-RSA key exchange is the most important casualty. Under TLS 1.2 a server could decrypt the premaster secret with its long-term private key, which meant anyone who later stole that key could decrypt <em>recorded</em> past traffic. TLS 1.3 mandates ephemeral (EC)DHE, so each session’s keys are derived from one-time values and <strong>forward secrecy</strong> is guaranteed: compromising the server’s private key tomorrow does not retroactively decrypt today’s captured sessions. Likewise, the protocol drops every cipher with a track record of attacks (RC4, 3DES, CBC-mode padding oracles, TLS-level compression) and permits only AEAD ciphers, which authenticate and encrypt in one pass.</p>
+<p>Removing static-RSA key transport is the most important change. Under TLS 1.2 anyone who later obtained the server’s private key could decrypt <em>recorded</em> traffic; under TLS 1.3 each session key comes from ephemeral values, so forward secrecy is guaranteed.</p>
 
-<p><strong>0-RTT and its caveat.</strong> On a resumed connection the client can send application data in its very first flight, encrypted with a key derived from a pre-shared key (PSK) established earlier. This is excellent for latency but <strong>0-RTT data is replayable</strong> — a network attacker can capture and re-send that first flight, and the server has no handshake context yet to reject the duplicate. For that reason 0-RTT must only carry idempotent requests (e.g. an HTTP <code class="language-plaintext highlighter-rouge">GET</code>), never a state-changing <code class="language-plaintext highlighter-rouge">POST</code>.</p>
+<p><strong>0-RTT caveat.</strong> A resuming client can send data in its first flight, encrypted under a pre-shared key from an earlier session. That early data is <strong>replayable</strong> — an attacker can capture and resend it — so servers must accept it only for idempotent requests (an HTTP <code class="language-plaintext highlighter-rouge">GET</code>, never a <code class="language-plaintext highlighter-rouge">POST</code> that moves money).</p>
 
-<h3 id="cipher-suite-selection">Cipher-Suite Selection</h3>
+<h3 id="cipher-suites-and-key-exchange-groups">Cipher Suites and Key-Exchange Groups</h3>
 
-<p>A <em>cipher suite</em> names the combination of algorithms a connection will use. The naming convention itself changed in TLS 1.3, reflecting how much was simplified:</p>
+<p>A TLS 1.2 cipher suite bundled four choices into one name; TLS 1.3 names only the AEAD cipher and the hash used by HKDF, and negotiates the key-exchange group and signature algorithm in separate extensions.</p>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>TLS 1.2:  TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-          └┬─┘ └──┬──┘ └┬┘      └─────┬──────┘ └──┬──┘
-        protocol  |   auth        bulk AEAD    HKDF/PRF
-              key exchange         cipher        hash
+              |     |        |             |
+          key exch  auth   AEAD cipher   PRF hash
 
 TLS 1.3:  TLS_AES_128_GCM_SHA256
-              └─────┬──────┘ └──┬──┘
-                AEAD cipher   hash
+              |              |
+          AEAD cipher     HKDF hash
 </code></pre></div></div>
 
-<p>In TLS 1.2 the suite bundled the <strong>key exchange</strong> (ECDHE), the <strong>authentication</strong> (RSA or ECDSA signature), the <strong>bulk cipher</strong> (AES-128-GCM), and the <strong>hash</strong> (SHA-256) into one identifier. TLS 1.3 splits these concerns: the suite now only names the AEAD cipher and hash, while the key-exchange group and signature algorithm are negotiated independently in their own extensions. This orthogonality is why TLS 1.3 has just <strong>five</strong> cipher suites instead of the hundreds that accumulated under TLS 1.2:</p>
+<p>TLS 1.3 defines five suites: <code class="language-plaintext highlighter-rouge">TLS_AES_128_GCM_SHA256</code> (mandatory to implement), <code class="language-plaintext highlighter-rouge">TLS_AES_256_GCM_SHA384</code>, <code class="language-plaintext highlighter-rouge">TLS_CHACHA20_POLY1305_SHA256</code>, <code class="language-plaintext highlighter-rouge">TLS_AES_128_CCM_SHA256</code>, and <code class="language-plaintext highlighter-rouge">TLS_AES_128_CCM_8_SHA256</code> (truncated tag, marked “not recommended” by IANA; for constrained IoT only). Servers normally apply their own preference order. Sensible defaults:</p>
 
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">TLS_AES_128_GCM_SHA256</code></li>
-  <li><code class="language-plaintext highlighter-rouge">TLS_AES_256_GCM_SHA384</code></li>
-  <li><code class="language-plaintext highlighter-rouge">TLS_CHACHA20_POLY1305_SHA256</code></li>
-  <li><code class="language-plaintext highlighter-rouge">TLS_AES_128_CCM_SHA256</code></li>
-  <li><code class="language-plaintext highlighter-rouge">TLS_AES_128_CCM_8_SHA256</code></li>
+  <li><strong>AES-GCM</strong> where the CPU has AES instructions (virtually all servers and modern phones); <strong>ChaCha20-Poly1305</strong> otherwise.</li>
+  <li><strong>Hybrid post-quantum key exchange</strong> — <code class="language-plaintext highlighter-rouge">X25519MLKEM768</code> — first, with <code class="language-plaintext highlighter-rouge">X25519</code> as the fallback. Chrome, Edge, and Firefox offer the hybrid group by default, OpenSSL 3.5 (April 2025) makes it the default key share, and major CDNs negotiate it. Its main cost is size: the client key share grows from 32 bytes to about 1.2 KB, which occasionally breaks middleboxes that assume the <code class="language-plaintext highlighter-rouge">ClientHello</code> fits in one packet.</li>
+  <li>For TLS 1.2 clients, allow only ECDHE suites with AEAD ciphers.</li>
 </ul>
 
-<p><strong>How the choice is made.</strong> The client offers an ordered list; the server picks. By default the server honours its <em>own</em> preference order over the client’s, so server configuration is what actually decides the outcome. The practical guidance:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># What did the server negotiate? (OpenSSL 3.5+ can offer the hybrid group)</span>
+openssl s_client <span class="nt">-connect</span> example.com:443 <span class="nt">-tls1_3</span> <span class="se">\</span>
+  <span class="nt">-groups</span> X25519MLKEM768:X25519 &lt;/dev/null 2&gt;/dev/null <span class="se">\</span>
+  | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"Protocol|Cipher|Negotiated TLS1.3 group|Peer Temp Key"</span>
 
-<ul>
-  <li><strong>Prefer AES-GCM where hardware acceleration exists.</strong> Virtually all modern x86 and ARM CPUs have AES-NI instructions, making AES-GCM both fast and constant-time.</li>
-  <li><strong>Prefer ChaCha20-Poly1305 on devices without AES hardware.</strong> A pure-software AES implementation is slow <em>and</em> prone to cache-timing side channels; ChaCha20 is fast and constant-time in software, which is why mobile clients often list it first.</li>
-  <li><strong>Choose the key-exchange group for both security and speed.</strong> X25519 is the modern default — it is fast, has no known weak parameters, and avoids the invalid-curve and small-subgroup pitfalls of the NIST P-curves.</li>
-</ul>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Inspect what a server actually negotiated</span>
-openssl s_client <span class="nt">-connect</span> example.com:443 <span class="nt">-tls1_3</span> &lt;/dev/null 2&gt;/dev/null <span class="se">\</span>
-  | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"Protocol|Cipher|Server Temp Key"</span>
-<span class="c"># Protocol  : TLSv1.3</span>
-<span class="c"># Cipher    : TLS_AES_256_GCM_SHA384</span>
-<span class="c"># Server Temp Key: X25519, 253 bits</span>
-
-<span class="c"># Enumerate every suite a server will accept (great for audits)</span>
+<span class="c"># Enumerate every protocol/suite a server accepts (audits)</span>
 nmap <span class="nt">--script</span> ssl-enum-ciphers <span class="nt">-p</span> 443 example.com
 </code></pre></div></div>
 
-<h3 id="the-certificate-lifecycle">The Certificate Lifecycle</h3>
+<p>The Mozilla SSL Configuration Generator publishes maintained “modern” and “intermediate” server configurations for nginx, Apache, HAProxy, and others, and is the simplest way to avoid hand-tuning suite lists.</p>
 
-<p>Encryption alone proves nothing about <em>who</em> you are talking to. A TLS certificate binds a public key to an identity (a domain name) and is signed by a <strong>Certificate Authority (CA)</strong> that your operating system or browser already trusts. The handshake’s <code class="language-plaintext highlighter-rouge">CertificateVerify</code> message proves the server holds the matching private key, and the chain of signatures up to a trusted root proves the binding is legitimate.</p>
+<h3 id="certificates-and-the-web-pki">Certificates and the Web PKI</h3>
 
-<p><strong>The chain of trust.</strong> A leaf (server) certificate is signed by an intermediate CA, which is signed by a root CA whose public key ships preinstalled in the <strong>trust store</strong> of your OS or browser. Roots are kept offline; intermediates do the day-to-day signing so that a compromised intermediate can be revoked without distrusting the root.</p>
+<p>Encryption proves nothing about <em>who</em> is on the other end. A certificate binds a public key to a domain name and is signed by a <strong>Certificate Authority (CA)</strong> that the client’s trust store already trusts. The server proves it holds the matching private key by signing the handshake transcript (<code class="language-plaintext highlighter-rouge">CertificateVerify</code>).</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Root CA  (self-signed, in OS/browser trust store, kept offline)
-   │  signs
-   ▼
-Intermediate CA  (online, does day-to-day issuance)
-   │  signs
-   ▼
-Leaf certificate  (your server: CN/SAN = example.com, your public key)
-</code></pre></div></div>
-
-<p>The server must send the leaf <em>and</em> the intermediate(s) during the handshake; a common misconfiguration is sending only the leaf, which breaks validation for clients that lack the intermediate cached.</p>
-
-<p><strong>Validation levels</strong> differ only in how much the CA checks before issuing — the cryptographic protection on the wire is identical:</p>
+<pre><code class="language-mermaid">flowchart TD
+    R["Root CA&lt;br/&gt;self-signed, in OS/browser trust store, kept offline"] --&gt;|signs| I["Intermediate CA&lt;br/&gt;online, issues day to day"]
+    I --&gt;|signs| L["Leaf certificate&lt;br/&gt;SAN: example.com, server public key"]
+    L --&gt;|logged in| CT["Certificate Transparency logs&lt;br/&gt;(SCTs embedded in the leaf)"]
+    L --&gt;|presented in handshake with the intermediate| C["Client validates chain, name, dates, revocation, CT"]
+</code></pre>
 
 <ul>
-  <li><strong>Domain Validation (DV)</strong> — the CA confirms you control the domain (e.g. by serving a token). Issued in seconds, free. The overwhelming majority of certificates.</li>
-  <li><strong>Organization Validation (OV)</strong> — the CA additionally verifies the organization exists.</li>
-  <li><strong>Extended Validation (EV)</strong> — the most rigorous vetting. Browsers no longer give EV a distinct UI treatment, so its practical value has diminished.</li>
+  <li><strong>Chain of trust.</strong> Roots stay offline; intermediates do the signing so a compromised intermediate can be revoked without distrusting the root. The server must send the leaf <em>and</em> its intermediates — sending only the leaf is a common misconfiguration that breaks clients without a cached intermediate.</li>
+  <li><strong>Validation levels.</strong> Domain Validation (DV) proves control of the domain; Organization (OV) and Extended Validation (EV) add identity checks. The encryption is identical, browsers no longer display EV specially, and the vast majority of certificates are DV.</li>
+  <li><strong>Certificate Transparency (CT, RFC 6962).</strong> Every publicly trusted certificate must be logged in public, append-only Merkle-tree logs; Chrome and Safari reject certificates without signed log receipts (SCTs). CT does not stop mis-issuance but makes it detectable: domain owners can monitor the logs (e.g. via crt.sh) for certificates they did not request.</li>
+  <li><strong>CAA records</strong> (RFC 8659) in DNS restrict which CAs may issue for a domain.</li>
 </ul>
 
-<p><strong>ACME and Let’s Encrypt.</strong> The certificate lifecycle used to be a manual, annual chore: generate a CSR, paste it into a web form, pay, download, install, and remember to do it again next year. <strong>Let’s Encrypt</strong> (launched 2015) and the <strong>ACME protocol</strong> (RFC 8555) automated the whole thing and made DV certificates free. The flow:</p>
+<h3 id="automated-issuance-and-shrinking-lifetimes">Automated Issuance and Shrinking Lifetimes</h3>
+
+<p><strong>ACME</strong> (RFC 8555) and <strong>Let’s Encrypt</strong> (launched 2015) turned certificate management from an annual manual chore into an automated, free process:</p>
 
 <ol>
-  <li>The ACME client generates a key pair and asks the CA for a certificate for <code class="language-plaintext highlighter-rouge">example.com</code>.</li>
-  <li>The CA issues a <strong>challenge</strong> to prove control of the domain — typically <code class="language-plaintext highlighter-rouge">http-01</code> (serve a token at <code class="language-plaintext highlighter-rouge">http://example.com/.well-known/acme-challenge/...</code>) or <code class="language-plaintext highlighter-rouge">dns-01</code> (publish a TXT record). <code class="language-plaintext highlighter-rouge">dns-01</code> is required for <strong>wildcard</strong> certificates and works behind firewalls.</li>
-  <li>The client satisfies the challenge; the CA verifies it and signs the certificate.</li>
-  <li>The client installs the certificate and schedules automatic renewal.</li>
+  <li>The ACME client creates an account key and orders a certificate for <code class="language-plaintext highlighter-rouge">example.com</code>.</li>
+  <li>The CA issues a <strong>challenge</strong>: <code class="language-plaintext highlighter-rouge">http-01</code> (serve a token under <code class="language-plaintext highlighter-rouge">/.well-known/acme-challenge/</code>), <code class="language-plaintext highlighter-rouge">dns-01</code> (publish a TXT record; required for wildcards), or <code class="language-plaintext highlighter-rouge">tls-alpn-01</code>.</li>
+  <li>The client satisfies it, the CA validates, and the client submits a CSR and receives the certificate.</li>
+  <li>The client renews automatically — ideally when the CA tells it to, via <strong>ACME Renewal Information (ARI)</strong>, rather than on a fixed schedule.</li>
 </ol>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Issue and auto-renew with certbot (the canonical ACME client)</span>
-certbot <span class="nt">--nginx</span> <span class="nt">-d</span> example.com <span class="nt">-d</span> www.example.com
-
-<span class="c"># certbot installs a systemd timer / cron job that renews when a cert</span>
-<span class="c"># is within 30 days of expiry — renewal is a no-op if not yet due</span>
-certbot renew <span class="nt">--dry-run</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>certbot <span class="nt">--nginx</span> <span class="nt">-d</span> example.com <span class="nt">-d</span> www.example.com   <span class="c"># issue and install</span>
+certbot renew <span class="nt">--dry-run</span>                              <span class="c"># test the renewal timer</span>
 </code></pre></div></div>
 
-<p>Because Let’s Encrypt certificates are valid for only <strong>90 days</strong>, automation is not optional — and that short lifetime is itself a security feature: it limits the damage window of an undetected key compromise and makes revocation (which is unreliable, as we’ll see) matter less. The industry is moving toward even shorter lifetimes; the CA/Browser Forum has voted to reduce the maximum certificate lifetime to <strong>47 days</strong> by 2029, which only deepens the dependence on ACME automation.</p>
+<p>Short lifetimes limit the damage from an undetected key compromise and reduce reliance on revocation, and the industry is shortening them on a fixed schedule. CA/Browser Forum ballot SC-081 (2025) reduces the maximum lifetime of publicly trusted TLS certificates in steps:</p>
 
-<h3 id="revocation-ocsp-and-crls">Revocation: OCSP and CRLs</h3>
+<table>
+  <thead>
+    <tr>
+      <th>From</th>
+      <th>Maximum validity</th>
+      <th>Domain-validation reuse</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Before 15 March 2026</td>
+      <td>398 days</td>
+      <td>398 days</td>
+    </tr>
+    <tr>
+      <td>15 March 2026</td>
+      <td>200 days</td>
+      <td>200 days</td>
+    </tr>
+    <tr>
+      <td>15 March 2027</td>
+      <td>100 days</td>
+      <td>100 days</td>
+    </tr>
+    <tr>
+      <td>15 March 2029</td>
+      <td>47 days</td>
+      <td>10 days</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Certificates carry an expiry date, but sometimes a certificate must be killed <em>early</em> — a private key leaks, a domain changes hands, or a CA mis-issues. Revocation is the mechanism, and it has historically been the weakest link in the PKI.</p>
+<p>Let’s Encrypt, already at 90 days, is moving further: an opt-in six-day “shortlived” profile, 45-day certificates on an opt-in profile from May 2026, a default of 64 days from February 2027, and 45 days (with authorization reuse cut to hours) from February 2028. At these lifetimes manual renewal is impossible; certificate management is an automation problem.</p>
+
+<h3 id="revocation">Revocation</h3>
+
+<p>Sometimes a certificate must die before it expires — the key leaks, the domain changes hands, or the CA mis-issued. Revocation has historically been the weakest part of the PKI:</p>
 
 <ul>
-  <li><strong>CRL (Certificate Revocation List)</strong> — the CA publishes a signed list of every revoked serial number. Clients download it and check membership. CRLs grow large and are fetched infrequently, so they can be badly stale.</li>
-  <li><strong>OCSP (Online Certificate Status Protocol)</strong> — the client asks the CA’s responder about <em>one</em> specific certificate in real time. Fresher than a CRL, but it adds a network round trip to page load and, worse, <strong>leaks the browsing history</strong> to the CA (which sites you visit). Browsers responded by <strong>soft-failing</strong>: if the OCSP responder is unreachable, they assume the certificate is good — which lets a network attacker who can block the OCSP query simply suppress revocation entirely.</li>
-  <li><strong>OCSP stapling</strong> — the <em>server</em> periodically fetches a signed, time-stamped OCSP response from the CA and “staples” it into the TLS handshake. The client gets fresh revocation status with no extra round trip and no privacy leak. The <code class="language-plaintext highlighter-rouge">must-staple</code> certificate extension can be set to make a missing staple a hard failure, closing the soft-fail hole.</li>
+  <li><strong>CRLs</strong> — the CA publishes signed lists of revoked serial numbers. Historically large and infrequently fetched.</li>
+  <li><strong>OCSP</strong> — the client asks the CA about one certificate in real time. It adds latency, leaks every site a user visits to the CA, and browsers <strong>soft-fail</strong> when the responder is unreachable, so an attacker who can block the query suppresses revocation. <strong>OCSP stapling</strong> and the <strong>must-staple</strong> extension tried to fix this but never achieved wide deployment.</li>
+  <li><strong>Browser-pushed revocation</strong> — Chrome’s CRLSets and Firefox’s CRLite aggregate revocation data at the vendor and ship it to the browser, avoiding per-connection lookups.</li>
 </ul>
 
-<div class="language-nginx highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Enable OCSP stapling in nginx</span>
-<span class="k">ssl_stapling</span> <span class="no">on</span><span class="p">;</span>
-<span class="k">ssl_stapling_verify</span> <span class="no">on</span><span class="p">;</span>
-<span class="k">ssl_trusted_certificate</span> <span class="n">/etc/ssl/chain.pem</span><span class="p">;</span>
-<span class="k">resolver</span> <span class="mf">1.1</span><span class="s">.1.1</span> <span class="s">valid=300s</span><span class="p">;</span>
+<p>The industry has now largely abandoned OCSP. The CA/Browser Forum made OCSP optional and CRLs mandatory for publicly trusted CAs, and Let’s Encrypt removed OCSP URLs from its certificates in May 2025 and shut its responders down in August 2025, along with must-staple support. The resulting model is <strong>CRLs aggregated by browsers, plus lifetimes short enough that an unrevoked compromised certificate expires quickly</strong>.</p>
+
+<h3 id="dane">DANE</h3>
+
+<p>Browsers trust hundreds of CAs, any of which can issue for any domain; the 2011 DigiNotar compromise produced fraudulent Google certificates used against users in Iran. <strong>DANE</strong> (RFC 6698) lets a domain owner instead publish the expected key in a DNSSEC-signed <strong>TLSA</strong> record:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>_25._tcp.mail.example.com.  IN  TLSA  3 1 1  &lt;SHA-256 of the server's public key&gt;
+                                      | | |
+                                      | | +-- matching type 1: SHA-256
+                                      | +---- selector 1: SubjectPublicKeyInfo (0 = whole cert)
+                                      +------ usage 3 (DANE-EE): this exact key, no CA needed
 </code></pre></div></div>
 
-<p>Because online revocation is slow and leaky, browsers increasingly favour <strong>pushed revocation</strong>: Chrome’s <strong>CRLSets</strong> and Firefox’s <strong>CRLite</strong> aggregate revocations at the vendor and ship them to the browser out of band, sidestepping per-connection OCSP entirely. This, combined with ever-shorter certificate lifetimes, is the industry’s pragmatic answer to revocation’s chronic unreliability.</p>
-
-<h3 id="dane-and-tlsa">DANE and TLSA</h3>
-
-<p>Who decides which CAs to trust? Today, your browser does — and it trusts <em>hundreds</em> of them, any one of which can issue a certificate for <em>any</em> domain. A single compromised or coerced CA (as in the 2011 DigiNotar breach) can mint a valid certificate for your bank. <strong>DANE (DNS-Based Authentication of Named Entities, RFC 6698)</strong> offers a different trust anchor: let the <em>domain owner</em> pin which certificate or CA is legitimate, published in DNS and protected by <strong>DNSSEC</strong>.</p>
-
-<p>The pin lives in a <strong>TLSA</strong> record:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>_443._tcp.example.com.  IN  TLSA  3 1 1  &lt;SHA-256 of the server's public key&gt;
-                                  │ │ │
-                                  │ │ └─ Matching type: 1 = SHA-256 of the selector
-                                  │ └─── Selector: 1 = SubjectPublicKeyInfo (0 = full cert)
-                                  └───── Usage: 3 = "this exact cert/key", bypassing the CA
-                                          (2 = pin a private trust anchor; 0/1 = constrain a CA)
-</code></pre></div></div>
-
-<p>Usage <code class="language-plaintext highlighter-rouge">3</code> (“DANE-EE”) is the most common: it says “ignore the public CA system, the only valid key for this service is <em>this</em> one.” Because the record is signed with DNSSEC, an attacker cannot forge it without also breaking DNSSEC. The catch is deployment: <strong>browsers do not support DANE for HTTPS</strong> (the perceived gain over CA pinning and Certificate Transparency did not justify the DNSSEC dependency). Its real success story is <strong>SMTP</strong>: DANE is widely deployed for opportunistic-encryption email (MTA-to-MTA), where it upgrades the otherwise trivially-downgradeable STARTTLS into authenticated, mandatory encryption.</p>
+<p>Browsers never adopted DANE for HTTPS (CT solved the mis-issuance-detection problem without a DNSSEC dependency). Its success is <strong>SMTP</strong>: DANE turns opportunistic, trivially downgradeable STARTTLS between mail servers into authenticated, mandatory encryption. MTA-STS (RFC 8461) is the non-DNSSEC alternative for mail.</p>
 
 <h3 id="mutual-tls-mtls">Mutual TLS (mTLS)</h3>
 
-<p>In ordinary TLS only the <em>server</em> presents a certificate; the client stays anonymous to the cryptographic layer and authenticates later at the application level (a password, a token). <strong>Mutual TLS</strong> makes authentication symmetric: the server requests a certificate from the client too, and the client proves possession of its private key with its own <code class="language-plaintext highlighter-rouge">CertificateVerify</code>. Both ends are now cryptographically authenticated before a single byte of application data flows.</p>
+<p>In ordinary TLS only the server presents a certificate; the client authenticates later with a password or token. <strong>Mutual TLS</strong> adds a <code class="language-plaintext highlighter-rouge">CertificateRequest</code> from the server, and the client responds with its own <code class="language-plaintext highlighter-rouge">Certificate</code> and <code class="language-plaintext highlighter-rouge">CertificateVerify</code>, so both ends are cryptographically authenticated before any application data flows.</p>
 
-<p>This is rarely used for public websites (you cannot hand a certificate to every visitor) but is the backbone of <strong>machine-to-machine</strong> trust:</p>
+<p>mTLS is impractical for public websites but is the backbone of machine-to-machine trust:</p>
 
 <ul>
-  <li><strong>Zero-trust networks and service meshes</strong> — Istio, Linkerd, and Consul issue short-lived certificates to every workload and enforce mTLS on all internal traffic, so a service’s <em>identity</em> is its certificate rather than its network location.</li>
-  <li><strong>API and partner integrations</strong> — a bank requiring a client certificate to call its payment API.</li>
-  <li><strong>IoT device fleets</strong> — each device provisioned with a unique certificate at manufacture.</li>
+  <li><strong>Service meshes and zero-trust networks</strong> — Istio, Linkerd, and Consul give every workload a short-lived certificate (commonly a SPIFFE identity issued by SPIRE or the mesh’s own CA) and enforce mTLS on all internal traffic, so identity comes from the certificate rather than the network location.</li>
+  <li><strong>Partner and financial APIs</strong> — open-banking APIs commonly require client certificates or certificate-bound tokens.</li>
+  <li><strong>Device fleets</strong> — IoT devices provisioned with unique certificates at manufacture.</li>
 </ul>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Client                                              Server
+<p>Its operational cost is certificate lifecycle at scale, which is why meshes pair it with automated internal CAs issuing certificates that live for hours — the same automation-plus-short-lifetime pattern ACME brought to the public web. Note that the public Web PKI is separating the two uses: Chrome’s root program is phasing out the client-authentication usage from publicly trusted server certificates, so mTLS client certificates should come from a private CA.</p>
 
-ClientHello                              --------&gt;
-                                            ServerHello
-                                          {Certificate}            (server's cert)
-                                          {CertificateRequest}     &lt;- asks client to authenticate
-                                          {CertificateVerify}
-                                  &lt;--------  {Finished}
-{Certificate}            (client's cert)
-{CertificateVerify}      (client proves its key)
-{Finished}                               --------&gt;
-[Application Data]               &lt;-------&gt;  [Application Data]
-</code></pre></div></div>
+<h2 id="the-quantum-threat-why-we-need-new-cryptography">The Quantum Threat: Why We Need New Cryptography</h2>
 
-<p>The operational cost of mTLS is <strong>certificate lifecycle at scale</strong>: every client now needs a certificate, and every certificate needs issuing, rotating, and revoking. This is precisely why service meshes pair mTLS with an automated internal CA (e.g. SPIFFE/SPIRE) that mints certificates with lifetimes measured in hours — the same short-lifetime-plus-automation pattern that ACME brought to the public web, applied inside the datacenter.</p>
+<p><strong>Shor’s algorithm</strong> factors integers and computes discrete logarithms in polynomial time on a fault-tolerant quantum computer, breaking RSA, finite-field Diffie–Hellman, and all elliptic-curve schemes. Symmetric cryptography and hashes are affected only by Grover’s quadratic speed-up and remain safe at current sizes.</p>
 
-<h2 id="beyond-basic-encryption-modern-cryptographic-techniques">Beyond Basic Encryption: Modern Cryptographic Techniques</h2>
+<p>No cryptographically relevant quantum computer exists yet, but resource estimates keep falling. In 2019 Gidney and Ekerå estimated that factoring RSA-2048 would take about 20 million noisy qubits for eight hours; Gidney’s 2025 revision put it at under one million noisy qubits running for under a week. Current machines have on the order of a thousand physical qubits with error rates far above what such an attack needs, so the gap is large but no longer astronomical.</p>
 
-<p>As our digital world evolves, so do the threats. Modern cryptography has developed sophisticated techniques to address challenges that early internet pioneers never imagined.</p>
+<p>Two considerations make the migration urgent regardless of when that machine arrives:</p>
 
-<h3 id="elliptic-curve-cryptography-doing-more-with-less">Elliptic Curve Cryptography: Doing More with Less</h3>
-
-<p>RSA requires large keys (2048-4096 bits) to be secure. But what about devices with limited power, like your smartphone or smart home devices? Enter Elliptic Curve Cryptography (ECC), which provides the same security with much smaller keys.</p>
-
-<p>The math behind ECC involves points on special curves. Instead of factoring, the security relies on the difficulty of the “discrete logarithm problem” on elliptic curves:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Simplified elliptic curve example
-# Curve: y² = x³ + ax + b (mod p)
-</span>
-<span class="c1"># Point addition on curves follows special rules
-# If you know point P and scalar k, computing k*P is easy
-# But given P and Q = k*P, finding k is extremely hard
-</span>
-<span class="c1"># This is why Bitcoin uses elliptic curves for digital signatures
-# Your private key is k, your public key is k*G (where G is a known point)
-</span></code></pre></div></div>
-
-<h3 id="the-quantum-threat-why-we-need-new-cryptography">The Quantum Threat: Why We Need New Cryptography</h3>
-
-<p>Here’s a sobering thought: quantum computers, once they’re powerful enough, will break RSA and ECC. Shor’s algorithm can factor large numbers and solve discrete logarithms efficiently on a quantum computer. This isn’t science fiction—it’s why organizations are already preparing.</p>
-
-<p>A classical computer factoring a 2048-bit RSA modulus by trial division would need billions of years; a sufficiently large quantum computer running Shor’s algorithm could do it in hours or days. The defense is not a faster classical algorithm but a switch to problems quantum computers do <em>not</em> solve efficiently — the post-quantum families below (lattice-based, hash-based, code-based, and multivariate schemes).</p>
-
-<p><strong>2024 Update</strong>: IBM’s quantum computers have reached 1000+ qubits, and while error rates remain high, the timeline for “cryptographically relevant quantum computers” has shortened. NIST released standardized post-quantum algorithms in 2024, and organizations are beginning the migration.</p>
-
-<h4 id="post-quantum-cryptography-preparing-for-tomorrow">Post-Quantum Cryptography: Preparing for Tomorrow</h4>
-
-<p>Cryptographers are developing new algorithms based on problems that even quantum computers find difficult:</p>
-
-<p><strong>Lattice-Based Cryptography</strong>: Imagine a multi-dimensional grid of points. Finding the shortest path between points when there’s some random “error” added is surprisingly hard, even for quantum computers.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Simplified Learning with Errors (LWE) concept
-# Secret: s = [2, 3, 1]
-# Public: Random matrix A and b = A*s + small_error
-# Even knowing A and b, finding s is hard due to the error
-</span>
-<span class="n">A</span> <span class="o">=</span> <span class="p">[[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">7</span><span class="p">],</span>
-     <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
-     <span class="p">[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">]]</span>
-<span class="n">s</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-<span class="n">error</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># Small random errors
-</span>
-<span class="c1"># b = A*s + error (mod q)
-# Given A and b, recover s? Extremely difficult!
-</span></code></pre></div></div>
-
-<p><strong>Hash-Based Signatures</strong>: These rely only on the security of hash functions. Even if quantum computers arrive tomorrow, hash-based signatures would still be secure.</p>
-
-<p><strong>Code-Based Cryptography</strong>: Security rests on the hardness of decoding general error-correcting codes.</p>
-
-<p><strong>Multivariate Cryptography</strong>: Security rests on the difficulty of solving systems of multivariate polynomial equations.</p>
-
-<p>The transition to post-quantum cryptography is accelerating. Major browsers including Chrome and Firefox now support post-quantum key exchange by default. NIST’s 2024 standards include:</p>
 <ul>
-  <li><strong>CRYSTALS-Kyber</strong>: For key encapsulation</li>
-  <li><strong>CRYSTALS-Dilithium</strong>: For digital signatures</li>
-  <li><strong>FALCON</strong>: Alternative signature scheme</li>
-  <li><strong>SPHINCS+</strong>: Hash-based signatures for highest security</li>
+  <li><strong>Harvest now, decrypt later.</strong> An adversary can record encrypted traffic today and decrypt it once a quantum computer exists. Any data that must stay confidential for 10–20 years is already exposed if its key exchange is classical — which is why key exchange is being migrated first.</li>
+  <li><strong>Migration takes a decade.</strong> Previous transitions (SHA-1 to SHA-2, RSA to ECC, TLS 1.0 to 1.2) each took 10–20 years across the installed base of devices, firmware, protocols, and HSMs.</li>
 </ul>
 
-<h3 id="privacy-preserving-technologies">Privacy-Preserving Technologies</h3>
+<h3 id="post-quantum-standards">Post-Quantum Standards</h3>
 
-<p>As we share more data online, a crucial question emerges: can we use data without exposing it? This isn’t just about hiding from hackers—it’s about fundamental privacy rights.</p>
+<p>Post-quantum cryptography (PQC) means classical algorithms, running on ordinary computers, built on problems for which no efficient quantum algorithm is known. NIST ran an open competition from 2016 and published its first standards in August 2024:</p>
 
-<h4 id="zero-knowledge-proofs-proving-without-revealing">Zero-Knowledge Proofs: Proving Without Revealing</h4>
+<table>
+  <thead>
+    <tr>
+      <th>Standard</th>
+      <th>Algorithm (origin)</th>
+      <th>Type</th>
+      <th>Hard problem</th>
+      <th>Public key / output size</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>FIPS 203</strong></td>
+      <td>ML-KEM (CRYSTALS-Kyber)</td>
+      <td>KEM</td>
+      <td>Module learning with errors</td>
+      <td>ML-KEM-768: 1,184 B key, 1,088 B ciphertext</td>
+    </tr>
+    <tr>
+      <td><strong>FIPS 204</strong></td>
+      <td>ML-DSA (CRYSTALS-Dilithium)</td>
+      <td>Signature</td>
+      <td>Module LWE / SIS</td>
+      <td>ML-DSA-65: 1,952 B key, 3,309 B signature</td>
+    </tr>
+    <tr>
+      <td><strong>FIPS 205</strong></td>
+      <td>SLH-DSA (SPHINCS+)</td>
+      <td>Signature</td>
+      <td>Hash functions only</td>
+      <td>SLH-DSA-128s: 32 B key, 7,856 B signature</td>
+    </tr>
+    <tr>
+      <td>FIPS 206 (in progress)</td>
+      <td>FN-DSA (Falcon)</td>
+      <td>Signature</td>
+      <td>NTRU lattices</td>
+      <td>Falcon-512: 897 B key, about 666 B signature</td>
+    </tr>
+    <tr>
+      <td>Selected March 2025</td>
+      <td>HQC</td>
+      <td>KEM</td>
+      <td>Decoding random quasi-cyclic codes</td>
+      <td>Backup KEM with a non-lattice assumption</td>
+    </tr>
+    <tr>
+      <td>SP 800-208</td>
+      <td>LMS, XMSS</td>
+      <td>Stateful signature</td>
+      <td>Hash functions only</td>
+      <td>Firmware/code signing; signer must never reuse state</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Imagine you want to prove you’re over 21 to enter a bar, but you don’t want to show your driver’s license (which reveals your exact age, address, and more). Zero-knowledge proofs make this possible.</p>
+<p>For comparison, X25519 public keys are 32 bytes and Ed25519 signatures 64 bytes: the practical cost of PQC is <strong>size</strong>, not speed (ML-KEM is faster than X25519). Large signatures are the harder problem for TLS, where a certificate chain carries several signatures and public keys; post-quantum <em>authentication</em> in the Web PKI is still being designed (Merkle Tree Certificates are one proposal), whereas post-quantum <em>key exchange</em> is already deployed.</p>
 
-<p><strong>Real-world example</strong>: You could prove you know your password without sending the password itself:</p>
+<p><strong>Lattice problems.</strong> ML-KEM and ML-DSA rest on <strong>learning with errors (LWE)</strong>: given a random matrix $A$ and</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Simplified zero-knowledge proof concept
-# Prover knows secret x, wants to prove they know it
-# without revealing x
+\[b = A s + e \pmod{q},\]
+
+<p>where $s$ is a secret vector and $e$ a vector of small random errors, recover $s$. Without the error term this is linear algebra (Gaussian elimination); with it, the best known classical and quantum algorithms are exponential. “Module” LWE works over polynomial rings, which shrinks keys and speeds up arithmetic while keeping this structure.</p>
+
+<h3 id="migration-timeline">Migration Timeline</h3>
+
+<pre><code class="language-mermaid">timeline
+    title Post-quantum cryptography milestones
+    2016 : NIST PQC competition opens
+    2022 : Kyber, Dilithium, Falcon, SPHINCS+ selected
+    2024 : FIPS 203, 204, 205 published (August) : Chrome ships hybrid X25519MLKEM768
+    2025 : HQC selected as backup KEM : OpenSSL 3.5 LTS adds ML-KEM, ML-DSA, SLH-DSA
+    2030 : NIST draft IR 8547 deprecates 112-bit RSA and ECC
+    2035 : NIST draft disallows quantum-vulnerable public-key algorithms
+</code></pre>
+
+<p>NIST IR 8547 (initial public draft, November 2024) proposes deprecating quantum-vulnerable algorithms at the 112-bit security level after 2030 and disallowing RSA and ECC entirely after 2035; the NSA’s <strong>CNSA 2.0</strong> sets a similar 2035 horizon for US national security systems, with ML-KEM-1024 and ML-DSA-87 as its public-key algorithms. The recommended migration pattern:</p>
+
+<ol>
+  <li><strong>Inventory</strong> where public-key cryptography is used (a <em>cryptographic bill of materials</em>): TLS endpoints, VPNs, SSH, code signing, HSMs, embedded devices, stored encrypted data.</li>
+  <li><strong>Deploy hybrid key exchange first</strong> — X25519MLKEM768 in TLS, <code class="language-plaintext highlighter-rouge">mlkem768x25519-sha256</code> in OpenSSH (the default since OpenSSH 10.0) — so that security holds if <em>either</em> component is unbroken.</li>
+  <li><strong>Build crypto-agility</strong>: algorithms configurable rather than hard-coded, so future changes are configuration, not rewrites.</li>
+  <li><strong>Plan signature migration</strong> for long-lived trust anchors (firmware roots, code-signing keys) where replacing keys in the field is slowest.</li>
+</ol>
+
+<h2 id="privacy-preserving-cryptography">Privacy-Preserving Cryptography</h2>
+
+<p>Traditional encryption protects data at rest and in transit but requires decrypting it to use it. A family of techniques lets parties prove or compute things about data without revealing it. Secure multi-party computation and differential privacy are covered in <a href="operations-and-response.html">Foundations, Operations &amp; Research</a> and <a href="privacy-engineering.html">Privacy Engineering</a>.</p>
+
+<h3 id="zero-knowledge-proofs">Zero-Knowledge Proofs</h3>
+
+<p>A zero-knowledge proof convinces a verifier that a statement is true — “I know the private key for this public key”, “this transaction balances”, “I am over 18” — while revealing nothing beyond that fact. The classic example is the <strong>Schnorr identification protocol</strong>, in which a prover demonstrates knowledge of $x$ where $y = g^x \bmod p$, in a group of prime order $q$:</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant P as Prover (knows x)
+    participant V as Verifier (knows g, y)
+    P-&gt;&gt;P: pick random r, compute commitment t = g^r
+    P-&gt;&gt;V: t
+    V-&gt;&gt;V: pick random challenge c
+    V-&gt;&gt;P: c
+    P-&gt;&gt;P: response s = r + c*x mod q
+    P-&gt;&gt;V: s
+    V-&gt;&gt;V: accept if g^s = t * y^c
+</code></pre>
+
+<p>Verification works because</p>
+
+\[g^{s} = g^{r + c x} = g^{r} \cdot \left(g^{x}\right)^{c} = t \cdot y^{c} \pmod{p}.\]
+
+<p>The random $r$ masks $x$ in the response, so the transcript reveals nothing about $x$; a prover who does not know $x$ can answer at most one challenge per commitment and is caught with overwhelming probability. Replacing the verifier’s challenge with a hash of the commitment and a message, $c = H(t, m)$ (the <strong>Fiat–Shamir transform</strong>), turns the protocol into a non-interactive proof — which is exactly the Schnorr signature scheme that EdDSA and Bitcoin’s Taproot signatures build on.</p>
+
+<p>General-purpose <strong>zk-SNARKs</strong> (Groth16, PLONK) and <strong>zk-STARKs</strong> extend this to proving arbitrary computations with small proofs and fast verification. They are deployed in privacy-preserving cryptocurrencies, Ethereum “zk-rollups” that batch thousands of transactions behind one succinct proof, and anonymous credentials and age-verification schemes for digital-identity wallets. The formal definitions (completeness, soundness, zero-knowledge) are in <a href="../../advanced/cryptography/#zero-knowledge-proofs">Advanced Cryptography</a>.</p>
+
+<h3 id="homomorphic-encryption">Homomorphic Encryption</h3>
+
+<p>Homomorphic encryption allows computation directly on ciphertexts: the result, when decrypted, equals the result of the same computation on the plaintexts.</p>
+
+<ul>
+  <li><strong>Partially homomorphic</strong> schemes support one operation. In <strong>Paillier</strong>, multiplying ciphertexts adds plaintexts, $E(m_1) \cdot E(m_2) \bmod n^2 = E(m_1 + m_2)$, which suits encrypted vote tallies and aggregate statistics. Unpadded RSA and ElGamal are multiplicatively homomorphic.</li>
+  <li><strong>Fully homomorphic encryption (FHE)</strong>, first constructed by Gentry in 2009, supports both addition and multiplication and therefore arbitrary circuits. Each operation adds noise to the ciphertext, and <strong>bootstrapping</strong> homomorphically refreshes it. Current schemes are lattice-based: <strong>BGV/BFV</strong> for exact integer arithmetic, <strong>CKKS</strong> for approximate real-number arithmetic (well suited to machine-learning inference), and <strong>TFHE</strong> for fast bootstrapping on bits and small integers.</li>
+</ul>
+
+<p>FHE remains orders of magnitude slower than plaintext computation, but it has moved from theory to niche production: open-source libraries include OpenFHE, Microsoft SEAL, and Zama’s TFHE-rs, and it is used for private set intersection, encrypted database lookups, and privacy-preserving ML inference. Hardware accelerators are an active research and commercial area.</p>
+
+<h2 id="mathematical-foundations">Mathematical Foundations</h2>
+
+<h3 id="rsa">RSA</h3>
+
+<p>Key generation, encryption, and decryption:</p>
+
+\[n = p q, \qquad \varphi(n) = (p - 1)(q - 1), \qquad e d \equiv 1 \pmod{\varphi(n)}\]
+
+\[c = m^{e} \bmod n, \qquad m = c^{d} \bmod n\]
+
+<p>Decryption works because $ed = 1 + k\varphi(n)$ for some integer $k$, and by Euler’s theorem $m^{\varphi(n)} \equiv 1 \pmod n$ for $m$ coprime to $n$, so</p>
+
+\[c^{d} = m^{e d} = m \cdot \left(m^{\varphi(n)}\right)^{k} \equiv m \pmod{n}\]
+
+<p>(the result also holds for the rare $m$ sharing a factor with $n$, by the Chinese remainder theorem). The public key is $(n, e)$; the private key is $d$, which is easy to compute from $\varphi(n)$ but, as far as anyone knows, requires factoring $n$ to obtain. Standards use $e = 65537$ and many implementations use the Carmichael function $\lambda(n) = \operatorname{lcm}(p-1, q-1)$ in place of $\varphi(n)$, which gives a smaller but equivalent $d$.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Toy RSA with tiny primes — illustrative only. Real RSA uses 2048+ bit
+# primes and OAEP/PSS padding; unpadded ("textbook") RSA is insecure.
+</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span> <span class="o">=</span> <span class="mi">61</span><span class="p">,</span> <span class="mi">53</span>
+<span class="n">n</span> <span class="o">=</span> <span class="n">p</span> <span class="o">*</span> <span class="n">q</span>                    <span class="c1"># 3233
+</span><span class="n">phi</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">q</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>      <span class="c1"># 3120
+</span><span class="n">e</span> <span class="o">=</span> <span class="mi">17</span>                       <span class="c1"># coprime with phi
+</span><span class="n">d</span> <span class="o">=</span> <span class="nf">pow</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">phi</span><span class="p">)</span>          <span class="c1"># modular inverse (Python 3.8+): 2753
 </span>
-<span class="c1"># 1. Commitment: Prover sends y = g^x (mod p)
-# 2. Challenge: Verifier sends random challenge c
-# 3. Response: Prover computes r = x + c*k (mod q)
-# 4. Verify: Verifier checks that g^r = y * public_key^c
-</span>
-<span class="c1"># The verifier learns nothing about x!
+<span class="n">m</span> <span class="o">=</span> <span class="mi">65</span>
+<span class="n">c</span> <span class="o">=</span> <span class="nf">pow</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>             <span class="c1"># 2790
+</span><span class="k">assert</span> <span class="nf">pow</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="o">==</span> <span class="n">m</span>     <span class="c1"># decrypts back to 65
 </span></code></pre></div></div>
 
-<p>This technology is already being used in blockchain systems for private transactions and in identity verification systems that respect privacy.</p>
+<h3 id="elliptic-curves">Elliptic Curves</h3>
 
-<h4 id="homomorphic-encryption-computing-on-encrypted-data">Homomorphic Encryption: Computing on Encrypted Data</h4>
+<p>A short-Weierstrass elliptic curve over the prime field $\mathbb{F}_p$ is the set of points satisfying</p>
 
-<p>What if you could perform calculations on encrypted data without decrypting it? This sounds impossible, but homomorphic encryption makes it real.</p>
+\[y^{2} = x^{3} + a x + b \pmod{p},\]
 
-<p><strong>Why this matters</strong>: Imagine using a cloud service to analyze your medical data. With homomorphic encryption, the cloud can process your encrypted data and return encrypted results—without ever seeing your actual medical information.</p>
+<p>together with a point at infinity $\mathcal{O}$ acting as the identity. Adding $P = (x_1, y_1)$ and $Q = (x_2, y_2)$ uses the slope of the line through them (or the tangent, when doubling):</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Homomorphic property of a Paillier-style ADDITIVE scheme.
-# In Paillier, *multiplying* two ciphertexts decrypts to the
-# *sum* of the plaintexts:
-#   E(5) * E(3) = E(5 + 3) = E(8)
-#
-# (Not every scheme works this way: RSA/ElGamal are
-# multiplicatively homomorphic, and fully homomorphic schemes
-# like BGV/CKKS support both addition and multiplication at a
-# much higher cost.)
+\[\lambda =
+\begin{cases}
+\dfrac{y_2 - y_1}{x_2 - x_1} &amp; P \neq Q \\[2ex]
+\dfrac{3 x_1^{2} + a}{2 y_1} &amp; P = Q
+\end{cases}
+\qquad
+x_3 = \lambda^{2} - x_1 - x_2, \qquad
+y_3 = \lambda (x_1 - x_3) - y_1 .\]
+
+<p>A private key is a scalar $k$; the public key is $Q = kG$ for a fixed base point $G$, computed with $O(\log k)$ doublings and additions. Recovering $k$ from $Q$ is the elliptic-curve discrete logarithm problem. Bitcoin uses secp256k1 ($a = 0$, $b = 7$); TLS mostly uses P-256 and Curve25519 (the latter in Montgomery form, with a different but equivalent formula).</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Toy elliptic-curve arithmetic. Production code must be constant-time,
+# validate points, and use a vetted library — never code like this.
+</span><span class="n">O</span> <span class="o">=</span> <span class="bp">None</span>  <span class="c1"># point at infinity
 </span>
-<span class="c1"># Real application: Private voting
-# Each vote is encrypted; the tally is computed by multiplying
-# the ciphertexts (which adds the plaintext votes).
-# Only the final sum is decrypted—individual votes remain secret
+<span class="k">def</span> <span class="nf">ec_add</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">P</span> <span class="ow">is</span> <span class="n">O</span><span class="p">:</span> <span class="k">return</span> <span class="n">Q</span>
+    <span class="k">if</span> <span class="n">Q</span> <span class="ow">is</span> <span class="n">O</span><span class="p">:</span> <span class="k">return</span> <span class="n">P</span>
+    <span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">),</span> <span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">)</span> <span class="o">=</span> <span class="n">P</span><span class="p">,</span> <span class="n">Q</span>
+    <span class="k">if</span> <span class="n">x1</span> <span class="o">==</span> <span class="n">x2</span> <span class="ow">and</span> <span class="p">(</span><span class="n">y1</span> <span class="o">+</span> <span class="n">y2</span><span class="p">)</span> <span class="o">%</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">O</span>                                   <span class="c1"># P + (-P) = O
+</span>    <span class="k">if</span> <span class="n">P</span> <span class="o">==</span> <span class="n">Q</span><span class="p">:</span>
+        <span class="n">lam</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">x1</span> <span class="o">*</span> <span class="n">x1</span> <span class="o">+</span> <span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="nf">pow</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">y1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="o">%</span> <span class="n">p</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">lam</span> <span class="o">=</span> <span class="p">(</span><span class="n">y2</span> <span class="o">-</span> <span class="n">y1</span><span class="p">)</span> <span class="o">*</span> <span class="nf">pow</span><span class="p">(</span><span class="n">x2</span> <span class="o">-</span> <span class="n">x1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="o">%</span> <span class="n">p</span>
+    <span class="n">x3</span> <span class="o">=</span> <span class="p">(</span><span class="n">lam</span> <span class="o">*</span> <span class="n">lam</span> <span class="o">-</span> <span class="n">x1</span> <span class="o">-</span> <span class="n">x2</span><span class="p">)</span> <span class="o">%</span> <span class="n">p</span>
+    <span class="nf">return </span><span class="p">(</span><span class="n">x3</span><span class="p">,</span> <span class="p">(</span><span class="n">lam</span> <span class="o">*</span> <span class="p">(</span><span class="n">x1</span> <span class="o">-</span> <span class="n">x3</span><span class="p">)</span> <span class="o">-</span> <span class="n">y1</span><span class="p">)</span> <span class="o">%</span> <span class="n">p</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">ec_mul</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Double-and-add: O(log k) group operations.</span><span class="sh">"""</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="n">O</span>
+    <span class="k">while</span> <span class="n">k</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">R</span> <span class="o">=</span> <span class="nf">ec_add</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="nf">ec_add</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="n">k</span> <span class="o">&gt;&gt;=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">R</span>
+
+<span class="c1"># y^2 = x^3 + 2x + 3 over F_97, point G = (3, 6)
+</span><span class="n">G</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">([</span><span class="nf">ec_mul</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">a</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">97</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">)])</span>
+<span class="c1"># [(3, 6), (80, 10), (80, 87), (3, 91), None]  -&gt; G has order 5: 5G = O.
+# Real curves use a base point of large prime order (about 2^256 for P-256).
 </span></code></pre></div></div>
 
-<h2 id="advanced-cryptographic-foundations">Advanced Cryptographic Foundations</h2>
+<h3 id="shamirs-secret-sharing">Shamir’s Secret Sharing</h3>
 
-<p>Now that we’ve seen how cryptography protects us in practice, let’s dive deeper into the mathematical foundations that make it all possible. Understanding these concepts helps you make informed decisions about security.</p>
+<p>Shamir’s scheme splits a secret $s$ into $n$ shares such that any $k$ of them reconstruct it and any $k - 1$ reveal nothing. The dealer picks a random polynomial of degree $k - 1$ over $\mathbb{F}_p$ with constant term $s$ and hands out points on it:</p>
 
-<h3 id="the-mathematics-behind-rsa">The Mathematics Behind RSA</h3>
+\[f(x) = s + a_1 x + a_2 x^{2} + \cdots + a_{k-1} x^{k-1} \pmod{p}, \qquad \text{share}_i = (i, f(i)).\]
 
-<p>We touched on RSA earlier, but let’s see exactly how the math works:</p>
+<p>Any $k$ points determine a unique polynomial of degree $k - 1$, and Lagrange interpolation at $x = 0$ recovers the secret:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">random</span>
-<span class="kn">from</span> <span class="n">math</span> <span class="kn">import</span> <span class="n">gcd</span>
+\[s = f(0) = \sum_{i=1}^{k} y_i \prod_{j \neq i} \frac{x_j}{x_j - x_i} \pmod{p}.\]
 
-<span class="k">def</span> <span class="nf">generate_rsa_keys</span><span class="p">(</span><span class="n">bits</span><span class="o">=</span><span class="mi">2048</span><span class="p">):</span>
-    <span class="c1"># Step 1: Generate two large primes
-</span>    <span class="c1"># (2048-bit is the practical minimum today; 1024-bit is deprecated)
-</span>    <span class="n">p</span> <span class="o">=</span> <span class="nf">generate_large_prime</span><span class="p">(</span><span class="n">bits</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
-    <span class="n">q</span> <span class="o">=</span> <span class="nf">generate_large_prime</span><span class="p">(</span><span class="n">bits</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
+<p>With only $k - 1$ points, every possible secret is consistent with exactly one polynomial, so the scheme is information-theoretically secure. It is used to split root-CA and HSM master keys among custodians, to “unseal” HashiCorp Vault, and — generalized into threshold signatures — in multi-party cryptocurrency custody.</p>
 
-    <span class="c1"># Step 2: Calculate n = p * q
-</span>    <span class="n">n</span> <span class="o">=</span> <span class="n">p</span> <span class="o">*</span> <span class="n">q</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">secrets</span>
 
-    <span class="c1"># Step 3: Calculate Euler's totient
-</span>    <span class="n">phi</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">q</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-
-    <span class="c1"># Step 4: Choose public exponent e
-</span>    <span class="n">e</span> <span class="o">=</span> <span class="mi">65537</span>  <span class="c1"># Common choice, must be coprime with phi
+<span class="n">PRIME</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">127</span> <span class="o">-</span> <span class="mi">1</span>   <span class="c1"># a Mersenne prime; the field must exceed the secret
 </span>
-    <span class="c1"># Step 5: Calculate private exponent d
-</span>    <span class="n">d</span> <span class="o">=</span> <span class="nf">modular_inverse</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">phi</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">split</span><span class="p">(</span><span class="n">secret</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">PRIME</span><span class="p">):</span>
+    <span class="n">coeffs</span> <span class="o">=</span> <span class="p">[</span><span class="n">secret</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">secrets</span><span class="p">.</span><span class="nf">randbelow</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nf">sum</span><span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="nf">pow</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">coeffs</span><span class="p">))</span> <span class="o">%</span> <span class="n">p</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">x</span><span class="p">,</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
 
-    <span class="c1"># Public key: (n, e)
-</span>    <span class="c1"># Private key: (n, d)
-</span>    <span class="nf">return </span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">e</span><span class="p">),</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">encrypt_rsa</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
-    <span class="c1"># Encryption: c = m^e mod n
-</span>    <span class="k">return</span> <span class="nf">pow</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">decrypt_rsa</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
-    <span class="c1"># Decryption: m = c^d mod n
-</span>    <span class="k">return</span> <span class="nf">pow</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
-
-<span class="c1"># The security relies on the fact that knowing n
-# doesn't help you find p and q (factoring is hard)
-</span></code></pre></div></div>
-
-<h3 id="elliptic-curves-the-elegant-alternative">Elliptic Curves: The Elegant Alternative</h3>
-
-<p>Elliptic curves provide the same security as RSA with much smaller keys. The math is beautiful:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Elliptic curve: y² = x³ + ax + b (mod p)
-# Example: Bitcoin uses secp256k1: y² = x³ + 7
-</span>
-<span class="k">class</span> <span class="nc">EllipticCurve</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">a</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">b</span> <span class="o">=</span> <span class="n">b</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">p</span> <span class="o">=</span> <span class="n">p</span>  <span class="c1"># Prime modulus
-</span>
-    <span class="k">def</span> <span class="nf">point_addition</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">Q</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Add two points on the curve</span><span class="sh">"""</span>
-        <span class="k">if</span> <span class="n">P</span> <span class="o">==</span> <span class="n">Q</span><span class="p">:</span>
-            <span class="c1"># Point doubling
-</span>            <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">P</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="nf">modular_inverse</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">P</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">p</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Point addition
-</span>            <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">P</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="nf">modular_inverse</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">P</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">p</span><span class="p">)</span>
-
-        <span class="n">x3</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">P</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">Q</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">%</span> <span class="n">self</span><span class="p">.</span><span class="n">p</span>
-        <span class="n">y3</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span> <span class="o">*</span> <span class="p">(</span><span class="n">P</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">x3</span><span class="p">)</span> <span class="o">-</span> <span class="n">P</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">%</span> <span class="n">self</span><span class="p">.</span><span class="n">p</span>
-        <span class="nf">return </span><span class="p">(</span><span class="n">x3</span><span class="p">,</span> <span class="n">y3</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">scalar_multiplication</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">P</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Multiply point P by scalar k</span><span class="sh">"""</span>
-        <span class="c1"># This is easy to compute
-</span>        <span class="c1"># But given P and k*P, finding k is extremely hard
-</span>        <span class="c1"># This is the elliptic curve discrete logarithm problem
-</span></code></pre></div></div>
-
-<h3 id="secret-sharing-distributing-trust">Secret Sharing: Distributing Trust</h3>
-
-<p>What if you need multiple people to authorize something, like launching a missile or accessing a bitcoin wallet? Shamir’s Secret Sharing provides an elegant solution:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">shamir_share_secret</span><span class="p">(</span><span class="n">secret</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">num_shares</span><span class="p">,</span> <span class="n">prime</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    Split secret into n shares, need k to reconstruct
-    Uses polynomial: f(x) = secret + a1*x + a2*x² + ... + ak*x^(k-1)
-    </span><span class="sh">"""</span>
-    <span class="c1"># Generate random coefficients
-</span>    <span class="n">coefficients</span> <span class="o">=</span> <span class="p">[</span><span class="n">secret</span><span class="p">]</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">threshold</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="n">coefficients</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">prime</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
-
-    <span class="c1"># Generate shares: (x, f(x)) for x = 1, 2, ..., n
-</span>    <span class="n">shares</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_shares</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">coeff</span> <span class="o">*</span> <span class="nf">pow</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">prime</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">coeff</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">coefficients</span><span class="p">))</span> <span class="o">%</span> <span class="n">prime</span>
-        <span class="n">shares</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
-
-    <span class="k">return</span> <span class="n">shares</span>
-
-<span class="k">def</span> <span class="nf">reconstruct_secret</span><span class="p">(</span><span class="n">shares</span><span class="p">,</span> <span class="n">prime</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    Reconstruct secret using Lagrange interpolation
-    </span><span class="sh">"""</span>
+<span class="k">def</span> <span class="nf">combine</span><span class="p">(</span><span class="n">shares</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">PRIME</span><span class="p">):</span>
     <span class="n">secret</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">xi</span><span class="p">,</span> <span class="n">yi</span><span class="p">)</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">shares</span><span class="p">):</span>
-        <span class="n">numerator</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="n">denominator</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">num</span><span class="p">,</span> <span class="n">den</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
         <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="p">(</span><span class="n">xj</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">shares</span><span class="p">):</span>
             <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">:</span>
-                <span class="n">numerator</span> <span class="o">=</span> <span class="p">(</span><span class="n">numerator</span> <span class="o">*</span> <span class="o">-</span><span class="n">xj</span><span class="p">)</span> <span class="o">%</span> <span class="n">prime</span>
-                <span class="n">denominator</span> <span class="o">=</span> <span class="p">(</span><span class="n">denominator</span> <span class="o">*</span> <span class="p">(</span><span class="n">xi</span> <span class="o">-</span> <span class="n">xj</span><span class="p">))</span> <span class="o">%</span> <span class="n">prime</span>
-
-        <span class="n">lagrange</span> <span class="o">=</span> <span class="p">(</span><span class="n">yi</span> <span class="o">*</span> <span class="n">numerator</span> <span class="o">*</span> <span class="nf">modular_inverse</span><span class="p">(</span><span class="n">denominator</span><span class="p">,</span> <span class="n">prime</span><span class="p">))</span> <span class="o">%</span> <span class="n">prime</span>
-        <span class="n">secret</span> <span class="o">=</span> <span class="p">(</span><span class="n">secret</span> <span class="o">+</span> <span class="n">lagrange</span><span class="p">)</span> <span class="o">%</span> <span class="n">prime</span>
-
+                <span class="n">num</span> <span class="o">=</span> <span class="n">num</span> <span class="o">*</span> <span class="n">xj</span> <span class="o">%</span> <span class="n">p</span>
+                <span class="n">den</span> <span class="o">=</span> <span class="n">den</span> <span class="o">*</span> <span class="p">(</span><span class="n">xj</span> <span class="o">-</span> <span class="n">xi</span><span class="p">)</span> <span class="o">%</span> <span class="n">p</span>
+        <span class="n">secret</span> <span class="o">=</span> <span class="p">(</span><span class="n">secret</span> <span class="o">+</span> <span class="n">yi</span> <span class="o">*</span> <span class="n">num</span> <span class="o">*</span> <span class="nf">pow</span><span class="p">(</span><span class="n">den</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span> <span class="o">%</span> <span class="n">p</span>
     <span class="k">return</span> <span class="n">secret</span>
 
-<span class="c1"># Example: Nuclear launch codes requiring 3 of 5 generals
-# Each general gets one share, any 3 can launch
-</span></code></pre></div></div>
+<span class="n">shares</span> <span class="o">=</span> <span class="nf">split</span><span class="p">(</span><span class="mi">123456789</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>      <span class="c1"># 3-of-5
+</span><span class="k">assert</span> <span class="nf">combine</span><span class="p">(</span><span class="n">shares</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span> <span class="o">==</span> <span class="mi">123456789</span>
+<span class="k">assert</span> <span class="nf">combine</span><span class="p">([</span><span class="n">shares</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">shares</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">shares</span><span class="p">[</span><span class="mi">4</span><span class="p">]])</span> <span class="o">==</span> <span class="mi">123456789</span>
+</code></pre></div></div>
+
+<h2 id="common-failure-modes">Common Failure Modes</h2>
+
+<p>Deployed cryptography rarely fails because an algorithm is broken; it fails in how it is used.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Failure</th>
+      <th>Example</th>
+      <th>Mitigation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Nonce/IV reuse</td>
+      <td>AES-GCM nonce repeated under one key; ECDSA nonce reuse (PS3)</td>
+      <td>Library-managed nonces, GCM-SIV, deterministic ECDSA or Ed25519</td>
+    </tr>
+    <tr>
+      <td>Unauthenticated encryption</td>
+      <td>CBC padding oracles (POODLE, Lucky 13)</td>
+      <td>AEAD only</td>
+    </tr>
+    <tr>
+      <td>Weak randomness</td>
+      <td>Debian OpenSSL bug (2008) left 32,768 possible keys</td>
+      <td>OS CSPRNG; never seed from time or PIDs</td>
+    </tr>
+    <tr>
+      <td>Timing side channels</td>
+      <td>Early-exit MAC comparison; table-based AES</td>
+      <td>Constant-time comparison (<code class="language-plaintext highlighter-rouge">hmac.compare_digest</code>) and implementations</td>
+    </tr>
+    <tr>
+      <td>Poor key management</td>
+      <td>Keys in source code, never rotated</td>
+      <td>KMS/HSM, envelope encryption, rotation, secret scanning</td>
+    </tr>
+    <tr>
+      <td>Downgrade attacks</td>
+      <td>FREAK, Logjam forcing export-grade crypto</td>
+      <td>Remove legacy options; TLS 1.3 transcript protection</td>
+    </tr>
+    <tr>
+      <td>Fast password hashing</td>
+      <td>Unsalted SHA-1/MD5 password dumps</td>
+      <td>Argon2id / scrypt / bcrypt</td>
+    </tr>
+    <tr>
+      <td>Implementation bugs</td>
+      <td>Heartbleed (2014) read server memory</td>
+      <td>Memory-safe implementations, fuzzing, prompt patching</td>
+    </tr>
+  </tbody>
+</table>
 
 <hr />
 
 <div class="page-nav">
   <span class="page-nav-prev"><a href="./">← Cybersecurity Hub</a></span>
-  <span class="page-nav-next"><a href="application-and-cloud-security.html">Web, Cloud &amp; Container Security →</a></span>
+  <span class="page-nav-next"><a href="application-and-cloud-security.html">Application Security →</a></span>
 </div>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="application-and-cloud-security.html">Web, Cloud &amp; Container Security</a> — where encryption meets real applications</li>
-  <li><a href="operations-and-response.html">Operations, Response &amp; Compliance</a> — formal security proofs and secure multi-party computation</li>
+  <li><a href="../../advanced/cryptography/">Advanced Cryptography</a> — provable security, reductions, formal ZK definitions, and PQC theory</li>
+  <li><a href="application-and-cloud-security.html">Application Security</a> — JWTs, sessions, and where encryption meets application code</li>
+  <li><a href="privacy-engineering.html">Privacy Engineering</a> — tokenization, differential privacy, and data minimization</li>
+  <li><a href="operations-and-response.html">Foundations, Operations &amp; Research</a> — security games, composability, and secure multi-party computation</li>
+  <li><a href="../networking/performance-and-security.html">Networking: Performance &amp; Security</a> — VPNs and network-layer protection</li>
   <li><a href="../quantumcomputing.html">Quantum Computing</a> — the hardware behind the post-quantum threat</li>
 </ul>
 

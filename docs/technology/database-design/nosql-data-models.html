@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How to model data for document, key-value, wide-column, graph, time-series, and vector stores: query-first design, partition keys, embedding vs referencing, ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Database Design: NoSQL Data Models">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How to model data for document, key-value, wide-column, graph, time-series, and vector stores: query-first design, partition keys, embedding vs referencing, ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/database-design/nosql-data-models.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Database Design: NoSQL Data Models">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How to model data for document, key-value, wide-column, graph, time-series, and vector stores: query-first design, partition keys, embedding vs referencing, ...">
 
 <title>Database Design: NoSQL Data Models | Andrews Notebook</title>
 
@@ -2877,17 +2877,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="nosql-data-models">NoSQL Data Models</h1>
 
-<h2 id="nosql-when-relational-isnt-the-right-fit">NoSQL: When Relational Isn’t the Right Fit</h2>
+<p>“NoSQL” is an umbrella term for databases that do not use the relational table-and-join model as their primary abstraction. It covers several genuinely different <strong>data models</strong> — document, key-value, wide-column, graph, and time-series, with vector search emerging as a sixth — each optimized for a particular shape of data and a particular set of queries. This page explains how each model stores data, how to design schemas for it, and how to choose between them. Distribution concerns (CAP, consensus, replication) are covered in <a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> and <a href="replication-and-consensus.html">Replication &amp; Consensus</a>.</p>
 
-<p>Not all data fits neatly into tables. NoSQL databases emerged to handle specific use cases where the relational model struggles — variable schemas, extreme write volume, deeply connected data, or access patterns dominated by a single key. “NoSQL” is an umbrella for several genuinely different data models, each optimized around a particular shape of data and a particular set of queries.</p>
+<h2 id="query-first-modeling">Query-First Modeling</h2>
 
-<p>The single most important idea in NoSQL data modeling is a reversal of the relational habit. In a relational database you model the <em>data</em> (normalize to remove redundancy) and trust the query planner to assemble whatever queries arrive later via joins. In most NoSQL stores there are <strong>no joins at query time</strong>, so you model the <em>queries</em> instead: you decide the access patterns first, then shape the data — often duplicating it — so each pattern is satisfied by a single, cheap lookup.</p>
+<p>The single most important idea in NoSQL modeling reverses the relational habit.</p>
 
-<div class="notice--info">
-  <p><strong>Query-first, not schema-first.</strong> Before choosing a NoSQL store, write down the exact reads and writes your application must serve and how often each occurs. The right model is the one that turns your most frequent access pattern into a single-partition lookup. Pick the model to fit the access pattern, not by hype.</p>
-</div>
+<ul>
+  <li>In a <strong>relational</strong> database you model the <em>data</em>: normalize it to remove redundancy, then rely on joins and the query planner to answer whatever queries arrive later.</li>
+  <li>In most <strong>NoSQL</strong> stores there are no general-purpose joins at query time, and efficient access is only possible through the key the data is partitioned or indexed by. So you model the <em>queries</em>: enumerate the access patterns first, then shape — and often duplicate — the data so each pattern is a single, cheap lookup.</li>
+</ul>
 
-<p>The five families covered below are:</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Relational["Relational: schema-first"]
+        direction TB
+        R1[Entities and dependencies] --&gt; R2[Normalized tables] --&gt; R3[Any query, via joins]
+    end
+    subgraph NoSQL["NoSQL: query-first"]
+        direction TB
+        N1[List access patterns&lt;br/&gt;and their frequency] --&gt; N2[Choose keys so each pattern&lt;br/&gt;hits one partition] --&gt; N3[Denormalize and duplicate&lt;br/&gt;to serve each pattern]
+    end
+</code></pre>
+
+<p>The practical consequence: before choosing a NoSQL store, write down each read and write the application must serve, with expected rates and latency targets. The right model is the one that turns the most frequent patterns into single-partition operations. A store chosen before the access patterns are known usually ends up emulating joins in application code.</p>
 
 <table>
   <thead>
@@ -2895,363 +2907,469 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Model</th>
       <th>Core abstraction</th>
       <th>Sweet spot</th>
+      <th>Representative engines</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Document</strong></td>
       <td>Self-contained JSON-like documents</td>
-      <td>Variable schemas, nested aggregates, rapid development</td>
+      <td>Aggregates read and written as a unit; varied attributes</td>
+      <td>MongoDB, Couchbase, Firestore, Amazon DocumentDB</td>
     </tr>
     <tr>
       <td><strong>Key-value</strong></td>
-      <td>Opaque value behind a single key</td>
-      <td>Caching, sessions, leaderboards, sub-millisecond lookups</td>
+      <td>Opaque or typed value behind a key</td>
+      <td>Caches, sessions, counters, leaderboards</td>
+      <td>Redis, Valkey, Memcached, DynamoDB, etcd</td>
     </tr>
     <tr>
       <td><strong>Wide-column</strong></td>
-      <td>Rows of sparse, partitioned columns</td>
-      <td>Write-heavy time-series, huge tables, predictable queries</td>
+      <td>Partitioned rows of sparse, sorted columns</td>
+      <td>Write-heavy, huge tables with known queries</td>
+      <td>Cassandra, ScyllaDB, HBase, Bigtable</td>
     </tr>
     <tr>
       <td><strong>Graph</strong></td>
-      <td>Nodes and relationships as first-class objects</td>
-      <td>Many-hop relationship traversal, recommendations, fraud</td>
+      <td>Nodes and typed relationships</td>
+      <td>Multi-hop traversal: social, fraud, recommendations</td>
+      <td>Neo4j, Amazon Neptune, Memgraph</td>
     </tr>
     <tr>
       <td><strong>Time-series</strong></td>
-      <td>Append-only measurements stamped in time</td>
-      <td>Metrics, IoT telemetry, monitoring, sensor feeds</td>
+      <td>Timestamped measurements with tags</td>
+      <td>Metrics, telemetry, IoT</td>
+      <td>InfluxDB, TimescaleDB, Prometheus, QuestDB</td>
+    </tr>
+    <tr>
+      <td><strong>Vector</strong></td>
+      <td>High-dimensional embeddings + ANN index</td>
+      <td>Semantic search, retrieval for LLM applications</td>
+      <td>pgvector, Milvus, Qdrant, and vector features in most engines above</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="document-stores-natural-for-nested-data">Document Stores: Natural for Nested Data</h2>
+<h2 id="document-stores">Document Stores</h2>
 
-<p>A document store keeps each record as a self-contained, hierarchical document (JSON, BSON, or XML). Related sub-objects and arrays live <em>inside</em> the document rather than in separate joined tables, so a single read returns the whole aggregate.</p>
+<p>A document store keeps each record as a self-contained, hierarchical document (JSON, or a binary encoding such as MongoDB’s BSON). Related sub-objects and arrays live <em>inside</em> the document, so one read returns a whole <strong>aggregate</strong> — the unit the application loads, modifies, and saves together — and a write to one document is atomic.</p>
 
-<p><strong>When to Use</strong>: Variable schemas, nested data, rapid development</p>
-
-<p><strong>MongoDB Example - Product Catalog</strong>:</p>
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Products have wildly different attributes</span>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// MongoDB: a product aggregate with category-specific attributes</span>
 <span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nf">insertOne</span><span class="p">({</span>
-    <span class="na">name</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Gaming Laptop</span><span class="dl">"</span><span class="p">,</span>
-    <span class="na">price</span><span class="p">:</span> <span class="mi">1299</span><span class="p">,</span>
-    <span class="na">specs</span><span class="p">:</span> <span class="p">{</span>
-        <span class="na">cpu</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Intel i7</span><span class="dl">"</span><span class="p">,</span>
-        <span class="na">ram</span><span class="p">:</span> <span class="dl">"</span><span class="s2">16GB</span><span class="dl">"</span><span class="p">,</span>
-        <span class="na">gpu</span><span class="p">:</span> <span class="dl">"</span><span class="s2">RTX 3060</span><span class="dl">"</span><span class="p">,</span>
-        <span class="na">display</span><span class="p">:</span> <span class="p">{</span>
-            <span class="na">size</span><span class="p">:</span> <span class="dl">"</span><span class="s2">15.6 inches</span><span class="dl">"</span><span class="p">,</span>
-            <span class="na">resolution</span><span class="p">:</span> <span class="dl">"</span><span class="s2">1920x1080</span><span class="dl">"</span><span class="p">,</span>
-            <span class="na">refresh_rate</span><span class="p">:</span> <span class="dl">"</span><span class="s2">144Hz</span><span class="dl">"</span>
-        <span class="p">}</span>
-    <span class="p">},</span>
-    <span class="na">reviews</span><span class="p">:</span> <span class="p">[</span>
-        <span class="p">{</span><span class="na">user</span><span class="p">:</span> <span class="dl">"</span><span class="s2">gamer123</span><span class="dl">"</span><span class="p">,</span> <span class="na">rating</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="na">text</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Runs everything!</span><span class="dl">"</span><span class="p">},</span>
-        <span class="p">{</span><span class="na">user</span><span class="p">:</span> <span class="dl">"</span><span class="s2">techie99</span><span class="dl">"</span><span class="p">,</span> <span class="na">rating</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="na">text</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Great but runs hot</span><span class="dl">"</span><span class="p">}</span>
-    <span class="p">]</span>
+  <span class="na">sku</span><span class="p">:</span> <span class="dl">"</span><span class="s2">LAP-15-G</span><span class="dl">"</span><span class="p">,</span>
+  <span class="na">name</span><span class="p">:</span> <span class="dl">"</span><span class="s2">15-inch Gaming Laptop</span><span class="dl">"</span><span class="p">,</span>
+  <span class="na">price</span><span class="p">:</span> <span class="nc">NumberDecimal</span><span class="p">(</span><span class="dl">"</span><span class="s2">1499.00</span><span class="dl">"</span><span class="p">),</span>
+  <span class="na">category</span><span class="p">:</span> <span class="dl">"</span><span class="s2">laptop</span><span class="dl">"</span><span class="p">,</span>
+  <span class="na">specs</span><span class="p">:</span> <span class="p">{</span>
+    <span class="na">cpu</span><span class="p">:</span> <span class="dl">"</span><span class="s2">8-core</span><span class="dl">"</span><span class="p">,</span> <span class="na">ram_gb</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span> <span class="na">gpu_vram_gb</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="na">display</span><span class="p">:</span> <span class="p">{</span> <span class="na">size_in</span><span class="p">:</span> <span class="mf">15.6</span><span class="p">,</span> <span class="na">refresh_hz</span><span class="p">:</span> <span class="mi">165</span> <span class="p">}</span>
+  <span class="p">},</span>
+  <span class="na">rating</span><span class="p">:</span> <span class="p">{</span> <span class="na">avg</span><span class="p">:</span> <span class="mf">4.6</span><span class="p">,</span> <span class="na">count</span><span class="p">:</span> <span class="mi">212</span> <span class="p">},</span>       <span class="c1">// summary kept on the parent</span>
+  <span class="na">created_at</span><span class="p">:</span> <span class="k">new</span> <span class="nc">Date</span><span class="p">()</span>
 <span class="p">});</span>
 
-<span class="c1">// Query nested fields naturally</span>
-<span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nf">find</span><span class="p">({</span>
-    <span class="dl">"</span><span class="s2">specs.ram</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">16GB</span><span class="dl">"</span><span class="p">,</span>
-    <span class="dl">"</span><span class="s2">specs.display.refresh_rate</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">144Hz</span><span class="dl">"</span>
-<span class="p">});</span>
+<span class="c1">// Query and index nested fields with dot notation</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nf">createIndex</span><span class="p">({</span> <span class="na">category</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="dl">"</span><span class="s2">specs.ram_gb</span><span class="dl">"</span><span class="p">:</span> <span class="mi">1</span> <span class="p">});</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nf">find</span><span class="p">({</span> <span class="na">category</span><span class="p">:</span> <span class="dl">"</span><span class="s2">laptop</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">specs.ram_gb</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span> <span class="na">$gte</span><span class="p">:</span> <span class="mi">32</span> <span class="p">}</span> <span class="p">});</span>
 </code></pre></div></div>
 
-<p>In SQL, this would require multiple tables and joins!</p>
+<h3 id="embed-vs-reference">Embed vs. reference</h3>
 
-<h3 id="modeling-pattern-embed-vs-reference">Modeling pattern: embed vs. reference</h3>
+<p>The central decision is whether related data is <strong>embedded</strong> in the parent document or <strong>referenced</strong> by id and fetched separately (with a second query or a <code class="language-plaintext highlighter-rouge">$lookup</code> aggregation stage).</p>
 
-<p>The central modeling decision in a document store is whether related data should be <strong>embedded</strong> in the parent document or <strong>referenced</strong> by storing its id and reading it separately.</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Embed["Embed: one read, one atomic write"]
+        P1["order 1001&lt;br/&gt;customer snapshot&lt;br/&gt;line_items: [ ... ]&lt;br/&gt;shipping_address: { ... }"]
+    end
+    subgraph Reference["Reference: separate documents"]
+        B["book 7&lt;br/&gt;author_id: 99"] -.-&gt;|"author_id"| A["author 99"]
+        B2["book 8&lt;br/&gt;author_id: 99"] -.-&gt;|"author_id"| A
+    end
+</code></pre>
 
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// EMBED: one read returns everything. Good when the child is owned by,</span>
-<span class="c1">// and always read with, the parent (reviews belong to a product).</span>
-<span class="p">{</span>
-    <span class="nl">_id</span><span class="p">:</span> <span class="dl">"</span><span class="s2">prod_42</span><span class="dl">"</span><span class="p">,</span>
-    <span class="nx">name</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Gaming Laptop</span><span class="dl">"</span><span class="p">,</span>
-    <span class="nx">reviews</span><span class="p">:</span> <span class="p">[</span> <span class="p">{</span> <span class="na">user</span><span class="p">:</span> <span class="dl">"</span><span class="s2">gamer123</span><span class="dl">"</span><span class="p">,</span> <span class="na">rating</span><span class="p">:</span> <span class="mi">5</span> <span class="p">}</span> <span class="p">]</span>   <span class="c1">// child lives inside parent</span>
-<span class="p">}</span>
+<table>
+  <thead>
+    <tr>
+      <th>Embed when</th>
+      <th>Reference when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>The child is owned by the parent (“contains”)</td>
+      <td>The child is shared by many parents</td>
+    </tr>
+    <tr>
+      <td>Cardinality is one-to-few and bounded</td>
+      <td>Cardinality is large or unbounded</td>
+    </tr>
+    <tr>
+      <td>Child and parent are read together</td>
+      <td>The child is often read on its own</td>
+    </tr>
+    <tr>
+      <td>They change together and need atomic updates</td>
+      <td>The child changes independently and frequently</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1">// REFERENCE: store the id, fetch separately. Good when the child is large,</span>
-<span class="c1">// shared, or grows without bound (an author referenced by many books).</span>
-<span class="p">{</span>
-    <span class="na">_id</span><span class="p">:</span> <span class="dl">"</span><span class="s2">book_7</span><span class="dl">"</span><span class="p">,</span>
-    <span class="na">title</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Database Internals</span><span class="dl">"</span><span class="p">,</span>
-    <span class="na">author_id</span><span class="p">:</span> <span class="dl">"</span><span class="s2">auth_99</span><span class="dl">"</span>        <span class="c1">// resolve with a second query / $lookup</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p>Rules of thumb:</p>
+<p>Unbounded embedded arrays are the classic failure: documents have a hard size cap (16 MiB in MongoDB; 400 KB per item in DynamoDB), and large documents are rewritten and transferred in full on every change. Established patterns address the in-between cases:</p>
 
 <ul>
   <li>
-<strong>Embed</strong> when the relationship is <em>contains</em> / one-to-few, the embedded data is read together with the parent, and it is updated as a unit. Embedding gives you atomic single-document writes and the fastest reads.</li>
+<strong>Subset</strong> — embed the most recent or most relevant few children (the latest 10 reviews) and reference the rest in their own collection.</li>
   <li>
-<strong>Reference</strong> when the relationship is many-to-many, when the child is shared across parents (so duplication would be expensive to keep consistent), or when an embedded array would grow <strong>unboundedly</strong> — documents have a hard size cap (16 MB in MongoDB), and an ever-growing array eventually breaks that and hurts write performance.</li>
+<strong>Extended reference</strong> — copy the handful of fields you always display (author name) alongside the reference, accepting that the copy must be updated when the source changes.</li>
   <li>
-<strong>Bucketing</strong> is a hybrid for high-volume one-to-many data: instead of one document per event, store a fixed-size <em>bucket</em> of events (e.g. one document per sensor per hour holding up to 200 readings). This caps document growth while keeping reads aggregated.</li>
+<strong>Bucket</strong> — for high-volume one-to-many data, store a bounded batch of children per document (one document per sensor per hour).</li>
+  <li>
+<strong>Computed</strong> — maintain summaries (<code class="language-plaintext highlighter-rouge">rating.avg</code>, <code class="language-plaintext highlighter-rouge">rating.count</code>) on write instead of aggregating on every read.</li>
 </ul>
 
-<h3 id="schema-flexibility-is-a-contract-not-an-excuse">Schema flexibility is a contract, not an excuse</h3>
+<p>Multi-document ACID transactions are available in MongoDB (since 4.0 for replica sets and 4.2 for sharded clusters), but they cost more than single-document writes. A model that needs them on its hot path has usually split an aggregate that should have been one document.</p>
 
-<p>“Schemaless” does not mean structureless. Because the database no longer enforces a schema, your application code must. Use <strong>schema validation</strong> (MongoDB’s <code class="language-plaintext highlighter-rouge">$jsonSchema</code>, for example) to pin down required fields and types, and version your documents (a <code class="language-plaintext highlighter-rouge">schema_version</code> field) so old and new shapes can coexist while you migrate. The flexibility is real, but unmanaged heterogeneity becomes an analytics and bug-hunting liability.</p>
+<h3 id="schema-flexibility-is-a-contract">Schema flexibility is a contract</h3>
 
-<p><strong>Representative engines</strong>: MongoDB, Couchbase, Amazon DocumentDB, RavenDB, Firestore.</p>
+<p>“Schemaless” means the database does not require a schema, not that the data has none. Enforce the important parts with validation and version the shape so old and new documents can coexist during migrations:</p>
 
-<h2 id="key-value-stores-speed-above-all">Key-Value Stores: Speed Above All</h2>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">db</span><span class="p">.</span><span class="nf">createCollection</span><span class="p">(</span><span class="dl">"</span><span class="s2">products</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+  <span class="na">validator</span><span class="p">:</span> <span class="p">{</span>
+    <span class="na">$jsonSchema</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">bsonType</span><span class="p">:</span> <span class="dl">"</span><span class="s2">object</span><span class="dl">"</span><span class="p">,</span>
+      <span class="na">required</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">sku</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">name</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">price</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">schema_version</span><span class="dl">"</span><span class="p">],</span>
+      <span class="na">properties</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">sku</span><span class="p">:</span>            <span class="p">{</span> <span class="na">bsonType</span><span class="p">:</span> <span class="dl">"</span><span class="s2">string</span><span class="dl">"</span> <span class="p">},</span>
+        <span class="na">price</span><span class="p">:</span>          <span class="p">{</span> <span class="na">bsonType</span><span class="p">:</span> <span class="dl">"</span><span class="s2">decimal</span><span class="dl">"</span><span class="p">,</span> <span class="na">minimum</span><span class="p">:</span> <span class="mi">0</span> <span class="p">},</span>
+        <span class="na">schema_version</span><span class="p">:</span> <span class="p">{</span> <span class="na">bsonType</span><span class="p">:</span> <span class="dl">"</span><span class="s2">int</span><span class="dl">"</span> <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">},</span>
+  <span class="na">validationAction</span><span class="p">:</span> <span class="dl">"</span><span class="s2">error</span><span class="dl">"</span>
+<span class="p">});</span>
+</code></pre></div></div>
 
-<p>A key-value store is the simplest model: a giant, distributed hash map. You hand it a key, it hands back an opaque value (a string, blob, or — in richer stores like Redis — a typed data structure). There is no query language over the <em>contents</em> of the value; access is by key.</p>
+<h2 id="key-value-stores">Key-Value Stores</h2>
 
-<p><strong>When to Use</strong>: Caching, sessions, real-time features</p>
+<p>A key-value store is a distributed hash map: a key maps to a value, and access is by key. In the pure form (Memcached, etcd, RocksDB) the value is opaque bytes. Redis and its open-source fork <strong>Valkey</strong> (created under the Linux Foundation in 2024 after Redis left the BSD license; Redis 8 later added AGPLv3 as a licensing option) are <em>data-structure servers</em>: values are typed structures with server-side operations.</p>
 
-<p><strong>Redis Example - Gaming Leaderboard</strong>:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Update player score (atomic operation)</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Leaderboard: a sorted set, O(log n) updates and rank queries</span>
 ZINCRBY game:leaderboard 100 <span class="s2">"player:alice"</span>
-
-<span class="c"># Get top 10 players instantly</span>
 ZREVRANGE game:leaderboard 0 9 WITHSCORES
 
-<span class="c"># Cache expensive database query</span>
-SET cache:top_products <span class="s1">'[{"id":1,"name":"Laptop"}...]'</span> EX 300
+<span class="c"># Cache with expiry</span>
+SET cache:product:42 <span class="s1">'{"id":42,"name":"Laptop"}'</span> EX 300
+
+<span class="c"># Session hash with field-level updates and a sliding TTL</span>
+HSET session:abc123 user_id 1234 cart_items 3
+EXPIRE session:abc123 1800
+
+<span class="c"># Fixed-window rate limiter</span>
+INCR ratelimit:user:1234:202609221405
+EXPIRE ratelimit:user:1234:202609221405 60
 </code></pre></div></div>
 
-<p>Millions of operations per second, sub-millisecond latency!</p>
+<h3 id="keys-are-the-schema">Keys are the schema</h3>
 
-<h3 id="modeling-pattern-structured-keys-are-your-schema">Modeling pattern: structured keys are your schema</h3>
+<p>Because retrieval is by key only, the <strong>key namespace is the data model</strong>. Every access pattern must map to a key you can compute:</p>
 
-<p>Because you can only retrieve by key, the <strong>key namespace is the data model</strong>. You design a consistent, hierarchical key convention so that every access pattern maps to a deterministic key:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>user:1234:profile          <span class="c"># a hash of profile fields</span>
-user:1234:sessions         <span class="c"># a set of active session ids</span>
-session:abc123  -&gt;  <span class="o">{</span>...<span class="o">}</span>   <span class="c"># value carries a TTL so it self-expires</span>
-cart:1234                   <span class="c"># a hash: product_id -&gt; quantity</span>
-game:leaderboard           <span class="c"># a sorted set: member -&gt; score</span>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>user:1234:profile          hash         profile fields
+user:1234:sessions         set          ids of active sessions (a hand-built index)
+session:abc123             hash + TTL   expires on its own
+cart:1234                  hash         product_id -&gt; quantity
+game:leaderboard           sorted set   member -&gt; score
 </code></pre></div></div>
-
-<p>Key design principles:</p>
 
 <ul>
   <li>
-<strong>Encode the access pattern in the key.</strong> If you need “all sessions for a user,” do not scan — keep a <code class="language-plaintext highlighter-rouge">user:{id}:sessions</code> set and maintain it on write. There is no secondary index; you build one by hand as another key.</li>
+<strong>Encode the access pattern in the key.</strong> To answer “all sessions for a user” without scanning, maintain <code class="language-plaintext highlighter-rouge">user:{id}:sessions</code> on every write. Secondary indexes are keys you build yourself (Redis 8’s integrated query engine and search modules are the exception, at additional memory cost).</li>
   <li>
-<strong>Pick the value type to fit the operation.</strong> Redis offers strings, hashes, lists, sets, sorted sets, streams, and HyperLogLogs. A leaderboard is a <em>sorted set</em> (ranges and ranks are O(log n)); a cart is a <em>hash</em> (field-level updates without rewriting the whole value); a deduplicated counter is a <em>HyperLogLog</em>.</li>
+<strong>Pick the structure that fits the operation.</strong> Sorted sets for rankings and time-ordered feeds, hashes for objects with field updates, streams for append-only logs with consumer groups, HyperLogLog for approximate distinct counts, and — in Redis 8 — JSON documents and vector sets.</li>
   <li>
-<strong>Use TTLs for ephemeral data.</strong> Sessions, caches, and rate-limit counters should expire automatically (<code class="language-plaintext highlighter-rouge">EX</code>/<code class="language-plaintext highlighter-rouge">EXPIRE</code>) rather than relying on a sweep job.</li>
+<strong>Expire ephemeral data.</strong> Sessions, caches, and rate-limit counters should carry TTLs rather than depend on cleanup jobs.</li>
   <li>
-<strong>Beware large values and hot keys.</strong> A single multi-megabyte value or a key every request touches becomes a hotspot. Split large aggregates across multiple keys and shard hot counters.</li>
+<strong>Avoid big and hot keys.</strong> A multi-megabyte value or a key every request touches concentrates load on one shard. Split large aggregates and shard hot counters (<code class="language-plaintext highlighter-rouge">counter:{n}</code> for n in 0..15, summed on read).</li>
 </ul>
+
+<h3 id="dynamodb-and-single-table-design">DynamoDB and single-table design</h3>
+
+<p>Amazon DynamoDB is a managed key-value and document store whose primary key is a <strong>partition key</strong> plus an optional <strong>sort key</strong>. Items with the same partition key form an <em>item collection</em> stored together and sorted by the sort key, which allows range queries within one partition. <strong>Global secondary indexes</strong> (GSIs) re-key the same items under a different partition/sort key, asynchronously.</p>
+
+<p><strong>Single-table design</strong> exploits this by storing several entity types in one table with generic key attributes, so that a one-to-many relationship becomes a single <code class="language-plaintext highlighter-rouge">Query</code> on one partition:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>PK</th>
+      <th>SK</th>
+      <th>Other attributes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CUSTOMER#1234</code></td>
+      <td><code class="language-plaintext highlighter-rouge">PROFILE</code></td>
+      <td>name, email</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CUSTOMER#1234</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ORDER#2026-09-20#8812</code></td>
+      <td>total, status</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CUSTOMER#1234</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ORDER#2026-09-21#8830</code></td>
+      <td>total, status</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ORDER#8830</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ITEM#1</code></td>
+      <td>sku, quantity</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">Query PK = "CUSTOMER#1234" AND begins_with(SK, "ORDER#")</code> returns a customer’s orders newest-first with <code class="language-plaintext highlighter-rouge">ScanIndexForward = false</code>. The cost is rigidity: new access patterns often require a new GSI or a backfill, and the table is opaque to ad-hoc analysis. Many teams use single-table design for a few hot, well-understood patterns and separate tables elsewhere.</p>
 
 <h3 id="when-key-value-is-the-wrong-primary-store">When key-value is the wrong primary store</h3>
 
-<p>Key-value shines as a cache, session store, or real-time scratchpad. It is a poor <em>system of record</em> for data you need to query by attribute (“all orders over $100”), because there is no way to ask that without scanning every key or maintaining every index yourself.</p>
+<p>Key-value stores are excellent caches, session stores, and coordination services, and poor systems of record for data that must be queried by attribute (“all orders over $100 this week”), since every such query needs a hand-maintained index or a full scan. Treat Redis/Valkey as an in-memory store: configure persistence (RDB snapshots and/or the append-only file) explicitly if losing its contents on restart is unacceptable.</p>
 
-<p><strong>Representative engines</strong>: Redis, Memcached, Amazon DynamoDB (in its pure KV mode), Riak, etcd, RocksDB.</p>
+<h2 id="wide-column-stores">Wide-Column Stores</h2>
 
-<h2 id="wide-column-stores-big-sparse-write-heavy-tables">Wide-Column Stores: Big, Sparse, Write-Heavy Tables</h2>
+<p>A wide-column (column-family) store looks tabular but works very differently from a relational table. The <strong>partition key</strong> is hashed to decide which nodes own the data; within a partition, rows are physically sorted by <strong>clustering columns</strong>. Rows can be sparse, writes go to an append-only log-structured merge tree (see <a href="storage-internals.html">Storage Engines &amp; Recovery</a>), and the engine is built for very high write throughput and queries that touch one partition.</p>
 
-<p>A wide-column (column-family) store looks tabular but behaves very differently from a relational table. Data is organized by a <strong>partition key</strong> that decides which node owns the row, and within a partition rows are physically sorted by <strong>clustering columns</strong>. Each row can have a different, sparse set of columns, and the engine is optimized for very high write throughput and queries that hit a single partition.</p>
-
-<p><strong>When to Use</strong>: Time-series data, write-heavy workloads, analytics with known access paths</p>
-
-<p><strong>Cassandra Example - IoT Sensor Data</strong>:</p>
-<pre><code class="language-cql">-- Optimized for time-series queries
-CREATE TABLE sensor_data (
-    sensor_id UUID,
-    timestamp TIMESTAMP,
-    temperature DOUBLE,
-    humidity DOUBLE,
-    PRIMARY KEY (sensor_id, timestamp)
-) WITH CLUSTERING ORDER BY (timestamp DESC);
-
--- Fast writes from millions of sensors
-INSERT INTO sensor_data (sensor_id, timestamp, temperature, humidity)
-VALUES (123e4567-e89b-12d3-a456-426614174000, now(), 22.5, 45.2);
-
--- Efficient time-range queries
-SELECT * FROM sensor_data
-WHERE sensor_id = 123e4567-e89b-12d3-a456-426614174000
-AND timestamp &gt; '2024-01-01' AND timestamp &lt; '2024-01-02';
+<pre><code class="language-mermaid">flowchart TB
+    Q["SELECT ... WHERE sensor_id = 42&lt;br/&gt;AND day = '2026-09-22'&lt;br/&gt;AND ts &gt; '12:00'"] --&gt; H["hash(sensor_id, day)&lt;br/&gt;selects the replicas"]
+    H --&gt; Part
+    subgraph Part["Partition (42, 2026-09-22) — rows sorted by ts DESC"]
+        direction TB
+        r1["ts 12:05 | temp 22.9 | hum 44"]
+        r2["ts 12:04 | temp 22.8 | hum 44"]
+        r3["ts 12:03 | temp 22.8 | hum 45"]
+        r4["..."]
+    end
 </code></pre>
 
-<h3 id="modeling-pattern-design-the-table-per-query">Modeling pattern: design the table per query</h3>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Cassandra CQL: one partition per sensor per day, newest first</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">sensor_readings</span> <span class="p">(</span>
+    <span class="n">sensor_id</span>   <span class="nb">bigint</span><span class="p">,</span>
+    <span class="k">day</span>         <span class="nb">date</span><span class="p">,</span>
+    <span class="n">ts</span>          <span class="nb">timestamp</span><span class="p">,</span>
+    <span class="n">temperature</span> <span class="nb">double</span><span class="p">,</span>
+    <span class="n">humidity</span>    <span class="nb">double</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">((</span><span class="n">sensor_id</span><span class="p">,</span> <span class="k">day</span><span class="p">),</span> <span class="n">ts</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">WITH</span> <span class="n">CLUSTERING</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="p">(</span><span class="n">ts</span> <span class="k">DESC</span><span class="p">);</span>
 
-<p>In Cassandra and its kin you <strong>model one table per query</strong>, and you do it backwards from the query:</p>
+<span class="k">SELECT</span> <span class="n">ts</span><span class="p">,</span> <span class="n">temperature</span>
+<span class="k">FROM</span> <span class="n">sensor_readings</span>
+<span class="k">WHERE</span> <span class="n">sensor_id</span> <span class="o">=</span> <span class="mi">42</span> <span class="k">AND</span> <span class="k">day</span> <span class="o">=</span> <span class="s1">'2026-09-22'</span>
+  <span class="k">AND</span> <span class="n">ts</span> <span class="o">&gt;</span> <span class="s1">'2026-09-22 12:00:00+0000'</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h3 id="one-table-per-query">One table per query</h3>
+
+<p>Cassandra-style modeling works backwards from each query:</p>
 
 <ol>
-  <li>The <code class="language-plaintext highlighter-rouge">WHERE</code> clause must restrict on the full partition key (so the coordinator knows exactly which node holds the data).</li>
-  <li>The clustering columns define the sort order and the only range predicates you may apply.</li>
-  <li>If you have a second access pattern, you create a <strong>second table</strong> holding the same data shaped differently, and you write to both on every insert.</li>
+  <li>The <code class="language-plaintext highlighter-rouge">WHERE</code> clause must specify the <strong>full partition key</strong> with equality, so the coordinator knows which replicas to ask.</li>
+  <li>
+<strong>Clustering columns</strong> define the sort order and the only range predicates allowed, in declaration order.</li>
+  <li>A second access pattern gets a <strong>second table</strong> holding the same data keyed differently, written alongside the first (in a logged batch if the copies must not diverge).</li>
 </ol>
 
-<pre><code class="language-cql">-- Query A: "messages in a channel, newest first" -&gt; partition by channel
-CREATE TABLE messages_by_channel (
-    channel_id BIGINT,
-    bucket INT,            -- time bucket caps partition size (e.g. one day)
-    message_id TIMEUUID,
-    author_id BIGINT,
-    content TEXT,
-    PRIMARY KEY ((channel_id, bucket), message_id)
-) WITH CLUSTERING ORDER BY (message_id DESC);
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Query A: messages in a channel, newest first (bucketed by day)</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">messages_by_channel</span> <span class="p">(</span>
+    <span class="n">channel_id</span> <span class="nb">bigint</span><span class="p">,</span>
+    <span class="n">bucket</span>     <span class="nb">date</span><span class="p">,</span>
+    <span class="n">message_id</span> <span class="n">timeuuid</span><span class="p">,</span>
+    <span class="n">author_id</span>  <span class="nb">bigint</span><span class="p">,</span>
+    <span class="n">content</span>    <span class="nb">text</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">((</span><span class="n">channel_id</span><span class="p">,</span> <span class="n">bucket</span><span class="p">),</span> <span class="n">message_id</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">WITH</span> <span class="n">CLUSTERING</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="p">(</span><span class="n">message_id</span> <span class="k">DESC</span><span class="p">);</span>
 
--- Query B: "every message a user wrote" -&gt; a SECOND, duplicated table
-CREATE TABLE messages_by_author (
-    author_id BIGINT,
-    message_id TIMEUUID,
-    channel_id BIGINT,
-    content TEXT,
-    PRIMARY KEY (author_id, message_id)
-) WITH CLUSTERING ORDER BY (message_id DESC);
-</code></pre>
+<span class="c1">-- Query B: everything a user wrote - same data, different key</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">messages_by_author</span> <span class="p">(</span>
+    <span class="n">author_id</span>  <span class="nb">bigint</span><span class="p">,</span>
+    <span class="n">bucket</span>     <span class="nb">date</span><span class="p">,</span>
+    <span class="n">message_id</span> <span class="n">timeuuid</span><span class="p">,</span>
+    <span class="n">channel_id</span> <span class="nb">bigint</span><span class="p">,</span>
+    <span class="n">content</span>    <span class="nb">text</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">((</span><span class="n">author_id</span><span class="p">,</span> <span class="n">bucket</span><span class="p">),</span> <span class="n">message_id</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">WITH</span> <span class="n">CLUSTERING</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="p">(</span><span class="n">message_id</span> <span class="k">DESC</span><span class="p">);</span>
+</code></pre></div></div>
 
-<p>Key constraints and patterns:</p>
+<p>Design rules:</p>
 
 <ul>
   <li>
-<strong>Denormalization and duplication are the norm</strong>, not a code smell. There are no joins; you trade storage for single-partition reads.</li>
+<strong>Duplication is the norm.</strong> Storage is cheap relative to cross-partition reads.</li>
   <li>
-<strong>Bound your partition size.</strong> An unbounded partition (e.g. every message in a busy channel forever) creates a “wide row” that destroys read and repair performance. Introduce a <strong>bucket</strong> (day, week, or hashed sub-key) into the partition key so each partition stays a few MB / tens of thousands of rows.</li>
+<strong>Bound partition size.</strong> An unbounded partition (every message in a busy channel, forever) degrades reads, compaction, and repair. Add a time bucket or hashed sub-key so partitions stay well under the commonly cited limits of about 100 MB and 100,000 rows.</li>
   <li>
-<strong>Avoid hotspots with good partition keys.</strong> A monotonic key (a raw timestamp, an auto-incrementing id) funnels all current writes to one node. Prefix or hash it so writes spread across the cluster.</li>
+<strong>Spread writes.</strong> A monotonic partition key (today’s date alone) sends all current writes to one replica set.</li>
   <li>
-<strong>No ad-hoc queries.</strong> You cannot filter on a non-key column without <code class="language-plaintext highlighter-rouge">ALLOW FILTERING</code> (a full scan) or a secondary index (which is a partition-local lookup, not a global one). If you might need it, model a table for it up front.</li>
+<strong>Prefer immutable, append-style writes.</strong> Frequent overwrites and deletes create tombstones that slow reads until compaction removes them; TTL-heavy tables need a compaction strategy chosen for it.</li>
+  <li>
+<strong>Indexes are narrower than they look.</strong> Cassandra 5.0’s <strong>Storage-Attached Indexes</strong> (SAI) make secondary-index queries far more practical than the legacy indexes and add vector search, but a query that does not restrict the partition key still fans out to every node. <code class="language-plaintext highlighter-rouge">ALLOW FILTERING</code> is a full scan.</li>
 </ul>
 
-<h3 id="wide-column-vs-the-columnar-analytics-engines">Wide-column vs. the columnar analytics engines</h3>
+<h3 id="wide-column-is-not-columnar">Wide-column is not columnar</h3>
 
-<p>Beware a naming collision. <em>Wide-column</em> stores like Cassandra and HBase are <strong>row-oriented</strong> OLTP-style stores partitioned by key. <em>Columnar</em> analytics engines like ClickHouse, Apache Druid, and Parquet-backed warehouses physically store each column separately to make aggregations over billions of rows fast — a different design for a different (OLAP) job. Cassandra answers “give me this sensor’s last hour”; ClickHouse answers “average temperature across all sensors this year.”</p>
+<p>The names collide. Wide-column stores (Cassandra, ScyllaDB, HBase, Bigtable) are row-oriented, key-partitioned operational stores. <strong>Columnar</strong> analytical engines (ClickHouse, Apache Druid, DuckDB, and warehouses over Parquet) store each column separately so scans and aggregates over billions of rows are fast. Cassandra answers “this sensor’s last hour”; ClickHouse answers “average temperature by region this year”.</p>
 
-<p><strong>Representative engines</strong>: Apache Cassandra, ScyllaDB, Apache HBase, Google Bigtable, Amazon Keyspaces.</p>
+<h2 id="graph-databases">Graph Databases</h2>
 
-<h2 id="graph-databases-its-all-about-relationships">Graph Databases: It’s All About Relationships</h2>
+<p>A graph database makes <strong>relationships first-class</strong>: data is stored as nodes (entities) and typed, directed relationships (edges), both of which can carry properties. Native graph engines store adjacency directly (<em>index-free adjacency</em>), so moving from a node to its neighbours costs time proportional to the neighbours visited rather than to the size of the whole dataset.</p>
 
-<p>A graph database makes <strong>relationships first-class citizens</strong>. Data is stored as <em>nodes</em> (entities) connected by <em>edges</em> (relationships), each able to carry properties. Unlike a relational join — which computes the relationship at query time by matching keys — a graph database stores the connection directly (often called <em>index-free adjacency</em>), so traversing from one node to its neighbors is a constant-time pointer hop regardless of total dataset size.</p>
+<pre><code class="language-mermaid">flowchart LR
+    alice((Alice)) -- FRIENDS_WITH --&gt; bob((Bob))
+    alice -- FRIENDS_WITH --&gt; carol((Carol))
+    bob -- FRIENDS_WITH --&gt; dave((Dave))
+    carol -- FRIENDS_WITH --&gt; dave
+    carol -- FRIENDS_WITH --&gt; erin((Erin))
+    alice -- "WORKS_AT {since: 2021}" --&gt; acme[Acme]
+</code></pre>
 
-<p><strong>When to Use</strong>: Social networks, recommendations, fraud detection — anywhere queries follow many hops of relationships.</p>
-
-<p><strong>Neo4j Example - Friend Recommendations</strong>:</p>
-<div class="language-cypher highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Find friends of friends who aren't already friends</span>
-<span class="k">MATCH</span><span class="w"> </span><span class="ss">(</span><span class="py">me:</span><span class="n">Person</span> <span class="ss">{</span><span class="py">name:</span> <span class="s1">'Alice'</span><span class="ss">})</span><span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-&gt;</span><span class="ss">(</span><span class="n">friend</span><span class="ss">)</span>
-      <span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-&gt;</span><span class="ss">(</span><span class="py">foaf:</span><span class="n">Person</span><span class="ss">)</span>
-<span class="k">WHERE</span> <span class="n">NOT</span><span class="w"> </span><span class="ss">(</span><span class="n">me</span><span class="ss">)</span><span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-</span><span class="ss">(</span><span class="n">foaf</span><span class="ss">)</span> <span class="ow">AND</span> <span class="n">me</span> <span class="o">&lt;&gt;</span> <span class="n">foaf</span>
-<span class="k">RETURN</span> <span class="n">foaf.name</span><span class="ss">,</span> <span class="nf">COUNT</span><span class="ss">(</span><span class="o">*</span><span class="ss">)</span> <span class="k">as</span> <span class="n">mutual_friends</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">mutual_friends</span> <span class="k">DESC</span>
+<div class="language-cypher highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Friends-of-friends who are not already friends, ranked by mutual friends</span>
+<span class="k">MATCH</span><span class="w"> </span><span class="ss">(</span><span class="py">me:</span><span class="n">Person</span> <span class="ss">{</span><span class="py">name:</span> <span class="s1">'Alice'</span><span class="ss">})</span><span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-</span><span class="ss">(</span><span class="n">friend</span><span class="ss">)</span><span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-</span><span class="ss">(</span><span class="py">foaf:</span><span class="n">Person</span><span class="ss">)</span>
+<span class="k">WHERE</span> <span class="n">foaf</span> <span class="o">&lt;&gt;</span> <span class="n">me</span>
+  <span class="ow">AND</span> <span class="ow">NOT</span> <span class="ow">EXISTS</span> <span class="ss">{</span> <span class="ss">(</span><span class="n">me</span><span class="ss">)</span><span class="o">-</span><span class="ss">[</span><span class="nc">:FRIENDS_WITH</span><span class="ss">]</span><span class="o">-</span><span class="ss">(</span><span class="n">foaf</span><span class="ss">)</span> <span class="ss">}</span>
+<span class="k">RETURN</span> <span class="n">foaf.name</span> <span class="k">AS</span> <span class="n">suggestion</span><span class="ss">,</span> <span class="nf">count</span><span class="ss">(</span><span class="k">DISTINCT</span> <span class="n">friend</span><span class="ss">)</span> <span class="k">AS</span> <span class="n">mutual</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">mutual</span> <span class="k">DESC</span>
 <span class="k">LIMIT</span> <span class="mi">10</span><span class="ss">;</span>
 </code></pre></div></div>
 
-<p>Try writing this in SQL — it’s a recursive nightmare!</p>
+<p>On the graph above this suggests Dave (two mutual friends) and Erin (one).</p>
 
 <h3 id="why-graphs-win-at-deep-traversal">Why graphs win at deep traversal</h3>
 
-<p>The advantage is asymptotic. In a relational schema, “friends of friends of friends” is a self-join of the <code class="language-plaintext highlighter-rouge">friendships</code> table three times; each join scans or index-probes a table whose size grows with the <em>whole</em> network, so cost climbs steeply with both depth and dataset size. In a graph, each hop visits only the <em>local</em> neighborhood of the current node, so a fixed-depth traversal costs roughly the same whether the graph has a thousand nodes or a billion. The deeper the traversal, the larger the win.</p>
+<p>In SQL the same question is a self-join of a <code class="language-plaintext highlighter-rouge">friendships</code> table per hop, or a recursive CTE. Each join probes an index whose size grows with the whole network, and intermediate results multiply with depth. A graph traversal touches only the local neighbourhood at each step, so a fixed-depth query costs about the same on a thousand-node graph as on a billion-node one, provided the start node is found through an index. The advantage grows with depth and with the irregularity of the paths; for one or two hops over well-indexed tables, a relational database is often just as fast.</p>
 
-<h3 id="modeling-pattern-nodes-edges-and-edge-direction">Modeling pattern: nodes, edges, and edge direction</h3>
-
-<div class="language-cypher highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Model nouns as nodes (with a label) and verbs as relationships.</span>
-<span class="c1">// Put attributes that describe the RELATIONSHIP on the edge itself.</span>
-<span class="k">CREATE</span><span class="w"> </span><span class="ss">(</span><span class="py">alice:</span><span class="n">Person</span> <span class="ss">{</span><span class="py">name:</span> <span class="s1">'Alice'</span><span class="ss">})</span>
-<span class="k">CREATE</span><span class="w"> </span><span class="ss">(</span><span class="py">acme:</span><span class="n">Company</span> <span class="ss">{</span><span class="py">name:</span> <span class="s1">'Acme'</span><span class="ss">})</span>
-<span class="k">CREATE</span><span class="w"> </span><span class="ss">(</span><span class="n">alice</span><span class="ss">)</span><span class="o">-</span><span class="ss">[</span><span class="nc">:WORKS_AT</span> <span class="ss">{</span><span class="nl">since</span><span class="dl">:</span><span class="w"> </span><span class="m">2021</span><span class="ss">,</span> <span class="py">role:</span> <span class="s1">'Engineer'</span><span class="ss">}]</span><span class="o">-&gt;</span><span class="ss">(</span><span class="n">acme</span><span class="ss">)</span>
-</code></pre></div></div>
-
-<p>Modeling guidance:</p>
+<h3 id="modeling-guidance">Modeling guidance</h3>
 
 <ul>
   <li>
-<strong>Nodes are entities, edges are relationships, and edge <em>direction</em> and <em>type</em> matter.</strong> <code class="language-plaintext highlighter-rouge">(:User)-[:FOLLOWS]-&gt;(:User)</code> is directional; <code class="language-plaintext highlighter-rouge">[:FRIENDS_WITH]</code> is usually queried as undirected. Choose deliberately and stay consistent.</li>
+<strong>Nouns become nodes, verbs become relationships.</strong> Give each a label or type; direction and type are part of the model (<code class="language-plaintext highlighter-rouge">(:User)-[:FOLLOWS]-&gt;(:User)</code> is asymmetric).</li>
   <li>
-<strong>Push relationship attributes onto the edge.</strong> A <code class="language-plaintext highlighter-rouge">RATED</code> edge from a user to a movie should carry the <code class="language-plaintext highlighter-rouge">stars</code> and <code class="language-plaintext highlighter-rouge">at</code> properties; this keeps nodes clean and lets you filter on the relationship.</li>
+<strong>Put relationship attributes on the edge</strong> — a <code class="language-plaintext highlighter-rouge">RATED</code> edge carries <code class="language-plaintext highlighter-rouge">stars</code> and <code class="language-plaintext highlighter-rouge">at</code>.</li>
   <li>
-<strong>Reify rich relationships into nodes</strong> when a relationship itself has structure or its own relationships — e.g. model an <code class="language-plaintext highlighter-rouge">Order</code> as a node connecting a <code class="language-plaintext highlighter-rouge">Customer</code> and many <code class="language-plaintext highlighter-rouge">Product</code>s, rather than as a single edge, when the order has line items, a status, and a timestamp.</li>
+<strong>Reify rich relationships into nodes.</strong> An order with line items, status, and timestamps is an <code class="language-plaintext highlighter-rouge">Order</code> node connected to a <code class="language-plaintext highlighter-rouge">Customer</code> and many <code class="language-plaintext highlighter-rouge">Product</code> nodes, not a single edge.</li>
   <li>
-<strong>Use distinct labels and indexes for entry points.</strong> Traversal is cheap once you are <em>in</em> the graph; finding the starting node (<code class="language-plaintext highlighter-rouge">MATCH (me:Person {name:'Alice'})</code>) still needs an index on that property.</li>
+<strong>Index entry points.</strong> Traversal is cheap once inside the graph; locating <code class="language-plaintext highlighter-rouge">Person {name: 'Alice'}</code> still needs an index or uniqueness constraint.</li>
+  <li>
+<strong>Watch supernodes.</strong> A node with millions of edges (a celebrity account, a “country” node) makes every traversal through it expensive. Split by relationship type or time, or avoid routing queries through it.</li>
 </ul>
 
-<h3 id="property-graph-vs-rdf">Property graph vs. RDF</h3>
+<h3 id="property-graphs-rdf-and-standards">Property graphs, RDF, and standards</h3>
 
-<p>Two graph models dominate. The <strong>property graph</strong> (Neo4j, Amazon Neptune, Memgraph) attaches key-value properties to nodes and edges and is queried with Cypher or Gremlin — the pragmatic choice for application development. <strong>RDF triple stores</strong> (also Neptune, plus Blazegraph, Stardog) represent everything as <code class="language-plaintext highlighter-rouge">(subject, predicate, object)</code> triples queried with SPARQL — the choice for linked-data, semantic-web, and ontology-driven domains.</p>
+<p>The <strong>property graph</strong> model (Neo4j, Memgraph, Amazon Neptune) is queried with Cypher, openCypher, or Gremlin. <strong>RDF triple stores</strong> (Neptune, GraphDB, Stardog) model everything as subject–predicate–object triples queried with SPARQL, and suit linked data and ontology-driven domains. Property-graph querying is now standardized: <strong>GQL</strong> (ISO/IEC 39075:2024) is a standalone graph query language closely based on Cypher, and <strong>SQL/PGQ</strong> (part 16 of SQL:2023) defines property-graph views and <code class="language-plaintext highlighter-rouge">GRAPH_TABLE</code> pattern matching over ordinary relational tables.</p>
 
-<p><strong>Representative engines</strong>: Neo4j, Amazon Neptune, Memgraph, TigerGraph, JanusGraph.</p>
+<h2 id="time-series-databases">Time-Series Databases</h2>
 
-<h2 id="time-series-databases-measurements-stamped-in-time">Time-Series Databases: Measurements Stamped in Time</h2>
+<p>A time-series database (TSDB) is specialized for data that is <strong>append-mostly and indexed primarily by time</strong>: a stream of measurements, each with a timestamp, identifying <strong>tags</strong> (host, region, device), and numeric <strong>fields</strong>. Writes dominate, updates are rare, and reads are time-range scans and downsampled aggregations.</p>
 
-<p>A time-series database (TSDB) is purpose-built for data that is <strong>append-only and indexed primarily by time</strong>: a stream of measurements, each tagged with metadata and a timestamp. Metrics, IoT telemetry, application monitoring, financial ticks, and sensor feeds all share this shape — overwhelmingly writes, almost no updates, and reads that are time-range scans and downsampled aggregations.</p>
+<p>A TSDB adds time-aware machinery on top of generic storage: automatic partitioning into time chunks, columnar compression tuned for slowly changing series, continuous aggregates or downsampling, and <strong>retention policies</strong> that drop expired chunks wholesale instead of deleting rows.</p>
 
-<p><strong>When to Use</strong>: Server and application metrics, IoT/sensor telemetry, monitoring and observability, anything where “value over time” is the question.</p>
+<pre><code class="language-mermaid">flowchart LR
+    W[Writes] --&gt; Hot["Hot chunk&lt;br/&gt;raw points, uncompressed"]
+    Hot --&gt;|"age &gt; 1 day"| Warm["Compressed chunks&lt;br/&gt;columnar, raw resolution"]
+    Warm --&gt;|"continuous aggregate"| Roll["Hourly / daily rollups"]
+    Warm --&gt;|"age &gt; retention"| Drop["Dropped chunk&lt;br/&gt;(whole files, cheap)"]
+</code></pre>
 
-<p>You <em>can</em> store time-series in a wide-column store (the Cassandra IoT example above does exactly that), and for some workloads that is the right call. A dedicated TSDB adds time-aware features on top: automatic time-partitioning, columnar compression tuned for slowly changing series, downsampling/continuous aggregates, and <strong>retention/expiry policies</strong> that age out raw data automatically.</p>
+<p><strong>InfluxDB 3</strong> (Core/Enterprise, generally available since 2025) stores data as Parquet files on local disk or object storage, is queried with SQL (via Apache DataFusion) or InfluxQL, and still ingests the line protocol:</p>
 
-<p><strong>InfluxDB Example - Server Metrics</strong>:</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- A "measurement" with tags (indexed metadata) and fields (the values)</span>
-<span class="c1">-- tags: host, region   fields: usage_user, usage_system</span>
-<span class="k">INSERT</span> <span class="n">cpu</span><span class="p">,</span><span class="k">host</span><span class="o">=</span><span class="n">web</span><span class="o">-</span><span class="mi">01</span><span class="p">,</span><span class="n">region</span><span class="o">=</span><span class="n">us</span><span class="o">-</span><span class="n">east</span> <span class="n">usage_user</span><span class="o">=</span><span class="mi">23</span><span class="p">.</span><span class="mi">1</span><span class="p">,</span><span class="n">usage_system</span><span class="o">=</span><span class="mi">8</span><span class="p">.</span><span class="mi">4</span>
-
-<span class="c1">-- Downsample raw points into 5-minute averages on the fly</span>
-<span class="k">SELECT</span> <span class="n">MEAN</span><span class="p">(</span><span class="n">usage_user</span><span class="p">)</span>
-<span class="k">FROM</span> <span class="n">cpu</span>
-<span class="k">WHERE</span> <span class="n">region</span> <span class="o">=</span> <span class="s1">'us-east'</span> <span class="k">AND</span> <span class="nb">time</span> <span class="o">&gt;</span> <span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="n">h</span>
-<span class="k">GROUP</span> <span class="k">BY</span> <span class="nb">time</span><span class="p">(</span><span class="mi">5</span><span class="n">m</span><span class="p">),</span> <span class="k">host</span><span class="p">;</span>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code># line protocol: measurement,tags fields timestamp
+cpu,host=web-01,region=us-east usage_user=23.1,usage_system=8.4 1790000000000000000
 </code></pre></div></div>
 
-<p><strong>TimescaleDB Example - PostgreSQL with hypertables</strong>:</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- TimescaleDB is a Postgres extension: full SQL, but time-partitioned storage</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">metrics</span> <span class="p">(</span>
-    <span class="nb">time</span>        <span class="n">TIMESTAMPTZ</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
-    <span class="n">device_id</span>   <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">temperature</span> <span class="nb">DOUBLE</span> <span class="nb">PRECISION</span>
-<span class="p">);</span>
-<span class="k">SELECT</span> <span class="n">create_hypertable</span><span class="p">(</span><span class="s1">'metrics'</span><span class="p">,</span> <span class="s1">'time'</span><span class="p">);</span>   <span class="c1">-- transparently partition by time</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- InfluxDB 3 SQL: 5-minute averages per host over the last hour</span>
+<span class="k">SELECT</span> <span class="n">date_bin</span><span class="p">(</span><span class="n">INTERVAL</span> <span class="s1">'5 minutes'</span><span class="p">,</span> <span class="nb">time</span><span class="p">)</span> <span class="k">AS</span> <span class="n">bucket</span><span class="p">,</span>
+       <span class="k">host</span><span class="p">,</span>
+       <span class="k">avg</span><span class="p">(</span><span class="n">usage_user</span><span class="p">)</span> <span class="k">AS</span> <span class="n">avg_user</span>
+<span class="k">FROM</span> <span class="n">cpu</span>
+<span class="k">WHERE</span> <span class="n">region</span> <span class="o">=</span> <span class="s1">'us-east'</span> <span class="k">AND</span> <span class="nb">time</span> <span class="o">&gt;</span> <span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">INTERVAL</span> <span class="s1">'1 hour'</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="n">bucket</span><span class="p">,</span> <span class="k">host</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">bucket</span><span class="p">;</span>
+</code></pre></div></div>
 
-<span class="c1">-- Continuous aggregate keeps a rolling hourly rollup materialized</span>
+<p><strong>TimescaleDB</strong> (developed by the company now called TigerData) is a PostgreSQL extension, so time-series tables sit beside relational data with full SQL. Current releases create hypertables directly from <code class="language-plaintext highlighter-rouge">CREATE TABLE</code>; the older <code class="language-plaintext highlighter-rouge">create_hypertable()</code> function still works:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">metrics</span> <span class="p">(</span>
+    <span class="nb">time</span>        <span class="n">timestamptz</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">device_id</span>   <span class="nb">int</span>         <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">temperature</span> <span class="nb">double</span> <span class="nb">precision</span>
+<span class="p">)</span> <span class="k">WITH</span> <span class="p">(</span>
+    <span class="n">tsdb</span><span class="p">.</span><span class="n">hypertable</span><span class="p">,</span>
+    <span class="n">tsdb</span><span class="p">.</span><span class="n">segmentby</span> <span class="o">=</span> <span class="s1">'device_id'</span><span class="p">,</span>   <span class="c1">-- compression groups rows per device</span>
+    <span class="n">tsdb</span><span class="p">.</span><span class="n">orderby</span>   <span class="o">=</span> <span class="s1">'time DESC'</span>
+<span class="p">);</span>
+
+<span class="c1">-- Continuously maintained hourly rollup</span>
 <span class="k">CREATE</span> <span class="n">MATERIALIZED</span> <span class="k">VIEW</span> <span class="n">metrics_hourly</span>
 <span class="k">WITH</span> <span class="p">(</span><span class="n">timescaledb</span><span class="p">.</span><span class="n">continuous</span><span class="p">)</span> <span class="k">AS</span>
 <span class="k">SELECT</span> <span class="n">time_bucket</span><span class="p">(</span><span class="s1">'1 hour'</span><span class="p">,</span> <span class="nb">time</span><span class="p">)</span> <span class="k">AS</span> <span class="n">hour</span><span class="p">,</span>
        <span class="n">device_id</span><span class="p">,</span>
-       <span class="k">AVG</span><span class="p">(</span><span class="n">temperature</span><span class="p">)</span> <span class="k">AS</span> <span class="n">avg_temp</span>
+       <span class="k">avg</span><span class="p">(</span><span class="n">temperature</span><span class="p">)</span> <span class="k">AS</span> <span class="n">avg_temp</span>
 <span class="k">FROM</span> <span class="n">metrics</span>
 <span class="k">GROUP</span> <span class="k">BY</span> <span class="n">hour</span><span class="p">,</span> <span class="n">device_id</span><span class="p">;</span>
+
+<span class="k">SELECT</span> <span class="n">add_retention_policy</span><span class="p">(</span><span class="s1">'metrics'</span><span class="p">,</span> <span class="n">INTERVAL</span> <span class="s1">'30 days'</span><span class="p">);</span>
 </code></pre></div></div>
 
-<h3 id="modeling-pattern-tags-fields-cardinality-and-retention">Modeling pattern: tags, fields, cardinality, and retention</h3>
+<h3 id="modeling-guidance-1">Modeling guidance</h3>
 
 <ul>
   <li>
-<strong>Separate indexed <em>tags</em> from unindexed <em>fields</em>.</strong> Tags (host, region, device_id) are the dimensions you filter and group by; fields are the numeric values you aggregate. The product of distinct tag values is the <strong>series cardinality</strong> — and runaway cardinality (e.g. putting a unique request-id or raw user-id in a tag) is the number-one way to blow up a TSDB’s memory. Keep tag sets bounded.</li>
+<strong>Keep tag cardinality bounded.</strong> Every distinct combination of tag values is a separate series. Putting a request id, user id, or raw URL in a tag creates millions of series and exhausts memory (this matters most in Prometheus and older InfluxDB; columnar engines tolerate more, but queries still suffer). Put unbounded identifiers in fields or logs.</li>
   <li>
-<strong>Lean on time-partitioning.</strong> Data is chunked by time window so writes always hit the newest chunk (cheap) and old chunks can be compressed or dropped wholesale.</li>
+<strong>Tier resolution with retention.</strong> Raw data for days, hourly rollups for months, daily rollups for years — automated with continuous aggregates and retention policies.</li>
   <li>
-<strong>Downsample and set retention.</strong> Keep raw resolution for days, hourly rollups for months, daily rollups for years. Continuous aggregates / downsampling tasks plus a retention policy do this automatically so storage stays bounded.</li>
+<strong>Write roughly in time order.</strong> Out-of-order and late data is supported but costs more, especially when it lands in already-compressed chunks.</li>
   <li>
-<strong>Write in time order when you can.</strong> Most TSDBs are far happier with monotonically increasing timestamps; large out-of-order backfills are more expensive.</li>
+<strong>Metrics are not events.</strong> Pre-aggregated metrics (Prometheus counters and histograms) answer “how many / how fast” cheaply; per-event detail belongs in logs or traces, or in a columnar store such as ClickHouse.</li>
 </ul>
 
-<p><strong>Representative engines</strong>: InfluxDB, TimescaleDB, Prometheus (monitoring-focused), Amazon Timestream, QuestDB, VictoriaMetrics.</p>
+<h2 id="vector-search">Vector Search</h2>
 
-<h2 id="choosing-the-right-model">Choosing the Right Model</h2>
+<p>Machine-learning <strong>embeddings</strong> represent text, images, or users as vectors of hundreds to thousands of floats, and similarity search (“the 10 nearest vectors to this query vector”) underpins semantic search and retrieval-augmented generation. Exact nearest-neighbour search is linear in the data size, so engines use <strong>approximate nearest neighbour</strong> (ANN) indexes such as HNSW graphs or IVF partitioning, trading a little recall for large speedups.</p>
 
-<p>There is no universally “best” NoSQL store — only the best fit for a specific access pattern. Work from the queries inward.</p>
+<p>Vector search is increasingly a <em>feature</em> rather than a separate database: PostgreSQL has <code class="language-plaintext highlighter-rouge">pgvector</code>, Cassandra 5.0 has a vector type with SAI indexes, Redis 8 has vector sets, and MongoDB, Elasticsearch/OpenSearch, and the major cloud databases offer vector indexes. Dedicated engines (Milvus, Qdrant, Weaviate, Pinecone) earn their place at very large scale or when filtering and index management need specialist tuning.</p>
 
-<h3 id="decision-guide">Decision guide</h3>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- pgvector: nearest documents by cosine distance, filtered by tenant</span>
+<span class="k">CREATE</span> <span class="n">EXTENSION</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">vector</span><span class="p">;</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">doc_chunks</span> <span class="p">(</span>
+    <span class="n">id</span>        <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">tenant_id</span> <span class="nb">bigint</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">body</span>      <span class="nb">text</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">embedding</span> <span class="n">vector</span><span class="p">(</span><span class="mi">1024</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span>
+<span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="k">ON</span> <span class="n">doc_chunks</span> <span class="k">USING</span> <span class="n">hnsw</span> <span class="p">(</span><span class="n">embedding</span> <span class="n">vector_cosine_ops</span><span class="p">);</span>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>What dominates your workload?
-    |
-    ├─ Look up / cache by a single key, sub-ms?       -&gt; Key-Value (Redis, Memcached)
-    |
-    ├─ Whole nested aggregate, flexible schema?       -&gt; Document (MongoDB, Firestore)
-    |
-    ├─ Huge write volume, queries by known key,
-    |  time-series at OLTP scale?                      -&gt; Wide-Column (Cassandra, Bigtable)
-    |
-    ├─ Many-hop relationships / recommendations /
-    |  fraud rings?                                    -&gt; Graph (Neo4j, Neptune)
-    |
-    ├─ Metrics / telemetry over time, downsampling?   -&gt; Time-Series (InfluxDB, Timescale)
-    |
-    └─ Complex ad-hoc queries, joins, strong ACID?    -&gt; Stay relational (Postgres/MySQL)
+<span class="k">SELECT</span> <span class="n">id</span><span class="p">,</span> <span class="n">body</span>
+<span class="k">FROM</span> <span class="n">doc_chunks</span>
+<span class="k">WHERE</span> <span class="n">tenant_id</span> <span class="o">=</span> <span class="mi">7</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">embedding</span> <span class="o">&lt;=&gt;</span> <span class="err">$</span><span class="mi">1</span>      <span class="c1">-- $1: the query embedding</span>
+<span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
 </code></pre></div></div>
 
-<h3 id="comparison-matrix">Comparison matrix</h3>
+<p>The modeling questions are ordinary ones: store the vector next to the data it describes (so filters and deletes stay consistent), record which embedding model and version produced it (vectors from different models are not comparable), and plan for re-embedding when the model changes.</p>
+
+<h2 id="choosing-a-model">Choosing a Model</h2>
+
+<p>There is no best NoSQL store, only the best fit for a set of access patterns. Start from the dominant queries.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    S{What dominates&lt;br/&gt;the workload?}
+    S --&gt;|"Point lookups by key,&lt;br/&gt;sub-millisecond, ephemeral"| KV[Key-value&lt;br/&gt;Redis, Valkey, Memcached]
+    S --&gt;|"Whole aggregates,&lt;br/&gt;varied attributes"| DOC[Document&lt;br/&gt;MongoDB, Firestore]
+    S --&gt;|"Massive writes,&lt;br/&gt;known key-based queries"| WC[Wide-column&lt;br/&gt;Cassandra, ScyllaDB, Bigtable]
+    S --&gt;|"Many-hop relationships"| G[Graph&lt;br/&gt;Neo4j, Neptune]
+    S --&gt;|"Measurements over time"| TS[Time-series&lt;br/&gt;InfluxDB, TimescaleDB, Prometheus]
+    S --&gt;|"Similarity over embeddings"| V[Vector&lt;br/&gt;pgvector, Qdrant, Milvus]
+    S --&gt;|"Ad-hoc queries, joins,&lt;br/&gt;multi-row ACID"| REL[Stay relational&lt;br/&gt;PostgreSQL, MySQL]
+</code></pre>
 
 <table>
   <thead>
@@ -3261,81 +3379,95 @@ CREATE TABLE messages_by_author (
       <th>Joins</th>
       <th>Schema</th>
       <th>Write profile</th>
-      <th>Classic use case</th>
+      <th>Classic use</th>
       <th>Avoid when</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Document</strong></td>
-      <td>document fields</td>
-      <td>$lookup only</td>
-      <td>flexible per-doc</td>
-      <td>balanced</td>
-      <td>product catalog, user profiles, CMS</td>
-      <td>you need cross-document transactions and joins everywhere</td>
+      <td>Any indexed field</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">$lookup</code> only; expensive</td>
+      <td>Flexible, validated</td>
+      <td>Balanced</td>
+      <td>Catalogs, profiles, content</td>
+      <td>Data is highly relational and queried across aggregates</td>
     </tr>
     <tr>
       <td><strong>Key-value</strong></td>
-      <td>the key, only</td>
-      <td>none</td>
-      <td>opaque value</td>
-      <td>very fast point ops</td>
-      <td>cache, sessions, leaderboards</td>
-      <td>you must query by attribute / value</td>
+      <td>Key only</td>
+      <td>None</td>
+      <td>Opaque or typed value</td>
+      <td>Very fast point ops</td>
+      <td>Cache, sessions, rate limits</td>
+      <td>You must query by attribute</td>
     </tr>
     <tr>
       <td><strong>Wide-column</strong></td>
-      <td>partition + clustering key</td>
-      <td>none</td>
-      <td>sparse columns</td>
-      <td>extremely write-heavy</td>
-      <td>feeds, messaging, IoT at scale</td>
-      <td>ad-hoc queries, frequent updates of single columns across partitions</td>
+      <td>Partition + clustering key</td>
+      <td>None</td>
+      <td>Declared, sparse</td>
+      <td>Extremely write-heavy</td>
+      <td>Feeds, messaging, IoT</td>
+      <td>Ad-hoc queries; frequent updates and deletes</td>
     </tr>
     <tr>
       <td><strong>Graph</strong></td>
-      <td>pattern traversal</td>
-      <td>native (the point)</td>
-      <td>flexible</td>
-      <td>moderate</td>
-      <td>social graph, recommendations, fraud</td>
-      <td>data is tabular and unconnected; bulk analytics</td>
+      <td>Pattern traversal</td>
+      <td>Native</td>
+      <td>Flexible</td>
+      <td>Moderate</td>
+      <td>Social graph, fraud rings</td>
+      <td>Data is tabular; bulk aggregation</td>
     </tr>
     <tr>
       <td><strong>Time-series</strong></td>
-      <td>time range + tags</td>
-      <td>limited</td>
-      <td>tags + fields</td>
-      <td>append-only firehose</td>
-      <td>metrics, telemetry, monitoring</td>
-      <td>data isn’t time-ordered; you need updates</td>
+      <td>Time range + tags</td>
+      <td>Limited</td>
+      <td>Tags + fields</td>
+      <td>Append firehose</td>
+      <td>Metrics, telemetry</td>
+      <td>Data is not time-ordered; many updates</td>
+    </tr>
+    <tr>
+      <td><strong>Vector</strong></td>
+      <td>Similarity + filters</td>
+      <td>None</td>
+      <td>Vector + metadata</td>
+      <td>Moderate, batch-heavy</td>
+      <td>Semantic search, RAG</td>
+      <td>Exact-match or relational queries</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="polyglot-persistence-is-normal">Polyglot persistence is normal</h3>
+<h3 id="polyglot-persistence-and-multi-model-convergence">Polyglot persistence and multi-model convergence</h3>
 
-<p>Real systems rarely pick one. A single product might use <strong>PostgreSQL</strong> as the system of record for orders and users, <strong>Redis</strong> for sessions and a cache in front of it, <strong>Elasticsearch</strong> for full-text product search, <strong>Cassandra</strong> or a TSDB for the event/metrics firehose, and <strong>Neo4j</strong> for the recommendation graph. This is called <em>polyglot persistence</em>: choose each store for the access pattern it serves best, and accept the operational cost of running several. The relational engine stays the default for anything needing rich ad-hoc queries and strong ACID transactions; reach for a specialized NoSQL model when a specific access pattern outgrows what the relational store does well.</p>
+<p>Real systems often combine stores: PostgreSQL as the system of record, Redis or Valkey for sessions and caching, OpenSearch for full-text search, a TSDB for metrics, and a graph or vector index for recommendations. This <strong>polyglot persistence</strong> lets each access pattern use the best tool, at the cost of running, securing, and keeping in sync several systems — usually via change data capture from the system of record.</p>
+
+<p>The counter-trend is <strong>convergence</strong>: relational engines have absorbed document (PostgreSQL <code class="language-plaintext highlighter-rouge">jsonb</code>), time-series (TimescaleDB), vector (<code class="language-plaintext highlighter-rouge">pgvector</code>), and graph (SQL/PGQ) capabilities, while document and key-value stores have added transactions, secondary indexes, and SQL-like query languages. For many applications a single well-run PostgreSQL covers most needs, and a specialized store is justified only when a specific access pattern outgrows it. Measure before adding a database.</p>
 
 <blockquote>
-  <p><strong>Code Reference</strong>: For working data-model examples, see <a href="../../../code-examples/technology/database-design/distributed_systems.py"><code class="language-plaintext highlighter-rouge">distributed_systems.py</code></a>.</p>
+  <p><strong>Code:</strong> <a href="../../../code-examples/technology/database-design/distributed_systems.py"><code class="language-plaintext highlighter-rouge">distributed_systems.py</code></a> contains working examples of several of these models.</p>
 </blockquote>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li>
-<a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — CAP, consensus, distributed transactions, and the NewSQL stores that bring SQL back to scale</li>
+<a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — CAP, consensus, NewSQL, and case studies</li>
   <li>
-<a href="modeling.html">Data Modeling &amp; Normalization</a> — the relational counterpart: normalization, relationships, and design patterns</li>
+<a href="replication-and-consensus.html">Replication &amp; Consensus</a> — leaderless quorums, the replication model behind Dynamo-style and Cassandra-style stores</li>
   <li>
-<a href="storage-internals.html">Storage Engines &amp; Recovery</a> — B+ trees vs. LSM trees, the storage engines underneath many of these stores</li>
+<a href="modeling.html">Data Modeling &amp; Normalization</a> — the relational counterpart, including JSONB vs. EAV</li>
   <li>
-<a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — how indexes and planners work in the relational world</li>
-  <li><a href="./">Database Design hub</a></li>
+<a href="storage-internals.html">Storage Engines &amp; Recovery</a> — B+ trees vs. LSM trees underneath these stores</li>
+  <li>
+<a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — how relational indexes and planners work</li>
   <li>
 <a href="../aws/">AWS</a> — managed NoSQL services (DynamoDB, DocumentDB, Neptune, Timestream)</li>
+  <li><a href="./">Database Design hub</a></li>
 </ul>
 
       </section>

@@ -2875,62 +2875,60 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Distributed Systems</a> » Microservices &amp; Event-Driven Architecture</p>
 
-<p>A microservice architecture trades the simplicity of a single deployable for independent scaling, independent deployment, and team autonomy — at the cost of turning every in-process function call into a network call that can be slow, fail, or arrive out of order. The discipline of microservices is mostly the discipline of <em>communication</em>: deciding where to draw service boundaries, choosing between synchronous request/response and asynchronous events, and building the messaging backbone (queues, log-structured streams like Kafka) that lets services stay loosely coupled. Four ideas recur:</p>
+<p>A <strong>microservice architecture</strong> splits an application into independently deployable services, each owning one business capability and its data. It buys independent deployment, independent scaling, and team autonomy. The price is that every in-process call becomes a network call, which can be slow, can fail, or can arrive twice or out of order. This page covers the system-level decisions: whether to split at all, where to draw boundaries, how services communicate (synchronously or through a broker), how traffic enters and moves between services, how multi-service business processes are coordinated, and how the outbox, event sourcing, and CQRS patterns keep data consistent without distributed transactions.</p>
 
-<ul>
-  <li>
-<strong>Boundaries follow business capabilities.</strong> Good services own a single capability and its data; bad ones share a database and chat constantly across the wire.</li>
-  <li>
-<strong>Async decouples in time.</strong> A message broker lets a producer and consumer run, fail, and scale independently — the queue absorbs the difference.</li>
-  <li>
-<strong>The log is a database turned inside out.</strong> Kafka stores an ordered, replayable history of events; consumers materialize whatever views they need from it.</li>
-  <li>
-<strong>Events can be the source of truth.</strong> Event sourcing persists <em>what happened</em>, not just current state, giving you audit, time-travel, and rebuildable read models.</li>
-</ul>
-
-<p>This page covers service decomposition, API gateways, the sync-vs-async decision, message queues and event streaming, event-driven architecture, and the event sourcing / CQRS patterns that fall out of treating events as the source of truth.</p>
+<p>Broker internals and the event patterns in full detail are in the <a href="../event-driven/">Event-Driven Architecture</a> section. Failure-handling mechanics (timeouts, retries, circuit breakers) are in <a href="resilience-patterns.html">Resilience Patterns</a>.</p>
 
 <h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
 <ol id="markdown-toc">
+  <li><a href="#monolith-modular-monolith-or-microservices" id="markdown-toc-monolith-modular-monolith-or-microservices">Monolith, Modular Monolith, or Microservices</a></li>
   <li>
 <a href="#service-decomposition" id="markdown-toc-service-decomposition">Service Decomposition</a>    <ol>
-      <li><a href="#decompose-by-business-capability" id="markdown-toc-decompose-by-business-capability">Decompose by Business Capability</a></li>
-      <li><a href="#the-database-per-service-rule" id="markdown-toc-the-database-per-service-rule">The Database-per-Service Rule</a></li>
-      <li><a href="#sizing-services-avoid-the-two-extremes" id="markdown-toc-sizing-services-avoid-the-two-extremes">Sizing Services: Avoid the Two Extremes</a></li>
-    </ol>
-  </li>
-  <li><a href="#api-gateways" id="markdown-toc-api-gateways">API Gateways</a></li>
-  <li>
-<a href="#inter-service-communication-synchronous-vs-asynchronous" id="markdown-toc-inter-service-communication-synchronous-vs-asynchronous">Inter-Service Communication: Synchronous vs Asynchronous</a>    <ol>
-      <li><a href="#synchronous-requestresponse" id="markdown-toc-synchronous-requestresponse">Synchronous (Request/Response)</a></li>
-      <li><a href="#asynchronous-messaging" id="markdown-toc-asynchronous-messaging">Asynchronous (Messaging)</a></li>
-      <li><a href="#choosing-between-them" id="markdown-toc-choosing-between-them">Choosing Between Them</a></li>
+      <li><a href="#boundaries-follow-business-capabilities" id="markdown-toc-boundaries-follow-business-capabilities">Boundaries Follow Business Capabilities</a></li>
+      <li><a href="#database-per-service" id="markdown-toc-database-per-service">Database per Service</a></li>
+      <li><a href="#sizing-services" id="markdown-toc-sizing-services">Sizing Services</a></li>
     </ol>
   </li>
   <li>
-<a href="#message-queues--event-streaming" id="markdown-toc-message-queues--event-streaming">Message Queues &amp; Event Streaming</a>    <ol>
-      <li><a href="#queues-vs-logs" id="markdown-toc-queues-vs-logs">Queues vs. Logs</a></li>
-      <li>
-<a href="#kafkas-model-topics-partitions-offsets" id="markdown-toc-kafkas-model-topics-partitions-offsets">Kafka’s Model: Topics, Partitions, Offsets</a>        <ol>
-          <li><a href="#key-kafka-patterns" id="markdown-toc-key-kafka-patterns">Key Kafka Patterns</a></li>
-        </ol>
-      </li>
-      <li><a href="#dead-letter-queues-and-poison-messages" id="markdown-toc-dead-letter-queues-and-poison-messages">Dead-Letter Queues and Poison Messages</a></li>
+<a href="#synchronous-vs-asynchronous-communication" id="markdown-toc-synchronous-vs-asynchronous-communication">Synchronous vs Asynchronous Communication</a>    <ol>
+      <li><a href="#synchronous-requestresponse" id="markdown-toc-synchronous-requestresponse">Synchronous Request/Response</a></li>
+      <li><a href="#asynchronous-messaging" id="markdown-toc-asynchronous-messaging">Asynchronous Messaging</a></li>
+      <li><a href="#choosing" id="markdown-toc-choosing">Choosing</a></li>
     </ol>
   </li>
   <li>
-<a href="#event-driven-architecture" id="markdown-toc-event-driven-architecture">Event-Driven Architecture</a>    <ol>
-      <li><a href="#commands-vs-events" id="markdown-toc-commands-vs-events">Commands vs. Events</a></li>
-      <li><a href="#choreography-vs-orchestration" id="markdown-toc-choreography-vs-orchestration">Choreography vs. Orchestration</a></li>
-      <li><a href="#the-saga-pattern-for-distributed-transactions" id="markdown-toc-the-saga-pattern-for-distributed-transactions">The Saga Pattern for Distributed Transactions</a></li>
-      <li><a href="#the-dual-write-problem-and-the-outbox-pattern" id="markdown-toc-the-dual-write-problem-and-the-outbox-pattern">The Dual-Write Problem and the Outbox Pattern</a></li>
+<a href="#edge-and-service-to-service-traffic" id="markdown-toc-edge-and-service-to-service-traffic">Edge and Service-to-Service Traffic</a>    <ol>
+      <li><a href="#api-gateway-and-backend-for-frontend" id="markdown-toc-api-gateway-and-backend-for-frontend">API Gateway and Backend for Frontend</a></li>
+      <li><a href="#service-mesh" id="markdown-toc-service-mesh">Service Mesh</a></li>
+      <li><a href="#a-minimal-local-topology" id="markdown-toc-a-minimal-local-topology">A Minimal Local Topology</a></li>
     </ol>
   </li>
   <li>
-<a href="#event-sourcing--cqrs" id="markdown-toc-event-sourcing--cqrs">Event Sourcing &amp; CQRS</a>    <ol>
+<a href="#the-messaging-backbone" id="markdown-toc-the-messaging-backbone">The Messaging Backbone</a>    <ol>
+      <li><a href="#queues-vs-logs" id="markdown-toc-queues-vs-logs">Queues vs Logs</a></li>
+      <li><a href="#kafkas-model-topics-partitions-offsets" id="markdown-toc-kafkas-model-topics-partitions-offsets">Kafka’s Model: Topics, Partitions, Offsets</a></li>
+      <li><a href="#ordering-delivery-guarantees-and-idempotency" id="markdown-toc-ordering-delivery-guarantees-and-idempotency">Ordering, Delivery Guarantees, and Idempotency</a></li>
+    </ol>
+  </li>
+  <li>
+<a href="#event-contracts" id="markdown-toc-event-contracts">Event Contracts</a>    <ol>
+      <li><a href="#commands-vs-events" id="markdown-toc-commands-vs-events">Commands vs Events</a></li>
+      <li><a href="#how-much-data-an-event-carries" id="markdown-toc-how-much-data-an-event-carries">How Much Data an Event Carries</a></li>
+      <li><a href="#schemas-are-public-apis" id="markdown-toc-schemas-are-public-apis">Schemas Are Public APIs</a></li>
+    </ol>
+  </li>
+  <li>
+<a href="#coordinating-multi-service-workflows" id="markdown-toc-coordinating-multi-service-workflows">Coordinating Multi-Service Workflows</a>    <ol>
+      <li><a href="#choreography-vs-orchestration" id="markdown-toc-choreography-vs-orchestration">Choreography vs Orchestration</a></li>
+      <li><a href="#durable-execution" id="markdown-toc-durable-execution">Durable Execution</a></li>
+    </ol>
+  </li>
+  <li><a href="#the-dual-write-problem-and-the-outbox-pattern" id="markdown-toc-the-dual-write-problem-and-the-outbox-pattern">The Dual-Write Problem and the Outbox Pattern</a></li>
+  <li>
+<a href="#event-sourcing-and-cqrs" id="markdown-toc-event-sourcing-and-cqrs">Event Sourcing and CQRS</a>    <ol>
       <li><a href="#event-sourcing" id="markdown-toc-event-sourcing">Event Sourcing</a></li>
-      <li><a href="#cqrs-command-query-responsibility-segregation" id="markdown-toc-cqrs-command-query-responsibility-segregation">CQRS (Command Query Responsibility Segregation)</a></li>
+      <li><a href="#cqrs" id="markdown-toc-cqrs">CQRS</a></li>
     </ol>
   </li>
   <li><a href="#putting-it-together" id="markdown-toc-putting-it-together">Putting It Together</a></li>
@@ -2939,15 +2937,83 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <hr>
 
+<h2 id="monolith-modular-monolith-or-microservices">Monolith, Modular Monolith, or Microservices</h2>
+
+<p>Microservices are an organizational scaling tool first and a technical one second. They pay off when many teams need to ship independently. They do not pay off for a small team, where they add network failure modes, distributed data, and operational overhead with nothing to show for it.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Monolith</th>
+      <th>Modular monolith</th>
+      <th>Microservices</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Deployable units</td>
+      <td>One</td>
+      <td>One</td>
+      <td>Many</td>
+    </tr>
+    <tr>
+      <td>Module boundaries</td>
+      <td>Often implicit</td>
+      <td>Enforced in code (packages, build rules)</td>
+      <td>Enforced by the network</td>
+    </tr>
+    <tr>
+      <td>Data</td>
+      <td>One shared database</td>
+      <td>One database, schema per module</td>
+      <td>Database per service</td>
+    </tr>
+    <tr>
+      <td>Cross-module call</td>
+      <td>Function call</td>
+      <td>Function call through a public interface</td>
+      <td>Network call (HTTP, gRPC, messages)</td>
+    </tr>
+    <tr>
+      <td>Failure modes</td>
+      <td>Process crash</td>
+      <td>Process crash</td>
+      <td>Partial failure, timeouts, duplicates, version skew</td>
+    </tr>
+    <tr>
+      <td>Team scaling</td>
+      <td>Poor beyond a few teams</td>
+      <td>Good up to many teams</td>
+      <td>Best for many autonomous teams</td>
+    </tr>
+    <tr>
+      <td>Operational cost</td>
+      <td>Low</td>
+      <td>Low</td>
+      <td>High: CI/CD, observability, and on-call per service</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The widely recommended path is to <strong>start with a modular monolith</strong>, keep module boundaries strict, and extract a module into a service only when there is a concrete reason: it needs to scale differently, deploy on a different cadence, use a different runtime, or belong to a different team. Migrating an existing monolith is usually done incrementally with the <strong>strangler fig</strong> pattern: a routing layer sends one capability at a time to a new service until the old code path can be deleted.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Client --&gt; Router["Router / gateway"]
+    Router --&gt;|"/orders/*"| New["New Order Service"]
+    Router --&gt;|"everything else"| Legacy["Legacy monolith"]
+    New -. "sync data during migration" .- Legacy
+</code></pre>
+
 <h2 id="service-decomposition">Service Decomposition</h2>
 
-<p>A microservice architecture breaks a monolith into independently deployable services, each owning a slice of the domain and its own data store. The hard part is not the splitting — it is choosing <em>where</em> to split so that the seams are stable and the chatter across them is low.</p>
+<p>The hard part of microservices is not splitting the code. It is choosing seams that are stable and that minimize traffic across them.</p>
 
-<h3 id="decompose-by-business-capability">Decompose by Business Capability</h3>
+<h3 id="boundaries-follow-business-capabilities">Boundaries Follow Business Capabilities</h3>
 
-<p>The most durable boundary is the <strong>business capability</strong>: a thing the organization does (take payments, manage inventory, fulfill orders) rather than a technical layer (a “validation service”, a “database service”). Capability boundaries change slowly, map onto teams (Conway’s Law works <em>for</em> you here), and tend to encapsulate the data a service needs so it can answer most requests without a network round trip.</p>
+<p>The most durable boundary is a <strong>business capability</strong>, something the organization does (take payments, manage inventory, fulfil orders), rather than a technical layer (a “validation service” or a “database service”). Capabilities change slowly, map onto teams, and tend to contain the data they need, so most requests can be answered without a network hop. Conway’s Law says systems mirror the communication structure of the organization that builds them. Aligning services with team ownership makes that law work in your favour.</p>
 
-<p>A complementary lens is the <strong>bounded context</strong> from Domain-Driven Design: the region of the domain within which a particular model and its vocabulary are consistent. The word “customer” might mean a billing account in one context and a shipping recipient in another; each bounded context is a strong candidate for its own service with its own model.</p>
+<p>The <strong>bounded context</strong> from Domain-Driven Design refines this. A bounded context is a region of the domain within which one model and its vocabulary are consistent. “Customer” may mean a billing account in one context and a delivery address in another. Each bounded context is a strong candidate for its own service with its own model, and translation happens explicitly at the boundary.</p>
 
 <pre><code class="language-mermaid">flowchart TD
     Mono["Monolith&lt;br/&gt;orders + payments + inventory + shipping"]
@@ -2955,18 +3021,18 @@ document.addEventListener('DOMContentLoaded', function () {
     Mono --&gt; P["Payment Service&lt;br/&gt;owns: charges, refunds"]
     Mono --&gt; I["Inventory Service&lt;br/&gt;owns: stock levels"]
     Mono --&gt; S["Shipping Service&lt;br/&gt;owns: shipments"]
-    O -. event .-&gt; I
-    O -. event .-&gt; P
-    P -. event .-&gt; S
+    O -. "OrderPlaced" .-&gt; I
+    O -. "OrderPlaced" .-&gt; P
+    P -. "PaymentCaptured" .-&gt; S
 </code></pre>
 
-<h3 id="the-database-per-service-rule">The Database-per-Service Rule</h3>
+<h3 id="database-per-service">Database per Service</h3>
 
-<p>Each service owns its data and is the only thing that touches its database. Other services may read that data <em>only through the owning service’s API or its published events</em> — never by querying its tables directly. Shared databases are the single most common way a “microservice” architecture collapses back into a distributed monolith: a schema change in one service silently breaks three others, and you lose the independent-deployability that justified the split.</p>
+<p>Each service is the only thing that reads or writes its database. Other services get that data <strong>only through the owner’s API or its published events</strong>, never by querying its tables. Shared databases are the most common way a microservice architecture decays into a <em>distributed monolith</em>: a schema change in one service silently breaks three others, and the independent deployability that justified the split is gone.</p>
 
-<p>The consequence is that you give up cross-service <code class="language-plaintext highlighter-rouge">JOIN</code>s and multi-table transactions. Data that used to live in one row now lives in two services, and keeping it consistent becomes a coordination problem solved with events and sagas (below) rather than a database transaction.</p>
+<p>The consequence is the loss of cross-service <code class="language-plaintext highlighter-rouge">JOIN</code>s and multi-table ACID transactions. Data that used to live in one row now spans two services. Keeping it consistent becomes a coordination problem, solved with events, sagas, and the outbox pattern rather than with a database transaction. Services that need another service’s data for queries typically keep a local, read-only <strong>replica</strong> of just the fields they need, updated from that service’s events.</p>
 
-<h3 id="sizing-services-avoid-the-two-extremes">Sizing Services: Avoid the Two Extremes</h3>
+<h3 id="sizing-services">Sizing Services</h3>
 
 <table>
   <thead>
@@ -2978,133 +3044,64 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>Every feature touches 5 services</td>
+      <td>Every feature touches five services</td>
       <td>Boundaries cut across a capability</td>
-      <td>Merge services; align to capability</td>
+      <td>Merge; realign to the capability</td>
     </tr>
     <tr>
       <td>Two services always deploy together</td>
-      <td>They are really one bounded context</td>
+      <td>They are one bounded context</td>
       <td>Merge them</td>
     </tr>
     <tr>
       <td>A service is a CRUD wrapper over one table</td>
       <td>Too fine-grained (“nanoservice”)</td>
-      <td>Fold into its aggregate owner</td>
+      <td>Fold into the owning aggregate’s service</td>
     </tr>
     <tr>
       <td>A service owns half the domain</td>
       <td>Still a monolith</td>
       <td>Split along an internal seam</td>
     </tr>
+    <tr>
+      <td>Long synchronous call chains on every request</td>
+      <td>Data is in the wrong place</td>
+      <td>Replicate the needed data via events, or merge</td>
+    </tr>
   </tbody>
 </table>
 
-<p>The pragmatic guidance: <strong>start with a well-structured monolith</strong>, let the seams reveal themselves under load and team growth, then extract services along those seams. Premature decomposition pays the full distributed-systems tax (latency, partial failure, operational overhead) before you have the scale to need it.</p>
+<h2 id="synchronous-vs-asynchronous-communication">Synchronous vs Asynchronous Communication</h2>
 
-<h2 id="api-gateways">API Gateways</h2>
-
-<p>When clients face dozens of services, you do not want each client to know every service’s address, auth scheme, and protocol. An <strong>API gateway</strong> is a single entry point that fronts the service mesh and handles cross-cutting concerns so individual services do not have to.</p>
-
-<p>A gateway typically provides:</p>
-
-<ul>
-  <li>
-<strong>Routing</strong> — map an external path (<code class="language-plaintext highlighter-rouge">/api/orders/*</code>) to an internal service.</li>
-  <li>
-<strong>Authentication / authorization</strong> — verify a token once at the edge, pass a trusted identity inward.</li>
-  <li>
-<strong>Rate limiting and throttling</strong> — protect backends from abusive or runaway clients.</li>
-  <li>
-<strong>TLS termination</strong> — handle certificates at the edge.</li>
-  <li>
-<strong>Request aggregation</strong> — fan out to several services and compose one response (often via a dedicated <em>Backend-for-Frontend</em> per client type).</li>
-  <li>
-<strong>Observability</strong> — a natural place to emit per-request metrics, logs, and the root span of a trace.</li>
-</ul>
-
-<pre><code class="language-mermaid">flowchart LR
-    Client["Web / Mobile&lt;br/&gt;clients"] --&gt; GW["API Gateway&lt;br/&gt;auth · routing · rate-limit · TLS"]
-    GW --&gt; US["User Service"]
-    GW --&gt; OS["Order Service"]
-    GW --&gt; PS["Product Service"]
-</code></pre>
-
-<p>The reverse-proxy core of a gateway can be as simple as an nginx config in front of the services. The following declarative compose file (moved from the section hub) shows a minimal gateway plus two backing services, each with its own datastore — the database-per-service rule made concrete:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># docker-compose.yml for microservices</span>
-<span class="na">version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">3.8'</span>
-<span class="na">services</span><span class="pi">:</span>
-  <span class="na">api-gateway</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">nginx:alpine</span>
-    <span class="na">ports</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s2">"</span><span class="s">80:80"</span>
-    <span class="na">volumes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">./nginx.conf:/etc/nginx/nginx.conf</span>
-    <span class="na">depends_on</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">user-service</span>
-      <span class="pi">-</span> <span class="s">order-service</span>
-
-  <span class="na">user-service</span><span class="pi">:</span>
-    <span class="na">build</span><span class="pi">:</span> <span class="s">./user-service</span>
-    <span class="na">environment</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">DB_HOST=user-db</span>
-      <span class="pi">-</span> <span class="s">REDIS_HOST=cache</span>
-
-  <span class="na">order-service</span><span class="pi">:</span>
-    <span class="na">build</span><span class="pi">:</span> <span class="s">./order-service</span>
-    <span class="na">environment</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">DB_HOST=order-db</span>
-      <span class="pi">-</span> <span class="s">KAFKA_BROKERS=kafka:9092</span>
-</code></pre></div></div>
-
-<blockquote>
-  <p><strong>Gateway vs. service mesh.</strong> A gateway handles <em>north-south</em> traffic (clients into the system). A service mesh (Istio, Linkerd) handles <em>east-west</em> traffic (service to service) — mutual TLS, retries, traffic splitting — at the infrastructure layer via sidecars. They are complementary, not alternatives. The service-mesh patterns live on the section hub; this page focuses on the application-level communication choices.</p>
-</blockquote>
-
-<h2 id="inter-service-communication-synchronous-vs-asynchronous">Inter-Service Communication: Synchronous vs Asynchronous</h2>
-
-<p>Once the monolith’s function calls become network calls, you must choose <em>how</em> services talk. The fundamental fork is synchronous request/response versus asynchronous messaging.</p>
-
-<h3 id="synchronous-requestresponse">Synchronous (Request/Response)</h3>
-
-<p>The caller sends a request and blocks until a response arrives — typically over REST/HTTP or gRPC.</p>
-
-<ul>
-  <li>
-<strong>Pros:</strong> simple mental model, immediate result, easy to reason about and debug.</li>
-  <li>
-<strong>Cons:</strong> <strong>temporal coupling</strong> — the callee must be up <em>right now</em>; latency adds up across a call chain; a slow or failed dependency propagates backward as a cascading failure.</li>
-</ul>
-
-<p>A request that fans through five services has its latencies <em>add</em>, and its availability <em>multiply</em>: five 99.9%-available services in a synchronous chain yield only ~99.5% combined. Synchronous chains therefore need <strong>circuit breakers</strong>, timeouts, and retries with backoff to keep one slow dependency from taking down the whole call tree. (The <code class="language-plaintext highlighter-rouge">ResilientService</code> circuit-breaker example lives on <a href="resilience-patterns.html#circuit-breakers">Resilience Patterns</a>.)</p>
-
-<p>gRPC is usually preferred over REST for <em>internal</em> synchronous calls: it uses HTTP/2 multiplexing, compact protobuf binary encoding, and generated typed stubs, which lowers latency and catches interface drift at compile time. REST/JSON remains the lingua franca at the <em>edge</em> (the API gateway) where human-debuggability and broad client support matter more.</p>
-
-<h3 id="asynchronous-messaging">Asynchronous (Messaging)</h3>
-
-<p>The sender publishes a message to a broker and moves on; one or more consumers process it later. There is no temporal coupling — producer and consumer need not be up at the same time, and the broker absorbs bursts.</p>
-
-<ul>
-  <li>
-<strong>Pros:</strong> loose coupling in time, natural buffering and back-pressure, easy fan-out to multiple consumers, resilience to consumer downtime.</li>
-  <li>
-<strong>Cons:</strong> eventual consistency (the result is not available immediately), harder end-to-end debugging, and the operational burden of running a broker.</li>
-</ul>
+<p>Once function calls become network calls, the fundamental choice is between synchronous request/response and asynchronous messaging.</p>
 
 <pre><code class="language-mermaid">flowchart LR
     subgraph Sync["Synchronous: temporal coupling"]
-      A1["Order Svc"] --&gt;|"HTTP request, blocks"| B1["Payment Svc"]
+      A1["Order Svc"] --&gt;|"request, waits"| B1["Payment Svc"]
       B1 --&gt;|response| A1
     end
     subgraph Async["Asynchronous: decoupled in time"]
-      A2["Order Svc"] --&gt;|publish event| Q[("Broker / Log")]
+      A2["Order Svc"] --&gt;|publish| Q[("Broker / log")]
       Q --&gt;|consume later| B2["Payment Svc"]
       Q --&gt;|consume later| C2["Analytics Svc"]
     end
 </code></pre>
 
-<h3 id="choosing-between-them">Choosing Between Them</h3>
+<h3 id="synchronous-requestresponse">Synchronous Request/Response</h3>
+
+<p>The caller sends a request, usually over HTTP (REST) or gRPC, and waits for the answer. The model is simple and the result is immediate. The cost is <strong>temporal coupling</strong>: the callee must be up at that moment. Latencies along a call chain add, and availabilities multiply. For a chain of $n$ services that must all succeed:</p>
+
+\[A_{\text{chain}} = \prod_{i=1}^{n} A_i, \qquad \text{e.g. } 0.999^{5} \approx 0.995\]
+
+<p>Five services at 99.9% each give roughly 99.5% end to end, about 3.6 hours of failure per month instead of 43 minutes. Synchronous chains therefore need deadlines that shrink as they propagate, bounded retries with jitter, and circuit breakers; see <a href="resilience-patterns.html#circuit-breakers">Resilience Patterns</a>.</p>
+
+<p><strong>gRPC</strong> is the usual choice for internal synchronous calls. It runs over HTTP/2 with multiplexed streams, uses compact Protocol Buffers encoding, generates typed client stubs, and propagates deadlines natively. <strong>REST/JSON</strong> remains the default at the public edge, where debuggability and broad client support matter more. See <a href="../api-design/grpc-and-protobuf.html">gRPC &amp; Protocol Buffers</a> and <a href="../api-design/rest.html">REST</a>.</p>
+
+<h3 id="asynchronous-messaging">Asynchronous Messaging</h3>
+
+<p>The sender publishes a message to a broker and continues. Consumers process it later. Producer and consumer need not be up at the same time, the broker absorbs bursts, and new consumers can be added without changing the producer. The costs are eventual consistency (the effect is not visible immediately), harder end-to-end debugging, duplicate delivery, and a broker to operate.</p>
+
+<h3 id="choosing">Choosing</h3>
 
 <table>
   <thead>
@@ -3115,366 +3112,596 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>The caller needs the result to proceed (read a value, validate input)</td>
-      <td>The work can happen later (send email, update a read model)</td>
+      <td>The caller needs the result to continue (read a value, validate input)</td>
+      <td>The work can finish later (send email, update a read model)</td>
     </tr>
     <tr>
-      <td>The operation is naturally a query</td>
-      <td>The operation is a fact (“order placed”) others react to</td>
+      <td>The operation is a query</td>
+      <td>The operation is a fact others react to (“order placed”)</td>
     </tr>
     <tr>
-      <td>Strong, immediate consistency is required</td>
-      <td>Eventual consistency is acceptable</td>
+      <td>The user is waiting and the call is fast</td>
+      <td>The work is slow or bursty</td>
     </tr>
     <tr>
-      <td>One caller, one callee</td>
-      <td>One producer, many interested consumers</td>
+      <td>There is exactly one callee</td>
+      <td>Several services care about the same change</td>
     </tr>
   </tbody>
 </table>
 
-<p>A healthy architecture mixes both: synchronous reads at the edge for snappy UX, asynchronous events behind them so that side effects (inventory, analytics, notifications) do not slow the user’s request or couple to its availability.</p>
+<p>Most systems mix both: synchronous reads and commands at the edge for a responsive user experience, with asynchronous events behind them so that side effects (inventory, analytics, notifications) neither slow the request nor share its availability.</p>
 
-<h2 id="message-queues--event-streaming">Message Queues &amp; Event Streaming</h2>
+<h2 id="edge-and-service-to-service-traffic">Edge and Service-to-Service Traffic</h2>
 
-<p>Asynchronous communication runs over a <strong>broker</strong>. There are two broad broker families, and the difference shapes everything downstream.</p>
+<h3 id="api-gateway-and-backend-for-frontend">API Gateway and Backend for Frontend</h3>
 
-<h3 id="queues-vs-logs">Queues vs. Logs</h3>
+<p>An <strong>API gateway</strong> is the single entry point for external (north-south) traffic. It keeps clients from needing to know each service’s address, protocol, and auth scheme, and it centralizes cross-cutting concerns:</p>
 
-<p>A <strong>message queue</strong> (RabbitMQ, Amazon SQS, ActiveMQ) treats a message as a <em>task</em>. A message is delivered to one consumer in a competing-consumers group and then <em>removed</em> (acknowledged). Queues excel at distributing work: add consumers to drain the queue faster. Once consumed, a message is gone.</p>
+<ul>
+  <li>
+<strong>Routing</strong>: map <code class="language-plaintext highlighter-rouge">/api/orders/*</code> to the order service.</li>
+  <li>
+<strong>Authentication</strong>: validate a token once at the edge and pass a trusted identity inward.</li>
+  <li>
+<strong>Rate limiting and quotas</strong>: protect backends from abusive or runaway clients.</li>
+  <li>
+<strong>TLS termination</strong> and certificate management.</li>
+  <li>
+<strong>Aggregation</strong>: fan out to several services and compose one response.</li>
+  <li>
+<strong>Telemetry</strong>: start the root span of every trace and emit per-route metrics.</li>
+</ul>
 
-<p>A <strong>log-structured stream</strong> (Apache Kafka, AWS Kinesis, Redpanda, Pulsar) treats a message as an <em>immutable fact</em> appended to an ordered, durable log. Messages are <strong>not</strong> deleted on consumption — they are retained for a configured time (or forever) and consumers track their own position (offset). Many independent consumer groups can read the same log at their own pace, and a new consumer can replay history from the beginning.</p>
+<p>A <strong>Backend for Frontend (BFF)</strong> is a gateway specialized for one client type (web, iOS, partner API), so that each client gets responses shaped for it without bloating the shared services. GraphQL federation plays a similar role; see <a href="../api-design/graphql.html#schema-federation">GraphQL</a>.</p>
+
+<p>On Kubernetes, the standard way to configure edge routing is now the <strong>Gateway API</strong> (<code class="language-plaintext highlighter-rouge">Gateway</code>, <code class="language-plaintext highlighter-rouge">HTTPRoute</code>, <code class="language-plaintext highlighter-rouge">GRPCRoute</code>), which replaced the older <code class="language-plaintext highlighter-rouge">Ingress</code> resource as the actively developed interface. The widely used community ingress-nginx controller was retired in March 2026 and no longer receives security fixes, so new clusters should use a Gateway API implementation (Envoy Gateway, Istio, Cilium, NGINX Gateway Fabric, cloud load-balancer controllers, and others).</p>
+
+<h3 id="service-mesh">Service Mesh</h3>
+
+<p>A <strong>service mesh</strong> handles east-west (service-to-service) traffic at the infrastructure layer: mutual TLS and workload identity, retries and timeouts, traffic splitting for canaries, and uniform telemetry, without application code changes. Gateways and meshes are complementary.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Data-plane model</th>
+      <th>How it works</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+<strong>Sidecar</strong> (Istio classic, Linkerd)</td>
+      <td>A proxy container in every pod intercepts its traffic</td>
+      <td>Full L7 features per pod; memory and CPU overhead on every pod; upgrades require pod restarts</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Sidecarless / ambient</strong> (Istio ambient mode, GA since Istio 1.24; Cilium)</td>
+      <td>A per-node proxy handles L4 and mTLS; optional shared L7 proxies (“waypoints”) are deployed only where needed</td>
+      <td>Much lower overhead and no pod restarts; L7 policy only where waypoints exist</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart LR
+    Client["Web / mobile clients"] --&gt; GW["API gateway&lt;br/&gt;auth · routing · rate limits · TLS"]
+    subgraph Mesh["Service mesh: mTLS, retries, telemetry"]
+      US["User Service"]
+      OS["Order Service"]
+      PS["Product Service"]
+      OS --&gt; PS
+      OS --&gt; US
+    end
+    GW --&gt; US
+    GW --&gt; OS
+    GW --&gt; PS
+</code></pre>
+
+<h3 id="a-minimal-local-topology">A Minimal Local Topology</h3>
+
+<p>For local development, a Compose file makes the database-per-service rule concrete: each service gets its own datastore, and only the gateway is exposed. (The top-level <code class="language-plaintext highlighter-rouge">version:</code> key is obsolete in the current Compose Specification and is omitted.)</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># compose.yaml</span>
+<span class="na">services</span><span class="pi">:</span>
+  <span class="na">gateway</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">nginx:stable-alpine</span>
+    <span class="na">ports</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">8080:80"</span><span class="pi">]</span>
+    <span class="na">volumes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">./nginx.conf:/etc/nginx/nginx.conf:ro"</span><span class="pi">]</span>
+    <span class="na">depends_on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">user-service</span><span class="pi">,</span> <span class="nv">order-service</span><span class="pi">]</span>
+
+  <span class="na">user-service</span><span class="pi">:</span>
+    <span class="na">build</span><span class="pi">:</span> <span class="s">./user-service</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">DB_URL</span><span class="pi">:</span> <span class="s">postgres://user-db:5432/users</span>
+    <span class="na">depends_on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">user-db</span><span class="pi">]</span>
+
+  <span class="na">order-service</span><span class="pi">:</span>
+    <span class="na">build</span><span class="pi">:</span> <span class="s">./order-service</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">DB_URL</span><span class="pi">:</span> <span class="s">postgres://order-db:5432/orders</span>
+      <span class="na">KAFKA_BOOTSTRAP</span><span class="pi">:</span> <span class="s">kafka:9092</span>
+    <span class="na">depends_on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">order-db</span><span class="pi">,</span> <span class="nv">kafka</span><span class="pi">]</span>
+
+  <span class="na">user-db</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:17</span>
+    <span class="na">environment</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">POSTGRES_DB</span><span class="pi">:</span> <span class="nv">users</span><span class="pi">,</span> <span class="nv">POSTGRES_PASSWORD</span><span class="pi">:</span> <span class="nv">dev</span> <span class="pi">}</span>
+
+  <span class="na">order-db</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:17</span>
+    <span class="na">environment</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">POSTGRES_DB</span><span class="pi">:</span> <span class="nv">orders</span><span class="pi">,</span> <span class="nv">POSTGRES_PASSWORD</span><span class="pi">:</span> <span class="nv">dev</span> <span class="pi">}</span>
+
+  <span class="na">kafka</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">apache/kafka:latest</span>   <span class="c1"># single-node KRaft broker; no ZooKeeper</span>
+</code></pre></div></div>
+
+<h2 id="the-messaging-backbone">The Messaging Backbone</h2>
+
+<p>Asynchronous communication runs over a <strong>broker</strong>. The two broker families behave differently enough that the choice shapes the whole design. For configuration, operations, and cloud-managed options, see <a href="../event-driven/message-brokers.html">Message Brokers &amp; Streaming</a>.</p>
+
+<h3 id="queues-vs-logs">Queues vs Logs</h3>
 
 <table>
   <thead>
     <tr>
       <th> </th>
-      <th>Message Queue (e.g. RabbitMQ)</th>
-      <th>Log Stream (e.g. Kafka)</th>
+      <th>Message queue (RabbitMQ, SQS)</th>
+      <th>Log / stream (Kafka, Kinesis, Redpanda, Pulsar)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Message model</td>
-      <td>Transient task</td>
-      <td>Durable, ordered fact</td>
+      <td>A message is…</td>
+      <td>A task to be done</td>
+      <td>An immutable fact in an ordered log</td>
     </tr>
     <tr>
       <td>After consumption</td>
-      <td>Removed</td>
-      <td>Retained (replayable)</td>
+      <td>Removed once acknowledged</td>
+      <td>Retained for a configured period (or forever)</td>
     </tr>
     <tr>
       <td>Consumers per message</td>
-      <td>One (competing consumers)</td>
-      <td>Many (independent groups)</td>
+      <td>One, among competing consumers</td>
+      <td>Every consumer group reads every message</td>
+    </tr>
+    <tr>
+      <td>Consumer position</td>
+      <td>Broker tracks per-message acks</td>
+      <td>Consumer tracks its own offset</td>
+    </tr>
+    <tr>
+      <td>Replay history</td>
+      <td>No</td>
+      <td>Yes: seek to any retained offset</td>
     </tr>
     <tr>
       <td>Ordering</td>
-      <td>Per-queue, fragile under scale</td>
-      <td>Strict per-partition</td>
-    </tr>
-    <tr>
-      <td>Re-read history</td>
-      <td>No</td>
-      <td>Yes (seek to offset)</td>
+      <td>Per queue, weakened by redelivery and parallelism</td>
+      <td>Strict within a partition</td>
     </tr>
     <tr>
       <td>Best for</td>
-      <td>Work distribution, RPC-style jobs</td>
-      <td>Event streaming, event sourcing, analytics</td>
+      <td>Work distribution, background jobs</td>
+      <td>Event streaming, event sourcing, change data capture, analytics</td>
     </tr>
   </tbody>
 </table>
 
+<p>The line is blurring. Kafka 4.x adds <strong>share groups</strong> (KIP-932, “Queues for Kafka”): consumers in a share group cooperatively consume a topic with per-message acknowledgement and redelivery, and the number of consumers is no longer capped by the partition count. Share groups were a preview in Kafka 4.1 and are production-ready from Kafka 4.2.</p>
+
 <h3 id="kafkas-model-topics-partitions-offsets">Kafka’s Model: Topics, Partitions, Offsets</h3>
 
-<p>Kafka is the dominant event-streaming platform, so it is worth understanding its primitives precisely.</p>
-
 <ul>
-  <li>A <strong>topic</strong> is a named stream of events (e.g. <code class="language-plaintext highlighter-rouge">order-events</code>).</li>
-  <li>A topic is split into <strong>partitions</strong>, each an independent, totally-ordered, append-only log. Partitioning is how Kafka scales: partitions of one topic spread across brokers and are consumed in parallel.</li>
-  <li>Each event has an <strong>offset</strong> — its monotonically increasing position within its partition. Consumers commit offsets to record progress.</li>
-  <li>A <strong>consumer group</strong> is a set of cooperating consumers; Kafka assigns each partition to exactly one consumer in the group, so adding consumers (up to the partition count) increases throughput. Different groups consuming the same topic each get the <em>full</em> stream independently.</li>
+  <li>A <strong>topic</strong> is a named stream of events, such as <code class="language-plaintext highlighter-rouge">order-events</code>.</li>
+  <li>A topic is split into <strong>partitions</strong>, each an independent, totally ordered, append-only log. Partitions are spread across brokers and consumed in parallel; they are Kafka’s unit of scale.</li>
+  <li>Each record has an <strong>offset</strong>, its position within the partition. Consumers commit offsets to record progress.</li>
+  <li>A <strong>consumer group</strong> is a set of cooperating consumers. Each partition is assigned to exactly one member of the group, so a group scales up to the partition count. Different groups each receive the full stream independently.</li>
 </ul>
 
 <pre><code class="language-mermaid">flowchart LR
-    P["Producer"] --&gt;|"key=order-42"| Topic
+    P["Producer"] --&gt;|"key = order-42&lt;br/&gt;hash(key) mod 3"| Topic
     subgraph Topic["Topic: order-events"]
-      Pa0["Partition 0  ▸ off 0,1,2,3…"]
-      Pa1["Partition 1  ▸ off 0,1,2…"]
-      Pa2["Partition 2  ▸ off 0,1,2,3,4…"]
+      Pa0["Partition 0&lt;br/&gt;offsets 0, 1, 2, 3..."]
+      Pa1["Partition 1&lt;br/&gt;offsets 0, 1, 2..."]
+      Pa2["Partition 2&lt;br/&gt;offsets 0, 1, 2, 3, 4..."]
     end
-    Pa0 --&gt; C0["Consumer A (group X)"]
-    Pa1 --&gt; C1["Consumer B (group X)"]
+    subgraph GX["Consumer group: order-processor"]
+      C0["Consumer A"]
+      C1["Consumer B"]
+    end
+    subgraph GY["Consumer group: analytics"]
+      D0["Consumer C"]
+    end
+    Pa0 --&gt; C0
+    Pa1 --&gt; C1
     Pa2 --&gt; C1
-    Pa0 --&gt; D0["Analytics (group Y)"]
+    Pa0 --&gt; D0
     Pa1 --&gt; D0
     Pa2 --&gt; D0
 </code></pre>
 
-<h4 id="key-kafka-patterns">Key Kafka Patterns</h4>
+<p>Kafka 4.0 (March 2025) removed ZooKeeper entirely; clusters run in <strong>KRaft</strong> mode, with metadata managed by a Raft quorum of controller nodes. The same release made the <strong>next-generation consumer rebalance protocol</strong> (KIP-848) generally available: the broker-side group coordinator assigns partitions incrementally, so a consumer joining or leaving no longer pauses the whole group. Consumers opt in with <code class="language-plaintext highlighter-rouge">group.protocol=consumer</code>.</p>
 
-<p><strong>Partitioning by key for ordering.</strong> Kafka guarantees order only <em>within</em> a partition. To keep all events for one entity ordered, partition by a stable key (e.g. the order ID): every event with the same key lands in the same partition and is therefore consumed in produced order. Cross-key order is not guaranteed and should not be relied upon.</p>
+<h3 id="ordering-delivery-guarantees-and-idempotency">Ordering, Delivery Guarantees, and Idempotency</h3>
 
-<p><strong>Consumer groups for horizontal scale.</strong> Scale a consumer by adding members to its group, up to the partition count. Beyond that, increase partitions. Each partition is processed by at most one consumer per group, which is exactly what preserves per-key ordering while still parallelizing.</p>
+<ul>
+  <li>
+<strong>Ordering is per partition.</strong> To keep all events for one entity in order, use a stable key such as the order ID. Records with the same key go to the same partition. Never rely on ordering across keys.</li>
+  <li>
+<strong>Delivery is at-least-once by default.</strong> A consumer that crashes after processing a record but before committing its offset will see the record again. Every consumer must therefore be <strong>idempotent</strong>: processing a message twice must have the same effect as processing it once. Typical techniques are a processed-message table keyed by event ID, upserts, or conditional writes on a version number.</li>
+  <li>
+<strong>Exactly-once inside Kafka.</strong> Idempotent producers (the default since Kafka 3.0) remove duplicates caused by producer retries. Transactions make a read-process-write pipeline atomic when both input and output are Kafka topics. As soon as a side effect leaves Kafka (a database write, an email, an HTTP call), you are back to at-least-once plus idempotency.</li>
+  <li>
+<strong>Poison messages go to a dead-letter queue.</strong> A message that fails repeatedly is moved to a separate DLQ topic after N attempts, with the error attached, so it cannot block the partition. DLQs need an owner and a replay tool, or they become a silent data-loss bin.</li>
+</ul>
 
-<p><strong>Log compaction.</strong> With <code class="language-plaintext highlighter-rouge">cleanup.policy=compact</code>, Kafka retains only the <em>latest</em> value per key, turning a topic into a durable, replayable snapshot of current state — ideal for “current account balance per user” style topics that double as a changelog.</p>
+<p>The client below uses <code class="language-plaintext highlighter-rouge">aiokafka</code>. The producer is long-lived (creating one per message is a common and expensive mistake), keys records for per-order ordering, and requires acknowledgement from all in-sync replicas. The consumer disables auto-commit and commits only after the handler succeeds, which gives at-least-once processing:</p>
 
-<p><strong>At-least-once delivery and idempotent consumers.</strong> Default delivery is at-least-once: a consumer may see a message twice if it crashes after processing but before committing its offset. Consumers must therefore be <strong>idempotent</strong> — processing the same event twice must equal processing it once (dedupe on event ID, use upserts, etc.). Kafka also offers idempotent producers and exactly-once <em>processing</em> semantics (transactions) for read-process-write pipelines, at some throughput cost.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">from</span> <span class="n">aiokafka</span> <span class="kn">import</span> <span class="n">AIOKafkaProducer</span><span class="p">,</span> <span class="n">AIOKafkaConsumer</span>
 
-<p>The producer/consumer pair below (moved from the section hub) shows the basic Kafka client flow with <code class="language-plaintext highlighter-rouge">aiokafka</code> — a producer publishing an order event keyed for ordering, and a consumer group draining it:</p>
+<span class="n">producer</span> <span class="o">=</span> <span class="nc">AIOKafkaProducer</span><span class="p">(</span>
+    <span class="n">bootstrap_servers</span><span class="o">=</span><span class="sh">"</span><span class="s">kafka:9092</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">acks</span><span class="o">=</span><span class="sh">"</span><span class="s">all</span><span class="sh">"</span><span class="p">,</span>                      <span class="c1"># wait for all in-sync replicas
+</span>    <span class="n">enable_idempotence</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>         <span class="c1"># no duplicates from producer retries
+</span>    <span class="n">value_serializer</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">v</span><span class="p">).</span><span class="nf">encode</span><span class="p">(),</span>
+<span class="p">)</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Producer
-</span><span class="kn">import</span> <span class="n">json</span>
-<span class="kn">import</span> <span class="n">asyncio</span>
-<span class="kn">from</span> <span class="n">aiokafka</span> <span class="kn">import</span> <span class="n">AIOKafkaProducer</span>
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">send_order_event</span><span class="p">(</span><span class="n">order_data</span><span class="p">):</span>
-    <span class="n">producer</span> <span class="o">=</span> <span class="nc">AIOKafkaProducer</span><span class="p">(</span>
-        <span class="n">bootstrap_servers</span><span class="o">=</span><span class="sh">'</span><span class="s">localhost:9092</span><span class="sh">'</span><span class="p">,</span>
-        <span class="n">value_serializer</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">v</span><span class="p">).</span><span class="nf">encode</span><span class="p">()</span>
-    <span class="p">)</span>
-    <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">send_and_wait</span><span class="p">(</span>
-            <span class="sh">"</span><span class="s">order-events</span><span class="sh">"</span><span class="p">,</span>
-            <span class="p">{</span><span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">order_data</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">],</span> <span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">created</span><span class="sh">"</span><span class="p">},</span>
-            <span class="c1"># partition by order id so all events for an order stay ordered
-</span>            <span class="n">key</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">order_data</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">]).</span><span class="nf">encode</span><span class="p">()</span>
-        <span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">stop</span><span class="p">()</span>
-
-<span class="c1"># Consumer
-</span><span class="kn">from</span> <span class="n">aiokafka</span> <span class="kn">import</span> <span class="n">AIOKafkaConsumer</span>
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">process_orders</span><span class="p">():</span>
-    <span class="n">consumer</span> <span class="o">=</span> <span class="nc">AIOKafkaConsumer</span><span class="p">(</span>
-        <span class="sh">'</span><span class="s">order-events</span><span class="sh">'</span><span class="p">,</span>
-        <span class="n">bootstrap_servers</span><span class="o">=</span><span class="sh">'</span><span class="s">localhost:9092</span><span class="sh">'</span><span class="p">,</span>
-        <span class="n">group_id</span><span class="o">=</span><span class="sh">"</span><span class="s">order-processor</span><span class="sh">"</span>  <span class="c1"># members of this group share the partitions
+<span class="k">async</span> <span class="k">def</span> <span class="nf">publish_order_created</span><span class="p">(</span><span class="n">order</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">send_and_wait</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">order-events</span><span class="sh">"</span><span class="p">,</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">event_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">order</span><span class="p">[</span><span class="sh">"</span><span class="s">event_id</span><span class="sh">"</span><span class="p">],</span> <span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">OrderCreated</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">order</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">]},</span>
+        <span class="n">key</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">order</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">]).</span><span class="nf">encode</span><span class="p">(),</span>   <span class="c1"># same key -&gt; same partition -&gt; ordered
 </span>    <span class="p">)</span>
+
+<span class="k">async</span> <span class="k">def</span> <span class="nf">run_consumer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">consumer</span> <span class="o">=</span> <span class="nc">AIOKafkaConsumer</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">order-events</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">bootstrap_servers</span><span class="o">=</span><span class="sh">"</span><span class="s">kafka:9092</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">group_id</span><span class="o">=</span><span class="sh">"</span><span class="s">order-processor</span><span class="sh">"</span><span class="p">,</span>
+        <span class="n">enable_auto_commit</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>        <span class="c1"># commit only after successful processing
+</span>        <span class="n">auto_offset_reset</span><span class="o">=</span><span class="sh">"</span><span class="s">earliest</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="k">await</span> <span class="n">consumer</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">consumer</span><span class="p">:</span>
-            <span class="n">order</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">.</span><span class="n">value</span><span class="p">)</span>
-            <span class="k">await</span> <span class="nf">handle_order</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>  <span class="c1"># must be idempotent
-</span>            <span class="c1"># offset committed (auto or manual) after successful processing
-</span>    <span class="k">finally</span><span class="p">:</span>
+            <span class="n">event</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">await</span> <span class="nf">handle_idempotently</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>   <span class="c1"># dedupe on event["event_id"]
+</span>            <span class="k">await</span> <span class="n">consumer</span><span class="p">.</span><span class="nf">commit</span><span class="p">()</span>
+    <span class="k">finally</span><span class="p">:</span>
         <span class="k">await</span> <span class="n">consumer</span><span class="p">.</span><span class="nf">stop</span><span class="p">()</span>
-</code></pre></div></div>
 
-<h3 id="dead-letter-queues-and-poison-messages">Dead-Letter Queues and Poison Messages</h3>
+<span class="c1"># At service startup: await producer.start(); at shutdown: await producer.stop()
+</span></code></pre></div></div>
 
-<p>A message that repeatedly fails processing (a “poison message”) must not block the queue forever. The standard remedy is a <strong>dead-letter queue (DLQ)</strong>: after N failed attempts, route the message to a separate topic/queue for inspection and out-of-band reprocessing, and let the consumer move on. This keeps one bad message from halting an entire partition or queue.</p>
+<h2 id="event-contracts">Event Contracts</h2>
 
-<h2 id="event-driven-architecture">Event-Driven Architecture</h2>
-
-<p><strong>Event-driven architecture (EDA)</strong> inverts the usual control flow. Instead of a service <em>commanding</em> another (“PaymentService, charge this card”), a service <em>announces a fact</em> (“OrderPlaced”) and any number of other services react however they choose. The producer does not know — and must not care — who consumes the event.</p>
-
-<h3 id="commands-vs-events">Commands vs. Events</h3>
-
-<p>The distinction is central:</p>
+<h3 id="commands-vs-events">Commands vs Events</h3>
 
 <ul>
-  <li>A <strong>command</strong> is an imperative addressed to a specific handler that <em>may reject it</em>: <code class="language-plaintext highlighter-rouge">ChargePayment</code>. There is one logical recipient.</li>
-  <li>An <strong>event</strong> is a past-tense statement of fact that has already happened and cannot be rejected: <code class="language-plaintext highlighter-rouge">PaymentCharged</code>. There may be zero or many recipients.</li>
+  <li>A <strong>command</strong> is an imperative addressed to one handler, which may reject it: <code class="language-plaintext highlighter-rouge">ChargePayment</code>.</li>
+  <li>An <strong>event</strong> is a past-tense statement of something that already happened and cannot be rejected: <code class="language-plaintext highlighter-rouge">PaymentCaptured</code>. It may have zero, one, or many consumers.</li>
 </ul>
 
-<p>Designing around events forces loose coupling: adding a new reaction (say, a loyalty-points service that listens for <code class="language-plaintext highlighter-rouge">OrderPlaced</code>) requires <em>no change</em> to the producer.</p>
+<p>Designing around events keeps producers ignorant of consumers. Adding a loyalty-points service that listens for <code class="language-plaintext highlighter-rouge">OrderPlaced</code> requires no change to the order service.</p>
 
-<h3 id="choreography-vs-orchestration">Choreography vs. Orchestration</h3>
+<h3 id="how-much-data-an-event-carries">How Much Data an Event Carries</h3>
 
-<p>There are two ways to coordinate a multi-step business process across services.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Style</th>
+      <th>Payload</th>
+      <th>Consumer behaviour</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Event notification</strong></td>
+      <td>IDs only (<code class="language-plaintext highlighter-rouge">OrderPlaced{order_id}</code>)</td>
+      <td>Calls back to the producer for details</td>
+      <td>Small events; reintroduces synchronous coupling and load on the producer</td>
+    </tr>
+    <tr>
+      <td><strong>Event-carried state transfer</strong></td>
+      <td>The relevant state (<code class="language-plaintext highlighter-rouge">OrderPlaced{order_id, items, total, customer}</code>)</td>
+      <td>Acts on the event alone, may keep a local replica</td>
+      <td>No callbacks; larger events, and the schema becomes a public contract</td>
+    </tr>
+    <tr>
+      <td><strong>Domain event for event sourcing</strong></td>
+      <td>The precise state change</td>
+      <td>Folded into an aggregate’s state</td>
+      <td>Full history; strictest versioning discipline</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Choreography</strong> — each service reacts to events and emits its own, with no central coordinator. The workflow emerges from the chain of reactions.</p>
+<h3 id="schemas-are-public-apis">Schemas Are Public APIs</h3>
 
-<pre><code class="language-mermaid">flowchart LR
-    O["Order Svc"] --&gt;|OrderPlaced| P["Payment Svc"]
-    P --&gt;|PaymentCharged| I["Inventory Svc"]
-    I --&gt;|StockReserved| S["Shipping Svc"]
-    S --&gt;|Shipped| N["Notification Svc"]
+<p>An event schema is a contract with every current and future consumer, so it needs the same care as an HTTP API:</p>
+
+<ul>
+  <li>Define payloads in a schema language (Avro, Protocol Buffers, or JSON Schema) and enforce compatibility in a <strong>schema registry</strong> so incompatible changes are rejected before they reach production.</li>
+  <li>Evolve additively: add optional fields, never repurpose or remove required ones. For breaking changes, publish a new event type or version alongside the old one.</li>
+  <li>Use a standard envelope for metadata. <strong>CloudEvents</strong> (a CNCF graduated specification) defines common attributes (<code class="language-plaintext highlighter-rouge">id</code>, <code class="language-plaintext highlighter-rouge">source</code>, <code class="language-plaintext highlighter-rouge">type</code>, <code class="language-plaintext highlighter-rouge">time</code>, <code class="language-plaintext highlighter-rouge">subject</code>) and bindings for HTTP, Kafka, AMQP, and others.</li>
+  <li>Document channels and messages with <strong>AsyncAPI</strong>, the event-driven counterpart of OpenAPI; see <a href="../api-design/async-and-events.html#the-asyncapi-specification">Async &amp; Event-Driven APIs</a>.</li>
+</ul>
+
+<p>Versioning and upcasting strategies are covered in <a href="../event-driven/patterns.html#event-versioning--schema-registry">Event-Driven Patterns</a>.</p>
+
+<h2 id="coordinating-multi-service-workflows">Coordinating Multi-Service Workflows</h2>
+
+<p>Because each service owns its own database, “create the order, charge the card, reserve stock” cannot be one ACID transaction. Two-phase commit across services blocks when the coordinator fails and couples every participant’s availability, so it is rarely used between microservices. The standard replacement is the <strong>saga</strong>: a sequence of local transactions, each with a <strong>compensating action</strong> that semantically undoes it (a refund, not an “un-charge”). A saga gives up isolation and atomicity in exchange for availability; the system passes through visible intermediate states and ends either fully committed or fully compensated.</p>
+
+<h3 id="choreography-vs-orchestration">Choreography vs Orchestration</h3>
+
+<p><strong>Choreography</strong>: each service reacts to events and emits its own. There is no central coordinator; the workflow emerges from the chain of reactions.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant O as Order
+    participant P as Payment
+    participant I as Inventory
+    participant S as Shipping
+    O-&gt;&gt;P: OrderPlaced
+    P-&gt;&gt;I: PaymentCaptured
+    I-&gt;&gt;S: StockReserved
+    Note over I: If stock is unavailable:
+    I--&gt;&gt;P: StockReservationFailed
+    P--&gt;&gt;O: PaymentRefunded
+    Note over O: Order marked CANCELLED
 </code></pre>
 
-<p>Choreography is maximally decoupled but the end-to-end flow is <em>implicit</em> — no single place tells you “what happens when an order is placed,” which makes complex flows hard to follow and debug.</p>
+<p><strong>Orchestration</strong>: a coordinator explicitly invokes each step, records progress, and runs compensations on failure.</p>
 
-<p><strong>Orchestration</strong> — a central coordinator (an orchestrator or workflow engine) explicitly invokes each step and decides what comes next. The flow is <em>explicit and centralized</em>, easier to reason about and modify, at the cost of a coordinator that becomes a focal point of coupling and a potential bottleneck.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant W as Order workflow
+    participant P as Payment
+    participant I as Inventory
+    participant S as Shipping
+    W-&gt;&gt;P: charge
+    P--&gt;&gt;W: ok
+    W-&gt;&gt;I: reserve
+    I--&gt;&gt;W: out of stock
+    W-&gt;&gt;P: refund (compensation)
+    P--&gt;&gt;W: ok
+    Note over W: State persisted after every step,&lt;br/&gt;so a crash resumes here
+</code></pre>
 
-<p>The rule of thumb: prefer <strong>choreography</strong> for simple, stable, two-or-three-step flows; prefer <strong>orchestration</strong> once a process has many steps, branches, or compensation logic — which leads directly into the saga pattern.</p>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Choreography</th>
+      <th>Orchestration</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Coupling</td>
+      <td>Lowest: services only know event types</td>
+      <td>Coordinator knows every step</td>
+    </tr>
+    <tr>
+      <td>Visibility of the flow</td>
+      <td>Implicit, spread across services</td>
+      <td>Explicit, in one place</td>
+    </tr>
+    <tr>
+      <td>Changing the flow</td>
+      <td>Touch several services</td>
+      <td>Change the workflow definition</td>
+    </tr>
+    <tr>
+      <td>Failure handling</td>
+      <td>Each service must react to failure events</td>
+      <td>Centralized compensation and retries</td>
+    </tr>
+    <tr>
+      <td>Good fit</td>
+      <td>Short, stable flows of two or three steps</td>
+      <td>Long flows, branching, timeouts, human steps</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="the-saga-pattern-for-distributed-transactions">The Saga Pattern for Distributed Transactions</h3>
+<p>The saga mechanics (compensation ordering, semantic locks, a hand-rolled orchestrator) are covered in <a href="resilience-patterns.html#the-saga-pattern-and-compensation">Resilience Patterns</a> and <a href="../event-driven/patterns.html#the-saga-pattern">Event-Driven Patterns</a>.</p>
 
-<p>Because each service owns its own database, you cannot wrap “create order, charge payment, reserve inventory” in a single ACID transaction. A <strong>saga</strong> replaces the distributed transaction with a sequence of <em>local</em> transactions, each publishing an event that triggers the next — and a matching <strong>compensating</strong> action that semantically undoes a step if a later one fails. Sagas give up atomicity and isolation in exchange for availability; the system passes through intermediate states and converges to either “all committed” or “all compensated.”</p>
+<h3 id="durable-execution">Durable Execution</h3>
 
-<p>The orchestrator below (moved from the section hub) runs the forward steps in order and, on any failure, replays the compensations in reverse — refunding a payment, restoring inventory — to unwind the partial transaction:</p>
+<p>A hand-written orchestrator has to persist its own progress, survive crashes mid-saga, retry steps, and handle timers that last days. <strong>Durable execution</strong> engines do this for you: workflow code is written as ordinary sequential code, and the engine records every step’s result in an event history so that a crashed workflow resumes from where it stopped by replaying that history. Examples include Temporal, Restate, AWS Step Functions, Azure Durable Functions, and Camunda (BPMN-based). The same saga written for Temporal’s Python SDK:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SagaOrchestrator</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">steps</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">compensations</span> <span class="o">=</span> <span class="p">[]</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">datetime</span> <span class="kn">import</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="n">temporalio</span> <span class="kn">import</span> <span class="n">workflow</span>
 
-    <span class="k">def</span> <span class="nf">add_step</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">compensation</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">steps</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">compensations</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">compensation</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">workflow</span><span class="p">.</span><span class="n">unsafe</span><span class="p">.</span><span class="nf">imports_passed_through</span><span class="p">():</span>
+    <span class="kn">from</span> <span class="n">activities</span> <span class="kn">import</span> <span class="p">(</span><span class="n">charge_card</span><span class="p">,</span> <span class="n">refund_card</span><span class="p">,</span>
+                            <span class="n">reserve_stock</span><span class="p">,</span> <span class="n">release_stock</span><span class="p">,</span> <span class="n">create_shipment</span><span class="p">)</span>
 
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">completed_steps</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">STEP</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">start_to_close_timeout</span><span class="sh">"</span><span class="p">:</span> <span class="nf">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="mi">30</span><span class="p">)}</span>
 
+<span class="nd">@workflow.defn</span>
+<span class="k">class</span> <span class="nc">PlaceOrder</span><span class="p">:</span>
+    <span class="nd">@workflow.run</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">compensations</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># Execute all steps
-</span>            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">step</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">steps</span><span class="p">):</span>
-                <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">step</span><span class="p">()</span>
-                <span class="n">completed_steps</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+            <span class="k">await</span> <span class="n">workflow</span><span class="p">.</span><span class="nf">execute_activity</span><span class="p">(</span><span class="n">charge_card</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="o">**</span><span class="n">STEP</span><span class="p">)</span>
+            <span class="n">compensations</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">refund_card</span><span class="p">)</span>
 
-        <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="c1"># Compensate in reverse order
-</span>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">reversed</span><span class="p">(</span><span class="n">completed_steps</span><span class="p">):</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="n">compensations</span><span class="p">[</span><span class="n">i</span><span class="p">]()</span>
-                <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">comp_error</span><span class="p">:</span>
-                    <span class="c1"># Log compensation failure
-</span>                    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Compensation </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s"> failed: </span><span class="si">{</span><span class="n">comp_error</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">e</span>
+            <span class="k">await</span> <span class="n">workflow</span><span class="p">.</span><span class="nf">execute_activity</span><span class="p">(</span><span class="n">reserve_stock</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="o">**</span><span class="n">STEP</span><span class="p">)</span>
+            <span class="n">compensations</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">release_stock</span><span class="p">)</span>
 
-<span class="c1"># Usage example
-</span><span class="n">saga</span> <span class="o">=</span> <span class="nc">SagaOrchestrator</span><span class="p">()</span>
-
-<span class="n">saga</span><span class="p">.</span><span class="nf">add_step</span><span class="p">(</span>
-    <span class="k">lambda</span><span class="p">:</span> <span class="nf">create_order</span><span class="p">(</span><span class="n">order_data</span><span class="p">),</span>
-    <span class="k">lambda</span><span class="p">:</span> <span class="nf">cancel_order</span><span class="p">(</span><span class="n">order_id</span><span class="p">)</span>
-<span class="p">)</span>
-
-<span class="n">saga</span><span class="p">.</span><span class="nf">add_step</span><span class="p">(</span>
-    <span class="k">lambda</span><span class="p">:</span> <span class="nf">charge_payment</span><span class="p">(</span><span class="n">payment_data</span><span class="p">),</span>
-    <span class="k">lambda</span><span class="p">:</span> <span class="nf">refund_payment</span><span class="p">(</span><span class="n">payment_id</span><span class="p">)</span>
-<span class="p">)</span>
-
-<span class="n">saga</span><span class="p">.</span><span class="nf">add_step</span><span class="p">(</span>
-    <span class="k">lambda</span><span class="p">:</span> <span class="nf">update_inventory</span><span class="p">(</span><span class="n">items</span><span class="p">),</span>
-    <span class="k">lambda</span><span class="p">:</span> <span class="nf">restore_inventory</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
-<span class="p">)</span>
-
-<span class="k">await</span> <span class="n">saga</span><span class="p">.</span><span class="nf">execute</span><span class="p">()</span>
+            <span class="k">await</span> <span class="n">workflow</span><span class="p">.</span><span class="nf">execute_activity</span><span class="p">(</span><span class="n">create_shipment</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="o">**</span><span class="n">STEP</span><span class="p">)</span>
+            <span class="k">return</span> <span class="sh">"</span><span class="s">COMPLETED</span><span class="sh">"</span>
+        <span class="k">except</span> <span class="nb">Exception</span><span class="p">:</span>
+            <span class="c1"># Undo completed steps in reverse order. Activities are retried
+</span>            <span class="c1"># by the engine, so compensations must be idempotent.
+</span>            <span class="k">for</span> <span class="n">undo</span> <span class="ow">in</span> <span class="nf">reversed</span><span class="p">(</span><span class="n">compensations</span><span class="p">):</span>
+                <span class="k">await</span> <span class="n">workflow</span><span class="p">.</span><span class="nf">execute_activity</span><span class="p">(</span><span class="n">undo</span><span class="p">,</span> <span class="n">order</span><span class="p">,</span> <span class="o">**</span><span class="n">STEP</span><span class="p">)</span>
+            <span class="k">raise</span>
 </code></pre></div></div>
 
-<p>Two practical caveats. Compensations must themselves be reliable and idempotent — a compensation that fails leaves the system in a bad state, so compensation failures are typically retried and alerted on. And because there is no isolation, other transactions can observe intermediate states; guard against this with semantic locks (e.g. an order status of <code class="language-plaintext highlighter-rouge">PENDING</code>) so downstream readers know the data is not yet final.</p>
+<p>Workflow code must be deterministic (no direct I/O, clocks, or random numbers; those go in activities), because it is replayed after a crash. Activities perform the side effects and must be idempotent, since the engine retries them.</p>
 
-<h3 id="the-dual-write-problem-and-the-outbox-pattern">The Dual-Write Problem and the Outbox Pattern</h3>
+<h2 id="the-dual-write-problem-and-the-outbox-pattern">The Dual-Write Problem and the Outbox Pattern</h2>
 
-<p>A subtle trap lurks in event-driven services: a handler that must both <strong>write to its database</strong> and <strong>publish an event</strong> is performing a <em>dual write</em> across two systems with no shared transaction. If it commits the DB row but crashes before publishing (or vice versa), the database and the event stream diverge — silently and permanently.</p>
+<p>A handler that must both <strong>update its database</strong> and <strong>publish an event</strong> is performing a <em>dual write</em> to two systems with no shared transaction. If it commits the row and crashes before publishing, the event is lost. If it publishes and then the commit fails, the event describes something that never happened. Either way, the database and the event stream diverge silently.</p>
 
-<p>The fix is the <strong>transactional outbox</strong>: within the <em>same</em> local DB transaction that changes business state, insert the event into an <code class="language-plaintext highlighter-rouge">outbox</code> table. A separate relay process (or Kafka Connect / Debezium reading the DB’s change-log) then reads the outbox and publishes to the broker, marking rows as sent. Because the business write and the outbox insert commit atomically, no event is ever lost or invented. This is the standard, robust way to bridge “change my state” and “tell the world” without distributed transactions.</p>
+<p>The <strong>transactional outbox</strong> fixes this. In the <em>same</em> local transaction that changes business state, the service inserts the event into an <code class="language-plaintext highlighter-rouge">outbox</code> table. A separate relay reads the outbox and publishes to the broker. Because the business write and the outbox insert commit atomically, an event is published if and only if the state change happened.</p>
 
-<h2 id="event-sourcing--cqrs">Event Sourcing &amp; CQRS</h2>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">BEGIN</span><span class="p">;</span>
+<span class="k">UPDATE</span> <span class="n">orders</span> <span class="k">SET</span> <span class="n">status</span> <span class="o">=</span> <span class="s1">'PLACED'</span> <span class="k">WHERE</span> <span class="n">id</span> <span class="o">=</span> <span class="mi">42</span><span class="p">;</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">outbox</span> <span class="p">(</span><span class="n">id</span><span class="p">,</span> <span class="n">aggregate_type</span><span class="p">,</span> <span class="n">aggregate_id</span><span class="p">,</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+<span class="k">VALUES</span> <span class="p">(</span><span class="n">gen_random_uuid</span><span class="p">(),</span> <span class="s1">'order'</span><span class="p">,</span> <span class="s1">'42'</span><span class="p">,</span> <span class="s1">'OrderPlaced'</span><span class="p">,</span>
+        <span class="s1">'{"order_id": 42, "total": 99.50}'</span><span class="p">);</span>
+<span class="k">COMMIT</span><span class="p">;</span>
+</code></pre></div></div>
 
-<p>The two patterns below take event thinking to its conclusion: events become the <em>primary</em> representation of state, not a side effect of it.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant S as Order Service
+    participant DB as Order DB
+    participant R as Relay (poller or CDC)
+    participant K as Kafka
+    participant C as Consumer
+    S-&gt;&gt;DB: BEGIN; update order; insert outbox row; COMMIT
+    R-&gt;&gt;DB: read new outbox rows (or tail the WAL)
+    R-&gt;&gt;K: publish OrderPlaced (key = order id)
+    R-&gt;&gt;DB: mark rows sent / advance position
+    K-&gt;&gt;C: deliver (at least once)
+    C-&gt;&gt;C: skip if event id already in inbox table
+</code></pre>
+
+<p>There are two ways to run the relay:</p>
+
+<ul>
+  <li>
+<strong>Polling publisher</strong>: a process queries unsent outbox rows, publishes them, and marks them sent. Simple, but adds polling latency and database load.</li>
+  <li>
+<strong>Change data capture (CDC)</strong>: a connector such as Debezium tails the database’s transaction log (the PostgreSQL WAL or MySQL binlog) and publishes outbox inserts as they commit. Lower latency and no polling, at the cost of running Kafka Connect or an equivalent.</li>
+</ul>
+
+<p>The relay can crash between publishing and recording progress, so it delivers <strong>at least once</strong>. The consuming side completes the pattern with an <strong>inbox</strong> (idempotent consumer): record each processed event ID in the same transaction as the consumer’s own state change, and skip IDs already seen. See <a href="../event-driven/patterns.html#idempotent-consumers">Event-Driven Patterns</a>.</p>
+
+<h2 id="event-sourcing-and-cqrs">Event Sourcing and CQRS</h2>
+
+<p>These two patterns treat events as the primary record of state rather than a side effect of it. Both are powerful and both are frequently over-applied. Full treatments are in <a href="../event-driven/patterns.html#event-sourcing">Event-Driven Patterns</a>.</p>
 
 <h3 id="event-sourcing">Event Sourcing</h3>
 
-<p>In a conventional system you store <em>current state</em> and overwrite it on every change; the history of how you got there is lost. <strong>Event sourcing</strong> instead persists the full, append-only sequence of <strong>events</strong> that changed an entity. Current state is not stored at all — it is <em>derived</em> by replaying the events from the beginning (<code class="language-plaintext highlighter-rouge">fold</code> over the event stream).</p>
+<p>A conventional system stores current state and overwrites it on each change. <strong>Event sourcing</strong> stores the append-only sequence of events that changed each entity, and derives current state by replaying (folding) them. For a bank account, instead of <code class="language-plaintext highlighter-rouge">balance = 80</code> the store holds <code class="language-plaintext highlighter-rouge">AccountOpened(0)</code>, <code class="language-plaintext highlighter-rouge">Deposited(100)</code>, <code class="language-plaintext highlighter-rouge">Withdrawn(20)</code>.</p>
 
-<p>For a bank account, you do not store <code class="language-plaintext highlighter-rouge">balance = 80</code>; you store:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>AccountOpened(balance=0)
-Deposited(amount=100)
-Withdrawn(amount=20)
-</code></pre></div></div>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Account</span><span class="p">:</span>
+    <span class="n">balance</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">version</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 
-<p>and compute <code class="language-plaintext highlighter-rouge">balance = 80</code> by folding these events. The benefits are substantial:</p>
-
-<ul>
-  <li>
-<strong>Complete audit log</strong> — every change is a first-class, immutable record of <em>why</em> state is what it is. This is often a regulatory requirement (finance, healthcare) you get for free.</li>
-  <li>
-<strong>Temporal queries</strong> — reconstruct the state of any entity <em>as of any past moment</em> by replaying up to that point.</li>
-  <li>
-<strong>Replay and rebuild</strong> — derive entirely new read models from history, fix a bug in a projection and re-run it over all events, or debug by replaying a problematic sequence.</li>
-</ul>
-
-<p>The costs are real too: querying (“which accounts are overdrawn?”) is awkward when state is a stream of events, the event schema must be versioned and evolved carefully (old events are immutable and must remain replayable forever), and replaying long histories is slow — mitigated with <strong>snapshots</strong> (periodically persist the folded state so replay can start from the latest snapshot rather than event zero).</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A minimal event-sourced aggregate
-</span><span class="k">class</span> <span class="nc">Account</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">balance</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">version</span> <span class="o">=</span> <span class="mi">0</span>
-
-    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">event</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Fold one event into current state.</span><span class="sh">"""</span>
-        <span class="k">if</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">AccountOpened</span><span class="sh">"</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">balance</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">balance</span><span class="sh">"</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">Deposited</span><span class="sh">"</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">balance</span> <span class="o">+=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">amount</span><span class="sh">"</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">Withdrawn</span><span class="sh">"</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">balance</span> <span class="o">-=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">amount</span><span class="sh">"</span><span class="p">]</span>
+    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">event</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">match</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]:</span>
+            <span class="n">case</span> <span class="sh">"</span><span class="s">AccountOpened</span><span class="sh">"</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">balance</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">balance</span><span class="sh">"</span><span class="p">]</span>
+            <span class="n">case</span> <span class="sh">"</span><span class="s">Deposited</span><span class="sh">"</span><span class="p">:</span>     <span class="n">self</span><span class="p">.</span><span class="n">balance</span> <span class="o">+=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">amount</span><span class="sh">"</span><span class="p">]</span>
+            <span class="n">case</span> <span class="sh">"</span><span class="s">Withdrawn</span><span class="sh">"</span><span class="p">:</span>     <span class="n">self</span><span class="p">.</span><span class="n">balance</span> <span class="o">-=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">amount</span><span class="sh">"</span><span class="p">]</span>
         <span class="n">self</span><span class="p">.</span><span class="n">version</span> <span class="o">+=</span> <span class="mi">1</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">rehydrate</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">events</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Rebuild current state by replaying the event stream.</span><span class="sh">"""</span>
-        <span class="n">account</span> <span class="o">=</span> <span class="nf">cls</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
-            <span class="n">account</span><span class="p">.</span><span class="nf">apply</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">account</span>
+    <span class="k">def</span> <span class="nf">rehydrate</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">events</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="sh">"</span><span class="s">Account</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">acct</span> <span class="o">=</span> <span class="nf">cls</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">:</span>
+            <span class="n">acct</span><span class="p">.</span><span class="nf">apply</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">acct</span>
 
-<span class="c1"># A command produces new events (after validating against current state)
-</span><span class="k">def</span> <span class="nf">withdraw</span><span class="p">(</span><span class="n">account</span><span class="p">,</span> <span class="n">amount</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="n">account</span><span class="p">.</span><span class="n">balance</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Insufficient funds</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># invariant enforced on write
+<span class="k">def</span> <span class="nf">withdraw</span><span class="p">(</span><span class="n">acct</span><span class="p">:</span> <span class="n">Account</span><span class="p">,</span> <span class="n">amount</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="n">acct</span><span class="p">.</span><span class="n">balance</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">insufficient funds</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># invariant checked on write
 </span>    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Withdrawn</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">amount</span><span class="sh">"</span><span class="p">:</span> <span class="n">amount</span><span class="p">}</span>
-</code></pre></div></div>
+<span class="c1"># The event store appends the new event only if the stream is still at
+# acct.version (optimistic concurrency), so concurrent writers cannot both win.
+</span></code></pre></div></div>
 
-<h3 id="cqrs-command-query-responsibility-segregation">CQRS (Command Query Responsibility Segregation)</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Benefit</th>
+      <th>Cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A complete, immutable audit trail of <em>why</em> state is what it is</td>
+      <td>Queries over current state need projections</td>
+    </tr>
+    <tr>
+      <td>Temporal queries: state as of any past moment</td>
+      <td>Events are immutable forever, so schema evolution needs upcasting or versioned types</td>
+    </tr>
+    <tr>
+      <td>Rebuild or add read models by replaying history</td>
+      <td>Long streams are slow to replay; mitigate with snapshots</td>
+    </tr>
+    <tr>
+      <td>Natural fit with event-driven integration</td>
+      <td>Deleting personal data (GDPR erasure) needs crypto-shredding or similar techniques</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>CQRS</strong> separates the model used to <em>change</em> state (the <strong>write model</strong>, handling commands) from the model used to <em>read</em> state (one or more <strong>read models</strong>, serving queries). The two no longer share a schema: writes go through a normalized, invariant-enforcing aggregate; reads are served by denormalized projections shaped exactly for each query.</p>
+<h3 id="cqrs">CQRS</h3>
 
-<p>CQRS and event sourcing are independent but combine naturally: the write model emits events (event sourcing), and each read model is a <strong>projection</strong> built by subscribing to those events and updating a query-optimized store (a relational view, a search index, a cache). Because read models are derived, you can add a new one at any time by replaying the event stream, and scale reads independently of writes.</p>
+<p><strong>Command Query Responsibility Segregation</strong> separates the model that <em>changes</em> state (the write model, which validates commands and enforces invariants) from one or more models that <em>serve reads</em> (denormalized projections shaped for specific queries). CQRS does not require event sourcing, but they combine naturally: the write model appends events, and each read model is a projection that subscribes to them.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    Cmd["Command&lt;br/&gt;WithdrawMoney"] --&gt; WM["Write Model&lt;br/&gt;(aggregate, enforces invariants)"]
-    WM --&gt;|appends| ES[("Event Store&lt;br/&gt;ordered event log")]
-    ES --&gt;|project| RM1["Read Model A&lt;br/&gt;account-balances table"]
-    ES --&gt;|project| RM2["Read Model B&lt;br/&gt;transaction-history search index"]
+    Cmd["Command&lt;br/&gt;Withdraw"] --&gt; WM["Write model&lt;br/&gt;aggregate enforces invariants"]
+    WM --&gt;|append| ES[("Event store")]
+    ES --&gt;|project| RM1["Read model A&lt;br/&gt;balances table"]
+    ES --&gt;|project| RM2["Read model B&lt;br/&gt;search index"]
     Query["Query&lt;br/&gt;GetBalance"] --&gt; RM1
 </code></pre>
 
-<p>The trade-off is that read models are <strong>eventually consistent</strong> with the write model — there is a small lag between a command committing and the projection updating. This is acceptable for most domains (a transaction list that is 50 ms stale is fine) but must be designed for explicitly: a UI that issues a command and immediately re-queries may not see its own write, so use read-your-writes session guarantees, optimistic UI updates, or return the new state directly from the command.</p>
+<p>Read models are <strong>eventually consistent</strong> with the write model. A UI that sends a command and immediately re-queries may not see its own write, so return the new state from the command, apply optimistic UI updates, or have the read side wait until it has processed the command’s event position.</p>
 
-<p>CQRS adds significant complexity (two models, projection plumbing, eventual consistency) and is <strong>not</strong> a default. It earns its keep when read and write workloads have very different shapes or scaling needs, when the domain demands a rich audit trail, or when many divergent read views must be served from the same writes. For ordinary CRUD, a single model is simpler and correct.</p>
+<p>Use CQRS when read and write workloads differ sharply in shape or scale, or when many different views are served from the same writes. For ordinary CRUD, one model is simpler and correct.</p>
 
 <h2 id="putting-it-together">Putting It Together</h2>
 
-<p>A mature event-driven microservice system layers these patterns:</p>
-
 <pre><code class="language-mermaid">flowchart TD
-    Client --&gt; GW["API Gateway"]
-    GW --&gt;|sync read/command| OrderSvc["Order Service&lt;br/&gt;(event-sourced write model)"]
-    OrderSvc --&gt;|outbox → publish| Kafka[("Kafka&lt;br/&gt;order-events topic")]
+    Client --&gt; GW["API gateway"]
+    GW --&gt;|"commands (sync)"| OrderSvc["Order Service&lt;br/&gt;write model"]
+    OrderSvc --&gt;|"same transaction"| Outbox[("orders + outbox")]
+    Outbox --&gt;|"CDC relay"| Kafka[("Kafka&lt;br/&gt;order-events")]
     Kafka --&gt; PaySvc["Payment Service"]
     Kafka --&gt; InvSvc["Inventory Service"]
-    Kafka --&gt; Proj["Read-model Projector&lt;br/&gt;(CQRS query store)"]
-    PaySvc -.saga compensation.-&gt; OrderSvc
-    GW --&gt;|sync query| Proj
+    Kafka --&gt; Proj["Projector&lt;br/&gt;CQRS read model"]
+    WF["Order workflow&lt;br/&gt;(durable execution)"] --&gt;|"charge / reserve / compensate"| PaySvc
+    WF --&gt; InvSvc
+    GW --&gt;|"queries (sync)"| Proj
 </code></pre>
 
-<p>Synchronous calls at the edge keep the user experience responsive; the transactional outbox bridges state changes to the event log without dual-write bugs; Kafka’s replayable, partitioned log carries facts to every interested service; sagas coordinate multi-service business transactions with compensations; and CQRS read models, projected from the same event stream, serve queries at scale. Each pattern addresses a specific failure mode of naive microservices — adopt them as the pain they solve actually appears, not before.</p>
+<p>Synchronous calls at the edge keep the user experience responsive. The outbox connects state changes to the event log without dual-write bugs. A partitioned, replayable log carries facts to every interested service. A saga, ideally on a durable execution engine, coordinates multi-service business transactions with compensations. CQRS read models projected from the same events serve queries at scale. Each pattern addresses a specific failure of naive microservices, so adopt each one when its problem actually appears.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li>
-<strong><a href="./">Distributed Systems Hub</a></strong> — section overview: CAP/FLP, consistency models, service mesh, observability, and the resilience patterns (circuit breakers, leader election, distributed locks) referenced above</li>
+<a href="./">Distributed Systems Hub</a>: CAP, PACELC, consistency models, and the section overview</li>
   <li>
-<strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — formal foundations: consensus, the happens-before relation, and consistency-model definitions</li>
+<a href="resilience-patterns.html">Resilience Patterns</a>: timeouts, retries, circuit breakers, bulkheads, sagas, idempotency</li>
   <li>
-<strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — deploying and orchestrating the services described here</li>
+<a href="service-discovery.html">Service Discovery &amp; Configuration</a>: how services find each other</li>
   <li>
-<strong><a href="../technology/docker/">Docker</a></strong> — containerizing individual services</li>
+<a href="observability.html">Observability</a>: tracing requests across synchronous and asynchronous hops</li>
   <li>
-<strong><a href="../technology/database-design/">Database Design</a></strong> — sharding, replication, and the data stores behind database-per-service</li>
+<a href="../event-driven/">Event-Driven Architecture</a>: brokers and event patterns in depth</li>
   <li>
-<strong><a href="../technology/networking/">Networking</a></strong> — the transport beneath synchronous and asynchronous communication</li>
+<a href="../api-design/">API Design</a>: REST, gRPC, GraphQL, and async APIs</li>
+  <li>
+<a href="../technology/database-design/distributed-transactions.html">Database Design: Distributed Transactions</a>: 2PC, sagas, and the outbox at the data layer</li>
+  <li>
+<a href="../technology/kubernetes/">Kubernetes</a>: deploying and operating the services described here</li>
 </ul>
 
       </section>

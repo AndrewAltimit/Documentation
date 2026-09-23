@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Scaling physics simulations across cores, nodes, and GPUs: scaling laws, MPI domain decomposition and halo exchange, GPU kernels, the roofline model, Krylov ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Computational Physics: Parallel & High-Performance Computing">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Scaling physics simulations across cores, nodes, and GPUs: scaling laws, MPI domain decomposition and halo exchange, GPU kernels, the roofline model, Krylov ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/computational-physics/hpc-and-ml.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Computational Physics: Parallel & High-Performance Computing">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Scaling physics simulations across cores, nodes, and GPUs: scaling laws, MPI domain decomposition and halo exchange, GPU kernels, the roofline model, Krylov ...">
 
 <title>Computational Physics: Parallel & High-Performance Computing | Andrews Notebook</title>
 
@@ -3133,619 +3133,597 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Computational Physics</a> › Parallel &amp; High-Performance Computing</p>
 
-<p>Scaling scientific simulations across cores, nodes, and GPUs with MPI, CUDA, and sparse iterative solvers.</p>
+<p><strong>High-performance computing (HPC)</strong> maps large simulations onto parallel hardware: many cores in a node, many nodes connected by a fast network, and thousands of GPU threads per device. A 3D fluid solver on a $1024^3$ grid has billions of unknowns; exact diagonalization of a spin chain faces a Hilbert space that doubles with every spin; a cosmological $N$-body run tracks trillions of particles. This page covers the limits on parallel speedup, distributed-memory programming with MPI, GPU programming, performance modelling with the roofline model, and the sparse linear-algebra methods — Krylov solvers, multigrid, and Lanczos — that dominate the run time of most large physics codes.</p>
 
-<p>Modern physics simulations routinely exceed what a single core can handle: a
-three-dimensional fluid solver on a $1024^3$ grid holds billions of unknowns, an
-exact-diagonalization study of a quantum spin chain confronts a Hilbert space that
-doubles in size with every added spin, and an $N$-body cosmology run tracks
-trillions of particles. <strong>High-performance computing (HPC)</strong> is the discipline of
-mapping these problems onto parallel hardware — many cores within a node, many
-nodes across a cluster interconnect, and the thousands of lightweight threads on a
-GPU — while keeping communication, memory traffic, and load imbalance from
-destroying the speedup.</p>
+<p>Machine-learning methods for physics (physics-informed networks, neural operators, learned interatomic potentials) are covered separately in <a href="ml-for-physics.html">Machine Learning for Physics</a>.</p>
 
-<blockquote>
-  <p><strong>Looking for machine learning?</strong> The physics-ML material (physics-informed
-neural networks, Fourier neural operators, neural-network potentials,
-equivariant models) now lives on its own page:
-<a href="ml-for-physics.html">Machine Learning for Physics</a>. This page is dedicated to
-classical parallel and high-performance scientific computing.</p>
-</blockquote>
+<h2 id="the-parallel-machine">The parallel machine</h2>
 
-<h2 id="why-parallelism-is-hard-amdahl-and-gustafson">Why Parallelism Is Hard: Amdahl and Gustafson</h2>
+<p>A modern supercomputer is a hierarchy, and each level has its own programming model and its own bottleneck.</p>
 
-<p>Before writing a line of MPI, it pays to know the ceiling. If a fraction $p$ of a
-program’s runtime is parallelizable and the rest is inherently serial, then on $N$
-processors <strong>Amdahl’s law</strong> caps the speedup at</p>
+<pre><code class="language-mermaid">flowchart TD
+    SYS["System: thousands of nodes&lt;br/&gt;high-speed interconnect (Slingshot, InfiniBand)"]
+    SYS --&gt; NODE["Node: CPU sockets + 4-8 GPUs&lt;br/&gt;shared memory within the node"]
+    NODE --&gt; CPU["CPU: tens of cores&lt;br/&gt;SIMD vector units, caches, DDR"]
+    NODE --&gt; GPU["GPU: ~100+ multiprocessors&lt;br/&gt;HBM at several TB/s"]
+    GPU --&gt; SM["Multiprocessor: warps of 32 threads&lt;br/&gt;registers, shared memory / L1"]
+    SYS -. "MPI between nodes" .-&gt; NODE
+    NODE -. "OpenMP threads or one MPI rank per GPU" .-&gt; CPU
+    GPU -. "CUDA / HIP / SYCL kernels" .-&gt; SM
+</code></pre>
 
-\[S(N) = \frac{1}{(1-p) + \dfrac{p}{N}} \xrightarrow{N \to \infty} \frac{1}{1-p}.\]
+<p>Data movement, not arithmetic, is the limiting cost at every level. A double-precision fused multiply-add takes a fraction of a nanosecond; fetching its operand from another node takes microseconds. On the June 2026 TOP500 list, all five leading systems (LineShine, El Capitan, Frontier, Aurora, and JUPITER Booster) exceed one exaflop/s on the HPL benchmark, and nearly all of that performance comes from GPUs. Codes that do not run on accelerators can use only a small fraction of such machines.</p>
 
-<p>A code that is 95% parallel can never run more than $20\times$ faster, no matter
-how many cores you throw at it — the serial 5% dominates. This is the pessimistic,
-<em>strong-scaling</em> view: fixed problem size, more processors.</p>
+<h3 id="programming-models">Programming models</h3>
 
-<p><strong>Gustafson’s law</strong> reframes the goal. In practice scientists scale the <em>problem</em>
-with the machine — a bigger cluster runs a finer grid, not the same grid faster.
-For a fixed time budget the scaled speedup is</p>
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Level</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>MPI</strong></td>
+      <td>Between processes and nodes</td>
+      <td>The universal distributed-memory standard. MPI 5.0 (June 2025) defines a standard ABI, so binaries can run with different MPI implementations</td>
+    </tr>
+    <tr>
+      <td><strong>OpenMP</strong></td>
+      <td>Threads within a node; GPU offload</td>
+      <td>Directive-based (<code class="language-plaintext highlighter-rouge">#pragma omp</code>); GPU <code class="language-plaintext highlighter-rouge">target</code> offload since 4.0, extended in 5.x and 6.0</td>
+    </tr>
+    <tr>
+      <td><strong>CUDA</strong></td>
+      <td>NVIDIA GPUs</td>
+      <td>The dominant GPU model; CUDA 13 removed support for Maxwell, Pascal, and Volta GPUs</td>
+    </tr>
+    <tr>
+      <td><strong>HIP</strong></td>
+      <td>AMD (and NVIDIA) GPUs</td>
+      <td>CUDA-like API used on Frontier and El Capitan; <code class="language-plaintext highlighter-rouge">hipify</code> translates CUDA sources</td>
+    </tr>
+    <tr>
+      <td><strong>SYCL</strong></td>
+      <td>Portable C++</td>
+      <td>Intel oneAPI / AdaptiveCpp; used on Aurora</td>
+    </tr>
+    <tr>
+      <td><strong>Kokkos, RAJA</strong></td>
+      <td>Portable C++ libraries</td>
+      <td>One source compiled for CPUs and GPUs of any vendor</td>
+    </tr>
+    <tr>
+      <td><strong>OpenACC</strong></td>
+      <td>Directives</td>
+      <td>Common in legacy Fortran codes (climate, CFD)</td>
+    </tr>
+    <tr>
+      <td><strong>CuPy, Numba, JAX</strong></td>
+      <td>Python</td>
+      <td>Array programming or JIT-compiled kernels; JAX adds automatic differentiation</td>
+    </tr>
+    <tr>
+      <td><strong>Julia</strong></td>
+      <td>Language</td>
+      <td><code class="language-plaintext highlighter-rouge">KernelAbstractions.jl</code> targets several GPU vendors from one source</td>
+    </tr>
+  </tbody>
+</table>
 
-\[S(N) = N - (1-p)(N - 1),\]
+<p>The standard pattern at scale is <strong>MPI + X</strong>: MPI between nodes (often one rank per GPU), with X being CUDA, HIP, SYCL, OpenMP, or a portability layer within each rank. GPU-aware MPI implementations pass device pointers directly to the network, avoiding copies through host memory.</p>
 
-<p>which grows almost linearly in $N$. This <em>weak-scaling</em> perspective is why
-exascale machines remain useful despite Amdahl: the serial fraction stays roughly
-constant while the parallel work grows. Real codes are benchmarked against both
-curves — strong scaling at fixed size to expose communication overhead, weak
-scaling at fixed work-per-rank to expose network and memory bottlenecks.</p>
+<h2 id="limits-on-speedup-amdahl-and-gustafson">Limits on speedup: Amdahl and Gustafson</h2>
 
-<h2 id="mpi-for-distributed-computing">MPI for Distributed Computing</h2>
+<p>If a fraction $p$ of a program’s run time can be parallelized and the rest is serial, <strong>Amdahl’s law</strong> bounds the speedup on $N$ processors:</p>
 
-<p>The <strong>Message Passing Interface (MPI)</strong> is the lingua franca of cluster computing.
-Each process (a <em>rank</em>) owns a private address space and exchanges data with peers
-only through explicit messages — there is no shared memory, so the model scales
-from a laptop to hundreds of thousands of nodes. The core primitives fall into two
-families:</p>
+\[S(N) = \frac{1}{(1-p) + p/N} \;\longrightarrow\; \frac{1}{1-p} \quad \text{as } N \to \infty\]
+
+<p>A code that is 95% parallel can never run more than 20 times faster, however many processors are used. This is <strong>strong scaling</strong>: fixed problem size, more processors.</p>
+
+<p><strong>Gustafson’s law</strong> describes the more common use of a larger machine, which is to solve a larger problem in the same time. If the serial fraction of the run time on $N$ processors is $1-p$, the scaled speedup is</p>
+
+\[S(N) = (1-p) + pN\]
+
+<p>which grows linearly with $N$. This is <strong>weak scaling</strong>: fixed work per processor. Both are measured in practice:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Test</th>
+      <th>Held fixed</th>
+      <th>Ideal result</th>
+      <th>What degrades it</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Strong scaling</td>
+      <td>Total problem size</td>
+      <td>Time falls as $1/N$</td>
+      <td>Serial sections, communication overhead as subdomains shrink</td>
+    </tr>
+    <tr>
+      <td>Weak scaling</td>
+      <td>Work per processor</td>
+      <td>Constant time</td>
+      <td>Global reductions, network contention, load imbalance</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Parallel efficiency $E = S(N)/N$ below about 50–70% usually signals that more processors are being wasted than used.</p>
+
+<h2 id="mpi-for-distributed-memory">MPI for distributed memory</h2>
+
+<p>The <strong>Message Passing Interface (MPI)</strong> runs one process (a <strong>rank</strong>) per core or per GPU. Each rank has private memory and exchanges data only through explicit messages, which is why MPI scales from a laptop to hundreds of thousands of nodes. The core operations fall into two groups:</p>
 
 <ul>
-  <li><strong>Point-to-point</strong>: <code class="language-plaintext highlighter-rouge">Send</code>/<code class="language-plaintext highlighter-rouge">Recv</code> (and the combined <code class="language-plaintext highlighter-rouge">Sendrecv</code>) move data
-between two named ranks. These dominate halo exchanges in stencil codes.</li>
-  <li><strong>Collectives</strong>: <code class="language-plaintext highlighter-rouge">Bcast</code>, <code class="language-plaintext highlighter-rouge">Scatter</code>, <code class="language-plaintext highlighter-rouge">Gather</code>, <code class="language-plaintext highlighter-rouge">Reduce</code>, and <code class="language-plaintext highlighter-rouge">Allreduce</code>
-involve every rank in a communicator. A reduction such as
-$\sum_r x_r$ over $N$ ranks completes in $O(\log N)$ communication steps via a
-binary tree, not $O(N)$.</li>
+  <li><strong>Point-to-point</strong>: <code class="language-plaintext highlighter-rouge">Send</code>/<code class="language-plaintext highlighter-rouge">Recv</code>, the combined <code class="language-plaintext highlighter-rouge">Sendrecv</code>, and their non-blocking forms <code class="language-plaintext highlighter-rouge">Isend</code>/<code class="language-plaintext highlighter-rouge">Irecv</code>. These dominate halo exchanges in grid codes.</li>
+  <li><strong>Collectives</strong>: <code class="language-plaintext highlighter-rouge">Bcast</code>, <code class="language-plaintext highlighter-rouge">Scatter</code>, <code class="language-plaintext highlighter-rouge">Gather</code>, <code class="language-plaintext highlighter-rouge">Reduce</code>, <code class="language-plaintext highlighter-rouge">Allreduce</code>, <code class="language-plaintext highlighter-rouge">Alltoall</code>. A reduction over $P$ ranks completes in $O(\log P)$ communication steps using a tree.</li>
 </ul>
 
-<p>A natural first example is <strong>embarrassingly parallel</strong> Monte Carlo: each rank draws
-independent samples (with a distinct random seed to avoid correlated streams) and a
-single reduction combines the partial counts. The only communication is the final
-<code class="language-plaintext highlighter-rouge">reduce</code>, so the code scales nearly perfectly.</p>
+<p>In mpi4py, lowercase methods (<code class="language-plaintext highlighter-rouge">comm.send</code>, <code class="language-plaintext highlighter-rouge">comm.reduce</code>) communicate arbitrary Python objects by pickling them; uppercase methods (<code class="language-plaintext highlighter-rouge">comm.Send</code>, <code class="language-plaintext highlighter-rouge">comm.Reduce</code>) communicate buffers such as NumPy arrays directly and are much faster for bulk data.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Parallel Monte Carlo simulation
-# Run with: mpirun -n 4 python script.py
-</span>
-<span class="kn">from</span> <span class="n">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<h3 id="embarrassingly-parallel-monte-carlo">Embarrassingly parallel Monte Carlo</h3>
+
+<p>Independent samples need no communication until the end. Each rank must draw from an independent random stream: seeding ranks with <code class="language-plaintext highlighter-rouge">seed + rank</code> risks correlated streams, while NumPy’s <code class="language-plaintext highlighter-rouge">SeedSequence.spawn</code> produces statistically independent child seeds.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Run with: mpiexec -n 4 python mc_pi.py   (tested with mpi4py 4.1)
+</span><span class="kn">from</span> <span class="n">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
 <span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<span class="k">class</span> <span class="nc">ParallelMonteCarlo</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Parallel Monte Carlo simulation using MPI</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">comm</span> <span class="o">=</span> <span class="n">MPI</span><span class="p">.</span><span class="n">COMM_WORLD</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Get_rank</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Get_size</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">parallel_pi_estimation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_samples_total</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Estimate π using parallel Monte Carlo</span><span class="sh">"""</span>
-        <span class="c1"># Divide work among processes
-</span>        <span class="n">n_samples_local</span> <span class="o">=</span> <span class="n">n_samples_total</span> <span class="o">//</span> <span class="n">self</span><span class="p">.</span><span class="n">size</span>
-        
-        <span class="c1"># Handle remainder
-</span>        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">&lt;</span> <span class="n">n_samples_total</span> <span class="o">%</span> <span class="n">self</span><span class="p">.</span><span class="n">size</span><span class="p">:</span>
-            <span class="n">n_samples_local</span> <span class="o">+=</span> <span class="mi">1</span>
-        
-        <span class="c1"># Local random number generation with different seeds
-</span>        <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">seed</span><span class="p">(</span><span class="mi">42</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span><span class="p">)</span>
-        
-        <span class="c1"># Generate random points
-</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_samples_local</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_samples_local</span><span class="p">)</span>
-        
-        <span class="c1"># Count points inside unit circle
-</span>        <span class="n">inside_local</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">)</span>
-        
-        <span class="c1"># Gather results from all processes
-</span>        <span class="n">inside_total</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nf">reduce</span><span class="p">(</span><span class="n">inside_local</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="p">.</span><span class="n">SUM</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-        
-        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">pi_estimate</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">inside_total</span> <span class="o">/</span> <span class="n">n_samples_total</span>
-            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">π estimate: </span><span class="si">{</span><span class="n">pi_estimate</span><span class="si">:</span><span class="p">.</span><span class="mi">6</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Error: </span><span class="si">{</span><span class="nf">abs</span><span class="p">(</span><span class="n">pi_estimate</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span><span class="si">:</span><span class="p">.</span><span class="mi">6</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">pi_estimate</span>
-        
-        <span class="k">return</span> <span class="bp">None</span>
-    
-    <span class="k">def</span> <span class="nf">parallel_domain_decomposition</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">global_shape</span><span class="p">,</span> <span class="n">local_func</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Domain decomposition for PDEs</span><span class="sh">"""</span>
-        <span class="n">nx</span><span class="p">,</span> <span class="n">ny</span> <span class="o">=</span> <span class="n">global_shape</span>
-        
-        <span class="c1"># 2D processor grid
-</span>        <span class="n">px</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">size</span><span class="p">))</span>
-        <span class="n">py</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">size</span> <span class="o">//</span> <span class="n">px</span>
-        
-        <span class="c1"># Local domain size
-</span>        <span class="n">nx_local</span> <span class="o">=</span> <span class="n">nx</span> <span class="o">//</span> <span class="n">px</span>
-        <span class="n">ny_local</span> <span class="o">=</span> <span class="n">ny</span> <span class="o">//</span> <span class="n">py</span>
-        
-        <span class="c1"># Processor coordinates
-</span>        <span class="n">px_coord</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">%</span> <span class="n">px</span>
-        <span class="n">py_coord</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">//</span> <span class="n">px</span>
-        
-        <span class="c1"># Local domain boundaries
-</span>        <span class="n">x_start</span> <span class="o">=</span> <span class="n">px_coord</span> <span class="o">*</span> <span class="n">nx_local</span>
-        <span class="n">x_end</span> <span class="o">=</span> <span class="p">(</span><span class="n">px_coord</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">nx_local</span>
-        <span class="n">y_start</span> <span class="o">=</span> <span class="n">py_coord</span> <span class="o">*</span> <span class="n">ny_local</span>
-        <span class="n">y_end</span> <span class="o">=</span> <span class="p">(</span><span class="n">py_coord</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">ny_local</span>
-        
-        <span class="c1"># Create local array with ghost cells
-</span>        <span class="n">local_array</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">nx_local</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">ny_local</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>
-        
-        <span class="c1"># Apply local function
-</span>        <span class="n">local_array</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nf">local_func</span><span class="p">(</span><span class="n">x_start</span><span class="p">,</span> <span class="n">x_end</span><span class="p">,</span> <span class="n">y_start</span><span class="p">,</span> <span class="n">y_end</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">local_array</span><span class="p">,</span> <span class="p">(</span><span class="n">px_coord</span><span class="p">,</span> <span class="n">py_coord</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">exchange_ghost_cells</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">local_array</span><span class="p">,</span> <span class="n">proc_coords</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Exchange ghost cells with neighbors</span><span class="sh">"""</span>
-        <span class="n">px_coord</span><span class="p">,</span> <span class="n">py_coord</span> <span class="o">=</span> <span class="n">proc_coords</span>
-        
-        <span class="c1"># Define neighbor ranks
-</span>        <span class="n">north</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Get_rank</span><span class="p">()</span> <span class="k">if</span> <span class="n">py_coord</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">-</span> <span class="mi">1</span>
-        <span class="n">south</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Get_rank</span><span class="p">()</span> <span class="k">if</span> <span class="n">py_coord</span> <span class="o">==</span> <span class="n">self</span><span class="p">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">+</span> <span class="mi">1</span>
-        <span class="n">west</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Get_rank</span><span class="p">()</span> <span class="k">if</span> <span class="n">px_coord</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">size</span>
-        <span class="n">east</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Get_rank</span><span class="p">()</span> <span class="k">if</span> <span class="n">px_coord</span> <span class="o">==</span> <span class="n">self</span><span class="p">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">self</span><span class="p">.</span><span class="n">rank</span> <span class="o">+</span> <span class="n">self</span><span class="p">.</span><span class="n">size</span>
-        
-        <span class="c1"># Exchange in y-direction
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Sendrecv</span><span class="p">(</span><span class="n">local_array</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="p">:],</span> <span class="n">south</span><span class="p">,</span> 
-                          <span class="n">recvbuf</span><span class="o">=</span><span class="n">local_array</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">source</span><span class="o">=</span><span class="n">north</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Sendrecv</span><span class="p">(</span><span class="n">local_array</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">north</span><span class="p">,</span>
-                          <span class="n">recvbuf</span><span class="o">=</span><span class="n">local_array</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">source</span><span class="o">=</span><span class="n">south</span><span class="p">)</span>
-        
-        <span class="c1"># Exchange in x-direction
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Sendrecv</span><span class="p">(</span><span class="n">local_array</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">east</span><span class="p">,</span>
-                          <span class="n">recvbuf</span><span class="o">=</span><span class="n">local_array</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">source</span><span class="o">=</span><span class="n">west</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">comm</span><span class="p">.</span><span class="nc">Sendrecv</span><span class="p">(</span><span class="n">local_array</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">west</span><span class="p">,</span>
-                          <span class="n">recvbuf</span><span class="o">=</span><span class="n">local_array</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">source</span><span class="o">=</span><span class="n">east</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">local_array</span>
-</code></pre></div></div>
+<span class="n">comm</span> <span class="o">=</span> <span class="n">MPI</span><span class="p">.</span><span class="n">COMM_WORLD</span>
+<span class="n">rank</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">comm</span><span class="p">.</span><span class="nc">Get_rank</span><span class="p">(),</span> <span class="n">comm</span><span class="p">.</span><span class="nc">Get_size</span><span class="p">()</span>
 
-<h3 id="domain-decomposition-and-ghost-cells">Domain Decomposition and Ghost Cells</h3>
+<span class="n">n_total</span> <span class="o">=</span> <span class="mi">100_000_000</span>
+<span class="n">n_local</span> <span class="o">=</span> <span class="n">n_total</span> <span class="o">//</span> <span class="n">size</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="n">rank</span> <span class="o">&lt;</span> <span class="n">n_total</span> <span class="o">%</span> <span class="n">size</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
 
-<p>For PDE solvers the dominant parallel strategy is <strong>domain decomposition</strong>: the
-global grid is partitioned into contiguous subdomains, one per rank, and each rank
-updates its own interior. A finite-difference or finite-volume stencil, however,
-reads neighboring cells — at a subdomain boundary those neighbors live on another
-rank. The fix is a layer of <strong>ghost cells</strong> (also called <em>halo</em> cells): each
-subdomain is padded by one or more rows that mirror the boundary data of its
-neighbors. Every time step begins with a <em>halo exchange</em> (the <code class="language-plaintext highlighter-rouge">Sendrecv</code> calls
-above) that refreshes these ghost layers, after which the local update proceeds as
-if the data were contiguous.</p>
+<span class="c1"># Independent, reproducible random streams: one child seed per rank
+</span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nc">SeedSequence</span><span class="p">(</span><span class="mi">20260922</span><span class="p">).</span><span class="nf">spawn</span><span class="p">(</span><span class="n">size</span><span class="p">)[</span><span class="n">rank</span><span class="p">])</span>
 
-<p>The performance of this pattern is governed by the <strong>surface-to-volume ratio</strong>. A
-cubic subdomain of side $n$ holds $n^3$ interior cells (computation) but exposes
-$6n^2$ boundary faces (communication), so the communication-to-computation ratio
-scales as</p>
+<span class="n">hits</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="n">start</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_local</span><span class="p">,</span> <span class="mi">10_000_000</span><span class="p">):</span>              <span class="c1"># bounded memory per rank
+</span>    <span class="n">m</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="mi">10_000_000</span><span class="p">,</span> <span class="n">n_local</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+    <span class="n">xy</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">random</span><span class="p">((</span><span class="n">m</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">hits</span> <span class="o">+=</span> <span class="n">np</span><span class="p">.</span><span class="nf">count_nonzero</span><span class="p">((</span><span class="n">xy</span><span class="o">**</span><span class="mi">2</span><span class="p">).</span><span class="nf">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">)</span>
 
-\[\frac{T_{\text{comm}}}{T_{\text{comp}}} \sim \frac{6 n^2}{n^3} = \frac{6}{n}.\]
+<span class="n">total</span> <span class="o">=</span> <span class="n">comm</span><span class="p">.</span><span class="nf">reduce</span><span class="p">(</span><span class="n">hits</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="p">.</span><span class="n">SUM</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>            <span class="c1"># O(log P) tree reduction
+</span><span class="k">if</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">pi</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">total</span> <span class="o">/</span> <span class="n">n_total</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">pi ~ </span><span class="si">{</span><span class="n">pi</span><span class="si">:</span><span class="p">.</span><span class="mi">6</span><span class="n">f</span><span class="si">}</span><span class="s">   error = </span><span class="si">{</span><span class="nf">abs</span><span class="p">(</span><span class="n">pi</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># error ~ 3e-5
+</span></code></pre></div></div>
 
-<p>Larger subdomains amortize communication better, which is exactly why <strong>weak
-scaling</strong> (fixed $n$ per rank) holds up far better than strong scaling (shrinking
-$n$ as ranks grow). The message cost itself follows the classic linear model</p>
+<h3 id="domain-decomposition-and-halo-exchange">Domain decomposition and halo exchange</h3>
 
-\[T_{\text{msg}}(m) = \alpha + \beta\, m,\]
+<p>Grid-based PDE solvers use <strong>domain decomposition</strong>: the global grid is split into subdomains, one per rank. A stencil update near a subdomain edge needs values owned by the neighbouring rank, so each subdomain is padded with <strong>ghost cells</strong> (a <strong>halo</strong>) that hold copies of the neighbours’ boundary values. Every iteration begins with a <strong>halo exchange</strong> that refreshes them.</p>
 
-<p>where $\alpha$ is the per-message <em>latency</em> and $\beta$ the inverse <em>bandwidth</em> and
-$m$ the message size in bytes. Latency $\alpha$ punishes many small messages, so
-high-performance halo exchanges aggregate boundary data into a few large buffers and
-overlap communication with computation using non-blocking <code class="language-plaintext highlighter-rouge">Isend</code>/<code class="language-plaintext highlighter-rouge">Irecv</code>.</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph R0["Rank 0 (west)"]
+        I0["interior cells"] --- B0["east boundary column"]
+        G0["ghost column&lt;br/&gt;(copy of rank 1's west column)"]
+    end
+    subgraph R1["Rank 1 (east)"]
+        G1["ghost column&lt;br/&gt;(copy of rank 0's east column)"]
+        B1["west boundary column"] --- I1["interior cells"]
+    end
+    B0 -- "Sendrecv" --&gt; G1
+    B1 -- "Sendrecv" --&gt; G0
+</code></pre>
 
-<h3 id="choosing-a-decomposition">Choosing a Decomposition</h3>
+<p>MPI’s <strong>Cartesian topology</strong> routines build the process grid and return neighbour ranks. At a physical boundary the neighbour is <code class="language-plaintext highlighter-rouge">MPI.PROC_NULL</code>, which turns the corresponding send and receive into no-ops, so edge ranks need no special code. The following program solves Laplace’s equation by Jacobi iteration on a 2D process grid:</p>
 
-<p>A 1D slab decomposition is trivial to code but its message size grows with the
-domain face; a 2D or 3D <em>blocked</em> decomposition (the $p_x \times p_y$ processor grid
-in the code) minimizes the per-rank surface area and is the standard choice at
-scale. The general rule: pick the decomposition that minimizes total surface area
-subject to the constraint that subdomains tile the grid evenly. Tools like
-<code class="language-plaintext highlighter-rouge">MPI_Cart_create</code> build a Cartesian communicator that automates neighbor-rank
-lookup and can let the MPI runtime map ranks onto the physical network topology for
-locality.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Jacobi iteration for Laplace's equation on a 2D process grid.
+# Run with: mpiexec -n 4 python laplace_mpi.py
+</span><span class="kn">from</span> <span class="n">mpi4py</span> <span class="kn">import</span> <span class="n">MPI</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<h2 id="gpu-computing-with-cudacupy">GPU Computing with CUDA/CuPy</h2>
+<span class="n">N</span> <span class="o">=</span> <span class="mi">256</span>                                           <span class="c1"># global interior points per side
+</span><span class="n">comm</span> <span class="o">=</span> <span class="n">MPI</span><span class="p">.</span><span class="n">COMM_WORLD</span>
+<span class="n">dims</span> <span class="o">=</span> <span class="n">MPI</span><span class="p">.</span><span class="nc">Compute_dims</span><span class="p">(</span><span class="n">comm</span><span class="p">.</span><span class="nc">Get_size</span><span class="p">(),</span> <span class="mi">2</span><span class="p">)</span>        <span class="c1"># e.g. 4 ranks -&gt; [2, 2]
+</span><span class="n">cart</span> <span class="o">=</span> <span class="n">comm</span><span class="p">.</span><span class="nc">Create_cart</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="p">[</span><span class="bp">False</span><span class="p">,</span> <span class="bp">False</span><span class="p">],</span> <span class="n">reorder</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">py</span><span class="p">,</span> <span class="n">px</span> <span class="o">=</span> <span class="n">cart</span><span class="p">.</span><span class="nc">Get_coords</span><span class="p">(</span><span class="n">cart</span><span class="p">.</span><span class="nc">Get_rank</span><span class="p">())</span>
+<span class="n">ny</span><span class="p">,</span> <span class="n">nx</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">N</span> <span class="o">//</span> <span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>               <span class="c1"># assume N divisible by dims
+</span>
+<span class="n">south</span><span class="p">,</span> <span class="n">north</span> <span class="o">=</span> <span class="n">cart</span><span class="p">.</span><span class="nc">Shift</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>                   <span class="c1"># PROC_NULL at the physical boundary
+</span><span class="n">west</span><span class="p">,</span> <span class="n">east</span> <span class="o">=</span> <span class="n">cart</span><span class="p">.</span><span class="nc">Shift</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
-<p>A modern GPU is a throughput machine: thousands of arithmetic units organized into
-<em>streaming multiprocessors</em>, fed by very high memory bandwidth (terabytes per
-second) but with comparatively high latency. Code is written as a <strong>kernel</strong> — a
-single function executed by a grid of threads, grouped into <em>blocks</em> of (typically)
-128–512 threads. The CUDA execution model is <em>Single Instruction, Multiple Threads</em>
-(SIMT): threads within a 32-lane <em>warp</em> execute in lockstep, so divergent branches
-within a warp serialize and hurt throughput.</p>
+<span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">ny</span> <span class="o">+</span> <span class="mi">2</span><span class="p">,</span> <span class="n">nx</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>                    <span class="c1"># one ghost layer on each side
+</span><span class="k">if</span> <span class="n">py</span> <span class="o">==</span> <span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mf">1.0</span>                                <span class="c1"># boundary condition: top edge held at 1
+</span>
+<span class="k">def</span> <span class="nf">exchange_halos</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+    <span class="c1"># Rows are contiguous in memory and can be sent in place
+</span>    <span class="n">cart</span><span class="p">.</span><span class="nc">Sendrecv</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="p">:],</span> <span class="n">dest</span><span class="o">=</span><span class="n">north</span><span class="p">,</span> <span class="n">recvbuf</span><span class="o">=</span><span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">source</span><span class="o">=</span><span class="n">south</span><span class="p">)</span>
+    <span class="n">cart</span><span class="p">.</span><span class="nc">Sendrecv</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">dest</span><span class="o">=</span><span class="n">south</span><span class="p">,</span> <span class="n">recvbuf</span><span class="o">=</span><span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">source</span><span class="o">=</span><span class="n">north</span><span class="p">)</span>
+    <span class="c1"># Columns are strided: copy into contiguous buffers
+</span>    <span class="n">recv</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty</span><span class="p">(</span><span class="n">ny</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">cart</span><span class="p">.</span><span class="nc">Sendrecv</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">ascontiguousarray</span><span class="p">(</span><span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">2</span><span class="p">]),</span> <span class="n">dest</span><span class="o">=</span><span class="n">east</span><span class="p">,</span> <span class="n">recvbuf</span><span class="o">=</span><span class="n">recv</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">west</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">west</span> <span class="o">!=</span> <span class="n">MPI</span><span class="p">.</span><span class="n">PROC_NULL</span><span class="p">:</span>
+        <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">recv</span>
+    <span class="n">cart</span><span class="p">.</span><span class="nc">Sendrecv</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">ascontiguousarray</span><span class="p">(</span><span class="n">u</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">dest</span><span class="o">=</span><span class="n">west</span><span class="p">,</span> <span class="n">recvbuf</span><span class="o">=</span><span class="n">recv</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">east</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">east</span> <span class="o">!=</span> <span class="n">MPI</span><span class="p">.</span><span class="n">PROC_NULL</span><span class="p">:</span>
+        <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">recv</span>
 
-<p>GPUs excel precisely on the data-parallel kernels that pervade physics: applying
-the same stencil to every grid point, computing pairwise forces between every pair
-of particles, or transforming a field by FFT. Two performance facts dominate kernel
-design:</p>
+<span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">20_000</span><span class="p">):</span>
+    <span class="nf">exchange_halos</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+    <span class="n">new</span> <span class="o">=</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="p">(</span><span class="n">u</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:])</span>
+    <span class="n">change</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">new</span> <span class="o">-</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]).</span><span class="nf">max</span><span class="p">()</span>
+    <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">new</span>
+    <span class="c1"># A global reduction synchronizes all ranks, so check convergence only occasionally
+</span>    <span class="k">if</span> <span class="n">it</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">cart</span><span class="p">.</span><span class="nf">allreduce</span><span class="p">(</span><span class="n">change</span><span class="p">,</span> <span class="n">op</span><span class="o">=</span><span class="n">MPI</span><span class="p">.</span><span class="n">MAX</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-5</span><span class="p">:</span>
+        <span class="k">break</span>
+
+<span class="k">if</span> <span class="n">cart</span><span class="p">.</span><span class="nc">Get_rank</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">converged after </span><span class="si">{</span><span class="n">it</span><span class="si">}</span><span class="s"> iterations</span><span class="sh">"</span><span class="p">)</span>      <span class="c1"># ~16,600 on a 256 x 256 grid
+</span></code></pre></div></div>
+
+<p>The 16,600 iterations needed on a modest grid illustrate why Jacobi is used as a teaching example and as a multigrid smoother, not as a solver; see <a href="#krylov-methods-conjugate-gradient">Krylov methods</a> and <a href="#multigrid">multigrid</a> below.</p>
+
+<h3 id="communication-cost">Communication cost</h3>
+
+<p>The cost of domain decomposition is governed by the <strong>surface-to-volume ratio</strong>. A cubic subdomain of side $n$ holds $n^3$ cells of computation but exchanges $6n^2$ faces of data, so</p>
+
+\[\frac{T_{\mathrm{comm}}}{T_{\mathrm{comp}}} \sim \frac{6n^2}{n^3} = \frac{6}{n}\]
+
+<p>Larger subdomains amortize communication better, which is why weak scaling (fixed $n$) holds up far better than strong scaling (shrinking $n$). The time for a single message of $m$ bytes follows the <strong>latency-bandwidth ($\alpha$-$\beta$) model</strong>:</p>
+
+\[T_{\mathrm{msg}}(m) = \alpha + \beta m\]
+
+<p>where $\alpha$ is the latency (about 1–2 µs on current interconnects) and $\beta$ the inverse bandwidth. Latency penalizes many small messages, so production codes:</p>
 
 <ul>
-  <li><strong>Coalesced memory access.</strong> Consecutive threads should read consecutive
-addresses so the hardware fuses them into one wide transaction; strided or random
-access wastes bandwidth.</li>
-  <li><strong>Occupancy.</strong> Enough resident warps must be in flight to hide the hundreds-of-cycle
-latency of a global-memory load behind the arithmetic of other warps.</li>
+  <li><strong>Aggregate</strong> boundary data into a few large messages, using MPI derived datatypes (<code class="language-plaintext highlighter-rouge">Create_vector</code>, <code class="language-plaintext highlighter-rouge">Create_subarray</code>) instead of manual copies.</li>
+  <li><strong>Overlap</strong> communication with computation: post <code class="language-plaintext highlighter-rouge">Irecv</code>/<code class="language-plaintext highlighter-rouge">Isend</code>, update the interior cells that do not depend on the halo, then <code class="language-plaintext highlighter-rouge">Waitall</code> and update the boundary cells.</li>
+  <li><strong>Choose a 2D or 3D block decomposition</strong> rather than 1D slabs, which minimizes the surface area per rank.</li>
+  <li><strong>Use neighbourhood collectives</strong> (<code class="language-plaintext highlighter-rouge">Neighbor_alltoall</code>) or one-sided communication (<code class="language-plaintext highlighter-rouge">Put</code>, <code class="language-plaintext highlighter-rouge">Get</code>) where the MPI implementation optimizes them.</li>
 </ul>
 
-<p>The two kernels below illustrate the two canonical regimes. The direct $N$-body
-force loop is <strong>compute-bound</strong> — each thread reads $O(N)$ positions but does
-$O(N)$ floating-point operations, so arithmetic dominates. The spectral heat-equation
-solver is <strong>bandwidth-bound</strong> — the FFT moves the whole field through memory several
-times per step, so it lives or dies on memory throughput, which is exactly what the
-GPU’s FFT library is tuned for.</p>
+<h2 id="gpu-computing">GPU computing</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">cupy</span> <span class="k">as</span> <span class="n">cp</span>
+<p>A GPU is a throughput processor: over a hundred streaming multiprocessors, each running many threads at once, fed by high-bandwidth memory (HBM) delivering several terabytes per second. Code runs as a <strong>kernel</strong>, a function executed by a grid of thread <strong>blocks</strong> (typically 128–512 threads each). Threads execute in groups of 32 called <strong>warps</strong> (64-wide <strong>wavefronts</strong> on AMD GPUs) under the <em>single instruction, multiple threads</em> (SIMT) model; if threads in a warp take different branches, the branches run one after the other.</p>
 
-<span class="k">class</span> <span class="nc">GPUPhysics</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">GPU-accelerated physics simulations using CuPy</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="n">cuda</span><span class="p">.</span><span class="nc">Device</span><span class="p">()</span>
-        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Using GPU: </span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">device</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">gpu_nbody_simulation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_bodies</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">N-body gravitational simulation on GPU</span><span class="sh">"""</span>
-        <span class="c1"># Initialize positions and velocities
-</span>        <span class="n">pos</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">n_bodies</span><span class="p">,</span> <span class="mi">3</span><span class="p">).</span><span class="nf">astype</span><span class="p">(</span><span class="n">cp</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>
-        <span class="n">vel</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">n_bodies</span><span class="p">,</span> <span class="mi">3</span><span class="p">).</span><span class="nf">astype</span><span class="p">(</span><span class="n">cp</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
-        <span class="n">mass</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">ones</span><span class="p">(</span><span class="n">n_bodies</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cp</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>
-        
-        <span class="c1"># Softening parameter to avoid singularities
-</span>        <span class="n">eps</span> <span class="o">=</span> <span class="mf">0.01</span>
-        <span class="n">dt</span> <span class="o">=</span> <span class="mf">0.01</span>
-        
-        <span class="c1"># Custom CUDA kernel for force calculation
-</span>        <span class="n">force_kernel</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nc">RawKernel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'''</span><span class="s">
-        extern </span><span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="s"> __global__
-        void compute_forces(float* pos, float* mass, float* forces, 
-                           int n_bodies, float eps) {
-            int i = blockIdx.x * blockDim.x + threadIdx.x;
-            if (i &gt;= n_bodies) return;
-            
-            float3 f = make_float3(0.0f, 0.0f, 0.0f);
-            float3 pi = make_float3(pos[3*i], pos[3*i+1], pos[3*i+2]);
-            
-            for (int j = 0; j &lt; n_bodies; j++) {
-                if (i == j) continue;
-                
-                float3 pj = make_float3(pos[3*j], pos[3*j+1], pos[3*j+2]);
-                float3 r = make_float3(pj.x - pi.x, pj.y - pi.y, pj.z - pi.z);
-                
-                float r2 = r.x*r.x + r.y*r.y + r.z*r.z + eps*eps;
-                float r3 = r2 * sqrtf(r2);
-                
-                float f_mag = mass[j] / r3;
-                f.x += f_mag * r.x;
-                f.y += f_mag * r.y;
-                f.z += f_mag * r.z;
-            }
-            
-            forces[3*i] = f.x;
-            forces[3*i+1] = f.y;
-            forces[3*i+2] = f.z;
-        }
-        </span><span class="sh">'''</span><span class="p">,</span> <span class="sh">'</span><span class="s">compute_forces</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="c1"># Simulation loop
-</span>        <span class="n">forces</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
-        
-        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
-            <span class="c1"># Compute forces
-</span>            <span class="n">threads_per_block</span> <span class="o">=</span> <span class="mi">256</span>
-            <span class="n">blocks</span> <span class="o">=</span> <span class="p">(</span><span class="n">n_bodies</span> <span class="o">+</span> <span class="n">threads_per_block</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">threads_per_block</span>
-            
-            <span class="nf">force_kernel</span><span class="p">((</span><span class="n">blocks</span><span class="p">,),</span> <span class="p">(</span><span class="n">threads_per_block</span><span class="p">,),</span> 
-                        <span class="p">(</span><span class="n">pos</span><span class="p">.</span><span class="nf">ravel</span><span class="p">(),</span> <span class="n">mass</span><span class="p">,</span> <span class="n">forces</span><span class="p">.</span><span class="nf">ravel</span><span class="p">(),</span> <span class="n">n_bodies</span><span class="p">,</span> <span class="n">eps</span><span class="p">))</span>
-            
-            <span class="c1"># Update velocities and positions (Leapfrog integration)
-</span>            <span class="n">vel</span> <span class="o">+=</span> <span class="n">forces</span> <span class="o">*</span> <span class="n">dt</span>
-            <span class="n">pos</span> <span class="o">+=</span> <span class="n">vel</span> <span class="o">*</span> <span class="n">dt</span>
-            
-            <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># Calculate total energy
-</span>                <span class="n">kinetic</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">cp</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">mass</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">vel</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-                
-                <span class="c1"># Potential energy (simplified)
-</span>                <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Step </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s">: KE = </span><span class="si">{</span><span class="nf">float</span><span class="p">(</span><span class="n">kinetic</span><span class="p">)</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">cp</span><span class="p">.</span><span class="nf">asnumpy</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span> <span class="n">cp</span><span class="p">.</span><span class="nf">asnumpy</span><span class="p">(</span><span class="n">vel</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">gpu_fft_spectral_method</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">512</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Spectral method for PDEs using GPU FFT</span><span class="sh">"""</span>
-        <span class="c1"># Create grid
-</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-        <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-        
-        <span class="c1"># Initial condition
-</span>        <span class="n">u</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">*</span> <span class="n">cp</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">Y</span><span class="p">)</span>
-        
-        <span class="c1"># Wave numbers
-</span>        <span class="n">kx</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">/</span><span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">cp</span><span class="p">.</span><span class="n">pi</span>
-        <span class="n">ky</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">/</span><span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">cp</span><span class="p">.</span><span class="n">pi</span>
-        <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">)</span>
-        <span class="n">K2</span> <span class="o">=</span> <span class="n">KX</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">KY</span><span class="o">**</span><span class="mi">2</span>
-        
-        <span class="c1"># Time stepping
-</span>        <span class="n">dt</span> <span class="o">=</span> <span class="mf">0.01</span>
-        <span class="n">n_steps</span> <span class="o">=</span> <span class="mi">100</span>
-        
-        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
-            <span class="c1"># Transform to Fourier space
-</span>            <span class="n">u_hat</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft2</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
-            
-            <span class="c1"># Solve in Fourier space (heat equation example)
-</span>            <span class="n">u_hat</span> <span class="o">*=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">K2</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
-            
-            <span class="c1"># Transform back
-</span>            <span class="n">u</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">cp</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft2</span><span class="p">(</span><span class="n">u_hat</span><span class="p">))</span>
-        
-        <span class="k">return</span> <span class="n">cp</span><span class="p">.</span><span class="nf">asnumpy</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+<p>Two properties dominate kernel performance:</p>
+
+<ul>
+  <li><strong>Coalesced memory access.</strong> When consecutive threads read consecutive addresses, the hardware combines the reads into a few wide transactions. Strided or random access wastes most of the bandwidth. This is why GPU codes favour <em>structure-of-arrays</em> layouts.</li>
+  <li><strong>Occupancy and latency hiding.</strong> A global-memory load takes hundreds of cycles. The GPU hides this by switching to other resident warps, so enough warps must be in flight; heavy use of registers or shared memory per thread reduces occupancy.</li>
+</ul>
+
+<p>The third rule is to <strong>keep data on the device</strong>. Transfers across PCIe run at tens of GB/s, far below HBM bandwidth; a simulation should copy data to the GPU once, run many time steps there, and copy back only for output. Unified-memory systems (NVIDIA Grace Hopper and Grace Blackwell, AMD MI300A) share one address space between CPU and GPU, which removes explicit copies but not the cost of moving data between the two.</p>
+
+<p>The example below implements a direct $N$-body gravity calculation with a custom CUDA kernel called from CuPy, integrated with the symplectic <strong>leapfrog</strong> (kick-drift-kick) scheme. All arrays stay on the GPU for the whole run.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">cupy</span> <span class="k">as</span> <span class="n">cp</span>   <span class="c1"># tested with CuPy 14 on CUDA 13
+</span>
+<span class="c1"># One thread per body; each thread sums the pull of all bodies: O(N^2) work.
+</span><span class="n">accel_kernel</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nc">RawKernel</span><span class="p">(</span><span class="sa">r</span><span class="sh">"""</span><span class="s">
+extern </span><span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="s"> __global__
+void accel(const float3* pos, const float* mass, float3* acc, int n, float eps2) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i &gt;= n) return;
+    float3 pi = pos[i];
+    float3 a = make_float3(0.0f, 0.0f, 0.0f);
+    for (int j = 0; j &lt; n; ++j) {            // j == i adds nothing: dx = dy = dz = 0
+        float dx = pos[j].x - pi.x, dy = pos[j].y - pi.y, dz = pos[j].z - pi.z;
+        float r2 = dx * dx + dy * dy + dz * dz + eps2;   // Plummer softening
+        float inv_r3 = rsqrtf(r2 * r2 * r2);
+        a.x += mass[j] * dx * inv_r3;
+        a.y += mass[j] * dy * inv_r3;
+        a.z += mass[j] * dz * inv_r3;
+    }
+    acc[i] = a;
+}
+</span><span class="sh">"""</span><span class="p">,</span> <span class="sh">"</span><span class="s">accel</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">accelerations</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">threads</span><span class="o">=</span><span class="mi">256</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">pos</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">acc</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">empty_like</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+    <span class="n">blocks</span> <span class="o">=</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="n">threads</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">threads</span>
+    <span class="nf">accel_kernel</span><span class="p">((</span><span class="n">blocks</span><span class="p">,),</span> <span class="p">(</span><span class="n">threads</span><span class="p">,),</span>
+                 <span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">acc</span><span class="p">,</span> <span class="n">cp</span><span class="p">.</span><span class="nf">int32</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">cp</span><span class="p">.</span><span class="nf">float32</span><span class="p">(</span><span class="n">eps</span><span class="o">**</span><span class="mi">2</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">acc</span>
+
+<span class="k">def</span> <span class="nf">nbody</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">16_384</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Leapfrog (kick-drift-kick) integration with G = 1.</span><span class="sh">"""</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">pos</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">standard_normal</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cp</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>   <span class="c1"># (n, 3) float32 = float3 array
+</span>    <span class="n">vel</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cp</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">cp</span><span class="p">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">acc</span> <span class="o">=</span> <span class="nf">accelerations</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">mass</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">steps</span><span class="p">):</span>
+        <span class="n">vel</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">acc</span>          <span class="c1"># kick
+</span>        <span class="n">pos</span> <span class="o">+=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">vel</span>                <span class="c1"># drift
+</span>        <span class="n">acc</span> <span class="o">=</span> <span class="nf">accelerations</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">mass</span><span class="p">)</span>
+        <span class="n">vel</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">acc</span>          <span class="c1"># kick
+</span>    <span class="k">return</span> <span class="n">cp</span><span class="p">.</span><span class="nf">asnumpy</span><span class="p">(</span><span class="n">pos</span><span class="p">),</span> <span class="n">cp</span><span class="p">.</span><span class="nf">asnumpy</span><span class="p">(</span><span class="n">vel</span><span class="p">)</span>   <span class="c1"># single copy back to the host
+</span></code></pre></div></div>
+
+<p>On a single desktop-class GPU this computes the $2.7 \times 10^{10}$ pair interactions of 100 steps with 16,384 bodies in well under a second. Production $N$-body codes replace the $O(N^2)$ sum with tree or fast-multipole methods ($O(N \log N)$ or $O(N)$) and tile the inner loop through shared memory so each position is read from global memory once per block rather than once per thread.</p>
+
+<p>Many kernels need no custom code: CuPy mirrors the NumPy and SciPy APIs, and its FFTs call cuFFT. The periodic heat equation $u_t = \nu\nabla^2 u$ is solved exactly in Fourier space:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">heat_spectral</span><span class="p">(</span><span class="n">u0</span><span class="p">,</span> <span class="n">nu</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Periodic heat equation on [0, 2 pi)^2: each Fourier mode decays as exp(-nu k^2 t).</span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">u0</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>                   <span class="c1"># integer wavenumbers
+</span>    <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span> <span class="o">=</span> <span class="n">cp</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="sh">"</span><span class="s">ij</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cp</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft2</span><span class="p">(</span><span class="n">cp</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft2</span><span class="p">(</span><span class="n">u0</span><span class="p">)</span> <span class="o">*</span> <span class="n">cp</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">nu</span> <span class="o">*</span> <span class="p">(</span><span class="n">KX</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">KY</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">t</span><span class="p">)).</span><span class="n">real</span>
 </code></pre></div></div>
 
-<h3 id="the-roofline-model">The Roofline Model</h3>
+<h3 id="the-roofline-model">The roofline model</h3>
 
-<p>Whether a kernel is worth porting to the GPU — and whether it is running near peak —
-is answered by the <strong>roofline model</strong>. Plot achievable performance (FLOP/s) against
-<em>arithmetic intensity</em> $I$, the ratio of floating-point operations to bytes moved
-from memory:</p>
+<p>The <strong>roofline model</strong> estimates the attainable performance of a kernel from two hardware numbers, peak compute rate $P_{\mathrm{peak}}$ (FLOP/s) and peak memory bandwidth $B$ (bytes/s), and one property of the kernel, its <strong>arithmetic intensity</strong> $I$ (floating-point operations per byte moved from memory):</p>
 
-\[P = \min\left( P_{\text{peak}},\; B \cdot I \right),\]
+\[P = \min\left( P_{\mathrm{peak}},\; B \cdot I \right)\]
 
-<p>where $P_{\text{peak}}$ is the hardware’s peak compute rate and $B$ its peak memory
-bandwidth. Kernels with low intensity (a stencil reads several neighbors and does a
-handful of flops, $I \lesssim 1$) sit on the <em>bandwidth-limited</em> sloped roof — the
-direct $N$-body kernel above, with $I = O(N)$, sits on the flat <em>compute-limited</em>
-roof. The model tells you the optimization that matters: improving cache reuse and
-data layout for bandwidth-bound code, or reducing instruction count and improving
-occupancy for compute-bound code. The data-transfer cost of moving fields across the
-PCIe/NVLink bus to and from the GPU is a separate, often dominant, overhead — the
-practical rule is to keep data resident on the device across many time steps, which
-is exactly why the loops above never copy back until the simulation finishes.</p>
+<figure style="margin: 1.5rem auto; max-width: 560px;">
+<svg viewBox="0 0 540 320" width="100%" role="img" aria-label="Roofline model on log-log axes: attainable performance rises linearly with arithmetic intensity under the memory-bandwidth roof, then flattens at the peak-compute roof beyond the ridge point. SpMV and stencils sit on the sloped part; FFT near the ridge; dense matrix multiply and direct N-body on the flat part.">
+  <g stroke="currentColor" fill="none" stroke-width="1.2">
+    <line x1="60" y1="270" x2="520" y2="270" />
+    <line x1="60" y1="270" x2="60" y2="20" />
+  </g>
+  <g stroke="currentColor" fill="none" stroke-width="2.5">
+    <polyline points="60,256 324,40 510,40" />
+  </g>
+  <line x1="324" y1="40" x2="324" y2="270" stroke="currentColor" stroke-dasharray="4 4" stroke-opacity="0.5" />
+  <g fill="currentColor" font-family="sans-serif" font-size="12">
+    <text x="290" y="300" text-anchor="middle">Arithmetic intensity I (FLOP/byte, log scale)</text>
+    <text x="20" y="150" text-anchor="middle" transform="rotate(-90 20 150)">Attainable FLOP/s (log scale)</text>
+    <text x="150" y="150" transform="rotate(-39 150 150)">memory-bound: P = B · I</text>
+    <text x="400" y="32">compute-bound: P = P_peak</text>
+    <text x="330" y="262">ridge point I* = P_peak / B</text>
+  </g>
+  <g fill="currentColor" font-family="sans-serif" font-size="11">
+    <circle cx="104" cy="232" r="5" /><text x="112" y="248">SpMV</text>
+    <circle cx="192" cy="160" r="5" /><text x="200" y="176">3D stencil</text>
+    <circle cx="258" cy="104" r="5" /><text x="238" y="124">FFT</text>
+    <circle cx="440" cy="52" r="5" /><text x="410" y="72">dense GEMM</text>
+    <circle cx="492" cy="52" r="5" /><text x="470" y="92">direct N-body</text>
+  </g>
+</svg>
+<figcaption>Schematic roofline. Kernels left of the ridge point are limited by memory bandwidth, those to the right by arithmetic throughput. Positions are illustrative.</figcaption>
+</figure>
 
-<h2 id="sparse-linear-algebra-and-iterative-solvers">Sparse Linear Algebra and Iterative Solvers</h2>
+<p>A sparse matrix-vector product performs about 2 flops per nonzero while reading a value and an index (12 bytes in double precision with 32-bit indices), so $I \approx 0.17$ and it sits far down the bandwidth slope; a stencil sweep is similar. Dense matrix multiplication performs $O(n^3)$ work on $O(n^2)$ data and the direct $N$-body kernel $O(N^2)$ work on $O(N)$ data, so both are compute-bound. The ridge point of current data-centre GPUs lies at an intensity of several to tens of FLOP/byte in FP64, which means that most physics kernels are memory-bound. The model identifies which optimization matters: better data reuse and layout for kernels under the slope, fewer or cheaper instructions and higher occupancy for kernels under the flat roof.</p>
 
-<p>Discretizing a PDE or a quantum Hamiltonian produces an enormous matrix $A$ that is
-<strong>sparse</strong>: a 7-point Laplacian stencil on a $10^6$-cell grid yields a $10^6 \times
-10^6$ matrix with only $\sim 7 \times 10^6$ nonzeros — storing it densely would need
-$10^{12}$ entries, which is hopeless. Sparse formats (CSR, CSC, COO) store only the
-nonzeros, and the central operation becomes the <strong>sparse matrix–vector product</strong>
-(SpMV) $y = Ax$, which costs $O(\text{nnz})$ rather than $O(n^2)$. SpMV is the
-workhorse — and the bottleneck — of essentially every large-scale physics solver,
-and because it touches each matrix entry exactly once it is firmly bandwidth-bound.</p>
+<h3 id="precision">Precision</h3>
 
-<p>A direct factorization ($LU$, Cholesky) of such a matrix suffers <strong>fill-in</strong>: the
-factors are far denser than $A$, exhausting memory. The alternative is <strong>iterative
-solvers</strong>, which only ever need to <em>apply</em> $A$ to a vector and so preserve sparsity.</p>
+<p>GPU peak performance depends strongly on precision. Tensor cores deliver much higher throughput in FP16, BF16, and FP8 than in FP64, and recent AI-oriented GPUs have increased FP64 throughput far less than low-precision throughput. Physics codes exploit this in several ways:</p>
 
-<h3 id="stationary-iterations-jacobi-and-gauss-seidel">Stationary Iterations: Jacobi and Gauss-Seidel</h3>
+<ul>
+  <li><strong>Mixed-precision iterative refinement</strong>: factor or precondition in low precision, compute residuals and corrections in FP64, and recover full double-precision accuracy. The HPL-MxP benchmark measures this approach.</li>
+  <li><strong>Single precision where it suffices</strong>, as in the $N$-body example above, molecular dynamics force kernels, and lattice QCD solvers with double-precision correction steps.</li>
+  <li><strong>Emulated FP64</strong> from low-precision integer or tensor-core arithmetic (the Ozaki scheme and related methods) is an active research area aimed at hardware with weak native FP64.</li>
+</ul>
 
-<p>The simplest iterative scheme splits $A = D + L + U$ into its diagonal, strictly
-lower, and strictly upper parts. The <strong>Jacobi iteration</strong>,</p>
+<p>Any reduction in precision needs a check that conserved quantities and final results are unaffected.</p>
 
-\[x_i^{(k+1)} = \frac{1}{a_{ii}} \left( b_i - \sum_{j \ne i} a_{ij}\, x_j^{(k)} \right),\]
+<h2 id="sparse-linear-algebra">Sparse linear algebra</h2>
 
-<p>updates every unknown from the <em>previous</em> sweep’s values, so all updates are
-independent — it is naturally parallel, which is why the implementation below shards
-rows across a process pool. It converges only when the spectral radius of the
-iteration matrix $-D^{-1}(L+U)$ is below one (guaranteed for diagonally dominant
-$A$), and even then slowly: the error decays by a factor set by that spectral radius
-each sweep. Gauss-Seidel and successive over-relaxation (SOR) converge faster by
-reusing updated values within a sweep, at the cost of a sequential dependence that
-must be broken with red-black colouring to parallelize.</p>
+<p>Discretizing a PDE or writing a quantum Hamiltonian in a local basis produces a <strong>sparse</strong> matrix. A 7-point Laplacian on a $10^6$-cell grid is a $10^6 \times 10^6$ matrix with about $7 \times 10^6$ nonzeros; storing it densely would need $10^{12}$ entries. Sparse formats store only the nonzeros:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">scipy.sparse</span> <span class="kn">import</span> <span class="n">diags</span>
-<span class="kn">from</span> <span class="n">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">spsolve</span><span class="p">,</span> <span class="n">eigsh</span>
-<span class="kn">import</span> <span class="n">multiprocessing</span> <span class="k">as</span> <span class="n">mp</span>
+<table>
+  <thead>
+    <tr>
+      <th>Format</th>
+      <th>Stores</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>COO</td>
+      <td>(row, column, value) triplets</td>
+      <td>Assembly; duplicate entries are summed</td>
+    </tr>
+    <tr>
+      <td>CSR / CSC</td>
+      <td>Values and column (row) indices, plus row (column) pointers</td>
+      <td>Fast matrix-vector products and slicing; the standard format for solvers</td>
+    </tr>
+    <tr>
+      <td>ELL, SELL-C-$\sigma$</td>
+      <td>Rows padded to equal length, in slices</td>
+      <td>Vectorized and GPU SpMV</td>
+    </tr>
+    <tr>
+      <td>Block CSR</td>
+      <td>Small dense blocks</td>
+      <td>Several unknowns per node (elasticity, coupled PDEs)</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="k">class</span> <span class="nc">ParallelLinearAlgebra</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Parallel solutions for large linear systems in physics</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_cores</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">n_cores</span> <span class="o">=</span> <span class="n">n_cores</span> <span class="ow">or</span> <span class="n">mp</span><span class="p">.</span><span class="nf">cpu_count</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">parallel_jacobi</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Parallel Jacobi iteration for Ax = b</span><span class="sh">"""</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x0</span> <span class="k">if</span> <span class="n">x0</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-        
-        <span class="c1"># Extract diagonal
-</span>        <span class="n">D</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
-        <span class="n">R</span> <span class="o">=</span> <span class="n">A</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">D</span><span class="p">)</span>
-        
-        <span class="k">def</span> <span class="nf">update_chunk</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
-            <span class="sh">"""</span><span class="s">Update a chunk of the solution vector</span><span class="sh">"""</span>
-            <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">x_old</span><span class="p">,</span> <span class="n">D_chunk</span><span class="p">,</span> <span class="n">R_chunk</span><span class="p">,</span> <span class="n">b_chunk</span> <span class="o">=</span> <span class="n">args</span>
-            <span class="n">x_new</span> <span class="o">=</span> <span class="p">(</span><span class="n">b_chunk</span> <span class="o">-</span> <span class="n">R_chunk</span> <span class="o">@</span> <span class="n">x_old</span><span class="p">)</span> <span class="o">/</span> <span class="n">D_chunk</span>
-            <span class="k">return</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">x_new</span>
-        
-        <span class="c1"># Create chunks for parallel processing
-</span>        <span class="n">chunk_size</span> <span class="o">=</span> <span class="n">n</span> <span class="o">//</span> <span class="n">self</span><span class="p">.</span><span class="n">n_cores</span>
-        <span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n_cores</span><span class="p">):</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">chunk_size</span>
-            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">chunk_size</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">n_cores</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">n</span>
-            <span class="n">chunks</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
-        
-        <span class="c1"># Iteration
-</span>        <span class="k">with</span> <span class="n">mp</span><span class="p">.</span><span class="nc">Pool</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n_cores</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">iteration</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">max_iter</span><span class="p">):</span>
-                <span class="n">x_old</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
-                
-                <span class="c1"># Prepare arguments for parallel execution
-</span>                <span class="n">args_list</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="ow">in</span> <span class="n">chunks</span><span class="p">:</span>
-                    <span class="n">args_list</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span>
-                        <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">x_old</span><span class="p">,</span>
-                        <span class="n">D</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">],</span>
-                        <span class="n">R</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">,</span> <span class="p">:],</span>
-                        <span class="n">b</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
-                    <span class="p">))</span>
-                
-                <span class="c1"># Parallel update
-</span>                <span class="n">results</span> <span class="o">=</span> <span class="n">pool</span><span class="p">.</span><span class="nf">map</span><span class="p">(</span><span class="n">update_chunk</span><span class="p">,</span> <span class="n">args_list</span><span class="p">)</span>
-                
-                <span class="c1"># Gather results
-</span>                <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">x_chunk</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-                    <span class="n">x</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">x_chunk</span>
-                
-                <span class="c1"># Check convergence
-</span>                <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">x_old</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
-                    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Converged in </span><span class="si">{</span><span class="n">iteration</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s"> iterations</span><span class="sh">"</span><span class="p">)</span>
-                    <span class="k">break</span>
-        
-        <span class="k">return</span> <span class="n">x</span>
-    
-    <span class="k">def</span> <span class="nf">lanczos_eigenvalues</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">H_func</span><span class="p">,</span> <span class="n">n_eigs</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">n_lanczos</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Lanczos algorithm for sparse eigenvalue problems</span><span class="sh">"""</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="n">H_func</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        
-        <span class="c1"># Random initial vector
-</span>        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-        <span class="n">v</span> <span class="o">/=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-        
-        <span class="c1"># Lanczos vectors and tridiagonal matrix elements
-</span>        <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n_lanczos</span><span class="p">))</span>
-        <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">n_lanczos</span><span class="p">)</span>
-        <span class="n">beta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">n_lanczos</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-        
-        <span class="n">V</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
-        
-        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_lanczos</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="c1"># Apply Hamiltonian
-</span>            <span class="n">w</span> <span class="o">=</span> <span class="n">H_func</span> <span class="o">@</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span>
-            
-            <span class="c1"># Orthogonalize
-</span>            <span class="n">alpha</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="p">])</span>
-            <span class="n">w</span> <span class="o">-=</span> <span class="n">alpha</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span>
-            
-            <span class="k">if</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">w</span> <span class="o">-=</span> <span class="n">beta</span><span class="p">[</span><span class="n">j</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-            
-            <span class="n">beta</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="n">beta</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">1e-12</span><span class="p">:</span>
-                <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Lanczos breakdown at iteration </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-                <span class="k">break</span>
-            
-            <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">w</span> <span class="o">/</span> <span class="n">beta</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
-        
-        <span class="c1"># Final alpha
-</span>        <span class="n">w</span> <span class="o">=</span> <span class="n">H_func</span> <span class="o">@</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">alpha</span><span class="p">[</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">V</span><span class="p">[:,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span>
-        
-        <span class="c1"># Construct tridiagonal matrix
-</span>        <span class="n">T</span> <span class="o">=</span> <span class="nf">diags</span><span class="p">([</span><span class="n">beta</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">alpha</span><span class="p">[:</span><span class="n">j</span><span class="o">+</span><span class="mi">2</span><span class="p">],</span> <span class="n">beta</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
-        
-        <span class="c1"># Solve eigenvalue problem for T
-</span>        <span class="n">eigs</span><span class="p">,</span> <span class="n">eigvecs</span> <span class="o">=</span> <span class="nf">eigsh</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="nf">min</span><span class="p">(</span><span class="n">n_eigs</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span> <span class="n">which</span><span class="o">=</span><span class="sh">'</span><span class="s">SA</span><span class="sh">'</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">eigs</span><span class="p">,</span> <span class="n">V</span><span class="p">[:,</span> <span class="p">:</span><span class="n">j</span><span class="o">+</span><span class="mi">2</span><span class="p">]</span> <span class="o">@</span> <span class="n">eigvecs</span>
+<p>The central operation is the <strong>sparse matrix-vector product (SpMV)</strong> $y = Ax$, which costs $O(\mathrm{nnz})$ and is memory-bound. Direct factorization ($LU$, Cholesky) of a sparse matrix creates <strong>fill-in</strong>, factors much denser than $A$; for 2D problems modern sparse direct solvers (MUMPS, SuperLU, PARDISO, cuDSS) are often still the fastest option, but in 3D the memory cost of fill-in usually rules them out. <strong>Iterative solvers</strong>, which need only the action of $A$ on a vector, are then the method of choice.</p>
+
+<h3 id="stationary-iterations">Stationary iterations</h3>
+
+<p>Splitting $A = D + L + U$ into diagonal, strictly lower, and strictly upper parts gives the <strong>Jacobi iteration</strong>:</p>
+
+\[x_i^{(k+1)} = \frac{1}{a_{ii}} \left( b_i - \sum_{j \ne i} a_{ij}\, x_j^{(k)} \right)\]
+
+<p>Every unknown is updated from the previous iterate, so the updates are independent and parallelize trivially (the MPI example above is exactly this). Jacobi converges when the spectral radius of the iteration matrix $-D^{-1}(L+U)$ is below 1, which holds for diagonally dominant $A$, but slowly: for the Poisson problem the spectral radius is $1 - O(h^2)$, so the number of iterations grows as $h^{-2}$. <strong>Gauss-Seidel</strong> and <strong>SOR</strong> use updated values within a sweep and converge faster; they are parallelized with red-black (multicolour) ordering. Today these methods matter mainly as <strong>smoothers</strong> inside multigrid: a few sweeps remove high-frequency error very efficiently, even though low-frequency error decays slowly.</p>
+
+<h3 id="krylov-methods-conjugate-gradient">Krylov methods: conjugate gradient</h3>
+
+<p><strong>Krylov subspace methods</strong> build the $k$-th approximation from the space</p>
+
+\[\mathcal{K}_k(A, r_0) = \mathrm{span}\{ r_0,\, A r_0,\, A^2 r_0,\, \dots,\, A^{k-1} r_0 \}\]
+
+<p>For symmetric positive-definite $A$, the <strong>conjugate gradient (CG)</strong> method chooses the iterate that minimizes the $A$-norm of the error over this space, using one SpMV and two inner products per iteration and only a few stored vectors. Its convergence depends on the condition number $\kappa = \lambda_{\max}/\lambda_{\min}$:</p>
+
+\[\frac{\lVert e_k \rVert_A}{\lVert e_0 \rVert_A} \le 2 \left( \frac{\sqrt{\kappa} - 1}{\sqrt{\kappa} + 1} \right)^{k}\]
+
+<p>so the iteration count grows as $\sqrt{\kappa}$. For a discretized Laplacian $\kappa \sim h^{-2}$, and CG needs $O(h^{-1})$ iterations — better than Jacobi’s $O(h^{-2})$, but still growing with resolution. A <strong>preconditioner</strong> $M \approx A$ that is cheap to apply transforms the system into one with a much smaller effective condition number. For nonsymmetric systems, <strong>GMRES</strong> and <strong>BiCGSTAB</strong> play the same role.</p>
+
+<p>The effect is easy to measure. The following compares plain CG with CG preconditioned by one algebraic-multigrid V-cycle (PyAMG) on the 2D Poisson problem:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">import</span> <span class="n">scipy.sparse</span> <span class="k">as</span> <span class="n">sp</span>
+<span class="kn">from</span> <span class="n">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">cg</span>      <span class="c1"># SciPy &gt;= 1.12 uses rtol (tol was removed)
+</span><span class="kn">import</span> <span class="n">pyamg</span>
+
+<span class="k">def</span> <span class="nf">poisson_2d</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">5-point Laplacian on an n x n interior grid with Dirichlet BCs, h = 1/(n+1).</span><span class="sh">"""</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">diags</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+    <span class="n">I</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">identity</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="nf">return </span><span class="p">((</span><span class="n">sp</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">T</span><span class="p">)</span> <span class="o">+</span> <span class="n">sp</span><span class="p">.</span><span class="nf">kron</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">I</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">).</span><span class="nf">tocsr</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">cg_iterations</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">def</span> <span class="nf">callback</span><span class="p">(</span><span class="n">xk</span><span class="p">):</span>
+        <span class="n">count</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="nf">cg</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">M</span><span class="o">=</span><span class="n">M</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">callback</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">count</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">):</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="nf">poisson_2d</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">(</span><span class="n">A</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">M</span> <span class="o">=</span> <span class="n">pyamg</span><span class="p">.</span><span class="nf">smoothed_aggregation_solver</span><span class="p">(</span><span class="n">A</span><span class="p">).</span><span class="nf">aspreconditioner</span><span class="p">(</span><span class="n">cycle</span><span class="o">=</span><span class="sh">"</span><span class="s">V</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">n</span><span class="p">,</span> <span class="nf">cg_iterations</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="nf">cg_iterations</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">M</span><span class="p">))</span>
 </code></pre></div></div>
 
-<h3 id="krylov-subspace-methods-conjugate-gradient">Krylov Subspace Methods: Conjugate Gradient</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Unknowns</th>
+      <th>CG iterations</th>
+      <th>CG + AMG iterations</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2,500</td>
+      <td>93</td>
+      <td>8</td>
+    </tr>
+    <tr>
+      <td>10,000</td>
+      <td>187</td>
+      <td>9</td>
+    </tr>
+    <tr>
+      <td>40,000</td>
+      <td>369</td>
+      <td>9</td>
+    </tr>
+    <tr>
+      <td>160,000</td>
+      <td>734</td>
+      <td>12</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Stationary iterations are easy to parallelize but converge slowly. The
-state-of-the-art for large symmetric positive-definite systems is the <strong>conjugate
-gradient (CG)</strong> method, the canonical <em>Krylov subspace</em> solver. CG builds its
-approximate solution from the Krylov space</p>
+<p>Plain CG doubles its iteration count each time the grid spacing is halved, as the $\sqrt{\kappa} \sim h^{-1}$ estimate predicts; with the multigrid preconditioner the count stays almost constant. (A Jacobi preconditioner would change nothing here, because this matrix has a constant diagonal.) In distributed-memory CG, each iteration needs a halo exchange inside SpMV and a global <code class="language-plaintext highlighter-rouge">Allreduce</code> for each inner product; at extreme scale those reductions dominate, which has motivated <strong>pipelined</strong> and <strong>communication-avoiding</strong> Krylov variants that overlap or batch them.</p>
 
-\[\mathcal{K}_k(A, r_0) = \mathrm{span}\{ r_0,\, A r_0,\, A^2 r_0,\, \dots,\, A^{k-1} r_0 \},\]
+<h3 id="multigrid">Multigrid</h3>
 
-<p>choosing at each step the iterate that minimizes the $A$-norm of the error over that
-space. Each iteration costs one SpMV plus a few vector inner products, and the
-convergence rate is governed by the condition number $\kappa = \lambda_{\max} /
-\lambda_{\min}$:</p>
+<p><strong>Multigrid</strong> attacks the weakness of simple smoothers directly. Error that is smooth on a fine grid is oscillatory, and therefore easy to smooth, on a coarser grid. A <strong>V-cycle</strong> smooths, transfers the residual to a coarser grid, solves the coarse problem recursively, interpolates the correction back, and smooths again:</p>
 
-\[\frac{\lVert e_k \rVert_A}{\lVert e_0 \rVert_A} \le 2 \left( \frac{\sqrt{\kappa} - 1}{\sqrt{\kappa} + 1} \right)^{k}.\]
+<pre><code class="language-mermaid">flowchart LR
+    F1["Fine grid&lt;br/&gt;pre-smooth"] -- "restrict residual" --&gt; M1["Coarser grid&lt;br/&gt;pre-smooth"]
+    M1 -- "restrict" --&gt; C["Coarsest grid&lt;br/&gt;direct solve"]
+    C -- "interpolate correction" --&gt; M2["Coarser grid&lt;br/&gt;post-smooth"]
+    M2 -- "interpolate" --&gt; F2["Fine grid&lt;br/&gt;post-smooth"]
+</code></pre>
 
-<p>The error therefore shrinks like $(\sqrt{\kappa})^{-1}$ per step — dramatically
-faster than Jacobi when $\kappa$ is moderate. For ill-conditioned systems (a fine
-grid gives $\kappa \sim h^{-2}$) the cure is a <strong>preconditioner</strong> $M \approx A$ that
-is cheap to invert; solving $M^{-1}Ax = M^{-1}b$ instead clusters the spectrum and
-collapses the iteration count. Incomplete-Cholesky and multigrid preconditioners are
-standard, and for nonsymmetric systems GMRES and BiCGSTAB play the analogous role.
-Production libraries (PETSc, Trilinos, hypre) provide these solvers in
-MPI-parallel form, where the only communication per iteration is the halo exchange
-inside SpMV and the global <code class="language-plaintext highlighter-rouge">Allreduce</code> inside each inner product.</p>
+<p>Each level costs a fixed fraction of the one above it, and the convergence rate per cycle is independent of the grid size, so multigrid solves elliptic problems in $O(n)$ operations — asymptotically optimal. <strong>Geometric multigrid</strong> uses a hierarchy of meshes; <strong>algebraic multigrid (AMG)</strong> builds the hierarchy from the matrix entries alone and works on unstructured problems. Production AMG is provided by hypre (BoomerAMG), PETSc (GAMG), Trilinos (MueLu), and NVIDIA AmgX, all with GPU support.</p>
 
-<h3 id="the-lanczos-algorithm-for-eigenvalues">The Lanczos Algorithm for Eigenvalues</h3>
+<h3 id="lanczos-for-extremal-eigenvalues">Lanczos for extremal eigenvalues</h3>
 
-<p>Many physics problems need the <em>extremal</em> eigenpairs of a giant sparse Hermitian
-matrix rather than the solution of a linear system: the ground-state energy of a
-quantum Hamiltonian, the lowest vibrational modes of a structure, or the dominant
-PageRank-like modes of a network. The <strong>Lanczos algorithm</strong> is the symmetric
-Krylov method for this task. Starting from a random vector $v_1$, it builds an
-orthonormal basis of the Krylov space and, in that basis, <em>projects</em> $A$ onto a tiny
-tridiagonal matrix</p>
+<p>Many physics problems need a few extremal eigenvalues of a very large sparse Hermitian matrix: the ground-state energy of a quantum Hamiltonian, the lowest vibrational modes of a structure. The <strong>Lanczos algorithm</strong> builds an orthonormal basis $v_1, v_2, \dots$ of the Krylov space from the three-term recurrence</p>
+
+\[\beta_{j}\, v_{j+1} = A v_j - \alpha_j v_j - \beta_{j-1} v_{j-1},
+\qquad \alpha_j = v_j^{\top} A v_j\]
+
+<p>In that basis $A$ becomes a small tridiagonal matrix</p>
 
 \[T_k = \begin{pmatrix}
 \alpha_1 &amp; \beta_1 &amp; &amp; \\
-\beta_1 &amp; \alpha_2 &amp; \beta_2 &amp; \\
-&amp; \beta_2 &amp; \ddots &amp; \ddots \\
-&amp; &amp; \ddots &amp; \alpha_k
-\end{pmatrix},\]
+\beta_1 &amp; \alpha_2 &amp; \ddots &amp; \\
+&amp; \ddots &amp; \ddots &amp; \beta_{k-1} \\
+&amp; &amp; \beta_{k-1} &amp; \alpha_k
+\end{pmatrix}\]
 
-<p>whose entries come from the three-term recurrence</p>
+<p>whose extreme eigenvalues (the <strong>Ritz values</strong>) converge to those of $A$ after typically tens to a few hundred iterations, even when $A$ has dimension $10^9$. The algorithm needs only the action $v \mapsto Av$, so the matrix need never be stored. In floating-point arithmetic the Lanczos vectors lose orthogonality once a Ritz value converges, producing spurious copies of converged eigenvalues; practical implementations use selective reorthogonalization or implicit restarts. ARPACK’s implicitly restarted Lanczos, called by SciPy’s <code class="language-plaintext highlighter-rouge">eigsh</code>, is the standard tool; SLEPc provides the MPI-parallel equivalent.</p>
 
-\[\beta_{j}\, v_{j+1} = A v_j - \alpha_j v_j - \beta_{j-1} v_{j-1},
-\qquad \alpha_j = v_j^{\top} A v_j .\]
+<p><strong>Exact diagonalization</strong> of quantum lattice models is the classic application. The following computes the ground state of the periodic spin-1/2 Heisenberg chain $H = \sum_i \mathbf{S}<em>i \cdot \mathbf{S}</em>{i+1}$ for $L = 20$ spins, a Hilbert space of dimension $2^{20} \approx 10^6$, with the Hamiltonian supplied only as a function:</p>
 
-<p>The extreme eigenvalues of $T_k$ (the <em>Ritz values</em>, found with a dense solver since
-$k \ll n$) converge to the extreme eigenvalues of $A$ after only $k \sim 10$–$100$
-iterations, even when $A$ has dimension $10^9$. Crucially, the algorithm never forms
-$A$ explicitly — it needs only the action $A v$, supplied as a function, which is why
-the <code class="language-plaintext highlighter-rouge">lanczos_eigenvalues</code> routine above accepts a <code class="language-plaintext highlighter-rouge">H_func</code> with a <code class="language-plaintext highlighter-rouge">matvec</code>. In finite
-precision the basis loses orthogonality once a Ritz value converges, producing
-spurious “ghost” eigenvalues; robust implementations restore orthogonality with
-selective or full reorthogonalization (this is the engine inside SciPy’s <code class="language-plaintext highlighter-rouge">eigsh</code> and
-ARPACK). The same machinery, run on the action of a spin Hamiltonian, is the basis of
-exact-diagonalization studies of quantum lattice models.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">LinearOperator</span><span class="p">,</span> <span class="n">eigsh</span>
 
-<h2 id="performance-optimization-in-practice">Performance Optimization in Practice</h2>
+<span class="k">def</span> <span class="nf">heisenberg_chain</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Matrix-free H = sum_i S_i . S_{i+1} (periodic). Basis states are integers
+    whose bits are the spins (1 = up); only v -&gt; H v is ever computed.</span><span class="sh">"""</span>
+    <span class="n">states</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="n">L</span><span class="p">)</span>
+    <span class="n">diag</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="n">L</span><span class="p">)</span>
+    <span class="n">hops</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">L</span><span class="p">):</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">L</span>
+        <span class="n">si</span><span class="p">,</span> <span class="n">sj</span> <span class="o">=</span> <span class="p">(</span><span class="n">states</span> <span class="o">&gt;&gt;</span> <span class="n">i</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">states</span> <span class="o">&gt;&gt;</span> <span class="n">j</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mi">1</span>
+        <span class="n">diag</span> <span class="o">+=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">si</span> <span class="o">==</span> <span class="n">sj</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.25</span><span class="p">)</span>            <span class="c1"># S^z_i S^z_j
+</span>        <span class="n">anti</span> <span class="o">=</span> <span class="n">states</span><span class="p">[</span><span class="n">si</span> <span class="o">!=</span> <span class="n">sj</span><span class="p">]</span>                             <span class="c1"># (S+S- + S-S+)/2 flips
+</span>        <span class="n">hops</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">anti</span><span class="p">,</span> <span class="n">anti</span> <span class="o">^</span> <span class="p">((</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">i</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="n">j</span><span class="p">))))</span>   <span class="c1"># anti-aligned pairs
+</span>
+    <span class="k">def</span> <span class="nf">matvec</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">ravel</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">diag</span> <span class="o">*</span> <span class="n">v</span>
+        <span class="k">for</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span> <span class="ow">in</span> <span class="n">hops</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">dst</span><span class="p">]</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">v</span><span class="p">[</span><span class="n">src</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">out</span>
 
-<p>Hardware peak is rarely reached by accident. The optimizations that matter most, in
-rough order of impact:</p>
+    <span class="k">return</span> <span class="nc">LinearOperator</span><span class="p">((</span><span class="mi">2</span> <span class="o">**</span> <span class="n">L</span><span class="p">,</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">L</span><span class="p">),</span> <span class="n">matvec</span><span class="o">=</span><span class="n">matvec</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+<span class="n">L</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">E0</span> <span class="o">=</span> <span class="nf">eigsh</span><span class="p">(</span><span class="nf">heisenberg_chain</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">which</span><span class="o">=</span><span class="sh">"</span><span class="s">SA</span><span class="sh">"</span><span class="p">,</span> <span class="n">return_eigenvectors</span><span class="o">=</span><span class="bp">False</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">E0/L = </span><span class="si">{</span><span class="n">E0</span> <span class="o">/</span> <span class="n">L</span><span class="si">:</span><span class="p">.</span><span class="mi">6</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>                   <span class="c1"># -0.445219
+</span><span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">L -&gt; infinity (Bethe ansatz): </span><span class="si">{</span><span class="mf">0.25</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="si">:</span><span class="p">.</span><span class="mi">6</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># -0.443147
+</span></code></pre></div></div>
+
+<p>The finite-chain energy per site approaches the exact Bethe-ansatz value $\tfrac{1}{4} - \ln 2$ as $L$ grows. Production exact-diagonalization codes also exploit symmetries (total $S^z$, translation, spin inversion) to block-diagonalize $H$, which reduces the dimension by orders of magnitude and reaches about 50 spins.</p>
+
+<h2 id="performance-in-practice">Performance in practice</h2>
+
+<p>The optimizations that matter most, in rough order of impact:</p>
+
+<ol>
+  <li><strong>Choose the right algorithm.</strong> A tree code turns the $O(N^2)$ $N$-body sum into $O(N \log N)$; multigrid turns an $O(n^{3/2})$ CG solve of a 2D Poisson problem into $O(n)$. No low-level tuning recovers a worse complexity.</li>
+  <li><strong>Measure before optimizing.</strong> Profilers — Nsight Systems and Nsight Compute (NVIDIA), rocprof (AMD), VTune (Intel), <code class="language-plaintext highlighter-rouge">perf</code>, LIKWID, Score-P with Vampir, TAU, HPCToolkit — show where time goes and whether a kernel is limited by compute, bandwidth, latency, communication, or load imbalance.</li>
+  <li><strong>Respect the memory hierarchy.</strong> Cache blocking (tiling loops so the working set fits in cache), structure-of-arrays layouts, and kernel fusion (one pass over the data instead of several) raise effective arithmetic intensity.</li>
+  <li><strong>Vectorize.</strong> CPU SIMD units (AVX-512, Arm SVE) process 8 double-precision values per instruction on 512-bit vectors; unit-stride, branch-free inner loops let the compiler vectorize automatically.</li>
+  <li><strong>Overlap and aggregate communication.</strong> Non-blocking MPI hides network latency behind interior computation; fewer, larger messages reduce latency costs.</li>
+  <li><strong>Balance the load.</strong> Adaptive meshes and particle clustering create uneven work; space-filling-curve partitioning and graph partitioners (METIS, ParMETIS, Zoltan) redistribute it.</li>
+</ol>
+
+<p>Classify each hot kernel by its limiting resource and attack that resource: bandwidth-bound code needs better locality, compute-bound code fewer or cheaper instructions, latency-bound code more concurrency, and communication-bound code fewer, larger, overlapped messages.</p>
+
+<h3 id="data-and-workflow">Data and workflow</h3>
+
+<p>At scale, input/output and job management become part of the algorithm:</p>
 
 <ul>
-  <li><strong>Choose the right algorithm first.</strong> A Barnes-Hut tree code turns the $O(N^2)$
-direct $N$-body sum into $O(N \log N)$; a multigrid solver turns an $O(n^2)$
-iterative solve into $O(n)$. No amount of low-level tuning beats a better
-asymptotic complexity.</li>
-  <li><strong>Respect the memory hierarchy.</strong> Registers and L1 cache are orders of magnitude
-faster than DRAM. <em>Cache blocking</em> (tiling loops so each tile fits in cache) and
-<em>structure-of-arrays</em> layouts (so vector lanes load contiguous data) turn
-bandwidth-bound kernels into compute-bound ones.</li>
-  <li><strong>Vectorize.</strong> Modern CPUs execute SIMD instructions (AVX-512 processes 16
-single-precision lanes at once); aligned, unit-stride, branch-free inner loops let
-the compiler auto-vectorize.</li>
-  <li><strong>Overlap communication and computation.</strong> Non-blocking MPI (<code class="language-plaintext highlighter-rouge">Isend</code>/<code class="language-plaintext highlighter-rouge">Irecv</code>)
-lets a rank update its subdomain interior while halo messages are in flight,
-hiding the network behind useful work.</li>
-  <li><strong>Exploit hybrid parallelism.</strong> The standard pattern at scale is <strong>MPI + X</strong>: MPI
-across nodes, OpenMP threads within a node’s shared memory, and CUDA on the GPUs —
-matching each level of parallelism to the corresponding level of the hardware
-hierarchy.</li>
-  <li><strong>Measure, don’t guess.</strong> Profilers (VTune, Nsight, <code class="language-plaintext highlighter-rouge">perf</code>, TAU) and the roofline
-model reveal whether a kernel is bound by compute, bandwidth, latency, or load
-imbalance — and therefore which of the above to apply. Premature micro-optimization
-of a kernel that is only 2% of runtime is wasted effort.</li>
+  <li><strong>Parallel I/O.</strong> Thousands of ranks writing separate files overwhelm parallel file systems (Lustre, GPFS). Collective I/O through MPI-IO, parallel HDF5, or ADIOS2 writes a single shared dataset efficiently; ADIOS2 can also stream data to in-situ analysis instead of disk.</li>
+  <li><strong>Checkpoint/restart.</strong> Long runs periodically save their state so they can survive node failures and the wall-clock limits of batch queues.</li>
+  <li><strong>Schedulers and containers.</strong> Jobs are submitted to batch schedulers such as Slurm or PBS; containers built with Apptainer (formerly Singularity) or Podman package software stacks reproducibly while still using the host’s MPI and GPU drivers.</li>
+  <li><strong>Libraries over hand-written code.</strong> PETSc, Trilinos, hypre, SLEPc, and vendor libraries (cuBLAS, cuSPARSE, cuFFT, rocBLAS, oneMKL) provide tuned, parallel implementations of nearly everything on this page.</li>
 </ul>
-
-<p>A useful mental model is to classify every hot kernel by its limiting resource and
-attack that resource specifically: bandwidth-bound code wants better locality,
-compute-bound code wants fewer or cheaper instructions and higher occupancy,
-latency-bound code wants more concurrency in flight, and communication-bound code
-wants larger, fewer, overlapped messages.</p>
 
 <hr />
 
-<p><em>Previous: <a href="quantum-methods.html">Quantum Computational Methods</a> · Next: <a href="tools-and-practices.html">Visualization, Libraries &amp; Best Practices</a></em></p>
+<p><em>Previous: <a href="electronic-structure-beyond-dft.html">Electronic Structure Beyond DFT</a> · Next: <a href="ml-for-physics.html">Machine Learning for Physics</a></em></p>
 
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="ml-for-physics.html">Machine Learning for Physics</a> — physics-informed neural networks, neural operators, and learned potentials (the ML material formerly on this page).</li>
-  <li><a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a> — the sparse linear systems and stencil solvers that these methods accelerate.</li>
-  <li><a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a> — embarrassingly parallel sampling, the natural first target for MPI.</li>
-  <li><a href="tools-and-practices.html">Visualization, Libraries &amp; Best Practices</a> — profiling tools and the libraries (PETSc, CuPy, mpi4py) used here.</li>
-  <li><a href="../classical-mechanics/">Classical Mechanics</a> — the $N$-body dynamics behind GPU gravitational simulations.</li>
+  <li><a href="ml-for-physics.html">Machine Learning for Physics</a> — physics-informed neural networks, neural operators, and learned potentials.</li>
+  <li><a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a> — the sparse systems and stencil solvers these methods accelerate.</li>
+  <li><a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a> — embarrassingly parallel sampling and GPU-accelerated molecular dynamics.</li>
+  <li><a href="tools-and-practices.html">Visualization, Libraries &amp; Best Practices</a> — profiling, visualization, and the scientific Python stack.</li>
+  <li><a href="../classical-mechanics/">Classical Mechanics</a> — the $N$-body dynamics behind gravitational simulations.</li>
 </ul>
 
       </section>

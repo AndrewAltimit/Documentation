@@ -3131,653 +3131,833 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>Build visual AI workflows by connecting nodes, from simple image generation to complex multi-model pipelines.</p>
+        <h1 id="comfyui">ComfyUI</h1>
+
+<p><a href="./">AI/ML Documentation</a> » ComfyUI Guide</p>
+
+<p><strong>ComfyUI</strong> is an open-source, node-based interface and execution engine for diffusion models, developed by Comfy Org (GitHub: <code class="language-plaintext highlighter-rouge">Comfy-Org/ComfyUI</code>, GPL-3.0). A generation pipeline is built as a graph of typed nodes (loaders, text encoders, samplers, decoders) and then queued to a local server that executes it. ComfyUI is usually the first tool to support new open models, and its native support covers image (SD 1.5 and SDXL, SD3.5, FLUX.1 and FLUX.2, Qwen-Image, Z-Image, HiDream), editing, video (Wan, LTX-Video, HunyuanVideo), audio, and 3D models. This page covers installation, the graph and execution model, the core nodes, standard workflows, custom nodes, the HTTP/WebSocket API, and troubleshooting. Version references are current as of ComfyUI v0.37 (September 2026).</p>
+
+<h2 id="how-comfyui-works">How ComfyUI Works</h2>
+
+<p>ComfyUI has two parts: a <strong>browser frontend</strong> (the graph editor, a separately versioned TypeScript/Vue app) and a <strong>Python server</strong> that holds models in memory, keeps a prompt queue, and executes graphs. The desktop app bundles both. Every generation, whether started by clicking <strong>Run</strong> or from a script, follows the same path.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant UI as Frontend or script
+    participant S as ComfyUI server
+    participant Q as Prompt queue
+    participant E as Executor
+    UI-&gt;&gt;S: POST /prompt (API-format graph, client_id)
+    S-&gt;&gt;S: Validate node types, links, and inputs
+    S-&gt;&gt;Q: Enqueue and return prompt_id
+    Q-&gt;&gt;E: Dequeue
+    E-&gt;&gt;E: Walk back from output nodes and skip cached nodes
+    E--&gt;&gt;UI: WebSocket: executing, progress, previews
+    E-&gt;&gt;S: Save outputs and record history
+    UI-&gt;&gt;S: GET /history/{prompt_id}, then GET /view
+</code></pre>
+
+<p>Three properties of this design matter in practice:</p>
 
 <ul>
-  <li><strong>Think in Graphs.</strong> Every generation is a node graph. Data flows from loaders through samplers to outputs, and you can branch or reroute any step.</li>
-  <li><strong>Compose, Don’t Configure.</strong> Instead of hidden menus, you wire components together — swap models, add ControlNet, or chain upscalers by connecting nodes.</li>
-  <li><strong>Save and Share Workflows.</strong> Workflows export as portable JSON, so you can version, reuse, and share an entire pipeline as a single file.</li>
+  <li><strong>Graphs are data.</strong> A workflow is JSON. It can be saved, versioned, shared, embedded in a PNG’s metadata (every image saved by <code class="language-plaintext highlighter-rouge">SaveImage</code> contains the workflow that produced it), and submitted from code.</li>
+  <li><strong>Execution is demand-driven and cached.</strong> The executor starts from output nodes (<code class="language-plaintext highlighter-rouge">SaveImage</code>, <code class="language-plaintext highlighter-rouge">PreviewImage</code>), walks backwards, and re-runs only nodes whose inputs changed since the last run. Editing the prompt re-encodes the text and re-samples but does not reload the checkpoint. Changing only the filename prefix re-runs almost nothing.</li>
+  <li><strong>Memory is managed automatically.</strong> The model manager loads weights to the GPU when needed, offloads them to system RAM under pressure, and can stream weights for models larger than VRAM. Launch flags override this behavior (see <a href="#launch-flags">Launch flags</a>).</li>
 </ul>
 
-<h2 id="why-use-comfyui">Why Use ComfyUI?</h2>
-
-<p>ComfyUI takes a different approach from other AI interfaces. Instead of hiding complexity behind menus, it shows you exactly how each part of the generation process connects to the next. You build workflows by linking nodes together, like connecting pipes in a plumbing diagram.</p>
-
-<p>This approach offers several benefits:</p>
-
-<ul>
-  <li><strong>See how generation actually works</strong> - The visual layout teaches you what each component does</li>
-  <li><strong>Customize everything</strong> - Change any step, add new processing, or reroute the pipeline</li>
-  <li><strong>Reuse and share workflows</strong> - Save successful setups and load workflows from others</li>
-  <li><strong>Efficient iteration</strong> - Only recalculate what changes, not the entire pipeline</li>
-</ul>
-
-<p><strong>Consider the following before starting:</strong></p>
-
-<p>ComfyUI has a learning curve. The node interface feels unfamiliar at first. But once you understand the basics, you gain capabilities that simpler interfaces cannot provide. If you just want quick results, start with a simpler tool. If you want control and understanding, ComfyUI rewards the investment.</p>
-
-<h3 id="when-comfyui-makes-sense">When ComfyUI Makes Sense</h3>
+<h3 id="when-to-choose-comfyui">When to choose ComfyUI</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Use Case</th>
-      <th>Why ComfyUI</th>
-      <th>Alternative</th>
+      <th>Need</th>
+      <th>ComfyUI</th>
+      <th>Alternatives</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Learning how generation works</td>
-      <td>Visual pipeline shows connections</td>
-      <td>Read documentation</td>
+      <td>Newest models on release day</td>
+      <td>Usually first, often with official templates</td>
+      <td>Forge and SwarmUI follow later</td>
     </tr>
     <tr>
-      <td>Complex multi-step workflows</td>
-      <td>Nodes make complexity manageable</td>
-      <td>Script-based automation</td>
+      <td>Multi-stage pipelines (upscale, detailer, editing, video)</td>
+      <td>Built as one graph</td>
+      <td>Scripted diffusers pipelines</td>
     </tr>
     <tr>
-      <td>Batch processing with variations</td>
-      <td>Queue system handles it</td>
-      <td>Manual repeated generation</td>
+      <td>Reproducible, shareable pipelines</td>
+      <td>JSON workflow, embedded in outputs</td>
+      <td>Written settings</td>
     </tr>
     <tr>
-      <td>Sharing reproducible workflows</td>
-      <td>JSON export captures everything</td>
-      <td>Write setup instructions</td>
+      <td>Batch or programmatic generation</td>
+      <td>HTTP/WebSocket API on the same graphs</td>
+      <td>diffusers in Python</td>
     </tr>
     <tr>
-      <td>Experimenting with new techniques</td>
-      <td>Modify workflow visually</td>
-      <td>Edit code</td>
+      <td>Quick single images with minimal setup</td>
+      <td>Workable with templates</td>
+      <td>Forge, InvokeAI, SwarmUI (a simpler UI on a ComfyUI backend)</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="getting-started">Getting Started</h2>
+<h2 id="installation">Installation</h2>
 
-<h3 id="quick-start-with-docker">Quick Start with Docker</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Platforms</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Comfy Desktop</strong></td>
+      <td>Windows, macOS (Apple silicon)</td>
+      <td>Installer with a self-contained Python environment, auto-updates, and the Manager included. The 2026 rebuild can also manage portable, remote, and cloud installs.</td>
+    </tr>
+    <tr>
+      <td><strong>Portable package</strong></td>
+      <td>Windows (NVIDIA, AMD)</td>
+      <td>Zip with embedded Python; extract and run the <code class="language-plaintext highlighter-rouge">.bat</code> launcher</td>
+    </tr>
+    <tr>
+      <td><strong>comfy-cli</strong></td>
+      <td>All</td>
+      <td><code class="language-plaintext highlighter-rouge">pip install comfy-cli</code>, then <code class="language-plaintext highlighter-rouge">comfy install</code> and <code class="language-plaintext highlighter-rouge">comfy launch</code>; also installs nodes and models</td>
+    </tr>
+    <tr>
+      <td><strong>Manual (git)</strong></td>
+      <td>All</td>
+      <td>Full control; the usual choice on Linux servers and in containers</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The fastest way to get ComfyUI running:</p>
+<p>A manual install on Linux with an NVIDIA GPU:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker compose up <span class="nt">-d</span> comfyui-server
-<span class="c"># Open http://localhost:8188 in your browser</span>
-</code></pre></div></div>
-
-<h3 id="manual-installation">Manual Installation</h3>
-
-<p>If you prefer a local installation:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/comfyanonymous/ComfyUI.git
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/Comfy-Org/ComfyUI.git
 <span class="nb">cd </span>ComfyUI
+python3 <span class="nt">-m</span> venv .venv <span class="o">&amp;&amp;</span> <span class="nb">source</span> .venv/bin/activate   <span class="c"># Python 3.12 or 3.13 recommended</span>
+
+<span class="c"># Install PyTorch for your platform first (CUDA 13.0 wheels shown;</span>
+<span class="c"># see pytorch.org for ROCm, Intel XPU, or other CUDA versions)</span>
+pip <span class="nb">install </span>torch torchvision torchaudio <span class="nt">--extra-index-url</span> https://download.pytorch.org/whl/cu130
+
 pip <span class="nb">install</span> <span class="nt">-r</span> requirements.txt
-python main.py
+pip <span class="nb">install</span> <span class="nt">-r</span> manager_requirements.txt   <span class="c"># built-in ComfyUI-Manager</span>
+
+python main.py <span class="nt">--enable-manager</span>           <span class="c"># serves http://127.0.0.1:8188</span>
 </code></pre></div></div>
 
-<p>For GPU acceleration, install PyTorch with CUDA support before running the requirements installation.</p>
+<p>ComfyUI-Manager is built into the core but must be enabled on manual installs with <code class="language-plaintext highlighter-rouge">--enable-manager</code>. The desktop app enables it by default. There is no official Docker image. Community images exist, or a container can be built from the manual steps above. Mount <code class="language-plaintext highlighter-rouge">models/</code>, <code class="language-plaintext highlighter-rouge">custom_nodes/</code>, <code class="language-plaintext highlighter-rouge">input/</code>, and <code class="language-plaintext highlighter-rouge">output/</code> as volumes so they persist across container rebuilds.</p>
 
-<h3 id="where-models-go">Where Models Go</h3>
+<h3 id="model-folders">Model folders</h3>
 
-<p>ComfyUI looks for models in specific folders:</p>
+<p>Models are found by folder. Other locations, such as an existing A1111 or Forge model directory, can be added with <code class="language-plaintext highlighter-rouge">extra_model_paths.yaml</code>.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Model Type</th>
-      <th>Folder</th>
-      <th>Examples</th>
+      <th>Folder under <code class="language-plaintext highlighter-rouge">models/</code></th>
+      <th>Contents</th>
+      <th>Loader node</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Checkpoints</td>
-      <td><code class="language-plaintext highlighter-rouge">models/checkpoints/</code></td>
-      <td>SDXL Base, Juggernaut</td>
+      <td><code class="language-plaintext highlighter-rouge">checkpoints/</code></td>
+      <td>All-in-one checkpoints (model + text encoder + VAE), typical for SD 1.5 and SDXL</td>
+      <td>Load Checkpoint</td>
     </tr>
     <tr>
-      <td>LoRAs</td>
-      <td><code class="language-plaintext highlighter-rouge">models/loras/</code></td>
-      <td>Style LoRAs, character LoRAs</td>
+      <td><code class="language-plaintext highlighter-rouge">diffusion_models/</code></td>
+      <td>Denoiser-only weights, typical for FLUX, Qwen-Image, Z-Image, and video models (legacy name <code class="language-plaintext highlighter-rouge">unet/</code>)</td>
+      <td>Load Diffusion Model</td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">text_encoders/</code></td>
+      <td>CLIP, T5, and LLM text encoders such as Qwen2.5-VL, Qwen3, and Mistral (legacy name <code class="language-plaintext highlighter-rouge">clip/</code>)</td>
+      <td>Load CLIP, DualCLIPLoader</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vae/</code></td>
       <td>VAEs</td>
-      <td><code class="language-plaintext highlighter-rouge">models/vae/</code></td>
-      <td>sdxl_vae, anime VAE</td>
+      <td>Load VAE</td>
     </tr>
     <tr>
-      <td>ControlNets</td>
-      <td><code class="language-plaintext highlighter-rouge">models/controlnet/</code></td>
-      <td>OpenPose, Canny</td>
+      <td><code class="language-plaintext highlighter-rouge">loras/</code></td>
+      <td>LoRA and LyCORIS adapters</td>
+      <td>LoraLoader, LoraLoaderModelOnly</td>
     </tr>
     <tr>
-      <td>Embeddings</td>
-      <td><code class="language-plaintext highlighter-rouge">models/embeddings/</code></td>
-      <td>EasyNegative</td>
+      <td><code class="language-plaintext highlighter-rouge">controlnet/</code></td>
+      <td>ControlNet and T2I-Adapter models</td>
+      <td>Load ControlNet Model</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">upscale_models/</code></td>
+      <td>ESRGAN-family and other pixel upscalers</td>
+      <td>Load Upscale Model</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">clip_vision/</code></td>
+      <td>Image encoders for IP-Adapter, Redux, and similar</td>
+      <td>Load CLIP Vision</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">embeddings/</code></td>
+      <td>Textual-inversion embeddings, referenced as <code class="language-plaintext highlighter-rouge">embedding:name</code> in prompts</td>
+      <td>(inline in prompt)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vae_approx/</code></td>
+      <td>TAESD decoders for high-quality live previews</td>
+      <td>(used by <code class="language-plaintext highlighter-rouge">--preview-method taesd</code>)</td>
     </tr>
   </tbody>
 </table>
 
-<p>Generated images save to <code class="language-plaintext highlighter-rouge">output/</code> by default.</p>
+<p>Newer models are distributed as <strong>split files</strong>, with the denoiser, text encoder, and VAE downloaded separately. This lets large text encoders be shared between models and quantized independently. Official ComfyUI templates list the exact file for each folder.</p>
 
-<h2 id="understanding-the-interface">Understanding the Interface</h2>
+<h2 id="the-graph-editor">The Graph Editor</h2>
 
-<h3 id="how-nodes-work">How Nodes Work</h3>
+<h3 id="nodes-sockets-and-types">Nodes, sockets, and types</h3>
 
-<p>Everything in ComfyUI is a node. Nodes are boxes that do one specific thing. They have:</p>
-
-<ul>
-  <li><strong>Inputs</strong> (left side) - Data coming in</li>
-  <li><strong>Outputs</strong> (right side) - Data going out</li>
-  <li><strong>Settings</strong> (inside the box) - Parameters you can adjust</li>
-</ul>
-
-<p>You build workflows by connecting outputs to inputs. Data flows left to right through your connections.</p>
-
-<h3 id="the-essential-node-types">The Essential Node Types</h3>
+<p>Each node performs one operation. Inputs are on the left, outputs on the right, and <strong>widgets</strong> (text boxes, sliders, dropdowns) inside the node hold its parameters. Links are typed, and only matching types connect:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Category</th>
-      <th>What They Do</th>
-      <th>Examples</th>
+      <th>Type</th>
+      <th>Carries</th>
+      <th>Produced by (examples)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MODEL</code></td>
+      <td>The denoiser (U-Net or DiT), with any patches such as LoRAs</td>
+      <td>Load Checkpoint, Load Diffusion Model</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CLIP</code></td>
+      <td>Text encoder(s)</td>
+      <td>Load Checkpoint, Load CLIP</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">VAE</code></td>
+      <td>Latent encoder and decoder</td>
+      <td>Load Checkpoint, Load VAE</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CONDITIONING</code></td>
+      <td>Encoded prompt plus extras (areas, ControlNet hints, guidance)</td>
+      <td>CLIP Text Encode, Apply ControlNet</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">LATENT</code></td>
+      <td>Latent tensor plus batch and noise-mask metadata</td>
+      <td>Empty Latent Image, VAE Encode, KSampler</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">IMAGE</code></td>
+      <td>Pixel batch <code class="language-plaintext highlighter-rouge">[B, H, W, C]</code>, float 0–1</td>
+      <td>VAE Decode, Load Image</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MASK</code></td>
+      <td>Single-channel mask <code class="language-plaintext highlighter-rouge">[B, H, W]</code></td>
+      <td>Load Image (alpha channel), mask editors, segmentation nodes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In the current frontend, a widget can receive a link directly, for example a seed from a shared primitive node, without first being converted to an input.</p>
+
+<h3 id="organizing-large-graphs">Organizing large graphs</h3>
+
+<ul>
+  <li><strong>Groups</strong> draw a titled box around related nodes, which can then be moved, bypassed, or muted together.</li>
+  <li><strong>Subgraphs</strong> collapse a selection into a reusable node with its own inputs and outputs. The inner graph can be edited, and selected inner parameters can be exposed on the outer node. Subgraphs replaced the older “group nodes”.</li>
+  <li><strong>Bypass</strong> (<code class="language-plaintext highlighter-rouge">Ctrl+B</code>) passes inputs straight through a node. <strong>Mute</strong> (<code class="language-plaintext highlighter-rouge">Ctrl+M</code>) disables it. Both are useful for A/B tests inside one graph.</li>
+  <li><strong>Templates</strong> (Workflow → Browse Templates) provide official, working starter graphs for each supported model, including download links for the required files.</li>
+  <li><strong>Notes and titles.</strong> Rename nodes to describe their role (for example “Refine pass, denoise 0.35”) and add Note nodes listing required models and custom nodes.</li>
+</ul>
+
+<h3 id="keyboard-shortcuts">Keyboard shortcuts</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Action</th>
+      <th>Shortcut</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Run (queue the workflow)</td>
+      <td><code class="language-plaintext highlighter-rouge">Ctrl+Enter</code></td>
+    </tr>
+    <tr>
+      <td>Queue at the front</td>
+      <td><code class="language-plaintext highlighter-rouge">Ctrl+Shift+Enter</code></td>
+    </tr>
+    <tr>
+      <td>Cancel the current run</td>
+      <td><code class="language-plaintext highlighter-rouge">Ctrl+Alt+Enter</code></td>
+    </tr>
+    <tr>
+      <td>Save / open workflow</td>
+      <td><code class="language-plaintext highlighter-rouge">Ctrl+S</code> / <code class="language-plaintext highlighter-rouge">Ctrl+O</code></td>
+    </tr>
+    <tr>
+      <td>Undo / redo</td>
+      <td><code class="language-plaintext highlighter-rouge">Ctrl+Z</code> / <code class="language-plaintext highlighter-rouge">Ctrl+Y</code></td>
+    </tr>
+    <tr>
+      <td>Bypass / mute selected</td>
+      <td><code class="language-plaintext highlighter-rouge">Ctrl+B</code> / <code class="language-plaintext highlighter-rouge">Ctrl+M</code></td>
+    </tr>
+    <tr>
+      <td>Search and add a node</td>
+      <td>Double-click the canvas</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="core-nodes">Core Nodes</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Node</th>
+      <th>Role</th>
+      <th>Key parameters</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Load Checkpoint</strong></td>
+      <td>Loads an all-in-one checkpoint and outputs <code class="language-plaintext highlighter-rouge">MODEL</code>, <code class="language-plaintext highlighter-rouge">CLIP</code>, <code class="language-plaintext highlighter-rouge">VAE</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ckpt_name</code></td>
+    </tr>
+    <tr>
+      <td><strong>Load Diffusion Model</strong></td>
+      <td>Loads a denoiser-only file</td>
+      <td><code class="language-plaintext highlighter-rouge">unet_name</code>, <code class="language-plaintext highlighter-rouge">weight_dtype</code> (fp8 options)</td>
+    </tr>
+    <tr>
+      <td><strong>Load CLIP</strong> / <strong>DualCLIPLoader</strong></td>
+      <td>Loads one or two text encoders</td>
+      <td><code class="language-plaintext highlighter-rouge">type</code> must match the model family (<code class="language-plaintext highlighter-rouge">flux</code>, <code class="language-plaintext highlighter-rouge">sd3</code>, <code class="language-plaintext highlighter-rouge">qwen_image</code>, and so on)</td>
+    </tr>
+    <tr>
+      <td><strong>LoraLoader</strong> / <strong>LoraLoaderModelOnly</strong></td>
+      <td>Patches <code class="language-plaintext highlighter-rouge">MODEL</code> (and optionally <code class="language-plaintext highlighter-rouge">CLIP</code>) with a LoRA</td>
+      <td><code class="language-plaintext highlighter-rouge">strength_model</code>, <code class="language-plaintext highlighter-rouge">strength_clip</code></td>
+    </tr>
+    <tr>
+      <td><strong>CLIP Text Encode</strong></td>
+      <td>Encodes a prompt to <code class="language-plaintext highlighter-rouge">CONDITIONING</code></td>
+      <td>text; supports <code class="language-plaintext highlighter-rouge">(word:1.2)</code> weighting</td>
+    </tr>
+    <tr>
+      <td><strong>Empty Latent Image</strong> (and family variants such as <em>EmptySD3LatentImage</em>)</td>
+      <td>Creates a noise-ready latent of the right channel count</td>
+      <td><code class="language-plaintext highlighter-rouge">width</code>, <code class="language-plaintext highlighter-rouge">height</code>, <code class="language-plaintext highlighter-rouge">batch_size</code></td>
+    </tr>
+    <tr>
+      <td><strong>KSampler</strong></td>
+      <td>Runs the denoising loop</td>
+      <td>see below</td>
+    </tr>
+    <tr>
+      <td><strong>KSampler (Advanced)</strong> / <strong>SamplerCustomAdvanced</strong></td>
+      <td>Step ranges, noise control, and pluggable sampler, sigma, and guider nodes</td>
+      <td><code class="language-plaintext highlighter-rouge">start_at_step</code>, <code class="language-plaintext highlighter-rouge">end_at_step</code>, and more</td>
+    </tr>
+    <tr>
+      <td><strong>VAE Decode</strong> / <strong>VAE Decode (Tiled)</strong></td>
+      <td>Latent to image. The tiled version bounds memory for large images</td>
+      <td><code class="language-plaintext highlighter-rouge">tile_size</code></td>
+    </tr>
+    <tr>
+      <td><strong>VAE Encode</strong></td>
+      <td>Image to latent, for img2img</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><strong>Save Image</strong> / <strong>Preview Image</strong></td>
+      <td>Writes to <code class="language-plaintext highlighter-rouge">output/</code> (with embedded workflow) or shows a temporary preview</td>
+      <td><code class="language-plaintext highlighter-rouge">filename_prefix</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="ksampler-parameters">KSampler parameters</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Meaning</th>
+      <th>Typical values</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">seed</code></td>
+      <td>Initial noise seed</td>
+      <td>Any integer; <code class="language-plaintext highlighter-rouge">control_after_generate</code> sets fixed, increment, or randomize</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">steps</code></td>
+      <td>Number of denoising steps</td>
+      <td>20–35 base models; 4–9 distilled</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cfg</code></td>
+      <td>Classifier-free guidance scale</td>
+      <td>5–7 SD/SDXL; 1.0 for guidance-distilled and turbo models</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">sampler_name</code></td>
+      <td>Solver</td>
+      <td><code class="language-plaintext highlighter-rouge">euler</code>, <code class="language-plaintext highlighter-rouge">dpmpp_2m</code>, <code class="language-plaintext highlighter-rouge">dpmpp_2m_sde</code>, <code class="language-plaintext highlighter-rouge">res_multistep</code>, <code class="language-plaintext highlighter-rouge">uni_pc</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">scheduler</code></td>
+      <td>Noise-level spacing</td>
+      <td><code class="language-plaintext highlighter-rouge">karras</code> (SD/SDXL), <code class="language-plaintext highlighter-rouge">simple</code> or <code class="language-plaintext highlighter-rouge">beta</code> (flow models)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">denoise</code></td>
+      <td>Fraction of the schedule to run</td>
+      <td>1.0 for text-to-image; 0.3–0.8 for img2img</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="standard-workflows">Standard Workflows</h2>
+
+<h3 id="text-to-image">Text-to-image</h3>
+
+<p>The minimal graph, which every other workflow extends:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    CKPT["Load Checkpoint"] --&gt;|MODEL| KS["KSampler"]
+    CKPT --&gt;|CLIP| PT["CLIP Text Encode&lt;br/&gt;(positive)"]
+    CKPT --&gt;|CLIP| NT["CLIP Text Encode&lt;br/&gt;(negative)"]
+    CKPT --&gt;|VAE| VD["VAE Decode"]
+    PT --&gt;|CONDITIONING| KS
+    NT --&gt;|CONDITIONING| KS
+    EL["Empty Latent Image"] --&gt;|LATENT| KS
+    KS --&gt;|LATENT| VD
+    VD --&gt;|IMAGE| SI["Save Image"]
+</code></pre>
+
+<p>The checkpoint’s three outputs fan out to three consumers: the sampler (<code class="language-plaintext highlighter-rouge">MODEL</code>), both prompt encoders (<code class="language-plaintext highlighter-rouge">CLIP</code>), and the decoder (<code class="language-plaintext highlighter-rouge">VAE</code>).</p>
+
+<ul>
+  <li><strong>Adding LoRAs.</strong> Insert <code class="language-plaintext highlighter-rouge">LoraLoader</code> between the checkpoint and its consumers, taking in <code class="language-plaintext highlighter-rouge">MODEL</code> and <code class="language-plaintext highlighter-rouge">CLIP</code> and passing the patched versions on. Chain loaders to stack LoRAs. When stacking, reduce each strength (for example 0.8, then 0.6, then 0.4) and watch for artifacts. For models whose LoRAs do not touch the text encoder (FLUX, Qwen-Image), use <code class="language-plaintext highlighter-rouge">LoraLoaderModelOnly</code>.</li>
+  <li><strong>Image-to-image.</strong> Replace <code class="language-plaintext highlighter-rouge">Empty Latent Image</code> with <code class="language-plaintext highlighter-rouge">Load Image</code> → <code class="language-plaintext highlighter-rouge">VAE Encode</code> and set KSampler <code class="language-plaintext highlighter-rouge">denoise</code> between 0.3 (close to the source) and 0.8 (loosely inspired by it).</li>
+</ul>
+
+<h3 id="split-file-models-flux-and-newer">Split-file models (FLUX and newer)</h3>
+
+<p>Models distributed as separate files use separate loaders. FLUX.1 [dev] is guidance-distilled, so guidance is supplied by a <code class="language-plaintext highlighter-rouge">FluxGuidance</code> node and KSampler <code class="language-plaintext highlighter-rouge">cfg</code> stays at 1.0:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    UL["Load Diffusion Model&lt;br/&gt;flux1-dev (fp8)"] --&gt;|MODEL| KS["KSampler&lt;br/&gt;cfg 1.0, euler, simple"]
+    DC["DualCLIPLoader&lt;br/&gt;clip_l + t5xxl, type flux"] --&gt;|CLIP| TE["CLIP Text Encode"]
+    TE --&gt;|CONDITIONING| FG["FluxGuidance&lt;br/&gt;3.5"]
+    FG --&gt;|CONDITIONING| KS
+    EL["Empty Latent Image"] --&gt;|LATENT| KS
+    KS --&gt;|LATENT| VD["VAE Decode"]
+    VL["Load VAE&lt;br/&gt;ae.safetensors"] --&gt;|VAE| VD
+    VD --&gt;|IMAGE| SI["Save Image"]
+</code></pre>
+
+<p>Starting settings by family (use the official template for each, and prefer the model card where they differ):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>SDXL</th>
+      <th>FLUX.1 [dev]</th>
+      <th>Qwen-Image</th>
+      <th>Z-Image-Turbo</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Loaders</td>
-      <td>Load models and images</td>
-      <td>CheckpointLoader, LoraLoader</td>
+      <td>Load Checkpoint</td>
+      <td>Diffusion Model + DualCLIP (clip_l, t5xxl) + VAE</td>
+      <td>Diffusion Model + CLIP (Qwen2.5-VL) + VAE</td>
+      <td>Diffusion Model + CLIP (Qwen3-4B) + VAE</td>
     </tr>
     <tr>
-      <td>Conditioning</td>
-      <td>Process text prompts</td>
-      <td>CLIPTextEncode</td>
+      <td><code class="language-plaintext highlighter-rouge">cfg</code></td>
+      <td>5–7</td>
+      <td>1.0 (guidance ~3.5 via FluxGuidance)</td>
+      <td>~2.5–4 (true CFG)</td>
+      <td>1.0</td>
     </tr>
     <tr>
-      <td>Sampling</td>
-      <td>Run the generation</td>
-      <td>KSampler</td>
+      <td>Steps</td>
+      <td>25–35</td>
+      <td>20–30</td>
+      <td>20–50 (4–8 with Lightning LoRA)</td>
+      <td>~8–9</td>
     </tr>
     <tr>
-      <td>Latent</td>
-      <td>Work with compressed data</td>
-      <td>EmptyLatentImage, LatentUpscale</td>
+      <td>Sampler / scheduler</td>
+      <td><code class="language-plaintext highlighter-rouge">dpmpp_2m</code> / <code class="language-plaintext highlighter-rouge">karras</code></td>
+      <td><code class="language-plaintext highlighter-rouge">euler</code> / <code class="language-plaintext highlighter-rouge">simple</code></td>
+      <td><code class="language-plaintext highlighter-rouge">euler</code> / <code class="language-plaintext highlighter-rouge">simple</code></td>
+      <td>per template</td>
     </tr>
     <tr>
-      <td>Image</td>
-      <td>Handle final images</td>
-      <td>VAEDecode, SaveImage</td>
+      <td>Negative prompt</td>
+      <td>Yes</td>
+      <td>Ignored at cfg 1</td>
+      <td>Yes</td>
+      <td>Ignored at cfg 1</td>
+    </tr>
+    <tr>
+      <td>Resolution</td>
+      <td>~1 MP</td>
+      <td>~1 MP, flexible</td>
+      <td>~1.3 MP, flexible</td>
+      <td>~1 MP, flexible</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="how-execution-works">How Execution Works</h3>
+<p>Flow-matching models also expose a <strong>shift</strong> through the <code class="language-plaintext highlighter-rouge">ModelSampling*</code> nodes (<code class="language-plaintext highlighter-rouge">ModelSamplingFlux</code>, <code class="language-plaintext highlighter-rouge">ModelSamplingSD3</code>, <code class="language-plaintext highlighter-rouge">ModelSamplingAuraFlow</code>). Higher shift spends more steps at high noise, which helps coherence at large resolutions.</p>
 
-<p>When you click “Queue Prompt”:</p>
-<ol>
-  <li>ComfyUI traces backward from output nodes</li>
-  <li>It only runs nodes whose inputs changed</li>
-  <li>Cached results are reused when possible</li>
-</ol>
-
-<p>This means if you only change your prompt, the model does not reload. If you only change LoRA strength, previously computed steps are reused. This makes iteration fast.</p>
-
-<h2 id="essential-nodes-reference">Essential Nodes Reference</h2>
-
-<p>These are the nodes you will use in almost every workflow.</p>
-
-<h3 id="loading-models">Loading Models</h3>
-
-<p><strong>CheckpointLoaderSimple</strong> - Loads your base model and outputs three things:</p>
-<ul>
-  <li>MODEL (the core generation model)</li>
-  <li>CLIP (the text encoder)</li>
-  <li>VAE (the image encoder/decoder)</li>
-</ul>
-
-<p><strong>LoraLoader</strong> - Adds a LoRA to your model. Key settings:</p>
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">strength_model</code>: How much the LoRA affects generation (start at 0.7)</li>
-  <li><code class="language-plaintext highlighter-rouge">strength_clip</code>: How much it affects text understanding (usually match model strength)</li>
-</ul>
-
-<h3 id="processing-text">Processing Text</h3>
-
-<p><strong>CLIPTextEncode</strong> - Converts your text prompt into numbers the model understands. Connect your CLIP output here and type your prompt in the text field.</p>
-
-<h3 id="generating-images">Generating Images</h3>
-
-<p><strong>KSampler</strong> - The heart of generation. Key settings:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Setting</th>
-      <th>What It Controls</th>
-      <th>Typical Values</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>steps</td>
-      <td>Number of refinement passes</td>
-      <td>20-35</td>
-    </tr>
-    <tr>
-      <td>cfg</td>
-      <td>Prompt adherence strength</td>
-      <td>5-9</td>
-    </tr>
-    <tr>
-      <td>sampler_name</td>
-      <td>Denoising algorithm</td>
-      <td>euler, dpmpp_2m</td>
-    </tr>
-    <tr>
-      <td>scheduler</td>
-      <td>Noise reduction curve</td>
-      <td>karras, normal</td>
-    </tr>
-    <tr>
-      <td>seed</td>
-      <td>Randomness control</td>
-      <td>-1 for random</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="output">Output</h3>
-
-<p><strong>VAEDecode</strong> - Converts the latent result to a viewable image.</p>
-
-<p><strong>SaveImage</strong> - Saves the image to disk. Set <code class="language-plaintext highlighter-rouge">filename_prefix</code> to organize your outputs.</p>
-
-<h2 id="building-your-first-workflow">Building Your First Workflow</h2>
-
-<h3 id="the-minimal-text-to-image-workflow">The Minimal Text-to-Image Workflow</h3>
-
-<p>This is the simplest working workflow. Every other workflow builds from this foundation:</p>
+<h3 id="two-pass-upscaling">Two-pass upscaling</h3>
 
 <ol>
-  <li><strong>CheckpointLoaderSimple</strong> - Outputs: MODEL, CLIP, VAE</li>
-  <li><strong>EmptyLatentImage</strong> - Creates blank canvas to generate on</li>
-  <li><strong>CLIPTextEncode (positive)</strong> - Your main prompt</li>
-  <li><strong>CLIPTextEncode (negative)</strong> - What to avoid</li>
-  <li><strong>KSampler</strong> - Does the actual generation</li>
-  <li><strong>VAEDecode</strong> - Converts result to image</li>
-  <li><strong>SaveImage</strong> - Saves to disk</li>
+  <li>Generate at the model’s native resolution.</li>
+  <li>Upscale: <code class="language-plaintext highlighter-rouge">Load Upscale Model</code> → <code class="language-plaintext highlighter-rouge">Upscale Image (using Model)</code> for a 2–4× pixel upscale, then optionally <code class="language-plaintext highlighter-rouge">Upscale Image By</code> to reach the exact target size.</li>
+  <li>Refine: <code class="language-plaintext highlighter-rouge">VAE Encode</code> → KSampler at <code class="language-plaintext highlighter-rouge">denoise</code> 0.3–0.45 → <code class="language-plaintext highlighter-rouge">VAE Decode (Tiled)</code>.</li>
 </ol>
 
-<p>Connect them: Checkpoint outputs go to relevant inputs. Text encoders feed positive/negative conditioning to KSampler. EmptyLatentImage feeds latent_image. KSampler output goes to VAEDecode, which feeds SaveImage.</p>
+<p>The refine pass adds real detail rather than only enlarging pixels. Beyond about 2 MP, tiled upscaling nodes (Ultimate SD Upscale) keep memory bounded. Detailer and multi-stage patterns are covered in <a href="advanced-techniques.html#multi-stage-workflows">Advanced Techniques</a>.</p>
 
-<p>As a node graph, the data flows like this:</p>
+<h2 id="custom-nodes">Custom Nodes</h2>
 
-<pre><code class="language-mermaid">flowchart LR
-    CKPT["CheckpointLoaderSimple"] --&gt;|MODEL| KS["KSampler"]
-    CKPT --&gt;|CLIP| PT["CLIPTextEncode&lt;br/&gt;(positive)"]
-    CKPT --&gt;|CLIP| NT["CLIPTextEncode&lt;br/&gt;(negative)"]
-    CKPT --&gt;|VAE| VD["VAEDecode"]
-    PT --&gt;|CONDITIONING| KS
-    NT --&gt;|CONDITIONING| KS
-    EL["EmptyLatentImage"] --&gt;|LATENT| KS
-    KS --&gt;|LATENT| VD
-    VD --&gt;|IMAGE| SI["SaveImage"]
-</code></pre>
-
-<p>Notice how the three checkpoint outputs (MODEL, CLIP, VAE) fan out to different nodes — this is the fundamental skeleton every ComfyUI workflow extends.</p>
-
-<h3 id="adding-a-lora">Adding a LoRA</h3>
-
-<p>Insert a LoraLoader between CheckpointLoaderSimple and KSampler:</p>
-
-<ol>
-  <li>Connect CheckpointLoader MODEL and CLIP to LoraLoader</li>
-  <li>Connect LoraLoader outputs to where Checkpoint outputs originally went</li>
-</ol>
-
-<p>You can chain multiple LoraLoaders for stacking.</p>
-
-<h3 id="image-to-image-modification">Image-to-Image Modification</h3>
-
-<p>Start from an existing image instead of empty latent:</p>
-
-<ol>
-  <li>Add LoadImage node and load your source image</li>
-  <li>Add VAEEncode node</li>
-  <li>Connect LoadImage to VAEEncode, VAEEncode to KSampler’s latent_image</li>
-  <li>Set KSampler’s denoise to 0.5-0.8 (lower = closer to original)</li>
-</ol>
-
-<h2 id="common-workflow-patterns">Common Workflow Patterns</h2>
-
-<h3 id="using-flux-models">Using FLUX Models</h3>
-
-<p>FLUX requires different settings than SD/SDXL:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Setting</th>
-      <th>FLUX Value</th>
-      <th>SDXL Value</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>cfg</td>
-      <td>1.0 (always)</td>
-      <td>5-9</td>
-    </tr>
-    <tr>
-      <td>guidance</td>
-      <td>3.5 (via FluxGuidance node)</td>
-      <td>N/A</td>
-    </tr>
-    <tr>
-      <td>sampler</td>
-      <td>euler</td>
-      <td>dpmpp_2m</td>
-    </tr>
-    <tr>
-      <td>scheduler</td>
-      <td>simple</td>
-      <td>karras</td>
-    </tr>
-    <tr>
-      <td>steps</td>
-      <td>20-25</td>
-      <td>25-35</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>FLUX also needs FluxGuidance node for guidance control instead of using cfg directly.</p>
-
-<h3 id="stacking-multiple-loras">Stacking Multiple LoRAs</h3>
-
-<p>Chain LoraLoader nodes, reducing strength as you add more:</p>
-
-<ul>
-  <li>First LoRA: 0.7-0.8 strength</li>
-  <li>Second LoRA: 0.5-0.6 strength</li>
-  <li>Third LoRA: 0.3-0.4 strength</li>
-</ul>
-
-<p>Total combined effect should stay reasonable. Too much LoRA influence causes artifacts.</p>
-
-<h3 id="upscaling-generated-images">Upscaling Generated Images</h3>
-
-<p>Two-step process for high-quality upscaling:</p>
-
-<ol>
-  <li><strong>Generate at native resolution</strong> (1024x1024 for SDXL)</li>
-  <li><strong>Upscale and refine:</strong>
-    <ul>
-      <li>Load result with LoadImage or keep in workflow</li>
-      <li>Use UpscaleModelLoader + ImageUpscaleWithModel for 2x-4x</li>
-      <li>VAEEncode the upscaled image</li>
-      <li>KSampler with low denoise (0.3-0.5) to add detail</li>
-      <li>VAEDecode to final image</li>
-    </ul>
-  </li>
-</ol>
-
-<p>This adds genuine detail rather than just enlarging pixels.</p>
-
-<h2 id="extending-comfyui-with-custom-nodes">Extending ComfyUI with Custom Nodes</h2>
-
-<p>The base ComfyUI installation handles core generation. Custom nodes add specialized capabilities.</p>
-
-<h3 id="essential-custom-node-packs">Essential Custom Node Packs</h3>
+<p>Custom nodes are Python packages in <code class="language-plaintext highlighter-rouge">custom_nodes/</code> that register new node types. They are how ComfyUI supports detectors, preprocessors, quantized loaders, video I/O, and new research methods before (or instead of) core support.</p>
 
 <table>
   <thead>
     <tr>
       <th>Pack</th>
-      <th>What It Adds</th>
-      <th>When You Need It</th>
+      <th>Adds</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>ComfyUI Manager</td>
-      <td>Node installation, model downloads</td>
-      <td>Always - install this first</td>
+      <td><strong>ComfyUI-Manager</strong> (built in)</td>
+      <td>Install, update, disable, and version custom nodes; install the nodes a loaded workflow is missing</td>
     </tr>
     <tr>
-      <td>ControlNet Aux</td>
-      <td>Preprocessors for poses, edges, depth</td>
-      <td>Using ControlNet</td>
+      <td><strong>comfyui_controlnet_aux</strong></td>
+      <td>ControlNet preprocessors: pose, depth, line art, edges, segmentation</td>
     </tr>
     <tr>
-      <td>Impact Pack</td>
-      <td>Face detection, regional processing</td>
-      <td>Face work, inpainting</td>
+      <td><strong>ComfyUI-Impact-Pack</strong> (+ Impact Subpack)</td>
+      <td>Detectors and SEGS, FaceDetailer, regional sampling</td>
     </tr>
     <tr>
-      <td>IP-Adapter Plus</td>
-      <td>Image-as-prompt functionality</td>
-      <td>Style transfer, consistency</td>
+      <td><strong>ComfyUI-GGUF</strong></td>
+      <td>Loaders for GGUF-quantized diffusion models and text encoders</td>
     </tr>
     <tr>
-      <td>Efficiency Nodes</td>
-      <td>Batch processing, optimization</td>
-      <td>Large-scale generation</td>
+      <td><strong>ComfyUI-nunchaku</strong></td>
+      <td>SVDQuant 4-bit inference for FLUX, Qwen-Image, and other supported models</td>
+    </tr>
+    <tr>
+      <td><strong>rgthree-comfy</strong></td>
+      <td>Quality-of-life nodes: power LoRA loader, seed control, context switches, group muting</td>
+    </tr>
+    <tr>
+      <td><strong>ComfyUI-KJNodes</strong></td>
+      <td>General utility nodes, masks, and batch tools, widely used in video workflows</td>
+    </tr>
+    <tr>
+      <td><strong>ComfyUI-VideoHelperSuite</strong></td>
+      <td>Loading and saving video and image sequences</td>
+    </tr>
+    <tr>
+      <td><strong>ComfyUI_IPAdapter_plus</strong></td>
+      <td>IP-Adapter for SD 1.5 and SDXL (in maintenance mode; newer models use native reference inputs)</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="installing-custom-nodes">Installing Custom Nodes</h3>
+<p>Install from the Manager (search, install, restart), or manually:</p>
 
-<p><strong>With ComfyUI Manager (recommended):</strong></p>
-<ol>
-  <li>Click “Manager” button in UI</li>
-  <li>Select “Install Custom Nodes”</li>
-  <li>Search for the pack you need</li>
-  <li>Install and restart ComfyUI</li>
-</ol>
-
-<p><strong>Manually:</strong></p>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>ComfyUI/custom_nodes
-git clone <span class="o">[</span>repository-url]
-<span class="c"># Restart ComfyUI</span>
+git clone https://github.com/&lt;author&gt;/&lt;repo&gt;.git
+pip <span class="nb">install</span> <span class="nt">-r</span> &lt;repo&gt;/requirements.txt   <span class="c"># inside ComfyUI's Python environment</span>
 </code></pre></div></div>
+
+<p><strong>Security.</strong> A custom node is arbitrary Python code that runs with your user’s privileges. Malicious nodes have been published before, including one in 2024 that stole credentials. Prefer packs listed in the Comfy Registry or Manager with an active maintainer and a visible repository, pin versions for production, and do not expose a server with custom nodes to untrusted networks. The same caution applies to model files: prefer <code class="language-plaintext highlighter-rouge">.safetensors</code> over pickle-based <code class="language-plaintext highlighter-rouge">.ckpt</code> and <code class="language-plaintext highlighter-rouge">.pt</code> files.</p>
+
+<p><strong>API nodes.</strong> Core ComfyUI also includes optional <em>API nodes</em> that call paid hosted models (closed image, video, and 3D services) from inside a graph. They require a Comfy account and credits. <code class="language-plaintext highlighter-rouge">--disable-api-nodes</code> removes them for fully offline use.</p>
 
 <h2 id="automation-with-the-api">Automation with the API</h2>
 
-<p>ComfyUI exposes an API for programmatic control, useful for batch processing or integration with other tools.</p>
-
-<h3 id="basic-api-usage">Basic API Usage</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">requests</span>
-
-<span class="c1"># Submit a workflow
-</span><span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">http://localhost:8188/prompt</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
-    <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">workflow_json</span>
-<span class="p">})</span>
-</code></pre></div></div>
-
-<h3 id="practical-automation-example">Practical Automation Example</h3>
-
-<p>Export your workflow from ComfyUI (Save as API format), then submit it programmatically with modified parameters:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
-
-<span class="c1"># Load your exported workflow
-</span><span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">my_workflow_api.json</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-    <span class="n">workflow</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-
-<span class="c1"># Modify prompt text in the workflow
-</span><span class="n">workflow</span><span class="p">[</span><span class="sh">"</span><span class="s">6</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">New prompt here</span><span class="sh">"</span>
-
-<span class="c1"># Submit
-</span><span class="n">requests</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">http://localhost:8188/prompt</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">workflow</span><span class="p">})</span>
-</code></pre></div></div>
-
-<p>This enables batch generation, integration with other systems, or scheduled generation tasks.</p>
-
-<h2 id="optimization-and-troubleshooting">Optimization and Troubleshooting</h2>
-
-<h3 id="making-workflows-faster">Making Workflows Faster</h3>
+<p>The server’s HTTP and WebSocket API accepts the same graphs as the UI, in <strong>API format</strong>: a flat JSON object keyed by node ID, with each node’s <code class="language-plaintext highlighter-rouge">class_type</code> and <code class="language-plaintext highlighter-rouge">inputs</code>. Export it with <em>Workflow → Export (API)</em>. The UI’s own save format includes layout information and is not accepted by <code class="language-plaintext highlighter-rouge">/prompt</code>.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Strategy</th>
-      <th>How To Do It</th>
-      <th>Benefit</th>
+      <th>Endpoint</th>
+      <th>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Use PreviewImage during iteration</td>
-      <td>Only SaveImage for finals</td>
-      <td>Faster feedback loop</td>
+      <td><code class="language-plaintext highlighter-rouge">POST /prompt</code></td>
+      <td>Queue a graph: <code class="language-plaintext highlighter-rouge">{"prompt": &lt;api graph&gt;, "client_id": "&lt;uuid&gt;"}</code>, returns <code class="language-plaintext highlighter-rouge">prompt_id</code></td>
     </tr>
     <tr>
-      <td>Cache text encoding</td>
-      <td>Keep CLIPTextEncode results</td>
-      <td>Skip re-encoding</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /ws?clientId=&lt;uuid&gt;</code></td>
+      <td>WebSocket stream of <code class="language-plaintext highlighter-rouge">status</code>, <code class="language-plaintext highlighter-rouge">execution_start</code>, <code class="language-plaintext highlighter-rouge">executing</code>, <code class="language-plaintext highlighter-rouge">progress</code>, and <code class="language-plaintext highlighter-rouge">executed</code> events, plus binary preview frames</td>
     </tr>
     <tr>
-      <td>Reduce steps for previews</td>
-      <td>15-20 steps while iterating</td>
-      <td>2x faster iteration</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /history/{prompt_id}</code></td>
+      <td>Outputs (filenames, subfolders) of a finished run</td>
     </tr>
     <tr>
-      <td>Use fp16/fp8 models</td>
-      <td>Download quantized versions</td>
-      <td>Fits in less VRAM</td>
+      <td><code class="language-plaintext highlighter-rouge">GET /view?filename=&amp;subfolder=&amp;type=</code></td>
+      <td>Download an output, input, or temp file</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">POST /upload/image</code></td>
+      <td>Upload an input image (multipart) for <code class="language-plaintext highlighter-rouge">Load Image</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">GET /queue</code>, <code class="language-plaintext highlighter-rouge">POST /interrupt</code></td>
+      <td>Inspect the queue; cancel the running job</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">GET /object_info</code></td>
+      <td>Schema of every installed node, for validation and code generation</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="handling-low-vram">Handling Low VRAM</h3>
+<p>A complete client that patches a workflow, queues it, waits for completion, and downloads the results:</p>
 
-<p>If you hit memory errors:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">urllib.parse</span>
+<span class="kn">import</span> <span class="n">urllib.request</span>
+<span class="kn">import</span> <span class="n">uuid</span>
 
-<ol>
-  <li><strong>Start ComfyUI with low VRAM mode:</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python main.py <span class="nt">--lowvram</span>
-</code></pre></div>    </div>
-  </li>
-  <li>
-    <p><strong>Use tiled VAE</strong> for large images - enable in VAEDecode settings</p>
-  </li>
-  <li>
-    <p><strong>Load fewer models simultaneously</strong> - use separate workflows instead of one complex one</p>
-  </li>
-  <li><strong>Use quantized checkpoints</strong> - fp8 FLUX uses ~12GB instead of ~24GB</li>
-</ol>
+<span class="kn">import</span> <span class="n">websocket</span>  <span class="c1"># pip install websocket-client
+</span>
+<span class="n">SERVER</span> <span class="o">=</span> <span class="sh">"</span><span class="s">127.0.0.1:8188</span><span class="sh">"</span>
+<span class="n">CLIENT_ID</span> <span class="o">=</span> <span class="nf">str</span><span class="p">(</span><span class="n">uuid</span><span class="p">.</span><span class="nf">uuid4</span><span class="p">())</span>
 
-<h3 id="common-issues-and-solutions">Common Issues and Solutions</h3>
+
+<span class="k">def</span> <span class="nf">find_node</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">title</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Locate a node by its UI title rather than a hard-coded numeric ID.</span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">next</span><span class="p">(</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">graph</span><span class="p">.</span><span class="nf">values</span><span class="p">()</span> <span class="k">if</span> <span class="n">n</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">_meta</span><span class="sh">"</span><span class="p">,</span> <span class="p">{}).</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">title</span><span class="sh">"</span><span class="p">)</span> <span class="o">==</span> <span class="n">title</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">queue</span><span class="p">(</span><span class="n">graph</span><span class="p">):</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">graph</span><span class="p">,</span> <span class="sh">"</span><span class="s">client_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">CLIENT_ID</span><span class="p">}).</span><span class="nf">encode</span><span class="p">()</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nc">Request</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">http://</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/prompt</span><span class="sh">"</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">body</span><span class="p">,</span>
+                                 <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">Content-Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">application/json</span><span class="sh">"</span><span class="p">})</span>
+    <span class="k">with</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">json</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">resp</span><span class="p">)[</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">]</span>
+
+
+<span class="k">def</span> <span class="nf">wait</span><span class="p">(</span><span class="n">ws</span><span class="p">,</span> <span class="n">prompt_id</span><span class="p">):</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">ws</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">):</span>          <span class="c1"># binary preview frame
+</span>            <span class="k">continue</span>
+        <span class="n">event</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">event</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">if</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">execution_error</span><span class="sh">"</span> <span class="ow">and</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">)</span> <span class="o">==</span> <span class="n">prompt_id</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">RuntimeError</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">exception_message</span><span class="sh">"</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">executing</span><span class="sh">"</span> <span class="ow">and</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">node</span><span class="sh">"</span><span class="p">)</span> <span class="ow">is</span> <span class="bp">None</span> \
+                <span class="ow">and</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">)</span> <span class="o">==</span> <span class="n">prompt_id</span><span class="p">:</span>
+            <span class="k">return</span>                           <span class="c1"># this prompt has finished
+</span>
+
+<span class="k">def</span> <span class="nf">outputs</span><span class="p">(</span><span class="n">prompt_id</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">http://</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/history/</span><span class="si">{</span><span class="n">prompt_id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>
+        <span class="n">history</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">resp</span><span class="p">)[</span><span class="n">prompt_id</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">node_output</span> <span class="ow">in</span> <span class="n">history</span><span class="p">[</span><span class="sh">"</span><span class="s">outputs</span><span class="sh">"</span><span class="p">].</span><span class="nf">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">node_output</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">images</span><span class="sh">"</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">parse</span><span class="p">.</span><span class="nf">urlencode</span><span class="p">(</span>
+                <span class="p">{</span><span class="sh">"</span><span class="s">filename</span><span class="sh">"</span><span class="p">:</span> <span class="n">img</span><span class="p">[</span><span class="sh">"</span><span class="s">filename</span><span class="sh">"</span><span class="p">],</span> <span class="sh">"</span><span class="s">subfolder</span><span class="sh">"</span><span class="p">:</span> <span class="n">img</span><span class="p">[</span><span class="sh">"</span><span class="s">subfolder</span><span class="sh">"</span><span class="p">],</span> <span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="n">img</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]})</span>
+            <span class="k">with</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">http://</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/view?</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>
+                <span class="k">yield</span> <span class="n">img</span><span class="p">[</span><span class="sh">"</span><span class="s">filename</span><span class="sh">"</span><span class="p">],</span> <span class="n">resp</span><span class="p">.</span><span class="nf">read</span><span class="p">()</span>
+
+
+<span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">workflow_api.json</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+<span class="n">ws</span> <span class="o">=</span> <span class="n">websocket</span><span class="p">.</span><span class="nc">WebSocket</span><span class="p">()</span>
+<span class="n">ws</span><span class="p">.</span><span class="nf">connect</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">ws://</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/ws?clientId=</span><span class="si">{</span><span class="n">CLIENT_ID</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># connect before queueing
+</span><span class="k">try</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">seed</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
+        <span class="nf">find_node</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="sh">"</span><span class="s">Positive Prompt</span><span class="sh">"</span><span class="p">)[</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">a lighthouse at dusk, oil painting</span><span class="sh">"</span>
+        <span class="nf">find_node</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="sh">"</span><span class="s">KSampler</span><span class="sh">"</span><span class="p">)[</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span>
+        <span class="n">pid</span> <span class="o">=</span> <span class="nf">queue</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+        <span class="nf">wait</span><span class="p">(</span><span class="n">ws</span><span class="p">,</span> <span class="n">pid</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="nf">outputs</span><span class="p">(</span><span class="n">pid</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">seed</span><span class="si">{</span><span class="n">seed</span><span class="si">}</span><span class="s">_</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">wb</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+                <span class="n">out</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<span class="k">finally</span><span class="p">:</span>
+    <span class="n">ws</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>The node titles used by <code class="language-plaintext highlighter-rouge">find_node</code> are whatever you named the nodes in the UI. Addressing nodes by title rather than numeric ID keeps a script working after the graph is edited. For production serving, the same API sits behind load balancers, and hosted options include Comfy Cloud and third-party serverless ComfyUI platforms.</p>
+
+<h2 id="performance-and-troubleshooting">Performance and Troubleshooting</h2>
+
+<h3 id="launch-flags">Launch flags</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Problem</th>
-      <th>Likely Cause</th>
-      <th>Solution</th>
+      <th>Flag</th>
+      <th>Effect</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>“Failed to validate prompt”</td>
-      <td>Missing connection</td>
-      <td>Check all required inputs have connections</td>
+      <td><code class="language-plaintext highlighter-rouge">--listen 0.0.0.0 --port 8188</code></td>
+      <td>Accept connections from other machines. Put authentication in front, because ComfyUI has none.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--lowvram</code> / <code class="language-plaintext highlighter-rouge">--novram</code></td>
+      <td>More aggressive offloading of model weights to system RAM</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--cpu</code></td>
+      <td>Run entirely on the CPU (very slow)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--preview-method auto</code> or <code class="language-plaintext highlighter-rouge">taesd</code></td>
+      <td>Live previews during sampling (TAESD gives higher quality previews)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--use-sage-attention</code></td>
+      <td>SageAttention kernels, if the package is installed</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--fast</code></td>
+      <td>Experimental optimizations, including fp8 matrix multiplication on supported GPUs</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--fp32-vae</code></td>
+      <td>Run the VAE in fp32 (fixes black or NaN images from fp16 VAE overflow)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--enable-manager</code></td>
+      <td>Enable the built-in ComfyUI-Manager (manual installs)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--disable-api-nodes</code></td>
+      <td>Remove paid API nodes for offline use</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="speed-and-memory">Speed and memory</h3>
+
+<ul>
+  <li><strong>Iterate with Preview Image</strong> and fewer steps, and switch to Save Image and full steps for finals.</li>
+  <li><strong>Use fp8 or GGUF weights</strong> for 12B and larger models. <code class="language-plaintext highlighter-rouge">weight_dtype</code> on Load Diffusion Model can cast to fp8 at load time.</li>
+  <li><strong>Use a distilled model or LoRA</strong> (Lightning, DMD2, Turbo, klein) for drafts at 4–8 steps.</li>
+  <li><strong>Decode large images with VAE Decode (Tiled).</strong> The VAE is often the true memory peak at high resolution.</li>
+  <li><strong>Keep one large model per workflow</strong> where possible. Switching between several 20B-class models forces reloads from disk.</li>
+</ul>
+
+<p>Kernels, caching, and 4-bit inference are covered in <a href="advanced-techniques.html#performance-and-memory">Advanced Techniques</a>.</p>
+
+<h3 id="common-problems">Common problems</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Likely cause</th>
+      <th>Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>“Prompt outputs failed validation”</td>
+      <td>A required input is unconnected, or a widget value (such as a model filename) does not exist</td>
+      <td>Read the node highlighted in red. Check that model files are in the right folder and press <code class="language-plaintext highlighter-rouge">R</code> to refresh lists</td>
+    </tr>
+    <tr>
+      <td>Red, missing nodes after loading a workflow</td>
+      <td>Custom nodes not installed</td>
+      <td>Manager → Install Missing Custom Nodes, then restart</td>
+    </tr>
+    <tr>
+      <td>Black or NaN image</td>
+      <td>fp16 VAE overflow (common with SDXL) or a wrong VAE</td>
+      <td>Use the matching VAE (for SDXL, the fp16-fix VAE) or launch with <code class="language-plaintext highlighter-rouge">--fp32-vae</code></td>
+    </tr>
+    <tr>
+      <td>Burnt, oversaturated output on FLUX or turbo models</td>
+      <td>CFG set above 1 on a guidance-distilled or turbo model</td>
+      <td>Set <code class="language-plaintext highlighter-rouge">cfg</code> to 1.0. Use FluxGuidance or the model’s own guidance input</td>
+    </tr>
+    <tr>
+      <td>Garbage or noise output</td>
+      <td>Text encoder <code class="language-plaintext highlighter-rouge">type</code> mismatch, or the wrong latent node for the family</td>
+      <td>Use the family’s template loaders and empty-latent node</td>
     </tr>
     <tr>
       <td>Out of memory</td>
-      <td>Model too large</td>
-      <td>Use quantized model, enable low VRAM mode</td>
+      <td>Model, resolution, or batch too large</td>
+      <td>fp8/GGUF weights, tiled VAE, <code class="language-plaintext highlighter-rouge">--lowvram</code>, smaller batch</td>
     </tr>
     <tr>
-      <td>Slow generation</td>
-      <td>Unoptimized settings</td>
-      <td>Reduce steps, use faster sampler</td>
-    </tr>
-    <tr>
-      <td>Black image output</td>
-      <td>VAE mismatch</td>
-      <td>Use correct VAE for your checkpoint</td>
-    </tr>
-    <tr>
-      <td>Workflow won’t load</td>
-      <td>Missing custom nodes</td>
-      <td>Install required nodes via Manager</td>
+      <td>Mismatched tensor sizes when applying a LoRA or ControlNet</td>
+      <td>Add-on trained for a different base model</td>
+      <td>Use add-ons that match the base architecture (<a href="base-models-comparison.html">Base Models</a>)</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="debugging-strategies">Debugging Strategies</h3>
+<p>To debug, add Preview Image nodes after intermediate stages, bypass sections to isolate the fault, and read the server console, which prints full Python tracebacks.</p>
 
-<ol>
-  <li><strong>Add PreviewImage nodes</strong> after each major step to see intermediate results</li>
-  <li><strong>Hover over connections</strong> to verify data types match</li>
-  <li><strong>Check the console</strong> for error messages (terminal where ComfyUI runs)</li>
-  <li><strong>Simplify the workflow</strong> - disconnect parts to isolate the problem</li>
-</ol>
+<h3 id="sharing-workflows">Sharing workflows</h3>
 
-<h2 id="organizing-your-workflows">Organizing Your Workflows</h2>
-
-<h3 id="best-practices">Best Practices</h3>
-
-<ul>
-  <li><strong>Name your nodes</strong> - Right-click and set descriptive titles</li>
-  <li><strong>Use groups</strong> - Box related nodes together with colors</li>
-  <li><strong>Add notes</strong> - Use Note nodes to document settings and requirements</li>
-  <li><strong>Save often</strong> - Keep versioned copies of working workflows</li>
-</ul>
-
-<h3 id="sharing-workflows">Sharing Workflows</h3>
-
-<p>To share a workflow with others:</p>
-
-<ol>
-  <li>Save the workflow (Ctrl+S)</li>
-  <li>Note which custom nodes are required</li>
-  <li>List which models the workflow needs</li>
-  <li>Share the JSON file</li>
-</ol>
-
-<p>Recipients need the same custom nodes and models (or compatible alternatives) to run your workflow.</p>
-
-<h2 id="conclusion">Conclusion</h2>
-
-<p>ComfyUI provides unmatched control over AI image generation through its visual node system. The initial learning investment pays off in:</p>
-
-<ul>
-  <li><strong>Understanding</strong> - You see exactly how generation works</li>
-  <li><strong>Flexibility</strong> - Build workflows no other tool can match</li>
-  <li><strong>Efficiency</strong> - Intelligent caching speeds iteration</li>
-  <li><strong>Sharing</strong> - JSON workflows capture complete setups</li>
-</ul>
-
-<p>Start with the basic text-to-image workflow, then add complexity as you need it. Each new technique builds on what you have already learned.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Everything is a node.</strong> Data flows left to right; a checkpoint’s MODEL/CLIP/VAE outputs fan out to the sampler, text encoders, and decoder.</li>
-  <li><strong>The minimal graph</strong> is Checkpoint → (CLIPTextEncode ×2 + EmptyLatentImage) → KSampler → VAEDecode → SaveImage. Every advanced workflow extends this.</li>
-  <li><strong>Caching makes iteration cheap.</strong> Only nodes whose inputs changed re-run, so tweaking a prompt doesn’t reload the model.</li>
-  <li><strong>Insert nodes to extend:</strong> a LoraLoader between checkpoint and sampler, an upscaler after decode, a ControlNet branch into conditioning.</li>
-  <li><strong>Workflows are portable JSON</strong> — but recipients need the same custom nodes and models.</li>
-</ul>
+<p>Share either a saved workflow JSON or a PNG produced by Save Image, which carries the workflow in its metadata. List the required custom nodes and model files, with their exact filenames, in a Note node. Recipients can use Manager → Install Missing Custom Nodes, but they must download the models themselves.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Core concepts behind the generation process</li>
-  <li><a href="model-types.html">Model Types</a> - Understanding models, LoRAs, and VAEs</li>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - Choosing the right base model</li>
-  <li><a href="controlnet.html">ControlNet</a> - Add precision control to ComfyUI workflows</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Train custom LoRAs for use in ComfyUI</li>
-  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Expert workflow patterns</li>
-  <li><a href="output-formats.html">Output Formats</a> - Image formats and optimization</li>
-  <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
+  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>: what each node is doing underneath</li>
+  <li><a href="base-models-comparison.html">Base Models Comparison</a>: choosing a model and its loaders</li>
+  <li><a href="model-types.html">Model Types</a>: checkpoints, LoRAs, VAEs, and embeddings</li>
+  <li><a href="controlnet.html">ControlNet</a>: structural control in ComfyUI</li>
+  <li><a href="inpainting-editing.html">Inpainting and Editing</a>: masks and instruction editing</li>
+  <li><a href="lora-training.html">LoRA Training</a>: training adapters for use in ComfyUI</li>
+  <li><a href="advanced-techniques.html">Advanced Techniques</a>: guidance, distillation, multi-stage workflows, performance</li>
+  <li><a href="output-formats.html">Output Formats</a>: image formats and metadata</li>
+  <li><a href="./">AI/ML Documentation Hub</a></li>
 </ul>
 
       </section>

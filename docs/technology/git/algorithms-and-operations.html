@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How Git finds merge bases, performs three-way merges with the ort strategy, replays commits in rebase, cherry-pick and replay, binary-searches history with b...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Git Internals: Algorithms & Advanced Operations">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How Git finds merge bases, performs three-way merges with the ort strategy, replays commits in rebase, cherry-pick and replay, binary-searches history with b...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git/algorithms-and-operations.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Git Internals: Algorithms & Advanced Operations">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How Git finds merge bases, performs three-way merges with the ort strategy, replays commits in rebase, cherry-pick and replay, binary-searches history with b...">
 
 <title>Git Internals: Algorithms & Advanced Operations | Andrews Notebook</title>
 
@@ -3135,121 +3135,205 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Git Internals</a> ›</p>
 
-<p>This page covers the <em>algorithms</em> at the heart of Git’s history manipulation and the operations layered on top of them. For everyday command syntax see the <a href="../git-reference.html">Git Command Reference</a>; for higher-level workflow models see <a href="../branching.html">Branching Strategies</a>; and for resolving conflicts and recovering lost work see <a href="conflict-and-recovery.html">Conflicts &amp; Recovery</a>.</p>
+<p>Every command that combines or rewrites history in Git reduces to a few graph and diff algorithms over the <a href="object-model.html">object store</a>: find a <strong>merge base</strong>, run a <strong>three-way merge</strong> of trees, and <strong>replay</strong> commits onto a new parent. This page describes those algorithms and the operations built on them: merge strategies, rebase and the sequencer, the newer <code class="language-plaintext highlighter-rouge">git replay</code> and <code class="language-plaintext highlighter-rouge">git history</code> commands, bisect, cherry-pick, stash, reset, revert, and hooks. Command syntax is in the <a href="../git-reference.html">Git Command Reference</a>; resolving conflicts and recovering lost work is covered in <a href="conflict-and-recovery.html">Conflict Resolution &amp; Recovery</a>.</p>
+
+<h2 id="merge-bases">Merge bases</h2>
+
+<p>A <strong>merge base</strong> is a best common ancestor of two commits: a commit reachable from both that is not an ancestor of any other common ancestor. Git computes it by walking the commit graph backwards from both tips in generation-number order (using the commit-graph file when present) and painting commits as reachable from one side, the other, or both.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge-base main feature           <span class="c"># one best common ancestor</span>
+git merge-base <span class="nt">--all</span> main feature     <span class="c"># every best common ancestor</span>
+git merge-base <span class="nt">--is-ancestor</span> A B      <span class="c"># exit 0 if A is an ancestor of B</span>
+git merge-base <span class="nt">--fork-point</span> main      <span class="c"># where the branch forked, using main's reflog</span>
+</code></pre></div></div>
+
+<p>In a simple branch there is exactly one merge base. A <strong>criss-cross merge</strong>, where two branches have each merged the other, leaves <em>two</em> equally good bases, and neither is an ancestor of the other:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A((A)) --&gt; B1((B1)) --&gt; M1((M1)) --&gt; X((ours))
+    A --&gt; C1((C1)) --&gt; M2((M2)) --&gt; Y((theirs))
+    B1 --&gt; M2
+    C1 --&gt; M1
+</code></pre>
+
+<p>Here both <code class="language-plaintext highlighter-rouge">B1</code> and <code class="language-plaintext highlighter-rouge">C1</code> are best common ancestors of <code class="language-plaintext highlighter-rouge">ours</code> and <code class="language-plaintext highlighter-rouge">theirs</code>. Picking either one arbitrarily can resurrect changes the other side already reverted. Git’s <code class="language-plaintext highlighter-rouge">ort</code> strategy instead merges the merge bases together first, producing a <strong>virtual merge base</strong>, and uses that as the ancestor for the real merge. This is the “recursive” idea that gave the old strategy its name.</p>
 
 <h2 id="three-way-merge-algorithm">Three-Way Merge Algorithm</h2>
 
-<p>Git’s three-way merge combines changes from two branches using their common ancestor as a reference point. The third “way” — the ancestor — is what lets Git tell <em>who changed what</em> and so resolve non-conflicting changes automatically. A naive two-way diff cannot: if a line differs between the two branches, a two-way merge has no way to know which side changed it.</p>
+<p>A three-way merge compares two versions of a file (<strong>ours</strong> and <strong>theirs</strong>) against their merge base. The base is what makes automatic merging possible: in a two-way comparison, a line that differs between the branches could have been changed by either side, but against the base Git can tell which side changed it.</p>
 
-<p><strong>Algorithm steps:</strong></p>
+<p>For each file, and within each file for each region (hunk), Git applies this rule:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Base</th>
+      <th>Ours</th>
+      <th>Theirs</th>
+      <th>Result</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X (unchanged)</td>
+    </tr>
+    <tr>
+      <td>X</td>
+      <td>Y</td>
+      <td>X</td>
+      <td>Y (only ours changed)</td>
+    </tr>
+    <tr>
+      <td>X</td>
+      <td>X</td>
+      <td>Z</td>
+      <td>Z (only theirs changed)</td>
+    </tr>
+    <tr>
+      <td>X</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>Y (both made the same change)</td>
+    </tr>
+    <tr>
+      <td>X</td>
+      <td>Y</td>
+      <td>Z</td>
+      <td><strong>Conflict</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The whole merge proceeds in two levels:</p>
 
 <ol>
-  <li>Find the common ancestor (the <strong>merge base</strong>) of the two tips.</li>
-  <li>Compute two diffs: base→ours and base→theirs.</li>
-  <li>For each region, apply the change automatically when only one side touched it (or both made the <em>same</em> change).</li>
-  <li>Mark regions where both sides changed the same lines differently as a <strong>conflict</strong> for manual resolution.</li>
+  <li><strong>Tree level.</strong> Git diffs base→ours and base→theirs as trees, pairing entries by path and detecting renames (by default, a deleted and an added file that are at least 50% similar are treated as a rename; tune with <code class="language-plaintext highlighter-rouge">-X find-renames=&lt;n&gt;</code>). Paths changed on only one side are taken wholesale without reading their contents.</li>
+  <li><strong>Content level.</strong> For paths changed on both sides, Git runs a line-based three-way merge of the blobs (<code class="language-plaintext highlighter-rouge">xdiff</code>, using the configured diff algorithm) and applies the table above per hunk.</li>
 </ol>
 
-<p><strong>The three outcomes for any region:</strong></p>
+<p>Conflicts can therefore be <strong>content conflicts</strong> (overlapping hunks) or <strong>structural conflicts</strong> at the tree level: modify/delete, rename/delete, rename/rename to different names, add/add of different content, or directory/file collisions. Both kinds leave the path unmerged in the index; see <a href="conflict-and-recovery.html#resolving-merge-conflicts">Resolving merge conflicts</a>.</p>
 
-<ul>
-  <li><strong>No conflict</strong> — the two sides changed different files, or different parts of the same file. Both changes are kept.</li>
-  <li><strong>Auto-resolved</strong> — both sides made the <em>identical</em> change. Git keeps one copy.</li>
-  <li><strong>Conflict</strong> — both sides changed the same lines differently. Git writes conflict markers and stops.</li>
-</ul>
+<p>Conflicting hunks are written to the working tree with markers. With <code class="language-plaintext highlighter-rouge">merge.conflictStyle=zdiff3</code> Git also includes the base text, which usually makes the intent of each side obvious:</p>
 
-<p><strong>Conflict markers</strong> delimit the two competing versions so you can pick or combine them:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; ours
-Our changes
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+timeout = 30
+||||||| merge base
+timeout = 10
 =======
-Their changes
-&gt;&gt;&gt;&gt;&gt;&gt;&gt; theirs
+timeout = 60
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature
 </code></pre></div></div>
 
-<p>The marked region between <code class="language-plaintext highlighter-rouge">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> and <code class="language-plaintext highlighter-rouge">=======</code> is your side; between <code class="language-plaintext highlighter-rouge">=======</code> and <code class="language-plaintext highlighter-rouge">&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> is theirs. With <code class="language-plaintext highlighter-rouge">merge.conflictStyle = diff3</code> (or <code class="language-plaintext highlighter-rouge">zdiff3</code>) Git also inserts the merge-base text in a <code class="language-plaintext highlighter-rouge">|||||||</code> section, which usually makes the <em>intent</em> of each side obvious.</p>
+<h3 id="merging-without-a-working-tree">Merging without a working tree</h3>
+
+<p>Because <code class="language-plaintext highlighter-rouge">ort</code> works entirely on in-memory trees, a merge can be computed without touching the index or working tree. <code class="language-plaintext highlighter-rouge">git merge-tree --write-tree</code> (Git 2.38+) prints the resulting tree ID and any conflicts, and exits 0 for a clean merge or 1 for a conflicted one. Forges use this to test mergeability of pull requests on bare repositories, and it is a cheap way to preview a merge locally:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge-tree <span class="nt">--write-tree</span> main feature <span class="o">&gt;</span>/dev/null <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="s2">"merges cleanly"</span>
+</code></pre></div></div>
 
 <blockquote>
-  <p><strong>Code Reference</strong>: For a complete three-way merge implementation with conflict detection and advanced merge strategies, see <a href="../../../code-examples/technology/git/three_way_merge.py"><code class="language-plaintext highlighter-rouge">three_way_merge.py</code></a>.</p>
+  <p><strong>Code reference:</strong> a teaching implementation of three-way merge with conflict detection is in <a href="../../../code-examples/technology/git/three_way_merge.py"><code class="language-plaintext highlighter-rouge">three_way_merge.py</code></a>.</p>
 </blockquote>
 
-<h2 id="merge-strategies">Merge Strategies</h2>
+<h2 id="merge-strategies">Merge strategies</h2>
 
-<p>A merge <em>strategy</em> decides how Git computes the merge base(s) and combines trees. The strategy matters most when history has more than one merge base or when files were renamed or moved.</p>
+<p>A merge <em>strategy</em> decides how the merge base is chosen and how trees are combined. Git picks a strategy automatically; you override it with <code class="language-plaintext highlighter-rouge">-s</code>.</p>
 
 <table>
   <thead>
     <tr>
       <th>Strategy</th>
-      <th>Use it for</th>
+      <th>Use</th>
       <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>ort</strong></td>
-      <td>The default since Git 2.34</td>
-      <td>“Ostensibly Recursive’s Twin.” Handles multiple merge bases by recursively merging them into a virtual base; faster than the old <code class="language-plaintext highlighter-rouge">recursive</code> and far better at renames and directory moves.</td>
+      <td>Default for two-head merges since Git 2.34</td>
+      <td>“Ostensibly Recursive’s Twin.” Builds a virtual base from multiple merge bases; much faster than its predecessor and better at renames and directory renames.</td>
     </tr>
     <tr>
       <td><strong>recursive</strong></td>
-      <td>Legacy default (pre-2.34)</td>
-      <td>Same multiple-base handling as <code class="language-plaintext highlighter-rouge">ort</code> but slower; superseded by <code class="language-plaintext highlighter-rouge">ort</code>.</td>
+      <td>Legacy name</td>
+      <td>The default until Git 2.33. Since Git 2.50 <code class="language-plaintext highlighter-rouge">-s recursive</code> is a synonym for <code class="language-plaintext highlighter-rouge">ort</code>; the old implementation was removed.</td>
     </tr>
     <tr>
       <td><strong>resolve</strong></td>
-      <td>A simple, fast two-head merge</td>
-      <td>Picks a single merge base; no recursion. Rarely needed today.</td>
+      <td>Simple two-head merge</td>
+      <td>Uses a single merge base, no virtual base, limited rename handling. Rarely needed.</td>
     </tr>
     <tr>
       <td><strong>octopus</strong></td>
-      <td>Merging <em>more than two</em> branches at once</td>
-      <td>Used automatically for ≥3 heads; refuses to merge if any branch conflicts. Good for integration branches, not for resolving conflicts.</td>
+      <td>Merging three or more heads</td>
+      <td>The automatic choice for more than two heads. Refuses any merge that needs manual resolution.</td>
     </tr>
     <tr>
       <td><strong>ours</strong></td>
       <td>Recording that a branch is superseded</td>
-      <td>Produces a merge commit but keeps the current tree verbatim, discarding the other branch’s content. Do not confuse with the <code class="language-plaintext highlighter-rouge">-X ours</code> <em>option</em> below.</td>
+      <td>Creates a merge commit whose tree is exactly the current tree; the other side’s changes are discarded.</td>
     </tr>
     <tr>
       <td><strong>subtree</strong></td>
       <td>Merging a project into a subdirectory</td>
-      <td>A <code class="language-plaintext highlighter-rouge">recursive</code>/<code class="language-plaintext highlighter-rouge">ort</code> variant that adjusts for a shifted directory prefix.</td>
+      <td>A modified <code class="language-plaintext highlighter-rouge">ort</code> that shifts one tree to match the other’s directory layout.</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Strategy options</strong> (<code class="language-plaintext highlighter-rouge">-X</code>) tune a strategy rather than replacing it:</p>
+<p><strong>Strategy options</strong> (<code class="language-plaintext highlighter-rouge">-X</code>) tune <code class="language-plaintext highlighter-rouge">ort</code> rather than replacing it:</p>
 
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">-X ours</code> / <code class="language-plaintext highlighter-rouge">-X theirs</code> — auto-resolve <em>conflicting hunks</em> in favor of one side (the rest still merges normally). This is different from the <code class="language-plaintext highlighter-rouge">ours</code> strategy, which ignores the other tree entirely.</li>
-  <li><code class="language-plaintext highlighter-rouge">-X ignore-all-space</code>, <code class="language-plaintext highlighter-rouge">-X renormalize</code>, <code class="language-plaintext highlighter-rouge">-X find-renames=&lt;n&gt;</code> — control whitespace, line-ending normalization, and rename detection sensitivity.</li>
+  <li><code class="language-plaintext highlighter-rouge">-X ours</code> / <code class="language-plaintext highlighter-rouge">-X theirs</code>: resolve <em>conflicting hunks</em> in favour of one side; non-conflicting changes from both sides still merge. Not the same as <code class="language-plaintext highlighter-rouge">-s ours</code>, which ignores the other tree entirely.</li>
+  <li><code class="language-plaintext highlighter-rouge">-X ignore-space-change</code>, <code class="language-plaintext highlighter-rouge">-X ignore-all-space</code>, <code class="language-plaintext highlighter-rouge">-X ignore-cr-at-eol</code>, <code class="language-plaintext highlighter-rouge">-X renormalize</code>: whitespace and line-ending handling.</li>
+  <li><code class="language-plaintext highlighter-rouge">-X find-renames=&lt;n&gt;</code>, <code class="language-plaintext highlighter-rouge">-X no-renames</code>: rename detection sensitivity.</li>
+  <li><code class="language-plaintext highlighter-rouge">-X diff-algorithm=histogram</code>: use the histogram diff, which often aligns code blocks better than the default Myers diff.</li>
+  <li><code class="language-plaintext highlighter-rouge">-X subtree=&lt;path&gt;</code>: an explicit subtree prefix.</li>
 </ul>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge &lt;branch&gt;               <span class="c"># fast-forward if possible, else a real merge</span>
-git merge <span class="nt">--no-ff</span> &lt;branch&gt;       <span class="c"># always create a merge commit (preserve the branch)</span>
-git merge <span class="nt">--squash</span> &lt;branch&gt;      <span class="c"># combine the branch into staged changes, no commit yet</span>
-git merge <span class="nt">-s</span> ort &lt;branch&gt;        <span class="c"># explicit default strategy</span>
-git merge <span class="nt">-s</span> ours &lt;branch&gt;       <span class="c"># keep current tree, mark branch as merged</span>
-git merge <span class="nt">-s</span> octopus b1 b2 b3    <span class="c"># merge several branches at once</span>
-git merge <span class="nt">-X</span> theirs &lt;branch&gt;     <span class="c"># prefer their side on conflicting hunks</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge feature                 <span class="c"># fast-forward if possible, else a merge commit</span>
+git merge <span class="nt">--no-ff</span> feature         <span class="c"># always create a merge commit</span>
+git merge <span class="nt">--ff-only</span> feature       <span class="c"># refuse unless a fast-forward is possible</span>
+git merge <span class="nt">--squash</span> feature        <span class="c"># stage the combined changes; no merge commit</span>
+git merge <span class="nt">-s</span> ours obsolete        <span class="c"># mark 'obsolete' merged, keep our tree</span>
+git merge b1 b2 b3                <span class="c"># octopus merge</span>
+git merge <span class="nt">-X</span> theirs feature       <span class="c"># prefer their side on conflicting hunks</span>
 </code></pre></div></div>
 
 <blockquote>
-  <p><strong>Code Reference</strong>: For complete merge-strategy implementations including recursive, octopus, and subtree strategies, see <a href="../../../code-examples/technology/git/merge_strategies.py"><code class="language-plaintext highlighter-rouge">merge_strategies.py</code></a>.</p>
+  <p><strong>Code reference:</strong> teaching implementations of the recursive, octopus and subtree strategies are in <a href="../../../code-examples/technology/git/merge_strategies.py"><code class="language-plaintext highlighter-rouge">merge_strategies.py</code></a>.</p>
 </blockquote>
 
-<h3 id="merge-vs-rebase">Merge vs. Rebase</h3>
+<h3 id="fast-forward-versus-merge-commit">Fast-forward versus merge commit</h3>
 
-<p>Both <code class="language-plaintext highlighter-rouge">merge</code> and <code class="language-plaintext highlighter-rouge">rebase</code> integrate work from one branch into another, but they produce different histories. A <strong>merge</strong> preserves the true topology by creating a merge commit with two parents; a <strong>rebase</strong> rewrites your commits so they appear to have been built on top of the latest base, yielding a linear history. The diagrams below show a feature branch <code class="language-plaintext highlighter-rouge">B1 → B2</code> integrated into <code class="language-plaintext highlighter-rouge">main</code> (<code class="language-plaintext highlighter-rouge">M1 → M2 → M3</code>).</p>
+<p>If the current branch is an ancestor of the branch being merged, there is nothing to combine: Git just moves the branch pointer forward (a <strong>fast-forward</strong>). Otherwise, or with <code class="language-plaintext highlighter-rouge">--no-ff</code>, it creates a merge commit with two parents.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    subgraph Merge["git merge (preserves topology)"]
+    subgraph FF["Fast-forward: main moves to F2"]
+        direction LR
+        a1((M1)) --&gt; a2((F1)) --&gt; a3((F2))
+    end
+    subgraph NF["--no-ff: new merge commit"]
+        direction LR
+        b1((M1)) --&gt; b4((Merge))
+        b1 --&gt; b2((F1)) --&gt; b3((F2)) --&gt; b4
+    end
+</code></pre>
+
+<h3 id="merge-versus-rebase">Merge versus rebase</h3>
+
+<p>Both integrate one branch’s work into another. A <strong>merge</strong> preserves the actual topology with a merge commit; a <strong>rebase</strong> rewrites the branch’s commits so they appear to have been made on top of the latest base, giving a linear history.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Merge["git merge: topology preserved"]
         direction LR
         m1((M1)) --&gt; m2((M2)) --&gt; m3((M3)) --&gt; mc((Merge))
         m2 --&gt; b1((B1)) --&gt; b2((B2)) --&gt; mc
     end
-    subgraph Rebase["git rebase (linear history)"]
+    subgraph Rebase["git rebase: linear, B1 and B2 rewritten"]
         direction LR
         r1((M1)) --&gt; r2((M2)) --&gt; r3((M3)) --&gt; rb1((B1')) --&gt; rb2((B2'))
     end
@@ -3265,278 +3349,514 @@ git merge <span class="nt">-X</span> theirs &lt;branch&gt;     <span class="c">#
   </thead>
   <tbody>
     <tr>
-      <td>History</td>
-      <td>Non-linear; true graph</td>
-      <td>Linear, easier to read</td>
+      <td>History shape</td>
+      <td>True graph</td>
+      <td>Linear</td>
     </tr>
     <tr>
-      <td>Commit hashes</td>
+      <td>Existing commit hashes</td>
       <td>Preserved</td>
-      <td>Rewritten (new commits)</td>
+      <td>Replaced with new commits</td>
     </tr>
     <tr>
-      <td>Traceability</td>
       <td>Records when integration happened</td>
-      <td>Loses the original branch point</td>
+      <td>Yes</td>
+      <td>No</td>
     </tr>
     <tr>
-      <td>Safe on shared branches?</td>
+      <td>Conflicts resolved</td>
+      <td>Once, in the merge commit</td>
+      <td>Per replayed commit (possibly repeatedly)</td>
+    </tr>
+    <tr>
+      <td>Safe on shared branches</td>
       <td>Yes</td>
-      <td>No — never rebase commits others have pulled</td>
+      <td>No; never rebase commits others have based work on</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Golden rule of rebasing</strong>: rebase only commits that exist solely in your local repository. Rewriting published history forces every collaborator to recover manually (see <a href="conflict-and-recovery.html">Conflicts &amp; Recovery</a> for how they would).</p>
+<p>The rule for rebasing: rewrite only commits that nobody else has built on. Rewriting published history forces every collaborator to recover by hand (see <a href="conflict-and-recovery.html#undoing-a-pushed-rebase-or-force-push">Undoing a pushed rebase</a>). Team conventions for choosing between the two are covered in <a href="../branching.html">Branching Strategies</a>.</p>
 
-<h2 id="rebase-algorithm">Rebase Algorithm</h2>
+<h2 id="rebase-and-the-sequencer">Rebase and the sequencer</h2>
 
-<p>Rebase rewrites history by <strong>replaying</strong> a sequence of commits onto a new base. Conceptually it cherry-picks each commit in turn:</p>
+<p><code class="language-plaintext highlighter-rouge">git rebase</code> replays a range of commits onto a new base. It is driven by the <strong>sequencer</strong>, the same engine behind multi-commit cherry-pick and revert, which keeps its state in <code class="language-plaintext highlighter-rouge">.git/rebase-merge/</code> so a rebase can stop and resume.</p>
 
 <ol>
-  <li>Determine the commits to replay — those reachable from <code class="language-plaintext highlighter-rouge">HEAD</code> but not from the new base.</li>
-  <li>Save the original <code class="language-plaintext highlighter-rouge">HEAD</code> (recoverable later via <code class="language-plaintext highlighter-rouge">ORIG_HEAD</code> and the reflog).</li>
-  <li>Reset onto the target base.</li>
-  <li>Cherry-pick each saved commit in order, according to the todo list.</li>
-  <li>Pause for resolution whenever a replay conflicts; resume with <code class="language-plaintext highlighter-rouge">git rebase --continue</code>.</li>
-  <li>Move the branch reference to the last replayed commit when the list is exhausted.</li>
+  <li>Compute the commits to replay: those reachable from the branch but not from the upstream (<code class="language-plaintext highlighter-rouge">upstream..branch</code>), skipping any whose patch is already upstream (matched by <code class="language-plaintext highlighter-rouge">git patch-id</code>).</li>
+  <li>Write a <strong>todo list</strong> and save the original tip as <code class="language-plaintext highlighter-rouge">ORIG_HEAD</code>.</li>
+  <li>Detach <code class="language-plaintext highlighter-rouge">HEAD</code> at the new base.</li>
+  <li>For each todo entry, cherry-pick the commit: a three-way merge whose base is the commit’s parent, “ours” is the current <code class="language-plaintext highlighter-rouge">HEAD</code>, and “theirs” is the commit.</li>
+  <li>On conflict, stop; the user resolves and runs <code class="language-plaintext highlighter-rouge">git rebase --continue</code>.</li>
+  <li>When the list is empty, point the branch at the final commit and reattach <code class="language-plaintext highlighter-rouge">HEAD</code>.</li>
 </ol>
 
-<p>Because each replayed commit is a <em>new</em> object (new parent → new hash), rebase is a history-rewriting operation, which is why the golden rule above applies.</p>
+<p>Each replayed commit has a new parent and therefore a new hash, which is why rebase rewrites history.</p>
 
-<h3 id="interactive-rebase">Interactive Rebase</h3>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Planning: git rebase upstream
+    Planning --&gt; Replaying: todo list written, HEAD detached
+    Replaying --&gt; Replaying: pick applies cleanly
+    Replaying --&gt; Stopped: conflict / edit / break
+    Stopped --&gt; Replaying: git rebase --continue or --skip
+    Stopped --&gt; Aborted: git rebase --abort
+    Replaying --&gt; Done: todo list empty
+    Done --&gt; [*]: branch ref updated
+    Aborted --&gt; [*]: branch reset to ORIG_HEAD
+</code></pre>
 
-<p><code class="language-plaintext highlighter-rouge">git rebase -i</code> opens a <strong>todo list</strong> of the commits to replay and lets you edit how each is applied:</p>
+<h3 id="choosing-what-to-replay---onto">Choosing what to replay: <code class="language-plaintext highlighter-rouge">--onto</code></h3>
 
-<ul>
-  <li><strong>pick</strong> — use the commit as-is.</li>
-  <li><strong>reword</strong> — keep the changes, edit the message.</li>
-  <li><strong>edit</strong> — stop after applying so you can amend the snapshot.</li>
-  <li><strong>squash</strong> — combine into the previous commit, keeping both messages.</li>
-  <li><strong>fixup</strong> — like <code class="language-plaintext highlighter-rouge">squash</code> but discard this commit’s message.</li>
-  <li><strong>drop</strong> — remove the commit entirely.</li>
-  <li><strong>exec</strong> — run a shell command (e.g. tests) at that point in the replay.</li>
-  <li><strong>label</strong> / <strong>reset</strong> / <strong>merge</strong> — scripting primitives that <code class="language-plaintext highlighter-rouge">--rebase-merges</code> uses to reconstruct merge topology.</li>
-</ul>
+<p><code class="language-plaintext highlighter-rouge">git rebase --onto &lt;newbase&gt; &lt;upstream&gt; &lt;branch&gt;</code> replays <code class="language-plaintext highlighter-rouge">upstream..branch</code> onto <code class="language-plaintext highlighter-rouge">newbase</code>. It is the tool for transplanting a branch that was started from the wrong place:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git rebase &lt;base-branch&gt;          <span class="c"># replay current branch onto base-branch</span>
-git rebase <span class="nt">-i</span> &lt;base-commit&gt;       <span class="c"># interactive: reorder, squash, drop, reword</span>
-git rebase <span class="nt">--rebase-merges</span> &lt;base&gt; <span class="c"># preserve merge commits (replaces --preserve-merges)</span>
-git rebase <span class="nt">-i</span> <span class="nt">--autosquash</span>        <span class="c"># auto-order fixup!/squash! commits before the rebase</span>
-git rebase <span class="nt">-s</span> ort <span class="nt">-X</span> theirs &lt;base&gt;# choose strategy/option <span class="k">for </span>conflict resolution
-git rebase <span class="nt">--continue</span>             <span class="c"># resume after resolving a conflict</span>
-git rebase <span class="nt">--abort</span>                <span class="c"># bail out and restore the original HEAD</span>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Before
+        direction LR
+        M1(["M: main"]) --&gt; A1((A)) --&gt; B1(["B: featureB"]) --&gt; T1((T1)) --&gt; T2(["T2: topic"])
+    end
+    subgraph After["After git rebase --onto main featureB topic"]
+        direction LR
+        M2(["M: main"]) --&gt; U1((T1')) --&gt; U2(["T2': topic"])
+    end
+</code></pre>
+
+<p><code class="language-plaintext highlighter-rouge">topic</code> (T1, T2) was started from <code class="language-plaintext highlighter-rouge">featureB</code>; after the rebase its two commits sit directly on <code class="language-plaintext highlighter-rouge">main</code>, without A and B. <code class="language-plaintext highlighter-rouge">featureB</code> itself is unchanged.</p>
+
+<h3 id="interactive-rebase">Interactive rebase</h3>
+
+<p><code class="language-plaintext highlighter-rouge">git rebase -i</code> opens the todo list in an editor before replaying:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pick</code></td>
+      <td>Replay the commit unchanged</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reword</code></td>
+      <td>Replay, then stop to edit the message</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">edit</code></td>
+      <td>Replay, then stop so the snapshot can be amended</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">squash</code></td>
+      <td>Fold into the previous commit and combine both messages</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fixup</code></td>
+      <td>Fold into the previous commit and keep only the previous message (<code class="language-plaintext highlighter-rouge">fixup -C</code> keeps this one’s message instead)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">drop</code></td>
+      <td>Omit the commit</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">exec</code></td>
+      <td>Run a shell command; a non-zero exit stops the rebase</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">break</code></td>
+      <td>Stop here; resume with <code class="language-plaintext highlighter-rouge">--continue</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">label</code>, <code class="language-plaintext highlighter-rouge">reset</code>, <code class="language-plaintext highlighter-rouge">merge</code></td>
+      <td>Recreate merge topology (generated by <code class="language-plaintext highlighter-rouge">--rebase-merges</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">update-ref</code></td>
+      <td>Move another branch to this point (generated by <code class="language-plaintext highlighter-rouge">--update-refs</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git rebase main                        <span class="c"># replay the current branch onto main</span>
+git rebase <span class="nt">-i</span> main                     <span class="c"># edit the todo list first</span>
+git rebase <span class="nt">-i</span> <span class="nt">--autosquash</span> main        <span class="c"># move fixup!/squash! commits next to their targets</span>
+git rebase <span class="nt">--rebase-merges</span> main        <span class="c"># keep merge commits (replaced --preserve-merges, removed in 2.34)</span>
+git rebase <span class="nt">--update-refs</span> main          <span class="c"># also move branches stacked on top (Git 2.38+)</span>
+git rebase <span class="nt">-x</span> <span class="s2">"make test"</span> main         <span class="c"># run tests after every replayed commit</span>
+git rebase <span class="nt">--continue</span> | <span class="nt">--skip</span> | <span class="nt">--abort</span>
 </code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">--update-refs</code> (or <code class="language-plaintext highlighter-rouge">rebase.updateRefs=true</code>) matters for <strong>stacked branches</strong>: when <code class="language-plaintext highlighter-rouge">part-2</code> is built on <code class="language-plaintext highlighter-rouge">part-1</code>, rebasing <code class="language-plaintext highlighter-rouge">part-2</code> also moves <code class="language-plaintext highlighter-rouge">part-1</code> to its rewritten commit, instead of leaving it pointing at the old history. A worked squash/fixup example is in <a href="conflict-and-recovery.html#interactive-rebase-and-squashing">Interactive rebase and squashing</a>.</p>
 
 <blockquote>
-  <p><strong>Code Reference</strong>: For complete rebase and bisect implementations with conflict handling, see <a href="../../../code-examples/technology/git/rebase_bisect.py"><code class="language-plaintext highlighter-rouge">rebase_bisect.py</code></a>.</p>
+  <p><strong>Code reference:</strong> teaching implementations of rebase and bisect are in <a href="../../../code-examples/technology/git/rebase_bisect.py"><code class="language-plaintext highlighter-rouge">rebase_bisect.py</code></a>.</p>
 </blockquote>
 
-<h2 id="bisect-binary-search-over-history">Bisect: Binary Search Over History</h2>
+<h2 id="rewriting-without-a-working-tree-replay-and-history">Rewriting without a working tree: <code class="language-plaintext highlighter-rouge">replay</code> and <code class="language-plaintext highlighter-rouge">history</code></h2>
 
-<p><code class="language-plaintext highlighter-rouge">git bisect</code> finds the commit that introduced a regression by binary-searching the commit graph. Given a known-good and known-bad commit, it repeatedly checks out a commit roughly halfway between them, you (or a script) test it, and the search space halves each step — so it takes about <strong>log₂(N)</strong> tests to pin down the culprit among N suspect commits.</p>
+<p>Rebase needs a working tree and replays one commit at a time through it. Two newer, still <strong>experimental</strong> commands rewrite history directly in the object store, which makes them fast and usable in bare repositories on servers:</p>
 
-<p><strong>Algorithm:</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git replay</code></td>
+      <td>A plumbing-level rebase for servers and scripts. Replays a revision range with <code class="language-plaintext highlighter-rouge">--onto &lt;newbase&gt;</code>, <code class="language-plaintext highlighter-rouge">--advance &lt;branch&gt;</code> (cherry-pick-like), or <code class="language-plaintext highlighter-rouge">--revert &lt;branch&gt;</code>. Since Git 2.53 it updates all affected refs in one atomic transaction by default; <code class="language-plaintext highlighter-rouge">--ref-action=print</code> prints <code class="language-plaintext highlighter-rouge">update-ref</code> commands instead. It stops rather than leaving conflicts to resolve.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">git history</code></td>
+      <td>A user-facing command for common edits to a single past commit: <code class="language-plaintext highlighter-rouge">reword &lt;commit&gt;</code> changes a message, <code class="language-plaintext highlighter-rouge">split &lt;commit&gt;</code> interactively splits a commit in two, and <code class="language-plaintext highlighter-rouge">fixup &lt;commit&gt;</code> (Git 2.55) folds staged changes into it. By default it also moves every descendant branch. It refuses histories containing merges and operations that would conflict, and does not run hooks.</td>
+    </tr>
+  </tbody>
+</table>
 
-<ol>
-  <li>Mark a known-good and a known-bad commit.</li>
-  <li>Of the commits reachable from <em>bad</em> but not from <em>good</em>, pick the one that best bisects the graph (weighted by reachability so each test eliminates as much as possible).</li>
-  <li>Check it out; you test and mark it <code class="language-plaintext highlighter-rouge">good</code> or <code class="language-plaintext highlighter-rouge">bad</code>.</li>
-  <li>Repeat on the remaining half.</li>
-  <li>Stop when only one candidate remains — the first bad commit.</li>
-</ol>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git replay <span class="nt">--onto</span> main topic~3..topic           <span class="c"># rebase topic's last 3 commits onto main</span>
+git <span class="nb">history </span>reword HEAD~4                       <span class="c"># edit an old commit message</span>
+git <span class="nb">history split </span>HEAD~2                        <span class="c"># split a commit into two</span>
+</code></pre></div></div>
 
-<p>It handles non-linear history by considering all paths between the endpoints, and lets you <code class="language-plaintext highlighter-rouge">skip</code> commits that cannot be built or tested.</p>
+<p>Both commands are marked experimental in their documentation, so their options may still change.</p>
+
+<h2 id="bisect-binary-search-over-history">Bisect: binary search over history</h2>
+
+<p><code class="language-plaintext highlighter-rouge">git bisect</code> finds the commit that introduced a change (usually a regression) by binary search. Given one <em>bad</em> and at least one <em>good</em> commit, the candidate set is every commit reachable from bad but not from any good commit. Git checks out the candidate that splits that set most evenly, weighted by reachability so that either answer eliminates about half the remaining commits. Finding the culprit among N candidates takes about $\lceil \log_2 N \rceil$ tests: 1,000 commits need about 10 steps.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    G(["good"]) --&gt; c1((1)) --&gt; c2(["2: test 2 = good"]) --&gt; c3(["3: test 3 = bad&lt;br/&gt;first bad commit"]) --&gt; c4(["4: test 1 = bad"]) --&gt; c5((5)) --&gt; c6((6)) --&gt; c7((7)) --&gt; B(["bad"])
+</code></pre>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git bisect start
-git bisect bad &lt;bad-commit&gt;       <span class="c"># often just: git bisect bad   (current HEAD)</span>
-git bisect good &lt;good-commit&gt;
-<span class="c"># Git checks out a midpoint; test it, then:</span>
-git bisect good                   <span class="c"># this commit is fine</span>
-git bisect bad                    <span class="c"># this commit is broken</span>
-git bisect skip                   <span class="c"># cannot test this commit</span>
-git bisect run ./test.sh          <span class="c"># automate: script exits 0=good, non-zero=bad</span>
-git bisect reset                  <span class="c"># return to the original branch when done</span>
+git bisect bad                    <span class="c"># current HEAD is broken</span>
+git bisect good v2.4.0            <span class="c"># this release was fine</span>
+<span class="c"># Git checks out a midpoint; test it and report:</span>
+git bisect good | bad | skip
+git bisect run ./test.sh          <span class="c"># automate the whole search</span>
+git bisect log <span class="o">&gt;</span> bisect.log       <span class="c"># save the session; git bisect replay bisect.log redoes it</span>
+git bisect reset                  <span class="c"># return to the original branch</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">git bisect run</code> is the payoff: hand it a test script and Git drives the entire search unattended, leaving you at the first bad commit.</p>
+<p>Details worth knowing:</p>
 
-<h2 id="cherry-pick">Cherry-Pick</h2>
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">git bisect run</code> exit codes:</strong> 0 means good, 125 means skip (untestable), 1 to 127 other than 125 mean bad, and anything else aborts the bisect. A script that fails to <em>build</em> should exit 125, not 1.</li>
+  <li><strong>Terms:</strong> when hunting for a change that is not a bug (such as a performance improvement), <code class="language-plaintext highlighter-rouge">git bisect start --term-old=slow --term-new=fast</code>, or use the built-in <code class="language-plaintext highlighter-rouge">old</code>/<code class="language-plaintext highlighter-rouge">new</code> terms, avoids mental inversion.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">--first-parent</code>:</strong> <code class="language-plaintext highlighter-rouge">git bisect start --first-parent</code> follows only the first parent of merges, so the search identifies which merged pull request introduced the change rather than descending into its commits.</li>
+  <li><strong>Paths:</strong> <code class="language-plaintext highlighter-rouge">git bisect start bad good -- src/net/</code> restricts candidates to commits touching those paths.</li>
+</ul>
 
-<p>Cherry-pick applies the <em>change introduced by</em> one or more commits onto the current branch, creating new commits. It is the same replay machinery rebase uses, exposed directly — useful for backporting a fix to a release branch or grabbing one commit from another branch without merging the rest.</p>
+<h2 id="cherry-pick">Cherry-pick</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick &lt;sha&gt;             <span class="c"># apply one commit's change as a new commit</span>
-git cherry-pick &lt;sha1&gt;..&lt;sha2&gt;    <span class="c"># apply a range (exclusive of sha1)</span>
-git cherry-pick <span class="nt">-n</span> &lt;sha&gt;          <span class="c"># apply but do not commit (stage only)</span>
-git cherry-pick <span class="nt">-x</span> &lt;sha&gt;          <span class="c"># append "(cherry picked from …)" to the message</span>
-git cherry-pick <span class="nt">--continue</span>        <span class="c"># resume after resolving a conflict</span>
-git cherry-pick <span class="nt">--abort</span>           <span class="c"># undo the in-progress cherry-pick</span>
+<p>Cherry-pick applies the change introduced by existing commits onto the current branch as new commits. Internally it is a three-way merge with the picked commit’s parent as base, the current <code class="language-plaintext highlighter-rouge">HEAD</code> as ours, and the picked commit as theirs, the same step rebase repeats for every commit. Typical uses are backporting a fix to a release branch and salvaging one commit from an abandoned branch.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick &lt;sha&gt;              <span class="c"># apply one commit</span>
+git cherry-pick A..B               <span class="c"># commits after A up to B (A excluded)</span>
+git cherry-pick A^..B              <span class="c"># A through B inclusive</span>
+git cherry-pick <span class="nt">-x</span> &lt;sha&gt;           <span class="c"># add "(cherry picked from commit …)" to the message</span>
+git cherry-pick <span class="nt">-n</span> &lt;sha&gt;           <span class="c"># apply to index and working tree only</span>
+git cherry-pick <span class="nt">-m</span> 1 &lt;merge-sha&gt;   <span class="c"># pick a merge, diffing against parent 1</span>
+git cherry-pick <span class="nt">--continue</span> | <span class="nt">--skip</span> | <span class="nt">--abort</span>
 </code></pre></div></div>
 
-<p>Because each pick is a new commit with a new hash, cherry-picking the <em>same</em> change onto two branches and later merging them can produce duplicate-looking commits; <code class="language-plaintext highlighter-rouge">-x</code> leaves a breadcrumb so the relationship is traceable.</p>
+<p>Because each pick is a new commit, picking the same change onto two branches and later merging them yields two commits with the same patch. The merge is usually clean, and <code class="language-plaintext highlighter-rouge">-x</code> records the relationship for anyone reading the history later. When rebasing, such duplicates are dropped automatically because their <code class="language-plaintext highlighter-rouge">patch-id</code> matches.</p>
 
-<h2 id="workflow-models">Workflow Models</h2>
+<h2 id="stash">Stash</h2>
 
-<p>The state-machine view of Git workflows — GitFlow, GitHub Flow, GitLab Flow, and trunk-based/monorepo patterns, with their branch structures and promotion rules — is documented in depth on its own page.</p>
+<p>A stash entry is an ordinary commit stored under <code class="language-plaintext highlighter-rouge">refs/stash</code>, with the stack of entries kept in that ref’s reflog. Each entry is a merge-shaped commit:</p>
 
-<p>See <a href="../branching.html">Branching Strategies</a> for GitFlow, GitHub Flow, GitLab Flow, and trunk-based development, including when to choose each and how they map branches to environments.</p>
+<pre><code class="language-mermaid">flowchart RL
+    W["W: working-tree state&lt;br/&gt;(stash@{0})"] --&gt; H["H: HEAD when stashed"]
+    W --&gt; I["I: index state"]
+    I --&gt; H
+    W -.-&gt; U["U: untracked files&lt;br/&gt;(only with -u)"]
+</code></pre>
 
-<h2 id="practical-operations">Practical Operations</h2>
+<p><code class="language-plaintext highlighter-rouge">W</code>’s first parent is the commit you were on, its second parent <code class="language-plaintext highlighter-rouge">I</code> records the staged changes, and an optional third parent records untracked files. This structure is why a dropped stash can be recovered with <code class="language-plaintext highlighter-rouge">git fsck</code> (see <a href="conflict-and-recovery.html#fsck-finding-commits-the-reflog-forgot">Recovering a dropped stash</a>).</p>
 
-<p>The commands below build directly on the algorithms above. Each entry notes <em>when</em> to reach for it. For the exhaustive flag-by-flag listing, see the <a href="../git-reference.html">Git Command Reference</a>.</p>
-
-<h3 id="stash-park-work-without-committing">Stash: Park Work Without Committing</h3>
-
-<p>Stash saves your uncommitted changes (and optionally untracked files) and reverts the working tree to a clean state, so you can switch contexts and come back later.</p>
-
-<p><strong>When to use:</strong> you need to switch branches, pull, or run a quick experiment but your current work is not ready to commit. Prefer a throwaway WIP commit over stash if you might forget the stash exists or need it on a shared machine — stashes are easy to lose.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git stash push <span class="nt">-m</span> <span class="s2">"wip: refactor parser"</span>   <span class="c"># stash with a label</span>
-git stash push <span class="nt">-p</span>                          <span class="c"># interactively choose hunks to stash</span>
-git stash push <span class="nt">--</span> &lt;pathspec&gt;               <span class="c"># stash only specific files</span>
-git stash list                             <span class="c"># see the stash stack</span>
-git stash show <span class="nt">-p</span> stash@<span class="o">{</span>0<span class="o">}</span>                <span class="c"># view a stash as a diff</span>
-git stash apply stash@<span class="o">{</span>0<span class="o">}</span>                  <span class="c"># restore changes, keep the stash</span>
-git stash pop                              <span class="c"># restore and drop the top stash</span>
-git stash branch &lt;name&gt; stash@<span class="o">{</span>0<span class="o">}</span>          <span class="c"># start a branch from a stash</span>
-git stash drop stash@<span class="o">{</span>0<span class="o">}</span>                   <span class="c"># delete one stash</span>
-git stash clear                            <span class="c"># delete all stashes</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git stash push <span class="nt">-m</span> <span class="s2">"wip: parser"</span>        <span class="c"># stash tracked changes with a label</span>
+git stash push <span class="nt">-u</span>                      <span class="c"># include untracked files</span>
+git stash push <span class="nt">-p</span>                      <span class="c"># choose hunks interactively</span>
+git stash push <span class="nt">--</span> path/to/file         <span class="c"># stash only some paths</span>
+git stash list
+git stash show <span class="nt">-p</span> stash@<span class="o">{</span>1<span class="o">}</span>            <span class="c"># view an entry as a patch</span>
+git stash apply stash@<span class="o">{</span>1<span class="o">}</span>              <span class="c"># restore, keep the entry</span>
+git stash pop                          <span class="c"># restore and drop the top entry</span>
+git stash branch fix-parser stash@<span class="o">{</span>0<span class="o">}</span>  <span class="c"># new branch at the stash's base, then apply</span>
+git stash <span class="nb">export</span> <span class="nt">--to-ref</span> refs/stashes/backup   <span class="c"># turn the stash stack into pushable commits</span>
+git stash import refs/stashes/backup            <span class="c"># restore an exported stack</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">git stash branch</code> is the safe escape hatch when a stash no longer applies cleanly to the current tree: it recreates the original base, applies the stash there, and drops it only on success.</p>
+<p><code class="language-plaintext highlighter-rouge">git stash branch</code> is the reliable path when a stash no longer applies cleanly: it recreates the original base commit, applies the stash there, and drops it only on success. <code class="language-plaintext highlighter-rouge">export</code> and <code class="language-plaintext highlighter-rouge">import</code> (added in Git 2.51) convert the stash stack into a normal commit chain that can be pushed and fetched, so stashes can move between machines. For anything long-lived, a WIP commit on a branch is still easier to find than a stash.</p>
 
-<h3 id="reset-move-head-and-maybe-the-indextree">Reset: Move HEAD (and Maybe the Index/Tree)</h3>
+<h2 id="reset-restore-and-switch">Reset, restore, and switch</h2>
 
-<p>Reset moves the current branch to point at another commit and, depending on the mode, also rewrites the index and working tree. The three modes form a ladder of how much they touch:</p>
+<p><code class="language-plaintext highlighter-rouge">git reset</code> moves the current branch to another commit and, depending on mode, overwrites the index and working tree. The modes are a ladder of how much they touch:</p>
 
 <table>
   <thead>
     <tr>
       <th>Mode</th>
-      <th style="text-align: center">Moves HEAD</th>
+      <th style="text-align: center">Moves branch</th>
       <th style="text-align: center">Resets index</th>
       <th style="text-align: center">Resets working tree</th>
-      <th>Use when</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">--soft</code></td>
-      <td style="text-align: center">✅</td>
-      <td style="text-align: center">❌</td>
-      <td style="text-align: center">❌</td>
-      <td>Re-commit the same changes differently (e.g. squash the last <em>n</em> commits into one — the changes stay staged).</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">No</td>
+      <td style="text-align: center">No</td>
+      <td>Squash the last <em>n</em> commits: changes stay staged for a new commit</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">--mixed</code> <em>(default)</em></td>
-      <td style="text-align: center">✅</td>
-      <td style="text-align: center">✅</td>
-      <td style="text-align: center">❌</td>
-      <td>Unstage everything but keep your edits (undo a premature <code class="language-plaintext highlighter-rouge">git add</code>).</td>
+      <td><code class="language-plaintext highlighter-rouge">--mixed</code> (default)</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">No</td>
+      <td>Unstage everything but keep edits</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--keep</code></td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Only files that differ between the commits</td>
+      <td>Move the branch but abort rather than lose local edits</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">--hard</code></td>
-      <td style="text-align: center">✅</td>
-      <td style="text-align: center">✅</td>
-      <td style="text-align: center">✅</td>
-      <td>Throw away local changes entirely and match a commit exactly. <strong>Destructive</strong> — uncommitted work is lost.</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+      <td>Discard all local changes; <strong>uncommitted work is lost</strong></td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reset <span class="nt">--soft</span>  HEAD~3   <span class="c"># collapse last 3 commits, keep their changes staged</span>
-git reset <span class="nt">--mixed</span> HEAD     <span class="c"># unstage everything, keep edits in the working tree</span>
-git reset <span class="nt">--hard</span>  origin/main   <span class="c"># discard local commits and edits; match the remote</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reset <span class="nt">--soft</span> HEAD~3        <span class="c"># collapse the last three commits into staged changes</span>
+git reset                      <span class="c"># unstage everything</span>
+git reset <span class="nt">--hard</span> origin/main   <span class="c"># match the remote exactly</span>
 </code></pre></div></div>
 
-<p><strong>Caution:</strong> <code class="language-plaintext highlighter-rouge">--hard</code> discards uncommitted work without confirmation. If you reset away <em>committed</em> work by mistake, it is recoverable via the reflog — see <a href="conflict-and-recovery.html">Conflicts &amp; Recovery</a>.</p>
+<p>Commits “lost” to a reset remain reachable through the reflog; see <a href="conflict-and-recovery.html#reflog-recovering-lost-commits">Reflog: recovering lost commits</a>. Uncommitted changes discarded by <code class="language-plaintext highlighter-rouge">--hard</code> are not recoverable unless they were once staged, in which case <code class="language-plaintext highlighter-rouge">git fsck --lost-found</code> may find their blobs.</p>
 
-<h3 id="revert-undo-safely-on-shared-history">Revert: Undo Safely on Shared History</h3>
+<p>Two commands introduced in Git 2.23 split <code class="language-plaintext highlighter-rouge">git checkout</code>’s overloaded roles and are the clearer choice for everyday work:</p>
 
-<p>Revert creates a <em>new</em> commit that applies the inverse of a target commit. Unlike reset and rebase, it does not rewrite history, so it is the correct tool on branches others have already pulled.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th><code class="language-plaintext highlighter-rouge">checkout</code> form</th>
+      <th>Newer form</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Switch branches</td>
+      <td><code class="language-plaintext highlighter-rouge">git checkout topic</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git switch topic</code></td>
+    </tr>
+    <tr>
+      <td>Create and switch</td>
+      <td><code class="language-plaintext highlighter-rouge">git checkout -b topic</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git switch -c topic</code></td>
+    </tr>
+    <tr>
+      <td>Discard working-tree edits to a file</td>
+      <td><code class="language-plaintext highlighter-rouge">git checkout -- file</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git restore file</code></td>
+    </tr>
+    <tr>
+      <td>Unstage a file</td>
+      <td><code class="language-plaintext highlighter-rouge">git reset file</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git restore --staged file</code></td>
+    </tr>
+    <tr>
+      <td>Restore a file from another commit</td>
+      <td><code class="language-plaintext highlighter-rouge">git checkout abc123 -- file</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git restore --source=abc123 file</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>When to use:</strong> you need to back out a change that is already pushed/shared. Reach for reset/rebase only on private, unpublished history.</p>
+<h2 id="revert">Revert</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git revert &lt;commit&gt;            <span class="c"># create a commit that undoes &lt;commit&gt;</span>
-git revert <span class="nt">-n</span> &lt;commit&gt;         <span class="c"># stage the inverse without committing (batch several)</span>
-git revert <span class="nt">-m</span> 1 &lt;merge-commit&gt; <span class="c"># revert a merge, keeping parent #1's line of history</span>
+<p><code class="language-plaintext highlighter-rouge">git revert</code> creates a new commit that applies the inverse of an existing one. It does not rewrite history, so it is the correct way to undo a change on a shared branch.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git revert &lt;sha&gt;                  <span class="c"># new commit undoing &lt;sha&gt;</span>
+git revert <span class="nt">-n</span> A..B                <span class="c"># stage the inverse of a range, commit once</span>
+git revert <span class="nt">-m</span> 1 &lt;merge-sha&gt;       <span class="c"># undo a merge relative to its first parent</span>
 </code></pre></div></div>
 
-<p>Reverting a merge needs <code class="language-plaintext highlighter-rouge">-m</code> to tell Git which parent to treat as “mainline.” Note that reverting a merge does not un-merge the branch — to bring it in again later you may need to revert the revert.</p>
+<p>Reverting a merge needs <code class="language-plaintext highlighter-rouge">-m</code> to name the mainline parent. The revert undoes the merge’s <em>content</em>, but the merged commits remain in history as ancestors, so a later attempt to merge the same branch again brings in only changes made after the original merge. To reintroduce the whole branch, revert the revert first.</p>
 
-<h3 id="history--inspection">History &amp; Inspection</h3>
+<h2 id="inspecting-history">Inspecting history</h2>
 
-<p>Read-only commands for understanding what happened. None of these change history, so they are always safe to run.</p>
+<p>These commands are read-only and always safe.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log <span class="nt">--oneline</span> <span class="nt">--graph</span> <span class="nt">--all</span>     <span class="c"># compact topology of every branch</span>
-git log <span class="nt">--follow</span> &lt;file&gt;             <span class="c"># history of a file across renames</span>
-git log <span class="nt">-p</span>                          <span class="c"># show the patch for each commit</span>
-git log <span class="nt">--since</span><span class="o">=</span><span class="s2">"2 weeks ago"</span> <span class="nt">--author</span><span class="o">=</span><span class="s2">"pattern"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log <span class="nt">--oneline</span> <span class="nt">--graph</span> <span class="nt">--all</span>          <span class="c"># topology of every branch</span>
+git log <span class="nt">--follow</span> <span class="nt">--</span> path                 <span class="c"># one file's history across renames</span>
+git log <span class="nt">-S</span> <span class="s1">'retryCount'</span>                  <span class="c"># commits that add or remove the string ("pickaxe")</span>
+git log <span class="nt">-G</span> <span class="s1">'retry[A-Z][a-z]+'</span>            <span class="c"># commits whose diff matches a regex</span>
+git log <span class="nt">-L</span> :parse_header:src/http.c      <span class="c"># history of one function</span>
+git log main..feature                    <span class="c"># commits on feature not yet on main</span>
+git log main...feature <span class="nt">--left-right</span>      <span class="c"># commits unique to each side</span>
 
-git diff                            <span class="c"># working tree vs. index</span>
-git diff <span class="nt">--staged</span>                   <span class="c"># index vs. last commit</span>
-git diff HEAD~2 HEAD                <span class="c"># between two commits</span>
-git diff branch1..branch2           <span class="c"># between two branches</span>
+git diff <span class="nt">--staged</span>                        <span class="c"># index vs HEAD</span>
+git range-diff main old-feature feature  <span class="c"># compare two versions of a rebased branch</span>
 
-git blame &lt;file&gt;                    <span class="c"># who last changed each line</span>
-git blame <span class="nt">-L</span> 10,20 &lt;file&gt;           <span class="c"># restrict to a line range</span>
+git blame <span class="nt">-L</span> 40,60 path                  <span class="c"># line authorship for a range</span>
+git blame <span class="nt">--ignore-revs-file</span> .git-blame-ignore-revs path   <span class="c"># skip bulk reformatting commits</span>
 </code></pre></div></div>
 
-<h2 id="git-hooks">Git Hooks</h2>
+<p><code class="language-plaintext highlighter-rouge">git range-diff</code> is the standard way to review what changed between two iterations of a rebased branch, since ordinary diffs between rewritten branches are dominated by upstream changes. An <code class="language-plaintext highlighter-rouge">.git-blame-ignore-revs</code> file listing mass-reformatting commits (set <code class="language-plaintext highlighter-rouge">blame.ignoreRevsFile</code> to use it by default; GitHub’s blame view honours it too) keeps <code class="language-plaintext highlighter-rouge">blame</code> pointing at meaningful changes.</p>
 
-<p>Hooks are executable scripts in <code class="language-plaintext highlighter-rouge">.git/hooks/</code> (or a shared <code class="language-plaintext highlighter-rouge">core.hooksPath</code> directory) that Git runs at defined points in its lifecycle. A non-zero exit from a <em>pre-</em> hook aborts the operation, which is what makes them useful as guardrails. Client-side hooks are <strong>not</strong> copied on clone, so teams distribute them via a tool (pre-commit, Husky, Lefthook) or a tracked hooks directory.</p>
+<h2 id="hooks">Hooks</h2>
 
-<p><strong>Client-side hooks</strong> fire on local actions:</p>
+<p>Hooks are programs Git runs at defined points in its workflow. A non-zero exit from a <code class="language-plaintext highlighter-rouge">pre-*</code> hook (and a few others such as <code class="language-plaintext highlighter-rouge">commit-msg</code>) aborts the operation, which makes hooks useful as guardrails. They are not copied by <code class="language-plaintext highlighter-rouge">clone</code>, so teams distribute them through a framework (pre-commit, Husky, Lefthook), a tracked directory selected with <code class="language-plaintext highlighter-rouge">core.hooksPath</code>, or configuration.</p>
 
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">pre-commit</code> — validate the snapshot (lint, run fast tests) before a commit is created.</li>
-  <li><code class="language-plaintext highlighter-rouge">prepare-commit-msg</code> / <code class="language-plaintext highlighter-rouge">commit-msg</code> — pre-fill or validate the commit message (e.g. enforce a format).</li>
-  <li><code class="language-plaintext highlighter-rouge">post-commit</code> — notify or trigger follow-up work after a commit.</li>
-  <li><code class="language-plaintext highlighter-rouge">pre-rebase</code> — guard against rebasing branches that should not be rewritten.</li>
-  <li><code class="language-plaintext highlighter-rouge">post-rewrite</code> — react after <code class="language-plaintext highlighter-rouge">commit --amend</code> or <code class="language-plaintext highlighter-rouge">rebase</code> rewrites commits.</li>
-  <li><code class="language-plaintext highlighter-rouge">pre-push</code> — final gate before history leaves the machine (run the full test suite).</li>
-</ul>
+<p><strong>Client-side hooks</strong></p>
 
-<p><strong>Server-side hooks</strong> fire on the receiving end of a push and are the enforcement point you cannot bypass locally:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Hook</th>
+      <th>Runs</th>
+      <th>Common use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pre-commit</code></td>
+      <td>Before the commit message is requested</td>
+      <td>Lint and format staged files, run fast tests, scan for secrets</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">prepare-commit-msg</code></td>
+      <td>Before the editor opens</td>
+      <td>Pre-fill a template or ticket number</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">commit-msg</code></td>
+      <td>After the message is written</td>
+      <td>Enforce a message format such as Conventional Commits</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">post-commit</code></td>
+      <td>After the commit is created</td>
+      <td>Notifications</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pre-rebase</code></td>
+      <td>Before a rebase starts</td>
+      <td>Refuse to rebase protected branches</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">post-checkout</code>, <code class="language-plaintext highlighter-rouge">post-merge</code></td>
+      <td>After checkout/switch and merge</td>
+      <td>Reinstall dependencies, regenerate files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">post-rewrite</code></td>
+      <td>After <code class="language-plaintext highlighter-rouge">commit --amend</code> and rebase</td>
+      <td>Update external references to old hashes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pre-push</code></td>
+      <td>Before objects are sent</td>
+      <td>Run the full test suite</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">pre-receive</code> — validate the entire push atomically; reject all refs or none.</li>
-  <li><code class="language-plaintext highlighter-rouge">update</code> — validate each ref update individually.</li>
-  <li><code class="language-plaintext highlighter-rouge">post-receive</code> — trigger deployment, CI, or notifications after a successful push.</li>
-  <li><code class="language-plaintext highlighter-rouge">post-update</code> — legacy notification hook (largely superseded by <code class="language-plaintext highlighter-rouge">post-receive</code>).</li>
-</ul>
+<p><strong>Server-side hooks</strong> run on the receiving repository during a push and cannot be bypassed by the client:</p>
 
-<p><strong>Example <code class="language-plaintext highlighter-rouge">pre-commit</code> hook</strong> rejecting a commit that fails linting or leaves debug output behind:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Hook</th>
+      <th>Runs</th>
+      <th>Common use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pre-receive</code></td>
+      <td>Once per push, before any ref is updated</td>
+      <td>Policy checks on the whole push; reject all refs or none</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">update</code></td>
+      <td>Once per ref being updated</td>
+      <td>Per-branch permission checks</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">post-receive</code></td>
+      <td>After all refs are updated</td>
+      <td>Trigger CI, deployments, notifications</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reference-transaction</code></td>
+      <td>At each stage of every ref transaction</td>
+      <td>Auditing and replication of ref changes</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh</span>
-<span class="c"># .git/hooks/pre-commit</span>
+<p>Hosted forges do not let you install arbitrary server hooks; they provide the same guarantees through branch protection rules, required status checks, push rulesets and secret-scanning push protection.</p>
 
-<span class="c"># Run linting</span>
-<span class="k">if</span> <span class="o">!</span> npm run lint<span class="p">;</span> <span class="k">then
-    </span><span class="nb">echo</span> <span class="s2">"Linting failed. Please fix errors before committing."</span>
+<h3 id="config-based-hooks">Config-based hooks</h3>
+
+<p>Since Git 2.54 hooks can also be declared in configuration, which allows several commands per event and central management through system or global config. Git 2.55 added optional parallel execution.</p>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[hook "linter"]</span>
+    <span class="py">event</span> <span class="p">=</span> <span class="s">pre-commit</span>
+    <span class="py">event</span> <span class="p">=</span> <span class="s">pre-push</span>
+    <span class="py">command</span> <span class="p">=</span> <span class="s">~/bin/linter --staged</span>
+
+<span class="nn">[hook "msgcheck"]</span>
+    <span class="py">event</span> <span class="p">=</span> <span class="s">commit-msg</span>
+    <span class="py">command</span> <span class="p">=</span> <span class="s">~/bin/check-message</span>
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git hook list pre-commit          <span class="c"># hooks configured for an event, including .git/hooks</span>
+git hook run pre-commit           <span class="c"># run them by hand</span>
+</code></pre></div></div>
+
+<p>Each hook can be disabled with <code class="language-plaintext highlighter-rouge">hook.&lt;name&gt;.enabled=false</code>, and <code class="language-plaintext highlighter-rouge">hook.&lt;name&gt;.parallel=true</code> together with <code class="language-plaintext highlighter-rouge">hook.jobs</code> lets independent hooks run concurrently.</p>
+
+<h3 id="example-pre-commit-hook">Example <code class="language-plaintext highlighter-rouge">pre-commit</code> hook</h3>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh</span>
+<span class="c"># .git/hooks/pre-commit: reject commits that fail lint or add debug output</span>
+<span class="nb">set</span> <span class="nt">-e</span>
+
+npm run <span class="nt">--silent</span> lint <span class="o">||</span> <span class="o">{</span> <span class="nb">echo</span> <span class="s2">"Lint failed; commit aborted."</span> <span class="o">&gt;</span>&amp;2<span class="p">;</span> <span class="nb">exit </span>1<span class="p">;</span> <span class="o">}</span>
+
+<span class="k">if </span>git diff <span class="nt">--cached</span> <span class="nt">-U0</span> | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'^\+.*console\.(log|debug)\('</span> <span class="o">&gt;</span>/dev/null<span class="p">;</span> <span class="k">then
+    </span><span class="nb">echo</span> <span class="s2">"Remove console.log/debug calls before committing."</span> <span class="o">&gt;</span>&amp;2
     <span class="nb">exit </span>1
 <span class="k">fi</span>
-
-<span class="c"># Block stray debugging statements</span>
-<span class="k">if </span>git diff <span class="nt">--cached</span> | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"console</span><span class="se">\.</span><span class="s2">(log|debug)"</span> <span class="o">&gt;</span> /dev/null<span class="p">;</span> <span class="k">then
-    </span><span class="nb">echo</span> <span class="s2">"Remove console statements before committing."</span>
-    <span class="nb">exit </span>1
-<span class="k">fi
-
-</span><span class="nb">exit </span>0
 </code></pre></div></div>
 
-<h2 id="see-also">See Also</h2>
+<p>The check examines only added lines of the staged diff (<code class="language-plaintext highlighter-rouge">^\+</code>), so existing debug statements elsewhere in a file do not block unrelated commits. Any hook can be bypassed locally with <code class="language-plaintext highlighter-rouge">git commit --no-verify</code>, so treat client-side hooks as convenience and enforce policy on the server or in CI.</p>
+
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="object-model.html">Object Model &amp; Storage</a> — the commit graph and object store these algorithms operate on.</li>
-  <li><a href="conflict-and-recovery.html">Conflicts &amp; Recovery</a> — resolving merge/rebase conflicts and recovering lost commits with the reflog and <code class="language-plaintext highlighter-rouge">fsck</code>.</li>
-  <li><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a> — the wire protocol, pack/index formats, and performance tuning.</li>
-  <li><a href="../branching.html">Branching Strategies</a> — GitFlow, GitHub Flow, GitLab Flow, and trunk-based development.</li>
-  <li><a href="../git-reference.html">Git Command Reference</a> — full syntax for merge, rebase, stash, reset, and the rest.</li>
+  <li><a href="object-model.html">Object Model &amp; Storage</a>: the commit graph and object store these algorithms operate on</li>
+  <li><a href="conflict-and-recovery.html">Conflict Resolution &amp; Recovery</a>: resolving conflicts and recovering lost commits</li>
+  <li><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a>: the commit-graph file, pack formats, and maintenance</li>
+  <li><a href="../branching.html">Branching Strategies</a>: GitHub Flow, GitLab Flow, Git Flow and trunk-based development</li>
+  <li><a href="../git-reference.html">Git Command Reference</a>: full syntax for merge, rebase, stash, reset and the rest</li>
 </ul>
 
-<p><strong>Previous:</strong> <a href="protocols-and-performance.html">← Protocols, Packs &amp; Performance</a>. <strong>Next:</strong> <a href="conflict-and-recovery.html">Conflicts &amp; Recovery →</a> — resolving conflicts and rescuing lost work with reflog and fsck.</p>
+<p><strong>Previous:</strong> <a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a> · <strong>Next:</strong> <a href="conflict-and-recovery.html">Conflict Resolution &amp; Recovery</a></p>
 
       </section>
     </div>

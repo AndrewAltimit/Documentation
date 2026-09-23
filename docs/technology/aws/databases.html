@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="RDS, Aurora, Aurora DSQL, DynamoDB, ElastiCache, and AWS's other purpose-built databases: how they work, how they fail over, and how to choose.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AWS Database Services">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="RDS, Aurora, Aurora DSQL, DynamoDB, ElastiCache, and AWS's other purpose-built databases: how they work, how they fail over, and how to choose.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/databases.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AWS Database Services">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="RDS, Aurora, Aurora DSQL, DynamoDB, ElastiCache, and AWS's other purpose-built databases: how they work, how they fail over, and how to choose.">
 
 <title>AWS Database Services | Andrews Notebook</title>
 
@@ -3131,155 +3131,291 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>AWS offers RDS, Aurora, DynamoDB, ElastiCache, and several specialized engines covering relational, NoSQL, caching, time-series, and graph workloads. This page covers how to choose between them and how to use each well.</p>
-
-<h2 id="why-managed-databases-matter">Why Managed Databases Matter</h2>
-
-<p>Running databases yourself means handling backups, patching, replication, failover, and monitoring. AWS managed databases handle all of that, letting you focus on your application instead of database administration.</p>
-
-<p>Consider the following when choosing a database: What type of data will you store? How will you query it? What scale do you need? How important is consistency vs. performance?</p>
+        <p>AWS runs managed versions of most database families: relational (RDS, Aurora, Aurora DSQL), key-value and document (DynamoDB, DocumentDB), in-memory (ElastiCache, MemoryDB), graph (Neptune), wide-column (Keyspaces), time series (Timestream), and search (OpenSearch Service). “Managed” means AWS handles provisioning, patching, backups, replication, and failover; you still own schema design, query performance, capacity choices, and access control. This page explains how the main services work internally, how they achieve high availability, and how to choose between them. General data-modelling concepts are in the <a href="../database-design/">Database Design guide</a>.</p>
 
 <hr />
 
-<h2 id="choosing-the-right-database">Choosing the Right Database</h2>
+<h2 id="choosing-a-database">Choosing a Database</h2>
 
-<p>Before diving into specific services, understand the two main categories:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Category</th>
-      <th>When to Use</th>
-      <th>AWS Services</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Relational (SQL)</strong></td>
-      <td>Structured data, complex queries, transactions</td>
-      <td>RDS, Aurora</td>
-    </tr>
-    <tr>
-      <td><strong>NoSQL</strong></td>
-      <td>Flexible schemas, massive scale, simple queries</td>
-      <td>DynamoDB, DocumentDB, ElastiCache</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="quick-decision-guide">Quick Decision Guide</h3>
+<p>Start from the data model and access pattern, not from the service list.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Your Situation</th>
-      <th>Recommended Service</th>
+      <th>Data model / need</th>
+      <th>Service</th>
+      <th>Typical workloads</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Traditional web app with complex queries</td>
-      <td>RDS (PostgreSQL or MySQL)</td>
+      <td>Relational, moderate scale, standard engines</td>
+      <td><strong>RDS</strong> (PostgreSQL, MySQL, MariaDB, Oracle, SQL Server, Db2)</td>
+      <td>Line-of-business apps, SaaS backends, packaged software</td>
     </tr>
     <tr>
-      <td>Need maximum SQL performance</td>
-      <td>Aurora</td>
+      <td>Relational, high throughput or fast failover, MySQL/PostgreSQL</td>
+      <td><strong>Aurora</strong></td>
+      <td>Large OLTP systems, read-heavy apps with many replicas</td>
     </tr>
     <tr>
-      <td>High-scale with simple key-value access</td>
-      <td>DynamoDB</td>
+      <td>Relational, serverless, active-active across Regions</td>
+      <td><strong>Aurora DSQL</strong></td>
+      <td>Globally available transactional apps, serverless and event-driven services</td>
     </tr>
     <tr>
-      <td>Need caching layer</td>
-      <td>ElastiCache (Redis)</td>
+      <td>Key-value or document at any scale, predictable latency</td>
+      <td><strong>DynamoDB</strong></td>
+      <td>User profiles, carts, sessions, gaming state, IoT metadata</td>
     </tr>
     <tr>
-      <td>Document storage (MongoDB compatible)</td>
-      <td>DocumentDB</td>
+      <td>In-memory cache</td>
+      <td><strong>ElastiCache</strong> (Valkey, Redis OSS, Memcached)</td>
+      <td>Caching, sessions, leaderboards, rate limits</td>
     </tr>
     <tr>
-      <td>Time-series data</td>
-      <td>Timestream</td>
+      <td>In-memory <em>durable</em> primary database</td>
+      <td><strong>MemoryDB</strong> (Valkey and Redis OSS compatible)</td>
+      <td>Low-latency primary store where a cache’s data loss is unacceptable</td>
     </tr>
     <tr>
-      <td>Graph relationships</td>
-      <td>Neptune</td>
+      <td>JSON documents with MongoDB API</td>
+      <td><strong>DocumentDB</strong></td>
+      <td>Content and catalogue data, apps built on MongoDB drivers</td>
+    </tr>
+    <tr>
+      <td>Highly connected data</td>
+      <td><strong>Neptune</strong> / <strong>Neptune Analytics</strong></td>
+      <td>Fraud rings, knowledge graphs, identity graphs, recommendations</td>
+    </tr>
+    <tr>
+      <td>Wide-column with Cassandra API</td>
+      <td><strong>Keyspaces</strong></td>
+      <td>Cassandra workloads without running clusters</td>
+    </tr>
+    <tr>
+      <td>Time series</td>
+      <td><strong>Timestream for InfluxDB</strong></td>
+      <td>Metrics, telemetry, IoT sensor data</td>
+    </tr>
+    <tr>
+      <td>Full-text and vector search, log analytics</td>
+      <td><strong>OpenSearch Service</strong></td>
+      <td>Site search, log search, retrieval for generative AI</td>
+    </tr>
+    <tr>
+      <td>Analytical SQL over large datasets</td>
+      <td><strong>Redshift</strong> (see also Athena on S3)</td>
+      <td>Data warehousing, BI dashboards</td>
     </tr>
   </tbody>
 </table>
-
-<p>The flowchart below captures the same decision as a series of questions, starting from the shape of your data and access pattern:</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    Start([What does your data look like?]) --&gt; Q1{Relational with&lt;br/&gt;JOINs and transactions?}
-    Q1 --&gt;|Yes| Q2{Need 3-5x throughput&lt;br/&gt;or auto-scaling storage?}
-    Q2 --&gt;|No| RDS[(RDS&lt;br/&gt;PostgreSQL / MySQL)]
-    Q2 --&gt;|Yes| Aurora[(Aurora)]
-    Q1 --&gt;|No| Q3{Access pattern?}
-    Q3 --&gt;|Key/value at scale| DDB[(DynamoDB)]
-    Q3 --&gt;|Sub-ms cache| EC[(ElastiCache&lt;br/&gt;Redis)]
-    Q3 --&gt;|Document / MongoDB| DocDB[(DocumentDB)]
-    Q3 --&gt;|Graph traversal| Neptune[(Neptune)]
-    Q3 --&gt;|Time-series| TS[(Timestream)]
+    Start([Shape of data and queries]) --&gt; Q1{Relational with joins&lt;br/&gt;and multi-row transactions?}
+    Q1 --&gt;|Yes| Q2{Need active-active&lt;br/&gt;writes in several Regions?}
+    Q2 --&gt;|Yes| DSQL[(Aurora DSQL)]
+    Q2 --&gt;|No| Q3{MySQL/PostgreSQL and need&lt;br/&gt;many replicas, fast failover,&lt;br/&gt;or large storage?}
+    Q3 --&gt;|Yes| Aurora[(Aurora)]
+    Q3 --&gt;|No, or other engine| RDS[(RDS)]
+    Q1 --&gt;|No| Q4{Primary access pattern}
+    Q4 --&gt;|Get/put by key at scale| DDB[(DynamoDB)]
+    Q4 --&gt;|Sub-millisecond cache| EC[(ElastiCache)]
+    Q4 --&gt;|MongoDB-style documents| DocDB[(DocumentDB)]
+    Q4 --&gt;|Graph traversal| Neptune[(Neptune)]
+    Q4 --&gt;|Time series| TS[(Timestream for InfluxDB)]
+    Q4 --&gt;|Text or vector search| OS[(OpenSearch Service)]
 </code></pre>
+
+<p>Two common mistakes: choosing DynamoDB for a workload that needs ad-hoc queries and reporting (it can do it, but only through exports or secondary indexes you design up front), and choosing a relational database for a very high-volume key-value workload that will eventually need sharding.</p>
 
 <hr />
 
-<h2 id="amazon-rds---managed-relational-databases">Amazon RDS - Managed Relational Databases</h2>
+<h2 id="amazon-rds">Amazon RDS</h2>
 
-<p>RDS runs traditional databases (MySQL, PostgreSQL, MariaDB, Oracle, SQL Server) but handles the operational burden: backups, patching, replication, and failover.</p>
+<p><strong>Amazon Relational Database Service (RDS)</strong> runs standard database engines on instances that AWS manages. You choose an engine version, an instance class, and storage; RDS handles installation, minor-version patching in a maintenance window, automated backups, and replication.</p>
 
-<p><strong>Real-world example</strong>: A SaaS application uses RDS PostgreSQL for customer data. RDS automatically backs up the database nightly, replicates to a standby instance for high availability, and can scale up during busy periods.</p>
+<h3 id="high-availability-and-read-scaling">High availability and read scaling</h3>
 
-<h3 id="when-to-use-rds">When to Use RDS</h3>
+<p>RDS offers three replication features, which are often combined:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>Topology</th>
+      <th>Readable?</th>
+      <th>Failover</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Multi-AZ DB instance</strong></td>
+      <td>Primary plus one synchronous standby in another AZ</td>
+      <td>No</td>
+      <td>Automatic, typically 60 to 120 seconds (DNS endpoint flips)</td>
+      <td>Availability</td>
+    </tr>
+    <tr>
+      <td><strong>Multi-AZ DB cluster</strong> (MySQL, PostgreSQL)</td>
+      <td>Writer plus two readable standbys in different AZs, semi-synchronous replication</td>
+      <td>Yes, via reader endpoint</td>
+      <td>Automatic, typically under 35 seconds</td>
+      <td>Availability and some read scaling</td>
+    </tr>
+    <tr>
+      <td><strong>Read replicas</strong></td>
+      <td>Asynchronous copies, same or different Region; up to 15 for MySQL, MariaDB, and PostgreSQL</td>
+      <td>Yes</td>
+      <td>Manual promotion</td>
+      <td>Read scaling, cross-Region disaster recovery</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart LR
+    App[Application] --&gt;|writer endpoint| P[(Primary&lt;br/&gt;AZ a)]
+    P --&gt;|synchronous| S[(Standby&lt;br/&gt;AZ b)]
+    P -.-&gt;|asynchronous| R1[(Read replica&lt;br/&gt;AZ c)]
+    P -.-&gt;|asynchronous, cross-Region| R2[(Read replica&lt;br/&gt;other Region)]
+    App --&gt;|read-only queries| R1
+</code></pre>
+
+<p>A Multi-AZ standby protects against instance, storage, and AZ failure but does nothing for bad writes or dropped tables. That is what backups are for.</p>
+
+<h3 id="storage-backups-and-maintenance">Storage, backups, and maintenance</h3>
 
 <ul>
-  <li>You need SQL queries with JOINs across tables</li>
-  <li>Your data has clear relationships (users, orders, products)</li>
-  <li>You need ACID transactions (banking, inventory)</li>
-  <li>Your team knows SQL and relational databases</li>
+  <li><strong>Storage:</strong> gp3 for general use (IOPS and throughput provisioned separately from size), io2 Block Express for latency-sensitive, high-IOPS databases. Enable <strong>storage autoscaling</strong> to avoid outages when disks fill.</li>
+  <li><strong>Automated backups</strong> take a daily snapshot and keep transaction logs, allowing <strong>point-in-time restore</strong> to any second within the retention period (up to 35 days). A restore always creates a <em>new</em> instance. Manual snapshots and AWS Backup plans cover longer retention.</li>
+  <li><strong>Blue/Green Deployments</strong> create a synchronized copy of the database for major-version upgrades or schema changes, then switch over in typically under a minute.</li>
+  <li><strong>RDS Extended Support</strong> keeps a major version running past its standard end of support for an extra per-vCPU-hour charge; plan major upgrades to avoid it.</li>
 </ul>
 
-<h3 id="rds-instance-classes">RDS Instance Classes</h3>
+<h3 id="instance-classes">Instance classes</h3>
 
 <table>
   <thead>
     <tr>
       <th>Class</th>
-      <th>Best For</th>
-      <th>vCPUs</th>
-      <th>Memory</th>
+      <th>Profile</th>
+      <th>Use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>db.t3</strong></td>
-      <td>Development, small workloads</td>
-      <td>2-8</td>
-      <td>1-32 GB</td>
+      <td><strong>db.t4g / db.t3</strong></td>
+      <td>Burstable</td>
+      <td>Development, test, small or spiky workloads</td>
     </tr>
     <tr>
-      <td><strong>db.m5</strong></td>
-      <td>General production workloads</td>
-      <td>2-96</td>
-      <td>8-384 GB</td>
+      <td><strong>db.m7g, db.m8g / db.m7i</strong></td>
+      <td>General purpose (Graviton / Intel)</td>
+      <td>Most production databases</td>
     </tr>
     <tr>
-      <td><strong>db.r5</strong></td>
-      <td>Memory-intensive (large datasets)</td>
-      <td>2-96</td>
-      <td>16-768 GB</td>
+      <td><strong>db.r7g, db.r8g / db.r7i</strong>, <strong>db.x2g</strong></td>
+      <td>Memory optimized</td>
+      <td>Large working sets, high connection counts</td>
     </tr>
   </tbody>
 </table>
 
+<p>Graviton classes usually give the best price-performance and support all open-source engines. The instance class determines CPU, memory, and network bandwidth; EBS bandwidth limits can bottleneck I/O-heavy workloads on small classes.</p>
+
+<h3 id="connections-and-access">Connections and access</h3>
+
+<ul>
+  <li>Put databases in <strong>private subnets</strong> with security groups that allow only the application tier; never enable public accessibility for production.</li>
+  <li>Use <strong>RDS Proxy</strong> to pool connections from Lambda functions or large container fleets, which otherwise exhaust <code class="language-plaintext highlighter-rouge">max_connections</code>. It also shortens failover for clients.</li>
+  <li>Prefer <strong>IAM database authentication</strong> or credentials managed in <strong>Secrets Manager</strong> (RDS can manage and rotate the master password itself) over passwords in configuration.</li>
+  <li>Enable <strong>encryption at rest</strong> with KMS at creation time; an unencrypted instance can only be encrypted by restoring a snapshot copy.</li>
+</ul>
+
 <hr />
 
-<h2 id="amazon-aurora---high-performance-relational">Amazon Aurora - High-Performance Relational</h2>
+<h2 id="amazon-aurora">Amazon Aurora</h2>
 
-<p>Aurora is AWS’s cloud-native database, compatible with MySQL and PostgreSQL. It offers up to 5x the throughput of standard MySQL and 3x that of standard PostgreSQL, with automatic storage scaling up to 128 TB.</p>
+<p><strong>Amazon Aurora</strong> is AWS’s cloud-native relational database, compatible with MySQL and PostgreSQL. It keeps the engines’ query layers but replaces their storage with a distributed, log-structured storage service shared by all instances in a cluster.</p>
 
-<h3 id="when-to-use-aurora-vs-rds">When to Use Aurora vs RDS</h3>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph Compute[Compute layer]
+        W[Writer instance]
+        R1[Aurora Replica]
+        R2[Aurora Replica]
+    end
+    subgraph Storage[Shared cluster volume: 6 copies across 3 AZs]
+        subgraph AZa[AZ a]
+            S1[copy 1]
+            S2[copy 2]
+        end
+        subgraph AZb[AZ b]
+            S3[copy 3]
+            S4[copy 4]
+        end
+        subgraph AZc[AZ c]
+            S5[copy 5]
+            S6[copy 6]
+        end
+    end
+    W --&gt;|redo log records only;&lt;br/&gt;write quorum 4 of 6| Storage
+    R1 --&gt;|read pages| Storage
+    R2 --&gt;|read pages| Storage
+    W -.-&gt;|cache invalidation| R1
+    W -.-&gt;|cache invalidation| R2
+</code></pre>
+
+<p>How this differs from RDS:</p>
+
+<ul>
+  <li><strong>Only redo log records are shipped to storage</strong>, which applies them to data pages itself. This removes most of the write amplification of a traditional engine, which is the source of AWS’s “up to 5x MySQL and 3x PostgreSQL throughput” claim; real gains depend heavily on workload.</li>
+  <li><strong>Six copies across three AZs</strong> with a write quorum of 4 and a read quorum of 3: the volume survives the loss of an entire AZ plus one more copy without losing data, and keeps accepting writes after losing an AZ.</li>
+  <li><strong>Replicas share the volume</strong>, so adding one copies no data. A cluster can have up to 15 Aurora Replicas with replica lag typically in the tens of milliseconds, and failover to a replica typically completes in about 30 seconds.</li>
+  <li><strong>Storage grows automatically</strong> in 10 GiB increments up to 128 TiB, or 256 TiB on recent engine versions (Aurora PostgreSQL 17.5, 16.9, 15.13 and later; Aurora MySQL 3.10 and later). You pay for storage used.</li>
+  <li><strong>Backups are continuous</strong> to S3, with no performance impact, and <strong>cloning</strong> creates a copy-on-write copy of a cluster in minutes.</li>
+</ul>
+
+<h3 id="aurora-features-and-variants">Aurora features and variants</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Aurora Serverless v2</strong></td>
+      <td>Instances scale in fine-grained capacity units (ACUs) in seconds, and can scale down to 0 ACUs (pausing) when idle. Can be mixed with provisioned instances in one cluster.</td>
+    </tr>
+    <tr>
+      <td><strong>I/O-Optimized storage</strong></td>
+      <td>No per-I/O charges in exchange for higher instance and storage prices; worthwhile when I/O is roughly a quarter or more of cluster cost</td>
+    </tr>
+    <tr>
+      <td><strong>Global Database</strong></td>
+      <td>Storage-level replication to secondary Regions with typical lag under a second; managed switchover and failover for disaster recovery</td>
+    </tr>
+    <tr>
+      <td><strong>Limitless Database</strong> (PostgreSQL)</td>
+      <td>Horizontal sharding across many instances behind one endpoint, for write throughput beyond a single writer</td>
+    </tr>
+    <tr>
+      <td><strong>Zero-ETL integrations</strong></td>
+      <td>Continuous replication into Redshift (and other targets) for analytics without building pipelines</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="aurora-dsql">Aurora DSQL</h3>
+
+<p><strong>Aurora DSQL</strong> (generally available since 2025) is a separate, serverless, distributed SQL database with a PostgreSQL-compatible interface (currently PostgreSQL 16). It has no instances to size; compute, transaction log, and storage scale independently. Single-Region clusters are active across three AZs (99.99% availability SLA); <strong>multi-Region peered clusters</strong> give two Regional endpoints that both accept reads and writes with strong consistency (99.999%). Peered Regions must come from the same Region set (for example North America or Europe).</p>
+
+<p>DSQL uses optimistic concurrency control with snapshot isolation: transactions do not take locks, and a conflicting transaction fails at commit and must be retried. Not every PostgreSQL feature is supported, so check the compatibility list before migrating an existing application. It fits new applications that want relational semantics without managing failover.</p>
+
+<h3 id="rds-or-aurora">RDS or Aurora?</h3>
 
 <table>
   <thead>
@@ -3291,116 +3427,68 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>Cost</strong></td>
-      <td>Lower for small workloads</td>
-      <td>Better value at scale</td>
+      <td>Engines</td>
+      <td>Six, including commercial engines</td>
+      <td>MySQL- and PostgreSQL-compatible</td>
     </tr>
     <tr>
-      <td><strong>Performance</strong></td>
-      <td>Standard</td>
-      <td>3-5x faster</td>
+      <td>Storage</td>
+      <td>EBS volume per instance, provisioned size</td>
+      <td>Shared distributed volume, grows automatically</td>
     </tr>
     <tr>
-      <td><strong>Storage</strong></td>
-      <td>Manual provisioning</td>
-      <td>Auto-scales to 128 TB</td>
+      <td>Read replicas</td>
+      <td>Up to 15, each with its own copy</td>
+      <td>Up to 15 sharing storage, millisecond lag</td>
     </tr>
     <tr>
-      <td><strong>Replicas</strong></td>
-      <td>Up to 5</td>
-      <td>Up to 15 with faster failover</td>
+      <td>Failover</td>
+      <td>60 to 120 s (Multi-AZ instance), under 35 s (Multi-AZ cluster)</td>
+      <td>About 30 s to a replica</td>
     </tr>
     <tr>
-      <td><strong>Best for</strong></td>
-      <td>Dev/test, small production</td>
-      <td>High-performance production</td>
+      <td>Cost at small scale</td>
+      <td>Lower</td>
+      <td>Higher minimum (storage and I/O model)</td>
+    </tr>
+    <tr>
+      <td>Serverless option</td>
+      <td>No</td>
+      <td>Serverless v2</td>
     </tr>
   </tbody>
 </table>
 
+<p>Choose RDS for commercial engines, small or cost-sensitive databases, and when standard community-engine behaviour matters. Choose Aurora when read scaling, fast failover, cross-Region DR, or storage growth are the pressing concerns.</p>
+
 <hr />
 
-<h2 id="amazon-dynamodb---nosql-at-scale">Amazon DynamoDB - NoSQL at Scale</h2>
+<h2 id="amazon-dynamodb">Amazon DynamoDB</h2>
 
-<p>DynamoDB is a key-value and document database designed for applications needing consistent single-digit millisecond performance at any scale. It handles millions of requests per second without capacity planning.</p>
+<p><strong>DynamoDB</strong> is a serverless key-value and document database. There are no instances; tables scale by partitioning data across storage nodes, and latency stays in single-digit milliseconds regardless of table size, provided the key design spreads traffic evenly.</p>
 
-<p><strong>Real-world example</strong>: A mobile game uses DynamoDB to store player profiles and game state. Whether 100 or 10 million players are online, DynamoDB maintains consistent performance.</p>
-
-<h3 id="when-to-use-dynamodb">When to Use DynamoDB</h3>
+<h3 id="data-model">Data model</h3>
 
 <ul>
-  <li>Simple access patterns (get item by key, query by partition)</li>
-  <li>Massive scale requirements</li>
-  <li>Need single-digit millisecond latency</li>
-  <li>Schema may evolve over time</li>
+  <li>A <strong>table</strong> holds <strong>items</strong> (up to 400 KB each), which are sets of attributes. Only the key attributes are required.</li>
+  <li>The <strong>primary key</strong> is either a <strong>partition key</strong> alone, or a partition key plus <strong>sort key</strong>. The partition key is hashed to choose the physical partition; items with the same partition key are stored together, ordered by sort key.</li>
+  <li><strong>Global secondary indexes (GSIs)</strong> provide alternate keys with their own partitioning; <strong>local secondary indexes (LSIs)</strong> provide an alternate sort key within the same partition and must be defined at table creation.</li>
 </ul>
 
-<h3 id="when-not-to-use-dynamodb">When NOT to Use DynamoDB</h3>
+<pre><code class="language-mermaid">flowchart LR
+    Req["PutItem&lt;br/&gt;PK = USER#123&lt;br/&gt;SK = ORDER#2026-09-01"] --&gt; H[hash of&lt;br/&gt;partition key]
+    H --&gt; P1["Partition 1&lt;br/&gt;USER#007 ..."]
+    H --&gt; P2["Partition 2&lt;br/&gt;USER#123: PROFILE,&lt;br/&gt;ORDER#2026-08-12,&lt;br/&gt;ORDER#2026-09-01"]
+    H --&gt; P3["Partition 3&lt;br/&gt;USER#456 ..."]
+</code></pre>
 
-<ul>
-  <li>Complex queries with multiple JOINs</li>
-  <li>Ad-hoc reporting and analytics</li>
-  <li>Need for transactions across many items (limited support)</li>
-  <li>Team unfamiliar with NoSQL patterns</li>
-</ul>
+<p>Each partition supports up to 3,000 read capacity units and 1,000 write capacity units per second. <strong>Adaptive capacity</strong> shifts throughput to busy partitions and splits hot ones, but a single partition key value that receives most of the traffic will still throttle. High-cardinality partition keys (user ID, order ID) avoid this; low-cardinality or monotonically increasing ones (status, date) cause it.</p>
 
-<hr />
+<h3 id="designing-for-access-patterns">Designing for access patterns</h3>
 
-<h2 id="amazon-elasticache---in-memory-caching">Amazon ElastiCache - In-Memory Caching</h2>
+<p>Relational design normalizes data and relies on the query planner. DynamoDB inverts this: list the queries first, then choose keys so that each query is a single <code class="language-plaintext highlighter-rouge">GetItem</code> or <code class="language-plaintext highlighter-rouge">Query</code> against a table or index.</p>
 
-<p>ElastiCache provides Redis and Memcached for caching frequently accessed data. Adding a cache layer can reduce database load by 90% and improve response times from milliseconds to microseconds.</p>
-
-<h3 id="common-caching-patterns">Common Caching Patterns</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Pattern</th>
-      <th>Use Case</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Cache-aside</strong></td>
-      <td>Read-heavy workloads</td>
-      <td>Check cache first, then database</td>
-    </tr>
-    <tr>
-      <td><strong>Write-through</strong></td>
-      <td>Need cache consistency</td>
-      <td>Write to cache and database together</td>
-    </tr>
-    <tr>
-      <td><strong>Session storage</strong></td>
-      <td>Web applications</td>
-      <td>Store user sessions in Redis</td>
-    </tr>
-    <tr>
-      <td><strong>Rate limiting</strong></td>
-      <td>API protection</td>
-      <td>Track request counts per user</td>
-    </tr>
-  </tbody>
-</table>
-
-<hr />
-
-<h2 id="dynamodb-best-practices">DynamoDB Best Practices</h2>
-
-<h3 id="key-design-principles">Key Design Principles</h3>
-
-<p>DynamoDB works differently from relational databases. Success depends on understanding these principles:</p>
-
-<p><strong>1. Design for your access patterns first</strong>: Unlike SQL where you model data then write queries, DynamoDB requires knowing your queries upfront.</p>
-
-<p><strong>2. Use composite keys</strong>: Combine partition key (PK) and sort key (SK) to enable efficient queries.</p>
-
-<p><strong>3. Denormalize data</strong>: Store related data together. It is okay to duplicate data across items.</p>
-
-<h3 id="single-table-design">Single Table Design</h3>
-
-<p>Advanced DynamoDB usage puts all entity types in one table, using different key patterns:</p>
+<p><strong>Single-table design</strong> stores several entity types in one table with generic key names, so related items share a partition and can be fetched together:</p>
 
 <table>
   <thead>
@@ -3408,163 +3496,267 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Entity</th>
       <th>PK</th>
       <th>SK</th>
-      <th>Example</th>
+      <th>Attributes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>User</td>
+      <td>User profile</td>
       <td><code class="language-plaintext highlighter-rouge">USER#123</code></td>
       <td><code class="language-plaintext highlighter-rouge">PROFILE</code></td>
-      <td>User profile data</td>
+      <td>name, email</td>
     </tr>
     <tr>
-      <td>User’s orders</td>
+      <td>User’s order</td>
       <td><code class="language-plaintext highlighter-rouge">USER#123</code></td>
-      <td><code class="language-plaintext highlighter-rouge">ORDER#2024-01-15</code></td>
-      <td>Order summary</td>
+      <td><code class="language-plaintext highlighter-rouge">ORDER#2026-09-01#789</code></td>
+      <td>total, status</td>
     </tr>
     <tr>
-      <td>Order details</td>
-      <td><code class="language-plaintext highlighter-rouge">ORDER#456</code></td>
-      <td><code class="language-plaintext highlighter-rouge">DETAIL</code></td>
-      <td>Full order data</td>
+      <td>Order line</td>
+      <td><code class="language-plaintext highlighter-rouge">ORDER#789</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ITEM#1</code></td>
+      <td>sku, qty</td>
+    </tr>
+    <tr>
+      <td>Order by status (GSI)</td>
+      <td><code class="language-plaintext highlighter-rouge">GSI1PK = STATUS#SHIPPED</code></td>
+      <td><code class="language-plaintext highlighter-rouge">GSI1SK = 2026-09-01</code></td>
+      <td>(projected)</td>
     </tr>
   </tbody>
 </table>
 
-<p>This enables fetching a user and their recent orders in a single query.</p>
+<p><code class="language-plaintext highlighter-rouge">Query PK = USER#123</code> returns the profile and orders in one request; <code class="language-plaintext highlighter-rouge">begins_with(SK, "ORDER#2026")</code> narrows it to a year. Single-table design pays off for high-scale services with stable access patterns; for smaller or fast-changing applications, one table per entity is easier to evolve and query.</p>
 
-<h3 id="dynamodb-pricing-models">DynamoDB Pricing Models</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Table with composite key and on-demand capacity</span>
+aws dynamodb create-table <span class="nt">--table-name</span> app <span class="se">\</span>
+  <span class="nt">--attribute-definitions</span> <span class="nv">AttributeName</span><span class="o">=</span>PK,AttributeType<span class="o">=</span>S <span class="nv">AttributeName</span><span class="o">=</span>SK,AttributeType<span class="o">=</span>S <span class="se">\</span>
+  <span class="nt">--key-schema</span> <span class="nv">AttributeName</span><span class="o">=</span>PK,KeyType<span class="o">=</span>HASH <span class="nv">AttributeName</span><span class="o">=</span>SK,KeyType<span class="o">=</span>RANGE <span class="se">\</span>
+  <span class="nt">--billing-mode</span> PAY_PER_REQUEST
+
+<span class="c"># All orders for a user in 2026, newest first</span>
+aws dynamodb query <span class="nt">--table-name</span> app <span class="se">\</span>
+  <span class="nt">--key-condition-expression</span> <span class="s2">"PK = :pk AND begins_with(SK, :prefix)"</span> <span class="se">\</span>
+  <span class="nt">--expression-attribute-values</span> <span class="s1">'{":pk":{"S":"USER#123"},":prefix":{"S":"ORDER#2026"}}'</span> <span class="se">\</span>
+  <span class="nt">--no-scan-index-forward</span>
+</code></pre></div></div>
+
+<h3 id="capacity-consistency-and-features">Capacity, consistency, and features</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Details</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Capacity modes</strong></td>
+      <td><strong>On-demand</strong> bills per request and scales automatically; the default for new and variable workloads (its price was cut by half in November 2024). <strong>Provisioned</strong> with auto scaling is cheaper for steady, predictable traffic.</td>
+    </tr>
+    <tr>
+      <td><strong>Read consistency</strong></td>
+      <td>Eventually consistent reads by default (half the cost); strongly consistent reads available on the table and LSIs, not GSIs</td>
+    </tr>
+    <tr>
+      <td><strong>Transactions</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">TransactWriteItems</code> / <code class="language-plaintext highlighter-rouge">TransactGetItems</code>: ACID across up to 100 items in one Region, at twice the capacity cost</td>
+    </tr>
+    <tr>
+      <td><strong>Streams</strong></td>
+      <td>Ordered per-item change log, consumed by Lambda or Kinesis for event-driven processing</td>
+    </tr>
+    <tr>
+      <td><strong>TTL</strong></td>
+      <td>Deletes expired items automatically at no write cost</td>
+    </tr>
+    <tr>
+      <td><strong>Backups</strong></td>
+      <td>On-demand backups and point-in-time recovery (continuous backups for up to 35 days)</td>
+    </tr>
+    <tr>
+      <td><strong>DAX</strong></td>
+      <td>In-memory, write-through cache with microsecond reads for eventually consistent read-heavy workloads</td>
+    </tr>
+    <tr>
+      <td><strong>Table classes</strong></td>
+      <td>Standard, or Standard-Infrequent Access for tables where storage dominates cost</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="global-tables">Global tables</h3>
+
+<p><strong>Global tables</strong> replicate a table across Regions, with every replica accepting writes. Two consistency modes exist, chosen at creation:</p>
 
 <table>
   <thead>
     <tr>
       <th>Mode</th>
-      <th>Best For</th>
-      <th>How It Works</th>
+      <th>Replication</th>
+      <th>Conflict handling</th>
+      <th>Constraints</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>On-Demand</strong></td>
-      <td>Variable or unpredictable workloads</td>
-      <td>Pay per request, no capacity planning</td>
+      <td><strong>Multi-Region eventual consistency (MREC)</strong> (default)</td>
+      <td>Asynchronous, typically under a second</td>
+      <td>Last writer wins per item</td>
+      <td>Any number of Regions; RPO equals replication delay</td>
     </tr>
     <tr>
-      <td><strong>Provisioned</strong></td>
-      <td>Steady, predictable workloads</td>
-      <td>Set read/write capacity, lower cost</td>
+      <td><strong>Multi-Region strong consistency (MRSC)</strong></td>
+      <td>Synchronous to at least one other Region before acknowledging</td>
+      <td>Concurrent writes to the same item fail with <code class="language-plaintext highlighter-rouge">ReplicatedWriteConflictException</code> and can be retried</td>
+      <td>Exactly three Regions (or two replicas plus a witness) within one Region set; RPO of zero; no transactions, TTL, or LSIs</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Start with On-Demand</strong> for new applications. Switch to Provisioned once you understand your traffic patterns.</p>
-
-<h3 id="essential-dynamodb-commands">Essential DynamoDB Commands</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a table with on-demand billing</span>
-aws dynamodb create-table <span class="nt">--table-name</span> MyTable <span class="se">\</span>
-  <span class="nt">--attribute-definitions</span> <span class="nv">AttributeName</span><span class="o">=</span>PK,AttributeType<span class="o">=</span>S <span class="se">\</span>
-  <span class="nt">--key-schema</span> <span class="nv">AttributeName</span><span class="o">=</span>PK,KeyType<span class="o">=</span>HASH <span class="se">\</span>
-  <span class="nt">--billing-mode</span> PAY_PER_REQUEST
-
-<span class="c"># Put an item</span>
-aws dynamodb put-item <span class="nt">--table-name</span> MyTable <span class="se">\</span>
-  <span class="nt">--item</span> <span class="s1">'{"PK": {"S": "USER#123"}, "name": {"S": "Alice"}}'</span>
-
-<span class="c"># Query items by partition key</span>
-aws dynamodb query <span class="nt">--table-name</span> MyTable <span class="se">\</span>
-  <span class="nt">--key-condition-expression</span> <span class="s2">"PK = :pk"</span> <span class="se">\</span>
-  <span class="nt">--expression-attribute-values</span> <span class="s1">'{":pk": {"S": "USER#123"}}'</span>
-</code></pre></div></div>
-
 <hr />
 
-<h2 id="database-selection-summary">Database Selection Summary</h2>
+<h2 id="elasticache-and-memorydb">ElastiCache and MemoryDB</h2>
+
+<p><strong>ElastiCache</strong> provides managed in-memory data stores running <strong>Valkey</strong> (the open-source fork of Redis, which AWS recommends for new deployments), <strong>Redis OSS</strong>, or <strong>Memcached</strong>. It is available as <strong>serverless</strong> (no nodes to size; scales automatically) or as <strong>node-based clusters</strong> (you choose node types and shard count). Valkey is priced 20% lower than Redis OSS on node-based clusters and 33% lower on serverless.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Use Case</th>
-      <th>Service</th>
-      <th>Why</th>
-      <th>Cost Consideration</th>
+      <th>Pattern</th>
+      <th>How it works</th>
+      <th>Watch for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Traditional web apps</td>
-      <td>RDS (PostgreSQL/MySQL)</td>
-      <td>SQL, JOINs, transactions</td>
-      <td>Pay for instance size</td>
+      <td><strong>Cache-aside (lazy loading)</strong></td>
+      <td>Read from cache; on a miss, read the database and populate the cache with a TTL</td>
+      <td>Stale data until TTL expires; stampedes on popular keys (use request coalescing or jittered TTLs)</td>
     </tr>
     <tr>
-      <td>High-performance SQL</td>
-      <td>Aurora</td>
-      <td>3-5x faster than RDS</td>
-      <td>Higher base cost, better at scale</td>
+      <td><strong>Write-through</strong></td>
+      <td>Application writes to the database and the cache together</td>
+      <td>Caches data that may never be read</td>
     </tr>
     <tr>
-      <td>Massive scale, simple queries</td>
-      <td>DynamoDB</td>
-      <td>Consistent millisecond latency</td>
-      <td>Pay per request or capacity</td>
+      <td><strong>Session store</strong></td>
+      <td>Session data keyed by session ID with a TTL</td>
+      <td>Size sessions modestly; enable replication so a node loss does not log users out</td>
     </tr>
     <tr>
-      <td>Caching layer</td>
-      <td>ElastiCache Redis</td>
-      <td>Sub-millisecond reads</td>
-      <td>Pay for node size</td>
+      <td><strong>Rate limiting / counters</strong></td>
+      <td>Atomic <code class="language-plaintext highlighter-rouge">INCR</code> with expiry per key or sliding-window sorted sets</td>
+      <td>Clock skew across clients; use server-side time</td>
     </tr>
     <tr>
-      <td>Time-series (IoT, metrics)</td>
-      <td>Timestream</td>
-      <td>Built-in time functions</td>
-      <td>Pay for writes and queries</td>
-    </tr>
-    <tr>
-      <td>Graph data (social, fraud)</td>
-      <td>Neptune</td>
-      <td>Native graph traversal</td>
-      <td>Pay for instance size</td>
-    </tr>
-    <tr>
-      <td>MongoDB workloads</td>
-      <td>DocumentDB</td>
-      <td>MongoDB-compatible</td>
-      <td>Pay for instance size</td>
+      <td><strong>Leaderboards</strong></td>
+      <td>Sorted sets ranked by score</td>
+      <td>Memory growth; trim old entries</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="common-patterns">Common Patterns</h3>
+<p>Set an eviction policy (<code class="language-plaintext highlighter-rouge">maxmemory-policy</code>, for example <code class="language-plaintext highlighter-rouge">allkeys-lru</code>) on caches so that a full cache evicts rather than rejects writes, and enable Multi-AZ with automatic failover for anything user-facing.</p>
 
-<ul>
-  <li><strong>Web application</strong>: RDS/Aurora for main data + ElastiCache for sessions and hot data</li>
-  <li><strong>Mobile app</strong>: DynamoDB for user data + S3 for media</li>
-  <li><strong>Analytics</strong>: DynamoDB/RDS for operational data, replicated to S3 for analytics with Athena</li>
-</ul>
+<p><strong>MemoryDB</strong> is a Valkey- and Redis OSS-compatible <em>database</em>, not a cache: writes are committed to a distributed, Multi-AZ transaction log before being acknowledged, so data survives node failures. Use it when an in-memory data structure store is the system of record.</p>
 
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>Single-AZ production databases:</strong> A non-Multi-AZ RDS instance has no automatic failover. Enable Multi-AZ for any database you cannot afford to lose during a hardware or AZ failure.</li>
-    <li><strong>Public database access:</strong> Never set <code>PubliclyAccessible=true</code>. Place databases in private subnets and reach them from application servers or via a bastion / Session Manager.</li>
-    <li><strong>DynamoDB hot partitions:</strong> Concentrating traffic on a single partition key (for example a sequential timestamp) throttles throughput. Choose high-cardinality partition keys that spread load evenly.</li>
-    <li><strong>Provisioned capacity for spiky traffic:</strong> Provisioned mode throttles requests beyond the set capacity. Use On-Demand until your traffic pattern is well understood, then optimize.</li>
-    <li><strong>Caching without an eviction policy:</strong> An ElastiCache node with no <code>maxmemory-policy</code> can fill and fail writes. Set <code>allkeys-lru</code> (or similar) for cache workloads.</li>
-  </ul>
-</div>
+<hr />
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="other-purpose-built-databases">Other Purpose-Built Databases</h2>
 
-<ul>
-  <li><strong>Match the model to the access pattern.</strong> Use relational (RDS/Aurora) for complex queries and transactions; DynamoDB for massive scale with known key-based access.</li>
-  <li><strong>Aurora scales, RDS starts cheap.</strong> Use RDS for dev/test and small workloads; move to Aurora when you need 3-5x throughput and storage that auto-grows.</li>
-  <li><strong>Design DynamoDB queries first.</strong> Unlike SQL, you model the table around access patterns — composite keys and single-table design enable efficient queries.</li>
-  <li><strong>Cache to cut load.</strong> An ElastiCache (Redis) layer can absorb 90% of read traffic and drop response times to sub-millisecond.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>DocumentDB</strong></td>
+      <td>Document database with MongoDB API compatibility, using an Aurora-like shared storage architecture. Compatibility covers most, but not all, MongoDB features.</td>
+    </tr>
+    <tr>
+      <td><strong>Neptune</strong></td>
+      <td>Graph database supporting property graphs (Gremlin, openCypher) and RDF (SPARQL). <strong>Neptune Analytics</strong> is an in-memory engine for graph algorithms and vector search over large graphs.</td>
+    </tr>
+    <tr>
+      <td><strong>Keyspaces</strong></td>
+      <td>Serverless, Cassandra Query Language (CQL)-compatible wide-column store.</td>
+    </tr>
+    <tr>
+      <td><strong>Timestream</strong></td>
+      <td><strong>Timestream for InfluxDB</strong> runs managed InfluxDB and is the option for new time-series workloads; the original <strong>Timestream for LiveAnalytics</strong> engine is no longer open to new customers.</td>
+    </tr>
+    <tr>
+      <td><strong>OpenSearch Service</strong></td>
+      <td>Managed OpenSearch for full-text search, log analytics, and vector (k-NN) search; also available as OpenSearch Serverless.</td>
+    </tr>
+    <tr>
+      <td><strong>Redshift</strong></td>
+      <td>Columnar data warehouse (provisioned or Serverless) for analytical SQL; pairs with Aurora and DynamoDB zero-ETL integrations.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="common-pitfalls">Common Pitfalls</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Pitfall</th>
+      <th>Consequence</th>
+      <th>Remedy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Single-AZ production database</td>
+      <td>Hours of downtime when an instance or AZ fails</td>
+      <td>Multi-AZ (RDS), replicas in other AZs (Aurora)</td>
+    </tr>
+    <tr>
+      <td>Publicly accessible database</td>
+      <td>Exposed to internet scanning and credential stuffing</td>
+      <td>Private subnets; access via application tier, Session Manager port forwarding, or a VPN</td>
+    </tr>
+    <tr>
+      <td>No tested restore</td>
+      <td>Backups exist but cannot meet the recovery time objective</td>
+      <td>Rehearse point-in-time restores; measure how long they take</td>
+    </tr>
+    <tr>
+      <td>Connection storms from Lambda</td>
+      <td><code class="language-plaintext highlighter-rouge">too many connections</code>, failed requests</td>
+      <td>RDS Proxy, or a connectionless data API (DynamoDB, Aurora DSQL, RDS Data API)</td>
+    </tr>
+    <tr>
+      <td>DynamoDB hot partition</td>
+      <td>Throttling despite spare table capacity</td>
+      <td>High-cardinality partition keys; write sharding with a random suffix for hot keys</td>
+    </tr>
+    <tr>
+      <td>Scans in DynamoDB request paths</td>
+      <td>Latency and cost grow with table size</td>
+      <td>Model the query with a key or GSI; export to S3 for analytics</td>
+    </tr>
+    <tr>
+      <td>Cache with no eviction policy or TTLs</td>
+      <td>Full cache rejects writes; stale data</td>
+      <td><code class="language-plaintext highlighter-rouge">maxmemory-policy</code>, TTLs on every key</td>
+    </tr>
+    <tr>
+      <td>Running past end of standard support</td>
+      <td>Extended Support charges; forced upgrades</td>
+      <td>Track engine lifecycles; use Blue/Green Deployments for major upgrades</td>
+    </tr>
+  </tbody>
+</table>
 
 <hr />
 
@@ -3572,11 +3764,13 @@ aws dynamodb query <span class="nt">--table-name</span> MyTable <span class="se"
 
 <ul>
   <li><a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
-  <li><a href="compute.html">Compute Services</a> - Lambda with DynamoDB patterns</li>
-  <li><a href="storage.html">Storage Services</a> - S3 for database backups</li>
-  <li><a href="security.html">Security</a> - Database encryption and access control</li>
-  <li><a href="iac.html">Infrastructure as Code</a> - Database IaC and monitoring</li>
-  <li><a href="../database-design/">Database Design Guide</a> - General database concepts</li>
+  <li><a href="compute.html">Compute Services</a> - Lambda, containers, and connection management</li>
+  <li><a href="storage.html">Storage Services</a> - S3 for exports, backups, and data lakes</li>
+  <li><a href="security.html">Security</a> - Encryption, IAM authentication, and network isolation</li>
+  <li><a href="cost.html">Cost Optimization</a> - Database Savings Plans and capacity choices</li>
+  <li><a href="architecture.html">Architecture Patterns</a> - Databases in complete designs, including multi-Region</li>
+  <li><a href="../database-design/">Database Design Guide</a> - Modelling, indexing, and transactions in general</li>
+  <li><a href="../database-design/nosql-data-models.html">NoSQL Data Models</a> - Key-value, document, and wide-column design</li>
 </ul>
 
       </section>

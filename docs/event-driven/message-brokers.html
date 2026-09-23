@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Queues vs. logs, Apache Kafka, RabbitMQ, NATS, Pulsar, and managed cloud brokers; delivery semantics, ordering, exactly-once, backpressure, and dead-letter q...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Event-Driven: Message Brokers & Streaming">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Queues vs. logs, Apache Kafka, RabbitMQ, NATS, Pulsar, and managed cloud brokers; delivery semantics, ordering, exactly-once, backpressure, and dead-letter q...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/event-driven/message-brokers.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Event-Driven: Message Brokers & Streaming">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Queues vs. logs, Apache Kafka, RabbitMQ, NATS, Pulsar, and managed cloud brokers; delivery semantics, ordering, exactly-once, backpressure, and dead-letter q...">
 
 <title>Event-Driven: Message Brokers & Streaming | Andrews Notebook</title>
 
@@ -3133,59 +3133,57 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Event-Driven</a> » Message Brokers &amp; Streaming</p>
 
-<p>A message broker is the piece of infrastructure that lets one component publish a message and walk away while another consumes it later — decoupling producers and consumers <em>in time</em>, in <em>availability</em>, and in <em>throughput</em>. That decoupling is the whole point of event-driven architecture, and it is also where the subtlety lives: brokers differ on whether a message is a transient task or a durable fact, on how they distribute work, on what ordering they promise, and on what happens when a consumer falls behind or a message can never be processed. Four ideas recur:</p>
+<p>A <strong>message broker</strong> is infrastructure that lets one component publish a message and move on while another consumes it later. It decouples producers from consumers in time, in availability, and in throughput, which is the foundation of <a href="./">event-driven architecture</a>. Brokers differ in whether a message is a transient task or a durable fact, how they distribute work, what ordering they promise, and what happens when a consumer falls behind or a message can never be processed. This page covers the two storage models (queue and log), the major open-source brokers (Apache Kafka, RabbitMQ, NATS JetStream, Apache Pulsar), the managed cloud services, and the concerns every deployment meets: delivery semantics, ordering, exactly-once processing, backpressure, and dead-letter queues. Versions and features are current as of September 2026.</p>
+
+<p>Four ideas recur throughout:</p>
 
 <ul>
-  <li><strong>Brokers decouple in time.</strong> Producer and consumer need not be up at the same moment — the broker buffers the difference, absorbing bursts and tolerating downtime.</li>
-  <li><strong>Queue vs. log is the first fork.</strong> A queue hands a task to one worker and deletes it; a log retains an ordered, replayable history many consumers read independently.</li>
-  <li><strong>Ordering is local, not global.</strong> Strict ordering exists only within a partition or a single queue — partition by a stable key to keep one entity’s events in order.</li>
-  <li><strong>At-least-once is the default; idempotency is the cure.</strong> Duplicates are normal under failure; “exactly-once” comes from making consumers idempotent, not from trusting the wire.</li>
+  <li><strong>Queue vs. log is the first design fork.</strong> A queue hands each task to one worker and deletes it once acknowledged; a log retains an ordered, replayable history that many consumers read independently.</li>
+  <li><strong>Ordering is per key, not global.</strong> Brokers order messages within a partition, shard, queue, or message group. Route all events for one entity through the same one by keying on a stable ID.</li>
+  <li><strong>At-least-once is the practical default.</strong> Under crashes and retries, duplicates are normal. Exactly-once <em>effects</em> come from idempotent consumers or transactions, not from the network.</li>
+  <li><strong>Consumer lag is the health signal.</strong> A broker absorbs bursts but cannot make a slow consumer fast. Growing lag is the early warning that consumption is losing.</li>
 </ul>
-
-<p>This page builds up the broker’s role from first principles, then dissects the two dominant open-source brokers (Kafka’s partitioned log and RabbitMQ’s exchange/queue routing), surveys managed cloud options (SQS/SNS, Google Pub/Sub, Kinesis), and tackles the cross-cutting concerns every deployment hits: delivery semantics, ordering, exactly-once, backpressure, and dead-letter queues.</p>
 
 <h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
 <ol id="markdown-toc">
-  <li><a href="#what-a-message-broker-is" id="markdown-toc-what-a-message-broker-is">What a Message Broker Is</a>    <ol>
-      <li><a href="#core-vocabulary" id="markdown-toc-core-vocabulary">Core Vocabulary</a></li>
+  <li><a href="#what-a-message-broker-does" id="markdown-toc-what-a-message-broker-does">What a Message Broker Does</a>    <ol>
+      <li><a href="#vocabulary" id="markdown-toc-vocabulary">Vocabulary</a></li>
     </ol>
   </li>
-  <li><a href="#queues-vs-publishsubscribe" id="markdown-toc-queues-vs-publishsubscribe">Queues vs. Publish/Subscribe</a>    <ol>
-      <li><a href="#point-to-point-queues" id="markdown-toc-point-to-point-queues">Point-to-Point Queues</a></li>
-      <li><a href="#publishsubscribe" id="markdown-toc-publishsubscribe">Publish/Subscribe</a></li>
-      <li><a href="#reconciling-the-two-with-consumer-groups" id="markdown-toc-reconciling-the-two-with-consumer-groups">Reconciling the Two with Consumer Groups</a></li>
-    </ol>
-  </li>
-  <li><a href="#queues-vs-logs" id="markdown-toc-queues-vs-logs">Queues vs. Logs</a></li>
+  <li><a href="#delivery-shapes-queues-and-publishsubscribe" id="markdown-toc-delivery-shapes-queues-and-publishsubscribe">Delivery Shapes: Queues and Publish/Subscribe</a></li>
+  <li><a href="#storage-models-queues-and-logs" id="markdown-toc-storage-models-queues-and-logs">Storage Models: Queues and Logs</a></li>
   <li><a href="#apache-kafka" id="markdown-toc-apache-kafka">Apache Kafka</a>    <ol>
+      <li><a href="#kafka-4x" id="markdown-toc-kafka-4x">Kafka 4.x</a></li>
       <li><a href="#topics-partitions-and-offsets" id="markdown-toc-topics-partitions-and-offsets">Topics, Partitions, and Offsets</a></li>
       <li><a href="#consumer-groups-and-rebalancing" id="markdown-toc-consumer-groups-and-rebalancing">Consumer Groups and Rebalancing</a></li>
-      <li><a href="#replication-leaders-and-durability" id="markdown-toc-replication-leaders-and-durability">Replication, Leaders, and Durability</a></li>
-      <li><a href="#delivery-semantics" id="markdown-toc-delivery-semantics">Delivery Semantics</a></li>
+      <li><a href="#share-groups-queues-for-kafka" id="markdown-toc-share-groups-queues-for-kafka">Share Groups: Queues for Kafka</a></li>
+      <li><a href="#replication-and-durability" id="markdown-toc-replication-and-durability">Replication and Durability</a></li>
+      <li><a href="#delivery-semantics-and-transactions" id="markdown-toc-delivery-semantics-and-transactions">Delivery Semantics and Transactions</a></li>
       <li><a href="#log-compaction" id="markdown-toc-log-compaction">Log Compaction</a></li>
-      <li><a href="#kafka-client-example" id="markdown-toc-kafka-client-example">Kafka Client Example</a></li>
+      <li><a href="#client-example" id="markdown-toc-client-example">Client Example</a></li>
     </ol>
   </li>
   <li><a href="#rabbitmq" id="markdown-toc-rabbitmq">RabbitMQ</a>    <ol>
+      <li><a href="#the-4x-series" id="markdown-toc-the-4x-series">The 4.x Series</a></li>
       <li><a href="#exchanges-queues-and-bindings" id="markdown-toc-exchanges-queues-and-bindings">Exchanges, Queues, and Bindings</a></li>
-      <li><a href="#exchange-types" id="markdown-toc-exchange-types">Exchange Types</a></li>
-      <li><a href="#acknowledgements-prefetch-and-delivery" id="markdown-toc-acknowledgements-prefetch-and-delivery">Acknowledgements, Prefetch, and Delivery</a></li>
-      <li><a href="#rabbitmq-client-example" id="markdown-toc-rabbitmq-client-example">RabbitMQ Client Example</a></li>
-      <li><a href="#kafka-vs-rabbitmq-at-a-glance" id="markdown-toc-kafka-vs-rabbitmq-at-a-glance">Kafka vs. RabbitMQ at a Glance</a></li>
+      <li><a href="#queue-types" id="markdown-toc-queue-types">Queue Types</a></li>
+      <li><a href="#acknowledgements-prefetch-and-confirms" id="markdown-toc-acknowledgements-prefetch-and-confirms">Acknowledgements, Prefetch, and Confirms</a></li>
+      <li><a href="#kafka-vs-rabbitmq" id="markdown-toc-kafka-vs-rabbitmq">Kafka vs. RabbitMQ</a></li>
     </ol>
   </li>
+  <li><a href="#other-open-source-brokers" id="markdown-toc-other-open-source-brokers">Other Open-Source Brokers</a></li>
   <li><a href="#cloud-managed-brokers" id="markdown-toc-cloud-managed-brokers">Cloud-Managed Brokers</a>    <ol>
-      <li><a href="#aws-sqs-and-sns" id="markdown-toc-aws-sqs-and-sns">AWS: SQS and SNS</a></li>
-      <li><a href="#aws-kinesis" id="markdown-toc-aws-kinesis">AWS: Kinesis</a></li>
+      <li><a href="#aws-sqs-sns-and-eventbridge" id="markdown-toc-aws-sqs-sns-and-eventbridge">AWS: SQS, SNS, and EventBridge</a></li>
+      <li><a href="#aws-kinesis-data-streams" id="markdown-toc-aws-kinesis-data-streams">AWS: Kinesis Data Streams</a></li>
       <li><a href="#google-cloud-pubsub" id="markdown-toc-google-cloud-pubsub">Google Cloud Pub/Sub</a></li>
       <li><a href="#cloud-broker-comparison" id="markdown-toc-cloud-broker-comparison">Cloud Broker Comparison</a></li>
     </ol>
   </li>
   <li><a href="#ordering-delivery-semantics--exactly-once" id="markdown-toc-ordering-delivery-semantics--exactly-once">Ordering, Delivery Semantics &amp; Exactly-Once</a>    <ol>
-      <li><a href="#ordering-is-local" id="markdown-toc-ordering-is-local">Ordering Is Local</a></li>
+      <li><a href="#ordering-is-per-key" id="markdown-toc-ordering-is-per-key">Ordering Is Per Key</a></li>
       <li><a href="#the-three-delivery-semantics" id="markdown-toc-the-three-delivery-semantics">The Three Delivery Semantics</a></li>
-      <li><a href="#achieving-exactly-once" id="markdown-toc-achieving-exactly-once">Achieving Exactly-Once</a></li>
+      <li><a href="#achieving-exactly-once-effects" id="markdown-toc-achieving-exactly-once-effects">Achieving Exactly-Once Effects</a></li>
     </ol>
   </li>
   <li><a href="#backpressure--dead-letter-queues" id="markdown-toc-backpressure--dead-letter-queues">Backpressure &amp; Dead-Letter Queues</a>    <ol>
@@ -3199,27 +3197,44 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <hr />
 
-<h2 id="what-a-message-broker-is">What a Message Broker Is</h2>
+<h2 id="what-a-message-broker-does">What a Message Broker Does</h2>
 
-<p>A <strong>message broker</strong> is a server (or cluster) that sits between <strong>producers</strong> that emit messages and <strong>consumers</strong> that process them. Instead of calling a consumer directly, a producer hands a message to the broker, which stores it durably and delivers it to the appropriate consumer(s). This indirection buys three forms of decoupling that a direct synchronous call cannot:</p>
+<p>A broker is a server or cluster between <strong>producers</strong>, which emit messages, and <strong>consumers</strong>, which process them. Instead of calling a consumer directly, a producer hands the message to the broker, which stores it durably and delivers it to the right consumers. The indirection provides three kinds of decoupling that a synchronous call cannot:</p>
 
-<ul>
-  <li><strong>Temporal decoupling</strong> — the consumer need not be running when the message is produced. The broker holds the message until a consumer is ready.</li>
-  <li><strong>Availability decoupling</strong> — a producer can keep emitting while a consumer is down, redeploying, or restarting; the broker absorbs the gap.</li>
-  <li><strong>Throughput decoupling</strong> — a sudden burst of production does not overwhelm a slow consumer; the broker buffers, and the consumer drains at its own pace (the basis of <em>backpressure</em>, below).</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Decoupling</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Temporal</strong></td>
+      <td>The consumer need not be running when the message is produced; the broker holds it until a consumer is ready.</td>
+    </tr>
+    <tr>
+      <td><strong>Availability</strong></td>
+      <td>Producers keep working while a consumer is down, redeploying, or restarting.</td>
+    </tr>
+    <tr>
+      <td><strong>Throughput</strong></td>
+      <td>A burst of production does not overwhelm a slow consumer; the broker buffers it and the consumer drains at its own rate.</td>
+    </tr>
+  </tbody>
+</table>
 
 <pre><code class="language-mermaid">flowchart LR
-    P1["Producer A"] --&gt; B[("Message Broker&lt;br/&gt;durable buffer")]
+    P1["Producer A"] --&gt; B[("Broker&lt;br/&gt;durable buffer")]
     P2["Producer B"] --&gt; B
     B --&gt; C1["Consumer X"]
     B --&gt; C2["Consumer Y"]
     B --&gt; C3["Consumer Z"]
 </code></pre>
 
-<p>A broker also enables <strong>fan-out</strong> (one message reaching many independent consumers) and <strong>load leveling</strong> (smoothing a spiky workload into a steady one). The cost is real: you now run, monitor, and reason about a stateful distributed system in the middle of your architecture, and the result of a published message is <em>eventually</em> consistent rather than immediate.</p>
+<p>Brokers also provide <strong>fan-out</strong> (one message reaching many independent consumers) and <strong>load leveling</strong> (smoothing spiky input into steady processing). The cost is a stateful distributed system in the middle of the architecture that must be operated and monitored, and results that are eventually rather than immediately consistent.</p>
 
-<h3 id="core-vocabulary">Core Vocabulary</h3>
+<h3 id="vocabulary">Vocabulary</h3>
 
 <table>
   <thead>
@@ -3230,112 +3245,125 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>Producer / Publisher</strong></td>
-      <td>Emits messages to the broker</td>
+      <td><strong>Producer / publisher</strong></td>
+      <td>Sends messages to the broker.</td>
     </tr>
     <tr>
-      <td><strong>Consumer / Subscriber</strong></td>
-      <td>Reads and processes messages from the broker</td>
+      <td><strong>Consumer / subscriber</strong></td>
+      <td>Receives and processes messages.</td>
     </tr>
     <tr>
-      <td><strong>Message / Event</strong></td>
-      <td>A unit of data; a <em>task</em> to do (command) or a <em>fact</em> that happened (event)</td>
+      <td><strong>Message / event / record</strong></td>
+      <td>A unit of data: a <em>task</em> to perform (command) or a <em>fact</em> that happened (event).</td>
     </tr>
     <tr>
-      <td><strong>Topic / Queue / Channel</strong></td>
-      <td>The named destination a producer writes to and consumers read from</td>
+      <td><strong>Topic / queue / stream / subject</strong></td>
+      <td>The named destination producers write to and consumers read from.</td>
     </tr>
     <tr>
       <td><strong>Acknowledgement (ack)</strong></td>
-      <td>A consumer’s signal that a message was successfully handled</td>
+      <td>A consumer’s signal that it handled a message.</td>
     </tr>
     <tr>
-      <td><strong>Offset / Cursor</strong></td>
-      <td>A consumer’s recorded position in an ordered stream</td>
+      <td><strong>Offset / cursor / sequence</strong></td>
+      <td>A consumer’s position in an ordered stream.</td>
     </tr>
     <tr>
-      <td><strong>Broker</strong></td>
-      <td>A single node of the messaging cluster</td>
+      <td><strong>Partition / shard</strong></td>
+      <td>An independently ordered slice of a topic or stream, the unit of parallelism.</td>
+    </tr>
+    <tr>
+      <td><strong>Consumer lag</strong></td>
+      <td>How far a consumer’s position trails the newest message.</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="queues-vs-publishsubscribe">Queues vs. Publish/Subscribe</h2>
+<h2 id="delivery-shapes-queues-and-publishsubscribe">Delivery Shapes: Queues and Publish/Subscribe</h2>
 
-<p>There are two fundamental <em>delivery shapes</em>, and most brokers support both (sometimes blended). The distinction governs how many consumers see each message.</p>
+<p>Two delivery shapes determine how many consumers see each message. Most brokers support both.</p>
 
-<h3 id="point-to-point-queues">Point-to-Point Queues</h3>
+<p>In the <strong>point-to-point queue</strong>, each message goes to exactly one consumer from a pool of <strong>competing consumers</strong>. Adding workers drains the queue faster. This suits work distribution: resizing images, sending emails, running fulfillment jobs.</p>
 
-<p>In the <strong>queue</strong> (point-to-point) model a message goes to <strong>exactly one</strong> consumer out of a pool of competing consumers. This is the <strong>competing-consumers</strong> pattern: attach more workers to the same queue and the broker spreads messages across them, so the queue drains faster. Once a worker acknowledges a message it is removed. Queues are ideal for <strong>work distribution</strong> — image resizing, email sending, order fulfillment jobs — where each task should be done once by whichever worker is free.</p>
+<p>In <strong>publish/subscribe</strong>, each message goes to every subscriber. The publisher writes to a topic and each subscriber receives its own copy. This suits event broadcasting: an <code class="language-plaintext highlighter-rouge">OrderPlaced</code> event that inventory, billing, analytics, and notifications each react to.</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    P["Producer"] --&gt; Q[("Queue: jobs")]
-    Q --&gt; W1["Worker 1"]
-    Q --&gt; W2["Worker 2"]
-    Q --&gt; W3["Worker 3"]
-</code></pre>
-
-<h3 id="publishsubscribe">Publish/Subscribe</h3>
-
-<p>In the <strong>publish/subscribe</strong> model a message goes to <strong>every</strong> interested subscriber. The publisher emits to a topic; each subscriber gets its own copy. Pub/sub is ideal for <strong>event broadcasting</strong> — an <code class="language-plaintext highlighter-rouge">OrderPlaced</code> event that inventory, billing, analytics, and notifications all need to react to, each independently.</p>
+<p>Real systems want both at once: every <em>service</em> should see every event, but the replicas <em>within</em> a service should split the work. Brokers express this composite with <strong>consumer groups</strong> (Kafka), <strong>subscriptions</strong> (Google Pub/Sub, Pulsar), per-service queues bound to an exchange (RabbitMQ), or SNS topics fanning out to per-service SQS queues. Each group receives the full stream; members of a group share it.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    P["Publisher"] --&gt; T[("Topic: order-events")]
-    T --&gt; S1["Inventory Svc"]
-    T --&gt; S2["Billing Svc"]
-    T --&gt; S3["Analytics Svc"]
+    P["Producer"] --&gt; T[("Topic: order-events")]
+    subgraph G1["Group: billing (queue semantics inside)"]
+        B1["billing-1"]
+        B2["billing-2"]
+    end
+    subgraph G2["Group: analytics"]
+        A1["analytics-1"]
+    end
+    T --&gt;|"every message"| G1
+    T --&gt;|"every message"| G2
 </code></pre>
-
-<h3 id="reconciling-the-two-with-consumer-groups">Reconciling the Two with Consumer Groups</h3>
-
-<p>Real systems want both at once: each <em>kind</em> of consumer should see every message (pub/sub across services), but within one kind the work should be split (queue among that service’s replicas). Brokers solve this with <strong>consumer groups</strong> (Kafka’s term) or per-subscription queues (RabbitMQ, SNS+SQS): each group/subscription receives the full stream (pub/sub), while members <em>within</em> a group share the messages (queue). This composite model is what makes a single Kafka topic or an SNS→SQS fan-out serve a whole microservice fleet.</p>
 
 <table>
   <thead>
     <tr>
       <th> </th>
-      <th>Queue (point-to-point)</th>
-      <th>Pub/Sub (broadcast)</th>
+      <th>Point-to-point queue</th>
+      <th>Publish/subscribe</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Consumers per message</td>
-      <td>One (of a competing pool)</td>
-      <td>All subscribers</td>
+      <td>One, from a competing pool</td>
+      <td>Every subscriber</td>
     </tr>
     <tr>
-      <td>Adding consumers</td>
+      <td>Adding a consumer</td>
       <td>Increases throughput</td>
       <td>Adds another independent recipient</td>
     </tr>
     <tr>
-      <td>Use case</td>
+      <td>Typical use</td>
       <td>Work distribution</td>
-      <td>Event notification / fan-out</td>
+      <td>Event notification and fan-out</td>
     </tr>
     <tr>
-      <td>Composite</td>
-      <td>One consumer group</td>
-      <td>Many consumer groups</td>
+      <td>Composite model</td>
+      <td>Members of one consumer group</td>
+      <td>Separate consumer groups</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="queues-vs-logs">Queues vs. Logs</h2>
+<h2 id="storage-models-queues-and-logs">Storage Models: Queues and Logs</h2>
 
-<p>Cutting the broker landscape a <em>different</em> way — by how a message is stored and retired — gives the most consequential design distinction of all: the <strong>transient queue</strong> versus the <strong>durable log</strong>.</p>
+<p>Classifying brokers by how they store and retire messages gives the more consequential distinction.</p>
 
-<p>A <strong>message queue</strong> (RabbitMQ, Amazon SQS, ActiveMQ) treats a message as a <em>task</em>. It is delivered to one consumer, acknowledged, and then <strong>removed</strong>. The broker’s job is to track which messages are outstanding; once done, they are gone. There is no concept of “re-reading” — the queue is a to-do list that shrinks as work completes.</p>
+<p>A <strong>message queue</strong> (RabbitMQ classic and quorum queues, Amazon SQS, ActiveMQ) treats a message as a <em>task</em>. It is delivered, acknowledged, and <strong>removed</strong>. The broker tracks which messages are outstanding; once work completes, the message is gone and cannot be re-read.</p>
 
-<p>A <strong>log-structured stream</strong> (Apache Kafka, AWS Kinesis, Apache Pulsar, Redpanda) treats a message as an <em>immutable fact</em> appended to an ordered, durable log. Messages are <strong>not</strong> deleted on consumption — they are retained for a configured time (hours, days, or forever) and each consumer tracks its own <strong>offset</strong>. Many independent consumer groups read the same log at their own pace, and a brand-new consumer can replay history from offset zero. The log is, in Jay Kreps’s phrase, “a database turned inside out”: an ordered changelog from which any number of read views can be materialized.</p>
+<p>A <strong>log</strong> (Apache Kafka, Amazon Kinesis, Apache Pulsar, Redpanda, RabbitMQ Streams, NATS JetStream) treats a message as an immutable <em>fact</em> appended to an ordered, durable sequence. Consuming does <strong>not</strong> delete it. Records are retained by time, size, or indefinitely, and each consumer tracks its own position, so many consumers read the same data at their own pace and a new consumer can replay from the beginning. Jay Kreps described the log as the unifying abstraction behind databases and streaming: an ordered changelog from which any number of views can be derived.</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    subgraph Queue["Queue: messages are tasks"]
+        direction LR
+        QP["Producer"] --&gt; QQ[("m3 m2 m1")]
+        QQ --&gt;|"m1, then ack"| QW["Worker"]
+        QW -.-&gt;|"ack deletes m1"| QQ
+    end
+    subgraph Log["Log: messages are facts"]
+        direction LR
+        LP["Producer"] --&gt;|append| LL[("0 1 2 3 4 5 ...")]
+        LL --&gt;|"offset 5"| LA["Consumer A (live)"]
+        LL --&gt;|"offset 2"| LB["Consumer B (behind)"]
+        LL --&gt;|"offset 0"| LC["Consumer C (replaying)"]
+    end
+</code></pre>
 
 <table>
   <thead>
     <tr>
       <th> </th>
-      <th>Message Queue (RabbitMQ, SQS)</th>
-      <th>Log Stream (Kafka, Kinesis)</th>
+      <th>Message queue</th>
+      <th>Log</th>
     </tr>
   </thead>
   <tbody>
@@ -3347,7 +3375,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td>After consumption</td>
       <td>Removed</td>
-      <td>Retained (replayable)</td>
+      <td>Retained until retention expires</td>
     </tr>
     <tr>
       <td>Consumers per message</td>
@@ -3356,48 +3384,86 @@ document.addEventListener('DOMContentLoaded', function () {
     </tr>
     <tr>
       <td>Ordering</td>
-      <td>Per-queue, fragile under scale</td>
-      <td>Strict per-partition</td>
+      <td>Per queue; weakens with competing consumers and redelivery</td>
+      <td>Strict per partition</td>
     </tr>
     <tr>
-      <td>Re-read history</td>
-      <td>No</td>
-      <td>Yes (seek to offset)</td>
+      <td>Re-reading history</td>
+      <td>Not possible</td>
+      <td>Seek to an offset or timestamp</td>
     </tr>
     <tr>
-      <td>Throughput model</td>
-      <td>Per-message acks, broker tracks state</td>
-      <td>Sequential reads, consumer tracks offset</td>
+      <td>Who tracks progress</td>
+      <td>Broker tracks each message’s state</td>
+      <td>Consumer tracks one offset per partition</td>
     </tr>
     <tr>
       <td>Best for</td>
-      <td>Work distribution, RPC-style jobs</td>
-      <td>Event streaming, sourcing, analytics, replay</td>
+      <td>Work distribution, job queues, request/reply</td>
+      <td>Event streaming, event sourcing, analytics, change data capture</td>
     </tr>
   </tbody>
 </table>
 
-<p>The retention difference cascades into everything else. Because a log keeps history, it supports replay, event sourcing, and adding new consumers retroactively. Because a queue discards consumed messages, it stays small and simple but cannot rebuild a downstream view from the past. Choose a queue when a message is a one-shot job; choose a log when a message is a fact others may want to consume, re-consume, or re-derive views from.</p>
+<p>Retention drives everything else. Because a log keeps history, it supports replay, <a href="patterns.html#event-sourcing">event sourcing</a>, and adding consumers after the fact. Because a queue discards consumed messages, it stays small and simple but cannot rebuild a downstream view from the past. The line has blurred: RabbitMQ has offered log-structured Streams since 3.9, and Kafka added queue-style <strong>share groups</strong> in the 4.x series. The distinction is still the right first question: is this message a one-shot job, or a fact that others may want to read and re-read?</p>
 
 <h2 id="apache-kafka">Apache Kafka</h2>
 
-<p>Kafka is the dominant log-structured streaming platform, so its primitives are worth understanding precisely — they reappear (often renamed) in Kinesis, Pulsar, and Pub/Sub.</p>
+<p>Kafka is the dominant log-based streaming platform, and its concepts reappear, sometimes renamed, in Kinesis, Pulsar, Redpanda, and Google Pub/Sub.</p>
+
+<h3 id="kafka-4x">Kafka 4.x</h3>
+
+<p>The 4.x series is the largest architectural change in Kafka’s history:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Release</th>
+      <th>Date</th>
+      <th>Highlights</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>4.0</strong></td>
+      <td>March 2025</td>
+      <td>First release that runs entirely without ZooKeeper; metadata is managed by the built-in Raft-based <strong>KRaft</strong> controller quorum. The new consumer group rebalance protocol (KIP-848) became generally available. Share groups (KIP-932) arrived in early access. Brokers require Java 17; clients require Java 11.</td>
+    </tr>
+    <tr>
+      <td><strong>4.1</strong></td>
+      <td>September 2025</td>
+      <td>Share groups in preview.</td>
+    </tr>
+    <tr>
+      <td><strong>4.2</strong></td>
+      <td>February 2026</td>
+      <td><strong>Share groups (Queues for Kafka) production-ready</strong>; the server-side rebalance protocol for Kafka Streams reached GA.</td>
+    </tr>
+    <tr>
+      <td><strong>4.3</strong></td>
+      <td>May 2026</td>
+      <td>Current feature release at the time of writing.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Clusters still on ZooKeeper must migrate to KRaft on a 3.x release (3.9 is the bridge release) before upgrading to 4.x. Separately, <strong>tiered storage</strong> (KIP-405), which offloads older log segments to object storage, became production-ready in 3.9, and the accepted <strong>Diskless Topics</strong> proposal (KIP-1150) goes further by writing active segments directly to object storage to avoid cross-availability-zone replication costs.</p>
 
 <h3 id="topics-partitions-and-offsets">Topics, Partitions, and Offsets</h3>
 
 <ul>
-  <li>A <strong>topic</strong> is a named stream of events (e.g. <code class="language-plaintext highlighter-rouge">order-events</code>).</li>
-  <li>A topic is split into <strong>partitions</strong>, each an independent, totally-ordered, append-only log. Partitioning is how Kafka scales horizontally: the partitions of a topic spread across brokers and are consumed in parallel.</li>
-  <li>Each record carries an <strong>offset</strong> — its monotonically increasing position within its partition. Offsets are per-partition, not global. Consumers <strong>commit</strong> offsets to record how far they have progressed.</li>
-  <li>A <strong>producer</strong> chooses a record’s partition. If the record has a <strong>key</strong>, Kafka hashes the key to pick a partition, so all records with the same key land in the same partition (and thus stay ordered). Keyless records are spread round-robin.</li>
+  <li>A <strong>topic</strong> is a named stream of records, such as <code class="language-plaintext highlighter-rouge">order-events</code>.</li>
+  <li>A topic is divided into <strong>partitions</strong>, each an independent, totally ordered, append-only log. Partitions are spread across brokers and consumed in parallel; they are Kafka’s unit of scaling.</li>
+  <li>Each record has an <strong>offset</strong>, its position within its partition. Offsets are per partition, not global. Consumers <strong>commit</strong> offsets to record progress.</li>
+  <li>The producer chooses the partition. A record with a <strong>key</strong> is placed by hashing the key, so all records with the same key land in the same partition and stay in order. Records without a key are spread across partitions (the default partitioner batches them to one partition at a time for efficiency).</li>
 </ul>
 
 <pre><code class="language-mermaid">flowchart LR
-    P["Producer&lt;br/&gt;key=order-42"] --&gt; Topic
+    P["Producer&lt;br/&gt;key = order-42"] --&gt;|"hash(key) mod 3 = 0"| Pa0
     subgraph Topic["Topic: order-events"]
-      Pa0["Partition 0 ▸ off 0,1,2,3…"]
-      Pa1["Partition 1 ▸ off 0,1,2…"]
-      Pa2["Partition 2 ▸ off 0,1,2,3,4…"]
+      Pa0["Partition 0: offsets 0..3"]
+      Pa1["Partition 1: offsets 0..2"]
+      Pa2["Partition 2: offsets 0..4"]
     end
     Pa0 --&gt; C0["Consumer A (group X)"]
     Pa1 --&gt; C1["Consumer B (group X)"]
@@ -3407,105 +3473,215 @@ document.addEventListener('DOMContentLoaded', function () {
     Pa2 --&gt; D0
 </code></pre>
 
-<p>The number of partitions is the unit of parallelism. A topic with 12 partitions can be drained by up to 12 consumers in one group working in parallel; a 13th sits idle. Partition count is therefore a capacity-planning decision: too few caps throughput, too many wastes broker resources and open file handles, and <em>reducing</em> partitions later is not supported (you can only add, which reshuffles key→partition mapping and breaks ordering across the change).</p>
+<p>The partition count caps parallelism within a consumer group: a topic with 12 partitions can be consumed by at most 12 active members of one group, and a 13th sits idle. It is therefore a capacity-planning decision. Too few partitions limit throughput; too many add per-partition overhead on brokers and clients. Partitions can be added but never removed, and adding them changes the key-to-partition mapping, so per-key ordering is not preserved across the change. Share groups (below) remove the partition-count ceiling for workloads that do not need ordering.</p>
 
 <h3 id="consumer-groups-and-rebalancing">Consumer Groups and Rebalancing</h3>
 
-<p>A <strong>consumer group</strong> is a set of cooperating consumers identified by a shared <code class="language-plaintext highlighter-rouge">group.id</code>. Kafka assigns each partition to <strong>exactly one</strong> consumer in the group, guaranteeing that a partition’s records are processed in order by a single worker while still parallelizing across partitions. Different groups consuming the same topic each receive the <strong>full</strong> stream independently — that is the pub/sub axis layered on top of the queue axis.</p>
+<p>A <strong>consumer group</strong> is a set of consumers sharing a <code class="language-plaintext highlighter-rouge">group.id</code>. Kafka assigns each partition to exactly one member, so a partition’s records are processed in order by one consumer while different partitions are processed in parallel. Different groups each receive the full topic independently.</p>
 
-<p>When a consumer joins or leaves (deploy, crash, scale-up), Kafka triggers a <strong>rebalance</strong>: partitions are reassigned across the surviving members. Rebalances briefly pause consumption (“stop-the-world”), so high-churn deployments tune <code class="language-plaintext highlighter-rouge">session.timeout.ms</code> and use cooperative/incremental rebalancing to minimize the disruption.</p>
+<p>When members join or leave because of a deploy, crash, or scale-out, partitions are <strong>rebalanced</strong> across the remaining members. Under the classic protocol the group coordinated this on the client side, and rebalances paused consumption across the group (“stop-the-world”); cooperative incremental assignment reduced but did not remove the disruption. The <strong>consumer rebalance protocol</strong> of KIP-848, GA in Kafka 4.0 and enabled with <code class="language-plaintext highlighter-rouge">group.protocol=consumer</code>, moves assignment to the broker-side group coordinator and reconciles each member incrementally, so a membership change no longer stops the whole group.</p>
 
-<h3 id="replication-leaders-and-durability">Replication, Leaders, and Durability</h3>
+<h3 id="share-groups-queues-for-kafka">Share Groups: Queues for Kafka</h3>
 
-<p>Each partition is replicated across <code class="language-plaintext highlighter-rouge">replication.factor</code> brokers. One replica is the <strong>leader</strong> (handles all reads and writes for that partition); the rest are <strong>followers</strong> that replicate the leader’s log. The <strong>in-sync replicas (ISR)</strong> are the followers caught up to the leader. The producer’s <code class="language-plaintext highlighter-rouge">acks</code> setting controls the durability/latency trade:</p>
+<p>A <strong>share group</strong> (KIP-932) gives Kafka queue semantics. Members of a share group consume the same partitions cooperatively, so more consumers than partitions can work at once, and each record is acknowledged individually rather than by advancing an offset. A record is delivered with a time-limited acquisition lock; the consumer acknowledges it as accepted, releases it for redelivery, or rejects it, and a record that is delivered too many times is archived rather than retried forever. Share groups trade per-partition ordering for elastic, per-message work distribution, which previously required a separate queueing system next to Kafka.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Consumer group</th>
+      <th>Share group</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Partition assignment</td>
+      <td>Exclusive: one member per partition</td>
+      <td>Shared: many members per partition</td>
+    </tr>
+    <tr>
+      <td>Max useful consumers</td>
+      <td>Number of partitions</td>
+      <td>Not limited by partitions</td>
+    </tr>
+    <tr>
+      <td>Progress tracking</td>
+      <td>Committed offset per partition</td>
+      <td>Per-record acknowledgement</td>
+    </tr>
+    <tr>
+      <td>Ordering</td>
+      <td>Preserved within a partition</td>
+      <td>Not guaranteed</td>
+    </tr>
+    <tr>
+      <td>Typical use</td>
+      <td>Ordered stream processing</td>
+      <td>Job queues, elastic worker pools</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="replication-and-durability">Replication and Durability</h3>
+
+<p>Each partition is replicated to <code class="language-plaintext highlighter-rouge">replication.factor</code> brokers. One replica is the <strong>leader</strong>, which serves writes and by default reads; the others are <strong>followers</strong> that copy its log. Followers that are caught up form the <strong>in-sync replica set (ISR)</strong>. The producer’s <code class="language-plaintext highlighter-rouge">acks</code> setting trades durability for latency:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">acks</code></th>
+      <th>Acknowledged when</th>
+      <th>Risk</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">0</code></td>
+      <td>Sent, without waiting</td>
+      <td>Any failure can lose the record</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">1</code></td>
+      <td>The leader has written it</td>
+      <td>Lost if the leader fails before followers copy it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">all</code> (default since 3.0)</td>
+      <td>All in-sync replicas have it</td>
+      <td>Survives leader failure when combined with <code class="language-plaintext highlighter-rouge">min.insync.replicas</code> of at least 2</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A common durable configuration is <code class="language-plaintext highlighter-rouge">replication.factor=3</code>, <code class="language-plaintext highlighter-rouge">min.insync.replicas=2</code>, <code class="language-plaintext highlighter-rouge">acks=all</code>: a write succeeds only if at least two replicas hold it, and the partition stays writable with one broker down.</p>
+
+<h3 id="delivery-semantics-and-transactions">Delivery Semantics and Transactions</h3>
+
+<p>Kafka’s default end-to-end behavior is <strong>at-least-once</strong>. A consumer that processes a record and crashes before committing its offset will re-read the record after restart:</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant K as Kafka partition
+    participant C as Consumer
+    participant DB as Side effect (database)
+    K-&gt;&gt;C: record at offset 41
+    C-&gt;&gt;DB: apply effect
+    Note over C: crash before committing offset 42
+    C-&gt;&gt;K: restart, resume from last commit (41)
+    K-&gt;&gt;C: record at offset 41 again
+    C-&gt;&gt;DB: apply effect again (must be idempotent)
+    C-&gt;&gt;K: commit offset 42
+</code></pre>
+
+<p>Committing <em>before</em> processing gives at-most-once (a crash loses the record); committing <em>after</em> gives at-least-once (a crash repeats it). Kafka offers exactly-once <em>processing</em> for pipelines that read from and write to Kafka:</p>
 
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">acks=0</code> — fire-and-forget; fastest, can lose data.</li>
-  <li><code class="language-plaintext highlighter-rouge">acks=1</code> — leader-acknowledged; lost if the leader dies before a follower replicates.</li>
-  <li><code class="language-plaintext highlighter-rouge">acks=all</code> — acknowledged only once all ISR have the record; survives leader failure (paired with <code class="language-plaintext highlighter-rouge">min.insync.replicas</code>).</li>
+  <li>The <strong>idempotent producer</strong> (on by default since 3.0) attaches a producer ID and sequence number so that retried sends are not written twice.</li>
+  <li><strong>Transactions</strong> atomically write output records <em>and</em> the consumer’s offset advance. Downstream consumers set <code class="language-plaintext highlighter-rouge">isolation.level=read_committed</code> to skip records from aborted transactions.</li>
 </ul>
 
-<h3 id="delivery-semantics">Delivery Semantics</h3>
-
-<p>Kafka’s default end-to-end semantics are <strong>at-least-once</strong>: a consumer can see a record twice if it processes the record but crashes before committing the offset, so on restart it re-reads from the last committed offset. The three regimes:</p>
-
-<ul>
-  <li><strong>At-most-once</strong> — commit the offset <em>before</em> processing. A crash mid-processing loses the message. Rarely what you want.</li>
-  <li><strong>At-least-once</strong> — process, then commit. A crash between the two redelivers the message. The pragmatic default; pair it with idempotent consumers.</li>
-  <li><strong>Exactly-once</strong> — Kafka’s <strong>idempotent producer</strong> (deduplicates retried writes via a producer ID + sequence number) plus <strong>transactions</strong> (atomically commit produced records <em>and</em> consumed-offset advances) give exactly-once <em>processing</em> for read-process-write pipelines inside Kafka. It does not magically extend to external side effects (see <a href="#ordering-delivery-semantics--exactly-once">Exactly-Once</a> below).</li>
-</ul>
+<p>This guarantee ends at Kafka’s boundary: an email sent or a row written to an external database during processing is not rolled back with the transaction. The Jepsen analysis of Bufstream (2024) also showed that the transaction protocol itself could produce “torn” transactions when messages on different client connections arrived out of order; the transaction server-side defense work of KIP-890, which shipped in Kafka 4.0, targets this class of problem, so keep clients and brokers current. See <a href="#ordering-delivery-semantics--exactly-once">Ordering, Delivery Semantics &amp; Exactly-Once</a> for the general approach.</p>
 
 <h3 id="log-compaction">Log Compaction</h3>
 
-<p>By default Kafka deletes records older than a retention window (<code class="language-plaintext highlighter-rouge">cleanup.policy=delete</code>). With <code class="language-plaintext highlighter-rouge">cleanup.policy=compact</code>, Kafka instead retains the <strong>latest value per key</strong> and garbage-collects superseded values. A compacted topic becomes a durable, replayable <em>snapshot of current state</em> keyed by entity — ideal for a “current account balance per user” or “latest config per service” topic that doubles as a changelog. A <code class="language-plaintext highlighter-rouge">null</code> value for a key is a <strong>tombstone</strong> that marks the key deleted and is itself eventually compacted away. Compaction is what lets a Kafka topic back a materialized table (the basis of Kafka Streams’ <code class="language-plaintext highlighter-rouge">KTable</code> and Debezium change-data-capture).</p>
+<p>By default Kafka deletes records older than the retention period (<code class="language-plaintext highlighter-rouge">cleanup.policy=delete</code>). With <code class="language-plaintext highlighter-rouge">cleanup.policy=compact</code>, it keeps at least the <strong>latest record for each key</strong> and discards older ones. A compacted topic is a durable, replayable snapshot of current state, such as the latest profile per user or the latest configuration per service. A record with a <code class="language-plaintext highlighter-rouge">null</code> value is a <strong>tombstone</strong> that marks the key deleted and is itself removed after a grace period. Compaction lets a topic back a table (Kafka Streams’ <code class="language-plaintext highlighter-rouge">KTable</code>) and carry change-data-capture streams from tools such as Debezium.</p>
 
-<h3 id="kafka-client-example">Kafka Client Example</h3>
+<h3 id="client-example">Client Example</h3>
 
-<p>The producer/consumer pair below shows the basic flow with Python’s <code class="language-plaintext highlighter-rouge">aiokafka</code> — a producer publishing an order event keyed for ordering, and a consumer group draining it:</p>
+<p>A producer should be long-lived and shared, not created per message. The example below uses Python’s <code class="language-plaintext highlighter-rouge">aiokafka</code>:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Producer
-</span><span class="kn">import</span> <span class="n">json</span>
-<span class="kn">from</span> <span class="n">aiokafka</span> <span class="kn">import</span> <span class="n">AIOKafkaProducer</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
 
-<span class="k">async</span> <span class="k">def</span> <span class="nf">send_order_event</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
-    <span class="n">producer</span> <span class="o">=</span> <span class="nc">AIOKafkaProducer</span><span class="p">(</span>
-        <span class="n">bootstrap_servers</span><span class="o">=</span><span class="sh">"</span><span class="s">localhost:9092</span><span class="sh">"</span><span class="p">,</span>
-        <span class="n">value_serializer</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">v</span><span class="p">).</span><span class="nf">encode</span><span class="p">(),</span>
-        <span class="n">acks</span><span class="o">=</span><span class="sh">"</span><span class="s">all</span><span class="sh">"</span><span class="p">,</span>            <span class="c1"># wait for all in-sync replicas — durable
-</span>        <span class="n">enable_idempotence</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>  <span class="c1"># dedupe retried writes
+<span class="kn">from</span> <span class="n">aiokafka</span> <span class="kn">import</span> <span class="n">AIOKafkaConsumer</span><span class="p">,</span> <span class="n">AIOKafkaProducer</span>
+
+<span class="n">producer</span> <span class="o">=</span> <span class="nc">AIOKafkaProducer</span><span class="p">(</span>
+    <span class="n">bootstrap_servers</span><span class="o">=</span><span class="sh">"</span><span class="s">localhost:9092</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">value_serializer</span><span class="o">=</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">v</span><span class="p">).</span><span class="nf">encode</span><span class="p">(),</span>
+    <span class="n">acks</span><span class="o">=</span><span class="sh">"</span><span class="s">all</span><span class="sh">"</span><span class="p">,</span>                 <span class="c1"># wait for all in-sync replicas
+</span>    <span class="n">enable_idempotence</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>    <span class="c1"># retries cannot create duplicates in the log
+</span><span class="p">)</span>
+<span class="c1"># At startup: await producer.start(); at shutdown: await producer.stop()
+</span>
+
+<span class="k">async</span> <span class="k">def</span> <span class="nf">publish_order_created</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
+    <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">send_and_wait</span><span class="p">(</span>
+        <span class="sh">"</span><span class="s">order-events</span><span class="sh">"</span><span class="p">,</span>
+        <span class="p">{</span><span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">order</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">],</span> <span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">created</span><span class="sh">"</span><span class="p">},</span>
+        <span class="n">key</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">order</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">]).</span><span class="nf">encode</span><span class="p">(),</span>   <span class="c1"># same order -&gt; same partition -&gt; ordered
 </span>    <span class="p">)</span>
-    <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">send_and_wait</span><span class="p">(</span>
-            <span class="sh">"</span><span class="s">order-events</span><span class="sh">"</span><span class="p">,</span>
-            <span class="p">{</span><span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">order</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">],</span> <span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">created</span><span class="sh">"</span><span class="p">},</span>
-            <span class="c1"># partition by order id so all events for an order stay ordered
-</span>            <span class="n">key</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">order</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">]).</span><span class="nf">encode</span><span class="p">(),</span>
-        <span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">await</span> <span class="n">producer</span><span class="p">.</span><span class="nf">stop</span><span class="p">()</span>
 
 
-<span class="c1"># Consumer
-</span><span class="kn">from</span> <span class="n">aiokafka</span> <span class="kn">import</span> <span class="n">AIOKafkaConsumer</span>
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">process_orders</span><span class="p">():</span>
+<span class="k">async</span> <span class="k">def</span> <span class="nf">consume_orders</span><span class="p">():</span>
     <span class="n">consumer</span> <span class="o">=</span> <span class="nc">AIOKafkaConsumer</span><span class="p">(</span>
         <span class="sh">"</span><span class="s">order-events</span><span class="sh">"</span><span class="p">,</span>
         <span class="n">bootstrap_servers</span><span class="o">=</span><span class="sh">"</span><span class="s">localhost:9092</span><span class="sh">"</span><span class="p">,</span>
-        <span class="n">group_id</span><span class="o">=</span><span class="sh">"</span><span class="s">order-processor</span><span class="sh">"</span><span class="p">,</span>   <span class="c1"># members of this group share the partitions
-</span>        <span class="n">enable_auto_commit</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>     <span class="c1"># commit manually, after processing
-</span>    <span class="p">)</span>
+        <span class="n">group_id</span><span class="o">=</span><span class="sh">"</span><span class="s">order-processor</span><span class="sh">"</span><span class="p">,</span>      <span class="c1"># members share the partitions
+</span>        <span class="n">enable_auto_commit</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>        <span class="c1"># commit only after processing
+</span>        <span class="n">auto_offset_reset</span><span class="o">=</span><span class="sh">"</span><span class="s">earliest</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">)</span>
     <span class="k">await</span> <span class="n">consumer</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">consumer</span><span class="p">:</span>
-            <span class="n">order</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">.</span><span class="n">value</span><span class="p">)</span>
-            <span class="k">await</span> <span class="nf">handle_order</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>        <span class="c1"># MUST be idempotent
-</span>            <span class="k">await</span> <span class="n">consumer</span><span class="p">.</span><span class="nf">commit</span><span class="p">()</span>          <span class="c1"># commit AFTER success → at-least-once
+            <span class="k">await</span> <span class="nf">handle_order</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">.</span><span class="n">value</span><span class="p">))</span>   <span class="c1"># must be idempotent
+</span>            <span class="k">await</span> <span class="n">consumer</span><span class="p">.</span><span class="nf">commit</span><span class="p">()</span>                     <span class="c1"># after success: at-least-once
 </span>    <span class="k">finally</span><span class="p">:</span>
         <span class="k">await</span> <span class="n">consumer</span><span class="p">.</span><span class="nf">stop</span><span class="p">()</span>
 </code></pre></div></div>
 
-<p>Committing <em>after</em> <code class="language-plaintext highlighter-rouge">handle_order</code> yields at-least-once delivery; the duplicate window is “processed but not yet committed,” which is why <code class="language-plaintext highlighter-rouge">handle_order</code> must be idempotent.</p>
+<p>Committing after every record is simple but slow; production consumers usually process a batch from <code class="language-plaintext highlighter-rouge">getmany()</code> and commit once per batch, which widens the duplicate window but not the guarantee.</p>
 
 <h2 id="rabbitmq">RabbitMQ</h2>
 
-<p>RabbitMQ is the most widely deployed traditional message queue. Where Kafka’s model is a partitioned log, RabbitMQ’s is a flexible <strong>routing fabric</strong> built from exchanges, queues, and bindings, implementing the AMQP 0-9-1 protocol.</p>
+<p>RabbitMQ is the most widely deployed traditional message broker. Where Kafka is a partitioned log, RabbitMQ is a flexible <strong>routing fabric</strong> of exchanges, queues, and bindings. It speaks AMQP 0-9-1 and, since 4.0, AMQP 1.0 as a core protocol, plus MQTT and STOMP through plugins.</p>
+
+<h3 id="the-4x-series">The 4.x Series</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Release</th>
+      <th>Date</th>
+      <th>Highlights</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>4.0</strong></td>
+      <td>2024</td>
+      <td><strong>Classic queue mirroring removed</strong>: quorum queues and streams are the only replicated types. AMQP 1.0 became a core protocol. Quorum queues default to a delivery limit of 20.</td>
+    </tr>
+    <tr>
+      <td><strong>4.1</strong></td>
+      <td>April 2025</td>
+      <td>Quorum queue performance and feature-parity improvements; AMQP 1.0 over WebSocket.</td>
+    </tr>
+    <tr>
+      <td><strong>4.2</strong></td>
+      <td>October 2025</td>
+      <td>Long-term support series. Broker-side SQL filter expressions for streams. Continued move to <strong>Khepri</strong>, a Raft-based metadata store replacing Mnesia.</td>
+    </tr>
+    <tr>
+      <td><strong>4.3</strong></td>
+      <td>April 2026</td>
+      <td>Current feature series at the time of writing.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Clusters that relied on mirrored classic queues must migrate them to quorum queues before upgrading to 4.x.</p>
 
 <h3 id="exchanges-queues-and-bindings">Exchanges, Queues, and Bindings</h3>
 
-<p>A producer never publishes directly to a queue. It publishes to an <strong>exchange</strong> with a <strong>routing key</strong>. The exchange examines the routing key (and message headers) and, according to its type and its <strong>bindings</strong>, copies the message into zero or more <strong>queues</strong>. Consumers read from queues. The binding — a rule connecting an exchange to a queue — is where routing logic lives.</p>
+<p>A producer publishes to an <strong>exchange</strong> with a <strong>routing key</strong>, never directly to a queue. The exchange copies the message into zero or more <strong>queues</strong> according to its type and <strong>bindings</strong>, the rules connecting it to queues. Consumers read from queues.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    P["Producer&lt;br/&gt;routing_key=order.eu"] --&gt; XExchange&lt;br/&gt;(topic)
-    X -- "order.*" --&gt; Q1[("Queue: all-orders")]
-    X -- "order.eu" --&gt; Q2[("Queue: eu-orders")]
+    P["Producer&lt;br/&gt;routing key: order.eu.created"] --&gt; X(["Topic exchange: orders"])
+    X -- "binding: order.#" --&gt; Q1[("Queue: all-orders")]
+    X -- "binding: order.eu.*" --&gt; Q2[("Queue: eu-orders")]
+    X -. "binding: order.us.*&lt;br/&gt;(no match)" .-&gt; Q3[("Queue: us-orders")]
     Q1 --&gt; C1["Worker A"]
     Q1 --&gt; C2["Worker B"]
-    Q2 --&gt; C3["EU Worker"]
+    Q2 --&gt; C3["EU worker"]
 </code></pre>
-
-<h3 id="exchange-types">Exchange Types</h3>
 
 <table>
   <thead>
@@ -3518,76 +3694,116 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><strong>Direct</strong></td>
-      <td>Deliver to queues whose binding key <em>equals</em> the routing key</td>
-      <td>Routing by a discrete category (log level, region)</td>
+      <td>Binding key equals the routing key</td>
+      <td>Routing by a discrete category (region, severity)</td>
     </tr>
     <tr>
       <td><strong>Topic</strong></td>
-      <td>Match routing key against binding patterns with <code class="language-plaintext highlighter-rouge">*</code> (one word) and <code class="language-plaintext highlighter-rouge">#</code> (zero+ words)</td>
+      <td>Pattern match on dot-separated words: <code class="language-plaintext highlighter-rouge">*</code> matches exactly one word, <code class="language-plaintext highlighter-rouge">#</code> zero or more</td>
       <td>Hierarchical routing (<code class="language-plaintext highlighter-rouge">order.eu.created</code>)</td>
     </tr>
     <tr>
       <td><strong>Fanout</strong></td>
-      <td>Ignore routing key; copy to <em>every</em> bound queue</td>
-      <td>Pub/sub broadcast</td>
+      <td>Ignores the routing key; copies to every bound queue</td>
+      <td>Broadcast</td>
     </tr>
     <tr>
       <td><strong>Headers</strong></td>
-      <td>Match on message header attributes instead of routing key</td>
-      <td>Routing by structured metadata</td>
+      <td>Matches message header attributes</td>
+      <td>Routing on structured metadata</td>
     </tr>
   </tbody>
 </table>
 
-<p>This routing flexibility is RabbitMQ’s signature strength: complex pub/sub, point-to-point, and content-based routing topologies are all expressed by choosing exchange types and bindings, with no logic in the producer.</p>
+<p>Routing topologies (pub/sub, point-to-point, content-based) are built from exchange types and bindings, with no routing logic in producers.</p>
 
-<h3 id="acknowledgements-prefetch-and-delivery">Acknowledgements, Prefetch, and Delivery</h3>
+<h3 id="queue-types">Queue Types</h3>
 
-<p>RabbitMQ delivers a message to a consumer and waits for an <strong>ack</strong>. Until acked (or the channel closes), the message is <em>unacknowledged</em> and will be <strong>redelivered</strong> to another consumer if the original dies — giving at-least-once delivery. The <strong>prefetch</strong> count (<code class="language-plaintext highlighter-rouge">basic.qos</code>) caps how many unacked messages a consumer may hold, which implements per-consumer backpressure and fair work distribution (a slow worker is not handed a huge backlog). For durability, both the queue and the messages must be marked <strong>durable</strong> and the publisher should use <strong>publisher confirms</strong> so it knows the broker persisted the message.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Replication</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Quorum queue</strong></td>
+      <td>Raft consensus across nodes</td>
+      <td>Default choice for any queue that must survive node failure; supports poison-message handling via a delivery limit.</td>
+    </tr>
+    <tr>
+      <td><strong>Classic queue</strong></td>
+      <td>None (single node) since 4.0</td>
+      <td>Transient or easily recreated data where replication is not needed.</td>
+    </tr>
+    <tr>
+      <td><strong>Stream</strong></td>
+      <td>Raft-replicated append-only log</td>
+      <td>Replay, large fan-out, and very long backlogs: Kafka-style log semantics inside RabbitMQ, with filtering on the broker.</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="rabbitmq-client-example">RabbitMQ Client Example</h3>
+<p>The Raft mechanics behind quorum queues and streams are covered in <a href="../distributed-systems/consensus-and-coordination.html#raft">Consensus &amp; Coordination</a>.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Publisher with a topic exchange (using pika)
-</span><span class="kn">import</span> <span class="n">json</span><span class="p">,</span> <span class="n">pika</span>
+<h3 id="acknowledgements-prefetch-and-confirms">Acknowledgements, Prefetch, and Confirms</h3>
+
+<p>RabbitMQ pushes messages to consumers and waits for an <strong>ack</strong>. An unacknowledged message is <strong>redelivered</strong> if its consumer’s channel or connection closes, which gives at-least-once delivery. The <strong>prefetch</strong> count (<code class="language-plaintext highlighter-rouge">basic.qos</code>) caps unacknowledged messages per consumer, providing per-consumer backpressure and fair dispatch so that a slow worker is not handed a large backlog. For durability, declare queues durable (quorum queues always are), publish persistent messages, and use <strong>publisher confirms</strong> so the producer learns when the broker has safely stored each message.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Publisher: topic exchange, persistent message, publisher confirms (pika)
+</span><span class="kn">import</span> <span class="n">json</span>
+
+<span class="kn">import</span> <span class="n">pika</span>
 
 <span class="n">conn</span> <span class="o">=</span> <span class="n">pika</span><span class="p">.</span><span class="nc">BlockingConnection</span><span class="p">(</span><span class="n">pika</span><span class="p">.</span><span class="nc">ConnectionParameters</span><span class="p">(</span><span class="sh">"</span><span class="s">localhost</span><span class="sh">"</span><span class="p">))</span>
 <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="p">.</span><span class="nf">channel</span><span class="p">()</span>
-<span class="n">ch</span><span class="p">.</span><span class="nf">exchange_declare</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">,</span> <span class="n">exchange_type</span><span class="o">=</span><span class="sh">"</span><span class="s">topic</span><span class="sh">"</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">ch</span><span class="p">.</span><span class="nf">confirm_delivery</span><span class="p">()</span>   <span class="c1"># basic_publish now raises if the broker does not confirm
+</span><span class="n">ch</span><span class="p">.</span><span class="nf">exchange_declare</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">,</span> <span class="n">exchange_type</span><span class="o">=</span><span class="sh">"</span><span class="s">topic</span><span class="sh">"</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
 
 <span class="n">ch</span><span class="p">.</span><span class="nf">basic_publish</span><span class="p">(</span>
     <span class="n">exchange</span><span class="o">=</span><span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">,</span>
     <span class="n">routing_key</span><span class="o">=</span><span class="sh">"</span><span class="s">order.eu.created</span><span class="sh">"</span><span class="p">,</span>
     <span class="n">body</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span> <span class="sh">"</span><span class="s">region</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">eu</span><span class="sh">"</span><span class="p">}),</span>
-    <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="p">.</span><span class="nc">BasicProperties</span><span class="p">(</span><span class="n">delivery_mode</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>  <span class="c1"># persistent message
+    <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="p">.</span><span class="nc">BasicProperties</span><span class="p">(</span><span class="n">delivery_mode</span><span class="o">=</span><span class="n">pika</span><span class="p">.</span><span class="n">DeliveryMode</span><span class="p">.</span><span class="n">Persistent</span><span class="p">),</span>
+    <span class="n">mandatory</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>     <span class="c1"># fail if no queue is bound for this routing key
 </span><span class="p">)</span>
 <span class="n">conn</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
 </code></pre></div></div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Consumer with manual ack and prefetch (backpressure)
-</span><span class="kn">import</span> <span class="n">json</span><span class="p">,</span> <span class="n">pika</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Consumer: quorum queue, manual ack, prefetch for backpressure
+</span><span class="kn">import</span> <span class="n">json</span>
+
+<span class="kn">import</span> <span class="n">pika</span>
 
 <span class="n">conn</span> <span class="o">=</span> <span class="n">pika</span><span class="p">.</span><span class="nc">BlockingConnection</span><span class="p">(</span><span class="n">pika</span><span class="p">.</span><span class="nc">ConnectionParameters</span><span class="p">(</span><span class="sh">"</span><span class="s">localhost</span><span class="sh">"</span><span class="p">))</span>
 <span class="n">ch</span> <span class="o">=</span> <span class="n">conn</span><span class="p">.</span><span class="nf">channel</span><span class="p">()</span>
 <span class="n">ch</span><span class="p">.</span><span class="nf">exchange_declare</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">,</span> <span class="n">exchange_type</span><span class="o">=</span><span class="sh">"</span><span class="s">topic</span><span class="sh">"</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="n">q</span> <span class="o">=</span> <span class="n">ch</span><span class="p">.</span><span class="nf">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="sh">"</span><span class="s">eu-orders</span><span class="sh">"</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="bp">True</span><span class="p">).</span><span class="n">method</span><span class="p">.</span><span class="n">queue</span>
-<span class="n">ch</span><span class="p">.</span><span class="nf">queue_bind</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">,</span> <span class="n">queue</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">routing_key</span><span class="o">=</span><span class="sh">"</span><span class="s">order.eu.*</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">ch</span><span class="p">.</span><span class="nf">queue_declare</span><span class="p">(</span>
+    <span class="n">queue</span><span class="o">=</span><span class="sh">"</span><span class="s">eu-orders</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">durable</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+    <span class="n">arguments</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">x-queue-type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">quorum</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">x-delivery-limit</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
+<span class="p">)</span>
+<span class="n">ch</span><span class="p">.</span><span class="nf">queue_bind</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">,</span> <span class="n">queue</span><span class="o">=</span><span class="sh">"</span><span class="s">eu-orders</span><span class="sh">"</span><span class="p">,</span> <span class="n">routing_key</span><span class="o">=</span><span class="sh">"</span><span class="s">order.eu.*</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">ch</span><span class="p">.</span><span class="nf">basic_qos</span><span class="p">(</span><span class="n">prefetch_count</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>   <span class="c1"># at most 10 unacked messages per consumer
+</span>
 
-<span class="n">ch</span><span class="p">.</span><span class="nf">basic_qos</span><span class="p">(</span><span class="n">prefetch_count</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>  <span class="c1"># at most 10 unacked in flight per consumer
-</span>
 <span class="k">def</span> <span class="nf">on_message</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
-    <span class="n">order</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
-    <span class="nf">handle_order</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>                                  <span class="c1"># must be idempotent
-</span>    <span class="n">channel</span><span class="p">.</span><span class="nf">basic_ack</span><span class="p">(</span><span class="n">delivery_tag</span><span class="o">=</span><span class="n">method</span><span class="p">.</span><span class="n">delivery_tag</span><span class="p">)</span>  <span class="c1"># ack AFTER success
-</span>
-<span class="n">ch</span><span class="p">.</span><span class="nf">basic_consume</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="n">q</span><span class="p">,</span> <span class="n">on_message_callback</span><span class="o">=</span><span class="n">on_message</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="nf">handle_order</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">body</span><span class="p">))</span>                   <span class="c1"># must be idempotent
+</span>        <span class="n">channel</span><span class="p">.</span><span class="nf">basic_ack</span><span class="p">(</span><span class="n">delivery_tag</span><span class="o">=</span><span class="n">method</span><span class="p">.</span><span class="n">delivery_tag</span><span class="p">)</span>
+    <span class="k">except</span> <span class="nb">Exception</span><span class="p">:</span>
+        <span class="c1"># Return to the queue; after x-delivery-limit attempts the quorum
+</span>        <span class="c1"># queue dead-letters (if configured) or drops the message.
+</span>        <span class="n">channel</span><span class="p">.</span><span class="nf">basic_nack</span><span class="p">(</span><span class="n">delivery_tag</span><span class="o">=</span><span class="n">method</span><span class="p">.</span><span class="n">delivery_tag</span><span class="p">,</span> <span class="n">requeue</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+
+<span class="n">ch</span><span class="p">.</span><span class="nf">basic_consume</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="sh">"</span><span class="s">eu-orders</span><span class="sh">"</span><span class="p">,</span> <span class="n">on_message_callback</span><span class="o">=</span><span class="n">on_message</span><span class="p">)</span>
 <span class="n">ch</span><span class="p">.</span><span class="nf">start_consuming</span><span class="p">()</span>
 </code></pre></div></div>
 
-<blockquote>
-  <p><strong>Quorum queues.</strong> Classic mirrored queues had subtle failure modes under network partition. Modern RabbitMQ (3.8+) offers <strong>quorum queues</strong>, which replicate via the Raft consensus algorithm for predictable, safe failover — the recommended choice for any queue that must survive broker failure. The Raft mechanics behind them are covered in <a href="../distributed-systems/consensus-and-coordination.html">Consensus &amp; Coordination</a>.</p>
-</blockquote>
-
-<h3 id="kafka-vs-rabbitmq-at-a-glance">Kafka vs. RabbitMQ at a Glance</h3>
+<h3 id="kafka-vs-rabbitmq">Kafka vs. RabbitMQ</h3>
 
 <table>
   <thead>
@@ -3599,77 +3815,118 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>Storage model</td>
-      <td>Queues; messages removed on ack</td>
-      <td>Partitioned, retained log</td>
+      <td>Core model</td>
+      <td>Routed queues (plus streams)</td>
+      <td>Partitioned, retained log (plus share groups)</td>
     </tr>
     <tr>
       <td>Routing</td>
-      <td>Rich (exchanges, bindings, patterns)</td>
-      <td>By partition key only</td>
+      <td>Rich: exchanges, bindings, patterns, headers</td>
+      <td>By partition key only; routing happens in consumers or stream processors</td>
     </tr>
     <tr>
       <td>Ordering</td>
-      <td>Per-queue</td>
-      <td>Per-partition</td>
+      <td>Per queue, single active consumer for strict order</td>
+      <td>Per partition</td>
     </tr>
     <tr>
       <td>Replay</td>
-      <td>No (gone once acked)</td>
-      <td>Yes (seek to offset)</td>
+      <td>Streams only; queues delete on ack</td>
+      <td>Any topic, by offset or timestamp</td>
     </tr>
     <tr>
-      <td>Throughput</td>
-      <td>High, message-by-message</td>
-      <td>Very high, sequential batches</td>
+      <td>Delivery to consumers</td>
+      <td>Push with prefetch</td>
+      <td>Pull (poll)</td>
     </tr>
     <tr>
-      <td>Consumer model</td>
-      <td>Push, with prefetch</td>
-      <td>Pull, with offset commits</td>
+      <td>Replication</td>
+      <td>Raft (quorum queues, streams)</td>
+      <td>Leader/ISR replication; KRaft for metadata</td>
     </tr>
     <tr>
       <td>Sweet spot</td>
-      <td>Complex routing, task queues, RPC</td>
-      <td>Event streaming, sourcing, high-volume pipelines</td>
+      <td>Task queues, complex routing, request/reply, per-message acks</td>
+      <td>High-volume event streams, event sourcing, CDC, stream processing</td>
     </tr>
   </tbody>
 </table>
 
+<h2 id="other-open-source-brokers">Other Open-Source Brokers</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Broker</th>
+      <th>Model</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>NATS / JetStream</strong></td>
+      <td>Subject-based pub/sub; JetStream adds persisted streams</td>
+      <td>Lightweight core with at-most-once pub/sub and request/reply. JetStream adds durable streams, pull and push consumers with acks and redelivery, Raft replication, and key-value and object stores built on streams.</td>
+    </tr>
+    <tr>
+      <td><strong>Apache Pulsar</strong></td>
+      <td>Log with separated storage (Apache BookKeeper)</td>
+      <td>Compute (brokers) and storage (bookies) scale independently; built-in multi-tenancy and geo-replication; subscription types (exclusive, failover, shared, key-shared) cover both stream and queue use.</td>
+    </tr>
+    <tr>
+      <td><strong>Redpanda</strong></td>
+      <td>Kafka-compatible log</td>
+      <td>Single C++ binary with Raft per partition and no JVM; implements the Kafka protocol.</td>
+    </tr>
+    <tr>
+      <td><strong>Redis Streams</strong></td>
+      <td>Append-only log in Redis</td>
+      <td>Consumer groups with pending-entry lists; convenient when Redis is already present, bounded by memory.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Kafka’s protocol has become a de facto standard, and several systems implement it over object storage (WarpStream, AutoMQ, Bufstream) to reduce the cost of cross-zone replication, the same motivation as KIP-1150.</p>
+
+<p>Durability defaults deserve scrutiny. Jepsen’s analysis of NATS 2.12.1 (December 2025) found that JetStream acknowledged writes before <code class="language-plaintext highlighter-rouge">fsync</code> and by default flushed to disk only every two minutes, so a power loss or kernel crash across nodes could lose acknowledged messages. Brokers differ on whether “acknowledged” means “in memory on a quorum” or “on disk on a quorum”; know which one your configuration provides.</p>
+
 <h2 id="cloud-managed-brokers">Cloud-Managed Brokers</h2>
 
-<p>Running Kafka or RabbitMQ yourself means operating a stateful cluster. The major clouds offer managed brokers that trade some control for zero operational burden.</p>
+<p>Managed services trade some control and portability for not operating a stateful cluster.</p>
 
-<h3 id="aws-sqs-and-sns">AWS: SQS and SNS</h3>
+<h3 id="aws-sqs-sns-and-eventbridge">AWS: SQS, SNS, and EventBridge</h3>
 
-<p><strong>Amazon SQS</strong> is a managed message <em>queue</em>. Two flavors:</p>
+<p><strong>Amazon SQS</strong> is a managed queue.</p>
 
 <ul>
-  <li><strong>Standard queues</strong> — nearly unlimited throughput, <strong>at-least-once</strong> delivery, <strong>best-effort ordering</strong> (occasionally out of order, occasionally duplicated).</li>
-  <li><strong>FIFO queues</strong> — <strong>exactly-once</strong> processing and strict ordering <em>within a message group</em> (<code class="language-plaintext highlighter-rouge">MessageGroupId</code>), at lower throughput. The group id is SQS’s analogue of Kafka’s partition key.</li>
+  <li><strong>Standard queues</strong> offer nearly unlimited throughput, at-least-once delivery, and best-effort ordering: messages can occasionally arrive out of order or twice. Setting a <code class="language-plaintext highlighter-rouge">MessageGroupId</code> on a standard queue enables <strong>fair queues</strong>, which limit the effect of one noisy tenant’s backlog on the others without imposing ordering.</li>
+  <li><strong>FIFO queues</strong> preserve order within a <strong>message group</strong> (<code class="language-plaintext highlighter-rouge">MessageGroupId</code>, SQS’s partition-key analogue) and deduplicate messages with the same deduplication ID within a five-minute window. Throughput is 300 API calls per second per action, or far higher in high-throughput mode.</li>
 </ul>
 
-<p>SQS uses <strong>visibility timeout</strong> instead of explicit per-message locking: when a consumer receives a message it becomes invisible to others for a configured window; the consumer must <strong>delete</strong> it before the window expires or it reappears for redelivery. This is how SQS achieves at-least-once without holding a connection.</p>
+<p>SQS uses a <strong>visibility timeout</strong> instead of per-message locks: a received message is hidden from other consumers for a window (30 seconds by default, up to 12 hours), and the consumer must delete it before the window expires or it becomes visible again for redelivery. Messages can be up to 1 MiB and are retained for 4 days by default, up to 14 days.</p>
 
-<p><strong>Amazon SNS</strong> is a managed <em>pub/sub</em> topic. Publishers send to a topic; SNS fans out to subscribers — HTTP endpoints, Lambda, email, or (most usefully) <strong>SQS queues</strong>. The canonical AWS event-driven pattern is <strong>SNS → SQS fan-out</strong>: publish once to an SNS topic, have each consuming service own an SQS queue subscribed to it. Each service gets its own durable, independently-drained copy — pub/sub across services, queue within each service, exactly the composite model from earlier.</p>
+<p><strong>Amazon SNS</strong> is managed pub/sub. A topic fans out to HTTP endpoints, Lambda functions, email, and, most usefully, SQS queues. The canonical AWS pattern is <strong>SNS-to-SQS fan-out</strong>: publish once to a topic and give each consuming service its own subscribed queue, which it drains independently. SNS FIFO topics pair with SQS FIFO queues when ordering matters.</p>
 
 <pre><code class="language-mermaid">flowchart LR
     Pub["Publisher"] --&gt; SNS[("SNS topic: orders")]
     SNS --&gt; Q1[("SQS: inventory")]
     SNS --&gt; Q2[("SQS: billing")]
     SNS --&gt; Q3[("SQS: analytics")]
-    Q1 --&gt; S1["Inventory Svc"]
-    Q2 --&gt; S2["Billing Svc"]
-    Q3 --&gt; S3["Analytics Svc"]
+    Q1 --&gt; S1["Inventory service"]
+    Q2 --&gt; S2["Billing service"]
+    Q3 --&gt; S3["Analytics service"]
+    Q2 -. "after maxReceiveCount" .-&gt; DLQ[("SQS: billing-dlq")]
 </code></pre>
 
-<h3 id="aws-kinesis">AWS: Kinesis</h3>
+<p><strong>Amazon EventBridge</strong> is a serverless event bus. Instead of topics, <strong>rules</strong> match on the content of events (source, type, and fields in the JSON body) and route them to targets, including other AWS services and SaaS integrations. It suits routing many event types across accounts and services where SNS’s topic-per-stream model would be unwieldy, and supports archiving and replaying events.</p>
 
-<p><strong>Amazon Kinesis Data Streams</strong> is AWS’s log-structured stream — the managed analogue of Kafka. A stream is divided into <strong>shards</strong> (Kafka partitions); each record has a <strong>partition key</strong> (hashed to a shard) and a <strong>sequence number</strong> (the offset). Records are retained (default 24 hours, up to 365 days) and read by <strong>shard iterators</strong>; multiple consumers read the same shard independently, and <strong>enhanced fan-out</strong> gives each consumer dedicated throughput. Reach for Kinesis over SQS/SNS when you need replay, ordered high-volume streaming, or multiple independent readers of the same data — the same reasons you would reach for Kafka over RabbitMQ.</p>
+<h3 id="aws-kinesis-data-streams">AWS: Kinesis Data Streams</h3>
+
+<p><strong>Kinesis Data Streams</strong> is AWS’s managed log. A stream is split into <strong>shards</strong> (partitions); each record has a <strong>partition key</strong>, hashed to a shard, and a <strong>sequence number</strong> (offset). A shard accepts up to 1 MB/s or 1,000 records/s of writes. Retention is 24 hours by default and can be extended up to 365 days. Streams run in provisioned mode (you manage shard count) or on-demand mode (AWS scales shards). <strong>Enhanced fan-out</strong> gives each registered consumer dedicated read throughput per shard. Amazon MSK is the managed option when Kafka API compatibility is required.</p>
 
 <h3 id="google-cloud-pubsub">Google Cloud Pub/Sub</h3>
 
-<p><strong>Google Cloud Pub/Sub</strong> blends the models: publishers send to a <strong>topic</strong>, and each <strong>subscription</strong> receives the full stream (pub/sub across subscriptions) while delivering each message to one consumer of that subscription (queue within it). It is globally distributed, autoscaling, <strong>at-least-once</strong> by default, with an <strong>exactly-once</strong> delivery option and optional <strong>ordering keys</strong> (the partition-key analogue) for per-key ordering. Subscriptions can be <strong>pull</strong> (consumer requests messages) or <strong>push</strong> (Pub/Sub POSTs to an endpoint). It occupies a middle ground: more elastic and operations-free than self-hosted Kafka, with built-in fan-out like SNS but with subscription-level retention and replay (via <strong>seek</strong> to a timestamp/snapshot).</p>
+<p><strong>Google Cloud Pub/Sub</strong> combines the models. Each <strong>subscription</strong> on a topic receives every message (pub/sub across subscriptions) and delivers each message to one of its subscribers (queue within a subscription). It is global and autoscaling, at-least-once by default, with optional <strong>exactly-once delivery</strong> on pull subscriptions and optional <strong>ordering keys</strong> for per-key order. Subscriptions can be pull, push (HTTP POST to an endpoint), or export subscriptions that write directly to BigQuery or Cloud Storage. Retained messages can be replayed with <strong>seek</strong> to a timestamp or snapshot. Google also offers Managed Service for Apache Kafka.</p>
 
 <h3 id="cloud-broker-comparison">Cloud Broker Comparison</h3>
 
@@ -3686,63 +3943,81 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>SQS (standard)</strong></td>
+      <td><strong>SQS standard</strong></td>
       <td>Queue</td>
-      <td>Best-effort</td>
+      <td>Best effort</td>
       <td>At-least-once</td>
       <td>No</td>
-      <td>—</td>
+      <td><code class="language-plaintext highlighter-rouge">MessageGroupId</code> (fairness only)</td>
     </tr>
     <tr>
-      <td><strong>SQS (FIFO)</strong></td>
+      <td><strong>SQS FIFO</strong></td>
       <td>Queue</td>
-      <td>Per group</td>
-      <td>Exactly-once</td>
+      <td>Per message group</td>
+      <td>At-least-once with 5-minute deduplication</td>
       <td>No</td>
       <td><code class="language-plaintext highlighter-rouge">MessageGroupId</code></td>
     </tr>
     <tr>
       <td><strong>SNS</strong></td>
-      <td>Pub/Sub</td>
-      <td>—</td>
+      <td>Pub/sub</td>
+      <td>FIFO topics only</td>
       <td>At-least-once</td>
-      <td>No</td>
-      <td>—</td>
+      <td>No (FIFO topics: archive and replay)</td>
+      <td>Message group (FIFO)</td>
     </tr>
     <tr>
-      <td><strong>Kinesis</strong></td>
+      <td><strong>EventBridge</strong></td>
+      <td>Event bus with content routing</td>
+      <td>None</td>
+      <td>At-least-once</td>
+      <td>Archive and replay</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td><strong>Kinesis Data Streams</strong></td>
       <td>Log</td>
       <td>Per shard</td>
       <td>At-least-once</td>
-      <td>Yes</td>
-      <td>Partition key → shard</td>
+      <td>Yes, within retention</td>
+      <td>Partition key</td>
     </tr>
     <tr>
-      <td><strong>Pub/Sub</strong></td>
+      <td><strong>Google Pub/Sub</strong></td>
       <td>Hybrid</td>
       <td>Per ordering key (opt-in)</td>
-      <td>At-least-once (exactly-once opt-in)</td>
+      <td>At-least-once; exactly-once opt-in</td>
       <td>Yes (seek)</td>
       <td>Ordering key</td>
     </tr>
     <tr>
-      <td><strong>Kafka (MSK / self-host)</strong></td>
+      <td><strong>Kafka (MSK, Confluent Cloud, self-hosted)</strong></td>
       <td>Log</td>
       <td>Per partition</td>
-      <td>At-least / exactly-once</td>
+      <td>At-least-once; exactly-once within Kafka</td>
       <td>Yes</td>
-      <td>Record key → partition</td>
+      <td>Record key</td>
     </tr>
   </tbody>
 </table>
 
 <h2 id="ordering-delivery-semantics--exactly-once">Ordering, Delivery Semantics &amp; Exactly-Once</h2>
 
-<p>These three concerns are entangled, and getting them right (or knowing what you are giving up) is the core skill of using a broker.</p>
+<p>These three concerns are entangled. Getting them right, or knowing exactly what is being given up, is the core skill of using a broker.</p>
 
-<h3 id="ordering-is-local">Ordering Is Local</h3>
+<h3 id="ordering-is-per-key">Ordering Is Per Key</h3>
 
-<p>No broker offers cheap <em>global</em> ordering across an entire topic at scale — total order requires a single serialization point, which destroys parallelism. Instead, brokers offer <strong>ordering within a partition</strong> (Kafka), <strong>within a shard</strong> (Kinesis), <strong>within a queue</strong> or <strong>message group</strong> (RabbitMQ, SQS FIFO), or <strong>within an ordering key</strong> (Pub/Sub). The universal technique is to <strong>partition by a stable key</strong> — the order ID, the user ID, the account number — so that all events for one entity share a partition and are therefore delivered in produced order. Events for <em>different</em> keys may interleave arbitrarily, and your design must not assume otherwise. The trade-off is concrete: coarser keys (fewer partitions) give more ordering but less parallelism; finer keys give more parallelism but order only within each tiny key.</p>
+<p>No broker offers cheap global ordering across a whole topic at scale, because total order requires a single serialization point and removes parallelism. Brokers instead order within a <strong>partition</strong> (Kafka, Pulsar), a <strong>shard</strong> (Kinesis), a <strong>queue</strong> (RabbitMQ), a <strong>message group</strong> (SQS FIFO), or an <strong>ordering key</strong> (Pub/Sub). The universal technique is to <strong>key by a stable entity ID</strong> (order ID, account ID, device ID) so all events for one entity share a partition and are delivered in the order produced. Events for different keys interleave arbitrarily, and designs must not assume otherwise.</p>
+
+<p>Ordering is also fragile in ways that are easy to miss:</p>
+
+<ul>
+  <li><strong>Retries can reorder.</strong> A producer with several in-flight requests can see an early batch fail and be retried after a later one succeeds. Kafka’s idempotent producer preserves order for up to five in-flight requests per connection; other clients may need <code class="language-plaintext highlighter-rouge">max.in.flight=1</code>.</li>
+  <li><strong>Competing consumers reorder.</strong> Two workers on the same queue finish in unpredictable order. Strict order needs one active consumer per key (Kafka partitions, RabbitMQ single active consumer, SQS FIFO groups).</li>
+  <li><strong>Redelivery reorders.</strong> A message that is nacked and redelivered arrives after its successors.</li>
+</ul>
+
+<p>Coarser keys give more ordering but less parallelism; finer keys give more parallelism but order only within each key. A hot key, one entity producing a large share of traffic, overloads a single partition, and no partition count fixes it.</p>
 
 <h3 id="the-three-delivery-semantics">The Three Delivery Semantics</h3>
 
@@ -3750,118 +4025,171 @@ document.addEventListener('DOMContentLoaded', function () {
   <thead>
     <tr>
       <th>Semantic</th>
-      <th>What it means</th>
-      <th>How you get it</th>
+      <th>Guarantee</th>
+      <th>How it is obtained</th>
       <th>Cost</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>At-most-once</strong></td>
-      <td>Each message delivered 0 or 1 times</td>
-      <td>Ack/commit <em>before</em> processing</td>
-      <td>Can lose messages</td>
+      <td>Delivered zero or one time</td>
+      <td>Ack or commit <em>before</em> processing</td>
+      <td>Loses messages on failure</td>
     </tr>
     <tr>
       <td><strong>At-least-once</strong></td>
-      <td>Each message delivered 1+ times</td>
-      <td>Ack/commit <em>after</em> processing</td>
-      <td>Duplicates on retry</td>
+      <td>Delivered one or more times</td>
+      <td>Ack or commit <em>after</em> processing</td>
+      <td>Duplicates on failure and retry</td>
     </tr>
     <tr>
-      <td><strong>Exactly-once</strong></td>
-      <td>Each message’s <em>effect</em> applied once</td>
-      <td>Idempotency or transactions</td>
-      <td>Complexity / throughput</td>
+      <td><strong>Exactly-once effect</strong></td>
+      <td>Each message’s effect applied once</td>
+      <td>At-least-once plus idempotency or transactions</td>
+      <td>Complexity and some throughput</td>
     </tr>
   </tbody>
 </table>
 
-<p>In a system where networks drop packets and processes crash, <strong>at-least-once is the honest default</strong>. The choice is between losing messages (at-most-once) and occasionally duplicating them (at-least-once), and for almost all business workloads duplication is the lesser evil — you can defend against it, but you cannot recover a lost event.</p>
+<p>With unreliable networks and crashing processes, <strong>at-least-once is the honest default</strong>. The choice is between losing messages and occasionally duplicating them, and for nearly all business workloads duplication is the lesser problem: duplicates can be detected and discarded, but a lost event cannot be recovered.</p>
 
-<h3 id="achieving-exactly-once">Achieving Exactly-Once</h3>
+<h3 id="achieving-exactly-once-effects">Achieving Exactly-Once Effects</h3>
 
-<p>True end-to-end exactly-once <em>delivery</em> over a network is impossible in the general case (it reduces to consensus under failure). What is achievable — and what “exactly-once” always really means in practice — is exactly-once <strong>effect</strong>, reached two ways:</p>
+<p>Exactly-once <em>delivery</em> across an unreliable network is not achievable in general: a sender that gets no acknowledgement cannot tell whether the message or the acknowledgement was lost. What systems actually provide is an exactly-once <strong>effect</strong>, reached in two ways:</p>
 
 <ol>
-  <li>
-    <p><strong>Idempotent consumers.</strong> Make processing the same message twice equivalent to processing it once. Techniques: dedupe on a unique message/event ID kept in a <code class="language-plaintext highlighter-rouge">processed_ids</code> store; use database <strong>upserts</strong> keyed by the event’s natural key instead of blind inserts; design operations to be naturally idempotent (<code class="language-plaintext highlighter-rouge">set status = 'paid'</code> rather than <code class="language-plaintext highlighter-rouge">balance += amount</code>). This is the most robust, broker-agnostic approach and is what lets you safely run at-least-once delivery.</p>
-  </li>
-  <li>
-    <p><strong>Transactional processing.</strong> When the read, the process, and the write all live in the same system, a transaction can make the offset-commit and the side effect atomic. Kafka transactions do this for read-process-write <em>within Kafka</em>; the <strong>transactional outbox</strong> does it when the side effect is a database write plus a publish (covered in <a href="../distributed-systems/microservices-and-event-driven.html#the-dual-write-problem-and-the-outbox-pattern">Microservices &amp; Event-Driven</a>).</p>
-  </li>
+  <li><strong>Idempotent consumers.</strong> Make processing a message twice equivalent to processing it once. Record processed message IDs in the same transaction as the effect; use upserts keyed on a natural key instead of blind inserts; prefer absolute updates (<code class="language-plaintext highlighter-rouge">status = 'paid'</code>) over relative ones (<code class="language-plaintext highlighter-rouge">balance += amount</code>). This works with any broker and is what makes at-least-once safe. See <a href="patterns.html#idempotent-consumers">Idempotent Consumers</a>.</li>
+  <li><strong>Transactions.</strong> When input, processing, and output live in one system, a transaction can make the side effect and the progress marker atomic: Kafka transactions for read-process-write within Kafka, or the <strong>transactional outbox</strong> when the effect is a database write that must also publish an event (see <a href="patterns.html#the-outbox--inbox-patterns">The Outbox &amp; Inbox Patterns</a>).</li>
 </ol>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Idempotent consumer via a dedup store — the broker-agnostic exactly-once recipe
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Idempotent consumer: dedup record and business effect commit together
 </span><span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
-    <span class="n">event_id</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">dedup_store</span><span class="p">.</span><span class="nf">seen</span><span class="p">(</span><span class="n">event_id</span><span class="p">):</span>      <span class="c1"># already processed → skip
-</span>        <span class="k">return</span>
-    <span class="k">with</span> <span class="n">db</span><span class="p">.</span><span class="nf">transaction</span><span class="p">():</span>
-        <span class="nf">apply_business_effect</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>    <span class="c1"># the actual work
-</span>        <span class="n">dedup_store</span><span class="p">.</span><span class="nf">mark_seen</span><span class="p">(</span><span class="n">event_id</span><span class="p">)</span> <span class="c1"># commit dedup + effect atomically
-</span></code></pre></div></div>
+    <span class="k">with</span> <span class="n">db</span><span class="p">.</span><span class="nf">transaction</span><span class="p">()</span> <span class="k">as</span> <span class="n">tx</span><span class="p">:</span>
+        <span class="n">inserted</span> <span class="o">=</span> <span class="n">tx</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">INSERT INTO processed_events (event_id) VALUES (%s) </span><span class="sh">"</span>
+            <span class="sh">"</span><span class="s">ON CONFLICT (event_id) DO NOTHING</span><span class="sh">"</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">],),</span>
+        <span class="p">).</span><span class="n">rowcount</span>
+        <span class="k">if</span> <span class="n">inserted</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>                      <span class="c1"># duplicate: already applied
+</span>        <span class="nf">apply_business_effect</span><span class="p">(</span><span class="n">tx</span><span class="p">,</span> <span class="n">event</span><span class="p">)</span>
+</code></pre></div></div>
 
-<p>The decisive idea: do not ask the broker for exactly-once delivery. Accept at-least-once and make the <em>consumer</em> idempotent, so duplicates are harmless.</p>
+<p>Inserting the ID first, inside the same transaction as the effect, avoids the race in a separate “check, then act, then mark” sequence, where two concurrent deliveries of the same message can both pass the check.</p>
 
 <h2 id="backpressure--dead-letter-queues">Backpressure &amp; Dead-Letter Queues</h2>
 
-<p>A broker decouples production rate from consumption rate, but it cannot make a slow consumer fast. Two mechanisms keep the system healthy when consumers fall behind or when a message simply cannot be processed.</p>
+<p>A broker decouples production rate from consumption rate but cannot make a slow consumer fast. Two mechanisms keep the system healthy when consumers fall behind or a message cannot be processed at all.</p>
 
 <h3 id="backpressure">Backpressure</h3>
 
-<p><strong>Backpressure</strong> is the feedback that prevents a fast producer (or a deep backlog) from overwhelming a consumer or exhausting the broker. The mechanism differs by broker but the goal is the same — let the consumer’s capacity govern the flow:</p>
+<p><strong>Backpressure</strong> stops a fast producer or deep backlog from overwhelming a consumer or exhausting the broker:</p>
 
 <ul>
-  <li><strong>Pull-based brokers (Kafka, Kinesis, Pub/Sub pull)</strong> have backpressure built in: the consumer <em>asks</em> for the next batch, so it can never be handed more than it requested. A slow consumer simply polls less often; its <strong>consumer lag</strong> (offset distance behind the log head) grows, which is the key metric to alarm on.</li>
-  <li><strong>Push-based brokers (RabbitMQ)</strong> use <strong>prefetch limits</strong> (<code class="language-plaintext highlighter-rouge">basic.qos</code>) to cap unacked in-flight messages per consumer, so the broker stops pushing once a consumer’s window is full.</li>
-  <li><strong>Bounded queues</strong> make backpressure explicit: when the queue fills, the producer is slowed (blocked), or messages are shed (dropped/rejected) — an intentional choice between latency and loss.</li>
+  <li><strong>Pull-based consumers</strong> (Kafka, Kinesis, Pub/Sub pull, JetStream pull) have backpressure built in: a consumer fetches only what it asks for. A slow consumer simply falls behind, and its <strong>consumer lag</strong> grows.</li>
+  <li><strong>Push-based delivery</strong> (RabbitMQ, Pub/Sub push) relies on <strong>prefetch</strong> or flow-control limits that stop delivery once a consumer’s window of unacknowledged messages is full.</li>
+  <li><strong>Bounded queues</strong> make the trade-off explicit: when full, the broker blocks or throttles publishers (RabbitMQ’s memory and disk alarms), or rejects or drops messages (<code class="language-plaintext highlighter-rouge">x-max-length</code> with <code class="language-plaintext highlighter-rouge">reject-publish</code> or <code class="language-plaintext highlighter-rouge">drop-head</code>).</li>
 </ul>
 
-<p>When production durably exceeds consumption, the only real fixes are to <strong>scale consumers</strong> (add partitions/shards and group members), <strong>speed up processing</strong>, or <strong>shed load</strong>. Backpressure buys time and prevents collapse; it does not create capacity. <strong>Monitor consumer lag</strong> as the early-warning signal — rising lag means consumption is losing the race before any user notices.</p>
-
 <pre><code class="language-mermaid">flowchart LR
-    P["Producer&lt;br/&gt;1000 msg/s"] --&gt; B[("Broker&lt;br/&gt;backlog grows → lag ↑")]
-    B --&gt;|pull at own pace| C["Consumer&lt;br/&gt;600 msg/s"]
-    C -.-&gt;|lag alarm fires| Ops["Scale out / shed load"]
+    P["Producer&lt;br/&gt;1,000 msg/s"] --&gt; B[("Broker&lt;br/&gt;backlog grows, lag rises")]
+    B --&gt;|"pull at own pace"| C["Consumer&lt;br/&gt;600 msg/s"]
+    B -.-&gt;|"lag metric"| M["Lag alarm"]
+    M -.-&gt; A["Scale consumers,&lt;br/&gt;speed up handler,&lt;br/&gt;or shed load"]
 </code></pre>
+
+<p>When production durably exceeds consumption, the only real fixes are to <strong>add consumers</strong> (up to the partition count, or beyond it with share groups or queues), <strong>process faster</strong> (batching, fewer round trips), or <strong>shed load</strong>. Backpressure prevents collapse; it does not add capacity. Alert on lag measured in <em>time</em> (age of the oldest unprocessed message) rather than message count, since the same count can mean seconds or hours depending on throughput.</p>
 
 <h3 id="dead-letter-queues">Dead-Letter Queues</h3>
 
-<p>Some messages can <em>never</em> be processed successfully — malformed payloads, references to deleted entities, bugs in the handler. These <strong>poison messages</strong> must not be retried forever, because under at-least-once delivery a message that always fails is redelivered endlessly, blocking its partition or queue and burning resources (“poison-pill loop”). The remedy is the <strong>dead-letter queue (DLQ)</strong>: after N failed attempts, the broker routes the message to a separate queue/topic for inspection and out-of-band handling, and the consumer moves on to the next message.</p>
+<p>Some messages can never be processed: malformed payloads, references to deleted entities, or inputs that trigger a handler bug. Under at-least-once delivery such a <strong>poison message</strong> is redelivered indefinitely, blocking its partition or queue and consuming resources. A <strong>dead-letter queue (DLQ)</strong> breaks the loop: after a bounded number of attempts, the message moves to a separate queue or topic for inspection and the consumer moves on.</p>
 
 <pre><code class="language-mermaid">flowchart LR
     Q[("Main queue")] --&gt; C["Consumer"]
-    C --&gt;|success → ack| Done["Processed"]
-    C --&gt;|fail, attempt &lt; N| Q
-    C --&gt;|fail, attempt = N| DLQ[("Dead-Letter Queue")]
-    DLQ --&gt; H["Human / replay tooling"]
+    C --&gt;|"success: ack"| Done["Processed"]
+    C --&gt;|"transient failure,&lt;br/&gt;attempts &lt; N"| R["Retry with&lt;br/&gt;backoff + jitter"]
+    R --&gt; Q
+    C --&gt;|"permanent failure&lt;br/&gt;or attempts = N"| DLQ[("Dead-letter queue")]
+    DLQ --&gt; H["Alert, inspect, fix,&lt;br/&gt;then redrive"]
+    H -.-&gt; Q
 </code></pre>
 
-<p>DLQs are first-class in most brokers: SQS has a <strong>redrive policy</strong> (<code class="language-plaintext highlighter-rouge">maxReceiveCount</code> → DLQ) and a redrive-from-DLQ action; RabbitMQ routes rejected/expired messages to a <strong>dead-letter exchange</strong>; Kafka pipelines typically implement a DLQ topic in the consumer (e.g. Kafka Connect’s <code class="language-plaintext highlighter-rouge">errors.deadletterqueue.topic.name</code>). Good DLQ hygiene includes recording <em>why</em> a message failed (the exception, the attempt count), <strong>alerting</strong> when the DLQ is non-empty (it represents lost business events until handled), and providing <strong>replay tooling</strong> to re-inject fixed messages once the underlying bug is resolved. Retries before the DLQ should use <strong>exponential backoff with jitter</strong> so a transient downstream outage is not hammered by synchronized retries.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Broker</th>
+      <th>DLQ mechanism</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>SQS</strong></td>
+      <td>Redrive policy: after <code class="language-plaintext highlighter-rouge">maxReceiveCount</code> receives, move to a DLQ; DLQ redrive moves messages back to the source queue.</td>
+    </tr>
+    <tr>
+      <td><strong>RabbitMQ</strong></td>
+      <td>Dead-letter exchange (<code class="language-plaintext highlighter-rouge">x-dead-letter-exchange</code>) receives rejected, expired, and over-length messages; quorum queues dead-letter after the delivery limit.</td>
+    </tr>
+    <tr>
+      <td><strong>Kafka</strong></td>
+      <td>Implemented by the application or framework: a separate DLQ topic (Kafka Connect’s <code class="language-plaintext highlighter-rouge">errors.deadletterqueue.topic.name</code>; Kafka Streams exception handlers can write DLQ records as of 4.2). Share groups archive records after a maximum delivery count.</td>
+    </tr>
+    <tr>
+      <td><strong>Google Pub/Sub</strong></td>
+      <td>Dead-letter topic on a subscription after a maximum number of delivery attempts.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Distinguish transient failures (a timeout, a throttled dependency), which should be retried with <strong>exponential backoff and jitter</strong>, from permanent ones (a validation error), which should go to the DLQ immediately rather than burn retries. Record <em>why</em> each message failed (exception, attempt count, original topic and offset), <strong>alert when the DLQ is non-empty</strong> since it holds unprocessed business events, and provide tooling to replay messages once the cause is fixed. In an ordered stream, decide explicitly whether a dead-lettered message should block later messages for the same key; skipping it can apply later events on top of a missing one.</p>
 
 <h2 id="choosing-a-broker">Choosing a Broker</h2>
 
-<p>There is no universally best broker — the choice follows the shape of the workload:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>Good fits</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Task queues, complex routing, request/reply, per-message acknowledgement</td>
+      <td>RabbitMQ; SQS; Kafka share groups if Kafka is already the platform</td>
+    </tr>
+    <tr>
+      <td>Replay, event sourcing, change data capture, high-volume streams, many independent readers</td>
+      <td>Kafka (self-hosted, MSK, Confluent Cloud, or Kafka-compatible), Pulsar, Kinesis</td>
+    </tr>
+    <tr>
+      <td>Zero operations inside one cloud</td>
+      <td>SQS and SNS, EventBridge, Kinesis, or Google Pub/Sub</td>
+    </tr>
+    <tr>
+      <td>Cross-service fan-out with independent draining</td>
+      <td>SNS to SQS, Pub/Sub subscriptions, Kafka consumer groups, RabbitMQ fanout or topic exchanges</td>
+    </tr>
+    <tr>
+      <td>Lightweight messaging, edge and IoT, request/reply with optional persistence</td>
+      <td>NATS with JetStream</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>Need rich routing, task queues, or RPC-style request/reply?</strong> RabbitMQ (or SQS for a managed queue). Messages are tasks; complex routing topologies are first-class.</li>
-  <li><strong>Need replay, event sourcing, high-volume streaming, or multiple independent readers of the same data?</strong> Kafka (self-hosted/MSK), Kinesis, or Pulsar. The retained log is the differentiator.</li>
-  <li><strong>Want zero operations and live in one cloud?</strong> SQS/SNS (queue + fan-out), Kinesis (streaming), or Pub/Sub (hybrid). You give up some control and portability for no cluster to run.</li>
-  <li><strong>Need cross-service fan-out where each service drains independently?</strong> SNS→SQS, Pub/Sub subscriptions, or Kafka consumer groups — the composite pub/sub-plus-queue model.</li>
-</ul>
-
-<p>Whatever the choice, the cross-cutting disciplines are constant: <strong>partition by a stable key</strong> for the ordering you need, assume <strong>at-least-once</strong> and make consumers <strong>idempotent</strong>, monitor <strong>consumer lag</strong> for backpressure, and wire a <strong>DLQ</strong> with alerting and replay for the messages that cannot be processed.</p>
+<p>Whatever the choice, the same disciplines apply: <strong>key by a stable ID</strong> for the ordering you need, assume <strong>at-least-once</strong> and make consumers <strong>idempotent</strong>, confirm what “acknowledged” means for durability in your configuration, monitor <strong>consumer lag</strong> in time units, and wire a <strong>DLQ</strong> with alerting and replay.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">Event-Driven Hub</a></strong> — section overview tying brokers together with event-driven architecture, sourcing, and streaming patterns</li>
-  <li><strong><a href="../distributed-systems/microservices-and-event-driven.html">Microservices &amp; Event-Driven Architecture</a></strong> — where these brokers fit: choreography vs. orchestration, sagas, the outbox pattern, event sourcing, and CQRS</li>
-  <li><strong><a href="../distributed-systems/consensus-and-coordination.html">Consensus &amp; Coordination</a></strong> — the Raft/Paxos machinery behind quorum queues and replicated partitions</li>
-  <li><strong><a href="../distributed-systems/resilience-patterns.html">Resilience Patterns</a></strong> — retries, backoff, circuit breakers, and idempotency that consumers rely on</li>
-  <li><strong><a href="../distributed-systems/">Distributed Systems Hub</a></strong> — CAP/FLP, consistency models, and the broader system context</li>
-  <li><strong><a href="../technology/database-design/">Database Design</a></strong> — the data stores behind dedup tables, outboxes, and CQRS read models</li>
+  <li><strong><a href="./">Event-Driven Hub</a></strong>: events vs. commands, choreography vs. orchestration, and asynchronous decoupling</li>
+  <li><strong><a href="patterns.html">Event-Driven Patterns</a></strong>: event sourcing, CQRS, sagas, the outbox and inbox, idempotent consumers, and schema evolution</li>
+  <li><strong><a href="../distributed-systems/microservices-and-event-driven.html">Microservices &amp; Event-Driven Architecture</a></strong>: where brokers fit in a service architecture, including the <a href="../distributed-systems/microservices-and-event-driven.html#the-dual-write-problem-and-the-outbox-pattern">outbox pattern</a></li>
+  <li><strong><a href="../api-design/async-and-events.html">Async &amp; Event-Driven APIs</a></strong>: webhooks, SSE, CloudEvents, and AsyncAPI at the API boundary</li>
+  <li><strong><a href="../distributed-systems/consensus-and-coordination.html">Consensus &amp; Coordination</a></strong>: the Raft machinery behind KRaft, quorum queues, and JetStream</li>
+  <li><strong><a href="../distributed-systems/resilience-patterns.html">Resilience Patterns</a></strong>: retries, backoff, circuit breakers, and idempotency</li>
+  <li><strong><a href="../distributed-systems/testing-distributed-systems.html">Testing Distributed Systems</a></strong>: Jepsen-style testing of broker durability and ordering claims</li>
+  <li><strong><a href="../technology/database-design/">Database Design</a></strong>: the data stores behind deduplication tables, outboxes, and read models</li>
 </ul>
 
       </section>

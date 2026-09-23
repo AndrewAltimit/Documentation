@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Tuning for mobile thermals and power, fixed console hardware, scalable PC and handheld targets, dynamic resolution and upscaling, and compiler-level optimiza...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Optimization: Platform-Specific Tuning">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Tuning for mobile thermals and power, fixed console hardware, scalable PC and handheld targets, dynamic resolution and upscaling, and compiler-level optimiza...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/optimization/platform-tuning.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Optimization: Platform-Specific Tuning">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Tuning for mobile thermals and power, fixed console hardware, scalable PC and handheld targets, dynamic resolution and upscaling, and compiler-level optimiza...">
 
 <title>Optimization: Platform-Specific Tuning | Andrews Notebook</title>
 
@@ -3135,544 +3135,673 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Performance Optimization</a> » Platform-Specific Tuning</p>
 
-<p>A frame-time budget is not a single number — it is three different numbers on three different classes of hardware. A 16.67 ms/frame target that is comfortable on a desktop GPU is a thermal-throttle death sentence on a phone, a known-quantity engineering problem on a console, and a scalability matrix on PC. This page covers how to tune for each: managing <strong>power and thermal</strong> envelopes on mobile, exploiting <strong>fixed hardware</strong> on consoles, exposing <strong>scalable quality presets</strong> on PC, and squeezing the last few percent out of every platform with <strong>compiler optimizations and profile-guided optimization (PGO)</strong>.</p>
-
-<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
-
-<ol id="markdown-toc">
-  <li><a href="#platform-specific-tuning" id="markdown-toc-platform-specific-tuning">Platform-Specific Tuning</a>    <ol>
-      <li><a href="#why-platform-matters" id="markdown-toc-why-platform-matters">Why Platform Matters</a></li>
-      <li><a href="#mobile-optimization" id="markdown-toc-mobile-optimization">Mobile Optimization</a>        <ol>
-          <li><a href="#power-and-thermal" id="markdown-toc-power-and-thermal">Power and Thermal</a>            <ol>
-              <li><a href="#the-thermal-curve" id="markdown-toc-the-thermal-curve">The thermal curve</a></li>
-              <li><a href="#energy-is-power-x-time" id="markdown-toc-energy-is-power-x-time">Energy is power x time</a></li>
-              <li><a href="#frame-rate-vs-battery-quantified" id="markdown-toc-frame-rate-vs-battery-quantified">Frame rate vs. battery, quantified</a></li>
-              <li><a href="#tile-based-deferred-rendering-tbdr" id="markdown-toc-tile-based-deferred-rendering-tbdr">Tile-based deferred rendering (TBDR)</a></li>
-              <li><a href="#reacting-to-thermal-state-in-code" id="markdown-toc-reacting-to-thermal-state-in-code">Reacting to thermal state in code</a></li>
-            </ol>
-          </li>
-          <li><a href="#memory-constraints" id="markdown-toc-memory-constraints">Memory Constraints</a></li>
-        </ol>
-      </li>
-      <li><a href="#console-optimization" id="markdown-toc-console-optimization">Console Optimization</a>        <ol>
-          <li><a href="#fixed-hardware-benefits" id="markdown-toc-fixed-hardware-benefits">Fixed Hardware Benefits</a></li>
-          <li><a href="#techniques" id="markdown-toc-techniques">Techniques</a>            <ol>
-              <li><a href="#unified-memory-and-the-bandwidth-budget" id="markdown-toc-unified-memory-and-the-bandwidth-budget">Unified memory and the bandwidth budget</a></li>
-              <li><a href="#fixed-spec-constants" id="markdown-toc-fixed-spec-constants">Fixed-spec constants</a></li>
-            </ol>
-          </li>
-        </ol>
-      </li>
-      <li><a href="#pc-scalability" id="markdown-toc-pc-scalability">PC Scalability</a>        <ol>
-          <li><a href="#graphics-options" id="markdown-toc-graphics-options">Graphics Options</a>            <ol>
-              <li><a href="#designing-quality-presets" id="markdown-toc-designing-quality-presets">Designing quality presets</a></li>
-            </ol>
-          </li>
-          <li><a href="#dynamic-resolution" id="markdown-toc-dynamic-resolution">Dynamic Resolution</a></li>
-        </ol>
-      </li>
-      <li><a href="#compiler-optimizations-and-pgo" id="markdown-toc-compiler-optimizations-and-pgo">Compiler Optimizations and PGO</a>        <ol>
-          <li><a href="#optimization-levels-and-flags" id="markdown-toc-optimization-levels-and-flags">Optimization levels and flags</a></li>
-          <li><a href="#profile-guided-optimization-pgo" id="markdown-toc-profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</a>            <ol>
-              <li><a href="#the-three-step-workflow" id="markdown-toc-the-three-step-workflow">The three-step workflow</a></li>
-              <li><a href="#what-pgo-actually-improves" id="markdown-toc-what-pgo-actually-improves">What PGO actually improves</a></li>
-              <li><a href="#the-representativeness-rule" id="markdown-toc-the-representativeness-rule">The representativeness rule</a></li>
-            </ol>
-          </li>
-        </ol>
-      </li>
-      <li><a href="#putting-it-together" id="markdown-toc-putting-it-together">Putting It Together</a></li>
-      <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
-    </ol>
-  </li>
-</ol>
-
-<hr />
+<p>The same frame-time budget means different things on different hardware. A 16.67 ms frame that is easy on a desktop GPU can overheat a phone within minutes, is a precisely known quantity on a console, and must hold across a wide range of PC configurations. This page covers tuning for each class: <strong>power and thermal</strong> limits on mobile, <strong>fixed hardware</strong> on consoles, <strong>scalability</strong> on PC and handheld PCs, <strong>dynamic resolution and upscaling</strong> as the common tool for holding a frame rate, and the <strong>compiler and linker</strong> optimizations (LTO, PGO, post-link optimization) that apply everywhere.</p>
 
 <h2 id="why-platform-matters">Why Platform Matters</h2>
 
-<p>The same engine, the same scene, and the same render path behave radically differently across hardware classes because the binding constraint is different in each case:</p>
+<p>Each platform class has a different binding constraint, and therefore a different question to ask of every frame.</p>
 
 <table>
   <thead>
     <tr>
       <th>Platform</th>
       <th>Binding constraint</th>
+      <th>Question to ask</th>
       <th>Optimization posture</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Mobile</strong></td>
-      <td>Energy and heat (sustained power budget)</td>
-      <td>Throttle-aware; minimize joules per frame</td>
+      <td><strong>Mobile</strong> (phones, tablets, standalone VR)</td>
+      <td>Sustained power and heat</td>
+      <td>Does the thousandth consecutive frame, on a warm device, still hit the target?</td>
+      <td>Minimize energy per frame; degrade gradually</td>
     </tr>
     <tr>
       <td><strong>Console</strong></td>
-      <td>Fixed, known silicon</td>
-      <td>Optimize to the exact spec; no driver variance</td>
+      <td>Fixed, known hardware; shared memory bandwidth</td>
+      <td>Does the worst frame fit, given exact specs?</td>
+      <td>Tune to the silicon; count bytes per frame</td>
     </tr>
     <tr>
       <td><strong>PC</strong></td>
-      <td>Unknown, wildly variable hardware</td>
-      <td>Scale gracefully across a 50x performance range</td>
+      <td>Unknown hardware spanning more than an order of magnitude in performance</td>
+      <td>Does the minimum spec run acceptably, and does high-end hardware scale up?</td>
+      <td>Presets, auto-detection, dynamic resolution</td>
+    </tr>
+    <tr>
+      <td><strong>Handheld PC</strong> (Steam Deck and similar)</td>
+      <td>PC software on a mobile-class power budget</td>
+      <td>Does it hold its target within a 15-30 W envelope?</td>
+      <td>Treat as a fixed-ish console target with mobile thermals</td>
     </tr>
   </tbody>
 </table>
 
-<p>A useful mental model: on a desktop you optimize for the <em>instantaneous</em> frame, on a phone you optimize for the <em>thousandth consecutive</em> frame (after the SoC has heated up), on a console you optimize for the <em>exact</em> frame the hardware will always produce, and on PC you optimize for the <em>worst plausible</em> frame your customer will run.</p>
+<h2 id="mobile">Mobile</h2>
 
-<hr />
+<p>Phones and tablets have no fan, or only a small one, so nearly all power drawn becomes heat that the chassis must dissipate passively. The SoC can run at peak clocks for a short time; then the thermal governor lowers clocks to protect the silicon and keep the surface temperature tolerable. Mobile optimization is therefore about <strong>sustained</strong> performance, not peak.</p>
 
-<h2 id="mobile-optimization">Mobile Optimization</h2>
+<h3 id="the-thermal-curve">The Thermal Curve</h3>
 
-<p>Mobile SoCs (smartphones, tablets, handhelds, standalone VR) share a defining characteristic: there is no fan, or only a small one, so <strong>all dissipated power eventually becomes heat the chassis cannot shed</strong>. The hardware will run flat-out for a few seconds, then the on-die thermal governor will quietly reduce clocks to protect the silicon and the user’s hand. Mobile optimization is therefore fundamentally about <em>sustained</em> performance, not peak.</p>
+<pre><code class="language-mermaid">xychart-beta
+    title "Illustrative sustained performance on a passively cooled device"
+    x-axis "Minutes of continuous load" [0, 1, 2, 3, 5, 8, 12, 16, 20]
+    y-axis "Relative performance (%)" 0 --&gt; 100
+    line [100, 100, 92, 80, 72, 66, 63, 62, 62]
+</code></pre>
 
-<h3 id="power-and-thermal">Power and Thermal</h3>
+<p>The shape is typical: a burst at boost clocks, a drop as the chassis heats, then a sustained floor that is often 50-70% of the initial burst. The exact figures vary by device, ambient temperature, case, and whether the device is charging. <strong>Benchmarks that capture only the first minute measure performance players do not experience.</strong> Measure after 10-20 minutes of continuous load, on a device in its case, at a realistic room temperature, and on the lowest-tier device you support.</p>
 
-<p>The original guidance is simple and remains the core of the discipline:</p>
+<h3 id="energy-per-frame">Energy per Frame</h3>
 
-<ul>
-  <li><strong>Reduce GPU load to prevent throttling</strong> — the GPU is usually the dominant power consumer in a graphics workload.</li>
-  <li><strong>Target 30 FPS for better battery life</strong> when smoothness allows; halving the frame rate roughly halves render-related energy draw.</li>
-  <li><strong>Minimize background processing</strong> — wake locks, polling loops, and unbatched network calls drain the battery even when nothing is on screen.</li>
-  <li><strong>Use platform power management APIs</strong> to react to the OS’s own thermal and battery signals rather than guessing.</li>
-</ul>
+<p>Battery drain and heat are driven by energy, not instantaneous power:</p>
 
-<h4 id="the-thermal-curve">The thermal curve</h4>
+\[E = \int_{0}^{T} P(t)\, dt \approx \sum_{i=1}^{N} P_i \, \Delta t_i\]
 
-<p>A mobile device does not run at a constant performance level. Its behaviour over a long session follows a predictable curve:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Performance
-    ^
-    |  ____ boost clocks (first ~30-90 s)
-    | /    \
-    |/      \___ throttle step 1
-    |           \____ throttle step 2 (sustained)
-    |                \________________________
-    +------------------------------------------&gt; time
-       "burst"        "thermal cliff"   "sustained floor"
-</code></pre></div></div>
-
-<p>Benchmarking only the first few seconds (the “burst” region) produces numbers your players will never see. <strong>Always measure sustained performance</strong>: run the workload for 10–20 minutes with the device thermally soaked, ideally in a warm room and inside its real case.</p>
-
-<h4 id="energy-is-power-x-time">Energy is power x time</h4>
-
-<p>The quantity that actually drains the battery and heats the chassis is energy, not power. The work done per frame, integrated over the session, is:</p>
-
-\[E = \int_0^T P(t)\, dt \approx \sum_{i=1}^{N} P_i \, \Delta t_i\]
-
-<p>Two corollaries fall directly out of this:</p>
+<p>Two consequences follow:</p>
 
 <ul>
-  <li><strong>Race to idle.</strong> A CPU core that finishes its work quickly and returns to a deep sleep state often uses <em>less</em> total energy than one that dawdles at a low clock, because static leakage and the fixed cost of being awake dominate. Bursty, then-asleep beats slow-but-steady on most mobile cores.</li>
-  <li><strong>Frame pacing beats frame count.</strong> Rendering at a steady, capped 30 FPS draws far less energy than rendering an uncapped 45 FPS that the display cannot even show. Always cap to the display refresh (or a clean divisor of it) so you do not burn joules on frames that are discarded.</li>
+  <li><strong>Race to idle.</strong> A core that finishes quickly and enters a deep sleep state often uses less total energy than one running longer at a lower clock, because leakage and the fixed cost of being awake dominate. This holds on most mobile CPUs, though not at the very top of the voltage-frequency curve, where power rises steeply with clock speed.</li>
+  <li><strong>Do not render frames nobody sees.</strong> Cap the frame rate at the display refresh rate or an exact divisor of it. An uncapped 45 FPS on a 60 Hz display costs energy for frames that are discarded or cause judder. Variable-refresh (LTPO) displays on current phones let the panel itself drop to match content.</li>
 </ul>
 
-<h4 id="frame-rate-vs-battery-quantified">Frame rate vs. battery, quantified</h4>
+<p>A first-order model of battery life $L$ for battery energy $Q$, baseline power $P_0$ (display, radios, OS), energy per frame $e$, and frame rate $f$:</p>
 
-<p>A rough first-order model: if rendering one frame costs a fixed energy $e$ and the device draws a baseline idle power $P_0$, then the battery life $L$ for a battery of capacity $Q$ at frame rate $f$ is:</p>
+\[L = \frac{Q}{P_0 + e f}\]
 
-\[L = \frac{Q}{P_0 + e \cdot f}\]
+<p>Halving $f$ does not double battery life, because $P_0$ is unchanged, but for GPU-heavy games where $e f \gg P_0$ it comes close. A 30 FPS “battery saver” mode is one of the highest-value options a mobile game can offer.</p>
 
-<p>Dropping from 60 FPS to 30 FPS does not double battery life (the constant $P_0$ — screen backlight, radio, OS — does not change), but for GPU-heavy games where $e \cdot f \gg P_0$ it gets close. This is why a “30 FPS battery saver” mode is the single highest-leverage power option a mobile title can ship.</p>
+<h3 id="tile-based-gpus">Tile-Based GPUs</h3>
 
-<h4 id="tile-based-deferred-rendering-tbdr">Tile-based deferred rendering (TBDR)</h4>
-
-<p>Most mobile GPUs (Apple, ARM Mali, Qualcomm Adreno, Imagination PowerVR) are <strong>tile-based deferred renderers</strong>. The screen is split into small on-chip tiles; all geometry for a tile is binned, then shaded entirely in fast on-chip tile memory before being written out to main memory once. This architecture rewards a very different style of rendering than a desktop immediate-mode GPU:</p>
-
-<ul>
-  <li><strong>Avoid mid-frame framebuffer reads.</strong> Reading back a render target you just wrote forces the tile to be flushed to main memory and reloaded — the single most expensive mistake on mobile. Structure post-processing to stay within one render pass where possible (subpasses in Vulkan, programmable blending on Apple).</li>
-  <li><strong>Use <code class="language-plaintext highlighter-rouge">LOAD</code>/<code class="language-plaintext highlighter-rouge">STORE</code>/<code class="language-plaintext highlighter-rouge">DONT_CARE</code> correctly.</strong> Tell the driver when a render target’s previous contents are not needed (<code class="language-plaintext highlighter-rouge">DONT_CARE</code> on load) and when its results need not be kept (<code class="language-plaintext highlighter-rouge">DONT_CARE</code> on store). A depth buffer almost never needs to be stored to main memory; marking it <code class="language-plaintext highlighter-rouge">DONT_CARE</code> on store saves a large chunk of bandwidth, which is energy.</li>
-  <li><strong>MSAA is cheap, bandwidth is not.</strong> Because resolve happens in tile memory, MSAA is far cheaper on TBDR hardware than on desktop. Conversely, large G-buffers (deferred shading) are <em>more</em> expensive because the fat per-pixel data must spill out of tile memory. Forward / forward+ rendering is usually the better fit on mobile.</li>
-</ul>
-
-<h4 id="reacting-to-thermal-state-in-code">Reacting to thermal state in code</h4>
-
-<p>Modern mobile OSes expose the current thermal pressure so the app can shed load <em>before</em> the OS forces a hard throttle. The pattern is to map a thermal state to a quality tier and adjust dynamically:</p>
-
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Pseudocode: cross-platform thermal-aware quality governor.</span>
-<span class="c1">// On Android, read PowerManager.getCurrentThermalStatus();</span>
-<span class="c1">// on iOS, observe ProcessInfo.thermalState.</span>
-
-<span class="k">enum</span> <span class="k">class</span> <span class="nc">ThermalState</span> <span class="p">{</span> <span class="n">Nominal</span><span class="p">,</span> <span class="n">Fair</span><span class="p">,</span> <span class="n">Serious</span><span class="p">,</span> <span class="n">Critical</span> <span class="p">};</span>
-
-<span class="kt">void</span> <span class="nf">update_quality_for_thermal</span><span class="p">(</span><span class="n">ThermalState</span> <span class="n">state</span><span class="p">,</span> <span class="n">RenderSettings</span><span class="o">&amp;</span> <span class="n">s</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">switch</span> <span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">case</span> <span class="n">ThermalState</span><span class="o">::</span><span class="n">Nominal</span><span class="p">:</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">target_fps</span>      <span class="o">=</span> <span class="mi">60</span><span class="p">;</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">render_scale</span>    <span class="o">=</span> <span class="mf">1.0f</span><span class="p">;</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">shadow_quality</span>  <span class="o">=</span> <span class="n">ShadowQuality</span><span class="o">::</span><span class="n">High</span><span class="p">;</span>
-            <span class="k">break</span><span class="p">;</span>
-        <span class="k">case</span> <span class="n">ThermalState</span><span class="o">::</span><span class="n">Fair</span><span class="p">:</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">target_fps</span>      <span class="o">=</span> <span class="mi">60</span><span class="p">;</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">render_scale</span>    <span class="o">=</span> <span class="mf">0.85f</span><span class="p">;</span>   <span class="c1">// dynamic-resolution cushion</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">shadow_quality</span>  <span class="o">=</span> <span class="n">ShadowQuality</span><span class="o">::</span><span class="n">Medium</span><span class="p">;</span>
-            <span class="k">break</span><span class="p">;</span>
-        <span class="k">case</span> <span class="n">ThermalState</span><span class="o">::</span><span class="n">Serious</span><span class="p">:</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">target_fps</span>      <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>      <span class="c1">// halve render energy</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">render_scale</span>    <span class="o">=</span> <span class="mf">0.7f</span><span class="p">;</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">shadow_quality</span>  <span class="o">=</span> <span class="n">ShadowQuality</span><span class="o">::</span><span class="n">Low</span><span class="p">;</span>
-            <span class="k">break</span><span class="p">;</span>
-        <span class="k">case</span> <span class="n">ThermalState</span><span class="o">::</span><span class="n">Critical</span><span class="p">:</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">target_fps</span>      <span class="o">=</span> <span class="mi">30</span><span class="p">;</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">render_scale</span>    <span class="o">=</span> <span class="mf">0.6f</span><span class="p">;</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">shadow_quality</span>  <span class="o">=</span> <span class="n">ShadowQuality</span><span class="o">::</span><span class="n">Off</span><span class="p">;</span>
-            <span class="n">s</span><span class="p">.</span><span class="n">post_effects</span>    <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>   <span class="c1">// strip the most expensive passes</span>
-            <span class="k">break</span><span class="p">;</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p>The goal is graceful, <em>gradual</em> degradation: small render-scale and shadow concessions long before the OS would otherwise impose a sudden, jarring 50% clock cut.</p>
-
-<h3 id="memory-constraints">Memory Constraints</h3>
-
-<p>Mobile memory is shared between the OS, the GPU, and every backgrounded app, and the OS will kill your process without warning if it exceeds its share. The original guidance applies in full:</p>
-
-<ul>
-  <li><strong>Aggressive texture compression</strong> — use ASTC (variable 1–8 bpp) on modern hardware, ETC2 (4–8 bpp) as a baseline. Never ship uncompressed RGBA8 textures to a phone.</li>
-  <li><strong>Stream assets from storage</strong> rather than loading the whole world resident.</li>
-  <li><strong>Unload unused assets quickly</strong> — return memory the moment a level or screen is left.</li>
-  <li><strong>Monitor memory warnings</strong> — both Android (<code class="language-plaintext highlighter-rouge">onTrimMemory</code>) and iOS (<code class="language-plaintext highlighter-rouge">didReceiveMemoryWarning</code>) signal pressure; treat these as a hard instruction to free caches immediately, not advice.</li>
-</ul>
-
-<p>A practical budget on a mid-tier device is to keep total resident memory well under ~50–60% of the device RAM, because the OS, the compositor, and the GPU framebuffer claim a large fixed slice you never see. Profile on the <em>cheapest</em> device you intend to support, not the flagship.</p>
-
-<hr />
-
-<h2 id="console-optimization">Console Optimization</h2>
-
-<p>Consoles are the opposite of mobile’s uncertainty: a console is a single, frozen hardware specification that every unit shares for the lifetime of the generation. This is an enormous gift to the optimizer.</p>
-
-<h3 id="fixed-hardware-benefits">Fixed Hardware Benefits</h3>
-
-<ul>
-  <li><strong>Known performance characteristics</strong> — you know the exact CPU core count and clock, the exact GPU compute-unit count, the memory bandwidth, and the storage throughput. There is no “minimum spec” to guess at.</li>
-  <li><strong>Can optimize to exact specs</strong> — a constant you tune for one console is correct for <em>every</em> unit of that console, forever.</li>
-  <li><strong>No driver variation</strong> — the graphics driver is fixed and ships with the OS; a shader that works today works identically on every machine.</li>
-  <li><strong>Predictable memory budget</strong> — you are given a precise, contractual amount of memory and can fill it to the brim without the safety margin a PC requires.</li>
-</ul>
-
-<p>The single biggest consequence: <strong>you can profile once and trust the result.</strong> A frame that fits the budget on a dev kit fits the budget for every player. This lets console teams chase the last 1–2 ms of a frame with confidence that would be wasted effort on PC.</p>
-
-<h3 id="techniques">Techniques</h3>
-
-<p>The original techniques remain the backbone:</p>
-
-<ul>
-  <li><strong>SPU / compute-shader offloading</strong> — move parallelizable CPU work (culling, particle simulation, skinning, decompression) onto the GPU’s compute units or dedicated coprocessors, which fixed hardware lets you schedule precisely.</li>
-  <li><strong>Platform-specific APIs</strong> — consoles expose lower-level, lower-overhead graphics APIs (GNM/GNMX on PlayStation, the Xbox flavour of D3D12) than any cross-platform abstraction. Bypassing the portable layer recovers real CPU time.</li>
-  <li><strong>Hardware-specific features</strong> — dedicated decompression blocks, hardware ray-tracing units, and fixed-function tessellators can be used unconditionally because every unit has them.</li>
-  <li><strong>Memory layout optimization</strong> — with a known cache hierarchy and a unified memory architecture, you can hand-place data structures for the exact cache-line and bank layout of the silicon.</li>
-</ul>
-
-<h4 id="unified-memory-and-the-bandwidth-budget">Unified memory and the bandwidth budget</h4>
-
-<p>Current-generation consoles use a <strong>unified memory architecture (UMA)</strong>: CPU and GPU share one physical pool, so there is no PCIe copy to move data from system to video memory — but they also <em>contend</em> for the same memory bus. The optimization problem shifts from “how do I get data to the GPU” to “how do I stay within the shared bandwidth budget”.</p>
-
-<p>You can reason about it directly. If the console offers $B$ bytes/second of memory bandwidth and you target $f$ frames/second, the bandwidth budget per frame is:</p>
-
-\[B_{\text{frame}} = \frac{B}{f}\]
-
-<p>For a console with 448 GB/s of bandwidth targeting 60 FPS, that is roughly 7.46 GB of memory traffic per frame. Every G-buffer write, texture fetch, and framebuffer resolve draws against that number. Counting bytes per frame — not just GPU math — is often the real console optimization loop.</p>
-
-<h4 id="fixed-spec-constants">Fixed-spec constants</h4>
-
-<p>Because the hardware never changes, magic numbers that would be reckless on PC are correct and permanent on console:</p>
-
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// On a fixed console spec these are not heuristics — they are facts.</span>
-<span class="k">constexpr</span> <span class="kt">int</span>   <span class="n">kCpuCores</span>          <span class="o">=</span> <span class="mi">8</span><span class="p">;</span>     <span class="c1">// known core count</span>
-<span class="k">constexpr</span> <span class="kt">int</span>   <span class="n">kReservedForOs</span>     <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>     <span class="c1">// OS keeps these; game gets 6</span>
-<span class="k">constexpr</span> <span class="kt">int</span>   <span class="n">kGameWorkerThreads</span> <span class="o">=</span> <span class="n">kCpuCores</span> <span class="o">-</span> <span class="n">kReservedForOs</span><span class="p">;</span>
-<span class="k">constexpr</span> <span class="kt">float</span> <span class="n">kGpuClockGHz</span>       <span class="o">=</span> <span class="mf">2.23f</span><span class="p">;</span> <span class="c1">// exact, every unit</span>
-<span class="k">constexpr</span> <span class="kt">int</span>   <span class="n">kCacheLineBytes</span>    <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>    <span class="c1">// tune data layout to this</span>
-
-<span class="c1">// Hand-place hot data to one cache line, knowing the exact line size.</span>
-<span class="k">struct</span> <span class="nc">alignas</span><span class="p">(</span><span class="n">kCacheLineBytes</span><span class="p">)</span> <span class="n">HotEntityData</span> <span class="p">{</span>
-    <span class="n">Vector3</span> <span class="n">position</span><span class="p">;</span>
-    <span class="n">Vector3</span> <span class="n">velocity</span><span class="p">;</span>
-    <span class="kt">float</span>   <span class="n">health</span><span class="p">;</span>
-    <span class="c1">// ... packed to fill, not straddle, a 64-byte line</span>
-<span class="p">};</span>
-</code></pre></div></div>
-
-<hr />
-
-<h2 id="pc-scalability">PC Scalability</h2>
-
-<p>PC is the hardest target precisely because it is the <em>least</em> like a console: an integrated laptop GPU and a flagship desktop card can differ by more than 50x in throughput, and both run your binary. The strategy is not to pick one target but to <strong>scale gracefully</strong> across the whole range, exposing knobs the user (or an auto-detector) can set.</p>
-
-<h3 id="graphics-options">Graphics Options</h3>
-
-<p>The original taxonomy of settings is the canonical menu:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Resolution: 720p to 4K+
-Quality Presets: Low, Medium, High, Ultra
-Individual Settings:
-├── Texture Quality
-├── Shadow Quality
-├── Anti-Aliasing
-├── Post-Processing
-├── Draw Distance
-├── LOD Bias
-└── Effect Quality
-</code></pre></div></div>
-
-<h4 id="designing-quality-presets">Designing quality presets</h4>
-
-<p>The “Low / Medium / High / Ultra” presets are not arbitrary — each is a curated bundle of the individual settings, chosen so that each step up costs <em>roughly</em> proportional GPU time for the visual gain. Good preset design follows a few rules:</p>
-
-<ul>
-  <li><strong>Order settings by cost-per-quality.</strong> Spend the first quality budget on the settings with the highest visual return per millisecond (texture resolution, shadow resolution) before the diminishing-returns settings (ultra-distance shadows, screen-space reflections at full resolution).</li>
-  <li><strong>Make Low actually run.</strong> “Low” must hit playable frame rates on the <em>minimum</em> supported GPU, not merely look worse on a good one. Validate it on real low-end silicon.</li>
-  <li><strong>Make Ultra a true headroom setting.</strong> “Ultra” exists for high-end and future hardware; it is acceptable for it to be unattainable on mid-range cards today.</li>
-  <li><strong>Detect and default sensibly.</strong> Auto-detect the GPU on first launch and pick a preset, so the median player never sees a slideshow before they find the settings menu.</li>
-</ul>
+<p>Most mobile GPUs (Apple, Arm Mali and Immortalis, Qualcomm Adreno, Imagination PowerVR) are <strong>tile-based</strong>. The screen is divided into small tiles; geometry is first binned per tile, then each tile is shaded entirely in fast on-chip memory and written to DRAM once. External memory bandwidth is the largest energy cost in rendering, so the rules differ from desktop GPUs:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Setting</th>
-      <th>Cheapest tier</th>
-      <th>Most expensive tier</th>
-      <th>Primary cost class</th>
+      <th>Practice</th>
+      <th>Why</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Texture Quality</td>
-      <td>Lower-resolution mips</td>
-      <td>Full-resolution textures</td>
-      <td>Memory / bandwidth</td>
+      <td>Avoid reading a render target in the same frame it is written</td>
+      <td>Forces the tile to be flushed to DRAM and reloaded</td>
     </tr>
     <tr>
-      <td>Shadow Quality</td>
-      <td>Low-res, short-range maps</td>
-      <td>High-res cascaded maps</td>
-      <td>Fill rate + draw calls</td>
+      <td>Use load and store actions correctly (<code class="language-plaintext highlighter-rouge">DONT_CARE</code> / <code class="language-plaintext highlighter-rouge">CLEAR</code> on load, <code class="language-plaintext highlighter-rouge">DONT_CARE</code> on store for transient attachments)</td>
+      <td>Avoids reading or writing attachments to DRAM needlessly; depth is rarely needed after the pass</td>
     </tr>
     <tr>
-      <td>Anti-Aliasing</td>
-      <td>None / FXAA</td>
-      <td>TAA / MSAA / DLAA</td>
-      <td>Fill rate / bandwidth</td>
+      <td>Use memoryless / lazily allocated attachments (Metal <code class="language-plaintext highlighter-rouge">.memoryless</code>, Vulkan <code class="language-plaintext highlighter-rouge">LAZILY_ALLOCATED</code>)</td>
+      <td>Transient depth and MSAA buffers never occupy DRAM</td>
     </tr>
     <tr>
-      <td>Draw Distance</td>
-      <td>Near cull plane</td>
-      <td>Far cull plane</td>
-      <td>Geometry + draw calls</td>
+      <td>Keep post-processing inside one render pass (Vulkan subpasses or dynamic rendering local read, Metal tile shaders / programmable blending)</td>
+      <td>Data stays in tile memory</td>
     </tr>
     <tr>
-      <td>LOD Bias</td>
-      <td>Aggressive (low detail)</td>
-      <td>Conservative (high detail)</td>
-      <td>Geometry throughput</td>
+      <td>Prefer MSAA over post-process AA when possible</td>
+      <td>The MSAA resolve happens on-chip, so 4x MSAA is comparatively cheap</td>
     </tr>
     <tr>
-      <td>Effect Quality</td>
-      <td>Half-res particles/SSR</td>
-      <td>Full-res, more samples</td>
-      <td>Fill rate / shader ALU</td>
+      <td>Prefer forward or forward+ shading over fat G-buffers</td>
+      <td>Large G-buffers spill out of tile memory</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="dynamic-resolution">Dynamic Resolution</h3>
+<h3 id="reacting-to-thermal-state">Reacting to Thermal State</h3>
 
-<p>When a fixed preset still cannot guarantee the target frame rate (the worst-case scene is always heavier than the average), <strong>dynamic resolution</strong> closes the gap automatically. The original guidance is the heart of it:</p>
-
-<ul>
-  <li><strong>Target frame time</strong> — pick a millisecond budget (e.g. 16.67 ms for 60 FPS).</li>
-  <li><strong>Scale resolution to maintain FPS</strong> — when a frame runs long, shrink the internal render resolution next frame; when it runs short, grow it back toward native.</li>
-  <li><strong>Temporal upscaling to hide changes</strong> — reconstruct the lost detail with TAA-based upscalers (TAAU, DLSS, FSR, XeSS) so the resolution change is imperceptible.</li>
-</ul>
-
-<p>The control loop is a simple feedback controller. Letting $t$ be the measured GPU frame time, $t^*$ the target, and $s$ the current render-scale factor:</p>
-
-\[s_{n+1} = \text{clamp}\left( s_n \cdot \sqrt{\frac{t^\*}{t_n}},\; s_{\min},\; s_{\max} \right)\]
-
-<p>The square root appears because GPU cost scales roughly with pixel <em>count</em>, which is the square of the linear scale factor; correcting in linear space therefore needs the square root of the time ratio. Clamping prevents the resolution from collapsing to an unusable blur during a momentary spike.</p>
-
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Dynamic-resolution controller, run once per frame.</span>
-<span class="kt">float</span> <span class="nf">update_render_scale</span><span class="p">(</span><span class="kt">float</span> <span class="n">last_gpu_ms</span><span class="p">,</span> <span class="kt">float</span> <span class="n">target_ms</span><span class="p">,</span>
-                          <span class="kt">float</span> <span class="n">scale</span><span class="p">,</span> <span class="kt">float</span> <span class="n">min_s</span><span class="p">,</span> <span class="kt">float</span> <span class="n">max_s</span><span class="p">)</span> <span class="p">{</span>
-    <span class="kt">float</span> <span class="n">ratio</span>    <span class="o">=</span> <span class="n">target_ms</span> <span class="o">/</span> <span class="n">std</span><span class="o">::</span><span class="n">max</span><span class="p">(</span><span class="n">last_gpu_ms</span><span class="p">,</span> <span class="mf">0.01f</span><span class="p">);</span>
-    <span class="kt">float</span> <span class="n">proposed</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">std</span><span class="o">::</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ratio</span><span class="p">);</span>
-    <span class="c1">// Damp toward the proposed value to avoid oscillation/visible pumping.</span>
-    <span class="kt">float</span> <span class="n">damped</span>   <span class="o">=</span> <span class="n">scale</span> <span class="o">+</span> <span class="mf">0.25f</span> <span class="o">*</span> <span class="p">(</span><span class="n">proposed</span> <span class="o">-</span> <span class="n">scale</span><span class="p">);</span>
-    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">clamp</span><span class="p">(</span><span class="n">damped</span><span class="p">,</span> <span class="n">min_s</span><span class="p">,</span> <span class="n">max_s</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p>A small damping factor (here 0.25) is important: snapping resolution to the exact proposed value every frame produces visible “resolution pumping”. Easing toward the target keeps the change below the perceptual threshold.</p>
-
-<hr />
-
-<h2 id="compiler-optimizations-and-pgo">Compiler Optimizations and PGO</h2>
-
-<p>The platform discussion so far has been about runtime behaviour, but a large, free performance margin lives in <em>how the binary is built</em>. The compiler and linker can transform the same source into substantially faster machine code — and profile-guided optimization (PGO) lets them do it using evidence from real runs instead of static guesses.</p>
-
-<h3 id="optimization-levels-and-flags">Optimization levels and flags</h3>
-
-<p>Every production binary should be built with optimizations on. The common levels:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Flag (GCC/Clang)</th>
-      <th>Meaning</th>
-      <th>Typical use</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">-O0</code></td>
-      <td>No optimization</td>
-      <td>Debug builds only</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">-O1</code></td>
-      <td>Light optimization</td>
-      <td>Rare; faster builds with some speedup</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">-O2</code></td>
-      <td>Full optimization, no size/speed tradeoff risk</td>
-      <td><strong>Default for shipping</strong></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">-O3</code></td>
-      <td>Aggressive (more inlining, vectorization)</td>
-      <td>Hot, math-heavy code; measure — can regress</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">-Os</code></td>
-      <td>Optimize for size</td>
-      <td>Memory-constrained / embedded</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">-Ofast</code></td>
-      <td><code class="language-plaintext highlighter-rouge">-O3</code> plus relaxed IEEE math</td>
-      <td>Only where strict FP is not required</td>
-    </tr>
-  </tbody>
-</table>
-
-<blockquote>
-  <p><strong>Never profile or ship a debug build.</strong> A <code class="language-plaintext highlighter-rouge">-O0</code> build can be several times slower than <code class="language-plaintext highlighter-rouge">-O2</code> and will mislead every profiling decision — the original “Avoiding Common Pitfalls” warning that <em>“debug builds hide real performance”</em> is largely a statement about optimization flags.</p>
-</blockquote>
-
-<p>Two structural flags deserve special mention:</p>
-
-<ul>
-  <li><strong>Link-Time Optimization (<code class="language-plaintext highlighter-rouge">-flto</code>)</strong> lets the optimizer see across translation-unit boundaries at link time, enabling cross-file inlining and dead-code elimination that per-file compilation cannot. It often yields a few percent for modest build-time cost.</li>
-  <li><strong>Architecture targeting (<code class="language-plaintext highlighter-rouge">-march=native</code>, or a specific <code class="language-plaintext highlighter-rouge">-march=x86-64-v3</code>)</strong> lets the compiler emit newer instructions (AVX2, etc.). On a console with fixed hardware this is free and unconditional; on PC it must be balanced against the minimum CPU you support (or shipped as multiple dispatched code paths).</li>
-</ul>
-
-<h3 id="profile-guided-optimization-pgo">Profile-Guided Optimization (PGO)</h3>
-
-<p>Many of a compiler’s most consequential decisions — which branch is the likely one, which function is hot enough to inline, how to lay out basic blocks so the common path stays in the instruction cache — are <em>guesses</em> when made from source alone. <strong>PGO replaces those guesses with measured truth</strong> by feeding the compiler an execution profile gathered from a real run.</p>
-
-<h4 id="the-three-step-workflow">The three-step workflow</h4>
-
-<p>PGO is an instrument-run-rebuild loop:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-   │ 1. INSTRUMENT     │     │ 2. TRAIN          │     │ 3. OPTIMIZE       │
-   │ compile with      │ --&gt; │ run on a          │ --&gt; │ recompile using   │
-   │ profiling probes  │     │ representative    │     │ the collected     │
-   │ (-fprofile-       │     │ workload; emit    │     │ profile           │
-   │  generate)        │     │ .profraw data     │     │ (-fprofile-use)   │
-   └──────────────────┘     └──────────────────┘     └──────────────────┘
-</code></pre></div></div>
-
-<p>With Clang the concrete sequence is:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Build an instrumented binary.</span>
-clang++ <span class="nt">-O2</span> <span class="nt">-fprofile-generate</span> <span class="nt">-o</span> app.inst app.cpp
-
-<span class="c"># 2. Run it on a REPRESENTATIVE workload (a real level, a real benchmark).</span>
-<span class="c">#    This drops .profraw files recording which branches/functions ran hot.</span>
-./app.inst <span class="nt">--run-typical-workload</span>
-
-<span class="c"># 3. Merge the raw profile, then rebuild using it.</span>
-llvm-profdata merge <span class="nt">-output</span><span class="o">=</span>app.profdata <span class="k">*</span>.profraw
-clang++ <span class="nt">-O2</span> <span class="nt">-fprofile-use</span><span class="o">=</span>app.profdata <span class="nt">-o</span> app app.cpp
-</code></pre></div></div>
-
-<p>GCC uses the analogous <code class="language-plaintext highlighter-rouge">-fprofile-generate</code> / <code class="language-plaintext highlighter-rouge">-fprofile-use</code> pair.</p>
-
-<h4 id="what-pgo-actually-improves">What PGO actually improves</h4>
-
-<ul>
-  <li><strong>Branch layout</strong> — the hot side of each <code class="language-plaintext highlighter-rouge">if</code> is made the fall-through, keeping the common path in straight-line code.</li>
-  <li><strong>Inlining decisions</strong> — functions that are <em>actually</em> called frequently get inlined even if they look large; functions that are rarely called are left out-of-line to keep hot code dense.</li>
-  <li><strong>Basic-block ordering and code locality</strong> — hot blocks are clustered so the CPU instruction cache and the branch predictor stay warm; cold paths (error handling, rare cases) are exiled to the end of the function or to separate “cold” sections.</li>
-  <li><strong>Devirtualization and switch lowering</strong> — a profile that shows one virtual target or one <code class="language-plaintext highlighter-rouge">switch</code> case dominates lets the compiler speculate on it directly.</li>
-</ul>
-
-<p>Typical real-world gains are in the <strong>5–20%</strong> range on branch-heavy code (interpreters, parsers, game logic, compilers themselves), with essentially no source changes. Because the win comes entirely from the build, it stacks on top of every algorithmic and data-layout optimization done elsewhere.</p>
-
-<h4 id="the-representativeness-rule">The representativeness rule</h4>
-
-<p>PGO is only as good as the training run. <strong>The profile must reflect how the program is actually used</strong>; optimizing for a workload nobody runs can pessimize the workload everybody runs. Practical guidance:</p>
-
-<ul>
-  <li>Train on a realistic, worst-case-inclusive scenario, not a trivial smoke test.</li>
-  <li>For games, train on representative gameplay (a real level, real input), not the main menu.</li>
-  <li>Re-collect the profile when the code or the dominant workload changes meaningfully; a stale profile slowly drifts from reality.</li>
-  <li>In CI, automate the instrument → run-benchmark → rebuild loop so every release ships with a fresh, representative profile.</li>
-</ul>
-
-<p>A related, lower-effort variant is <strong>AutoFDO / sampling-based PGO</strong>, which gathers the profile from low-overhead hardware sampling (e.g. Linux <code class="language-plaintext highlighter-rouge">perf</code>) on an ordinary optimized build rather than a special instrumented one. It trades a little accuracy for the ability to profile production binaries continuously, which makes keeping the profile representative far easier.</p>
-
-<hr />
-
-<h2 id="putting-it-together">Putting It Together</h2>
+<p>Mobile operating systems expose thermal pressure so applications can reduce load <strong>before</strong> the governor imposes a sudden, large clock cut.</p>
 
 <table>
   <thead>
     <tr>
       <th>Platform</th>
-      <th>First thing to measure</th>
-      <th>First lever to pull</th>
-      <th>Key build flag</th>
+      <th>API</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Android</td>
+      <td><code class="language-plaintext highlighter-rouge">PowerManager.getThermalHeadroom()</code> (Android 11+), <code class="language-plaintext highlighter-rouge">getCurrentThermalStatus()</code></td>
+      <td>Headroom forecasts how close the device is to severe throttling, so the app can act early</td>
+    </tr>
+    <tr>
+      <td>Android</td>
+      <td>Performance Hint API: <code class="language-plaintext highlighter-rouge">PerformanceHintManager.createHintSession()</code> (Android 12+)</td>
+      <td>Reports target and actual work durations per frame so the scheduler picks appropriate clocks and cores; part of the Android Dynamic Performance Framework (ADPF)</td>
+    </tr>
+    <tr>
+      <td>Android</td>
+      <td>Game Mode API, <code class="language-plaintext highlighter-rouge">setPreferPowerEfficiency</code> (Android 15+)</td>
+      <td>User- and OS-selected performance vs. battery preference</td>
+    </tr>
+    <tr>
+      <td>iOS / iPadOS</td>
+      <td><code class="language-plaintext highlighter-rouge">ProcessInfo.thermalState</code> and its change notification</td>
+      <td>States: nominal, fair, serious, critical</td>
+    </tr>
+    <tr>
+      <td>iOS / iPadOS</td>
+      <td>Low Power Mode (<code class="language-plaintext highlighter-rouge">isLowPowerModeEnabled</code>)</td>
+      <td>Signal to reduce frame rate and background work</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A thermal governor in the engine maps these signals to quality tiers:</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Engine-side governor. Feed it from getThermalHeadroom()/getCurrentThermalStatus()</span>
+<span class="c1">// on Android, or ProcessInfo.thermalState on iOS.</span>
+<span class="k">enum</span> <span class="k">class</span> <span class="nc">ThermalState</span> <span class="p">{</span> <span class="n">Nominal</span><span class="p">,</span> <span class="n">Fair</span><span class="p">,</span> <span class="n">Serious</span><span class="p">,</span> <span class="n">Critical</span> <span class="p">};</span>
+
+<span class="k">struct</span> <span class="nc">QualityTier</span> <span class="p">{</span>
+    <span class="kt">int</span>   <span class="n">target_fps</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">render_scale</span><span class="p">;</span>
+    <span class="kt">int</span>   <span class="n">shadow_quality</span><span class="p">;</span>   <span class="c1">// 0 = off .. 3 = high</span>
+    <span class="kt">bool</span>  <span class="n">post_effects</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">constexpr</span> <span class="n">QualityTier</span> <span class="n">kTiers</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="cm">/* Nominal  */</span> <span class="p">{</span><span class="mi">60</span><span class="p">,</span> <span class="mf">1.00f</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="nb">true</span><span class="p">},</span>
+    <span class="cm">/* Fair     */</span> <span class="p">{</span><span class="mi">60</span><span class="p">,</span> <span class="mf">0.85f</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="nb">true</span><span class="p">},</span>
+    <span class="cm">/* Serious  */</span> <span class="p">{</span><span class="mi">30</span><span class="p">,</span> <span class="mf">0.70f</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">true</span><span class="p">},</span>
+    <span class="cm">/* Critical */</span> <span class="p">{</span><span class="mi">30</span><span class="p">,</span> <span class="mf">0.60f</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">false</span><span class="p">},</span>
+<span class="p">};</span>
+
+<span class="n">QualityTier</span> <span class="nf">select_tier</span><span class="p">(</span><span class="n">ThermalState</span> <span class="n">s</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">kTiers</span><span class="p">[</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="p">(</span><span class="n">s</span><span class="p">)];</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Change tiers with hysteresis (require the state to persist for several seconds before stepping back up), so the game does not oscillate between tiers. The goal is gradual, barely noticeable degradation instead of an abrupt drop in frame rate.</p>
+
+<h3 id="memory-limits">Memory Limits</h3>
+
+<p>Mobile memory is shared among the OS, the GPU, and every background app, and the OS terminates the process that exceeds its allowance, usually without warning (the Android low-memory killer, iOS jetsam).</p>
+
+<ul>
+  <li>Compress all textures: ASTC on current hardware, with ETC2 only for older OpenGL ES devices. Never ship uncompressed RGBA8 color textures.</li>
+  <li>Stream content rather than loading entire levels; unload assets as soon as they leave use.</li>
+  <li>Treat memory warnings (<code class="language-plaintext highlighter-rouge">onTrimMemory</code> on Android, <code class="language-plaintext highlighter-rouge">didReceiveMemoryWarning</code> on iOS) as commands to release caches immediately.</li>
+  <li>On iOS, query <code class="language-plaintext highlighter-rouge">os_proc_available_memory()</code> for the remaining allowance instead of guessing from device RAM.</li>
+  <li>Budget well below physical RAM: the OS, compositor, and other apps claim a large, invisible share. Profile on the cheapest supported device, not the flagship.</li>
+</ul>
+
+<p>See <a href="memory-optimization.html">Memory Optimization</a> for texture formats and streaming.</p>
+
+<h2 id="consoles">Consoles</h2>
+
+<p>A console generation is a fixed hardware specification shared by every unit for years. That makes profiling results transferable: a frame that fits the budget on a development kit fits it for every player.</p>
+
+<h3 id="current-hardware-2026">Current Hardware (2026)</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Console</th>
+      <th>CPU</th>
+      <th>GPU</th>
+      <th>Memory</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>PlayStation 5</td>
+      <td>8-core Zen 2, up to 3.5 GHz</td>
+      <td>36 CUs RDNA 2, up to 2.23 GHz</td>
+      <td>16 GB GDDR6, 448 GB/s</td>
+      <td>Variable-frequency (power-budget) clocking; hardware Kraken decompression</td>
+    </tr>
+    <tr>
+      <td>PlayStation 5 Pro</td>
+      <td>Same CPU family</td>
+      <td>60 CUs, upgraded ray tracing</td>
+      <td>16 GB GDDR6, 576 GB/s</td>
+      <td>ML upscaler (PSSR)</td>
+    </tr>
+    <tr>
+      <td>Xbox Series X</td>
+      <td>8-core Zen 2, 3.8 GHz (3.66 GHz with SMT)</td>
+      <td>52 CUs RDNA 2, 1.825 GHz</td>
+      <td>16 GB GDDR6: 10 GB at 560 GB/s + 6 GB at 336 GB/s</td>
+      <td>Split-bandwidth memory; hardware decompression</td>
+    </tr>
+    <tr>
+      <td>Xbox Series S</td>
+      <td>8-core Zen 2, 3.6 GHz (3.4 GHz with SMT)</td>
+      <td>20 CUs RDNA 2, 1.565 GHz</td>
+      <td>10 GB GDDR6: 8 GB at 224 GB/s + 2 GB at 56 GB/s</td>
+      <td>Must be supported by every Series title; usually the memory-limited target</td>
+    </tr>
+    <tr>
+      <td>Nintendo Switch 2</td>
+      <td>Arm, custom NVIDIA SoC</td>
+      <td>NVIDIA Ampere-class, with tensor cores</td>
+      <td>12 GB LPDDR5X</td>
+      <td>Different clocks docked vs. handheld; supports DLSS</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The PS5’s clocks vary with a deterministic power budget: the frequency depends on the workload, not on the temperature of the individual unit, so every console behaves identically for the same content. The Xbox Series S is the reason “fixed hardware” on Xbox actually means two specifications; its smaller, slower memory is the common bottleneck for cross-generation titles.</p>
+
+<h3 id="what-fixed-hardware-enables">What Fixed Hardware Enables</h3>
+
+<ul>
+  <li><strong>Exact budgets.</strong> Core count, cache sizes, GPU compute units, memory bandwidth, and storage throughput are known. There is no minimum spec to estimate.</li>
+  <li><strong>No driver variance.</strong> Graphics drivers and shader compilers ship with the SDK, so shaders can be precompiled for the exact GPU and behave identically on every unit. PC games, by contrast, must manage runtime shader compilation and pipeline caches.</li>
+  <li><strong>Low-level APIs.</strong> Consoles expose thinner graphics APIs than portable abstractions (Sony’s proprietary PlayStation graphics APIs, the Xbox variant of Direct3D 12 with console-specific extensions), recovering CPU time and allowing explicit control of memory and synchronization.</li>
+  <li><strong>Unconditional feature use.</strong> Hardware decompression, ray-tracing units, and specific GPU features can be relied on without fallbacks.</li>
+  <li><strong>Chasing the last millisecond.</strong> Because a win on one unit is a win on all, teams can profitably optimize individual passes by fractions of a millisecond.</li>
+</ul>
+
+<h3 id="unified-memory-and-the-bandwidth-budget">Unified Memory and the Bandwidth Budget</h3>
+
+<p>Current consoles use <strong>unified memory</strong>: the CPU and GPU share one physical pool. There is no PCIe copy between system and video memory, but both processors contend for the same bus. The per-frame bandwidth budget is:</p>
+
+\[B_{\text{frame}} = \frac{B}{f}\]
+
+<p>At 448 GB/s and 60 FPS this is about 7.5 GB of memory traffic per frame, and in practice less, because achievable bandwidth is below the theoretical peak and CPU traffic reduces what remains for the GPU. Every G-buffer write, texture fetch, and resolve counts against it. Profiling bytes moved per pass, not only shader time, is a large part of console optimization.</p>
+
+<h3 id="offloading-work">Offloading Work</h3>
+
+<p>Parallel CPU work such as culling, particle simulation, skinning, and animation blending often moves to GPU <strong>compute shaders</strong>, and asynchronous compute queues can overlap it with graphics work that leaves shader units idle (shadow-map rendering, depth-only passes). Fixed hardware makes this overlap predictable enough to schedule deliberately. (The PlayStation 3’s SPUs were the earlier incarnation of the same idea.)</p>
+
+<h3 id="fixed-spec-constants">Fixed-Spec Constants</h3>
+
+<p>On a console, values that would be reckless assumptions on PC are simply facts of the platform:</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Example values for an 8-core console where the OS reserves part of the CPU.</span>
+<span class="c1">// Real reservations come from the platform SDK documentation.</span>
+<span class="k">constexpr</span> <span class="kt">int</span> <span class="n">kHardwareThreads</span>   <span class="o">=</span> <span class="mi">16</span><span class="p">;</span>  <span class="c1">// 8 cores x 2 SMT</span>
+<span class="k">constexpr</span> <span class="kt">int</span> <span class="n">kReservedForSystem</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+<span class="k">constexpr</span> <span class="kt">int</span> <span class="n">kGameWorkerThreads</span> <span class="o">=</span> <span class="n">kHardwareThreads</span> <span class="o">-</span> <span class="n">kReservedForSystem</span><span class="p">;</span>
+<span class="k">constexpr</span> <span class="kt">int</span> <span class="n">kCacheLineBytes</span>    <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>
+
+<span class="c1">// Hot per-entity data sized to exactly one cache line.</span>
+<span class="k">struct</span> <span class="nc">alignas</span><span class="p">(</span><span class="n">kCacheLineBytes</span><span class="p">)</span> <span class="n">HotEntityData</span> <span class="p">{</span>
+    <span class="kt">float</span> <span class="n">position</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span>
+    <span class="kt">float</span> <span class="n">velocity</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span>
+    <span class="kt">float</span> <span class="n">health</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="kt">uint32_t</span> <span class="n">flags</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="kt">uint8_t</span>  <span class="n">padding</span><span class="p">[</span><span class="n">kCacheLineBytes</span> <span class="o">-</span> <span class="mi">8</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">float</span><span class="p">)];</span>
+<span class="p">};</span>
+<span class="k">static_assert</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">HotEntityData</span><span class="p">)</span> <span class="o">==</span> <span class="n">kCacheLineBytes</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="pc-and-handheld-pc">PC and Handheld PC</h2>
+
+<p>PC performance spans integrated laptop graphics to flagship desktop GPUs, a range of well over 10x, and the same binary must run on all of it. The strategy is to <strong>scale</strong>: expose settings, choose good defaults automatically, and adjust resolution dynamically.</p>
+
+<h3 id="quality-settings-and-presets">Quality Settings and Presets</h3>
+
+<p>Presets (Low, Medium, High, Ultra) are curated bundles of individual settings. Each setting stresses a different part of the hardware, which is why per-setting controls matter: a player with ample VRAM but a slow GPU can raise texture quality at almost no cost.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Low</th>
+      <th>High / Ultra</th>
+      <th>Primary cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Texture quality</td>
+      <td>Lower-resolution mips</td>
+      <td>Full-resolution textures</td>
+      <td>VRAM capacity (little GPU time if it fits)</td>
+    </tr>
+    <tr>
+      <td>Shadow quality</td>
+      <td>Low-resolution, short-range cascades</td>
+      <td>High-resolution cascades, more casters, ray-traced shadows</td>
+      <td>Rasterization, fill rate, draw calls</td>
+    </tr>
+    <tr>
+      <td>Anti-aliasing / upscaling</td>
+      <td>Upscaler performance mode</td>
+      <td>Native-resolution AA (DLAA, FSR Native AA)</td>
+      <td>Shader time, bandwidth</td>
+    </tr>
+    <tr>
+      <td>Draw distance / LOD</td>
+      <td>Aggressive culling and LOD</td>
+      <td>Far distances, detailed LODs</td>
+      <td>Geometry, draw calls, CPU submission</td>
+    </tr>
+    <tr>
+      <td>Global illumination / reflections</td>
+      <td>Screen-space or baked</td>
+      <td>Ray-traced or path-traced</td>
+      <td>GPU ray-tracing throughput</td>
+    </tr>
+    <tr>
+      <td>Effects and post-processing</td>
+      <td>Half-resolution, fewer samples</td>
+      <td>Full resolution, more samples</td>
+      <td>Fill rate, shader ALU</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Preset design guidelines:</p>
+
+<ul>
+  <li><strong>Spend budget in order of visual return per millisecond.</strong> Texture resolution and shadow resolution usually give more visible improvement per cost than full-resolution volumetrics or reflections.</li>
+  <li><strong>Low must actually run</strong> at playable frame rates on the minimum-spec GPU, validated on real hardware.</li>
+  <li><strong>Ultra may exceed current hardware</strong>, as headroom for future GPUs.</li>
+  <li><strong>Auto-detect on first launch</strong> (GPU model, VRAM, CPU core count, display resolution) and choose a preset so players do not start in an unplayable configuration.</li>
+  <li><strong>Show the cost.</strong> A VRAM usage estimate in the settings menu prevents the stutter that follows from exceeding VRAM.</li>
+  <li><strong>Precompile shaders</strong> (a pipeline-cache warm-up at first launch or load time) so shader compilation does not cause hitches during play; this remains one of the most common PC-specific performance complaints.</li>
+</ul>
+
+<h3 id="handheld-pcs">Handheld PCs</h3>
+
+<p>Devices such as the Steam Deck run PC builds on a 15-30 W mobile-class APU. They combine PC software with mobile constraints: a fixed, known configuration per model (so a dedicated preset is worthwhile), limited memory bandwidth shared by CPU and GPU, and battery life that responds to frame caps exactly as on phones. A dedicated handheld preset with a 30 or 40 FPS cap (the Steam Deck OLED’s display supports refresh rates up to 90 Hz, making 45 FPS a clean divisor) and aggressive upscaling is typical.</p>
+
+<h3 id="dynamic-resolution">Dynamic Resolution</h3>
+
+<p>A fixed preset cannot guarantee a frame rate, because the heaviest scene is always heavier than the average. <strong>Dynamic resolution scaling</strong> adjusts the internal render resolution each frame to hold a GPU time target, then upscales to the output resolution.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    M["Measure GPU&lt;br/&gt;frame time t(n)"] --&gt; C["Controller&lt;br/&gt;compare to target"]
+    C --&gt; S["Render scale s(n+1)&lt;br/&gt;clamped, damped"]
+    S --&gt; R["Render scene at&lt;br/&gt;s x native resolution"]
+    R --&gt; U["Temporal upscaler&lt;br/&gt;(DLSS, FSR, XeSS, TSR,&lt;br/&gt;PSSR, MetalFX)"]
+    U --&gt; O["Output at&lt;br/&gt;native resolution"]
+    R --&gt; M
+</code></pre>
+
+<p>GPU cost scales roughly with pixel count, which is the square of the linear scale factor $s$. To bring frame time $t_n$ to the target $t^{\ast}$, the linear scale must change by the square root of the time ratio:</p>
+
+\[s_{n+1} = \mathrm{clamp}\left( s_n \sqrt{\frac{t^{\ast}}{t_n}},\; s_{\min},\; s_{\max} \right)\]
+
+<p>In practice the update is damped to avoid visible “resolution pumping”, and fixed per-frame costs that do not scale with resolution (geometry, shadow maps, UI) make the square-root rule an approximation that the damping absorbs.</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;algorithm&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;cmath&gt;</span><span class="cp">
+</span>
+<span class="c1">// Run once per frame with the GPU time of the previous frame.</span>
+<span class="kt">float</span> <span class="nf">update_render_scale</span><span class="p">(</span><span class="kt">float</span> <span class="n">gpu_ms</span><span class="p">,</span> <span class="kt">float</span> <span class="n">target_ms</span><span class="p">,</span> <span class="kt">float</span> <span class="n">scale</span><span class="p">,</span>
+                          <span class="kt">float</span> <span class="n">min_s</span> <span class="o">=</span> <span class="mf">0.5f</span><span class="p">,</span> <span class="kt">float</span> <span class="n">max_s</span> <span class="o">=</span> <span class="mf">1.0f</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kt">float</span> <span class="n">proposed</span> <span class="o">=</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">std</span><span class="o">::</span><span class="n">sqrt</span><span class="p">(</span><span class="n">target_ms</span> <span class="o">/</span> <span class="n">std</span><span class="o">::</span><span class="n">max</span><span class="p">(</span><span class="n">gpu_ms</span><span class="p">,</span> <span class="mf">0.01f</span><span class="p">));</span>
+    <span class="kt">float</span> <span class="n">damped</span>   <span class="o">=</span> <span class="n">scale</span> <span class="o">+</span> <span class="mf">0.25f</span> <span class="o">*</span> <span class="p">(</span><span class="n">proposed</span> <span class="o">-</span> <span class="n">scale</span><span class="p">);</span>   <span class="c1">// ease toward target</span>
+    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">clamp</span><span class="p">(</span><span class="n">damped</span><span class="p">,</span> <span class="n">min_s</span><span class="p">,</span> <span class="n">max_s</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Use a target somewhat below the frame budget (for example 15 ms for a 16.67 ms budget) so the controller has headroom, and react faster to over-budget frames than to under-budget ones: a dropped frame is visible, while a slightly lower resolution usually is not.</p>
+
+<h3 id="upscaling-and-frame-generation">Upscaling and Frame Generation</h3>
+
+<p>Temporal upscalers reconstruct a high-resolution image from a lower-resolution render plus motion vectors and previous frames. Since 2025 the leading ones are machine-learned:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technology</th>
+      <th>Vendor</th>
+      <th>Hardware</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DLSS 4</td>
+      <td>NVIDIA</td>
+      <td>GeForce RTX (tensor cores)</td>
+      <td>Transformer-based super resolution and ray reconstruction on all RTX GPUs; Multi Frame Generation on RTX 50-series</td>
+    </tr>
+    <tr>
+      <td>FSR 4</td>
+      <td>AMD</td>
+      <td>Radeon RX 9000 (RDNA 4) for the ML upscaler</td>
+      <td>FSR 3.1 remains the open-source, vendor-agnostic option for other GPUs</td>
+    </tr>
+    <tr>
+      <td>XeSS 2</td>
+      <td>Intel</td>
+      <td>ML path on Intel Arc; fallback path on other GPUs</td>
+      <td>Adds frame generation (XeFG) and latency reduction (XeLL)</td>
+    </tr>
+    <tr>
+      <td>TSR</td>
+      <td>Epic (Unreal Engine)</td>
+      <td>Any GPU</td>
+      <td>Engine-integrated, non-ML</td>
+    </tr>
+    <tr>
+      <td>PSSR</td>
+      <td>Sony</td>
+      <td>PS5 Pro</td>
+      <td>ML upscaler</td>
+    </tr>
+    <tr>
+      <td>MetalFX</td>
+      <td>Apple</td>
+      <td>Apple silicon</td>
+      <td>Spatial and temporal upscaling; frame interpolation in newer releases</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Frame generation</strong> synthesizes intermediate frames between rendered ones. It raises the displayed frame rate and smoothness, but it does not reduce input latency (it adds some, which is why it ships alongside latency-reduction features such as NVIDIA Reflex, AMD Anti-Lag, and Intel XeLL) and it does not speed up simulation. Vendors recommend a base frame rate of roughly 60 FPS before enabling it. It is a presentation-layer improvement, not a substitute for meeting the frame budget.</p>
+
+<h2 id="compiler-and-build-optimizations">Compiler and Build Optimizations</h2>
+
+<p>A significant, often overlooked share of performance is determined by how the binary is built. The same source can run noticeably faster through build settings alone, and those gains stack with every algorithmic and data-layout improvement.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    S["Source"] --&gt; C["Compile&lt;br/&gt;-O2 / -O3, -march"]
+    C --&gt; L["Link&lt;br/&gt;LTO / ThinLTO"]
+    L --&gt; P["PGO&lt;br/&gt;profile-driven&lt;br/&gt;inlining and layout"]
+    P --&gt; B["Post-link&lt;br/&gt;BOLT / Propeller&lt;br/&gt;code layout"]
+    B --&gt; BIN["Shipping binary"]
+</code></pre>
+
+<h3 id="optimization-levels">Optimization Levels</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>GCC / Clang</th>
+      <th>MSVC</th>
+      <th>Meaning</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-O0</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/Od</code></td>
+      <td>No optimization</td>
+      <td>Debugging only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-O1</code></td>
+      <td>(no direct equivalent)</td>
+      <td>Light optimization</td>
+      <td>Rare</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-O2</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/O2</code></td>
+      <td>Full optimization without large size increases</td>
+      <td>Default for release builds</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-O3</code></td>
+      <td>(no direct equivalent)</td>
+      <td>More aggressive inlining, unrolling, and vectorization</td>
+      <td>Hot numeric code; measure, since it can regress through code growth</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-Os</code> / <code class="language-plaintext highlighter-rouge">-Oz</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/O1</code></td>
+      <td>Optimize for size</td>
+      <td>Constrained or instruction-cache-bound code</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-Ofast</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/fp:fast</code> (floating-point part)</td>
+      <td><code class="language-plaintext highlighter-rouge">-O3</code> plus non-IEEE-conforming floating-point math</td>
+      <td>Only where strict floating-point semantics are not required</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Never profile or ship an unoptimized build.</strong> A debug build can be several to tens of times slower, and its hotspots differ from those of the release build, which misleads every decision made from its profile. Profile an optimized build with debug symbols (<code class="language-plaintext highlighter-rouge">-O2 -g</code>, or MSVC <code class="language-plaintext highlighter-rouge">/O2 /Zi</code>) and, on x86-64, frame pointers (<code class="language-plaintext highlighter-rouge">-fno-omit-frame-pointer</code>) for reliable stack traces; several Linux distributions now build their packages with frame pointers for this reason.</p>
+
+<h3 id="link-time-optimization">Link-Time Optimization</h3>
+
+<p>Normal compilation optimizes one translation unit at a time. <strong>LTO</strong> (<code class="language-plaintext highlighter-rouge">-flto</code>; MSVC <code class="language-plaintext highlighter-rouge">/GL</code> with <code class="language-plaintext highlighter-rouge">/LTCG</code>) defers optimization to link time, when the whole program is visible, enabling inlining across files, whole-program dead-code elimination, and better devirtualization. <strong>ThinLTO</strong> (<code class="language-plaintext highlighter-rouge">-flto=thin</code>, Clang) keeps most of the benefit with parallel, incremental builds and is the practical choice for large codebases.</p>
+
+<h3 id="targeting-the-cpu">Targeting the CPU</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Target</th>
+      <th>Instruction sets</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-march=x86-64</code> (baseline)</td>
+      <td>SSE2</td>
+      <td>Maximum compatibility</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-march=x86-64-v2</code></td>
+      <td>Up to SSE4.2, POPCNT</td>
+      <td>Nearly all x86-64 PCs still in use; baseline for RHEL 9</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-march=x86-64-v3</code></td>
+      <td>AVX2, FMA, BMI1/2</td>
+      <td>Most PCs from about 2015 onward; baseline for RHEL 10</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-march=x86-64-v4</code></td>
+      <td>AVX-512 subsets</td>
+      <td>Servers and some desktop CPUs; not safe as a PC baseline</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-march=native</code></td>
+      <td>Everything on the build machine</td>
+      <td>Local builds and fixed-hardware targets only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-mcpu=&lt;core&gt;</code> (Arm)</td>
+      <td>Exact Arm core features and tuning</td>
+      <td>Mobile and Apple silicon, where the target is known</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>On consoles, targeting the exact CPU is free. On PC, either choose a baseline your minimum spec supports or ship multiple code paths selected at runtime: GCC and Clang <strong>function multiversioning</strong> (<code class="language-plaintext highlighter-rouge">__attribute__((target_clones("avx2", "default")))</code>) generates and dispatches variants automatically.</p>
+
+<h3 id="profile-guided-optimization">Profile-Guided Optimization</h3>
+
+<p>Many of the compiler’s most consequential decisions (which branch is likely, which calls are worth inlining, how to order code so the hot path is contiguous) are heuristic guesses without runtime information. <strong>PGO</strong> replaces those guesses with measurements from a representative run.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["1. Instrument&lt;br/&gt;-fprofile-generate"] --&gt; B["2. Train&lt;br/&gt;run representative workload&lt;br/&gt;writes .profraw"]
+    B --&gt; C["3. Merge&lt;br/&gt;llvm-profdata merge"]
+    C --&gt; D["4. Optimize&lt;br/&gt;-fprofile-use"]
+    D --&gt;|"code or workload changes"| A
+</code></pre>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Clang instrumentation-based PGO</span>
+clang++ <span class="nt">-O2</span> <span class="nt">-fprofile-generate</span> <span class="nt">-o</span> app.inst app.cpp
+./app.inst <span class="nt">--run-representative-workload</span>     <span class="c"># writes default_*.profraw</span>
+llvm-profdata merge <span class="nt">-output</span><span class="o">=</span>app.profdata <span class="k">*</span>.profraw
+clang++ <span class="nt">-O2</span> <span class="nt">-fprofile-use</span><span class="o">=</span>app.profdata <span class="nt">-o</span> app app.cpp
+</code></pre></div></div>
+
+<p>GCC uses the same <code class="language-plaintext highlighter-rouge">-fprofile-generate</code> / <code class="language-plaintext highlighter-rouge">-fprofile-use</code> flags with its own <code class="language-plaintext highlighter-rouge">.gcda</code> profile files. MSVC uses <code class="language-plaintext highlighter-rouge">/GENPROFILE</code> and <code class="language-plaintext highlighter-rouge">/USEPROFILE</code> together with <code class="language-plaintext highlighter-rouge">/LTCG</code>.</p>
+
+<p>What PGO improves:</p>
+
+<ul>
+  <li><strong>Branch layout.</strong> The likely side of each branch becomes the fall-through path.</li>
+  <li><strong>Inlining.</strong> Frequently called functions are inlined even when large; rarely called ones stay out of line, keeping hot code compact.</li>
+  <li><strong>Code placement.</strong> Hot blocks and functions are grouped, and cold paths (error handling) are moved to separate sections, improving instruction-cache and branch-predictor behavior.</li>
+  <li><strong>Indirect-call promotion and switch lowering.</strong> A dominant virtual-call target or <code class="language-plaintext highlighter-rouge">switch</code> case is checked directly first.</li>
+</ul>
+
+<p>Gains of roughly 5-20% are common for branch-heavy code such as interpreters, compilers, databases, and game logic, with no source changes. Large projects including Chromium, Firefox, and CPython release builds use PGO.</p>
+
+<p><strong>The profile must be representative.</strong> Training on an unrepresentative workload can make the real one slower. Train on realistic gameplay or production-like traffic, not a main menu or a unit test suite; regenerate profiles when code or workload changes substantially; and automate the instrument-train-rebuild cycle in CI.</p>
+
+<p><strong>Sampling-based PGO</strong> (AutoFDO, and Clang’s CSSPGO) builds the profile from hardware samples collected with <code class="language-plaintext highlighter-rouge">perf</code> on an ordinary optimized binary, including in production. It is somewhat less precise than instrumentation but far easier to keep current.</p>
+
+<p>PGO is also available beyond C and C++: Rust (<code class="language-plaintext highlighter-rouge">-Cprofile-generate</code> / <code class="language-plaintext highlighter-rouge">-Cprofile-use</code>, or <code class="language-plaintext highlighter-rouge">cargo-pgo</code>), Go (a <code class="language-plaintext highlighter-rouge">default.pgo</code> CPU profile in the main package, generally available since Go 1.21), and .NET, where dynamic PGO in the JIT is enabled by default since .NET 8.</p>
+
+<h3 id="post-link-optimization">Post-Link Optimization</h3>
+
+<p><strong>BOLT</strong> (part of the LLVM project) and <strong>Propeller</strong> rewrite or relink an already optimized binary using a sampled profile, reordering functions and basic blocks for instruction-cache and TLB locality. They matter most for very large binaries whose hot code exceeds the instruction cache, such as servers, databases, compilers, and browsers, and they stack on top of LTO and PGO.</p>
+
+<h2 id="summary">Summary</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Platform</th>
+      <th>Measure first</th>
+      <th>First levers</th>
+      <th>Build configuration</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Mobile</strong></td>
-      <td>Sustained (thermally soaked) frame time</td>
-      <td>Cap FPS; cut GPU energy; stay in tile memory</td>
-      <td><code class="language-plaintext highlighter-rouge">-O2</code> + size-aware; ASTC textures</td>
+      <td>Sustained frame time on a thermally soaked, low-tier device</td>
+      <td>Frame cap, ADPF/thermal-state governor, stay in tile memory, ASTC</td>
+      <td><code class="language-plaintext highlighter-rouge">-O2</code> (or <code class="language-plaintext highlighter-rouge">-Os</code> for cold code), LTO, PGO; <code class="language-plaintext highlighter-rouge">-mcpu</code> for the target cores</td>
     </tr>
     <tr>
       <td><strong>Console</strong></td>
-      <td>Bytes of memory traffic per frame</td>
-      <td>Offload to compute; native low-level API</td>
-      <td><code class="language-plaintext highlighter-rouge">-O3</code>/<code class="language-plaintext highlighter-rouge">-march=&lt;exact&gt;</code> + PGO (fixed spec)</td>
+      <td>Bytes moved per frame; worst-case frame on the weakest SKU (Series S)</td>
+      <td>Async compute, low-level APIs, precompiled shaders</td>
+      <td>Exact CPU target, LTO, PGO</td>
     </tr>
     <tr>
       <td><strong>PC</strong></td>
-      <td>Worst-case frame on minimum spec</td>
-      <td>Quality presets + dynamic resolution</td>
-      <td><code class="language-plaintext highlighter-rouge">-O2 -flto</code> + PGO; multi-arch dispatch</td>
+      <td>Worst-case frame on minimum spec; shader-compilation hitches</td>
+      <td>Presets with auto-detection, dynamic resolution, upscalers</td>
+      <td><code class="language-plaintext highlighter-rouge">-O2</code>, ThinLTO, PGO, <code class="language-plaintext highlighter-rouge">x86-64-v2</code>/<code class="language-plaintext highlighter-rouge">v3</code> baseline with multiversioned hot paths</td>
+    </tr>
+    <tr>
+      <td><strong>Handheld PC</strong></td>
+      <td>Sustained frame time and battery drain at the device’s power limit</td>
+      <td>Dedicated preset, frame cap at a refresh divisor, upscaling</td>
+      <td>Same as PC</td>
     </tr>
   </tbody>
 </table>
 
-<p>The unifying discipline is unchanged from the rest of this section: <strong>profile on the real target, optimize the binding constraint, and verify the win.</strong> Platform tuning simply changes <em>which</em> constraint binds — energy on mobile, shared bandwidth on console, the long tail of unknown hardware on PC — and adds the compiler itself as a final, almost-free source of speed through optimization flags and PGO.</p>
+<p>Across all of them the method is the same: <strong>profile on the real target, optimize the binding constraint, and verify the result.</strong> The platform determines which constraint binds: energy on mobile, shared bandwidth on console, and hardware diversity on PC. The build pipeline adds a final, nearly free increment on every platform.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="./">Performance Optimization</a> — the optimization hub and overview</li>
-  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> — rendering pipelines and GPU architecture that platform tuning targets</li>
-  <li><a href="../vr-ar/">VR/AR Development</a> — standalone-headset performance shares mobile’s thermal and battery constraints</li>
-  <li><a href="../technology/unreal.html">Unreal Engine</a> — engine scalability settings and platform profiling tools</li>
-  <li><a href="../gamedev/">Game Development</a> — game development workflows and frame-budget planning</li>
+  <li><a href="./">Performance Optimization</a> - section hub and the optimization loop</li>
+  <li><a href="gpu-optimization.html">GPU Optimization</a> - bottleneck classes, draw calls, and shader cost</li>
+  <li><a href="cpu-optimization.html">CPU Optimization</a> - profiling, caches, SIMD, and threading</li>
+  <li><a href="memory-optimization.html">Memory Optimization</a> - texture compression, streaming, and memory budgets</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - rendering pipelines that platform tuning targets</li>
+  <li><a href="../vr-ar/">VR/AR Development</a> - standalone headsets share mobile’s thermal and power limits</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a> - engine scalability settings and platform profiling tools</li>
+  <li><a href="../gamedev/">Game Development</a> - frame budgets and production workflows</li>
 </ul>
 
       </section>

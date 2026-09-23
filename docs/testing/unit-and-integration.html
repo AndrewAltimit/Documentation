@@ -2875,191 +2875,277 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Testing Hub</a> » Unit &amp; Integration</p>
 
-<p>Almost every bug a test suite ever catches is caught by an <em>example-based</em> test: call a function with a known input, assert a known output. This page is about doing that well at two scales — the <strong>unit</strong>, where a single piece of code is exercised in isolation, and the <strong>integration</strong>, where real collaborators (databases, queues, HTTP servers) are wired together. It covers the testing pyramid that balances the two, the test doubles that make isolation possible, test-driven development, fixtures and test-data management, what code coverage does and does not tell you, how this all runs in CI, and the single biggest threat to a suite’s value: flaky tests. Four ideas recur:</p>
-
-<ul>
-  <li>
-<strong>Speed is a feature.</strong> A test you run a thousand times a day must finish in milliseconds. Fast, deterministic unit tests change how you write code; slow ones get skipped.</li>
-  <li>
-<strong>Isolate to localize.</strong> A failing unit test names the broken function; a failing end-to-end test names “something, somewhere.” Push detection as far down the pyramid as the bug allows.</li>
-  <li>
-<strong>Integration tests earn their slowness.</strong> The bugs that live in the seams — schema mismatches, serialization, transaction boundaries — are invisible to unit tests by construction; you must wire the real things together.</li>
-  <li>
-<strong>Coverage is a floor, not a goal.</strong> 100% coverage with weak assertions proves only that the code ran without crashing. Coverage tells you what was <em>executed</em>, never whether it was <em>verified</em>.</li>
-</ul>
+<p><strong>Unit tests</strong> exercise a small piece of behavior in isolation; <strong>integration tests</strong> wire real collaborators — databases, queues, HTTP servers — together and check the seams between them. Between them they catch the large majority of bugs a test suite ever finds. This page covers how to write both well: test structure, test doubles and when to use each, test-driven development, fixtures and test data, integration testing against real dependencies, what code coverage does and does not measure, running the suite in CI, and diagnosing flaky tests. Techniques that go beyond hand-written examples (property-based testing, fuzzing, mutation testing, contract testing) are on <a href="advanced-testing.html">Advanced Testing</a>; the shape of the overall suite is discussed on the <a href="./#the-shape-of-a-test-suite">Testing Hub</a>.</p>
 
 <h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
 <ol id="markdown-toc">
   <li>
-<a href="#what-a-unit-test-is" id="markdown-toc-what-a-unit-test-is">What a Unit Test Is</a>    <ol>
-      <li><a href="#good-tests-fail-for-exactly-one-reason" id="markdown-toc-good-tests-fail-for-exactly-one-reason">Good Tests Fail for Exactly One Reason</a></li>
-      <li><a href="#what-to-assert-behavior-not-implementation" id="markdown-toc-what-to-assert-behavior-not-implementation">What to Assert: Behavior, Not Implementation</a></li>
-    </ol>
-  </li>
-  <li>
-<a href="#the-testing-pyramid" id="markdown-toc-the-testing-pyramid">The Testing Pyramid</a>    <ol>
-      <li><a href="#anti-patterns-the-ice-cream-cone-and-the-hourglass" id="markdown-toc-anti-patterns-the-ice-cream-cone-and-the-hourglass">Anti-Patterns: The Ice-Cream Cone and the Hourglass</a></li>
+<a href="#unit-tests" id="markdown-toc-unit-tests">Unit Tests</a>    <ol>
+      <li><a href="#structure-arrangeactassert" id="markdown-toc-structure-arrangeactassert">Structure: Arrange–Act–Assert</a></li>
+      <li><a href="#test-behavior-not-implementation" id="markdown-toc-test-behavior-not-implementation">Test Behavior, Not Implementation</a></li>
+      <li><a href="#parametrized-tests" id="markdown-toc-parametrized-tests">Parametrized Tests</a></li>
+      <li><a href="#solitary-vs-sociable-unit-tests" id="markdown-toc-solitary-vs-sociable-unit-tests">Solitary vs. Sociable Unit Tests</a></li>
+      <li><a href="#common-frameworks" id="markdown-toc-common-frameworks">Common Frameworks</a></li>
     </ol>
   </li>
   <li>
 <a href="#test-doubles" id="markdown-toc-test-doubles">Test Doubles</a>    <ol>
-      <li><a href="#dummy" id="markdown-toc-dummy">Dummy</a></li>
-      <li><a href="#stub" id="markdown-toc-stub">Stub</a></li>
-      <li><a href="#fake" id="markdown-toc-fake">Fake</a></li>
-      <li><a href="#spy" id="markdown-toc-spy">Spy</a></li>
-      <li><a href="#mock" id="markdown-toc-mock">Mock</a></li>
-      <li><a href="#stubs-vs-mocks-state-vs-interaction-verification" id="markdown-toc-stubs-vs-mocks-state-vs-interaction-verification">Stubs vs. Mocks: State vs. Interaction Verification</a></li>
+      <li><a href="#state-vs-interaction-verification" id="markdown-toc-state-vs-interaction-verification">State vs. Interaction Verification</a></li>
     </ol>
   </li>
   <li><a href="#test-driven-development" id="markdown-toc-test-driven-development">Test-Driven Development</a></li>
-  <li><a href="#fixtures-and-test-setup" id="markdown-toc-fixtures-and-test-setup">Fixtures and Test Setup</a></li>
   <li>
-<a href="#integration-testing" id="markdown-toc-integration-testing">Integration Testing</a>    <ol>
-      <li><a href="#the-spectrum-narrow-to-broad" id="markdown-toc-the-spectrum-narrow-to-broad">The Spectrum: Narrow to Broad</a></li>
-      <li><a href="#real-dependencies-without-the-pain" id="markdown-toc-real-dependencies-without-the-pain">Real Dependencies Without the Pain</a></li>
-      <li><a href="#contract-testing" id="markdown-toc-contract-testing">Contract Testing</a></li>
+<a href="#fixtures-and-test-data" id="markdown-toc-fixtures-and-test-data">Fixtures and Test Data</a>    <ol>
+      <li><a href="#builders-and-factories" id="markdown-toc-builders-and-factories">Builders and Factories</a></li>
+      <li><a href="#ambient-inputs-clock-randomness-ids" id="markdown-toc-ambient-inputs-clock-randomness-ids">Ambient Inputs: Clock, Randomness, IDs</a></li>
     </ol>
   </li>
-  <li><a href="#test-data-management" id="markdown-toc-test-data-management">Test Data Management</a></li>
   <li>
-<a href="#code-coverage-and-its-misuse" id="markdown-toc-code-coverage-and-its-misuse">Code Coverage and Its Misuse</a>    <ol>
-      <li><a href="#coverage-as-a-floor-not-a-target" id="markdown-toc-coverage-as-a-floor-not-a-target">Coverage as a Floor, Not a Target</a></li>
-      <li><a href="#mutation-testing-coverage-with-teeth" id="markdown-toc-mutation-testing-coverage-with-teeth">Mutation Testing: Coverage with Teeth</a></li>
+<a href="#integration-tests" id="markdown-toc-integration-tests">Integration Tests</a>    <ol>
+      <li><a href="#narrow-and-broad-integration-tests" id="markdown-toc-narrow-and-broad-integration-tests">Narrow and Broad Integration Tests</a></li>
+      <li><a href="#real-dependencies-with-testcontainers" id="markdown-toc-real-dependencies-with-testcontainers">Real Dependencies with Testcontainers</a></li>
+      <li><a href="#isolating-tests-that-share-a-database" id="markdown-toc-isolating-tests-that-share-a-database">Isolating Tests That Share a Database</a></li>
+      <li><a href="#http-dependencies" id="markdown-toc-http-dependencies">HTTP Dependencies</a></li>
     </ol>
   </li>
+  <li><a href="#code-coverage-and-its-limits" id="markdown-toc-code-coverage-and-its-limits">Code Coverage and Its Limits</a></li>
   <li><a href="#running-tests-in-ci" id="markdown-toc-running-tests-in-ci">Running Tests in CI</a></li>
-  <li><a href="#flaky-tests" id="markdown-toc-flaky-tests">Flaky Tests</a></li>
+  <li>
+<a href="#flaky-tests" id="markdown-toc-flaky-tests">Flaky Tests</a>    <ol>
+      <li><a href="#root-causes" id="markdown-toc-root-causes">Root Causes</a></li>
+      <li><a href="#detect-quarantine-fix" id="markdown-toc-detect-quarantine-fix">Detect, Quarantine, Fix</a></li>
+    </ol>
+  </li>
   <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
 </ol>
 
 <hr>
 
-<h2 id="what-a-unit-test-is">What a Unit Test Is</h2>
+<h2 id="unit-tests">Unit Tests</h2>
 
-<p>A <strong>unit test</strong> exercises the smallest independently meaningful piece of behavior — typically one function, method, or class — in isolation from the rest of the system, and asserts that its observable result matches an expectation. The defining properties are not about size but about <em>cost and determinism</em>: a good unit test is <strong>fast</strong> (milliseconds), <strong>isolated</strong> (no network, disk, clock, or shared global state), <strong>deterministic</strong> (the same input always produces the same verdict), and <strong>focused</strong> (one logical reason to fail).</p>
+<p>A <strong>unit test</strong> exercises the smallest independently meaningful piece of behavior — usually one function, method, or class — and asserts that its observable result matches an expectation. What defines it is cost and determinism rather than size. A good unit test is:</p>
 
-<p>The canonical structure is <strong>Arrange–Act–Assert</strong> (AAA), sometimes called Given–When–Then:</p>
+<ul>
+  <li>
+<strong>fast</strong> — milliseconds, so the whole unit suite runs in seconds;</li>
+  <li>
+<strong>isolated</strong> — no network, disk, real clock, or shared mutable state;</li>
+  <li>
+<strong>deterministic</strong> — the same code always gets the same verdict;</li>
+  <li>
+<strong>focused</strong> — one logical reason to fail, so a failure names the broken behavior.</li>
+</ul>
+
+<h3 id="structure-arrangeactassert">Structure: Arrange–Act–Assert</h3>
+
+<p>The standard layout is <strong>Arrange–Act–Assert</strong> (AAA), equivalent to BDD’s <em>Given–When–Then</em>:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">test_discount_applies_to_subtotal</span><span class="p">():</span>
-    <span class="c1"># Arrange: construct the system under test and its inputs
-</span>    <span class="n">cart</span> <span class="o">=</span> <span class="nc">Cart</span><span class="p">(</span><span class="n">items</span><span class="o">=</span><span class="p">[</span><span class="nc">Item</span><span class="p">(</span><span class="sh">"</span><span class="s">book</span><span class="sh">"</span><span class="p">,</span> <span class="n">price</span><span class="o">=</span><span class="mf">20.00</span><span class="p">),</span> <span class="nc">Item</span><span class="p">(</span><span class="sh">"</span><span class="s">pen</span><span class="sh">"</span><span class="p">,</span> <span class="n">price</span><span class="o">=</span><span class="mf">5.00</span><span class="p">)])</span>
+    <span class="c1"># Arrange: build the system under test and its inputs
+</span>    <span class="n">cart</span> <span class="o">=</span> <span class="nc">Cart</span><span class="p">(</span><span class="n">items</span><span class="o">=</span><span class="p">[</span><span class="nc">Item</span><span class="p">(</span><span class="sh">"</span><span class="s">book</span><span class="sh">"</span><span class="p">,</span> <span class="n">price</span><span class="o">=</span><span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">20.00</span><span class="sh">"</span><span class="p">)),</span>
+                       <span class="nc">Item</span><span class="p">(</span><span class="sh">"</span><span class="s">pen</span><span class="sh">"</span><span class="p">,</span> <span class="n">price</span><span class="o">=</span><span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">5.00</span><span class="sh">"</span><span class="p">))])</span>
 
     <span class="c1"># Act: invoke exactly one behavior
 </span>    <span class="n">total</span> <span class="o">=</span> <span class="n">cart</span><span class="p">.</span><span class="nf">total_with_discount</span><span class="p">(</span><span class="n">percent</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 
     <span class="c1"># Assert: one logical expectation
-</span>    <span class="k">assert</span> <span class="n">total</span> <span class="o">==</span> <span class="mf">22.50</span>
+</span>    <span class="k">assert</span> <span class="n">total</span> <span class="o">==</span> <span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">22.50</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>The separation matters. <em>Arrange</em> establishes the precondition, <em>Act</em> triggers the behavior under test (and nothing else), and <em>Assert</em> states the postcondition. A test that interleaves the three — asserting in the middle, acting twice — is testing more than one thing and will fail for more than one reason, defeating the purpose of localization.</p>
+<p>A test that acts, asserts, then acts again is testing two behaviors and will fail for two reasons. (Note the <code class="language-plaintext highlighter-rouge">Decimal</code>: comparing money computed in binary floating point with <code class="language-plaintext highlighter-rouge">==</code> is itself a classic test bug; use <code class="language-plaintext highlighter-rouge">Decimal</code>, integer cents, or <code class="language-plaintext highlighter-rouge">pytest.approx</code> for genuinely floating-point results.)</p>
 
-<h3 id="good-tests-fail-for-exactly-one-reason">Good Tests Fail for Exactly One Reason</h3>
+<h3 id="test-behavior-not-implementation">Test Behavior, Not Implementation</h3>
 
-<p>The single most useful property of a unit test is a <em>specific</em> failure. When <code class="language-plaintext highlighter-rouge">test_discount_applies_to_subtotal</code> fails, you know the discount math is wrong, not the cart construction, not the persistence layer, not the HTTP route. This is why isolation is non-negotiable: every real collaborator a test touches is another reason it can fail for something other than the behavior it claims to verify. A test of pricing logic that talks to a real database is no longer a test of pricing logic — it is a test of pricing <em>and the database connection</em>, and it fails whenever either does.</p>
+<p>Tests should pin down <em>observable behavior</em> — return values, state visible through the public interface, and effects on collaborators the unit is responsible for — and say nothing about how that behavior is achieved. “The total is 22.50” survives any refactoring that preserves the answer; “the private <code class="language-plaintext highlighter-rouge">_apply_discount</code> helper was called with 0.10” breaks when the helper is inlined, although nothing a caller cares about changed. The first kind of test enables refactoring; the second taxes it.</p>
 
-<h3 id="what-to-assert-behavior-not-implementation">What to Assert: Behavior, Not Implementation</h3>
+<h3 id="parametrized-tests">Parametrized Tests</h3>
 
-<p>Tests should pin down <em>observable behavior</em> (the public contract) and stay silent about <em>how</em> that behavior is achieved. A test that asserts “the result is 22.50” survives any internal refactor that preserves the answer; a test that asserts “the <code class="language-plaintext highlighter-rouge">_apply_discount</code> helper was called with <code class="language-plaintext highlighter-rouge">0.10</code>” breaks the moment you inline that helper, even though nothing the user cares about changed. The first test is a safety net for refactoring; the second is a tax on it. The heuristic: <strong>test through the public interface, assert on the return value or visible side effect, and treat the internals as a black box.</strong></p>
+<p>When the same behavior should hold across several inputs, one parametrized test replaces a copy-pasted family and reports each case separately:</p>
 
-<h2 id="the-testing-pyramid">The Testing Pyramid</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pytest</span>
 
-<p>The <strong>testing pyramid</strong>, introduced by Mike Cohn, is a heuristic for the <em>shape</em> of a healthy test suite: many fast, cheap, isolated unit tests at the base; fewer integration tests in the middle; and very few slow, brittle end-to-end (E2E) tests at the top.</p>
+<span class="nd">@pytest.mark.parametrize</span><span class="p">(</span>
+    <span class="p">(</span><span class="sh">"</span><span class="s">percent</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">expected</span><span class="sh">"</span><span class="p">),</span>
+    <span class="p">[</span>
+        <span class="p">(</span><span class="mi">0</span><span class="p">,</span>   <span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">25.00</span><span class="sh">"</span><span class="p">)),</span>   <span class="c1"># no discount
+</span>        <span class="p">(</span><span class="mi">10</span><span class="p">,</span>  <span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">22.50</span><span class="sh">"</span><span class="p">)),</span>
+        <span class="p">(</span><span class="mi">50</span><span class="p">,</span>  <span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">12.50</span><span class="sh">"</span><span class="p">)),</span>   <span class="c1"># maximum allowed
+</span>        <span class="p">(</span><span class="mi">80</span><span class="p">,</span>  <span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">12.50</span><span class="sh">"</span><span class="p">)),</span>   <span class="c1"># clamped to 50%
+</span>    <span class="p">],</span>
+    <span class="n">ids</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">none</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">ten</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">max</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">clamped</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="k">def</span> <span class="nf">test_discount</span><span class="p">(</span><span class="n">percent</span><span class="p">,</span> <span class="n">expected</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="nf">make_cart</span><span class="p">().</span><span class="nf">total_with_discount</span><span class="p">(</span><span class="n">percent</span><span class="o">=</span><span class="n">percent</span><span class="p">)</span> <span class="o">==</span> <span class="n">expected</span>
+</code></pre></div></div>
 
-<pre><code class="language-mermaid">flowchart TD
-    E2E["End-to-End / UI&lt;br/&gt;few, slow, high-confidence, brittle"]
-    INT["Integration&lt;br/&gt;some, real collaborators wired together"]
-    UNIT["Unit&lt;br/&gt;many, fast, isolated, deterministic"]
-    E2E --- INT --- UNIT
-    style UNIT fill:#5b8def,color:#fff
-    style INT fill:#7b6fd0,color:#fff
-    style E2E fill:#9b5fc0,color:#fff
-</code></pre>
+<p>Choose cases by <strong>equivalence partitioning</strong> (one representative per class of input that should behave the same) and <strong>boundary-value analysis</strong> (values at and on either side of each boundary — here 50 and 51 would be the sharpest pair). Most off-by-one bugs live at boundaries.</p>
 
-<p>The shape is dictated by an economic trade-off along three axes that all move together as you climb:</p>
+<h3 id="solitary-vs-sociable-unit-tests">Solitary vs. Sociable Unit Tests</h3>
+
+<p>Practitioners disagree about what “isolated” means, and the disagreement is really about <em>how much</em> to replace:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Level</th>
-      <th>Scope</th>
-      <th>Speed</th>
-      <th>Confidence per test</th>
-      <th>Failure localization</th>
-      <th>Brittleness</th>
+      <th>Style</th>
+      <th>Also called</th>
+      <th>Collaborators</th>
+      <th>Strength</th>
+      <th>Weakness</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Unit</strong></td>
-      <td>one function/class</td>
-      <td>microseconds–ms</td>
-      <td>low (one behavior)</td>
-      <td>precise</td>
-      <td>low</td>
+      <td><strong>Solitary</strong></td>
+      <td>London school, mockist</td>
+      <td>Replaced with doubles, often mocks</td>
+      <td>Pinpoint failure localization; drives interface design</td>
+      <td>Tests coupled to call structure; can pass while the real parts don’t fit together</td>
     </tr>
     <tr>
-      <td><strong>Integration</strong></td>
-      <td>a few real components</td>
-      <td>ms–seconds</td>
-      <td>medium (a seam)</td>
-      <td>a subsystem</td>
-      <td>medium</td>
-    </tr>
-    <tr>
-      <td><strong>End-to-end</strong></td>
-      <td>whole system</td>
-      <td>seconds–minutes</td>
-      <td>high (a user flow)</td>
-      <td>“somewhere”</td>
-      <td>high</td>
+      <td><strong>Sociable</strong></td>
+      <td>Chicago/Detroit school, classicist</td>
+      <td>Real in-process objects; only slow or nondeterministic dependencies (I/O, clock) replaced</td>
+      <td>Survives refactoring; exercises real interactions</td>
+      <td>A bug in a shared class fails many tests at once</td>
     </tr>
   </tbody>
 </table>
 
-<p>A test higher up the pyramid gives you <em>more confidence per test</em> (it exercises code closer to what a user actually does) but costs more to run, fails more often for irrelevant reasons (a slow network, a redeployed dependency), and tells you less about <em>where</em> the bug is when it fails. The pyramid says: push every bug-detection responsibility as far <em>down</em> as it can correctly go. Verify pricing math in a unit test (instant, precise); verify “the checkout endpoint persists an order” in an integration test; reserve E2E for a handful of critical user journeys you cannot afford to break.</p>
+<p>Most mature codebases lean sociable and reserve doubles for process boundaries — the database, the network, the clock, the random source.</p>
 
-<h3 id="anti-patterns-the-ice-cream-cone-and-the-hourglass">Anti-Patterns: The Ice-Cream Cone and the Hourglass</h3>
+<h3 id="common-frameworks">Common Frameworks</h3>
 
-<p>Two degenerate shapes recur. The <strong>inverted pyramid</strong> (or “ice-cream cone”) has mostly E2E tests and few unit tests — common in teams that test through the UI because it “feels real.” The result is a suite that is slow, flaky, and impossible to debug: a one-line logic bug surfaces as a failed ten-minute browser test with a stack trace fifteen frames deep. The <strong>hourglass</strong> has many unit and many E2E tests but a starved middle — the integration seams where serialization, schema, and transaction bugs live go untested, so those bugs are either missed entirely or caught only by the expensive E2E layer. The healthy distribution is the classic pyramid precisely because it catches each class of bug at the cheapest level that <em>can</em> catch it.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Test runner / framework</th>
+      <th>Doubles and mocking</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Python</td>
+      <td>pytest (dominant), <code class="language-plaintext highlighter-rouge">unittest</code>
+</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">unittest.mock</code>, <code class="language-plaintext highlighter-rouge">pytest-mock</code>
+</td>
+      <td>Fixtures and parametrization are pytest’s core features</td>
+    </tr>
+    <tr>
+      <td>JavaScript / TypeScript</td>
+      <td>Vitest, Jest, Node’s built-in <code class="language-plaintext highlighter-rouge">node:test</code>
+</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">vi.fn</code> / <code class="language-plaintext highlighter-rouge">jest.fn</code>, MSW for HTTP</td>
+      <td>Vitest is the common choice for Vite-based projects</td>
+    </tr>
+    <tr>
+      <td>Java / Kotlin</td>
+      <td>JUnit (Jupiter API), TestNG, Kotest</td>
+      <td>Mockito, MockK</td>
+      <td>AssertJ for fluent assertions</td>
+    </tr>
+    <tr>
+      <td>C#</td>
+      <td>xUnit.net, NUnit, MSTest</td>
+      <td>Moq, NSubstitute</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Go</td>
+      <td>built-in <code class="language-plaintext highlighter-rouge">testing</code> package</td>
+      <td>Hand-written fakes, <code class="language-plaintext highlighter-rouge">gomock</code>
+</td>
+      <td>Table-driven tests are idiomatic</td>
+    </tr>
+    <tr>
+      <td>Rust</td>
+      <td>built-in <code class="language-plaintext highlighter-rouge">#[test]</code>, <code class="language-plaintext highlighter-rouge">cargo test</code>, <code class="language-plaintext highlighter-rouge">cargo-nextest</code> runner</td>
+      <td><code class="language-plaintext highlighter-rouge">mockall</code></td>
+      <td>Unit tests live in the same file as the code</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
 
 <h2 id="test-doubles">Test Doubles</h2>
 
-<p>To test a unit in isolation you must replace its real collaborators — the database, the payment gateway, the clock — with stand-ins. Gerard Meszaros’s <em>xUnit Test Patterns</em> gives these stand-ins the umbrella term <strong>test double</strong> (by analogy with a stunt double) and distinguishes five kinds. The distinctions are not pedantic: choosing the wrong kind is the most common cause of tests that are simultaneously brittle <em>and</em> low-value.</p>
+<p>To test a unit without its real collaborators you substitute <strong>test doubles</strong> (Gerard Meszaros, <em>xUnit Test Patterns</em>). The five kinds differ in what they do and, more importantly, in what the test then asserts on.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    TD["Test Double&lt;br/&gt;any stand-in for a real collaborator"]
-    TD --&gt; Dummy["Dummy&lt;br/&gt;passed but never used"]
-    TD --&gt; Stub["Stub&lt;br/&gt;returns canned answers to queries"]
-    TD --&gt; Fake["Fake&lt;br/&gt;working but simplified implementation"]
-    TD --&gt; Spy["Spy&lt;br/&gt;a stub that also records calls"]
-    TD --&gt; Mock["Mock&lt;br/&gt;pre-programmed with expectations, self-verifying"]
+    TD["Test double"]
+    TD --&gt; Q["Replace a query&lt;br/&gt;(something the unit reads)"]
+    TD --&gt; C["Replace a command&lt;br/&gt;(something the unit tells to act)"]
+    TD --&gt; N["Satisfy a signature only"]
+    N --&gt; Dummy["Dummy&lt;br/&gt;passed, never used"]
+    Q --&gt; Stub["Stub&lt;br/&gt;canned answers"]
+    Q --&gt; Fake["Fake&lt;br/&gt;working lightweight implementation"]
+    C --&gt; Spy["Spy&lt;br/&gt;records calls; test asserts after"]
+    C --&gt; Mock["Mock&lt;br/&gt;expectations set up front; self-verifying"]
 </code></pre>
 
-<h3 id="dummy">Dummy</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Double</th>
+      <th>Behavior</th>
+      <th>Verification style</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Dummy</strong></td>
+      <td>None</td>
+      <td>—</td>
+      <td>Filling a required parameter the test path never touches</td>
+    </tr>
+    <tr>
+      <td><strong>Stub</strong></td>
+      <td>Returns canned responses</td>
+      <td>State</td>
+      <td>Forcing a collaborator to return an error, a specific rate, a timeout</td>
+    </tr>
+    <tr>
+      <td><strong>Fake</strong></td>
+      <td>Real but simplified (in-memory repository, fake clock)</td>
+      <td>State</td>
+      <td>Data-access logic, time-dependent logic</td>
+    </tr>
+    <tr>
+      <td><strong>Spy</strong></td>
+      <td>Records calls for later inspection</td>
+      <td>Interaction</td>
+      <td>Verifying an email was sent, an event published</td>
+    </tr>
+    <tr>
+      <td><strong>Mock</strong></td>
+      <td>Pre-programmed with expected calls, fails if they don’t happen</td>
+      <td>Interaction</td>
+      <td>Same as spy, when the framework’s mock API is convenient</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>A <strong>dummy</strong> is an object passed only to satisfy a parameter list; it is never actually used. If a constructor requires a <code class="language-plaintext highlighter-rouge">Logger</code> but the behavior under test never logs, you pass a dummy logger to make the call compile. Dummies carry no behavior and assert nothing.</p>
-
-<h3 id="stub">Stub</h3>
-
-<p>A <strong>stub</strong> provides canned answers to the calls made during the test, and only to those calls. It replaces a <em>query</em> — a collaborator you read from. When testing retry logic, you stub the HTTP client so that the first call returns a 503 and the second a 200, then assert the unit eventually succeeded. The stub itself is never the thing you assert on; it merely controls the inputs your unit receives.</p>
+<p>A <strong>stub</strong> controls the unit’s inputs:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">StubRates</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Returns a fixed exchange rate regardless of arguments.</span><span class="sh">"""</span>
     <span class="k">def</span> <span class="nf">usd_to</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">currency</span><span class="p">):</span>
-        <span class="k">return</span> <span class="mf">0.91</span>  <span class="c1"># always EUR-ish, deterministically
-</span>
+        <span class="k">return</span> <span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">0.91</span><span class="sh">"</span><span class="p">)</span>
+
 <span class="k">def</span> <span class="nf">test_converts_with_current_rate</span><span class="p">():</span>
-    <span class="n">price</span> <span class="o">=</span> <span class="nf">convert</span><span class="p">(</span><span class="n">amount</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">to</span><span class="o">=</span><span class="sh">"</span><span class="s">EUR</span><span class="sh">"</span><span class="p">,</span> <span class="n">rates</span><span class="o">=</span><span class="nc">StubRates</span><span class="p">())</span>
-    <span class="k">assert</span> <span class="n">price</span> <span class="o">==</span> <span class="mf">91.00</span>
+    <span class="k">assert</span> <span class="nf">convert</span><span class="p">(</span><span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">100</span><span class="sh">"</span><span class="p">),</span> <span class="n">to</span><span class="o">=</span><span class="sh">"</span><span class="s">EUR</span><span class="sh">"</span><span class="p">,</span> <span class="n">rates</span><span class="o">=</span><span class="nc">StubRates</span><span class="p">())</span> <span class="o">==</span> <span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">91.00</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="fake">Fake</h3>
-
-<p>A <strong>fake</strong> is a real, working implementation — it actually does the job — but takes a shortcut that makes it unsuitable for production. The textbook example is an <strong>in-memory database</strong> standing in for the real one: it genuinely stores and queries data, so code that issues real inserts and selects works against it, but it forgets everything when the process ends and skips durability, networking, and concurrency. Fakes give you integration-like fidelity at unit-like speed, which is why an in-memory repository is often the sweet spot for testing data-access logic.</p>
+<p>A <strong>fake</strong> actually works, but takes a shortcut that makes it unfit for production:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">FakeUserRepo</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">A working repository backed by a dict instead of a database.</span><span class="sh">"""</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
         <span class="n">self</span><span class="p">.</span><span class="n">_rows</span> <span class="o">=</span> <span class="p">{}</span>
 
@@ -3071,281 +3157,426 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <span class="k">def</span> <span class="nf">test_registration_persists_user</span><span class="p">():</span>
     <span class="n">repo</span> <span class="o">=</span> <span class="nc">FakeUserRepo</span><span class="p">()</span>
-    <span class="nf">register</span><span class="p">(</span><span class="nc">User</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span><span class="p">),</span> <span class="n">repo</span><span class="p">)</span>
+    <span class="nf">register</span><span class="p">(</span><span class="nc">User</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span><span class="p">),</span> <span class="n">repo</span><span class="o">=</span><span class="n">repo</span><span class="p">)</span>
     <span class="k">assert</span> <span class="n">repo</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="n">email</span> <span class="o">==</span> <span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span>
 </code></pre></div></div>
 
-<h3 id="spy">Spy</h3>
+<p>A <strong>spy</strong> or <strong>mock</strong> verifies a command the unit issues. Python’s <code class="language-plaintext highlighter-rouge">unittest.mock</code> objects are spies in practice — they record everything and the test asserts afterwards:</p>
 
-<p>A <strong>spy</strong> is a stub that <em>also records</em> how it was called — arguments, call count, ordering — so the test can inspect that record afterward. Spies are for verifying <em>commands</em> (calls that cause a side effect you can’t otherwise observe). If a unit is supposed to send a confirmation email, you give it a spy mailer and, after acting, assert the spy was asked to send exactly one email to the right address.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SpyMailer</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">sent</span> <span class="o">=</span> <span class="p">[]</span>
-
-    <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">to</span><span class="p">,</span> <span class="n">subject</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">sent</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">to</span><span class="p">,</span> <span class="n">subject</span><span class="p">))</span>
-
-<span class="k">def</span> <span class="nf">test_registration_sends_welcome_email</span><span class="p">():</span>
-    <span class="n">mailer</span> <span class="o">=</span> <span class="nc">SpyMailer</span><span class="p">()</span>
-    <span class="nf">register</span><span class="p">(</span><span class="nc">User</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span><span class="p">),</span> <span class="n">mailer</span><span class="o">=</span><span class="n">mailer</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="n">mailer</span><span class="p">.</span><span class="n">sent</span> <span class="o">==</span> <span class="p">[(</span><span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Welcome</span><span class="sh">"</span><span class="p">)]</span>
-</code></pre></div></div>
-
-<h3 id="mock">Mock</h3>
-
-<p>A <strong>mock</strong> is the most opinionated double: it is pre-programmed before the act with the exact calls it <em>expects</em> to receive, and it <strong>verifies those expectations itself</strong> — a mock fails the test from the inside if the expected interaction does not happen (or an unexpected one does). The conceptual difference from a spy is <em>when and where</em> verification lives: a spy records passively and the test asserts afterward; a mock encodes the expectation up front and self-checks.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">unittest.mock</span> <span class="kn">import</span> <span class="n">Mock</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">unittest.mock</span> <span class="kn">import</span> <span class="n">create_autospec</span>
 
 <span class="k">def</span> <span class="nf">test_charges_card_once</span><span class="p">():</span>
-    <span class="n">gateway</span> <span class="o">=</span> <span class="nc">Mock</span><span class="p">()</span>
+    <span class="n">gateway</span> <span class="o">=</span> <span class="nf">create_autospec</span><span class="p">(</span><span class="n">PaymentGateway</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
     <span class="nf">checkout</span><span class="p">(</span><span class="n">cart</span><span class="p">,</span> <span class="n">gateway</span><span class="p">)</span>
-    <span class="n">gateway</span><span class="p">.</span><span class="n">charge</span><span class="p">.</span><span class="nf">assert_called_once_with</span><span class="p">(</span><span class="n">amount</span><span class="o">=</span><span class="mf">25.00</span><span class="p">,</span> <span class="n">currency</span><span class="o">=</span><span class="sh">"</span><span class="s">USD</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">gateway</span><span class="p">.</span><span class="n">charge</span><span class="p">.</span><span class="nf">assert_called_once_with</span><span class="p">(</span><span class="n">amount</span><span class="o">=</span><span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">25.00</span><span class="sh">"</span><span class="p">),</span> <span class="n">currency</span><span class="o">=</span><span class="sh">"</span><span class="s">USD</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="stubs-vs-mocks-state-vs-interaction-verification">Stubs vs. Mocks: State vs. Interaction Verification</h3>
+<p>Prefer <code class="language-plaintext highlighter-rouge">create_autospec</code> (or <code class="language-plaintext highlighter-rouge">Mock(spec=...)</code>) over a bare <code class="language-plaintext highlighter-rouge">Mock()</code>: a bare mock accepts <em>any</em> attribute and any arguments, so a misspelled method name or a changed signature still “passes.” An autospecced mock rejects calls the real class would reject.</p>
 
-<p>The deepest distinction is not between the five nouns but between two <em>styles of verification</em> they enable:</p>
+<h3 id="state-vs-interaction-verification">State vs. Interaction Verification</h3>
 
 <ul>
   <li>
-<strong>State verification</strong> (stubs, fakes): act, then assert on the resulting state or return value. “After registering, the user is in the repository.” You don’t care <em>how</em> it got there.</li>
+<strong>State verification</strong> (stubs, fakes): act, then assert on the result or the resulting state. “After registering, the user is in the repository.”</li>
   <li>
-<strong>Interaction verification</strong> (mocks, spies): act, then assert on the calls that were made. “Registering causes exactly one <code class="language-plaintext highlighter-rouge">INSERT</code>.” You care about the conversation between objects.</li>
+<strong>Interaction verification</strong> (spies, mocks): act, then assert on calls made. “Registering sends exactly one welcome email.”</li>
 </ul>
 
-<p>State verification produces tests that survive refactoring, because it only pins the outcome. Interaction verification is necessary when the outcome is <em>itself</em> a call to a collaborator you can’t see past — sending an email, charging a card, emitting an event — but it couples the test to the call structure, so over-mocking yields tests that break on every refactor while catching no real bugs. The discipline, often phrased as <strong>“mock roles, not objects”</strong> and <strong>“don’t mock what you don’t own”</strong>: mock at the boundaries you defined (your own ports/interfaces), and prefer a fake or the real thing for everything else. A test suite that mocks a third-party library’s internals verifies your <em>assumptions</em> about that library, not its <em>behavior</em> — and those assumptions are exactly what break on upgrade.</p>
+<p>State verification survives refactoring because it pins only the outcome. Interaction verification is necessary when the outcome <em>is</em> a call you cannot observe otherwise — sending email, charging a card, publishing an event — but it couples the test to call structure; over-mocked suites break on every refactor while catching few real bugs. Two rules of thumb:</p>
+
+<ul>
+  <li>
+<strong>Mock roles, not objects</strong>: define a narrow interface (a port) for each external responsibility and double that.</li>
+  <li>
+<strong>Don’t mock what you don’t own</strong>: mocking a third-party client’s internals tests your <em>assumptions</em> about the library, which are exactly what break on upgrade. Wrap the library in your own adapter, double the adapter in unit tests, and cover the adapter with an integration test against the real thing.</li>
+</ul>
+
+<hr>
 
 <h2 id="test-driven-development">Test-Driven Development</h2>
 
-<p><strong>Test-driven development</strong> (TDD), formalized by Kent Beck, inverts the usual order: you write a failing test <em>before</em> the code that makes it pass. The loop is <strong>Red–Green–Refactor</strong>:</p>
+<p><strong>Test-driven development</strong> (TDD), formalized by Kent Beck, writes a failing test <em>before</em> the code that makes it pass, in a short <strong>Red–Green–Refactor</strong> cycle:</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    Red["RED&lt;br/&gt;write a failing test&lt;br/&gt;for the next small behavior"] --&gt; Green["GREEN&lt;br/&gt;write the simplest code&lt;br/&gt;that makes it pass"]
-    Green --&gt; Refactor["REFACTOR&lt;br/&gt;improve the design&lt;br/&gt;with tests as a safety net"]
-    Refactor --&gt; Red
+<pre><code class="language-mermaid">stateDiagram-v2
+    direction LR
+    Red: RED — write a failing test for the next small behavior
+    Green: GREEN — simplest code that passes
+    Refactor: REFACTOR — improve design, tests stay green
+    [*] --&gt; Red
+    Red --&gt; Green: test fails for the right reason
+    Green --&gt; Refactor: all tests pass
+    Refactor --&gt; Red: next behavior
 </code></pre>
 
 <ol>
   <li>
-<strong>Red.</strong> Write a small test for behavior that does not yet exist, and run it. It must fail — and fail for the <em>right reason</em> (a missing feature, not a typo). A test that passes immediately tested nothing.</li>
+<strong>Red.</strong> Write a small test for behavior that does not exist yet and watch it fail — for the right reason (missing behavior, not a typo). A test that passes immediately is testing nothing new.</li>
   <li>
-<strong>Green.</strong> Write the <em>least</em> code that makes the test pass, even if it’s embarrassingly naive (“fake it till you make it” — return the literal expected value first). Resist building beyond what the test demands.</li>
+<strong>Green.</strong> Write the least code that passes, even naively.</li>
   <li>
-<strong>Refactor.</strong> Now that behavior is pinned by a passing test, improve the structure — remove duplication, rename, extract — running the test after each change to confirm you preserved behavior.</li>
+<strong>Refactor.</strong> With behavior pinned, clean up names, duplication, and structure, re-running tests after each step.</li>
 </ol>
 
-<p>The value of TDD is less about testing than about <em>design feedback</em>. Writing the test first forces you to use the code’s interface before it exists, which surfaces awkward APIs early (hard-to-test code is usually hard-to-<em>use</em> code with too many dependencies or hidden state). It also guarantees, by construction, that every line of production code was written to satisfy a test — so coverage is high <em>and</em> meaningful, because each test was the reason its code exists. The discipline’s cost is real: it is slower per line and ill-suited to exploratory spikes where you don’t yet know the design. Many practitioners spike to learn, then delete the spike and rebuild it test-first.</p>
+<p>TDD’s main payoff is <em>design feedback</em>: using an interface before it exists exposes awkward APIs, hidden dependencies, and global state early, because code that is hard to test is usually hard to use. It is less suited to exploratory work where the design is unknown; a common approach is to spike to learn, discard the spike, and rebuild test-first.</p>
 
-<p>A related but distinct practice, <strong>behavior-driven development</strong> (BDD), reframes tests in business language (<code class="language-plaintext highlighter-rouge">Given a logged-in user, When they add an item, Then the cart count increases</code>) so that non-engineers can read and contribute to the specification. BDD is TDD with a vocabulary chosen for collaboration rather than a different mechanism.</p>
+<p><strong>Behavior-driven development</strong> (BDD) is TDD with specifications written in domain language (<code class="language-plaintext highlighter-rouge">Given a logged-in user, When they add an item, Then the cart count is 1</code>), sometimes executed by tools such as Cucumber or <code class="language-plaintext highlighter-rouge">pytest-bdd</code>, so that non-engineers can read and review them.</p>
 
-<h2 id="fixtures-and-test-setup">Fixtures and Test Setup</h2>
+<hr>
 
-<p>A <strong>fixture</strong> is the fixed baseline state a test runs against — the arranged world before the act. Test frameworks provide setup/teardown hooks (<code class="language-plaintext highlighter-rouge">setUp</code>/<code class="language-plaintext highlighter-rouge">tearDown</code> in xUnit, <code class="language-plaintext highlighter-rouge">@BeforeEach</code>/<code class="language-plaintext highlighter-rouge">@AfterEach</code> in JUnit, fixtures in pytest) to build that baseline and tear it down afterward so tests don’t leak state into one another.</p>
+<h2 id="fixtures-and-test-data">Fixtures and Test Data</h2>
+
+<p>A <strong>fixture</strong> is the known baseline a test runs against, plus the setup and teardown that create and destroy it. In pytest, fixtures are functions requested by name; code after <code class="language-plaintext highlighter-rouge">yield</code> is teardown and runs even if the test fails:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pytest</span>
 
 <span class="nd">@pytest.fixture</span>
-<span class="k">def</span> <span class="nf">empty_cart</span><span class="p">():</span>
-    <span class="c1"># Setup: build the baseline state
-</span>    <span class="n">cart</span> <span class="o">=</span> <span class="nc">Cart</span><span class="p">()</span>
-    <span class="k">yield</span> <span class="n">cart</span>            <span class="c1"># the test runs here, receiving `cart`
-</span>    <span class="c1"># Teardown after yield (runs even if the test failed)
-</span>    <span class="n">cart</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
-
-<span class="k">def</span> <span class="nf">test_adding_item_increases_count</span><span class="p">(</span><span class="n">empty_cart</span><span class="p">):</span>
-    <span class="n">empty_cart</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="nc">Item</span><span class="p">(</span><span class="sh">"</span><span class="s">book</span><span class="sh">"</span><span class="p">,</span> <span class="mf">20.00</span><span class="p">))</span>
-    <span class="k">assert</span> <span class="n">empty_cart</span><span class="p">.</span><span class="n">count</span> <span class="o">==</span> <span class="mi">1</span>
-</code></pre></div></div>
-
-<p>The central tension in fixture design is <strong>sharing versus isolation</strong>. A fixture rebuilt fresh for every test (a “fresh fixture”) guarantees isolation — no test can be polluted by another’s leftovers — at the cost of setup time. A fixture built once and shared across many tests (a “shared fixture,” e.g. a class- or module-scoped database) is fast but dangerous: if any test mutates it, later tests inherit the mutation and you get <strong>order-dependent failures</strong> that pass alone and fail in the suite (or vice versa). The safe default is the freshest fixture you can afford; share a fixture only when it is genuinely immutable or you reset it rigorously between tests.</p>
-
-<p>Two fixture anti-patterns are worth naming. The <strong>general fixture</strong> crams every field any test might need into one giant setup, so each test pays for state it doesn’t use and readers can’t tell which parts matter. The <strong>obscure test / mystery guest</strong> hides the arrange step in a remote shared fixture or an external file, so a test’s behavior depends on data you cannot see while reading it. Prefer fixtures that are <em>minimal</em> (only what this test needs) and <em>local</em> (visible at the point of use); <strong>object mother</strong> and <strong>test data builder</strong> patterns help by giving you a readable, parameterizable way to construct just-enough test objects inline.</p>
-
-<h2 id="integration-testing">Integration Testing</h2>
-
-<p>An <strong>integration test</strong> verifies that two or more components work correctly <em>together</em>, exercising the seams that unit tests deliberately stub out. The bugs it targets are, by construction, invisible to unit tests: a column renamed in the schema but not the ORM, a JSON field serialized as a string on one side and an integer on the other, a transaction that commits a partial write, an HTTP contract where the client sends <code class="language-plaintext highlighter-rouge">userId</code> and the server reads <code class="language-plaintext highlighter-rouge">user_id</code>. No amount of isolated unit testing can find these, because each side passes its own tests against its own assumptions — the bug lives in the gap <em>between</em> the assumptions.</p>
-
-<h3 id="the-spectrum-narrow-to-broad">The Spectrum: Narrow to Broad</h3>
-
-<p>“Integration test” spans a range. A <strong>narrow</strong> (or sociable) integration test wires your code to <em>one</em> real collaborator — your repository against a real Postgres, your client against a real (test) HTTP server — and stubs the rest. A <strong>broad</strong> integration test stands up several real services together. Narrower is better when it suffices: it is faster, more deterministic, and localizes failures, while still exercising the real serialization/schema/protocol boundary that is the entire point. Reserve broad integration (and true E2E) for flows whose correctness genuinely depends on three or more components cooperating.</p>
-
-<h3 id="real-dependencies-without-the-pain">Real Dependencies Without the Pain</h3>
-
-<p>The historical objection to integration tests — “they need a real database, so they’re slow and flaky” — is now largely solved by <strong>ephemeral, containerized dependencies</strong>. Libraries like Testcontainers start a throwaway Postgres/Kafka/Redis in a container for the duration of the test run, give your test its connection string, and tear it down after, so the test runs against the <em>real</em> engine (real SQL dialect, real constraints, real isolation levels) with no shared, hand-maintained test database to corrupt.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Sketch: a containerized real database, started fresh per test session
-</span><span class="kn">import</span> <span class="n">pytest</span>
-<span class="kn">from</span> <span class="n">testcontainers.postgres</span> <span class="kn">import</span> <span class="n">PostgresContainer</span>
-
-<span class="nd">@pytest.fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="sh">"</span><span class="s">session</span><span class="sh">"</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">db_url</span><span class="p">():</span>
-    <span class="k">with</span> <span class="nc">PostgresContainer</span><span class="p">(</span><span class="sh">"</span><span class="s">postgres:16</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">pg</span><span class="p">:</span>
-        <span class="k">yield</span> <span class="n">pg</span><span class="p">.</span><span class="nf">get_connection_url</span><span class="p">()</span>   <span class="c1"># real Postgres, disposable
+<span class="k">def</span> <span class="nf">cart</span><span class="p">():</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="nc">Cart</span><span class="p">()</span>
+    <span class="k">yield</span> <span class="n">c</span>          <span class="c1"># the test runs here
+</span>    <span class="n">c</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>        <span class="c1"># teardown
 </span>
-<span class="k">def</span> <span class="nf">test_user_repo_round_trips</span><span class="p">(</span><span class="n">db_url</span><span class="p">):</span>
-    <span class="n">repo</span> <span class="o">=</span> <span class="nc">SqlUserRepo</span><span class="p">(</span><span class="n">db_url</span><span class="p">)</span>
-    <span class="nf">migrate</span><span class="p">(</span><span class="n">db_url</span><span class="p">)</span>                     <span class="c1"># apply the real schema
-</span>    <span class="n">repo</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="nc">User</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span><span class="p">))</span>
-    <span class="k">assert</span> <span class="n">repo</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="n">email</span> <span class="o">==</span> <span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span>
+<span class="k">def</span> <span class="nf">test_adding_item_increases_count</span><span class="p">(</span><span class="n">cart</span><span class="p">):</span>
+    <span class="n">cart</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="nc">Item</span><span class="p">(</span><span class="sh">"</span><span class="s">book</span><span class="sh">"</span><span class="p">,</span> <span class="nc">Decimal</span><span class="p">(</span><span class="sh">"</span><span class="s">20.00</span><span class="sh">"</span><span class="p">)))</span>
+    <span class="k">assert</span> <span class="n">cart</span><span class="p">.</span><span class="n">count</span> <span class="o">==</span> <span class="mi">1</span>
 </code></pre></div></div>
 
-<p>This matters because a <strong>fake or in-memory substitute can only test the behavior you remembered to replicate.</strong> An in-memory store won’t enforce a real <code class="language-plaintext highlighter-rouge">UNIQUE</code> constraint, won’t reject a value that violates a <code class="language-plaintext highlighter-rouge">CHECK</code>, and won’t reproduce the locking behavior of <code class="language-plaintext highlighter-rouge">SERIALIZABLE</code> isolation — so a test that passes against the fake can fail against production. Use fakes for <em>unit</em> speed where the database semantics are irrelevant; use a containerized real engine when the database’s actual behavior is what you’re verifying.</p>
+<p>Fixture <strong>scope</strong> (<code class="language-plaintext highlighter-rouge">function</code>, <code class="language-plaintext highlighter-rouge">class</code>, <code class="language-plaintext highlighter-rouge">module</code>, <code class="language-plaintext highlighter-rouge">session</code>) trades isolation for speed. A fresh per-test fixture guarantees no test sees another’s leftovers; a shared session-scoped fixture (an expensive database container, say) is fast but must be immutable or reset between tests, or the suite develops <strong>order-dependent failures</strong> — tests that pass alone and fail together.</p>
 
-<h3 id="contract-testing">Contract Testing</h3>
-
-<p>When the “integration” is between two independently deployed services, standing up both in every test reintroduces the broad-test cost. <strong>Contract testing</strong> (consumer-driven contracts, popularized by Pact) replaces that with a faster bargain: the <em>consumer</em> writes a test against a mock of the provider that records the requests it makes and the responses it expects (the <strong>contract</strong>); the <em>provider</em> then independently runs a test that replays that contract against its real implementation and verifies it can satisfy it. Each side tests alone, fast, yet the pair is guaranteed compatible — the contract is the shared artifact that catches a breaking API change at <em>build</em> time in the service that made it, rather than at <em>runtime</em> in production.</p>
-
-<h2 id="test-data-management">Test Data Management</h2>
-
-<p>As tests move from unit toward integration, <em>test data</em> becomes a first-class problem. Three failure modes recur, and each has a discipline that addresses it.</p>
+<p>Anti-patterns to avoid:</p>
 
 <ul>
   <li>
-    <p><strong>Pollution and order dependence.</strong> Tests that share a database can leave rows behind that the next test trips over. The fix is <strong>isolation per test</strong>: either run each test inside a transaction that is <em>rolled back</em> at the end (fast, but won’t catch transaction-boundary bugs), or truncate/recreate the relevant tables between tests, or — with containerized dependencies — give each test session its own ephemeral instance. The invariant to protect: <em>any test must pass when run alone, and the suite must pass in any order.</em></p>
-  </li>
+<strong>General fixture</strong> — one enormous setup shared by every test, so no reader can tell which parts matter.</li>
   <li>
-    <p><strong>Realism vs. determinism.</strong> Hand-written fixtures are deterministic but tedious and unrealistic; production dumps are realistic but contain PII and are huge. <strong>Factories / test-data builders</strong> (FactoryBot, <code class="language-plaintext highlighter-rouge">factory_boy</code>, Faker-backed builders) split the difference: you declare a template with sensible defaults and override only the one field a given test cares about, so the test reads as “a user <em>who is an admin</em>” rather than a wall of irrelevant field assignments.</p>
-  </li>
+<strong>Mystery guest</strong> — the test depends on data in a remote fixture or external file that is invisible where the test is read.</li>
 </ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A builder makes the salient difference explicit and the rest implicit
-</span><span class="k">def</span> <span class="nf">a_user</span><span class="p">(</span><span class="o">**</span><span class="n">overrides</span><span class="p">):</span>
+<h3 id="builders-and-factories">Builders and Factories</h3>
+
+<p><strong>Test data builders</strong> (and libraries such as <code class="language-plaintext highlighter-rouge">factory_boy</code>, FactoryBot, or Faker-backed factories) supply sensible defaults so each test states only the field that matters to it:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">a_user</span><span class="p">(</span><span class="o">**</span><span class="n">overrides</span><span class="p">):</span>
     <span class="n">defaults</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="sh">"</span><span class="s">user@example.com</span><span class="sh">"</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="sh">"</span><span class="s">member</span><span class="sh">"</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
     <span class="k">return</span> <span class="nc">User</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="n">defaults</span><span class="p">,</span> <span class="o">**</span><span class="n">overrides</span><span class="p">})</span>
 
 <span class="k">def</span> <span class="nf">test_admins_can_delete</span><span class="p">():</span>
-    <span class="k">assert</span> <span class="nf">can_delete</span><span class="p">(</span><span class="nf">a_user</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="sh">"</span><span class="s">admin</span><span class="sh">"</span><span class="p">))</span>     <span class="c1"># only the relevant field is stated
-</span></code></pre></div></div>
+    <span class="k">assert</span> <span class="nf">can_delete</span><span class="p">(</span><span class="nf">a_user</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="sh">"</span><span class="s">admin</span><span class="sh">"</span><span class="p">))</span>
+</code></pre></div></div>
+
+<h3 id="ambient-inputs-clock-randomness-ids">Ambient Inputs: Clock, Randomness, IDs</h3>
+
+<p>Anything the code reads from its environment — current time, random numbers, UUIDs, locale, timezone, environment variables — makes a test nondeterministic unless the test controls it. Inject these as dependencies (a <code class="language-plaintext highlighter-rouge">Clock</code> interface, a seeded <code class="language-plaintext highlighter-rouge">random.Random</code>), or pin them with tools such as <code class="language-plaintext highlighter-rouge">freezegun</code>/<code class="language-plaintext highlighter-rouge">time-machine</code> for time. When generating random data, <strong>log the seed</strong> so a failure can be replayed exactly.</p>
+
+<hr>
+
+<h2 id="integration-tests">Integration Tests</h2>
+
+<p>An <strong>integration test</strong> checks that components work <em>together</em>. It targets bugs that unit tests cannot see by construction, because each side passes its own tests against its own assumptions:</p>
 
 <ul>
-  <li>
-<strong>Seeded randomness.</strong> Generated data (via Faker or property-based generators) covers more of the input space than hand-picked examples, but uncontrolled randomness reintroduces flakiness — a test that fails one run in fifty is worse than no test. <strong>Seed the generator</strong> so a failing run is reproducible: log the seed, and on failure re-run with that seed to get the exact same data. (This is the same determinism discipline that <a href="../distributed-systems/testing-distributed-systems.html#deterministic-simulation-testing">simulation testing</a> takes to its logical extreme.)</li>
+  <li>a column renamed in a migration but not in the ORM mapping;</li>
+  <li>a field serialized as a string by one side and parsed as an integer by the other;</li>
+  <li>a transaction that commits a partial write, or a query that behaves differently under the real isolation level;</li>
+  <li>a SQL dialect feature (upsert syntax, JSON operators) the in-memory substitute doesn’t implement.</li>
 </ul>
 
-<p>A frequent special case is <strong>the clock and other ambient inputs.</strong> A test that calls <code class="language-plaintext highlighter-rouge">datetime.now()</code> is non-deterministic and will eventually fail at a year boundary or under daylight-saving. Inject the clock (and the random source, and the UUID generator) so the test controls them — pass a fixed <code class="language-plaintext highlighter-rouge">now</code>, freeze time with a library like <code class="language-plaintext highlighter-rouge">freezegun</code>, or depend on an injected <code class="language-plaintext highlighter-rouge">Clock</code> interface. Ambient nondeterminism is the most common root cause of “works on my machine” flakiness.</p>
+<h3 id="narrow-and-broad-integration-tests">Narrow and Broad Integration Tests</h3>
 
-<h2 id="code-coverage-and-its-misuse">Code Coverage and Its Misuse</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Kind</th>
+      <th>What is real</th>
+      <th>Speed</th>
+      <th>Use for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Narrow</strong></td>
+      <td>Your code plus <em>one</em> real dependency (repository + Postgres; HTTP client + a local test server)</td>
+      <td>Seconds</td>
+      <td>Most integration testing: the adapter layer for each external system</td>
+    </tr>
+    <tr>
+      <td><strong>Broad</strong></td>
+      <td>Several real services together</td>
+      <td>Minutes</td>
+      <td>A few flows whose correctness depends on several components cooperating</td>
+    </tr>
+    <tr>
+      <td><strong>Contract</strong></td>
+      <td>Neither side runs against the other; both verify against a shared contract</td>
+      <td>Seconds</td>
+      <td>Boundaries between independently deployed services (<a href="advanced-testing.html#contract-testing">details</a>)</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Code coverage</strong> measures which parts of the production code were <em>executed</em> while the tests ran. It is reported at several granularities, in roughly increasing strength:</p>
+<p>Prefer narrow tests: they exercise the real serialization, schema, and protocol boundary while staying fast and localizing failures.</p>
+
+<h3 id="real-dependencies-with-testcontainers">Real Dependencies with Testcontainers</h3>
+
+<p>The old objection — “integration tests need a shared test database, so they are slow and flaky” — is largely solved by <strong>ephemeral containerized dependencies</strong>. Testcontainers (libraries for Java, Go, .NET, Node.js, Python, Rust, and others) starts a throwaway Postgres, Kafka, Redis, or LocalStack container for the test run, hands the test its connection details, and removes it afterwards.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant T as Test session
+    participant TC as Testcontainers
+    participant D as Docker / container runtime
+    participant PG as postgres:17 container
+    T-&gt;&gt;TC: start PostgresContainer
+    TC-&gt;&gt;D: pull image, create and start container
+    D--&gt;&gt;PG: running
+    TC-&gt;&gt;PG: wait until ready (accepting connections)
+    TC--&gt;&gt;T: connection URL
+    T-&gt;&gt;PG: apply migrations once per session
+    loop each test
+        T-&gt;&gt;PG: BEGIN; exercise repository; assert; ROLLBACK
+    end
+    T-&gt;&gt;TC: session ends
+    TC-&gt;&gt;D: stop and remove container
+</code></pre>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pytest</span>
+<span class="kn">import</span> <span class="n">sqlalchemy</span>
+<span class="kn">from</span> <span class="n">testcontainers.postgres</span> <span class="kn">import</span> <span class="n">PostgresContainer</span>
+
+<span class="nd">@pytest.fixture</span><span class="p">(</span><span class="n">scope</span><span class="o">=</span><span class="sh">"</span><span class="s">session</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">engine</span><span class="p">():</span>
+    <span class="k">with</span> <span class="nc">PostgresContainer</span><span class="p">(</span><span class="sh">"</span><span class="s">postgres:17</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">pg</span><span class="p">:</span>
+        <span class="n">eng</span> <span class="o">=</span> <span class="n">sqlalchemy</span><span class="p">.</span><span class="nf">create_engine</span><span class="p">(</span><span class="n">pg</span><span class="p">.</span><span class="nf">get_connection_url</span><span class="p">())</span>
+        <span class="nf">run_migrations</span><span class="p">(</span><span class="n">eng</span><span class="p">)</span>            <span class="c1"># the real schema, not a hand-written copy
+</span>        <span class="k">yield</span> <span class="n">eng</span>
+
+<span class="nd">@pytest.fixture</span>
+<span class="k">def</span> <span class="nf">conn</span><span class="p">(</span><span class="n">engine</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">engine</span><span class="p">.</span><span class="nf">connect</span><span class="p">()</span> <span class="k">as</span> <span class="n">c</span><span class="p">:</span>
+        <span class="n">tx</span> <span class="o">=</span> <span class="n">c</span><span class="p">.</span><span class="nf">begin</span><span class="p">()</span>
+        <span class="k">yield</span> <span class="n">c</span>
+        <span class="n">tx</span><span class="p">.</span><span class="nf">rollback</span><span class="p">()</span>                  <span class="c1"># each test leaves no trace
+</span>
+<span class="k">def</span> <span class="nf">test_user_repo_round_trips</span><span class="p">(</span><span class="n">conn</span><span class="p">):</span>
+    <span class="n">repo</span> <span class="o">=</span> <span class="nc">SqlUserRepo</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
+    <span class="n">repo</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="nc">User</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="n">repo</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="n">email</span> <span class="o">==</span> <span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span>
+
+<span class="k">def</span> <span class="nf">test_email_is_unique</span><span class="p">(</span><span class="n">conn</span><span class="p">):</span>
+    <span class="n">repo</span> <span class="o">=</span> <span class="nc">SqlUserRepo</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
+    <span class="n">repo</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="nc">User</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span><span class="p">))</span>
+    <span class="k">with</span> <span class="n">pytest</span><span class="p">.</span><span class="nf">raises</span><span class="p">(</span><span class="n">DuplicateEmail</span><span class="p">):</span>
+        <span class="n">repo</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="nc">User</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">email</span><span class="o">=</span><span class="sh">"</span><span class="s">a@b.com</span><span class="sh">"</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p>The second test is the reason to use the real engine: an in-memory fake enforces only the constraints someone remembered to reimplement, and won’t reproduce <code class="language-plaintext highlighter-rouge">UNIQUE</code>, <code class="language-plaintext highlighter-rouge">CHECK</code>, foreign-key, or <code class="language-plaintext highlighter-rouge">SERIALIZABLE</code> locking behavior. Use fakes where database semantics are irrelevant to the behavior under test; use the real engine when they are the behavior under test.</p>
+
+<h3 id="isolating-tests-that-share-a-database">Isolating Tests That Share a Database</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Strategy</th>
+      <th>How</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Transaction rollback</td>
+      <td>Each test runs in a transaction rolled back at teardown (as above)</td>
+      <td>Fastest; cannot test code that commits or manages its own transactions</td>
+    </tr>
+    <tr>
+      <td>Truncate between tests</td>
+      <td>Delete from all tables after each test</td>
+      <td>Works with committing code; slower on large schemas</td>
+    </tr>
+    <tr>
+      <td>Database per test / worker</td>
+      <td>Template database clone, or one container per parallel worker</td>
+      <td>Strongest isolation, supports parallelism; most resource use</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The invariant to protect: <strong>every test passes when run alone, and the suite passes in any order.</strong> Randomizing order (<code class="language-plaintext highlighter-rouge">pytest-randomly</code>, JUnit’s <code class="language-plaintext highlighter-rouge">MethodOrderer.Random</code>) finds violations early.</p>
+
+<h3 id="http-dependencies">HTTP Dependencies</h3>
+
+<p>For third-party HTTP APIs, run your client against a local stand-in rather than the live service: WireMock or a Testcontainers module for a simulated service, MSW (Mock Service Worker) in JavaScript, or <code class="language-plaintext highlighter-rouge">responses</code>/<code class="language-plaintext highlighter-rouge">respx</code> in Python. Record-and-replay tools (VCR-style cassettes) capture real responses once; re-record them periodically, or they silently drift from the real API.</p>
+
+<hr>
+
+<h2 id="code-coverage-and-its-limits">Code Coverage and Its Limits</h2>
+
+<p><strong>Code coverage</strong> measures which parts of the code were <em>executed</em> by the tests. Common granularities, weakest to strongest:</p>
 
 <table>
   <thead>
     <tr>
       <th>Metric</th>
-      <th>Asks</th>
+      <th>Question</th>
       <th>Weakness</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Line / statement</strong></td>
-      <td>Was each line run?</td>
-      <td>A line can run without its outcome being checked</td>
+      <td>Line / statement</td>
+      <td>Did each line run?</td>
+      <td>A line can run without its result being checked</td>
     </tr>
     <tr>
-      <td><strong>Branch / decision</strong></td>
-      <td>Was each <code class="language-plaintext highlighter-rouge">if</code>/<code class="language-plaintext highlighter-rouge">else</code> edge taken?</td>
-      <td>Misses compound-condition subtleties</td>
+      <td>Branch</td>
+      <td>Was each outcome of each decision taken?</td>
+      <td>Misses combinations inside compound conditions</td>
     </tr>
     <tr>
-      <td><strong>Condition</strong></td>
-      <td>Was each boolean sub-expression evaluated both true and false?</td>
-      <td>Still says nothing about assertions</td>
+      <td>Condition / MC/DC</td>
+      <td>Did each sub-condition independently affect the decision?</td>
+      <td>Required by DO-178C for the most critical avionics software; costly elsewhere</td>
     </tr>
     <tr>
-      <td><strong>Path</strong></td>
-      <td>Was each path through the function exercised?</td>
-      <td>Combinatorially explosive; rarely fully achievable</td>
-    </tr>
-    <tr>
-      <td><strong>Mutation</strong></td>
-      <td>If we corrupt the code, does a test <em>notice</em>?</td>
-      <td>Slow to compute</td>
+      <td>Path</td>
+      <td>Was every path through the function taken?</td>
+      <td>Combinatorially explosive</td>
     </tr>
   </tbody>
 </table>
 
-<p>The crucial limitation is in the definition: coverage measures <em>execution</em>, not <em>verification</em>. A test that calls every line but asserts nothing — or asserts something trivially true — yields 100% coverage and catches nothing. Coverage answers “did a test run this code?”; it never answers “did a test <em>check</em> that this code is correct?”</p>
+<p>Coverage measures execution, not verification. This test covers <code class="language-plaintext highlighter-rouge">divide</code> completely and checks nothing:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># This test gives full line coverage of `divide` and verifies nothing useful
-</span><span class="k">def</span> <span class="nf">divide</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">a</span> <span class="o">/</span> <span class="n">b</span>
-
-<span class="k">def</span> <span class="nf">test_divide</span><span class="p">():</span>
-    <span class="nf">divide</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>        <span class="c1"># executes the line -&gt; "covered"
-</span>    <span class="c1"># ...but there is no assertion: a bug returning a+b would pass
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">test_divide</span><span class="p">():</span>
+    <span class="nf">divide</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>      <span class="c1"># executed, so "covered" — but no assertion
 </span></code></pre></div></div>
 
-<h3 id="coverage-as-a-floor-not-a-target">Coverage as a Floor, Not a Target</h3>
+<p>By Goodhart’s law, a coverage <em>quota</em> (“90% or the build fails”) produces tests written to touch lines — assertion-free tests, tests of trivial getters — while hard logic stays under-verified. Use coverage instead:</p>
 
-<p>The single most important rule, a corollary of <strong>Goodhart’s Law</strong> (“when a measure becomes a target, it ceases to be a good measure”): use coverage to find code that is tested <em>not at all</em>, never as a quota to hit. A coverage report’s value is the <em>red</em> — the un-executed branches that reveal an untested error path or an entire forgotten module. Mandating “90% coverage” as a gate predictably produces tests written to touch lines rather than to verify behavior: assertion-free tests, tests of trivial getters, and tests gerrymandered to clip the cheapest uncovered lines while the hard, important logic stays under-verified. The number went up; the suite got worse.</p>
+<ul>
+  <li>to <strong>find</strong> untested code, especially untested error paths;</li>
+  <li>as a <strong>ratchet</strong> on changed lines (“new code must be covered”, “total must not fall”), which is harder to game than a global number;</li>
+  <li>together with <strong>mutation testing</strong>, which measures whether tests would detect a fault on a covered line — see <a href="advanced-testing.html#mutation-testing">Mutation Testing</a>.</li>
+</ul>
 
-<h3 id="mutation-testing-coverage-with-teeth">Mutation Testing: Coverage with Teeth</h3>
+<p>Tooling: Coverage.py / <code class="language-plaintext highlighter-rouge">pytest-cov</code> (Python), V8 or Istanbul coverage via Vitest/Jest (JavaScript), JaCoCo (JVM), <code class="language-plaintext highlighter-rouge">go test -cover</code>, <code class="language-plaintext highlighter-rouge">cargo llvm-cov</code> (Rust).</p>
 
-<p><strong>Mutation testing</strong> repairs coverage’s central blind spot. A mutation-testing tool (Stryker, PIT, <code class="language-plaintext highlighter-rouge">mutmut</code>, <code class="language-plaintext highlighter-rouge">cosmic-ray</code>) systematically introduces small faults into the production code — flips a <code class="language-plaintext highlighter-rouge">&lt;</code> to <code class="language-plaintext highlighter-rouge">&lt;=</code>, replaces <code class="language-plaintext highlighter-rouge">+</code> with <code class="language-plaintext highlighter-rouge">-</code>, deletes a statement, negates a condition — and reruns the suite for each mutant. If a test <em>fails</em>, the mutant is “killed” — good, your tests would have caught that bug. If every test still <em>passes</em>, the mutant “survived” — your tests executed that code but did not actually verify its behavior. The <strong>mutation score</strong> (fraction of mutants killed) measures assertion <em>quality</em>, not mere execution, which is exactly what line coverage cannot do. It is far more expensive to compute (the suite runs once per mutant), so it is typically run on critical modules or nightly rather than on every commit — but a surviving mutant is the most honest signal there is that a test is theater.</p>
+<hr>
 
 <h2 id="running-tests-in-ci">Running Tests in CI</h2>
 
-<p>Tests deliver their value only when they run <em>automatically</em> on every change. A continuous-integration pipeline (see <a href="../technology/ci-cd/">CI/CD Pipelines</a>) runs the suite on each push and pull request and blocks merge on failure, so a regression is caught by the author within minutes rather than by a teammate days later.</p>
-
-<p>The pyramid maps naturally onto CI <em>stages</em>, ordered fastest-and-most-localizing first so the pipeline <strong>fails fast</strong>:</p>
+<p>Tests deliver their value only when they run automatically on every change and block merges on failure (see <a href="../technology/ci-cd/">CI/CD Pipelines</a>). Order stages so the cheapest, most precise checks fail first:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    Lint["Lint / type-check&lt;br/&gt;seconds"] --&gt; Unit["Unit tests&lt;br/&gt;seconds, run on every push"]
-    Unit --&gt; Int["Integration tests&lt;br/&gt;minutes, containerized deps"]
-    Int --&gt; E2E["E2E / smoke&lt;br/&gt;slow, critical flows only"]
+    Lint["Lint, format,&lt;br/&gt;type-check&lt;br/&gt;seconds"] --&gt; Unit["Unit tests&lt;br/&gt;seconds,&lt;br/&gt;sharded"]
+    Unit --&gt; Int["Integration tests&lt;br/&gt;minutes,&lt;br/&gt;containerized deps"]
+    Int --&gt; E2E["E2E / smoke&lt;br/&gt;critical journeys"]
     E2E --&gt; Deploy["Deploy"]
 </code></pre>
 
-<p>Several practices keep CI useful rather than a bottleneck:</p>
+<p>Practices that keep CI fast and trustworthy:</p>
 
 <ul>
   <li>
-<strong>Fail fast, cheap first.</strong> Run linters and unit tests before the expensive integration and E2E stages, so the 90% of breakages that a unit test catches are reported in seconds, not after a ten-minute E2E run.</li>
+<strong>Parallelize and shard.</strong> Independent tests can be split across processes and machines (<code class="language-plaintext highlighter-rouge">pytest-xdist</code>, Vitest/Jest workers, Playwright <code class="language-plaintext highlighter-rouge">--shard</code>, <code class="language-plaintext highlighter-rouge">cargo nextest</code>), balanced by recorded timings.</li>
   <li>
-<strong>Parallelize and shard.</strong> Because well-isolated tests are independent, split the suite across workers (by file, by timing) to keep wall-clock time bounded as the suite grows.</li>
+<strong>Select tests by impact.</strong> Large monorepos run only tests whose dependency graph includes changed files (Bazel, Nx, Gradle, and similar build tools support this), with a full run on the main branch.</li>
   <li>
-<strong>Make every run reproducible.</strong> Pin dependency versions, seed every random generator, and use ephemeral containerized services so a CI failure can be reproduced locally — a green-on-my-machine / red-in-CI gap is itself a bug (usually ambient nondeterminism or an undeclared dependency).</li>
+<strong>Keep runs reproducible.</strong> Pin dependencies (lock files), seed randomness, pin container image tags, and avoid shared external environments. A test that is green locally and red in CI usually has an undeclared dependency or ambient nondeterminism.</li>
   <li>
-<strong>Gate on quality signals, but choose them wisely.</strong> Coverage <em>as a ratchet</em> (don’t let it drop) is more honest than coverage as a quota; a flaky-test quarantine and a required-status-check on the test job matter more than any single percentage.</li>
+<strong>Publish structured results.</strong> JUnit XML (supported by virtually every runner) lets the CI system show per-test history, durations, and flakiness trends.</li>
+  <li>
+<strong>Gate on the right signals.</strong> A required test job, a coverage ratchet, and a quarantine for known-flaky tests do more than any single percentage threshold.</li>
 </ul>
+
+<hr>
 
 <h2 id="flaky-tests">Flaky Tests</h2>
 
-<p>A <strong>flaky test</strong> is one that passes and fails <em>non-deterministically</em> on the same code. Flakiness is the single most corrosive failure mode a suite can have, because it destroys the property the suite exists to provide: <strong>trust</strong>. Once a red build might mean “real bug” or might mean “that flaky test again,” engineers start ignoring red builds — and the day a flaky red hides a genuine regression, the suite has failed at its one job. A test that fails 1% of the time on a 2,000-test suite means roughly one in five CI runs fails for no reason, which is enough to train a whole team to hit “re-run” reflexively.</p>
+<p>A <strong>flaky test</strong> passes and fails nondeterministically on the same code. Flakiness destroys the one thing a suite exists to provide — trust. Once red might mean “real bug” or “that test again,” engineers re-run until green, and eventually a real regression is waved through.</p>
 
-<p>The common root causes, in rough order of frequency:</p>
+<p>Flakiness compounds with suite size. If each of $n$ tests independently fails spuriously with probability $p$, a run is falsely red with probability $1 - (1-p)^n$. For 2,000 tests each flaking just 0.01% of the time, that is $1 - 0.9999^{2000} \approx 18\%$ — nearly one run in five fails for no reason.</p>
 
-<ul>
-  <li>
-<strong>Ambient nondeterminism</strong> — reading <code class="language-plaintext highlighter-rouge">now()</code>, the system clock, a random source, a UUID, or locale/timezone without injecting and pinning it. The fix is to inject every such input (a <code class="language-plaintext highlighter-rouge">Clock</code> interface, a seeded RNG) so the test controls it.</li>
-  <li>
-<strong>Order dependence and shared state</strong> — a test relies on (or pollutes) global state, a singleton, a shared database row, or a leftover file, so it passes alone but fails after another test ran first. The fix is isolation: fresh fixtures, per-test transactions or truncation, no mutable globals.</li>
-  <li>
-<strong>Timing / async races</strong> — <code class="language-plaintext highlighter-rouge">sleep(0.1)</code> “waiting” for an async result is a bet on machine speed that CI loses under load. The fix is to <em>await an explicit condition</em> (poll for the result, await the future, use the framework’s async assertions) rather than sleeping a guessed duration.</li>
-  <li>
-<strong>Test interdependence via external services</strong> — a shared staging database or a live third-party API that other runs or other people mutate. The fix is hermetic, containerized, per-run dependencies.</li>
-  <li>
-<strong>Resource leaks and pollution</strong> — unclosed connections, un-deleted temp files, ports left bound — that accumulate across a run and eventually break a later test. The fix is rigorous teardown (and fixtures whose teardown runs even on failure).</li>
-</ul>
+<h3 id="root-causes">Root Causes</h3>
 
-<p>The operational response, as documented by teams running enormous suites (Google, Microsoft), is a <strong>detect–quarantine–fix</strong> loop: a system flags tests that fail-then-pass-on-rerun, automatically <strong>quarantines</strong> them (still run and reported, but not blocking merge) so the build stays trustworthy, and tracks the quarantine as a debt to be <em>fixed</em>, not a place to hide tests forever. The cardinal sin is the silent re-run-until-green retry policy: it masks flakiness at exactly the moment you should be diagnosing it, and a “flaky” test is very often a <em>real, rare</em> concurrency bug in the production code that the test correctly caught.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Cause</th>
+      <th>Symptom</th>
+      <th>Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Async waits by sleeping</strong></td>
+      <td>
+<code class="language-plaintext highlighter-rouge">sleep(0.1)</code> then assert; fails on a loaded CI machine</td>
+      <td>Await an explicit condition (poll with timeout, await the future, auto-retrying assertions)</td>
+    </tr>
+    <tr>
+      <td><strong>Order dependence / shared state</strong></td>
+      <td>Passes alone, fails in the suite (or the reverse)</td>
+      <td>Fresh fixtures, per-test transactions, no mutable globals; randomize order to expose it</td>
+    </tr>
+    <tr>
+      <td><strong>Ambient nondeterminism</strong></td>
+      <td>Fails at midnight, month end, DST change, or in another timezone</td>
+      <td>Inject clock, RNG, UUID source; pin timezone and locale</td>
+    </tr>
+    <tr>
+      <td><strong>Uncontrolled external services</strong></td>
+      <td>Fails when a shared staging database or live API changes or is slow</td>
+      <td>Hermetic per-run dependencies (containers, local stubs)</td>
+    </tr>
+    <tr>
+      <td><strong>Resource leaks</strong></td>
+      <td>Later tests fail on “port in use” or “too many open files”</td>
+      <td>Teardown that runs on failure; allocate ephemeral ports</td>
+    </tr>
+    <tr>
+      <td><strong>Real concurrency bugs</strong></td>
+      <td>Rare failures in code with threads or async tasks</td>
+      <td>Fix the production code — the test is right</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The last row matters: a “flaky” test is often a correct test catching a real, rare race in the product.</p>
+
+<h3 id="detect-quarantine-fix">Detect, Quarantine, Fix</h3>
+
+<p>Large organizations, Google and Microsoft among them, have published on managing flakiness at scale with the same basic loop:</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    direction LR
+    Healthy --&gt; Suspected: fails, then passes on retry
+    Suspected --&gt; Quarantined: flakiness confirmed by reruns
+    Quarantined --&gt; Fixing: owner assigned, ticket filed
+    Fixing --&gt; Healthy: root cause fixed, passes N consecutive runs
+    Quarantined --&gt; Deleted: test no longer worth keeping
+    note right of Quarantined
+        still runs and reports,
+        but does not block merges
+    end note
+</code></pre>
+
+<p>Detection comes from rerunning failures and comparing (many CI systems and runners flag tests that fail then pass on retry — Playwright reports them as “flaky”). Quarantine keeps the build trustworthy while the test is fixed; it must have an owner and a deadline, or it becomes a place where tests go to be forgotten. Blanket automatic retries without reporting are the anti-pattern: they hide flakiness exactly when it should be diagnosed.</p>
+
+<hr>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li>
-<strong><a href="./">Testing Hub</a></strong> — the full testing landscape, of which unit and integration are the foundation</li>
+<a href="./">Testing Hub</a> — the shape of a test suite and how the testing pages fit together</li>
   <li>
-<strong><a href="../distributed-systems/testing-distributed-systems.html">Testing Distributed Systems</a></strong> — property-based, deterministic-simulation, Jepsen-style, and chaos testing for the emergent bugs unit and integration tests cannot reach</li>
+<a href="advanced-testing.html">Advanced Testing</a> — contract, property-based, fuzz, mutation, E2E, load, and chaos testing</li>
   <li>
-<strong><a href="../technology/ci-cd/">CI/CD Pipelines</a></strong> — the automation that runs this suite on every change and gates merges on it</li>
+<a href="../distributed-systems/testing-distributed-systems.html">Testing Distributed Systems</a> — deterministic simulation, Jepsen-style checking, and fault injection</li>
   <li>
-<strong><a href="../technology/database-design/">Database Design</a></strong> — the schemas, constraints, and isolation levels that integration tests exercise against real engines</li>
+<a href="../technology/ci-cd/">CI/CD Pipelines</a> — the automation that runs the suite and gates merges</li>
   <li>
-<strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — why determinism and reproducibility matter so much once concurrency enters the picture</li>
+<a href="../technology/database-design/">Database Design</a> — the constraints and isolation levels integration tests exercise</li>
+  <li>
+<a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> — why determinism and reproducibility matter once concurrency is involved</li>
 </ul>
 
       </section>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Shared responsibility, cloud IAM and workload identity, posture management, container image hardening, runtime confinement and detection, and Kubernetes admi...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Cybersecurity: Cloud & Container Security">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Shared responsibility, cloud IAM and workload identity, posture management, container image hardening, runtime confinement and detection, and Kubernetes admi...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/cybersecurity/cloud-and-container-security.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Cybersecurity: Cloud & Container Security">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Shared responsibility, cloud IAM and workload identity, posture management, container image hardening, runtime confinement and detection, and Kubernetes admi...">
 
 <title>Cybersecurity: Cloud & Container Security | Andrews Notebook</title>
 
@@ -3135,84 +3135,80 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="cloud--container-security">Cloud &amp; Container Security</h1>
 
-<p>The cloud revolutionized how we build and deploy applications, but it moved the most common breach vector from the network perimeter to identity and configuration. This page covers the shared-responsibility model, cloud IAM and least privilege, cloud security posture management (CSPM), container image hardening, container and Kubernetes runtime security (Falco, AppArmor, SELinux, seccomp), and admission-control policy engines (OPA, Kyverno).</p>
+<p><strong>Cloud and container security</strong> covers the controls that protect workloads running on infrastructure someone else operates. In the cloud the dominant breach vector moved from the network perimeter to <strong>identity and configuration</strong>: a public storage bucket, an over-permissive role, or a leaked long-lived key does more damage than most exploits. This page covers the shared-responsibility model, cloud IAM and workload identity, posture management (CSPM/CNAPP), container image hardening, runtime confinement and detection, and Kubernetes security including admission control with policy as code.</p>
 
-<h2 id="cloud-security-new-challenges-new-solutions">Cloud Security: New Challenges, New Solutions</h2>
+<h2 id="why-misconfiguration-dominates">Why misconfiguration dominates</h2>
 
-<p>The cloud revolutionized how we build and deploy applications, but it also introduced new security challenges. You’re no longer protecting a physical server in your data center—you’re securing resources that exist “somewhere” in someone else’s infrastructure.</p>
+<p>Cloud providers’ own infrastructure is rarely the weak link; the customer’s configuration of it usually is. Resources are created by API call, often hundreds per day, by many engineers and automation pipelines. Any one of them can open a security group to <code class="language-plaintext highlighter-rouge">0.0.0.0/0</code>, attach <code class="language-plaintext highlighter-rouge">AdministratorAccess</code> to a CI role, or disable encryption. Because the control plane is reachable from the internet, <strong>a valid credential is equivalent to network access</strong> — no exploit is needed. Most of this page follows from that observation: minimize what each identity can do, eliminate long-lived secrets, and check configuration continuously and preventively.</p>
 
-<p>The headline statistic of the cloud era is that the overwhelming majority of cloud breaches are caused not by sophisticated zero-days but by <strong>customer misconfiguration</strong>: a storage bucket left public, an over-permissive IAM role, a security group open to <code class="language-plaintext highlighter-rouge">0.0.0.0/0</code>. The cloud provider’s infrastructure is rarely the weak link — your configuration of it is. Everything below follows from that observation.</p>
+<h2 id="the-shared-responsibility-model">The shared-responsibility model</h2>
 
-<h3 id="the-shared-responsibility-model">The Shared Responsibility Model</h3>
-
-<p>Understanding who secures what is crucial. Cloud providers operate a <strong>shared responsibility model</strong>: they secure the cloud itself, while you secure what you put <em>in</em> the cloud. The exact dividing line shifts depending on the service model (IaaS, PaaS, SaaS), and misunderstanding where it falls is itself a leading cause of breaches.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Cloud Provider Secures ("security OF the cloud"):
-# - Physical data centers and badge access
-# - Network infrastructure and backbone
-# - Hypervisor / virtualization layer
-# - Physical storage media and disposal
-</span>
-<span class="c1"># You Secure ("security IN the cloud"):
-# - Your data (classification, encryption, retention)
-# - Identity and access management (who can do what)
-# - Application code and dependencies
-# - Operating system + patches (in IaaS)
-# - Network traffic controls (security groups, NACLs)
-# - Encryption keys and secrets management
-</span></code></pre></div></div>
-
-<p>The boundary moves with the service model:</p>
+<p>Providers secure the cloud itself (“security <em>of</em> the cloud”); customers secure what they put in it (“security <em>in</em> the cloud”). Where the line falls depends on the service model:</p>
 
 <table>
   <thead>
     <tr>
       <th>Layer</th>
-      <th>On-Prem</th>
-      <th>IaaS (EC2/VMs)</th>
-      <th>PaaS (App Engine, RDS)</th>
-      <th>SaaS (Workspace, M365)</th>
+      <th>On-prem</th>
+      <th>IaaS (EC2, Compute Engine)</th>
+      <th>Containers-as-a-service (EKS/GKE nodes you manage)</th>
+      <th>PaaS / serverless (RDS, Lambda)</th>
+      <th>SaaS (M365, Workspace)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Data &amp; access</td>
-      <td>You</td>
-      <td>You</td>
-      <td>You</td>
-      <td>You</td>
+      <td>Data, classification, retention</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
     </tr>
     <tr>
-      <td>Application</td>
-      <td>You</td>
-      <td>You</td>
-      <td>You</td>
-      <td>Provider</td>
+      <td>Identity and access</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
     </tr>
     <tr>
-      <td>Runtime / middleware</td>
-      <td>You</td>
-      <td>You</td>
-      <td>Provider</td>
-      <td>Provider</td>
-    </tr>
-    <tr>
-      <td>OS &amp; patching</td>
-      <td>You</td>
-      <td><strong>You</strong></td>
-      <td>Provider</td>
+      <td>Application code and dependencies</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
       <td>Provider</td>
     </tr>
     <tr>
-      <td>Virtualization</td>
-      <td>You</td>
-      <td>Provider</td>
+      <td>Runtime, middleware, container images</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
       <td>Provider</td>
       <td>Provider</td>
     </tr>
     <tr>
-      <td>Physical</td>
-      <td>You</td>
+      <td>Guest OS and patching</td>
+      <td>Customer</td>
+      <td><strong>Customer</strong></td>
+      <td>Shared (node images)</td>
+      <td>Provider</td>
+      <td>Provider</td>
+    </tr>
+    <tr>
+      <td>Network controls (security groups, firewalls)</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Customer</td>
+      <td>Shared</td>
+      <td>Provider</td>
+    </tr>
+    <tr>
+      <td>Virtualization, hardware, facilities</td>
+      <td>Customer</td>
+      <td>Provider</td>
       <td>Provider</td>
       <td>Provider</td>
       <td>Provider</td>
@@ -3220,248 +3216,597 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
-<p>The two rows that <em>never</em> shift to the provider — <strong>data</strong> and <strong>identity/access</strong> — are exactly where most real-world incidents occur. No matter how much you outsource, you always own who can reach your data.</p>
+<p>The two rows that never move to the provider — <strong>data</strong> and <strong>identity</strong> — are where most incidents originate. Outsourcing infrastructure never outsources the question of who can reach the data.</p>
 
-<h3 id="iam-the-keys-to-your-kingdom">IAM: The Keys to Your Kingdom</h3>
+<h2 id="iam-the-keys-to-your-kingdom">IAM: The Keys to Your Kingdom</h2>
 
-<p>In the cloud, Identity and Access Management (IAM) is your most critical security control. A misconfigured IAM policy can expose your entire infrastructure. Where a traditional network had a firewall as its perimeter, a cloud account’s perimeter <em>is</em> its identity layer — an attacker with valid credentials walks straight in, no exploit required.</p>
+<p>In a cloud account, identity <em>is</em> the perimeter. Identity and Access Management (IAM) determines which principals (users, roles, service accounts, workloads) may perform which actions on which resources, under which conditions.</p>
 
-<p><strong>The principle of least privilege</strong> is the foundation: every identity (user, role, service account, workload) should hold the <em>minimum</em> permissions needed to do its job, and nothing more. In practice this means starting from zero and granting narrowly, rather than starting broad and trying to claw permissions back.</p>
+<p><strong>Least privilege</strong> is the governing principle: start every identity at zero and grant narrowly, rather than granting broadly and trying to claw permissions back later. Provider tooling helps find the gap between granted and used permissions: AWS IAM Access Analyzer (unused-access findings and policy generation from CloudTrail activity), Google Cloud’s IAM recommender, and Microsoft Entra access reviews.</p>
 
-<p><strong>Modern IAM Practices</strong>:</p>
+<h3 id="policy-evaluation">Policy evaluation</h3>
+
+<p>On AWS, a request is allowed only if every applicable policy layer permits it and none denies it. The layers act as successive filters:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    REQ["API request"] --&gt; D{"Explicit Deny&lt;br/&gt;in any policy?"}
+    D --&gt;|yes| DENY["Denied"]
+    D --&gt;|no| SCP{"Organization SCPs&lt;br/&gt;and RCPs allow?"}
+    SCP --&gt;|no| DENY
+    SCP --&gt;|yes| RB{"Resource-based policy&lt;br/&gt;allows principal?"}
+    RB --&gt;|"yes (same account)"| ALLOW["Allowed"]
+    RB --&gt;|no / none| PB{"Permission boundary&lt;br/&gt;allows? (if set)"}
+    PB --&gt;|no| DENY
+    PB --&gt;|yes| SP{"Session policy&lt;br/&gt;allows? (if set)"}
+    SP --&gt;|no| DENY
+    SP --&gt;|yes| ID{"Identity policy&lt;br/&gt;allows?"}
+    ID --&gt;|no| DENY
+    ID --&gt;|yes| ALLOW
+</code></pre>
+
+<p>This is a simplification (cross-account access requires <em>both</em> the identity and resource policy to allow it), but it captures the design: <strong>guardrails set a ceiling, grants operate beneath it, and an explicit deny anywhere wins.</strong></p>
+
 <ul>
-  <li><strong>Zero Trust Architecture</strong>: Never trust, always verify (covered in full under <a href="attacks-and-defense.html#zero-trust-never-trust-always-verify">Attacks &amp; Network Defense</a>)</li>
-  <li><strong>Just-In-Time (JIT) Access</strong>: Temporary elevated privileges granted on request and automatically revoked, so no standing admin access exists to steal</li>
-  <li><strong>Passwordless Authentication</strong>: Passkeys and FIDO2 standards remove phishable shared secrets</li>
-  <li><strong>Policy Intelligence</strong>: Provider tooling (AWS IAM Access Analyzer, GCP Policy Analyzer) that flags unused permissions and recommends tightening</li>
-  <li><strong>CNAPP</strong>: Cloud-Native Application Protection Platforms that unify posture, identity, and workload security</li>
+  <li><strong>Service control policies (SCPs)</strong> cap what principals in member accounts may do — for example, “nobody may stop CloudTrail” or “no resources outside approved regions.”</li>
+  <li><strong>Resource control policies (RCPs)</strong>, added in late 2024, cap what may be done <em>to</em> resources such as S3 buckets, KMS keys, and secrets, regardless of which principal asks — the natural home for an organization-wide “no access from outside our organization” rule.</li>
+  <li><strong>Permission boundaries</strong> cap what a single role can ever be granted, which makes it safe to let teams create their own roles.</li>
 </ul>
 
-<p>The classic worked example is an S3 bucket policy. The first version below is the single most common cloud misconfiguration in the world; the second shows what least privilege actually looks like:</p>
+<h3 id="a-worked-example-bucket-policies">A worked example: bucket policies</h3>
+
+<p>The overly broad policy below grants every principal on the internet every S3 action on every object:</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
     </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*"</span><span class="p">,</span><span class="w">      </span><span class="err">//</span><span class="w"> </span><span class="err">DANGER:</span><span class="w"> </span><span class="err">Anyone</span><span class="w"> </span><span class="err">on</span><span class="w"> </span><span class="err">the</span><span class="w"> </span><span class="err">internet</span><span class="w"> </span><span class="err">can</span><span class="w"> </span><span class="err">access!</span><span class="w">
-    </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s3:*"</span><span class="p">,</span><span class="w">       </span><span class="err">//</span><span class="w"> </span><span class="err">DANGER:</span><span class="w"> </span><span class="err">All</span><span class="w"> </span><span class="err">permissions</span><span class="p">,</span><span class="w"> </span><span class="err">including</span><span class="w"> </span><span class="err">delete!</span><span class="w">
+    </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s3:*"</span><span class="p">,</span><span class="w">
     </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:s3:::my-bucket/*"</span><span class="w">
   </span><span class="p">}]</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">Secure</span><span class="w"> </span><span class="err">version:</span><span class="w"> </span><span class="err">a</span><span class="w"> </span><span class="err">specific</span><span class="w"> </span><span class="err">principal,</span><span class="w"> </span><span class="err">one</span><span class="w"> </span><span class="err">action,</span><span class="w"> </span><span class="err">scoped</span><span class="w"> </span><span class="err">resource,</span><span class="w">
-</span><span class="err">//</span><span class="w"> </span><span class="err">and</span><span class="w"> </span><span class="err">a</span><span class="w"> </span><span class="err">network</span><span class="w"> </span><span class="err">condition.</span><span class="w">
-</span><span class="p">{</span><span class="w">
+<p>A least-privilege version names one role, one action, one prefix, and requires that requests arrive through the organization’s VPC endpoint:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
   </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
     </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::123456789012:role/MyAppRole"</span><span class="p">},</span><span class="w">
-    </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"s3:GetObject"</span><span class="p">],</span><span class="w">  </span><span class="err">//</span><span class="w"> </span><span class="err">Minimum</span><span class="w"> </span><span class="err">necessary</span><span class="w"> </span><span class="err">permission</span><span class="w">
-    </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:s3:::my-bucket/public/*"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::123456789012:role/ReportReader"</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"s3:GetObject"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:s3:::my-bucket/reports/*"</span><span class="p">,</span><span class="w">
     </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"IpAddress"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nl">"aws:SourceIp"</span><span class="p">:</span><span class="w"> </span><span class="s2">"203.0.113.0/24"</span><span class="p">}</span><span class="w">  </span><span class="err">//</span><span class="w"> </span><span class="err">IP</span><span class="w"> </span><span class="err">restriction</span><span class="w">
+      </span><span class="nl">"StringEquals"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"aws:SourceVpce"</span><span class="p">:</span><span class="w"> </span><span class="s2">"vpce-0a1b2c3d4e5f67890"</span><span class="w"> </span><span class="p">}</span><span class="w">
     </span><span class="p">}</span><span class="w">
   </span><span class="p">}]</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p><strong>Roles over long-lived keys.</strong> The most resilient pattern is to avoid static credentials entirely. Instead of embedding an access key in an application, attach a <em>role</em> to the compute (an EC2 instance profile, an EKS IRSA service account, a GCP workload identity). The platform mints short-lived credentials automatically, so there is no long-lived secret to leak. A leaked role session token expires in minutes; a leaked access key lives until someone notices.</p>
+<p>Provider defaults have improved: since April 2023, new S3 buckets have <strong>Block Public Access</strong> enabled and ACLs disabled by default, so the first policy above would be rejected unless someone deliberately turned those protections off. Enforce Block Public Access at the account or organization level so it cannot be undone per bucket.</p>
 
-<p><strong>Permission boundaries and SCPs.</strong> Even least-privilege grants can drift. Guardrails like AWS <em>permission boundaries</em> (a ceiling on what a role can be granted) and <em>Service Control Policies</em> (account-wide deny rules across an organization) ensure that no individual misconfiguration can exceed an organizational limit — for example, “no one, ever, can disable CloudTrail” or “no resources outside approved regions.”</p>
+<h3 id="workload-identity-and-the-metadata-service">Workload identity and the metadata service</h3>
 
-<h3 id="cloud-security-posture-management-cspm">Cloud Security Posture Management (CSPM)</h3>
+<p>The most resilient pattern is to have <strong>no long-lived credentials at all</strong>. Instead of embedding an access key, attach an identity to the compute and let the platform mint short-lived credentials:</p>
 
-<p>Least privilege is a goal; <strong>posture management</strong> is how you continuously verify you are still meeting it. A cloud account is not a static artifact — engineers create resources hourly, and any one of them can introduce a public bucket, an unencrypted database, or an open security group. CSPM tools (AWS Security Hub, GCP Security Command Center, Wiz, Prisma Cloud, the open-source Prowler/ScoutSuite) continuously scan your accounts and compare the live configuration against a baseline of best practices and compliance frameworks (CIS Benchmarks, PCI-DSS, SOC 2).</p>
+<table>
+  <thead>
+    <tr>
+      <th>Workload</th>
+      <th>Mechanism</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>VM</td>
+      <td>AWS instance profile; GCP attached service account; Azure managed identity</td>
+    </tr>
+    <tr>
+      <td>Kubernetes pod</td>
+      <td>EKS Pod Identity or IRSA; GKE Workload Identity Federation; AKS Workload Identity</td>
+    </tr>
+    <tr>
+      <td>CI/CD pipeline</td>
+      <td>OIDC federation: the CI provider issues a signed token that the cloud exchanges for a role session (e.g. GitHub Actions → AWS <code class="language-plaintext highlighter-rouge">AssumeRoleWithWebIdentity</code>)</td>
+    </tr>
+    <tr>
+      <td>On-prem or other cloud</td>
+      <td>IAM Roles Anywhere (X.509), GCP/Azure workload identity federation</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>CSPM answers questions like:</p>
+<p>A leaked session credential expires within hours at most; a leaked access key works until someone notices. Trust policies for federated roles must pin the token’s subject (repository, branch, environment) — a trust policy that accepts any token from a CI provider lets any of that provider’s customers assume the role.</p>
+
+<p>On VMs, these credentials are served by the <strong>instance metadata service</strong> at <code class="language-plaintext highlighter-rouge">169.254.169.254</code>, which makes it the prime target of <a href="application-and-cloud-security.html#server-side-request-forgery-ssrf">SSRF</a>. On AWS, require <strong>IMDSv2</strong>, which demands a session token obtained with a <code class="language-plaintext highlighter-rouge">PUT</code> request and sets an IP hop limit, defeating simple SSRF and most forwarding tricks. Set IMDSv2-only as the account default and enforce it with an SCP condition (<code class="language-plaintext highlighter-rouge">ec2:MetadataHttpTokens</code>).</p>
+
+<h3 id="human-access">Human access</h3>
+
 <ul>
-  <li>Which storage buckets are publicly readable or writable?</li>
-  <li>Which IAM roles grant <code class="language-plaintext highlighter-rouge">*:*</code> or have not been used in 90 days?</li>
-  <li>Which databases or volumes are unencrypted at rest?</li>
-  <li>Which security groups expose SSH (22) or RDP (3389) to the entire internet?</li>
-  <li>Is audit logging (CloudTrail / Cloud Audit Logs) enabled and immutable?</li>
+  <li><strong>Federate</strong> humans through a single identity provider (SSO) instead of creating cloud-native users with passwords and keys.</li>
+  <li><strong>Phishing-resistant MFA</strong> (passkeys, security keys) on the identity provider and on any break-glass root credentials.</li>
+  <li><strong>Just-in-time elevation</strong> for administrative roles: time-boxed, approved, and logged, so there is no standing admin access to steal.</li>
+  <li><strong>Zero Trust</strong> principles apply to every request regardless of network origin; see <a href="attacks-and-defense.html#zero-trust-never-trust-always-verify">Attacks &amp; Network Defense</a>.</li>
 </ul>
 
-<p>The strongest posture management is <strong>preventive</strong>, not just detective. Detecting a public bucket after it has been created still leaves a window of exposure. Embedding policy checks into the deployment pipeline — scanning Terraform/CloudFormation with tools like <code class="language-plaintext highlighter-rouge">checkov</code>, <code class="language-plaintext highlighter-rouge">tfsec</code>, or <code class="language-plaintext highlighter-rouge">terrascan</code> <em>before</em> <code class="language-plaintext highlighter-rouge">apply</code> — stops the misconfiguration from ever reaching production:</p>
+<h2 id="posture-management">Posture management</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Shift posture checks left: scan infrastructure-as-code in CI before deploy</span>
-checkov <span class="nt">-d</span> ./terraform <span class="nt">--quiet</span> <span class="nt">--compact</span>
-<span class="c"># Example finding:</span>
-<span class="c">#   CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"</span>
-<span class="c">#   CKV_AWS_53: "Ensure S3 bucket has block public ACLs enabled"</span>
-<span class="c"># Fail the pipeline so the misconfiguration never reaches the cloud.</span>
+<p>Least privilege is a goal; <strong>posture management</strong> continuously checks whether it is still being met. Cloud security products have converged into a few overlapping categories, typically sold together as a <strong>cloud-native application protection platform (CNAPP)</strong>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Question it answers</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>CSPM</strong> (cloud security posture management)</td>
+      <td>Is any resource misconfigured against a baseline (CIS Benchmarks, PCI DSS, SOC 2)?</td>
+      <td>AWS Security Hub, Google Security Command Center, Microsoft Defender for Cloud, Prowler</td>
+    </tr>
+    <tr>
+      <td><strong>CIEM</strong> (cloud infrastructure entitlement management)</td>
+      <td>Which identities hold permissions they never use, or can escalate privilege?</td>
+      <td>Access Analyzer, commercial CNAPPs</td>
+    </tr>
+    <tr>
+      <td><strong>CWPP</strong> (cloud workload protection)</td>
+      <td>Are running VMs, containers, and functions vulnerable or behaving maliciously?</td>
+      <td>Agent- or eBPF-based runtime sensors</td>
+    </tr>
+    <tr>
+      <td><strong>KSPM</strong></td>
+      <td>Are Kubernetes clusters configured safely?</td>
+      <td>kube-bench, Kubescape</td>
+    </tr>
+    <tr>
+      <td><strong>DSPM</strong> (data security posture management)</td>
+      <td>Where does sensitive data live, and who can reach it?</td>
+      <td>Data discovery and classification tools</td>
+    </tr>
+    <tr>
+      <td><strong>IaC scanning</strong></td>
+      <td>Will this Terraform/CloudFormation/Helm change introduce a misconfiguration?</td>
+      <td>Checkov, Trivy (<code class="language-plaintext highlighter-rouge">trivy config</code>, which absorbed tfsec), KICS</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Typical CSPM findings: publicly readable buckets; roles with <code class="language-plaintext highlighter-rouge">*:*</code> or unused for 90 days; unencrypted volumes and snapshots; security groups exposing SSH (22) or RDP (3389) to the internet; audit logging (CloudTrail, Cloud Audit Logs) disabled or writable by the accounts it monitors.</p>
+
+<p>Detection after deployment still leaves a window of exposure, so the strongest posture programs are <strong>preventive</strong>: scan infrastructure-as-code in CI and fail the build before <code class="language-plaintext highlighter-rouge">apply</code>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Scan Terraform in CI; a non-zero exit fails the pipeline</span>
+checkov <span class="nt">-d</span> ./terraform <span class="nt">--compact</span> <span class="nt">--quiet</span>
+trivy config <span class="nt">--severity</span> HIGH,CRITICAL <span class="nt">--exit-code</span> 1 ./terraform
 </code></pre></div></div>
 
-<p>This is the same “policy as code” philosophy that, as we will see, governs Kubernetes admission — catch the bad configuration at the gate rather than chasing it at runtime.</p>
+<p>Organization-level guardrails (SCPs, RCPs, GCP organization policies, Azure Policy) are the other half of prevention: they make whole classes of misconfiguration impossible rather than merely detectable. The same “policy as code, enforced at the gate” idea reappears in Kubernetes <a href="#admission-control-and-policy-as-code">admission control</a>.</p>
 
-<h2 id="container-security-shipping-code-safely">Container Security: Shipping Code Safely</h2>
+<h2 id="container-security">Container security</h2>
 
-<p>Containers add another layer of complexity. You’re not just securing an application—you’re securing the entire environment it runs in: the base image, every OS package and language dependency baked into it, the runtime that executes it, and the orchestrator that schedules it. Security spans the whole lifecycle, conventionally split into <strong>build-time</strong> (what goes into the image) and <strong>runtime</strong> (what the container is allowed to do once running).</p>
+<p>A container is an ordinary Linux process isolated with namespaces and cgroups; it <strong>shares the host kernel</strong>. Container security therefore spans the whole lifecycle — what goes into the image, which images are allowed to run, what the running process may do, and what it is observed doing:</p>
 
-<h3 id="image-hardening-shrinking-the-attack-surface">Image Hardening: Shrinking the Attack Surface</h3>
+<pre><code class="language-mermaid">flowchart LR
+    B["Build&lt;br/&gt;minimal base, non-root,&lt;br/&gt;scan, SBOM"] --&gt; S["Sign&lt;br/&gt;cosign + provenance"]
+    S --&gt; R["Registry&lt;br/&gt;immutable digests,&lt;br/&gt;continuous rescans"]
+    R --&gt; A["Admit&lt;br/&gt;signature + policy check"]
+    A --&gt; RUN["Run&lt;br/&gt;seccomp, AppArmor/SELinux,&lt;br/&gt;no capabilities, user namespaces"]
+    RUN --&gt; O["Observe&lt;br/&gt;Falco / eBPF detection,&lt;br/&gt;audit logs"]
+</code></pre>
 
-<p>Every binary, library, and tool inside an image is a potential vulnerability and a potential tool for an attacker who gets a shell. The guiding principle is <em>minimalism</em>: include only what the application needs to run.</p>
+<h3 id="image-hardening">Image hardening</h3>
 
-<p><strong>Container Security Best Practices</strong>:</p>
-<ul>
-  <li><strong>Run as non-root</strong>: A container process running as root that escapes the container is root on the host. Always create and switch to an unprivileged user.</li>
-  <li><strong>Pin specific versions</strong>: <code class="language-plaintext highlighter-rouge">:latest</code> is non-reproducible and silently pulls in new, unvetted packages. Pin a tag or, better, a digest.</li>
-  <li><strong>Minimal / distroless base images</strong>: Distroless and <code class="language-plaintext highlighter-rouge">scratch</code> images contain no shell, no package manager, no <code class="language-plaintext highlighter-rouge">curl</code> — dramatically reducing what an attacker can do after a breakout.</li>
-  <li><strong>Software Bill of Materials (SBOM)</strong>: A machine-readable inventory of every component in the image (generated by <code class="language-plaintext highlighter-rouge">syft</code>, <code class="language-plaintext highlighter-rouge">trivy</code>), increasingly required by regulation and essential for responding to the next Log4Shell-style disclosure.</li>
-  <li><strong>Image scanning</strong>: Tools like <code class="language-plaintext highlighter-rouge">trivy</code>, <code class="language-plaintext highlighter-rouge">grype</code>, and Clair scan images for known CVEs in OS packages and language dependencies, run in CI to block vulnerable images.</li>
-  <li><strong>Sigstore / image signing</strong>: Sign images (<code class="language-plaintext highlighter-rouge">cosign</code>) and verify the signature at deploy time so only images your pipeline actually built can run.</li>
-</ul>
+<p>Every binary in an image is both a potential vulnerability and a tool for an attacker who gets a shell. The guiding principle is minimalism.</p>
 
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Insecure Dockerfile</span>
-<span class="k">FROM</span><span class="s"> ubuntu:latest          # Non-reproducible "latest" tag</span>
-<span class="k">USER</span><span class="s"> root                    # Running as root!</span>
+<table>
+  <thead>
+    <tr>
+      <th>Practice</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minimal or distroless base (<code class="language-plaintext highlighter-rouge">distroless</code>, Chainguard/Wolfi, Alpine, <code class="language-plaintext highlighter-rouge">scratch</code>)</td>
+      <td>No shell, package manager, or <code class="language-plaintext highlighter-rouge">curl</code> for an intruder; far fewer CVEs to triage</td>
+    </tr>
+    <tr>
+      <td>Pin by digest (<code class="language-plaintext highlighter-rouge">image@sha256:…</code>), not <code class="language-plaintext highlighter-rouge">:latest</code></td>
+      <td>Reproducible builds; a tag can be moved, a digest cannot</td>
+    </tr>
+    <tr>
+      <td>Run as a non-root UID</td>
+      <td>Limits damage if the process is compromised or escapes</td>
+    </tr>
+    <tr>
+      <td>Multi-stage builds</td>
+      <td>Compilers and build tools never reach the runtime image</td>
+    </tr>
+    <tr>
+      <td>No secrets in layers</td>
+      <td>Anything <code class="language-plaintext highlighter-rouge">COPY</code>‘d or <code class="language-plaintext highlighter-rouge">ENV</code>‘d persists in image history; use BuildKit secret mounts</td>
+    </tr>
+    <tr>
+      <td>Scan in CI and continuously in the registry</td>
+      <td>New CVEs are disclosed against images that were clean when built</td>
+    </tr>
+    <tr>
+      <td>Generate an SBOM and sign the image</td>
+      <td>Answer “are we affected?” in minutes; admit only images your pipeline built</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Before: mutable tag, root user, extra packages</span>
+<span class="k">FROM</span><span class="s"> ubuntu:latest</span>
 <span class="k">RUN </span>apt-get update <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> curl
 <span class="k">COPY</span><span class="s"> app /app</span>
 <span class="k">CMD</span><span class="s"> ["/app"]</span>
 
-<span class="c"># Secure Dockerfile</span>
-<span class="k">FROM</span><span class="s"> ubuntu:22.04           # Specific version</span>
-<span class="k">RUN </span>apt-get update <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> curl <span class="o">&amp;&amp;</span> <span class="se">\
-</span>    <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span>  <span class="c"># Clean up package metadata</span>
-<span class="k">RUN </span>useradd <span class="nt">-m</span> appuser      <span class="c"># Create non-root user</span>
-<span class="k">USER</span><span class="s"> appuser                # Switch to non-root</span>
+<span class="c"># After: pinned base, no recommended extras, cleaned cache, unprivileged user</span>
+<span class="k">FROM</span><span class="s"> ubuntu:24.04</span>
+<span class="k">RUN </span>apt-get update <span class="se">\
+</span> <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> ca-certificates <span class="se">\
+</span> <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span> <span class="se">\
+</span> <span class="o">&amp;&amp;</span> useradd <span class="nt">--uid</span> 10001 <span class="nt">--no-create-home</span> appuser
 <span class="k">COPY</span><span class="s"> --chown=appuser:appuser app /app</span>
+<span class="k">USER</span><span class="s"> 10001</span>
 <span class="k">CMD</span><span class="s"> ["/app"]</span>
 </code></pre></div></div>
 
-<p>For compiled languages, a <strong>multi-stage build</strong> lets you compile in a full toolchain image and then copy only the resulting binary into a distroless or <code class="language-plaintext highlighter-rouge">scratch</code> final image, so the build tools never ship to production:</p>
+<p>For compiled languages, a multi-stage build ships only the binary:</p>
 
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Stage 1: build with the full toolchain</span>
-<span class="k">FROM</span><span class="w"> </span><span class="s">golang:1.22</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">build</span>
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">FROM</span><span class="w"> </span><span class="s">golang:1.26</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">build</span>
 <span class="k">WORKDIR</span><span class="s"> /src</span>
+<span class="k">COPY</span><span class="s"> go.mod go.sum ./</span>
+<span class="k">RUN </span>go mod download
 <span class="k">COPY</span><span class="s"> . .</span>
-<span class="k">RUN </span><span class="nv">CGO_ENABLED</span><span class="o">=</span>0 go build <span class="nt">-o</span> /app ./cmd/server
+<span class="k">RUN </span><span class="nv">CGO_ENABLED</span><span class="o">=</span>0 go build <span class="nt">-trimpath</span> <span class="nt">-o</span> /out/server ./cmd/server
 
-<span class="c"># Stage 2: ship only the static binary on a distroless base</span>
-<span class="k">FROM</span><span class="s"> gcr.io/distroless/static:nonroot</span>
-<span class="k">COPY</span><span class="s"> --from=build /app /app</span>
-<span class="k">USER</span><span class="s"> nonroot:nonroot        # distroless "nonroot" runs as UID 65532</span>
-<span class="k">ENTRYPOINT</span><span class="s"> ["/app"]</span>
-<span class="c"># No shell, no apt, no curl — almost nothing for an attacker to use.</span>
+<span class="k">FROM</span><span class="s"> gcr.io/distroless/static-debian12:nonroot</span>
+<span class="k">COPY</span><span class="s"> --from=build /out/server /server</span>
+<span class="k">USER</span><span class="s"> nonroot:nonroot</span>
+<span class="k">ENTRYPOINT</span><span class="s"> ["/server"]</span>
 </code></pre></div></div>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Scan the finished image before it can be deployed</span>
-trivy image <span class="nt">--severity</span> HIGH,CRITICAL <span class="nt">--exit-code</span> 1 myregistry/app:1.4.2
-<span class="c"># Generate an SBOM for incident response and supply-chain tracking</span>
-syft myregistry/app:1.4.2 <span class="nt">-o</span> spdx-json <span class="o">&gt;</span> app.sbom.json
-<span class="c"># Sign and later verify, so only pipeline-built images run</span>
-cosign sign myregistry/app:1.4.2
-cosign verify <span class="nt">--key</span> cosign.pub myregistry/app:1.4.2
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Fail the build on serious, fixable vulnerabilities</span>
+trivy image <span class="nt">--severity</span> HIGH,CRITICAL <span class="nt">--ignore-unfixed</span> <span class="nt">--exit-code</span> 1 registry.example/app:1.4.2
+
+<span class="c"># Produce an SBOM for incident response</span>
+syft registry.example/app:1.4.2 <span class="nt">-o</span> spdx-json <span class="o">&gt;</span> app.spdx.json
+
+<span class="c"># Keyless signing in CI (identity comes from the pipeline's OIDC token) ...</span>
+cosign sign <span class="nt">--yes</span> registry.example/app@sha256:&lt;digest&gt;
+
+<span class="c"># ... and verification that pins *who* signed it</span>
+cosign verify <span class="se">\</span>
+  <span class="nt">--certificate-identity-regexp</span> <span class="s1">'^https://github.com/example-org/app/'</span> <span class="se">\</span>
+  <span class="nt">--certificate-oidc-issuer</span> https://token.actions.githubusercontent.com <span class="se">\</span>
+  registry.example/app@sha256:&lt;digest&gt;
 </code></pre></div></div>
 
-<h3 id="runtime-security-falco-seccomp-apparmor--selinux">Runtime Security: Falco, seccomp, AppArmor &amp; SELinux</h3>
+<p>SBOM formats, SLSA provenance, and the Sigstore components are covered in more depth under <a href="attacks-and-defense.html#supply-chain-defense-knowing-and-trusting-what-you-ship">supply-chain defense</a>.</p>
 
-<p>Hardening the image reduces what <em>can</em> go wrong; runtime security controls what a container is <em>allowed</em> to do once it is running, and detects when it does something it shouldn’t. These two halves — <em>confinement</em> (Linux kernel controls) and <em>detection</em> (behavioral monitoring) — work together.</p>
+<h3 id="runtime-confinement">Runtime confinement</h3>
 
-<p><strong>Linux confinement primitives</strong> shrink the container’s slice of the kernel:</p>
+<p>Hardening reduces what <em>can</em> go wrong; runtime controls limit what a running container is <em>allowed</em> to do. Because containers share a kernel, a kernel or runtime bug can become a host compromise — as with the 2024 “Leaky Vessels” runc flaw (CVE-2024-21626), where a leaked file descriptor let a container reach the host filesystem. Each layer below narrows the kernel surface available to such an exploit:</p>
 
-<ul>
-  <li><strong>seccomp</strong> (secure computing mode) filters which <strong>syscalls</strong> a process may make. The default Docker/Kubernetes seccomp profile blocks roughly 40+ dangerous syscalls (such as <code class="language-plaintext highlighter-rouge">mount</code>, <code class="language-plaintext highlighter-rouge">ptrace</code>, <code class="language-plaintext highlighter-rouge">keyctl</code>). A tightly scoped custom profile can allow only the handful of syscalls an application actually uses, so a breakout cannot invoke the rest of the kernel API.</li>
-  <li><strong>AppArmor</strong> is a <em>path-based</em> Mandatory Access Control system (default on Debian/Ubuntu). A profile declares exactly which files a container may read or write and which capabilities it holds — e.g., deny all writes outside <code class="language-plaintext highlighter-rouge">/tmp</code> and <code class="language-plaintext highlighter-rouge">/app/data</code>.</li>
-  <li><strong>SELinux</strong> is a <em>label-based</em> MAC system (default on RHEL/Fedora). Every process and file carries a security label, and policy governs which label may access which — the model behind container isolation on OpenShift. It is more granular and more complex than AppArmor but enforces the same idea: confine the container to a least-privilege policy independent of Unix file permissions.</li>
-  <li><strong>Linux capabilities</strong>: Rather than the all-or-nothing root, drop every capability and add back only what is needed (<code class="language-plaintext highlighter-rouge">--cap-drop=ALL --cap-add=NET_BIND_SERVICE</code>).</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Control</th>
+      <th>What it restricts</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Linux capabilities</strong></td>
+      <td>Splits root’s powers into ~40 units</td>
+      <td>Drop <code class="language-plaintext highlighter-rouge">ALL</code>; add back only what is needed (e.g. <code class="language-plaintext highlighter-rouge">NET_BIND_SERVICE</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>seccomp</strong></td>
+      <td>Which system calls the process may make</td>
+      <td>Docker’s default profile blocks several dozen rarely needed, dangerous syscalls (e.g. <code class="language-plaintext highlighter-rouge">kexec_load</code>, <code class="language-plaintext highlighter-rouge">init_module</code>, <code class="language-plaintext highlighter-rouge">open_by_handle_at</code>); Kubernetes applies it only when <code class="language-plaintext highlighter-rouge">RuntimeDefault</code> is set</td>
+    </tr>
+    <tr>
+      <td><strong>AppArmor</strong></td>
+      <td>File paths, capabilities, and network access, by profile</td>
+      <td>Path-based MAC; default on Debian/Ubuntu and SUSE. Configured via <code class="language-plaintext highlighter-rouge">securityContext.appArmorProfile</code> (GA since Kubernetes 1.30)</td>
+    </tr>
+    <tr>
+      <td><strong>SELinux</strong></td>
+      <td>Access between labeled processes and files</td>
+      <td>Label-based MAC; default on RHEL/Fedora and the basis of OpenShift container isolation</td>
+    </tr>
+    <tr>
+      <td><strong>User namespaces</strong></td>
+      <td>Maps container UID 0 to an unprivileged host UID</td>
+      <td><code class="language-plaintext highlighter-rouge">hostUsers: false</code> in the pod spec; stable since Kubernetes 1.36. A process that escapes is not root on the host</td>
+    </tr>
+    <tr>
+      <td><strong>Read-only root filesystem</strong></td>
+      <td>Writes to the image</td>
+      <td>Prevents dropping tools or modifying binaries; mount <code class="language-plaintext highlighter-rouge">emptyDir</code> for scratch space</td>
+    </tr>
+    <tr>
+      <td><strong>Sandboxed runtimes</strong></td>
+      <td>The shared-kernel assumption itself</td>
+      <td>gVisor (user-space kernel) or Kata Containers (lightweight VM) for untrusted or multi-tenant code; see <a href="../container-runtimes.html">Container Runtimes</a></td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Kubernetes securityContext applying several runtime controls at once</span>
-<span class="na">securityContext</span><span class="pi">:</span>
-  <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="kc">true</span>
-  <span class="na">runAsUser</span><span class="pi">:</span> <span class="m">65532</span>
-  <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="kc">false</span>   <span class="c1"># block setuid escalation</span>
-  <span class="na">readOnlyRootFilesystem</span><span class="pi">:</span> <span class="kc">true</span>      <span class="c1"># container cannot modify its own image</span>
-  <span class="na">capabilities</span><span class="pi">:</span>
-    <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ALL"</span><span class="pi">]</span>                   <span class="c1"># start from zero</span>
-    <span class="na">add</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">NET_BIND_SERVICE"</span><span class="pi">]</span>       <span class="c1"># add back only what is needed</span>
-  <span class="na">seccompProfile</span><span class="pi">:</span>
-    <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>            <span class="c1"># apply the default syscall filter</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Pod-level and container-level hardening in one manifest</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">api</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">hostUsers</span><span class="pi">:</span> <span class="kc">false</span>                  <span class="c1"># user namespace: root in pod != root on node</span>
+  <span class="na">automountServiceAccountToken</span><span class="pi">:</span> <span class="kc">false</span>
+  <span class="na">securityContext</span><span class="pi">:</span>
+    <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="kc">true</span>
+    <span class="na">runAsUser</span><span class="pi">:</span> <span class="m">10001</span>
+    <span class="na">seccompProfile</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+    <span class="na">appArmorProfile</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+  <span class="na">containers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">api</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example/app@sha256:&lt;digest&gt;</span>
+      <span class="na">securityContext</span><span class="pi">:</span>
+        <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="kc">false</span>
+        <span class="na">readOnlyRootFilesystem</span><span class="pi">:</span> <span class="kc">true</span>
+        <span class="na">capabilities</span><span class="pi">:</span>
+          <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ALL"</span><span class="pi">]</span>
 </code></pre></div></div>
 
-<p><strong>Behavioral detection</strong> watches what containers actually do at runtime. <strong>Falco</strong> (a CNCF project, the de-facto standard) taps the kernel via eBPF to observe syscalls and raises alerts when behavior violates a rule — for example, “a shell was spawned inside a container,” “a sensitive file like <code class="language-plaintext highlighter-rouge">/etc/shadow</code> was read,” or “an unexpected outbound network connection was made.” Where seccomp/AppArmor/SELinux <em>prevent</em> actions, Falco <em>detects and alerts</em> on the actions that policy did not anticipate:</p>
+<h3 id="runtime-detection">Runtime detection</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Falco rule: alert when an interactive shell starts inside a container</span>
+<p>Confinement prevents what policy anticipated; <strong>detection</strong> catches what it did not. <strong>Falco</strong> (a CNCF graduated project) observes system calls through an eBPF probe and evaluates them against rules such as “a shell started in a container,” “a process read <code class="language-plaintext highlighter-rouge">/etc/shadow</code>,” or “a container opened an unexpected outbound connection.” Commercial CWPP sensors and other eBPF tools (Tetragon, Tracee) work similarly; Tetragon can also <em>enforce</em>, killing a process at the offending syscall.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Falco rule: interactive shell inside a container</span>
 <span class="pi">-</span> <span class="na">rule</span><span class="pi">:</span> <span class="s">Terminal shell in container</span>
-  <span class="na">desc</span><span class="pi">:</span> <span class="s">A shell was spawned in a container — often a sign of an intrusion</span>
+  <span class="na">desc</span><span class="pi">:</span> <span class="s">An interactive shell was spawned inside a container</span>
   <span class="na">condition</span><span class="pi">:</span> <span class="pi">&gt;</span>
-    <span class="s">container.id != host and proc.name in (bash, sh, zsh)</span>
+    <span class="s">spawned_process and container</span>
+    <span class="s">and proc.name in (bash, sh, zsh, ash)</span>
     <span class="s">and proc.tty != 0</span>
   <span class="na">output</span><span class="pi">:</span> <span class="pi">&gt;</span>
-    <span class="s">Shell opened in container (user=%user.name container=%container.name</span>
-    <span class="s">command=%proc.cmdline)</span>
+    <span class="s">Shell in container (user=%user.name container=%container.name</span>
+    <span class="s">image=%container.image.repository cmdline=%proc.cmdline)</span>
   <span class="na">priority</span><span class="pi">:</span> <span class="s">WARNING</span>
+  <span class="na">tags</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">container</span><span class="pi">,</span> <span class="nv">shell</span><span class="pi">,</span> <span class="nv">mitre_execution</span><span class="pi">]</span>
 </code></pre></div></div>
 
-<p>Together these form defense in depth: image hardening removes the tools, capabilities/seccomp/AppArmor/SELinux remove the privileges, and Falco catches whatever still slips through.</p>
+<p>Detection is only useful if someone acts on it; route alerts to the SOC’s pipeline (see <a href="security-operations.html">Security Operations</a>).</p>
 
-<h2 id="kubernetes-security">Kubernetes Security</h2>
+<h2 id="kubernetes-security">Kubernetes security</h2>
 
-<p>Kubernetes magnifies every container concern because it adds a powerful control plane — the API server — that schedules workloads, holds secrets, and grants access across the whole cluster. Securing Kubernetes means securing both the workloads <em>and</em> the orchestrator that commands them. The major control surfaces are:</p>
+<p>Kubernetes adds a powerful control plane: the API server schedules workloads, stores secrets, and grants access across the cluster. Compromising it, or any identity with broad rights on it, compromises every workload. The main control surfaces:</p>
 
-<ul>
-  <li><strong>RBAC (Role-Based Access Control)</strong>: The same least-privilege discipline as cloud IAM, applied to the Kubernetes API. Bind <code class="language-plaintext highlighter-rouge">Roles</code>/<code class="language-plaintext highlighter-rouge">ClusterRoles</code> narrowly; never grant <code class="language-plaintext highlighter-rouge">cluster-admin</code> to application service accounts. Disable automatic mounting of the service-account token in pods that do not call the API.</li>
-  <li><strong>Network Policies</strong>: By default every pod can talk to every other pod. A <code class="language-plaintext highlighter-rouge">NetworkPolicy</code> enforces a default-deny posture and whitelists only the connections each workload legitimately needs — micro-segmentation inside the cluster.</li>
-  <li><strong>Secrets management</strong>: Kubernetes <code class="language-plaintext highlighter-rouge">Secret</code> objects are only base64-encoded, not encrypted, by default. Enable encryption-at-rest for etcd and prefer an external store (Vault, cloud secret managers, External Secrets Operator) so secrets are never sitting in plaintext in etcd.</li>
-  <li><strong>Pod Security Standards</strong>: The successor to the deprecated PodSecurityPolicy. The built-in admission controller enforces <code class="language-plaintext highlighter-rouge">baseline</code> or <code class="language-plaintext highlighter-rouge">restricted</code> profiles per namespace — for instance, the <code class="language-plaintext highlighter-rouge">restricted</code> profile forbids privileged pods, host networking, and running as root.</li>
-  <li><strong>Securing the control plane</strong>: Restrict access to the API server and etcd, rotate certificates, and audit-log every API request.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Surface</th>
+      <th>Default</th>
+      <th>Hardened configuration</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>API access (RBAC)</strong></td>
+      <td>Whatever cluster roles you bind</td>
+      <td>Narrow <code class="language-plaintext highlighter-rouge">Role</code>s per namespace; no <code class="language-plaintext highlighter-rouge">cluster-admin</code> for workloads; watch for escalation verbs (<code class="language-plaintext highlighter-rouge">escalate</code>, <code class="language-plaintext highlighter-rouge">bind</code>, <code class="language-plaintext highlighter-rouge">impersonate</code>) and pod-creation rights, which imply access to any secret in the namespace</td>
+    </tr>
+    <tr>
+      <td><strong>Service-account tokens</strong></td>
+      <td>Projected, short-lived token mounted in every pod</td>
+      <td><code class="language-plaintext highlighter-rouge">automountServiceAccountToken: false</code> unless the pod calls the API</td>
+    </tr>
+    <tr>
+      <td><strong>Network</strong></td>
+      <td>Every pod can reach every pod</td>
+      <td>Default-deny <code class="language-plaintext highlighter-rouge">NetworkPolicy</code> per namespace, then allow specific flows (requires a CNI that enforces policy)</td>
+    </tr>
+    <tr>
+      <td><strong>Secrets</strong></td>
+      <td>Base64-encoded in etcd, not encrypted</td>
+      <td>Encryption at rest with a KMS provider (KMS v2); or an external store via External Secrets Operator or the Secrets Store CSI driver</td>
+    </tr>
+    <tr>
+      <td><strong>Pod security</strong></td>
+      <td>No restrictions</td>
+      <td>Pod Security Admission: <code class="language-plaintext highlighter-rouge">restricted</code> for applications, <code class="language-plaintext highlighter-rouge">baseline</code> at minimum</td>
+    </tr>
+    <tr>
+      <td><strong>Audit</strong></td>
+      <td>Off unless configured</td>
+      <td>API audit policy shipped to the SIEM</td>
+    </tr>
+    <tr>
+      <td><strong>Nodes and control plane</strong></td>
+      <td>Varies by distribution</td>
+      <td>CIS Kubernetes Benchmark (kube-bench); private API endpoint; rotate certificates</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="admission-control--policy-as-code-opa--kyverno">Admission Control &amp; Policy as Code (OPA &amp; Kyverno)</h3>
-
-<p>The control point that ties cloud posture and Kubernetes security together is the <strong>admission controller</strong> — a webhook the API server consults <em>before</em> persisting any object. Admission control is the cluster’s gate: it can reject or mutate a resource at creation time, which is exactly the “prevent, don’t just detect” principle of CSPM applied to Kubernetes. This is <strong>policy as code</strong>: rules live in version control, are reviewed like any other change, and are enforced automatically.</p>
-
-<p>Two policy engines dominate:</p>
-
-<ul>
-  <li><strong>OPA / Gatekeeper</strong>: The <strong>Open Policy Agent</strong> is a general-purpose policy engine; <strong>Gatekeeper</strong> is its Kubernetes admission integration. Policies are written in OPA’s declarative <strong>Rego</strong> language and can express arbitrarily complex logic. OPA is widely used beyond Kubernetes too (API authorization, Terraform validation), so the same engine governs many layers.</li>
-  <li><strong>Kyverno</strong>: A Kubernetes-native engine whose policies are written as ordinary Kubernetes YAML resources — no new language to learn. Kyverno can <code class="language-plaintext highlighter-rouge">validate</code> (reject), <code class="language-plaintext highlighter-rouge">mutate</code> (inject defaults like a <code class="language-plaintext highlighter-rouge">securityContext</code>), and <code class="language-plaintext highlighter-rouge">generate</code> (auto-create resources such as default NetworkPolicies in new namespaces).</li>
-</ul>
-
-<p>A representative Kyverno policy that blocks privileged containers cluster-wide:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kyverno.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterPolicy</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Default-deny ingress and egress for every pod in the namespace</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">disallow-privileged-containers</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">default-deny</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">payments</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">validationFailureAction</span><span class="pi">:</span> <span class="s">Enforce</span>   <span class="c1"># reject violating pods at admission</span>
-  <span class="na">rules</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">privileged-containers</span>
-      <span class="na">match</span><span class="pi">:</span>
-        <span class="na">any</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="na">resources</span><span class="pi">:</span>
-              <span class="na">kinds</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">Pod"</span><span class="pi">]</span>
-      <span class="na">validate</span><span class="pi">:</span>
-        <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Privileged</span><span class="nv"> </span><span class="s">containers</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">allowed."</span>
-        <span class="na">pattern</span><span class="pi">:</span>
-          <span class="na">spec</span><span class="pi">:</span>
-            <span class="na">containers</span><span class="pi">:</span>
-              <span class="pi">-</span> <span class="na">=(securityContext)</span><span class="pi">:</span>
-                  <span class="na">=(privileged)</span><span class="pi">:</span> <span class="s2">"</span><span class="s">false"</span>
+  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">policyTypes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">Ingress"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">Egress"</span><span class="pi">]</span>
 </code></pre></div></div>
 
-<p>With this policy admitted, any attempt to create a privileged pod — whether by an honest mistake or a compromised CI account — is rejected by the API server before it ever runs. Combined with image scanning and signing in CI, runtime confinement (seccomp/AppArmor/SELinux), and Falco detection, the cluster has controls at every stage: what you build, what you admit, what you run, and what you observe.</p>
+<h3 id="pod-security-standards">Pod Security Standards</h3>
+
+<p>PodSecurityPolicy was removed in Kubernetes 1.25; its replacement is the built-in <strong>Pod Security Admission</strong> controller, which enforces three standard profiles per namespace via labels:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Profile</th>
+      <th>Intent</th>
+      <th>Blocks, among others</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">privileged</code></td>
+      <td>Unrestricted; system and infrastructure components only</td>
+      <td>Nothing</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">baseline</code></td>
+      <td>Prevent known privilege escalations with minimal friction</td>
+      <td>Privileged containers, host namespaces (<code class="language-plaintext highlighter-rouge">hostNetwork</code>, <code class="language-plaintext highlighter-rouge">hostPID</code>), <code class="language-plaintext highlighter-rouge">hostPath</code> volumes, added dangerous capabilities</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">restricted</code></td>
+      <td>Current pod-hardening best practice</td>
+      <td>Everything in baseline, plus running as root, privilege escalation, any capability other than <code class="language-plaintext highlighter-rouge">NET_BIND_SERVICE</code>, and a missing seccomp profile</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">payments</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">pod-security.kubernetes.io/enforce</span><span class="pi">:</span> <span class="s">restricted</span>
+    <span class="na">pod-security.kubernetes.io/warn</span><span class="pi">:</span> <span class="s">restricted</span>
+</code></pre></div></div>
+
+<h3 id="admission-control-and-policy-as-code">Admission control and policy as code</h3>
+
+<p>An <strong>admission controller</strong> runs after authentication and authorization but before the API server persists an object, and can reject or mutate it. Admission is the cluster’s gate — the Kubernetes equivalent of IaC scanning — and policies written as code are version-controlled, reviewed, and tested like any other change.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    K["kubectl / CI / controller"] --&gt; AUTHN["Authentication"]
+    AUTHN --&gt; AUTHZ["Authorization (RBAC)"]
+    AUTHZ --&gt; MUT["Mutating admission&lt;br/&gt;(inject defaults)"]
+    MUT --&gt; SCH["Schema validation"]
+    SCH --&gt; VAL["Validating admission&lt;br/&gt;(PSA, ValidatingAdmissionPolicy,&lt;br/&gt;Kyverno, Gatekeeper,&lt;br/&gt;image-signature checks)"]
+    VAL --&gt; ETCD[("etcd")]
+</code></pre>
+
+<p>The main options:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Engine</th>
+      <th>Policy language</th>
+      <th>Characteristics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>ValidatingAdmissionPolicy</strong></td>
+      <td>CEL, evaluated in the API server</td>
+      <td>Built in (GA since Kubernetes 1.30); no webhook to operate or fail. A mutating counterpart, MutatingAdmissionPolicy, is newer</td>
+    </tr>
+    <tr>
+      <td><strong>Kyverno</strong></td>
+      <td>Kubernetes-native resources; CEL-based <code class="language-plaintext highlighter-rouge">ValidatingPolicy</code>, <code class="language-plaintext highlighter-rouge">MutatingPolicy</code>, <code class="language-plaintext highlighter-rouge">GeneratingPolicy</code>, and <code class="language-plaintext highlighter-rouge">ImageValidatingPolicy</code></td>
+      <td>Validates, mutates, generates resources, and verifies image signatures. Kyverno 1.19 (August 2026) made the CEL policy types the primary API and formally deprecated the older <code class="language-plaintext highlighter-rouge">ClusterPolicy</code></td>
+    </tr>
+    <tr>
+      <td><strong>OPA Gatekeeper</strong></td>
+      <td>Rego (Open Policy Agent)</td>
+      <td>General-purpose engine also used for API authorization and Terraform checks; policies as <code class="language-plaintext highlighter-rouge">ConstraintTemplate</code>s plus <code class="language-plaintext highlighter-rouge">Constraint</code>s</td>
+    </tr>
+    <tr>
+      <td><strong>Sigstore policy-controller</strong></td>
+      <td>Image policy resources</td>
+      <td>Admits only images with valid signatures or attestations from specified identities</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A built-in ValidatingAdmissionPolicy that rejects privileged containers:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">admissionregistration.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ValidatingAdmissionPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">disallow-privileged</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">failurePolicy</span><span class="pi">:</span> <span class="s">Fail</span>
+  <span class="na">matchConstraints</span><span class="pi">:</span>
+    <span class="na">resourceRules</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">"</span><span class="pi">]</span>
+        <span class="na">apiVersions</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">v1"</span><span class="pi">]</span>
+        <span class="na">operations</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">CREATE"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">UPDATE"</span><span class="pi">]</span>
+        <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">pods"</span><span class="pi">]</span>
+  <span class="na">validations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">expression</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+        <span class="s">object.spec.containers.all(c,</span>
+          <span class="s">!c.?securityContext.?privileged.orValue(false))</span>
+      <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Privileged</span><span class="nv"> </span><span class="s">containers</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">allowed."</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">admissionregistration.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ValidatingAdmissionPolicyBinding</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">disallow-privileged</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">policyName</span><span class="pi">:</span> <span class="s">disallow-privileged</span>
+  <span class="na">validationActions</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">Deny"</span><span class="pi">]</span>
+</code></pre></div></div>
+
+<p>The same rule as a Kyverno <code class="language-plaintext highlighter-rouge">ValidatingPolicy</code>, which uses the same CEL but adds Kyverno features such as background scanning of existing resources and policy reports:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">policies.kyverno.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ValidatingPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">disallow-privileged</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">validationActions</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">Deny"</span><span class="pi">]</span>
+  <span class="na">matchConstraints</span><span class="pi">:</span>
+    <span class="na">resourceRules</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">"</span><span class="pi">]</span>
+        <span class="na">apiVersions</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">v1"</span><span class="pi">]</span>
+        <span class="na">operations</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">CREATE"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">UPDATE"</span><span class="pi">]</span>
+        <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">pods"</span><span class="pi">]</span>
+  <span class="na">validations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">expression</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+        <span class="s">object.spec.containers.all(c,</span>
+          <span class="s">!c.?securityContext.?privileged.orValue(false))</span>
+      <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Privileged</span><span class="nv"> </span><span class="s">containers</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">allowed."</span>
+</code></pre></div></div>
+
+<p>In production, extend the check to <code class="language-plaintext highlighter-rouge">initContainers</code> and <code class="language-plaintext highlighter-rouge">ephemeralContainers</code>, and roll new policies out in audit or warn mode before switching to deny. With admission policy in place, a privileged pod is rejected whether it came from an honest mistake or a compromised CI credential. Combined with image scanning and signing, runtime confinement, and detection, the cluster has a control at every stage: what is built, what is admitted, what runs, and what is observed.</p>
 
 <hr />
 
 <div class="page-nav">
-  <span class="page-nav-prev"><a href="application-and-cloud-security.html">← Web Application Security</a></span>
+  <span class="page-nav-prev"><a href="application-and-cloud-security.html">← Application Security</a></span>
   <span class="page-nav-next"><a href="attacks-and-defense.html">Attacks &amp; Network Defense →</a></span>
 </div>
 
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="application-and-cloud-security.html">Web Application Security</a> — injection, XSS, authentication, and JWTs in the app layer</li>
-  <li><a href="cryptography.html">Cryptography</a> — the encryption and signing that underpins image signing and secrets-at-rest</li>
-  <li><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> — firewalls, VPNs, supply-chain attacks, and Zero Trust in full</li>
-  <li><a href="operations-and-response.html">Operations &amp; Incident Response</a> — detecting and responding when a runtime alert fires</li>
-  <li><a href="../aws/">AWS</a> — cloud IAM and the shared-responsibility model in practice</li>
-  <li><a href="../docker/">Docker</a> — container fundamentals and image building</li>
-  <li><a href="../kubernetes/">Kubernetes</a> — orchestrating and securing containers at scale</li>
+  <li><a href="application-and-cloud-security.html">Application Security</a> — injection, XSS, SSRF, authentication, OAuth, and JWTs</li>
+  <li><a href="cryptography.html">Cryptography</a> — the primitives behind image signing and secrets at rest</li>
+  <li><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> — Zero Trust, supply-chain attacks, SBOM/SLSA/Sigstore</li>
+  <li><a href="operations-and-response.html">Security Operations &amp; Response</a> — acting on runtime alerts</li>
+  <li><a href="../aws/security.html">AWS Security</a> — IAM, encryption, and detection on AWS specifically</li>
+  <li><a href="../docker/storage-security.html">Docker Storage &amp; Security</a> — container fundamentals and Docker-level hardening</li>
+  <li><a href="../kubernetes/">Kubernetes</a> — cluster architecture and operations</li>
+  <li><a href="../container-runtimes.html">Container Runtimes</a> — runc, containerd, gVisor, Kata, and isolation trade-offs</li>
+  <li><a href="../ci-cd/security-and-operations.html">CI/CD Security and Operations</a> — securing the pipeline that builds images</li>
 </ul>
 
       </section>

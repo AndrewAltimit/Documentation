@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Terraform fundamentals: HCL blocks, the init/plan/apply workflow, how plans are computed, the dependency graph, providers and lock files, meta-arguments, var...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Terraform: Core Concepts">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Terraform fundamentals: HCL blocks, the init/plan/apply workflow, how plans are computed, the dependency graph, providers and lock files, meta-arguments, var...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/terraform/core-concepts.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Terraform: Core Concepts">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Terraform fundamentals: HCL blocks, the init/plan/apply workflow, how plans are computed, the dependency graph, providers and lock files, meta-arguments, var...">
 
 <title>Terraform: Core Concepts | Andrews Notebook</title>
 
@@ -3131,558 +3131,536 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>This page covers the fundamentals of Terraform: installation, a 30-minute hands-on crash course, and the core concepts (declarative configuration, the plan-apply cycle, providers, resource lifecycles, and variables) that everything else builds on.</p>
+        <p>This page covers the ideas the rest of the Terraform section builds on. It explains how a configuration is structured, what <code class="language-plaintext highlighter-rouge">init</code>, <code class="language-plaintext highlighter-rouge">plan</code>, and <code class="language-plaintext highlighter-rouge">apply</code> actually do, how Terraform orders operations, how providers are installed and pinned, and the language features used in almost every configuration: meta-arguments, variables, locals, and expressions. Examples target Terraform 1.16 and AWS provider 6.x. Unless a note says otherwise, they also work unchanged with OpenTofu (<code class="language-plaintext highlighter-rouge">tofu</code> in place of <code class="language-plaintext highlighter-rouge">terraform</code>).</p>
 
-<h2 id="getting-started">Getting Started</h2>
+<h2 id="installation">Installation</h2>
 
-<p>Before writing any infrastructure code, you need a few things in place. The good news: most of these are free and take only minutes to set up.</p>
+<p>Terraform is a single static binary. Install it from HashiCorp’s package repositories or releases page, or use a version manager such as <code class="language-plaintext highlighter-rouge">tfenv</code> or <code class="language-plaintext highlighter-rouge">mise</code> so that each repository can pin its own version. Commit the pin to the repository, for example in a <code class="language-plaintext highlighter-rouge">.terraform-version</code> file or <code class="language-plaintext highlighter-rouge">mise.toml</code>.</p>
 
-<h3 id="prerequisites">Prerequisites</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform version
+<span class="c"># Terraform v1.16.3</span>
+<span class="c"># on linux_arm64</span>
+</code></pre></div></div>
+
+<p>For editing, the official HashiCorp Terraform extension for VS Code, or <code class="language-plaintext highlighter-rouge">terraform-ls</code> in any editor that speaks the Language Server Protocol, gives completion, validation, and go-to-definition.</p>
+
+<h2 id="declarative-configuration">Declarative configuration</h2>
+
+<p>Terraform is <strong>declarative</strong>. You write down the end state you want, not the steps to reach it.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Requirement</th>
-      <th>Why You Need It</th>
-      <th>How to Get It</th>
+      <th>Imperative script</th>
+      <th>Terraform configuration</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Command line basics</strong></td>
-      <td>Terraform runs from the terminal</td>
-      <td>Practice with <code class="language-plaintext highlighter-rouge">cd</code>, <code class="language-plaintext highlighter-rouge">ls</code>, <code class="language-plaintext highlighter-rouge">mkdir</code></td>
+      <td>“Create a VPC, then a subnet, then an instance; if the subnet exists, skip it…”</td>
+      <td>“There is a VPC, a subnet in it, and an instance in the subnet”</td>
     </tr>
     <tr>
-      <td><strong>Cloud account</strong></td>
-      <td>A place to deploy infrastructure</td>
-      <td>AWS/Azure/GCP free tier</td>
+      <td>You choose the order</td>
+      <td>Terraform works out the order from references</td>
     </tr>
     <tr>
-      <td><strong>Text editor</strong></td>
-      <td>Writing configuration files</td>
-      <td>VS Code with HCL extension</td>
+      <td>A re-run may create duplicates unless every step checks first</td>
+      <td>Re-running is idempotent: no change means an empty plan</td>
     </tr>
     <tr>
-      <td><strong>Terraform CLI</strong></td>
-      <td>The tool itself</td>
-      <td><a href="https://www.terraform.io/downloads">terraform.io/downloads</a></td>
+      <td>After a partial failure, only the script’s logs record what happened</td>
+      <td>State records exactly which objects were created</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="verifying-your-installation">Verifying Your Installation</h3>
+<p>The price of this model is that Terraform only knows about objects recorded in its state. Anything created outside Terraform is invisible to it until you import it, and changes made outside Terraform show up as <strong>drift</strong>.</p>
 
-<p>After installing Terraform, confirm it works:</p>
+<h2 id="configuration-structure">Configuration structure</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform version
-<span class="c"># Terraform v1.7.0 on linux_amd64</span>
-</code></pre></div></div>
+<p>A <strong>root module</strong> is the directory you run Terraform in. Terraform loads every <code class="language-plaintext highlighter-rouge">*.tf</code> file in that directory as a single configuration. File names don’t affect behavior. By convention, code is split into <code class="language-plaintext highlighter-rouge">main.tf</code>, <code class="language-plaintext highlighter-rouge">variables.tf</code>, <code class="language-plaintext highlighter-rouge">outputs.tf</code>, <code class="language-plaintext highlighter-rouge">providers.tf</code> (or <code class="language-plaintext highlighter-rouge">versions.tf</code>), plus files named after what they contain (<code class="language-plaintext highlighter-rouge">network.tf</code>, <code class="language-plaintext highlighter-rouge">iam.tf</code>, and so on). Subdirectories are not loaded automatically. They become <strong>modules</strong> only when a <code class="language-plaintext highlighter-rouge">module</code> block calls them.</p>
 
-<h2 id="terraform-crash-course-zero-to-hero-in-30-minutes">Terraform Crash Course: Zero to Hero in 30 Minutes</h2>
+<p>HCL is built from <strong>blocks</strong> (a type, zero or more labels, and a body), <strong>arguments</strong> (<code class="language-plaintext highlighter-rouge">name = expression</code>), and <strong>expressions</strong>. The block types you will meet:</p>
 
-<p>This hands-on crash course takes you from zero knowledge to deploying real cloud infrastructure. By the end, you will understand the complete Terraform workflow.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Block</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform { }</code></td>
+      <td>Settings for Terraform itself: required version, required providers, backend</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">provider "aws" { }</code></td>
+      <td>Configures a provider (region, credentials, default tags)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">resource "type" "name" { }</code></td>
+      <td>An infrastructure object Terraform creates and manages</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">data "type" "name" { }</code></td>
+      <td>A read-only lookup of something that already exists</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ephemeral "type" "name" { }</code></td>
+      <td>A short-lived value (such as a token or generated password) that is never written to plan or state (1.10+)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">variable "name" { }</code></td>
+      <td>An input to the module</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">locals { }</code></td>
+      <td>Named intermediate values</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">output "name" { }</code></td>
+      <td>A value exposed to the caller or CLI</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">module "name" { }</code></td>
+      <td>Calls a child module</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">moved</code>, <code class="language-plaintext highlighter-rouge">import</code>, <code class="language-plaintext highlighter-rouge">removed</code></td>
+      <td>Refactor, adopt, or forget objects through code review (see <a href="advanced.html">Advanced Topics</a>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">check "name" { }</code></td>
+      <td>Assertions that warn without blocking the apply</td>
+    </tr>
+  </tbody>
+</table>
 
-<hr />
+<p>Every resource has an <strong>address</strong>, <code class="language-plaintext highlighter-rouge">&lt;type&gt;.&lt;name&gt;</code>, such as <code class="language-plaintext highlighter-rouge">aws_s3_bucket.logs</code>. Resources inside modules or loops get extra parts: <code class="language-plaintext highlighter-rouge">module.net.aws_subnet.private["a"]</code>. Addresses are how you refer to objects in expressions, in the CLI (<code class="language-plaintext highlighter-rouge">terraform state show ADDRESS</code>), and in the plan output.</p>
 
-<h3 id="step-1-your-first-terraform-file-5-minutes">Step 1: Your First Terraform File (5 minutes)</h3>
-
-<p>Every Terraform project starts with a configuration file. Create a new directory and file:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">mkdir </span>terraform-tutorial <span class="o">&amp;&amp;</span> <span class="nb">cd </span>terraform-tutorial
-<span class="nb">touch </span>main.tf
-</code></pre></div></div>
-
-<p>Add this configuration to <code class="language-plaintext highlighter-rouge">main.tf</code>. Notice how it reads almost like a description of what you want:</p>
+<h3 id="a-minimal-configuration">A minimal configuration</h3>
 
 <div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">terraform</span> <span class="p">{</span>
-  <span class="nx">required_version</span> <span class="o">=</span> <span class="s2">"&gt;= 1.5"</span>
+  <span class="nx">required_version</span> <span class="o">=</span> <span class="s2">"&gt;= 1.10"</span>
+
   <span class="nx">required_providers</span> <span class="p">{</span>
-    <span class="nx">aws</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">source</span> <span class="o">=</span> <span class="s2">"hashicorp/aws"</span><span class="p">,</span> <span class="nx">version</span> <span class="o">=</span> <span class="s2">"~&gt; 5.0"</span> <span class="p">}</span>
+    <span class="nx">aws</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nx">source</span>  <span class="o">=</span> <span class="s2">"hashicorp/aws"</span>
+      <span class="nx">version</span> <span class="o">=</span> <span class="s2">"~&gt; 6.0"</span>
+    <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
 
 <span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
-  <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>  <span class="c1"># Uses AWS_ACCESS_KEY_ID env var</span>
+  <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span> <span class="c1"># credentials come from the environment, never from this file</span>
+
+  <span class="nx">default_tags</span> <span class="p">{</span>
+    <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">ManagedBy</span> <span class="o">=</span> <span class="s2">"terraform"</span> <span class="p">}</span>
+  <span class="p">}</span>
 <span class="p">}</span>
 
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"my_first_bucket"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"my-unique-bucket-12345"</span>  <span class="c1"># Must be globally unique</span>
-  <span class="nx">tags</span>   <span class="o">=</span> <span class="p">{</span> <span class="nx">Name</span> <span class="o">=</span> <span class="s2">"My First Terraform Bucket"</span> <span class="p">}</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"logs"</span> <span class="p">{</span>
+  <span class="nx">bucket_prefix</span> <span class="o">=</span> <span class="s2">"app-logs-"</span> <span class="c1"># AWS appends a unique suffix; bucket names are global</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket_versioning"</span> <span class="s2">"logs"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">logs</span><span class="p">.</span><span class="nx">id</span> <span class="c1"># reference: creates an implicit dependency</span>
+
+  <span class="nx">versioning_configuration</span> <span class="p">{</span>
+    <span class="nx">status</span> <span class="o">=</span> <span class="s2">"Enabled"</span>
+  <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p><strong>What is happening here:</strong></p>
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">terraform {}</code> block configures Terraform itself and declares required providers</li>
-  <li><code class="language-plaintext highlighter-rouge">provider "aws"</code> tells Terraform how to connect to AWS</li>
-  <li><code class="language-plaintext highlighter-rouge">resource</code> declares infrastructure you want to create</li>
-</ul>
+<p>Since AWS provider v4, S3 bucket settings such as versioning, encryption, lifecycle rules, and policy are separate resources. They are no longer nested blocks inside <code class="language-plaintext highlighter-rouge">aws_s3_bucket</code>. Many large providers have been reorganized the same way, so each resource maps to a single API object.</p>
 
-<h3 id="step-2-the-terraform-workflow">Step 2: The Terraform Workflow</h3>
-
-<p>Terraform follows a predictable three-step workflow. Understanding this workflow is essential because you will repeat it hundreds of times.</p>
+<h2 id="the-core-workflow">The core workflow</h2>
 
 <table>
   <thead>
     <tr>
       <th>Command</th>
-      <th>What It Does</th>
-      <th>When to Use</th>
+      <th>What it does</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">terraform init</code></td>
-      <td>Downloads providers, sets up backend</td>
-      <td>Once per project, or after adding providers</td>
+      <td>Configures the backend, downloads providers and modules into <code class="language-plaintext highlighter-rouge">.terraform/</code>, and writes or verifies <code class="language-plaintext highlighter-rouge">.terraform.lock.hcl</code>. Safe to re-run; run it again after changing providers, modules, or the backend.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform fmt</code></td>
+      <td>Rewrites files to canonical style (<code class="language-plaintext highlighter-rouge">-check -recursive</code> in CI)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform validate</code></td>
+      <td>Checks syntax, types, and references without calling any cloud API</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">terraform plan</code></td>
-      <td>Shows what will change (dry run)</td>
-      <td>Before every apply, to review changes</td>
+      <td>Refreshes state and computes the proposed changes. <code class="language-plaintext highlighter-rouge">-out=tfplan</code> saves the plan so that exactly this plan can be applied later.</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">terraform apply</code></td>
-      <td>Creates/updates real infrastructure</td>
-      <td>When you are ready to make changes</td>
+      <td>Executes a plan: a freshly computed one after a confirmation prompt, or a saved <code class="language-plaintext highlighter-rouge">tfplan</code> with no prompt</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">terraform destroy</code></td>
-      <td>Removes all managed resources</td>
-      <td>Cleanup, or tearing down environments</td>
+      <td>Plans and applies the deletion of everything in state (the same as <code class="language-plaintext highlighter-rouge">apply -destroy</code>)</td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Step 1: Initialize (downloads the AWS provider)</span>
-terraform init
+<pre><code class="language-mermaid">flowchart LR
+    Write["Edit .tf files"] --&gt; Init["init&lt;br/&gt;(backend, providers,&lt;br/&gt;modules, lock file)"]
+    Init --&gt; Val["fmt / validate"]
+    Val --&gt; Plan["plan -out=tfplan"]
+    Plan --&gt; Review{"Plan as&lt;br/&gt;intended?"}
+    Review -- no --&gt; Write
+    Review -- yes --&gt; Apply["apply tfplan"]
+    Apply --&gt; State[("State updated")]
+    State -. next change .-&gt; Plan
+</code></pre>
 
-<span class="c"># Step 2: Preview changes (nothing is created yet)</span>
-terraform plan
+<p>In automation, always use a saved plan: <code class="language-plaintext highlighter-rouge">plan -out=tfplan</code> in one step and <code class="language-plaintext highlighter-rouge">apply tfplan</code> in a later one. Terraform refuses to apply a saved plan if state has changed since the plan was made, so the change a reviewer approved is exactly the change that runs.</p>
 
-<span class="c"># Step 3: Apply changes (type 'yes' to confirm)</span>
-terraform apply
-</code></pre></div></div>
+<h2 id="how-a-plan-is-computed">How a plan is computed</h2>
 
-<hr />
-
-<h3 id="step-3-modifying-infrastructure">Step 3: Modifying Infrastructure</h3>
-
-<p>The real power of Terraform shows when you change things. Add versioning to your bucket:</p>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">resource</span> <span class="s2">"aws_s3_bucket_versioning"</span> <span class="s2">"versioning"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">my_first_bucket</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">versioning_configuration</span> <span class="p">{</span> <span class="nx">status</span> <span class="o">=</span> <span class="s2">"Enabled"</span> <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p>Run <code class="language-plaintext highlighter-rouge">terraform plan</code> again. Terraform shows exactly what will change - in this case, one resource added. This predictability is why teams trust Terraform with production infrastructure.</p>
-
-<hr />
-
-<h3 id="step-4-understanding-state">Step 4: Understanding State</h3>
-
-<p>After applying, check your directory. You will see a <code class="language-plaintext highlighter-rouge">terraform.tfstate</code> file. This is Terraform’s memory of what it created.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform state list          <span class="c"># See managed resources</span>
-terraform state show aws_s3_bucket.my_first_bucket  <span class="c"># Details</span>
-</code></pre></div></div>
-
-<p><strong>Why state matters:</strong> Terraform compares your configuration against state to determine what changes are needed. Without state, Terraform would try to create everything fresh each time.</p>
-
-<hr />
-
-<h3 id="step-5-clean-up">Step 5: Clean Up</h3>
-
-<p>When you are done experimenting, remove everything:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform destroy   <span class="c"># Type 'yes' to confirm</span>
-</code></pre></div></div>
-
-<p><strong>What you accomplished:</strong></p>
-<ul>
-  <li>Wrote Infrastructure as Code</li>
-  <li>Created real cloud resources</li>
-  <li>Modified existing infrastructure safely</li>
-  <li>Understood state management</li>
-  <li>Cleaned up automatically</li>
-</ul>
-
-<hr />
-
-<h2 id="core-concepts">Core Concepts</h2>
-
-<p>Now that you have hands-on experience, let’s understand the principles that make Terraform work.</p>
-
-<h3 id="declarative-vs-imperative-why-it-matters">Declarative vs Imperative: Why It Matters</h3>
-
-<p>Consider the following approaches to creating a web server:</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Imperative (Scripts)</th>
-      <th>Declarative (Terraform)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>“Create a VM. If it fails, retry. Then install nginx. Configure the firewall…”</td>
-      <td>“I want a VM with nginx and these firewall rules”</td>
-    </tr>
-    <tr>
-      <td>You specify every step</td>
-      <td>You specify the end state</td>
-    </tr>
-    <tr>
-      <td>Order matters</td>
-      <td>Terraform figures out the order</td>
-    </tr>
-    <tr>
-      <td>Partial failures leave mess</td>
-      <td>Terraform tracks what succeeded</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>Terraform’s declarative approach means you describe <em>what</em> you want, not <em>how</em> to get there. This eliminates entire categories of bugs.</p>
-
-<div class="tip-card">
-  <h4>An analogy</h4>
-  <p>An imperative script is like turn-by-turn driving directions — every instruction must be correct and run in order, and a wrong turn leaves you stranded. A Terraform config is like giving a destination address to a GPS: you state where you want to end up, and the system computes the route, reroutes around obstacles, and tells you how far off-course you currently are (that is the <code>plan</code>).</p>
-</div>
-
-<h3 id="why-infrastructure-as-code-changes-everything">Why Infrastructure as Code Changes Everything</h3>
-
-<p>When infrastructure becomes code, you gain powerful capabilities:</p>
-
-<ul>
-  <li><strong>Version Control</strong>: Track every change through git history</li>
-  <li><strong>Code Review</strong>: Infrastructure changes go through pull requests</li>
-  <li><strong>Rollback</strong>: Return to any previous state instantly</li>
-  <li><strong>Reusability</strong>: Package patterns into modules</li>
-  <li><strong>Testing</strong>: Validate before deploying</li>
-</ul>
-
-<hr />
-
-<h2 id="how-terraform-works-under-the-hood">How Terraform Works Under the Hood</h2>
-
-<p>Understanding Terraform’s internals helps you write better configurations and debug issues faster.</p>
-
-<h3 id="dependency-graphs-automatic-ordering">Dependency Graphs: Automatic Ordering</h3>
-
-<p>Consider the following scenario: You need a database, a web server that connects to it, and a load balancer in front of the web server. These must be created in order - you cannot connect to a database that does not exist yet.</p>
-
-<p>Terraform automatically figures out this ordering by building a dependency graph. When you reference one resource from another (like <code class="language-plaintext highlighter-rouge">database.endpoint</code>), Terraform knows to create the database first.</p>
-
-<p><strong>What this means for you:</strong></p>
-<ul>
-  <li>You do not need to specify creation order</li>
-  <li>Terraform creates independent resources in parallel (faster deployments)</li>
-  <li>Circular dependencies are caught before anything is created</li>
-</ul>
-
-<h3 id="the-plan-apply-cycle">The Plan-Apply Cycle</h3>
-
-<p>When you run <code class="language-plaintext highlighter-rouge">terraform plan</code>, Terraform performs a three-way comparison:</p>
+<p><code class="language-plaintext highlighter-rouge">terraform plan</code> runs in three phases:</p>
 
 <ol>
-  <li><strong>Your Configuration</strong>: What you wrote in <code class="language-plaintext highlighter-rouge">.tf</code> files</li>
-  <li><strong>Current State</strong>: What Terraform remembers from the last apply</li>
-  <li><strong>Real Infrastructure</strong>: What actually exists in the cloud (via API calls)</li>
+  <li><strong>Refresh.</strong> For every resource in state, the provider reads the real object and Terraform updates its in-memory copy of state. This is how out-of-band changes (drift) are found.</li>
+  <li><strong>Diff.</strong> For every resource in configuration, Terraform compares the configured arguments with the refreshed state. The provider decides whether each difference can be applied in place or needs the object replaced. For example, changing an EC2 instance’s <code class="language-plaintext highlighter-rouge">ami</code> forces replacement, while changing <code class="language-plaintext highlighter-rouge">instance_type</code> is an in-place update that stops and starts the instance.</li>
+  <li><strong>Order.</strong> The resulting actions are placed on the dependency graph.</li>
 </ol>
 
-<p>This comparison produces one of five actions for each resource:</p>
+<p>Each resource ends up with one action:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Action</th>
       <th>Symbol</th>
+      <th>Action</th>
       <th>Meaning</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Create</td>
       <td><code class="language-plaintext highlighter-rouge">+</code></td>
-      <td>Resource does not exist, will be created</td>
+      <td>create</td>
+      <td>In configuration, not in state</td>
     </tr>
     <tr>
-      <td>Update</td>
       <td><code class="language-plaintext highlighter-rouge">~</code></td>
-      <td>Resource exists but configuration changed</td>
+      <td>update in-place</td>
+      <td>Exists; some arguments differ and can be changed on the live object</td>
     </tr>
     <tr>
-      <td>Replace</td>
       <td><code class="language-plaintext highlighter-rouge">-/+</code></td>
-      <td>Must destroy and recreate (e.g., changing instance type)</td>
+      <td>replace (destroy first)</td>
+      <td>A change that forces a new object; the old object is deleted before the new one is created</td>
     </tr>
     <tr>
-      <td>Delete</td>
+      <td><code class="language-plaintext highlighter-rouge">+/-</code></td>
+      <td>replace (create first)</td>
+      <td>As above, with <code class="language-plaintext highlighter-rouge">create_before_destroy = true</code></td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">-</code></td>
-      <td>Resource in state but not in configuration</td>
+      <td>destroy</td>
+      <td>In state, no longer in configuration</td>
     </tr>
     <tr>
-      <td>No-op</td>
+      <td><code class="language-plaintext highlighter-rouge">&lt;=</code></td>
+      <td>read</td>
+      <td>A data source that can only be read during apply because it depends on unknown values</td>
+    </tr>
+    <tr>
       <td>(none)</td>
-      <td>Everything matches, no action needed</td>
+      <td>no-op</td>
+      <td>Nothing to do</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Practical tip:</strong> Always review the plan output before applying. The symbols make it easy to spot unexpected changes.</p>
+<p>Values that won’t be known until apply, such as an ID assigned by the cloud, appear as <code class="language-plaintext highlighter-rouge">(known after apply)</code>. Two related modes:</p>
 
-<p>The full workflow ties these ideas together: <code class="language-plaintext highlighter-rouge">init</code> downloads providers, <code class="language-plaintext highlighter-rouge">plan</code> computes the three-way diff, and <code class="language-plaintext highlighter-rouge">apply</code> executes it against the dependency graph.</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">terraform plan -refresh-only</code> shows drift only and proposes updating state to match reality without touching infrastructure. It replaces the deprecated <code class="language-plaintext highlighter-rouge">terraform refresh</code> command.</li>
+  <li><code class="language-plaintext highlighter-rouge">terraform plan -refresh=false</code> skips the refresh phase. It is faster, but it cannot see drift.</li>
+</ul>
 
-<pre><code class="language-mermaid">flowchart LR
-    Write["Write .tf config"] --&gt; Init["terraform init&lt;br/&gt;(download providers)"]
-    Init --&gt; Plan["terraform plan&lt;br/&gt;(diff config / state / real)"]
-    Plan --&gt; Review{Looks right?}
-    Review --&gt;|no| Write
-    Review --&gt;|yes| Apply["terraform apply&lt;br/&gt;(create/update/delete)"]
-    Apply --&gt; State[(State updated)]
-    State --&gt; Plan
+<h2 id="the-dependency-graph">The dependency graph</h2>
+
+<p>Terraform builds a directed acyclic graph (DAG) of resources, data sources, and modules. A reference such as <code class="language-plaintext highlighter-rouge">aws_subnet.app.id</code> adds an edge automatically. When a dependency can’t be expressed as a reference, for example an IAM policy that must exist before a Lambda function is invoked, <code class="language-plaintext highlighter-rouge">depends_on</code> adds the edge explicitly.</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    VPC["aws_vpc.main"] --&gt; SubA["aws_subnet.a"]
+    VPC --&gt; SubB["aws_subnet.b"]
+    VPC --&gt; SG["aws_security_group.db"]
+    SubA --&gt; DBSub["aws_db_subnet_group.main"]
+    SubB --&gt; DBSub
+    DBSub --&gt; DB["aws_db_instance.main"]
+    SG --&gt; DB
+    DB --&gt; App["aws_ecs_service.app&lt;br/&gt;(uses db endpoint)"]
 </code></pre>
 
-<hr />
+<p>In this graph an arrow means “must exist first.” On <code class="language-plaintext highlighter-rouge">apply</code>, Terraform walks the graph and runs any operations whose dependencies are complete, up to 10 at a time by default (<code class="language-plaintext highlighter-rouge">-parallelism=N</code>). The two subnets and the security group are created concurrently. On <code class="language-plaintext highlighter-rouge">destroy</code>, the graph is walked in reverse. A cycle, such as two security groups whose inline rules reference each other, is an error at plan time. <a href="advanced.html#dependency-cycles">Advanced Topics</a> shows how to fix one.</p>
 
-<h2 id="providers-connecting-to-cloud-services">Providers: Connecting to Cloud Services</h2>
+<p><code class="language-plaintext highlighter-rouge">terraform graph</code> prints the graph in DOT format for Graphviz. Terraform 1.16 can also produce Mermaid output.</p>
 
-<p>Providers are plugins that let Terraform communicate with cloud platforms and services. Think of them as translators between Terraform’s configuration language and each platform’s API.</p>
+<h2 id="providers">Providers</h2>
 
-<h3 id="how-providers-work">How Providers Work</h3>
+<p>A provider is a plugin binary that implements resources, data sources, and, in newer protocol versions, ephemeral resources, functions, list resources, and actions for one API. Terraform starts the provider as a subprocess during each run and communicates with it over gRPC.</p>
 
-<p>When you declare a provider, Terraform:</p>
-<ol>
-  <li>Downloads the provider plugin during <code class="language-plaintext highlighter-rouge">terraform init</code></li>
-  <li>Uses it to translate your configuration into API calls</li>
-  <li>Handles authentication, retries, and rate limiting automatically</li>
-</ol>
+<h3 id="source-addresses-and-version-constraints">Source addresses and version constraints</h3>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Tell Terraform which providers you need</span>
-<span class="nx">terraform</span> <span class="p">{</span>
-  <span class="nx">required_providers</span> <span class="p">{</span>
-    <span class="nx">aws</span>   <span class="o">=</span> <span class="p">{</span> <span class="nx">source</span> <span class="o">=</span> <span class="s2">"hashicorp/aws"</span><span class="p">,</span> <span class="nx">version</span> <span class="o">=</span> <span class="s2">"~&gt; 5.0"</span> <span class="p">}</span>
-    <span class="nx">azure</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">source</span> <span class="o">=</span> <span class="s2">"hashicorp/azurerm"</span><span class="p">,</span> <span class="nx">version</span> <span class="o">=</span> <span class="s2">"~&gt; 3.0"</span> <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="commonly-used-providers">Commonly Used Providers</h3>
+<p>Each provider is identified by a <strong>source address</strong> in the form <code class="language-plaintext highlighter-rouge">[hostname/]namespace/type</code>. The hostname defaults to the public registry, so <code class="language-plaintext highlighter-rouge">hashicorp/aws</code> means <code class="language-plaintext highlighter-rouge">registry.terraform.io/hashicorp/aws</code> (or <code class="language-plaintext highlighter-rouge">registry.opentofu.org/hashicorp/aws</code> under OpenTofu). Version constraints use these operators:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Provider</th>
-      <th>Use Case</th>
-      <th>Example Resources</th>
+      <th>Constraint</th>
+      <th>Allows</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">aws</code></td>
-      <td>Amazon Web Services</td>
-      <td>EC2 instances, S3 buckets, RDS databases</td>
+      <td><code class="language-plaintext highlighter-rouge">"= 6.12.0"</code></td>
+      <td>Exactly that version</td>
+      <td>Rarely needed; the lock file already pins exact versions</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">azurerm</code></td>
-      <td>Microsoft Azure</td>
-      <td>VMs, Storage accounts, SQL databases</td>
+      <td><code class="language-plaintext highlighter-rouge">"~&gt; 6.0"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">&gt;= 6.0, &lt; 7.0</code></td>
+      <td>Root modules: accept minor releases, block the next major release</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">google</code></td>
-      <td>Google Cloud</td>
-      <td>Compute instances, GCS buckets, Cloud SQL</td>
+      <td><code class="language-plaintext highlighter-rouge">"~&gt; 6.12.0"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">&gt;= 6.12.0, &lt; 6.13.0</code></td>
+      <td>Patch releases only</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">kubernetes</code></td>
-      <td>K8s clusters</td>
-      <td>Deployments, Services, ConfigMaps</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">random</code></td>
-      <td>Generate random values</td>
-      <td>Random IDs, passwords, pet names</td>
+      <td><code class="language-plaintext highlighter-rouge">"&gt;= 5.0, &lt; 7.0"</code></td>
+      <td>A range</td>
+      <td>Reusable modules: declare the widest range you actually test</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="provider-authentication">Provider Authentication</h3>
+<p>Reusable modules should declare minimum versions. The root module decides the exact version.</p>
 
-<p>Terraform supports multiple authentication methods. Choose based on your security requirements:</p>
+<h3 id="the-dependency-lock-file">The dependency lock file</h3>
 
-<table>
-  <thead>
-    <tr>
-      <th>Method</th>
-      <th>Best For</th>
-      <th>Security Level</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Environment variables</td>
-      <td>CI/CD pipelines</td>
-      <td>Good</td>
-    </tr>
-    <tr>
-      <td>Shared credentials file</td>
-      <td>Local development</td>
-      <td>Moderate</td>
-    </tr>
-    <tr>
-      <td>IAM roles (assume role)</td>
-      <td>Cross-account access</td>
-      <td>Excellent</td>
-    </tr>
-    <tr>
-      <td>Instance profiles</td>
-      <td>EC2-based automation</td>
-      <td>Excellent</td>
-    </tr>
-  </tbody>
-</table>
+<p><code class="language-plaintext highlighter-rouge">terraform init</code> records the exact version and package checksums of every selected provider in <code class="language-plaintext highlighter-rouge">.terraform.lock.hcl</code>. <strong>Commit this file.</strong> It makes every machine and CI runner install byte-for-byte the same provider. <code class="language-plaintext highlighter-rouge">terraform init -upgrade</code> moves providers to the newest version the constraints allow. If your team uses several operating systems, run <code class="language-plaintext highlighter-rouge">terraform providers lock -platform=linux_amd64 -platform=linux_arm64 -platform=darwin_arm64</code> so the lock file holds checksums for every platform.</p>
+
+<h3 id="configuration-aliases-and-authentication">Configuration, aliases, and authentication</h3>
 
 <div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
   <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
+<span class="p">}</span>
 
-  <span class="c1"># Option 1: Use environment variables (recommended for CI/CD)</span>
-  <span class="c1"># Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY</span>
+<span class="c1"># A second configuration of the same provider, selected with `provider = aws.replica`</span>
+<span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
+  <span class="nx">alias</span>  <span class="o">=</span> <span class="s2">"replica"</span>
+  <span class="nx">region</span> <span class="o">=</span> <span class="s2">"eu-west-1"</span>
 
-  <span class="c1"># Option 2: Assume a role (recommended for cross-account)</span>
   <span class="nx">assume_role</span> <span class="p">{</span>
-    <span class="nx">role_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:iam::123456789:role/TerraformRole"</span>
+    <span class="nx">role_arn</span> <span class="o">=</span> <span class="s2">"arn:aws:iam::111122223333:role/terraform-deployer"</span>
   <span class="p">}</span>
+<span class="p">}</span>
 
-  <span class="c1"># Apply default tags to all resources</span>
-  <span class="nx">default_tags</span> <span class="p">{</span>
-    <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">ManagedBy</span> <span class="o">=</span> <span class="s2">"Terraform"</span> <span class="p">}</span>
-  <span class="p">}</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"replica"</span> <span class="p">{</span>
+  <span class="nx">provider</span>      <span class="o">=</span> <span class="nx">aws</span><span class="p">.</span><span class="nx">replica</span>
+  <span class="nx">bucket_prefix</span> <span class="o">=</span> <span class="s2">"replica-"</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p><strong>Security tip:</strong> Never hardcode credentials in Terraform files. Use environment variables or IAM roles instead.</p>
+<p>AWS provider 6.0 (June 2025) added a per-resource <code class="language-plaintext highlighter-rouge">region</code> argument to most AWS resources. Placing the same account’s resources in several regions no longer needs one alias per region: <code class="language-plaintext highlighter-rouge">region = "eu-west-1"</code> on the resource is enough. Aliases are still the way to target a different account or role.</p>
 
-<hr />
+<p>Never put credentials in <code class="language-plaintext highlighter-rouge">.tf</code> files. They end up in version control and often in state. Preferred sources, from best to worst:</p>
 
-<h2 id="resource-lifecycles">Resource Lifecycles</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Where it fits</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Workload identity / OIDC federation (GitHub Actions, GitLab, HCP Terraform dynamic credentials)</td>
+      <td>CI/CD: short-lived credentials, no stored secret</td>
+    </tr>
+    <tr>
+      <td>Instance or pod roles (EC2 instance profile, EKS Pod Identity, GKE/AKS workload identity)</td>
+      <td>Runners inside the cloud</td>
+    </tr>
+    <tr>
+      <td>SSO / CLI login sessions (<code class="language-plaintext highlighter-rouge">aws sso login</code>, <code class="language-plaintext highlighter-rouge">gcloud auth application-default login</code>, <code class="language-plaintext highlighter-rouge">az login</code>)</td>
+      <td>Engineers’ workstations</td>
+    </tr>
+    <tr>
+      <td>Static access keys in environment variables</td>
+      <td>Last resort; rotate them and scope them tightly</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Every resource in Terraform goes through a lifecycle: creation, updates, and eventual deletion. Understanding this lifecycle helps you handle special cases.</p>
+<h2 id="resources-and-data-sources">Resources and data sources</h2>
 
-<h3 id="the-lifecycle-meta-argument">The Lifecycle Meta-Argument</h3>
+<p>A <code class="language-plaintext highlighter-rouge">resource</code> block means Terraform owns the object’s lifecycle. A <code class="language-plaintext highlighter-rouge">data</code> block reads something Terraform does not manage, such as an AMI ID, an existing VPC, or the current account ID, and makes its attributes available to other blocks:</p>
 
-<p>Sometimes you need to customize how Terraform handles resource changes. The <code class="language-plaintext highlighter-rouge">lifecycle</code> block lets you do this:</p>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">data</span> <span class="s2">"aws_ami"</span> <span class="s2">"al2023"</span> <span class="p">{</span>
+  <span class="nx">most_recent</span> <span class="o">=</span> <span class="kc">true</span>
+  <span class="nx">owners</span>      <span class="o">=</span> <span class="p">[</span><span class="s2">"amazon"</span><span class="p">]</span>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">resource</span> <span class="s2">"aws_instance"</span> <span class="s2">"web"</span> <span class="p">{</span>
-  <span class="nx">ami</span>           <span class="o">=</span> <span class="s2">"ami-12345678"</span>
+  <span class="nx">filter</span> <span class="p">{</span>
+    <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"name"</span>
+    <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"al2023-ami-*-x86_64"</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_instance"</span> <span class="s2">"web"</span> <span class="p">{</span>
+  <span class="nx">ami</span>           <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_ami</span><span class="p">.</span><span class="nx">al2023</span><span class="p">.</span><span class="nx">id</span>
   <span class="nx">instance_type</span> <span class="o">=</span> <span class="s2">"t3.micro"</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Data sources are read during plan whenever their arguments are known. If an argument depends on a value that won’t exist until apply, the read is deferred to apply time (<code class="language-plaintext highlighter-rouge">&lt;=</code> in the plan).</p>
+
+<h2 id="meta-arguments">Meta-arguments</h2>
+
+<p>Meta-arguments are handled by Terraform itself, not by the provider, and work on every resource type.</p>
+
+<h3 id="count-and-for_each"><code class="language-plaintext highlighter-rouge">count</code> and <code class="language-plaintext highlighter-rouge">for_each</code></h3>
+
+<p>Both create several instances from one block. The difference is how instances are addressed:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th><code class="language-plaintext highlighter-rouge">count = N</code></th>
+      <th><code class="language-plaintext highlighter-rouge">for_each = map or set</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Instance address</td>
+      <td><code class="language-plaintext highlighter-rouge">aws_subnet.private[0]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">aws_subnet.private["us-east-1a"]</code></td>
+    </tr>
+    <tr>
+      <td>Removing a middle element</td>
+      <td>Shifts every later index, so those instances are replaced</td>
+      <td>Affects only that key</td>
+    </tr>
+    <tr>
+      <td>Best for</td>
+      <td>“0 or 1” toggles (<code class="language-plaintext highlighter-rouge">count = var.enabled ? 1 : 0</code>), identical copies</td>
+      <td>Almost everything else</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">variable</span> <span class="s2">"subnets"</span> <span class="p">{</span>
+  <span class="nx">type</span> <span class="o">=</span> <span class="nx">map</span><span class="p">(</span><span class="nx">object</span><span class="p">({</span> <span class="nx">cidr</span> <span class="o">=</span> <span class="nx">string</span><span class="p">,</span> <span class="nx">az</span> <span class="o">=</span> <span class="nx">string</span> <span class="p">}))</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_subnet"</span> <span class="s2">"private"</span> <span class="p">{</span>
+  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">subnets</span>
+
+  <span class="nx">vpc_id</span>            <span class="o">=</span> <span class="nx">aws_vpc</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">cidr_block</span>        <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">cidr</span>
+  <span class="nx">availability_zone</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">az</span>
+  <span class="nx">tags</span>              <span class="o">=</span> <span class="p">{</span> <span class="nx">Name</span> <span class="o">=</span> <span class="s2">"private-${each.key}"</span> <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">for_each</code> keys must be known at plan time. A key computed from another resource’s ID fails with “Invalid for_each argument”. Build keys from input values instead.</p>
+
+<h3 id="depends_on-and-provider"><code class="language-plaintext highlighter-rouge">depends_on</code> and <code class="language-plaintext highlighter-rouge">provider</code></h3>
+
+<p><code class="language-plaintext highlighter-rouge">depends_on = [aws_iam_role_policy.x]</code> adds a dependency edge that isn’t visible from references. Use it sparingly, because it makes Terraform treat more values as unknown during planning. <code class="language-plaintext highlighter-rouge">provider = aws.replica</code> selects an aliased provider configuration.</p>
+
+<h3 id="lifecycle"><code class="language-plaintext highlighter-rouge">lifecycle</code></h3>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">resource</span> <span class="s2">"aws_lb_target_group"</span> <span class="s2">"app"</span> <span class="p">{</span>
+  <span class="c1"># ...</span>
 
   <span class="nx">lifecycle</span> <span class="p">{</span>
-    <span class="nx">create_before_destroy</span> <span class="o">=</span> <span class="kc">true</span>  <span class="c1"># Create new before destroying old</span>
-    <span class="nx">prevent_destroy</span>       <span class="o">=</span> <span class="kc">true</span>  <span class="c1"># Block accidental deletion</span>
-    <span class="nx">ignore_changes</span>        <span class="o">=</span> <span class="p">[</span><span class="nx">tags</span><span class="p">]</span>  <span class="c1"># Ignore external tag changes</span>
+    <span class="nx">create_before_destroy</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="nx">prevent_destroy</span>       <span class="o">=</span> <span class="kc">false</span>
+    <span class="nx">ignore_changes</span>        <span class="o">=</span> <span class="p">[</span><span class="nx">tags</span><span class="p">[</span><span class="s2">"LastDeployedBy"</span><span class="p">]]</span>
+    <span class="nx">replace_triggered_by</span>  <span class="o">=</span> <span class="p">[</span><span class="nx">terraform_data</span><span class="p">.</span><span class="nx">app_version</span><span class="p">]</span>
+
+    <span class="nx">precondition</span> <span class="p">{</span>
+      <span class="nx">condition</span>     <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">port</span> <span class="o">&gt;</span> <span class="mi">1024</span>
+      <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Application ports must be unprivileged."</span>
+    <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
-
-<h3 id="when-to-use-each-lifecycle-option">When to Use Each Lifecycle Option</h3>
 
 <table>
   <thead>
     <tr>
       <th>Option</th>
-      <th>Use Case</th>
-      <th>Example</th>
+      <th>Effect</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">create_before_destroy</code></td>
-      <td>Zero-downtime updates</td>
-      <td>Load balancers, DNS records</td>
+      <td>On replacement, build the new object before deleting the old one</td>
+      <td>Load balancers, certificates, launch templates; anything that must not have a gap</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">prevent_destroy</code></td>
-      <td>Critical resources</td>
-      <td>Production databases, S3 buckets with data</td>
+      <td>Any plan that would destroy the object fails</td>
+      <td>Production databases and buckets holding data</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ignore_changes</code></td>
-      <td>Externally managed attributes</td>
-      <td>Tags set by other tools, autoscaling counts</td>
+      <td>Ignore differences in the listed attributes (or <code class="language-plaintext highlighter-rouge">all</code>)</td>
+      <td>Attributes changed by autoscalers or external tools</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">replace_triggered_by</code></td>
-      <td>Force replacement</td>
-      <td>When AMI changes, replace instance</td>
+      <td>Replace this resource when a referenced resource or attribute changes</td>
+      <td>Recreate instances when a config artifact changes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">precondition</code> / <code class="language-plaintext highlighter-rouge">postcondition</code></td>
+      <td>Assertions checked before and after the object is planned or applied; a failure stops the run</td>
+      <td>Guarding assumptions about inputs or data-source results</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">destroy = false</code></td>
+      <td>Removing the resource from configuration forgets it (drops it from state) instead of deleting it</td>
+      <td>Handing an object over to another tool or stack (Terraform 1.16, OpenTofu 1.12)</td>
     </tr>
   </tbody>
 </table>
 
-<hr />
+<p><code class="language-plaintext highlighter-rouge">prevent_destroy</code> only protects an object while its block stays in configuration. If you delete the block, the protection goes with it. Rely on provider-level safeguards such as <code class="language-plaintext highlighter-rouge">deletion_protection</code> on databases as well.</p>
 
-<h2 id="variables-and-types">Variables and Types</h2>
+<h2 id="variables-locals-and-outputs">Variables, locals, and outputs</h2>
 
-<p>Variables make your Terraform code reusable. Instead of hardcoding values, you define variables that can change between environments.</p>
-
-<h3 id="variable-types-at-a-glance">Variable Types at a Glance</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Type</th>
-      <th>Example</th>
-      <th>Use Case</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">string</code></td>
-      <td><code class="language-plaintext highlighter-rouge">"us-east-1"</code></td>
-      <td>Regions, names, IDs</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">number</code></td>
-      <td><code class="language-plaintext highlighter-rouge">3</code></td>
-      <td>Counts, sizes, ports</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">bool</code></td>
-      <td><code class="language-plaintext highlighter-rouge">true</code></td>
-      <td>Feature flags</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">list(string)</code></td>
-      <td><code class="language-plaintext highlighter-rouge">["a", "b"]</code></td>
-      <td>Multiple values of same type</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">map(string)</code></td>
-      <td><code class="language-plaintext highlighter-rouge">{env = "prod"}</code></td>
-      <td>Key-value pairs</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">object({...})</code></td>
-      <td>Complex structures</td>
-      <td>Grouped configuration</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="defining-variables-with-validation">Defining Variables with Validation</h3>
-
-<p>Catch errors before they reach production by validating inputs:</p>
+<h3 id="input-variables">Input variables</h3>
 
 <div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">variable</span> <span class="s2">"environment"</span> <span class="p">{</span>
   <span class="nx">type</span>        <span class="o">=</span> <span class="nx">string</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Deployment environment"</span>
+  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Deployment environment."</span>
 
   <span class="nx">validation</span> <span class="p">{</span>
     <span class="nx">condition</span>     <span class="o">=</span> <span class="nx">contains</span><span class="p">([</span><span class="s2">"dev"</span><span class="p">,</span> <span class="s2">"staging"</span><span class="p">,</span> <span class="s2">"prod"</span><span class="p">],</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span><span class="p">)</span>
-    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Environment must be dev, staging, or prod."</span>
+    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"environment must be dev, staging, or prod."</span>
   <span class="p">}</span>
 <span class="p">}</span>
 
@@ -3691,88 +3669,114 @@ terraform state show aws_s3_bucket.my_first_bucket  <span class="c"># Details</s
   <span class="nx">default</span> <span class="o">=</span> <span class="s2">"t3.micro"</span>
 
   <span class="nx">validation</span> <span class="p">{</span>
-    <span class="nx">condition</span>     <span class="o">=</span> <span class="nx">can</span><span class="p">(</span><span class="nx">regex</span><span class="p">(</span><span class="s2">"^t3</span><span class="err">\\</span><span class="s2">."</span><span class="p">,</span> <span class="nx">var</span><span class="p">.</span><span class="nx">instance_type</span><span class="p">))</span>
-    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Only t3 instance types are allowed."</span>
+    <span class="c1"># Since 1.9, validation may reference other variables and objects</span>
+    <span class="nx">condition</span>     <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span> <span class="o">==</span> <span class="s2">"prod"</span> <span class="o">||</span> <span class="nx">startswith</span><span class="p">(</span><span class="nx">var</span><span class="p">.</span><span class="nx">instance_type</span><span class="p">,</span> <span class="s2">"t3."</span><span class="p">)</span>
+    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Non-production environments are limited to t3 instance types."</span>
   <span class="p">}</span>
 <span class="p">}</span>
+
+<span class="nx">variable</span> <span class="s2">"db_password"</span> <span class="p">{</span>
+  <span class="nx">type</span>      <span class="o">=</span> <span class="nx">string</span>
+  <span class="nx">sensitive</span> <span class="o">=</span> <span class="kc">true</span> <span class="c1"># redacted in CLI output; still stored in state unless used only with ephemeral / write-only arguments</span>
+  <span class="nx">ephemeral</span> <span class="o">=</span> <span class="kc">true</span> <span class="c1"># 1.10+: never written to plan or state</span>
+<span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="variable-precedence">Variable Precedence</h3>
+<p>Types are <code class="language-plaintext highlighter-rouge">string</code>, <code class="language-plaintext highlighter-rouge">number</code>, <code class="language-plaintext highlighter-rouge">bool</code>, and the collection and structural types <code class="language-plaintext highlighter-rouge">list(T)</code>, <code class="language-plaintext highlighter-rouge">set(T)</code>, <code class="language-plaintext highlighter-rouge">map(T)</code>, <code class="language-plaintext highlighter-rouge">object({...})</code>, and <code class="language-plaintext highlighter-rouge">tuple([...])</code>. <code class="language-plaintext highlighter-rouge">object</code> attributes can be marked <code class="language-plaintext highlighter-rouge">optional(type, default)</code>, so callers need to pass only the fields they care about.</p>
 
-<p>Variables can be set in multiple places. Terraform uses them in this order (later overrides earlier):</p>
+<h3 id="where-variable-values-come-from">Where variable values come from</h3>
+
+<p>Terraform loads values in this order, and a later source overrides an earlier one:</p>
 
 <ol>
-  <li>Default values in variable definitions</li>
-  <li>Environment variables (<code class="language-plaintext highlighter-rouge">TF_VAR_name</code>)</li>
-  <li><code class="language-plaintext highlighter-rouge">terraform.tfvars</code> file</li>
-  <li><code class="language-plaintext highlighter-rouge">*.auto.tfvars</code> files (alphabetical order)</li>
-  <li><code class="language-plaintext highlighter-rouge">-var-file</code> command line flag</li>
-  <li><code class="language-plaintext highlighter-rouge">-var</code> command line flag</li>
+  <li><code class="language-plaintext highlighter-rouge">default</code> in the <code class="language-plaintext highlighter-rouge">variable</code> block</li>
+  <li><code class="language-plaintext highlighter-rouge">TF_VAR_&lt;name&gt;</code> environment variables</li>
+  <li><code class="language-plaintext highlighter-rouge">terraform.tfvars</code>, then <code class="language-plaintext highlighter-rouge">terraform.tfvars.json</code></li>
+  <li><code class="language-plaintext highlighter-rouge">*.auto.tfvars</code> and <code class="language-plaintext highlighter-rouge">*.auto.tfvars.json</code>, in lexical filename order</li>
+  <li><code class="language-plaintext highlighter-rouge">-var</code> and <code class="language-plaintext highlighter-rouge">-var-file</code> options, in the order they appear on the command line</li>
 </ol>
 
-<p><strong>Practical tip:</strong> Use <code class="language-plaintext highlighter-rouge">terraform.tfvars</code> for environment-specific values and keep it out of version control for sensitive data.</p>
+<p>A variable with no default and no value is required. Terraform prompts for it interactively, or fails when run with <code class="language-plaintext highlighter-rouge">-input=false</code>, which is what CI should use.</p>
 
-<h3 id="using-variables-in-practice">Using Variables in Practice</h3>
+<h3 id="locals-and-outputs">Locals and outputs</h3>
 
-<p>Here is a complete example showing variables in action:</p>
+<p><code class="language-plaintext highlighter-rouge">locals</code> name intermediate expressions so they are written once. <code class="language-plaintext highlighter-rouge">output</code> blocks expose values to the CLI (<code class="language-plaintext highlighter-rouge">terraform output -json</code>) and to calling modules. Outputs can be marked <code class="language-plaintext highlighter-rouge">sensitive</code> or <code class="language-plaintext highlighter-rouge">ephemeral</code>. See <a href="state-modules.html#outputs-and-sharing-data-between-configurations">State &amp; Modules</a> for how outputs are shared between configurations.</p>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># variables.tf</span>
-<span class="nx">variable</span> <span class="s2">"region"</span> <span class="p">{</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"AWS region"</span>
-  <span class="nx">default</span>     <span class="o">=</span> <span class="s2">"us-west-2"</span>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">locals</span> <span class="p">{</span>
+  <span class="nx">name_prefix</span> <span class="o">=</span> <span class="s2">"${var.project}-${var.environment}"</span>
+  <span class="nx">common_tags</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">Project</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">project</span><span class="p">,</span> <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span> <span class="p">}</span>
 <span class="p">}</span>
 
-<span class="nx">variable</span> <span class="s2">"bucket_name"</span> <span class="p">{</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Name for the S3 bucket"</span>
-  <span class="nx">type</span>        <span class="o">=</span> <span class="nx">string</span>  <span class="c1"># Required - no default</span>
+<span class="nx">output</span> <span class="s2">"bucket_arn"</span> <span class="p">{</span>
+  <span class="nx">value</span>       <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">logs</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"ARN of the log bucket."</span>
 <span class="p">}</span>
-
-<span class="c1"># main.tf</span>
-<span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
-  <span class="nx">region</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">region</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"data"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">bucket_name</span>
-<span class="p">}</span>
-
-<span class="c1"># terraform.tfvars</span>
-<span class="nx">bucket_name</span> <span class="o">=</span> <span class="s2">"my-company-data-bucket"</span>
 </code></pre></div></div>
 
-<p>When you run <code class="language-plaintext highlighter-rouge">terraform apply</code>, Terraform uses the values from <code class="language-plaintext highlighter-rouge">terraform.tfvars</code> automatically.</p>
+<h2 id="expressions-and-functions">Expressions and functions</h2>
 
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>Skipping <code>plan</code>:</strong> Applying without reviewing the plan is how unintended deletes happen. Always read the <code>+/~/-</code> symbols first.</li>
-    <li><strong>Unpinned provider versions:</strong> Without <code>version = "~&gt; 5.0"</code>, a new provider release can break a previously-working config. Pin versions and commit the lock file.</li>
-    <li><strong>Hardcoding secrets in <code>.tf</code> files:</strong> Variables marked <code>sensitive = true</code> and sourced from a vault keep credentials out of version control and plan output.</li>
-    <li><strong>Confusing replace with update:</strong> Some attribute changes (like an EC2 instance type on certain platforms) force a destroy-and-recreate. Watch for the <code>-/+</code> symbol.</li>
-  </ul>
-</div>
+<p>HCL expressions cover most of what configuration needs without a general-purpose language:</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Interpolation and templates</td>
+      <td><code class="language-plaintext highlighter-rouge">"${local.name_prefix}-web"</code>, <code class="language-plaintext highlighter-rouge">templatefile("user_data.sh.tftpl", { port = 8080 })</code></td>
+    </tr>
+    <tr>
+      <td>Conditional</td>
+      <td><code class="language-plaintext highlighter-rouge">var.environment == "prod" ? 3 : 1</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">for</code> expression</td>
+      <td><code class="language-plaintext highlighter-rouge">{ for s in aws_subnet.private : s.availability_zone =&gt; s.id }</code></td>
+    </tr>
+    <tr>
+      <td>Splat</td>
+      <td><code class="language-plaintext highlighter-rouge">aws_instance.web[*].private_ip</code></td>
+    </tr>
+    <tr>
+      <td>Safe navigation</td>
+      <td><code class="language-plaintext highlighter-rouge">try(var.settings.logging.level, "info")</code>, <code class="language-plaintext highlighter-rouge">can(regex("^t3\\.", var.type))</code></td>
+    </tr>
+    <tr>
+      <td>Type conversion</td>
+      <td><code class="language-plaintext highlighter-rouge">tolist(...)</code>, <code class="language-plaintext highlighter-rouge">tomap(...)</code>, and in 1.15+ <code class="language-plaintext highlighter-rouge">convert(value, type)</code></td>
+    </tr>
+    <tr>
+      <td>Provider-defined functions (1.8+)</td>
+      <td><code class="language-plaintext highlighter-rouge">provider::aws::arn_parse(var.role_arn).account_id</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">terraform console</code> opens a REPL against the current configuration and state. It is the fastest way to test an expression before committing it.</p>
+
+<h2 id="common-mistakes">Common mistakes</h2>
 
 <ul>
-  <li><strong>Declarative infrastructure.</strong> You describe the desired end state in HCL; Terraform figures out the create/update/delete steps to get there.</li>
-  <li><strong>Plan before apply.</strong> The plan is a dry run showing exactly what will change. Treat it as a code review for your infrastructure.</li>
-  <li><strong>Dependencies are automatic.</strong> Referencing one resource from another builds the dependency graph; Terraform orders and parallelizes accordingly.</li>
-  <li><strong>Providers are plugins.</strong> Each cloud or service has a provider that translates HCL into API calls. Pin provider versions for reproducibility.</li>
+  <li><strong>Applying without reading the plan.</strong> Most unintended deletions are visible in the plan as a <code class="language-plaintext highlighter-rouge">-</code> or <code class="language-plaintext highlighter-rouge">-/+</code> that nobody read. Pay special attention to replacements of stateful resources.</li>
+  <li><strong>Not committing <code class="language-plaintext highlighter-rouge">.terraform.lock.hcl</code>, or committing <code class="language-plaintext highlighter-rouge">.terraform/</code>.</strong> The lock file belongs in version control. The <code class="language-plaintext highlighter-rouge">.terraform/</code> plugin cache and <code class="language-plaintext highlighter-rouge">*.tfstate</code> files do not.</li>
+  <li><strong>Unbounded provider constraints in root modules.</strong> Without <code class="language-plaintext highlighter-rouge">~&gt;</code> the next major provider release is picked up by the first <code class="language-plaintext highlighter-rouge">init -upgrade</code>, and major releases (AWS v5 to v6, for example) contain breaking changes.</li>
+  <li><strong>Secrets in configuration or state.</strong> <code class="language-plaintext highlighter-rouge">sensitive = true</code> hides a value in output but does not keep it out of state. Use ephemeral values and write-only arguments, or let the platform generate and store the secret. Treat the state backend as sensitive in any case.</li>
+  <li><strong>Using <code class="language-plaintext highlighter-rouge">count</code> for collections.</strong> Removing one element from a <code class="language-plaintext highlighter-rouge">count</code>-based list reshuffles indexes and replaces unrelated instances. Use <code class="language-plaintext highlighter-rouge">for_each</code> with stable keys.</li>
 </ul>
-
-<hr />
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="state-modules.html">State &amp; Modules</a> - Track infrastructure and build reusable components</li>
-  <li><a href="patterns.html">Enterprise Patterns</a> - Real-world case studies and testing</li>
-  <li><a href="advanced.html">Advanced Topics</a> - Meta-programming, dynamic blocks, and Policy as Code</li>
-  <li><a href="../aws/">AWS Cloud Services</a> - Common deployment target for Terraform</li>
-  <li><a href="../kubernetes/">Kubernetes</a> - Provision clusters as code</li>
+  <li><a href="state-modules.html">State &amp; Modules</a>: remote state, locking, workspaces, and reusable modules</li>
+  <li><a href="patterns.html">Enterprise Patterns</a>: layout, CI/CD, policy, and testing at team scale</li>
+  <li><a href="advanced.html">Advanced Topics</a>: refactoring blocks, ephemeral values, actions, troubleshooting</li>
+  <li><a href="../aws/">AWS Cloud Services</a>: the most common deployment target</li>
+  <li><a href="../kubernetes/">Kubernetes</a>: provisioning clusters and workloads as code</li>
 </ul>
-
 
       </section>
     </div>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Index types and design, when indexes hurt, how a SQL query is parsed, planned and executed, reading EXPLAIN ANALYZE, and the cost model behind the optimizer.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Database Design: Indexing & Query Execution">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Index types and design, when indexes hurt, how a SQL query is parsed, planned and executed, reading EXPLAIN ANALYZE, and the cost model behind the optimizer.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/database-design/indexing-and-queries.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Database Design: Indexing & Query Execution">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Index types and design, when indexes hurt, how a SQL query is parsed, planned and executed, reading EXPLAIN ANALYZE, and the cost model behind the optimizer.">
 
 <title>Database Design: Indexing & Query Execution | Andrews Notebook</title>
 
@@ -3135,716 +3135,797 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="indexing--query-execution">Indexing &amp; Query Execution</h1>
 
-<h2 id="indexing-making-queries-lightning-fast">Indexing: Making Queries Lightning Fast</h2>
+<p>SQL is declarative: a query says <em>what</em> rows you want, and the database decides <em>how</em> to find them. This page covers both halves of that bargain. The first half is the <strong>index</strong> — the auxiliary data structures that make selective lookups cheap, how to choose and design them, and when they cost more than they save. The second half is the <strong>query pipeline</strong> — how the parser, planner and executor turn a statement into a tree of physical operators, how to read that tree with <code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code>, and the cost model and statistics that drive the planner’s choices.</p>
 
-<p>Imagine finding a word in a dictionary versus a novel. The dictionary has an index (alphabetical order), while the novel requires reading every page. Database indexes work similarly.</p>
+<p>Examples use PostgreSQL (current major version: 18, released September 2025; 19 is in beta as of this writing) unless noted. The concepts carry over to MySQL/InnoDB, SQL Server and Oracle; the operator names and knobs differ.</p>
 
-<p>Without an index, finding a customer among millions requires checking every row:</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Slow: Full table scan</span>
+<p><span id="indexing-making-queries-lightning-fast"></span></p>
+
+<h2 id="why-indexes-matter">Why Indexes Matter</h2>
+
+<p>Without an index, the only way to answer <code class="language-plaintext highlighter-rouge">WHERE email = 'john@example.com'</code> is a <strong>sequential scan</strong>: read every page of the table and test every row. The cost grows linearly with the table. A B+ tree index on <code class="language-plaintext highlighter-rouge">email</code> replaces that with a descent from root to leaf, which costs $O(\log_f N)$ page reads for fan-out $f$. Because a single 8 KB index page holds hundreds of keys, even a table with hundreds of millions of rows is usually only three or four levels deep — a handful of page reads instead of millions.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Without an index: Seq Scan over the whole table</span>
 <span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">customers</span> <span class="k">WHERE</span> <span class="n">email</span> <span class="o">=</span> <span class="s1">'john@example.com'</span><span class="p">;</span>
-<span class="c1">-- Time: 5 seconds for 10 million rows</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_customers_email</span> <span class="k">ON</span> <span class="n">customers</span> <span class="p">(</span><span class="n">email</span><span class="p">);</span>
+<span class="c1">-- Same query: Index Scan — a few index pages, then one heap page</span>
 </code></pre></div></div>
 
-<p>With an index:</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_customers_email</span> <span class="k">ON</span> <span class="n">customers</span><span class="p">(</span><span class="n">email</span><span class="p">);</span>
-<span class="c1">-- Same query now takes 0.005 seconds!</span>
-</code></pre></div></div>
+<p>An index entry stores the key plus a pointer to the row (in PostgreSQL a <em>tuple ID</em>, the heap page and slot; in InnoDB the row’s primary key, because the table itself is a B+ tree clustered on the primary key). How the executor follows those pointers determines which kind of scan appears in a plan:</p>
 
-<p>The rest of this page builds up in the order you would actually reach for these
-ideas: first the <em>kinds</em> of index and when each one earns its keep, then the cases
-where an index makes things <strong>worse</strong>, then how to read the plan the database
-actually chose, the everyday query mistakes that defeat your indexes, and finally
-the optimizer internals that explain <em>why</em> the planner made its choices.</p>
+<pre><code class="language-mermaid">flowchart LR
+    Q["WHERE email = ?"] --&gt; IDX["B+ tree index&lt;br/&gt;root, inner, leaf pages"]
+    IDX --&gt;|"Index Scan:&lt;br/&gt;follow each pointer"| HEAP["Table heap pages&lt;br/&gt;(random I/O)"]
+    IDX --&gt;|"Index Only Scan:&lt;br/&gt;all columns in index,&lt;br/&gt;page marked all-visible"| OUT["Result rows"]
+    IDX --&gt;|"Bitmap Index Scan:&lt;br/&gt;collect pointers,&lt;br/&gt;sort by page"| BMP["Bitmap Heap Scan&lt;br/&gt;(pages in physical order)"]
+    HEAP --&gt; OUT
+    BMP --&gt; OUT
+</code></pre>
 
-<h3 id="types-of-indexes-and-when-to-use-them">Types of Indexes and When to Use Them</h3>
+<p>The mechanics of the B+ tree itself (page splits, leaf chaining, fill factor) are covered in <a href="storage-internals.html#b-trees">Storage Engines &amp; Recovery</a>.</p>
 
-<p>The choice of index structure follows directly from the <em>shape</em> of the predicate
-you run most often. The table below is the quick-reference; the prose underneath
-explains the trade-offs.</p>
+<h2 id="index-types">Index Types</h2>
+
+<p>The right structure follows from the <em>shape</em> of the predicate you run most often.</p>
 
 <table>
   <thead>
     <tr>
       <th>Index type</th>
-      <th>Best for</th>
-      <th>Supports ranges?</th>
+      <th>Answers</th>
+      <th>Ordered / ranges</th>
       <th>Typical use</th>
+      <th>Availability</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>B-Tree</strong></td>
-      <td>equality <strong>and</strong> ordered ranges</td>
+      <td><strong>B-tree</strong> (B+ tree)</td>
+      <td><code class="language-plaintext highlighter-rouge">=</code>, <code class="language-plaintext highlighter-rouge">&lt;</code>, <code class="language-plaintext highlighter-rouge">&gt;</code>, <code class="language-plaintext highlighter-rouge">BETWEEN</code>, <code class="language-plaintext highlighter-rouge">IN</code>, <code class="language-plaintext highlighter-rouge">IS NULL</code>, <code class="language-plaintext highlighter-rouge">LIKE 'prefix%'</code>, <code class="language-plaintext highlighter-rouge">ORDER BY</code></td>
       <td>Yes</td>
-      <td>the safe default for almost everything</td>
+      <td>The default for almost everything</td>
+      <td>All engines</td>
     </tr>
     <tr>
       <td><strong>Hash</strong></td>
-      <td>exact equality only</td>
+      <td><code class="language-plaintext highlighter-rouge">=</code> only</td>
       <td>No</td>
-      <td>high-volume key lookups</td>
+      <td>Very long keys where only equality matters</td>
+      <td>PostgreSQL (crash-safe since 10), MySQL MEMORY; InnoDB uses an internal <em>adaptive</em> hash</td>
     </tr>
     <tr>
-      <td><strong>Full-Text</strong> (GIN)</td>
-      <td>“contains this word” searches</td>
-      <td>n/a</td>
-      <td>product/article search</td>
-    </tr>
-    <tr>
-      <td><strong>GIN / GiST</strong></td>
-      <td>JSON, arrays, geometry, fuzzy text</td>
-      <td>partial</td>
-      <td><code class="language-plaintext highlighter-rouge">@&gt;</code>, <code class="language-plaintext highlighter-rouge">&amp;&amp;</code>, trigram <code class="language-plaintext highlighter-rouge">LIKE '%foo%'</code></td>
-    </tr>
-    <tr>
-      <td><strong>BRIN</strong></td>
-      <td>huge, naturally-ordered tables</td>
-      <td>Yes (coarse)</td>
-      <td>append-only time-series</td>
-    </tr>
-    <tr>
-      <td><strong>Bitmap</strong> (DW engines)</td>
-      <td>low-cardinality columns</td>
+      <td><strong>GIN</strong> (inverted)</td>
+      <td>Containment: <code class="language-plaintext highlighter-rouge">@&gt;</code>, <code class="language-plaintext highlighter-rouge">?</code>, <code class="language-plaintext highlighter-rouge">&amp;&amp;</code>, full-text <code class="language-plaintext highlighter-rouge">@@</code>, trigram <code class="language-plaintext highlighter-rouge">LIKE '%x%'</code></td>
       <td>No</td>
-      <td>warehouse star-schema filters</td>
+      <td><code class="language-plaintext highlighter-rouge">jsonb</code>, arrays, <code class="language-plaintext highlighter-rouge">tsvector</code>, <code class="language-plaintext highlighter-rouge">pg_trgm</code></td>
+      <td>PostgreSQL</td>
+    </tr>
+    <tr>
+      <td><strong>GiST / SP-GiST</strong></td>
+      <td>Overlap, containment, nearest-neighbour (<code class="language-plaintext highlighter-rouge">&lt;-&gt;</code>)</td>
+      <td>Partial</td>
+      <td>Geometry (PostGIS), ranges, exclusion constraints, IP ranges</td>
+      <td>PostgreSQL</td>
+    </tr>
+    <tr>
+      <td><strong>BRIN</strong> (block range)</td>
+      <td>Range predicates on physically ordered data</td>
+      <td>Coarse</td>
+      <td>Append-only time-series, logs</td>
+      <td>PostgreSQL; similar zone maps in Oracle, ClickHouse, Snowflake</td>
+    </tr>
+    <tr>
+      <td><strong>Bitmap</strong> (persistent)</td>
+      <td><code class="language-plaintext highlighter-rouge">=</code> on low-cardinality columns, combined with AND/OR</td>
+      <td>No</td>
+      <td>Read-mostly warehouse filters</td>
+      <td>Oracle and other DW engines. PostgreSQL has no stored bitmap index; it builds bitmaps on the fly in <em>Bitmap Index Scans</em></td>
+    </tr>
+    <tr>
+      <td><strong>Full-text</strong></td>
+      <td>Word and phrase matching with ranking</td>
+      <td>No</td>
+      <td>Article and product search</td>
+      <td>PostgreSQL (<code class="language-plaintext highlighter-rouge">tsvector</code> + GIN), MySQL <code class="language-plaintext highlighter-rouge">FULLTEXT</code>, SQL Server</td>
+    </tr>
+    <tr>
+      <td><strong>Vector</strong> (HNSW, IVFFlat)</td>
+      <td>Approximate nearest-neighbour on embeddings</td>
+      <td>No</td>
+      <td>Semantic search, retrieval-augmented generation</td>
+      <td><code class="language-plaintext highlighter-rouge">pgvector</code>, dedicated vector stores</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>B-Tree Index</strong>: Your Swiss Army Knife</p>
+<p>Notes on the less obvious rows:</p>
+
 <ul>
-  <li>Use for: Most queries, especially ranges</li>
-  <li>Example: Finding orders between dates, products under $100</li>
-  <li>How it works: Like a phone book - hierarchical, sorted</li>
-  <li>Why it’s the default: a B-tree answers <code class="language-plaintext highlighter-rouge">=</code>, <code class="language-plaintext highlighter-rouge">&lt;</code>, <code class="language-plaintext highlighter-rouge">&gt;</code>, <code class="language-plaintext highlighter-rouge">BETWEEN</code>, <code class="language-plaintext highlighter-rouge">ORDER BY</code>,
-and <code class="language-plaintext highlighter-rouge">LIKE 'prefix%'</code> from the <em>same</em> structure, and stays balanced as you write.</li>
+  <li><strong>B-tree</strong> is the default because one structure serves equality, ranges and ordering, and it stays balanced under writes. If you are unsure, use a B-tree.</li>
+  <li><strong>Hash</strong> indexes are smaller and faster than B-trees only for equality on wide keys. They cannot serve ranges or sorting, and PostgreSQL hash indexes support neither <code class="language-plaintext highlighter-rouge">UNIQUE</code> nor multiple columns, so they rarely win in practice.</li>
+  <li><strong>GIN</strong> indexes map each <em>element</em> (a word, an array member, a JSON key) to the rows containing it. They are fast to read and slow to update; PostgreSQL buffers updates in a <em>pending list</em> (<code class="language-plaintext highlighter-rouge">fastupdate</code>) to soften the write cost. PostgreSQL 18 can build GIN indexes in parallel.</li>
+  <li><strong>BRIN</strong> stores only the minimum and maximum of each range of pages (128 by default). It is typically thousands of times smaller than a B-tree, but it only helps when the column’s values correlate with physical row order — for example, an <code class="language-plaintext highlighter-rouge">inserted_at</code> column on an append-only table.</li>
+  <li><strong>Vector indexes</strong> trade exactness for speed. <code class="language-plaintext highlighter-rouge">pgvector</code> (0.8.x as of 2026) supports HNSW and IVFFlat over <code class="language-plaintext highlighter-rouge">vector</code>, <code class="language-plaintext highlighter-rouge">halfvec</code>, <code class="language-plaintext highlighter-rouge">bit</code> and <code class="language-plaintext highlighter-rouge">sparsevec</code> types; since 0.8.0 it can run <em>iterative index scans</em> (<code class="language-plaintext highlighter-rouge">hnsw.iterative_scan</code>) so that a <code class="language-plaintext highlighter-rouge">WHERE</code> filter applied after the approximate search still returns enough rows.</li>
+  <li><strong>Learned indexes</strong>, which replace tree traversal with a model of the key distribution, remain a research topic (see <a href="distributed-and-nosql.html#where-databases-are-heading">Distributed &amp; NoSQL Databases</a>).</li>
 </ul>
 
-<p><strong>Hash Index</strong>: The Speed Demon</p>
-<ul>
-  <li>Use for: Exact matches only</li>
-  <li>Example: Looking up users by ID</li>
-  <li>How it works: Like a hash table - direct lookup</li>
-  <li>When <em>not</em> to use it: any query with <code class="language-plaintext highlighter-rouge">&lt;</code>, <code class="language-plaintext highlighter-rouge">&gt;</code>, <code class="language-plaintext highlighter-rouge">BETWEEN</code>, or <code class="language-plaintext highlighter-rouge">ORDER BY</code> — a hash
-has no notion of order, so the planner falls back to a scan.</li>
-  <li>Note: PostgreSQL provides real, persistent hash indexes (WAL-logged and crash-safe since PostgreSQL 10), and MySQL’s MEMORY engine supports them too. Even so, a B-tree is usually the better default — it serves equality <em>and</em> range queries.</li>
-</ul>
+<h2 id="designing-indexes">Designing Indexes</h2>
 
-<p><strong>Full-Text Index</strong>: The Search Engine</p>
-<ul>
-  <li>Use for: Text search, “contains” queries</li>
-  <li>Example: Finding products with “wireless” in description</li>
-  <li>How it works: Breaks text into searchable tokens</li>
-</ul>
+<p>Once the structure is chosen, the design questions are <em>which columns</em>, <em>in what order</em>, and <em>which rows</em>.</p>
 
-<p><strong>Bitmap Index</strong>: The Space Saver</p>
-<ul>
-  <li>Use for: Columns with few unique values</li>
-  <li>Example: Status fields (active/inactive), categories</li>
-  <li>How it works: One bit per row per unique value</li>
-</ul>
+<h3 id="composite-indexes-and-column-order">Composite indexes and column order</h3>
 
-<p><strong>Modern Index Types</strong>:</p>
-<ul>
-  <li><strong>BRIN (Block Range Index)</strong>: For time-series data — stores only the min/max value
-per block range, so the index is tiny; great when rows arrive in roughly the
-same order as the indexed column.</li>
-  <li><strong>GIN/GiST</strong>: For JSON, arrays, full-text search, and trigram <code class="language-plaintext highlighter-rouge">LIKE '%substr%'</code>.</li>
-  <li><strong>Vector Indexes</strong>: For AI/ML embeddings (pgvector, Pinecone) — approximate
-nearest-neighbour search over high-dimensional vectors.</li>
-  <li><strong>Learned Indexes</strong>: AI-predicted data locations (research phase).</li>
-</ul>
+<p>A composite B-tree on <code class="language-plaintext highlighter-rouge">(a, b, c)</code> is sorted by <code class="language-plaintext highlighter-rouge">a</code>, then by <code class="language-plaintext highlighter-rouge">b</code> within each <code class="language-plaintext highlighter-rouge">a</code>, then by <code class="language-plaintext highlighter-rouge">c</code>. It can seek directly to a contiguous slice for predicates on <code class="language-plaintext highlighter-rouge">a</code>, on <code class="language-plaintext highlighter-rouge">a, b</code>, or on <code class="language-plaintext highlighter-rouge">a, b, c</code> — the <strong>leftmost-prefix rule</strong> — but not for a predicate on <code class="language-plaintext highlighter-rouge">b</code> alone, because rows with a given <code class="language-plaintext highlighter-rouge">b</code> are scattered across every value of <code class="language-plaintext highlighter-rouge">a</code>.</p>
 
-<h3 id="smart-indexing-strategies">Smart Indexing Strategies</h3>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_customer_date</span> <span class="k">ON</span> <span class="n">orders</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">order_date</span><span class="p">);</span>
 
-<p>Once you’ve picked the <em>structure</em>, the next decisions are about <em>which columns</em>
-and <em>which rows</em> to cover.</p>
-
-<p><strong>Composite Indexes</strong>: Order Matters!</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- This index helps both queries:</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_customer_date</span> <span class="k">ON</span> <span class="n">orders</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">order_date</span><span class="p">);</span>
-<span class="c1">-- Fast: WHERE customer_id = 123</span>
-<span class="c1">-- Fast: WHERE customer_id = 123 AND order_date &gt; '2024-01-01'</span>
-<span class="c1">-- Slow: WHERE order_date &gt; '2024-01-01'  -- Can't use index efficiently!</span>
+<span class="c1">-- Seek on the leading column</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">WHERE</span> <span class="n">customer_id</span> <span class="o">=</span> <span class="mi">123</span><span class="p">;</span>
+<span class="c1">-- Seek on customer_id, then range-scan order_date inside that slice</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">WHERE</span> <span class="n">customer_id</span> <span class="o">=</span> <span class="mi">123</span> <span class="k">AND</span> <span class="n">order_date</span> <span class="o">&gt;</span> <span class="s1">'2026-01-01'</span><span class="p">;</span>
+<span class="c1">-- Leading column unconstrained: no contiguous slice (but see skip scan below)</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="k">WHERE</span> <span class="n">order_date</span> <span class="o">&gt;</span> <span class="s1">'2026-01-01'</span><span class="p">;</span>
 </code></pre></div></div>
 
-<p>The rule is the <strong>leftmost-prefix rule</strong>: a composite index on <code class="language-plaintext highlighter-rouge">(a, b, c)</code> can
-serve predicates on <code class="language-plaintext highlighter-rouge">a</code>, on <code class="language-plaintext highlighter-rouge">a, b</code>, and on <code class="language-plaintext highlighter-rouge">a, b, c</code>, but <em>not</em> a predicate on <code class="language-plaintext highlighter-rouge">b</code>
-alone — the index is sorted by <code class="language-plaintext highlighter-rouge">a</code> first, so a query that doesn’t constrain <code class="language-plaintext highlighter-rouge">a</code>
-has no contiguous slice to seek into. Put the column you filter by equality first,
-the column you range-scan or sort by second.</p>
+<p>A reliable ordering heuristic is <strong>equality, sort, range</strong> (ESR): put columns tested with <code class="language-plaintext highlighter-rouge">=</code> first, then the column used by <code class="language-plaintext highlighter-rouge">ORDER BY</code>, then the column with a range predicate. A range predicate on a column ends the seekable prefix — every column after it can only be used as a filter within the scanned range.</p>
 
-<p><strong>Covering Indexes</strong>: Include Everything</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Index includes all needed columns - no table lookup needed!</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_covering</span> 
-<span class="k">ON</span> <span class="n">orders</span><span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">order_date</span><span class="p">)</span> 
-<span class="n">INCLUDE</span> <span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">status</span><span class="p">);</span>
+<p><strong>Skip scan.</strong> PostgreSQL 18 added <em>skip scan</em> for multicolumn B-trees (MySQL has had it since 8.0.13, Oracle for much longer). When the leading column is unconstrained but has few distinct values, the planner internally treats the query as a series of <code class="language-plaintext highlighter-rouge">a = v AND b = ...</code> probes, one per distinct <code class="language-plaintext highlighter-rouge">a</code>. It helps only when the leading column has <strong>low cardinality</strong>; with many distinct values the planner will still prefer a sequential scan. It is a safety net for an imperfect index, not a reason to ignore column order.</p>
+
+<h3 id="covering-indexes">Covering indexes</h3>
+
+<p>If every column a query needs is in the index, the executor can answer from the index alone — an <strong>Index Only Scan</strong> in PostgreSQL, a <em>covering index</em> in MySQL and SQL Server.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_covering</span>
+    <span class="k">ON</span> <span class="n">orders</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">,</span> <span class="n">order_date</span><span class="p">)</span>
+    <span class="n">INCLUDE</span> <span class="p">(</span><span class="n">total</span><span class="p">,</span> <span class="n">status</span><span class="p">);</span>
 </code></pre></div></div>
 
-<p>A <em>covering</em> index lets the query be answered entirely from the index — the
-planner reports an <strong>Index Only Scan</strong> and never touches the heap. The <code class="language-plaintext highlighter-rouge">INCLUDE</code>
-columns are stored in the leaf pages but are <em>not</em> part of the sort key, so they
-add no ordering cost.</p>
+<p><code class="language-plaintext highlighter-rouge">INCLUDE</code> columns (PostgreSQL 11+, SQL Server) are stored in the leaf pages but are not part of the sort key, so they cost space but do not affect ordering or uniqueness. In InnoDB every secondary index implicitly contains the primary key, so a query needing only indexed columns plus the primary key is already covered.</p>
 
-<p><strong>Partial Indexes</strong>: Index Only What You Need</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Only index active users - smaller, faster</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_active_users</span> <span class="k">ON</span> <span class="n">users</span><span class="p">(</span><span class="n">email</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">active</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+<p>In PostgreSQL an index-only scan still has to confirm that each row is visible to the current snapshot. It skips the heap only for pages marked <em>all-visible</em> in the visibility map, which <code class="language-plaintext highlighter-rouge">VACUUM</code> maintains; on a heavily updated table that has not been vacuumed recently, the plan shows a large <code class="language-plaintext highlighter-rouge">Heap Fetches</code> count and most of the benefit disappears.</p>
+
+<h3 id="partial-and-expression-indexes">Partial and expression indexes</h3>
+
+<p>A <strong>partial index</strong> covers only the rows matching a predicate. It is smaller, cheaper to maintain, and can enforce conditional uniqueness:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Only active users are ever looked up by email</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_active_users_email</span> <span class="k">ON</span> <span class="n">users</span> <span class="p">(</span><span class="n">email</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">active</span><span class="p">;</span>
+
+<span class="c1">-- At most one open order per customer</span>
+<span class="k">CREATE</span> <span class="k">UNIQUE</span> <span class="k">INDEX</span> <span class="n">one_open_order</span> <span class="k">ON</span> <span class="n">orders</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">WHERE</span> <span class="n">status</span> <span class="o">=</span> <span class="s1">'open'</span><span class="p">;</span>
 </code></pre></div></div>
+
+<p>The planner uses a partial index only when it can prove the query’s <code class="language-plaintext highlighter-rouge">WHERE</code> clause implies the index predicate, so write the predicate the same way in both places.</p>
+
+<p>An <strong>expression index</strong> indexes the result of a function, which is the fix when a query must filter on a computed value:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_users_email_lower</span> <span class="k">ON</span> <span class="n">users</span> <span class="p">(</span><span class="k">lower</span><span class="p">(</span><span class="n">email</span><span class="p">));</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">users</span> <span class="k">WHERE</span> <span class="k">lower</span><span class="p">(</span><span class="n">email</span><span class="p">)</span> <span class="o">=</span> <span class="s1">'john@example.com'</span><span class="p">;</span>   <span class="c1">-- uses the index</span>
+</code></pre></div></div>
+
+<h3 id="building-indexes-on-live-tables">Building indexes on live tables</h3>
+
+<p>A plain <code class="language-plaintext highlighter-rouge">CREATE INDEX</code> in PostgreSQL takes a <code class="language-plaintext highlighter-rouge">SHARE</code> lock on the table: reads continue, but every <code class="language-plaintext highlighter-rouge">INSERT</code>, <code class="language-plaintext highlighter-rouge">UPDATE</code> and <code class="language-plaintext highlighter-rouge">DELETE</code> waits until the build finishes. On a large production table use the concurrent form, which takes the weaker <code class="language-plaintext highlighter-rouge">SHARE UPDATE EXCLUSIVE</code> lock:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">CONCURRENTLY</span> <span class="n">idx_orders_status</span> <span class="k">ON</span> <span class="n">orders</span> <span class="p">(</span><span class="n">status</span><span class="p">);</span>
+<span class="k">REINDEX</span> <span class="k">INDEX</span> <span class="n">CONCURRENTLY</span> <span class="n">idx_orders_status</span><span class="p">;</span>      <span class="c1">-- PostgreSQL 12+</span>
+<span class="k">DROP</span> <span class="k">INDEX</span> <span class="n">CONCURRENTLY</span> <span class="n">idx_orders_status</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>Concurrent builds scan the table twice and wait for existing transactions to finish, so they are slower. They cannot run inside a transaction block, and a failed build leaves an <code class="language-plaintext highlighter-rouge">INVALID</code> index behind that must be dropped and retried. MySQL’s equivalent is online DDL (<code class="language-plaintext highlighter-rouge">ALTER TABLE ... ADD INDEX ..., ALGORITHM=INPLACE, LOCK=NONE</code>). The full list of lock modes is in <a href="#locks-taken-by-index-operations">Locks taken by index operations</a>; schema-change workflow is covered in <a href="schema-evolution-and-migrations.html">Schema Evolution &amp; Migrations</a>.</p>
 
 <blockquote>
-  <p><strong>Dialect note: defining indexes.</strong> The examples above use PostgreSQL’s standalone <code class="language-plaintext highlighter-rouge">CREATE INDEX</code> form. MySQL additionally allows an inline <code class="language-plaintext highlighter-rouge">INDEX idx_name (cols)</code> clause inside <code class="language-plaintext highlighter-rouge">CREATE TABLE</code>; that inline syntax is MySQL-only and is invalid in PostgreSQL, where you always issue a separate <code class="language-plaintext highlighter-rouge">CREATE INDEX</code> statement.</p>
+  <p><strong>Dialect note.</strong> MySQL accepts an inline <code class="language-plaintext highlighter-rouge">INDEX idx_name (cols)</code> clause inside <code class="language-plaintext highlighter-rouge">CREATE TABLE</code>. That syntax is invalid in PostgreSQL, where every non-constraint index is created with a separate <code class="language-plaintext highlighter-rouge">CREATE INDEX</code> statement.</p>
 </blockquote>
 
 <h2 id="when-indexes-hurt">When Indexes Hurt</h2>
 
-<p>Indexing is a trade-off, not a free win. Every index you add is a second data
-structure the database must keep perfectly in sync, and there are query shapes an
-index actively slows down. Knowing when <em>not</em> to index is as important as knowing
-when to.</p>
+<p>Every index is a second copy of part of the table that must be kept exactly in sync. The costs:</p>
 
-<p><strong>Indexes aren’t free:</strong></p>
-<ul>
-  <li><strong>Storage</strong>: Each index is a separate B-tree on disk; a wide multi-column index
-can rival the size of the table itself.</li>
-  <li><strong>Write amplification</strong>: Every <code class="language-plaintext highlighter-rouge">INSERT</code>, <code class="language-plaintext highlighter-rouge">UPDATE</code> (of an indexed column), and
-<code class="language-plaintext highlighter-rouge">DELETE</code> must update <em>every</em> affected index. A table with eight indexes turns one
-logical write into nine physical ones.</li>
-  <li><strong>Maintenance / bloat</strong>: Indexes fragment as rows churn; B-trees develop dead
-entries that need <code class="language-plaintext highlighter-rouge">REINDEX</code> or autovacuum to reclaim.</li>
-  <li><strong>Planner overhead</strong>: More candidate indexes means more plans for the optimizer
-to cost out before it even starts executing.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Cost</th>
+      <th>What happens</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Write amplification</strong></td>
+      <td>Every <code class="language-plaintext highlighter-rouge">INSERT</code> and <code class="language-plaintext highlighter-rouge">DELETE</code>, and every <code class="language-plaintext highlighter-rouge">UPDATE</code> that touches an indexed column, must modify every affected index. A table with eight indexes turns one logical row write into up to nine page modifications, each also written to the WAL.</td>
+    </tr>
+    <tr>
+      <td><strong>Lost HOT updates</strong></td>
+      <td>PostgreSQL can update a row in place without touching any index (a <em>heap-only tuple</em> update) only if no indexed column changed and the page has free space. Indexing a frequently updated column disables this optimisation.</td>
+    </tr>
+    <tr>
+      <td><strong>Storage and cache pressure</strong></td>
+      <td>Indexes compete with table pages for the buffer pool. A wide multi-column index can approach the size of the table.</td>
+    </tr>
+    <tr>
+      <td><strong>Bloat and maintenance</strong></td>
+      <td>Churned indexes accumulate dead entries and half-empty pages; they need <code class="language-plaintext highlighter-rouge">VACUUM</code> and occasionally <code class="language-plaintext highlighter-rouge">REINDEX CONCURRENTLY</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Planning overhead</strong></td>
+      <td>Each candidate index is another access path the planner must cost.</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Cases where an index is the wrong tool:</strong></p>
+<p>Query shapes where an index is the wrong tool:</p>
 
 <ol>
-  <li><strong>Low selectivity</strong> — when the predicate matches a large fraction of the table.
-    <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- gender has 2 values; matching ~50% of rows.</span>
-<span class="c1">-- An index scan would do millions of random reads PLUS heap fetches;</span>
-<span class="c1">-- a sequential scan reads the table once, in order. Seq scan wins.</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">users</span> <span class="k">WHERE</span> <span class="n">gender</span> <span class="o">=</span> <span class="s1">'F'</span><span class="p">;</span>
+  <li><strong>Low selectivity.</strong> If a predicate matches a large fraction of the table, following millions of index pointers means millions of random page reads, while a sequential scan reads each page once in order. The crossover point depends on the storage and on how well the column correlates with physical order; on spinning disks it is often a few percent of rows, on SSDs with <code class="language-plaintext highlighter-rouge">random_page_cost</code> lowered it is higher. The planner computes this; you do not need to.</li>
+  <li>
+    <p><strong>The column is wrapped in a function or cast.</strong> The index stores <code class="language-plaintext highlighter-rouge">created_at</code>, not <code class="language-plaintext highlighter-rouge">EXTRACT(YEAR FROM created_at)</code>:</p>
+
+    <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Cannot use an index on created_at</span>
+<span class="k">WHERE</span> <span class="k">EXTRACT</span><span class="p">(</span><span class="nb">YEAR</span> <span class="k">FROM</span> <span class="n">created_at</span><span class="p">)</span> <span class="o">=</span> <span class="mi">2026</span>
+<span class="c1">-- Sargable rewrite: a half-open range</span>
+<span class="k">WHERE</span> <span class="n">created_at</span> <span class="o">&gt;=</span> <span class="s1">'2026-01-01'</span> <span class="k">AND</span> <span class="n">created_at</span> <span class="o">&lt;</span> <span class="s1">'2027-01-01'</span>
 </code></pre></div>    </div>
-    <p>A useful heuristic: if a predicate returns more than roughly 5–10% of the table,
-a sequential scan usually beats an index scan because random I/O (<code class="language-plaintext highlighter-rouge">random_page_cost</code>)
-is several times more expensive than sequential I/O.</p>
+
+    <p>Either rewrite the predicate as a range on the bare column, or create an expression index that matches it exactly.</p>
   </li>
-  <li><strong>A predicate that hides the column inside a function</strong> — this makes the index
-unusable, because the index stores <code class="language-plaintext highlighter-rouge">column</code>, not <code class="language-plaintext highlighter-rouge">f(column)</code>:
-```sql
-– Index on created_at is IGNORED: the planner can’t match YEAR(created_at)
-WHERE YEAR(created_at) = 2024;</li>
+  <li><strong>Leading wildcards.</strong> <code class="language-plaintext highlighter-rouge">LIKE '%term'</code> has no known prefix to seek to. Use a trigram GIN index (<code class="language-plaintext highlighter-rouge">pg_trgm</code>) or full-text search.</li>
+  <li><strong>Tiny tables.</strong> A table that fits in a few pages is cheaper to scan than to probe; the planner correctly ignores the index.</li>
+  <li><strong>Write-heavy ingest paths.</strong> A high-rate event or log table is often best served by few indexes, or by BRIN, with heavier read indexes on a downstream copy.</li>
 </ol>
 
-<p>– Rewrite as a range so the index applies:
-WHERE created_at &gt;= ‘2024-01-01’ AND created_at &lt; ‘2025-01-01’;
-– (or build an expression index: CREATE INDEX … ON t (EXTRACT(YEAR FROM created_at)))</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
-3. **Leading wildcards** — `LIKE '%term'` can't use an ordinary B-tree because
-there is no known prefix to seek to. Use a trigram (GIN) index or full-text search
-instead.
+<h3 id="finding-unused-and-missing-indexes">Finding unused and missing indexes</h3>
 
-4. **Tiny tables** — for a few hundred rows the whole table fits in one or two
-pages; a sequential scan is faster than the index lookup plus heap fetch, and the
-planner will (correctly) ignore your index.
+<p>Start from measurements, not guesses:</p>
 
-5. **Write-heavy hot paths** — a high-ingest logging table may be better off with
-*few* indexes (or BRIN) so writes stay cheap; add read indexes only on the columns
-you actually query.
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Indexes never used since statistics were last reset</span>
+<span class="k">SELECT</span> <span class="n">schemaname</span><span class="p">,</span> <span class="n">relname</span><span class="p">,</span> <span class="n">indexrelname</span><span class="p">,</span> <span class="n">idx_scan</span><span class="p">,</span>
+       <span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_relation_size</span><span class="p">(</span><span class="n">indexrelid</span><span class="p">))</span> <span class="k">AS</span> <span class="k">size</span>
+<span class="k">FROM</span> <span class="n">pg_stat_user_indexes</span>
+<span class="k">WHERE</span> <span class="n">idx_scan</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">pg_relation_size</span><span class="p">(</span><span class="n">indexrelid</span><span class="p">)</span> <span class="k">DESC</span><span class="p">;</span>
 
-&gt; **Rule of thumb.** Index based on read patterns, but don't index everything. Start from the predicates and join keys in your hottest queries, confirm with `EXPLAIN` that each index is actually used, and drop indexes that never appear in a plan — they cost you on every write for no read benefit.
-
-**AI-Assisted Index Recommendations**:
-Modern databases now use machine learning to suggest indexes:
-- **PostgreSQL**: pg_stat_statements + ML advisors
-- **MySQL**: Performance Schema with AI insights
-- **Cloud Services**: AWS Performance Insights, Azure Intelligent Performance
-
-Treat these as *candidates*, not gospel — they optimize the workload they've seen,
-and will happily recommend an index that a single weekly report would use but that
-your write-heavy OLTP path pays for every second.
-
-## How Databases Execute Your Queries
-
-When you write a SQL query, the database performs remarkable optimizations behind the scenes. Understanding this helps you write better queries.
-
-### The Journey of a Query
-
-Let's follow this query through the database:
-
-```sql
-SELECT c.name, SUM(o.total) as lifetime_value
-FROM customers c
-JOIN orders o ON c.customer_id = o.customer_id
-WHERE c.country = 'USA'
-GROUP BY c.customer_id
-HAVING SUM(o.total) &gt; 1000;
+<span class="c1">-- Tables that are scanned sequentially a lot (candidates for a missing index)</span>
+<span class="k">SELECT</span> <span class="n">relname</span><span class="p">,</span> <span class="n">seq_scan</span><span class="p">,</span> <span class="n">seq_tup_read</span><span class="p">,</span> <span class="n">idx_scan</span>
+<span class="k">FROM</span> <span class="n">pg_stat_user_tables</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">seq_tup_read</span> <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="mi">20</span><span class="p">;</span>
 </code></pre></div></div>
 
-<p><strong>Step 1: Parse and Validate</strong></p>
-<ul>
-  <li>Check syntax: Are the SQL keywords correct?</li>
-  <li>Verify objects: Do these tables and columns exist?</li>
-  <li>Check permissions: Can this user access this data?</li>
-</ul>
+<p>Check <code class="language-plaintext highlighter-rouge">idx_scan</code> on every replica before dropping an index — a replica serving reports may use an index the primary never touches — and keep any index that backs a <code class="language-plaintext highlighter-rouge">PRIMARY KEY</code> or <code class="language-plaintext highlighter-rouge">UNIQUE</code> constraint. <code class="language-plaintext highlighter-rouge">pg_stat_statements</code> identifies the queries worth optimising (see <a href="operations-and-monitoring.html#query-hotspots-pg_stat_statements">Operations &amp; Monitoring</a>), and the <code class="language-plaintext highlighter-rouge">hypopg</code> extension lets you test a <em>hypothetical</em> index with <code class="language-plaintext highlighter-rouge">EXPLAIN</code> before building it. Managed-service advisors (for example Azure SQL automatic tuning or the index recommendations in cloud Postgres consoles) are useful for generating candidates, but they optimise the workload they have observed: an index that speeds up a weekly report may slow every write on the OLTP path.</p>
 
-<p><strong>Step 2: Optimize</strong>
-The optimizer considers multiple execution strategies:</p>
+<h2 id="how-a-query-is-executed">How a Query Is Executed</h2>
 
-<p><em>Plan A: Scan all customers, then find their orders</em></p>
-<ul>
-  <li>Cost: 1 million customers × average 10 orders each = expensive!</li>
-</ul>
+<h3 id="the-pipeline">The pipeline</h3>
 
-<p><em>Plan B: Use country index, then join</em></p>
-<ul>
-  <li>Cost: 50,000 US customers × 10 orders = much better!</li>
-</ul>
+<pre><code class="language-mermaid">flowchart LR
+    SQL["SQL text"] --&gt; P["Parser&lt;br/&gt;syntax to parse tree"]
+    P --&gt; A["Analyzer&lt;br/&gt;resolve names, types,&lt;br/&gt;permissions"]
+    A --&gt; R["Rewriter&lt;br/&gt;expand views,&lt;br/&gt;apply rules and RLS"]
+    R --&gt; O["Planner / optimizer&lt;br/&gt;enumerate plans,&lt;br/&gt;estimate cost, pick cheapest"]
+    O --&gt; E["Executor&lt;br/&gt;run operator tree,&lt;br/&gt;stream rows"]
+    STATS[("Statistics&lt;br/&gt;pg_statistic")] -.-&gt; O
+    E --&gt; RES["Result"]
+</code></pre>
 
-<p><em>Plan C: Start with high-value orders, then find customers</em></p>
-<ul>
-  <li>Cost: Depends on how many orders &gt; $100…</li>
-</ul>
-
-<p>The optimizer estimates costs using statistics about your data.</p>
-
-<p><strong>Step 3: Execute</strong>
-The chosen plan becomes physical operations:</p>
 <ol>
-  <li>Index seek on customers.country</li>
-  <li>Hash join with orders</li>
-  <li>Aggregate by customer</li>
-  <li>Filter by total &gt; 1000</li>
+  <li><strong>Parse</strong> — check syntax and build a parse tree.</li>
+  <li><strong>Analyse</strong> — resolve table and column names against the catalog, assign types, check privileges.</li>
+  <li><strong>Rewrite</strong> — replace views with their definitions and apply row-level-security policies.</li>
+  <li><strong>Plan</strong> — generate alternative physical plans (access paths for each table, join orders, join algorithms), estimate the cost of each using table statistics, and keep the cheapest.</li>
+  <li><strong>Execute</strong> — run the chosen plan. Most executors use the <em>iterator</em> (Volcano) model: each operator pulls rows from its children one at a time, so rows stream up the tree without materialising intermediate results unless an operator (a sort, a hash build) needs them all.</li>
 </ol>
 
-<h3 id="reading-explain-and-explain-analyze">Reading EXPLAIN and EXPLAIN ANALYZE</h3>
+<p>Prepared statements can skip steps 1–4 on re-execution. PostgreSQL decides per statement whether to reuse a <em>generic</em> plan or re-plan with the actual parameter values (<code class="language-plaintext highlighter-rouge">plan_cache_mode</code>).</p>
 
-<p><code class="language-plaintext highlighter-rouge">EXPLAIN</code> shows the plan the optimizer <em>chose</em> and its <em>estimates</em>. <code class="language-plaintext highlighter-rouge">EXPLAIN
-ANALYZE</code> actually <strong>runs</strong> the query and adds the <em>measured</em> timings and row
-counts, so you can compare what the planner predicted against what really happened.
-That comparison is the single most useful debugging skill for slow queries.</p>
+<h3 id="choosing-between-plans">Choosing between plans</h3>
 
-<p>Start with the simple form:</p>
+<p>Consider:</p>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">EXPLAIN</span> <span class="k">ANALYZE</span>
-<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">COUNT</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> 
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="k">AS</span> <span class="n">lifetime_value</span>
 <span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
-<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
-<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">;</span>
-
-<span class="c1">-- Output:</span>
-<span class="n">HashAggregate</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">1234</span><span class="p">.</span><span class="mi">56</span> <span class="k">rows</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-  <span class="o">-&gt;</span> <span class="n">Hash</span> <span class="k">Join</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">234</span><span class="p">.</span><span class="mi">56</span> <span class="k">rows</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
-        <span class="n">Hash</span> <span class="n">Cond</span><span class="p">:</span> <span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">)</span>
-        <span class="o">-&gt;</span> <span class="n">Seq</span> <span class="n">Scan</span> <span class="k">on</span> <span class="n">orders</span> <span class="n">o</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">0</span><span class="p">.</span><span class="mi">00</span> <span class="k">rows</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
-        <span class="o">-&gt;</span> <span class="n">Hash</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">123</span><span class="p">.</span><span class="mi">45</span> <span class="k">rows</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-              <span class="o">-&gt;</span> <span class="n">Seq</span> <span class="n">Scan</span> <span class="k">on</span> <span class="n">customers</span> <span class="k">c</span> <span class="p">(</span><span class="n">cost</span><span class="o">=</span><span class="mi">0</span><span class="p">.</span><span class="mi">00</span> <span class="k">rows</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-</code></pre></div></div>
-
-<p>A plan is a <strong>tree</strong>, and it executes from the <strong>leaves up</strong>: each node pulls rows
-from its children, transforms them, and hands them to its parent. Read it
-bottom-up to follow the data, top-down to read the <em>goal</em>:</p>
-<ol>
-  <li>Scan customers table (1000 rows)</li>
-  <li>Build hash table</li>
-  <li>Scan orders table (10000 rows)</li>
-  <li>For each order, probe hash table (fast!)</li>
-  <li>Aggregate results</li>
-</ol>
-
-<h4 id="annotating-a-real-plan">Annotating a real plan</h4>
-
-<p>The summary form above hides the numbers you actually use in practice. Here is the
-<em>full</em> output of <code class="language-plaintext highlighter-rouge">EXPLAIN (ANALYZE, BUFFERS)</code> for a realistic query, with every
-field annotated. Suppose we run:</p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">EXPLAIN</span> <span class="p">(</span><span class="k">ANALYZE</span><span class="p">,</span> <span class="n">BUFFERS</span><span class="p">)</span>
-<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="k">AS</span> <span class="n">lifetime_value</span>
-<span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
-<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
 <span class="k">WHERE</span> <span class="k">c</span><span class="p">.</span><span class="n">country</span> <span class="o">=</span> <span class="s1">'USA'</span>
-<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span>
 <span class="k">HAVING</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">;</span>
 </code></pre></div></div>
 
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GroupAggregate  (cost=12850.42..14102.88 rows=842 width=40)
+<p>With 100,000 customers (18% in the USA) and 200,000 orders, the planner might weigh:</p>
+
+<ul>
+  <li><strong>Filter customers first, then join</strong> — scan or index-scan <code class="language-plaintext highlighter-rouge">customers</code> for the ~18,000 US rows, build a hash table on them, stream <code class="language-plaintext highlighter-rouge">orders</code> through it.</li>
+  <li><strong>Nested loop from customers</strong> — for each US customer, probe an index on <code class="language-plaintext highlighter-rouge">orders(customer_id)</code>. Good if there are few US customers and the index exists; poor at 18,000 probes if each probe is a random read.</li>
+  <li><strong>Join everything, filter later</strong> — never chosen, because the planner always pushes the <code class="language-plaintext highlighter-rouge">country</code> filter below the join (see <a href="#relational-algebra-rewrites">Relational algebra rewrites</a>).</li>
+</ul>
+
+<p>Which one wins depends entirely on estimated row counts, which is why accurate statistics matter more than any hint.</p>
+
+<h3 id="scan-and-join-operators">Scan and join operators</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Operator</th>
+      <th>What it does</th>
+      <th>Cheap when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Seq Scan</strong></td>
+      <td>Reads every page in order</td>
+      <td>A large fraction of rows is needed, or the table is small</td>
+    </tr>
+    <tr>
+      <td><strong>Index Scan</strong></td>
+      <td>Walks the index, fetches each matching heap row</td>
+      <td>Few rows match; also returns rows in index order</td>
+    </tr>
+    <tr>
+      <td><strong>Index Only Scan</strong></td>
+      <td>Answers from the index; skips all-visible heap pages</td>
+      <td>All needed columns are in the index and the table is well vacuumed</td>
+    </tr>
+    <tr>
+      <td><strong>Bitmap Index + Bitmap Heap Scan</strong></td>
+      <td>Collects matching row pointers into a bitmap, then reads heap pages in physical order; can AND/OR several indexes</td>
+      <td>A moderate number of rows match, or several indexes are combined</td>
+    </tr>
+    <tr>
+      <td><strong>Nested Loop</strong></td>
+      <td>For each outer row, scan or probe the inner input</td>
+      <td>Outer side is small and the inner side has an index on the join key. Cost roughly $O(n \cdot \log m)$ with an index, $O(n \cdot m)$ without</td>
+    </tr>
+    <tr>
+      <td><strong>Hash Join</strong></td>
+      <td>Build a hash table on the smaller input, probe with the larger</td>
+      <td>Equality joins on unsorted inputs; build side fits in memory. $O(n + m)$</td>
+    </tr>
+    <tr>
+      <td><strong>Merge Join</strong></td>
+      <td>Walk two inputs sorted on the join key in step</td>
+      <td>Both inputs are already sorted (e.g. by index) or needed sorted anyway; works for large inputs. $O(n + m)$ after sorting</td>
+    </tr>
+    <tr>
+      <td><strong>Hash / Group Aggregate</strong></td>
+      <td>Group rows with a hash table, or by scanning sorted input</td>
+      <td>Hash when groups fit in memory; group when input is already sorted</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="reading-explain-analyze">Reading EXPLAIN ANALYZE</h2>
+
+<p><code class="language-plaintext highlighter-rouge">EXPLAIN</code> shows the plan the optimizer chose and its <em>estimates</em>. <code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code> <strong>executes</strong> the statement and adds <em>measured</em> times and row counts. Comparing estimates with actuals is the most useful skill for diagnosing slow queries.</p>
+
+<p><code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code> really runs the statement, including <code class="language-plaintext highlighter-rouge">INSERT</code>, <code class="language-plaintext highlighter-rouge">UPDATE</code> and <code class="language-plaintext highlighter-rouge">DELETE</code>. To analyse a data-modifying statement without keeping its effects, wrap it in <code class="language-plaintext highlighter-rouge">BEGIN; ... ROLLBACK;</code>. Since PostgreSQL 18, <code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code> includes buffer statistics automatically; on older versions ask for them with <code class="language-plaintext highlighter-rouge">EXPLAIN (ANALYZE, BUFFERS)</code>.</p>
+
+<h3 id="a-plan-is-a-tree">A plan is a tree</h3>
+
+<p>Rows flow from the leaves upward. Read the output bottom-up to follow the data and top-down to see the goal. For the query above:</p>
+
+<pre><code class="language-mermaid">flowchart BT
+    S1["Seq Scan on orders&lt;br/&gt;200,000 rows"] --&gt; HJ["Hash Join&lt;br/&gt;o.customer_id = c.customer_id"]
+    S2["Seq Scan on customers&lt;br/&gt;filter country = 'USA'&lt;br/&gt;17,760 rows"] --&gt; H["Hash&lt;br/&gt;build table in memory"]
+    H --&gt; HJ
+    HJ --&gt; SO["Sort by customer_id&lt;br/&gt;spills to disk"]
+    SO --&gt; GA["GroupAggregate&lt;br/&gt;HAVING sum &gt; 1000"]
+</code></pre>
+
+<h3 id="an-annotated-plan">An annotated plan</h3>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">EXPLAIN</span> <span class="p">(</span><span class="k">ANALYZE</span><span class="p">,</span> <span class="n">BUFFERS</span><span class="p">)</span>
+<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="k">AS</span> <span class="n">lifetime_value</span>
+<span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
+<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
+<span class="k">WHERE</span> <span class="k">c</span><span class="p">.</span><span class="n">country</span> <span class="o">=</span> <span class="s1">'USA'</span>
+<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span>
+<span class="k">HAVING</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span><span class="p">;</span>
+</code></pre></div></div>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GroupAggregate  (cost=13602.42..14855.88 rows=5920 width=48)
                 (actual time=88.214..142.905 rows=796 loops=1)
-  Group Key: c.name
+  Group Key: c.customer_id
   Filter: (sum(o.total) &gt; 1000)
-  Rows Removed by Filter: 1204
-  Buffers: shared hit=512 read=4188
-  -&gt;  Sort  (cost=12850.42..13061.05 rows=84252 width=18)
+  Rows Removed by Filter: 16964
+  Buffers: shared hit=512 read=2400, temp read=288 written=290
+  -&gt;  Sort  (cost=13602.42..13813.05 rows=84252 width=26)
             (actual time=88.190..101.337 rows=84252 loops=1)
-        Sort Key: c.name
+        Sort Key: c.customer_id
         Sort Method: external merge  Disk: 2304kB
-        Buffers: shared hit=512 read=4188, temp read=288 written=290
-        -&gt;  Hash Join  (cost=1842.00..5921.66 rows=84252 width=18)
+        Buffers: shared hit=512 read=2400, temp read=288 written=290
+        -&gt;  Hash Join  (cost=2914.00..6874.66 rows=84252 width=26)
                        (actual time=12.004..58.221 rows=84252 loops=1)
               Hash Cond: (o.customer_id = c.customer_id)
-              Buffers: shared hit=512 read=4188
-              -&gt;  Seq Scan on orders o  (cost=0.00..3258.00 rows=200000 width=12)
+              Buffers: shared hit=512 read=2400
+              -&gt;  Seq Scan on orders o  (cost=0.00..3470.00 rows=200000 width=12)
                                         (actual time=0.009..18.402 rows=200000 loops=1)
-                    Buffers: shared read=3258
-              -&gt;  Hash  (cost=1620.00..1620.00 rows=17760 width=14)
+                    Buffers: shared read=1470
+              -&gt;  Hash  (cost=2692.00..2692.00 rows=17760 width=22)
                         (actual time=11.880..11.881 rows=17760 loops=1)
                     Buckets: 32768  Batches: 1  Memory Usage: 1099kB
                     Buffers: shared hit=512 read=930
-                    -&gt;  Seq Scan on customers c  (cost=0.00..1620.00 rows=17760 width=14)
+                    -&gt;  Seq Scan on customers c  (cost=0.00..2692.00 rows=17760 width=22)
                                                  (actual time=0.014..7.901 rows=17760 loops=1)
                           Filter: (country = 'USA'::text)
                           Rows Removed by Filter: 82240
-                          Buffers: shared read=930
+                          Buffers: shared hit=512 read=930
 Planning Time: 0.624 ms
 Execution Time: 144.880 ms
 </code></pre></div></div>
 
-<p>Now walk it field by field — this is what each piece is telling you:</p>
+<p>What each field tells you:</p>
 
 <ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">cost=12850.42..14102.88</code></strong> — two numbers in arbitrary cost units. The first is
-the <em>startup cost</em> (work before the first row can be returned; high for <code class="language-plaintext highlighter-rouge">Sort</code>
-because nothing emits until everything is sorted), the second is the <em>total cost</em>
-to return the last row. These are estimates, used only to <em>rank</em> plans.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">rows=842</code> vs <code class="language-plaintext highlighter-rouge">actual ... rows=796</code></strong> — the estimated vs. real row count. They’re
-close here (842 vs 796), which means the planner’s statistics are healthy. <strong>A
-large gap between estimated and actual rows is the number-one cause of bad plans</strong>
-— it usually means stale statistics; fix it with <code class="language-plaintext highlighter-rouge">ANALYZE customers;</code>.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">actual time=88.214..142.905</code></strong> — wall-clock milliseconds: time to the first row,
-then to the last. Subtract a child’s total time from its parent’s to see how much
-time a node <em>itself</em> spent.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">loops=1</code></strong> — how many times the node ran. <strong>Critical gotcha: <code class="language-plaintext highlighter-rouge">actual time</code> and
-<code class="language-plaintext highlighter-rouge">rows</code> are reported <em>per loop</em>.</strong> On the inner side of a nested loop you must
-multiply by <code class="language-plaintext highlighter-rouge">loops</code> to get the true totals; a “0.05 ms” node run 50,000 times is
-2.5 seconds.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">Rows Removed by Filter: 82240</code></strong> on the customers scan — the <code class="language-plaintext highlighter-rouge">country = 'USA'</code>
-predicate threw away 82,240 of 100,000 rows. That is the smoking gun: <strong>an index
-on <code class="language-plaintext highlighter-rouge">customers(country)</code> would let the scan read only the ~18k US rows</strong> instead of
-the whole table.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">Sort Method: external merge  Disk: 2304kB</code></strong> — the sort did <strong>not</strong> fit in
-<code class="language-plaintext highlighter-rouge">work_mem</code> and <em>spilled to disk</em>. The matching <code class="language-plaintext highlighter-rouge">temp read=288 written=290</code> under
-<code class="language-plaintext highlighter-rouge">Buffers</code> confirms temp-file I/O. Raising <code class="language-plaintext highlighter-rouge">work_mem</code> so the sort stays in memory
-(<code class="language-plaintext highlighter-rouge">Sort Method: quicksort  Memory: ...</code>) would remove that disk traffic.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">Buffers: shared hit=512 read=4188</code></strong> — pages served from cache (<code class="language-plaintext highlighter-rouge">hit</code>) versus
-pages fetched from disk (<code class="language-plaintext highlighter-rouge">read</code>). 4,188 disk reads dominate the runtime; on a
-warm cache the same plan would be far faster. Always run <code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code> twice
-and compare <code class="language-plaintext highlighter-rouge">read</code> vs <code class="language-plaintext highlighter-rouge">hit</code> to tell a cold cache apart from a genuinely
-I/O-bound plan.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">Hash</code> node — <code class="language-plaintext highlighter-rouge">Batches: 1  Memory Usage: 1099kB</code></strong> — the hash table fit in one
-batch in memory. If you ever see <code class="language-plaintext highlighter-rouge">Batches: 8</code> (a power of two &gt; 1), the build side
-overflowed <code class="language-plaintext highlighter-rouge">work_mem</code> and the join spilled to disk — another <code class="language-plaintext highlighter-rouge">work_mem</code> signal.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">Planning Time</code> vs <code class="language-plaintext highlighter-rouge">Execution Time</code></strong> — planning is sub-millisecond here, so the
-problem is purely execution. If planning ever dominates (common with very many
-partitions or prepared-statement churn), that’s a different class of fix.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">cost=13602.42..14855.88</code></strong> — estimated <em>startup</em> cost (work before the first row can be emitted; high for <code class="language-plaintext highlighter-rouge">Sort</code>, which must consume all input first) and <em>total</em> cost, in the planner’s arbitrary units. Costs are only meaningful for comparing plans for the same query.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">rows=</code> estimated versus <code class="language-plaintext highlighter-rouge">actual ... rows=</code></strong> — the most important comparison. Every scan and join estimate here is exact, so statistics are healthy. The top node’s estimate (5,920) is off by 7x because the planner has no statistics for an aggregate <code class="language-plaintext highlighter-rouge">HAVING</code> condition and falls back to a default selectivity of one third. At the root of the plan that is harmless; the same misestimate <em>below</em> a join would push the planner toward the wrong join algorithm. <strong>Large estimate/actual gaps low in the tree are the most common cause of bad plans.</strong> Refresh statistics with <code class="language-plaintext highlighter-rouge">ANALYZE</code>, raise the column’s statistics target, or add extended statistics (see <a href="#statistics-and-selectivity">Statistics and selectivity</a>).</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">actual time=88.214..142.905</code></strong> — milliseconds to the first row and to the last row. A node’s times include its children’s; subtract to find where time is spent.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">loops=1</code></strong> — how many times the node ran. <code class="language-plaintext highlighter-rouge">actual time</code> and <code class="language-plaintext highlighter-rouge">rows</code> are <strong>per loop</strong>: on the inner side of a nested loop, multiply by <code class="language-plaintext highlighter-rouge">loops</code>. A 0.05 ms node executed 50,000 times costs 2.5 seconds.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">Rows Removed by Filter: 82240</code></strong> on <code class="language-plaintext highlighter-rouge">customers</code> — the scan read 100,000 rows to keep 17,760. At 18% selectivity a sequential scan is still reasonable; if this were 0.1%, it would be the signature of a missing index.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">Sort Method: external merge  Disk: 2304kB</code></strong> — the sort did not fit in <code class="language-plaintext highlighter-rouge">work_mem</code> and spilled to temporary files (confirmed by <code class="language-plaintext highlighter-rouge">temp read/written</code> under <code class="language-plaintext highlighter-rouge">Buffers</code>). Raising <code class="language-plaintext highlighter-rouge">work_mem</code> for this session or query would give <code class="language-plaintext highlighter-rouge">Sort Method: quicksort  Memory: ...</code>. Alternatively, an index on <code class="language-plaintext highlighter-rouge">customers(customer_id)</code> already provides sorted order that a merge join plus <code class="language-plaintext highlighter-rouge">GroupAggregate</code> could exploit.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">Buffers: shared hit=512 read=2400</code></strong> — pages found in PostgreSQL’s buffer cache (<code class="language-plaintext highlighter-rouge">hit</code>) versus requested from the operating system (<code class="language-plaintext highlighter-rouge">read</code>, which may still be served by the OS page cache). Counts accumulate up the tree. Run the query twice: if <code class="language-plaintext highlighter-rouge">read</code> drops to near zero, the first run was a cold-cache effect, not a plan problem.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">Batches: 1  Memory Usage: 1099kB</code></strong> on the <code class="language-plaintext highlighter-rouge">Hash</code> node — the hash table fit in memory. <code class="language-plaintext highlighter-rouge">Batches</code> greater than 1 means the build side exceeded <code class="language-plaintext highlighter-rouge">work_mem × hash_mem_multiplier</code> and the join spilled to disk.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">Planning Time</code> versus <code class="language-plaintext highlighter-rouge">Execution Time</code></strong> — planning is sub-millisecond here. When planning dominates (heavily partitioned tables, very large join counts), the fixes are different: prepared statements, partition pruning, or fewer joins per query.</li>
 </ul>
 
-<p>The takeaway from this one plan: two concrete actions — add <code class="language-plaintext highlighter-rouge">customers(country)</code> to
-kill the 82k-row filter, and raise <code class="language-plaintext highlighter-rouge">work_mem</code> to keep the sort in memory — both of
-which you could <em>only</em> have known by reading the annotated output, not the SQL.</p>
+<p>Useful variants: <code class="language-plaintext highlighter-rouge">EXPLAIN (ANALYZE, FORMAT JSON)</code> produces machine-readable output that visualisers such as <code class="language-plaintext highlighter-rouge">explain.dalibo.com</code> accept; <code class="language-plaintext highlighter-rouge">VERBOSE</code> shows each node’s output columns; <code class="language-plaintext highlighter-rouge">SETTINGS</code> lists non-default planner settings; PostgreSQL 17+ adds <code class="language-plaintext highlighter-rouge">SERIALIZE</code> (cost of converting results for the client) and <code class="language-plaintext highlighter-rouge">MEMORY</code> (planner memory). In MySQL (8.0.18+), <code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code> prints a tree with <code class="language-plaintext highlighter-rouge">actual time=first..last rows=N loops=N</code> per node; in SQL Server, use the actual execution plan (<code class="language-plaintext highlighter-rouge">SET STATISTICS XML ON</code> or the graphical plan). The discipline is the same everywhere: compare estimates with actuals, multiply by loops, and look for spills.</p>
 
-<blockquote>
-  <p><strong>Output formats and engine differences.</strong> Add <code class="language-plaintext highlighter-rouge">(FORMAT JSON)</code> for machine-readable output you can diff in CI, or <code class="language-plaintext highlighter-rouge">(VERBOSE)</code> to see output column lists. MySQL’s <code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code> reports the same idea in a different shape — <code class="language-plaintext highlighter-rouge">actual time=first..last</code> and <code class="language-plaintext highlighter-rouge">loops=N</code> per node — while SQL Server exposes the live plan through <code class="language-plaintext highlighter-rouge">SET STATISTICS PROFILE ON</code> or the graphical “Include Actual Execution Plan”. The vocabulary differs; the reading discipline (estimate vs actual, watch the loops, find the spill) is identical.</p>
-</blockquote>
+<h2 id="common-query-anti-patterns">Common Query Anti-Patterns</h2>
 
-<h3 id="the-magic-of-relational-algebra">The Magic of Relational Algebra</h3>
+<p>Most slow queries in practice come from a short list of mistakes, each of which is visible in a plan.</p>
 
-<p>Behind every optimization is relational algebra—a mathematical framework that makes query optimization possible. Just as arithmetic has commutative (a+b = b+a) and associative ((a+b)+c = a+(b+c)) properties, relational operations have rules:</p>
+<h3 id="the-n1-query-problem">The N+1 query problem</h3>
 
-<p><strong>Pushing Selections Down</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Original: Join everything, then filter</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">JOIN</span> <span class="n">customers</span> <span class="k">c</span> <span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
-<span class="k">WHERE</span> <span class="k">c</span><span class="p">.</span><span class="n">country</span> <span class="o">=</span> <span class="s1">'USA'</span><span class="p">;</span>
+<p>Fetching a list and then issuing one further query per row turns one round trip into $N + 1$. The cost is dominated by latency: at 0.5 ms per round trip, 1,000 extra queries add half a second before any real work.</p>
 
-<span class="c1">-- Optimized: Filter first, then join (much less data!)</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">orders</span> <span class="n">o</span> 
-<span class="k">JOIN</span> <span class="p">(</span><span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">customers</span> <span class="k">WHERE</span> <span class="n">country</span> <span class="o">=</span> <span class="s1">'USA'</span><span class="p">)</span> <span class="k">c</span> 
-<span class="k">ON</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span><span class="p">;</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 1 + N queries
+</span><span class="n">customers</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT id, name FROM customers</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">customers</span><span class="p">:</span>
+    <span class="n">orders</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT * FROM orders WHERE customer_id = %s</span><span class="sh">"</span><span class="p">,</span> <span class="p">(</span><span class="n">c</span><span class="p">.</span><span class="nb">id</span><span class="p">,))</span>
+
+<span class="c1"># 2 queries, regardless of N
+</span><span class="n">customers</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT id, name FROM customers</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">orders</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT * FROM orders WHERE customer_id = ANY(%s)</span><span class="sh">"</span><span class="p">,</span>
+                  <span class="p">([</span><span class="n">c</span><span class="p">.</span><span class="nb">id</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">customers</span><span class="p">],))</span>
 </code></pre></div></div>
 
-<p>The optimizer applies these transformations automatically!</p>
+<p>ORMs hide the problem behind lazy-loaded relationships; the fix is eager loading (<code class="language-plaintext highlighter-rouge">selectinload</code> in SQLAlchemy, <code class="language-plaintext highlighter-rouge">prefetch_related</code> / <code class="language-plaintext highlighter-rouge">select_related</code> in Django). See <a href="orm-patterns.html#the-n1-problem">ORMs &amp; Data-Access Patterns</a>.</p>
 
-<p><strong>Join Reordering</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Three-way join: 6 possible orders!</span>
-<span class="c1">-- A JOIN B JOIN C could be:</span>
-<span class="c1">-- (A JOIN B) JOIN C</span>
-<span class="c1">-- A JOIN (B JOIN C)</span>
-<span class="c1">-- (A JOIN C) JOIN B</span>
-<span class="c1">-- etc.</span>
+<h3 id="unindexed-foreign-keys">Unindexed foreign keys</h3>
+
+<p>A foreign-key constraint requires an index on the <em>referenced</em> (parent) key, which the primary key provides. It does <strong>not</strong> create one on the <em>referencing</em> (child) column in PostgreSQL; InnoDB creates one automatically. Without it, joins from parent to child scan the child table, and every <code class="language-plaintext highlighter-rouge">DELETE</code> or key <code class="language-plaintext highlighter-rouge">UPDATE</code> on the parent scans the child to check the constraint — a common cause of slow deletes and lock contention.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">CONCURRENTLY</span> <span class="n">idx_orders_customer_id</span> <span class="k">ON</span> <span class="n">orders</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">);</span>
 </code></pre></div></div>
 
-<p>The optimizer estimates costs for each order and picks the best one.</p>
+<h3 id="type-mismatches-and-implicit-casts">Type mismatches and implicit casts</h3>
 
-<blockquote>
-  <p><strong>Code Reference</strong>: For implementations of query optimization algorithms, see <a href="../../../code-examples/technology/database-design/query_processing.py"><code class="language-plaintext highlighter-rouge">query_processing.py</code></a></p>
-</blockquote>
+<p>Storing numbers or dates as strings makes range comparisons wrong as well as slow (<code class="language-plaintext highlighter-rouge">'100' &lt; '99'</code> as text). The subtler version is a type mismatch in the predicate: comparing a <code class="language-plaintext highlighter-rouge">varchar</code> column with a number, or comparing columns of different types in a join, can force a per-row cast of the <em>column</em>, which disables its index. Use proper column types, and make literals and join keys match the column type.</p>
 
-<h2 id="common-query-problems">Common Query Problems</h2>
+<h3 id="select-"><code class="language-plaintext highlighter-rouge">SELECT *</code></h3>
 
-<p>The fastest query is the one you never send. Most real-world slowness traces back
-to a handful of recurring anti-patterns — and now that you can read a plan, you can
-<em>see</em> each of them in <code class="language-plaintext highlighter-rouge">EXPLAIN ANALYZE</code> output.</p>
+<p>Fetching every column wastes network bandwidth and memory, breaks when columns are added, and prevents index-only scans: a query that needs only indexed columns could skip the heap entirely, but <code class="language-plaintext highlighter-rouge">SELECT *</code> forces a heap fetch per row.</p>
 
-<h3 id="1-the-n1-query-problem">1. The N+1 Query Problem</h3>
+<h3 id="deep-offset-pagination">Deep <code class="language-plaintext highlighter-rouge">OFFSET</code> pagination</h3>
 
-<p>The most common performance killer in application code: one query to fetch a list,
-then <em>one more query per row</em> to fetch each item’s related data.</p>
+<p><code class="language-plaintext highlighter-rouge">LIMIT 20 OFFSET 100000</code> still reads and discards 100,000 rows, so each page is slower than the last. <strong>Keyset</strong> (seek) pagination remembers the last row seen and seeks past it through an index. Include a unique tie-breaker so rows with equal sort keys are neither skipped nor repeated:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bad: 1 query + N queries
-</span><span class="n">customers</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT * FROM customers</span><span class="sh">"</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">customer</span> <span class="ow">in</span> <span class="n">customers</span><span class="p">:</span>
-    <span class="n">orders</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">SELECT * FROM orders WHERE customer_id = </span><span class="si">{</span><span class="n">customer</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-    <span class="c1"># If you have 1000 customers, this runs 1001 queries!
-</span>
-<span class="c1"># Good: 1 query with JOIN
-</span><span class="n">result</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="sh">"""</span><span class="s">
-    SELECT c.*, o.*
-    FROM customers c
-    LEFT JOIN orders o ON c.customer_id = o.customer_id
-</span><span class="sh">"""</span><span class="p">)</span>
-</code></pre></div></div>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_events_created_id</span> <span class="k">ON</span> <span class="n">events</span> <span class="p">(</span><span class="n">created_at</span> <span class="k">DESC</span><span class="p">,</span> <span class="n">id</span> <span class="k">DESC</span><span class="p">);</span>
 
-<p>It’s called “N+1” because <em>N</em> rows from the first query trigger <em>N</em> follow-up
-queries, plus the original — 1001 round-trips where one JOIN (or one <code class="language-plaintext highlighter-rouge">WHERE
-customer_id IN (...)</code>) would do. The damage is mostly <strong>network latency</strong>: even at
-0.5 ms per round-trip, 1000 extra queries add half a second of pure waiting before
-any work happens.</p>
-
-<p>ORMs are the usual culprit because lazy-loading a relationship inside a loop hides
-the extra queries behind innocent-looking attribute access. The fix is <strong>eager
-loading</strong> — telling the ORM to fetch the related rows up front:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># SQLAlchemy: one extra query for ALL orders, not one per customer
-</span><span class="kn">from</span> <span class="n">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">selectinload</span>
-<span class="n">customers</span> <span class="o">=</span> <span class="n">session</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="n">Customer</span><span class="p">).</span><span class="nf">options</span><span class="p">(</span><span class="nf">selectinload</span><span class="p">(</span><span class="n">Customer</span><span class="p">.</span><span class="n">orders</span><span class="p">)).</span><span class="nf">all</span><span class="p">()</span>
-
-<span class="c1"># Django: prefetch_related / select_related collapse the N follow-ups
-</span><span class="n">customers</span> <span class="o">=</span> <span class="n">Customer</span><span class="p">.</span><span class="n">objects</span><span class="p">.</span><span class="nf">prefetch_related</span><span class="p">(</span><span class="sh">"</span><span class="s">orders</span><span class="sh">"</span><span class="p">).</span><span class="nf">all</span><span class="p">()</span>
-</code></pre></div></div>
-
-<p>See <a href="orm-patterns.html">ORM Patterns</a> for a deeper treatment of eager vs. lazy
-loading and how to spot N+1 in query logs.</p>
-
-<h3 id="2-missing-indexes-on-foreign-keys">2. Missing Indexes on Foreign Keys</h3>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Orders reference customers, but no index on customer_id!</span>
-<span class="c1">-- Every join does full table scan</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_orders_customer_id</span> <span class="k">ON</span> <span class="n">orders</span><span class="p">(</span><span class="n">customer_id</span><span class="p">);</span>
-<span class="c1">-- Now joins are fast</span>
-</code></pre></div></div>
-
-<p>A foreign key constraint does <strong>not</strong> automatically create an index on the
-referencing column (PostgreSQL and MySQL/InnoDB differ here — InnoDB auto-creates
-one, PostgreSQL does not). Without it, every join and every <code class="language-plaintext highlighter-rouge">ON DELETE CASCADE</code>
-re-scans the child table.</p>
-
-<h3 id="3-functions-and-type-mismatches-that-disable-indexes">3. Functions and Type Mismatches That Disable Indexes</h3>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: Storing numbers as strings</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
-    <span class="n">price</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>  <span class="c1">-- "99.99" stored as string!</span>
-<span class="p">);</span>
-<span class="c1">-- WHERE price &gt; 100 requires converting every row!</span>
-
-<span class="c1">-- Good: Use numeric types</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
-    <span class="n">price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>  <span class="c1">-- Numeric comparisons are fast</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<p>The same trap appears as an <em>implicit cast</em> in the predicate: comparing an indexed
-<code class="language-plaintext highlighter-rouge">bigint</code> column to a quoted <code class="language-plaintext highlighter-rouge">'123'</code>, or a <code class="language-plaintext highlighter-rouge">varchar</code> column to a number, can force a
-per-row conversion that disables the index. Match the literal’s type to the
-column’s, and avoid wrapping the column in a function (see <em>When Indexes Hurt</em>
-above).</p>
-
-<h3 id="4-select--abuse">4. SELECT * Abuse</h3>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: Fetching all columns when you need two</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">users</span><span class="p">;</span>  <span class="c1">-- Transfers unnecessary data</span>
-
-<span class="c1">-- Good: Request only what you need  </span>
-<span class="k">SELECT</span> <span class="n">id</span><span class="p">,</span> <span class="n">email</span> <span class="k">FROM</span> <span class="n">users</span><span class="p">;</span>  <span class="c1">-- Less network traffic, less memory</span>
-</code></pre></div></div>
-
-<p>Beyond the wasted bandwidth, <code class="language-plaintext highlighter-rouge">SELECT *</code> defeats <strong>covering indexes</strong>: a query that
-asked only for indexed columns could be an Index-Only Scan, but pulling every
-column forces a heap fetch for each row.</p>
-
-<h3 id="5-offset-based-pagination-at-depth">5. OFFSET-based Pagination at Depth</h3>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Slow at high offsets: must read and discard 100000 rows</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">events</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">created_at</span> <span class="k">LIMIT</span> <span class="mi">20</span> <span class="k">OFFSET</span> <span class="mi">100000</span><span class="p">;</span>
-
-<span class="c1">-- Fast: keyset / seek pagination remembers the last row seen</span>
+<span class="c1">-- Next page: rows strictly after the last (created_at, id) of the previous page</span>
 <span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">events</span>
-<span class="k">WHERE</span> <span class="n">created_at</span> <span class="o">&lt;</span> <span class="s1">'2024-05-01T10:00:00'</span>   <span class="c1">-- the last row of the previous page</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">created_at</span> <span class="k">DESC</span> <span class="k">LIMIT</span> <span class="mi">20</span><span class="p">;</span>
+<span class="k">WHERE</span> <span class="p">(</span><span class="n">created_at</span><span class="p">,</span> <span class="n">id</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="s1">'2026-05-01 10:00:00'</span><span class="p">,</span> <span class="mi">918273</span><span class="p">)</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">created_at</span> <span class="k">DESC</span><span class="p">,</span> <span class="n">id</span> <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="mi">20</span><span class="p">;</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">OFFSET n</code> still <em>reads</em> the first <code class="language-plaintext highlighter-rouge">n</code> rows just to throw them away, so deep pages
-get linearly slower. <strong>Keyset pagination</strong> seeks straight to the boundary using the
-index and stays fast at any depth.</p>
+<p>The trade-off is that keyset pagination supports “next” and “previous” but not “jump to page 500”.</p>
 
-<h2 id="advanced-database-internals">Advanced Database Internals</h2>
+<h3 id="correlated-columns-the-planner-treats-as-independent">Correlated columns the planner treats as independent</h3>
 
-<h3 id="query-optimizer-deep-dive">Query Optimizer Deep Dive</h3>
+<p>By default the planner multiplies selectivities as if columns were independent. For <code class="language-plaintext highlighter-rouge">WHERE city = 'Paris' AND country = 'France'</code> it underestimates the result badly, because every Paris row is also a France row. Extended statistics fix this (see below).</p>
 
-<p>The query optimizer is the brain of the database. Understanding how it works helps you write better queries.</p>
+<h2 id="optimizer-internals">Optimizer Internals</h2>
 
-<p><strong>Cost Model Components</strong>:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Simplified cost calculation
-</span><span class="k">def</span> <span class="nf">estimate_cost</span><span class="p">(</span><span class="n">plan</span><span class="p">):</span>
-    <span class="c1"># I/O cost: Reading pages from disk
-</span>    <span class="n">seq_page_cost</span> <span class="o">=</span> <span class="mf">1.0</span>
-    <span class="n">random_page_cost</span> <span class="o">=</span> <span class="mf">4.0</span>  <span class="c1"># Random I/O is slower
-</span>    
-    <span class="c1"># CPU cost: Processing rows
-</span>    <span class="n">cpu_tuple_cost</span> <span class="o">=</span> <span class="mf">0.01</span>
-    <span class="n">cpu_operator_cost</span> <span class="o">=</span> <span class="mf">0.0025</span>
-    
-    <span class="c1"># Network cost (for distributed databases)
-</span>    <span class="n">network_tuple_cost</span> <span class="o">=</span> <span class="mf">0.1</span>
-    
-    <span class="n">total_cost</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">plan</span><span class="p">.</span><span class="n">seq_pages</span> <span class="o">*</span> <span class="n">seq_page_cost</span> <span class="o">+</span>
-        <span class="n">plan</span><span class="p">.</span><span class="n">random_pages</span> <span class="o">*</span> <span class="n">random_page_cost</span> <span class="o">+</span>
-        <span class="n">plan</span><span class="p">.</span><span class="n">rows</span> <span class="o">*</span> <span class="n">cpu_tuple_cost</span> <span class="o">+</span>
-        <span class="n">plan</span><span class="p">.</span><span class="n">operators</span> <span class="o">*</span> <span class="n">cpu_operator_cost</span> <span class="o">+</span>
-        <span class="n">plan</span><span class="p">.</span><span class="n">network_rows</span> <span class="o">*</span> <span class="n">network_tuple_cost</span>
-    <span class="p">)</span>
-    <span class="k">return</span> <span class="n">total_cost</span>
-</code></pre></div></div>
+<h3 id="the-cost-model">The cost model</h3>
 
-<p><strong>Join Algorithm Selection</strong>:</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Nested Loop Join: Good for small tables or indexed lookups</span>
-<span class="c1">-- Cost: O(n * m)</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">small_table</span> <span class="n">s</span> <span class="k">JOIN</span> <span class="n">large_table</span> <span class="n">l</span> <span class="k">ON</span> <span class="n">s</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">l</span><span class="p">.</span><span class="n">foreign_id</span><span class="p">;</span>
+<p>PostgreSQL estimates each plan’s cost as a weighted sum of expected page reads and per-row CPU work. The weights are configuration parameters:</p>
 
-<span class="c1">-- Hash Join: Good for medium tables without indexes  </span>
-<span class="c1">-- Cost: O(n + m)</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">medium1</span> <span class="n">m1</span> <span class="k">JOIN</span> <span class="n">medium2</span> <span class="n">m2</span> <span class="k">ON</span> <span class="n">m1</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">m2</span><span class="p">.</span><span class="n">id</span><span class="p">;</span>
+<table>
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Default</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">seq_page_cost</code></td>
+      <td>1.0</td>
+      <td>Reading one page as part of a sequential scan (the unit of cost)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">random_page_cost</code></td>
+      <td>4.0</td>
+      <td>Reading one page non-sequentially. Commonly lowered to about 1.1 on SSD or NVMe storage</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cpu_tuple_cost</code></td>
+      <td>0.01</td>
+      <td>Processing one row</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cpu_index_tuple_cost</code></td>
+      <td>0.005</td>
+      <td>Processing one index entry</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cpu_operator_cost</code></td>
+      <td>0.0025</td>
+      <td>Evaluating one operator or function call</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">effective_cache_size</code></td>
+      <td>4 GB</td>
+      <td>The planner’s assumption about how much data the OS and PostgreSQL caches hold together; higher values make index scans look cheaper</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1">-- Merge Join: Good for pre-sorted data</span>
-<span class="c1">-- Cost: O(n log n + m log m) if sorting needed</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">sorted1</span> <span class="n">s1</span> <span class="k">JOIN</span> <span class="n">sorted2</span> <span class="n">s2</span> <span class="k">ON</span> <span class="n">s1</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">s2</span><span class="p">.</span><span class="n">id</span><span class="p">;</span>
-</code></pre></div></div>
+<p>For a sequential scan with a filter involving $k$ operators, the estimate is:</p>
 
-<p><strong>Statistics and Selectivity</strong>:</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Database tracks statistics for better estimates</span>
-<span class="k">SELECT</span> 
-    <span class="n">attname</span> <span class="k">as</span> <span class="k">column</span><span class="p">,</span>
-    <span class="n">n_distinct</span><span class="p">,</span>
-    <span class="n">most_common_vals</span><span class="p">,</span>
-    <span class="n">most_common_freqs</span><span class="p">,</span>
-    <span class="n">histogram_bounds</span>
+\[\text{cost}_{\text{seq}} = N_{\text{pages}} \cdot c_{\text{seq\_page}} + N_{\text{rows}} \cdot \left( c_{\text{tuple}} + k \cdot c_{\text{operator}} \right)\]
+
+<p>For the <code class="language-plaintext highlighter-rouge">customers</code> scan above, 1,442 pages and 100,000 rows with one comparison give $1442 + 100000 \times (0.01 + 0.0025) = 2692$, which is exactly the total cost shown in the plan. Index scans are costed from the estimated number of matching rows, the index depth, and the column’s <em>correlation</em> with physical order (a well-correlated column needs few distinct heap pages).</p>
+
+<h3 id="statistics-and-selectivity">Statistics and selectivity</h3>
+
+<p><code class="language-plaintext highlighter-rouge">ANALYZE</code> (run automatically by autovacuum) samples each table and stores per-column statistics, readable through <code class="language-plaintext highlighter-rouge">pg_stats</code>:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="n">attname</span><span class="p">,</span> <span class="n">null_frac</span><span class="p">,</span> <span class="n">n_distinct</span><span class="p">,</span> <span class="n">most_common_vals</span><span class="p">,</span>
+       <span class="n">most_common_freqs</span><span class="p">,</span> <span class="n">histogram_bounds</span><span class="p">,</span> <span class="n">correlation</span>
 <span class="k">FROM</span> <span class="n">pg_stats</span>
 <span class="k">WHERE</span> <span class="n">tablename</span> <span class="o">=</span> <span class="s1">'orders'</span><span class="p">;</span>
-
-<span class="c1">-- Selectivity affects plan choice</span>
-<span class="c1">-- High selectivity (few rows): Index scan</span>
-<span class="c1">-- Low selectivity (many rows): Sequential scan</span>
 </code></pre></div></div>
+
+<ul>
+  <li><strong>Most common values</strong> (MCVs) and their frequencies give exact selectivity for frequent values.</li>
+  <li>A <strong>histogram</strong> of the remaining values estimates range predicates.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">n_distinct</code></strong> estimates equality selectivity for values not in the MCV list and the number of groups for <code class="language-plaintext highlighter-rouge">GROUP BY</code>.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">correlation</code></strong> (between -1 and 1) measures how well the column’s order matches physical row order.</li>
+</ul>
+
+<p>The sample size is controlled by <code class="language-plaintext highlighter-rouge">default_statistics_target</code> (100) or per column with <code class="language-plaintext highlighter-rouge">ALTER TABLE ... ALTER COLUMN ... SET STATISTICS</code>. Raise it for skewed columns whose estimates are poor.</p>
+
+<p>Per-column statistics cannot capture relationships <em>between</em> columns. <strong>Extended statistics</strong> (PostgreSQL 10+) can:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">STATISTICS</span> <span class="n">st_addr_city_country</span> <span class="p">(</span><span class="n">dependencies</span><span class="p">,</span> <span class="n">ndistinct</span><span class="p">,</span> <span class="n">mcv</span><span class="p">)</span>
+    <span class="k">ON</span> <span class="n">city</span><span class="p">,</span> <span class="n">country</span> <span class="k">FROM</span> <span class="n">addresses</span><span class="p">;</span>
+<span class="k">ANALYZE</span> <span class="n">addresses</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">dependencies</code> records functional dependencies (city implies country), <code class="language-plaintext highlighter-rouge">ndistinct</code> gives the number of distinct combinations for multi-column <code class="language-plaintext highlighter-rouge">GROUP BY</code>, and <code class="language-plaintext highlighter-rouge">mcv</code> stores the most common value combinations.</p>
+
+<h3 id="relational-algebra-rewrites">Relational algebra rewrites</h3>
+
+<p>The planner transforms a query using algebraic equivalences before costing it. The most important is <strong>selection pushdown</strong>: a filter on one side of a join can be applied before the join instead of after it.</p>
+
+\[\sigma_{\text{country} = \text{'USA'}}\left( O \bowtie C \right) \equiv O \bowtie \sigma_{\text{country} = \text{'USA'}}(C)\]
+
+<p>Others include <strong>projection pushdown</strong> (drop unneeded columns early), <strong>subquery flattening</strong> (turn <code class="language-plaintext highlighter-rouge">IN (SELECT ...)</code> and <code class="language-plaintext highlighter-rouge">EXISTS</code> into semi-joins), <strong>outer-join simplification</strong> (an outer join whose nullable side is filtered by a strict predicate becomes an inner join), and, in PostgreSQL 18, <strong>self-join elimination</strong> and removal of <code class="language-plaintext highlighter-rouge">GROUP BY</code> columns that are functionally dependent on a primary key. Writing the pushed-down form by hand, as a subquery, rarely helps; the planner already does it.</p>
+
+<h3 id="join-ordering">Join ordering</h3>
+
+<p>Inner joins are commutative and associative, so the planner can join tables in any order. The number of orderings grows factorially — $n!$ left-deep orders for $n$ tables, and more if bushy trees are allowed — so exhaustive search is impossible for large queries. PostgreSQL uses bottom-up <strong>dynamic programming</strong> (the approach introduced by IBM’s System R): find the best plan for every pair of tables, then every triple built from the best pairs, and so on. Two limits keep this tractable:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">join_collapse_limit</code> and <code class="language-plaintext highlighter-rouge">from_collapse_limit</code> (default 8) cap how many items the planner will reorder together; beyond that, it keeps the order you wrote.</li>
+  <li>At <code class="language-plaintext highlighter-rouge">geqo_threshold</code> (default 12) tables, PostgreSQL switches to the <strong>genetic query optimizer</strong>, a randomised search that finds a good rather than optimal order.</li>
+</ul>
+
+<p>For a query that joins more than eight tables, the written join order therefore matters.</p>
 
 <h3 id="memory-management-internals">Memory Management Internals</h3>
 
-<p><strong>Buffer Pool Architecture</strong>:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">BufferPoolManager</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">pool_size_mb</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">frames</span> <span class="o">=</span> <span class="p">[</span><span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">pool_size_mb</span> <span class="o">*</span> <span class="mi">128</span><span class="p">)</span>  <span class="c1"># 8KB pages
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">page_table</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># page_id -&gt; frame_id
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">free_list</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">frames</span><span class="p">)))</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">clock_hand</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># For clock replacement
-</span>        
-    <span class="k">def</span> <span class="nf">fetch_page</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">page_id</span><span class="p">):</span>
-        <span class="c1"># Check if in memory
-</span>        <span class="k">if</span> <span class="n">page_id</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">page_table</span><span class="p">:</span>
-            <span class="n">frame_id</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">page_table</span><span class="p">[</span><span class="n">page_id</span><span class="p">]</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame_id</span><span class="p">].</span><span class="n">pin_count</span> <span class="o">+=</span> <span class="mi">1</span>
-            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame_id</span><span class="p">]</span>
-        
-        <span class="c1"># Need to load from disk
-</span>        <span class="n">frame_id</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_get_free_frame</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">frame_id</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="n">frame_id</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_evict_page</span><span class="p">()</span>  <span class="c1"># Clock algorithm
-</span>            
-        <span class="c1"># Load page from disk
-</span>        <span class="n">page</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_read_from_disk</span><span class="p">(</span><span class="n">page_id</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">frames</span><span class="p">[</span><span class="n">frame_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">page</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">page_table</span><span class="p">[</span><span class="n">page_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame_id</span>
-        <span class="k">return</span> <span class="n">page</span>
-</code></pre></div></div>
+<p>Two kinds of memory matter to a query:</p>
 
-<div class="notice--info">
-  <p>The buffer pool is described in more depth — pages, cache hit ratio, and eviction — in <a href="storage-internals.html#buffer-pool-your-databases-cache">Storage Engines &amp; Recovery</a>.</p>
-</div>
+<p><strong>Shared buffer pool.</strong> Table and index pages are read into a fixed array of page-sized <em>frames</em> in shared memory (<code class="language-plaintext highlighter-rouge">shared_buffers</code>). A hash table maps each page identifier to its frame. When a needed page is not present, the buffer manager must evict one: PostgreSQL uses a <strong>clock-sweep</strong> approximation of LRU, in which each frame has a small usage counter that is incremented on access and decremented as the “clock hand” sweeps past; the first unpinned frame found with a count of zero is evicted (after writing it out if dirty). Pinned frames — pages an operator is currently using — are never evicted. This is why the <code class="language-plaintext highlighter-rouge">hit</code>/<code class="language-plaintext highlighter-rouge">read</code> split in <code class="language-plaintext highlighter-rouge">EXPLAIN</code> output varies from run to run. The buffer pool is covered in more detail in <a href="storage-internals.html#buffer-pool-your-databases-cache">Storage Engines &amp; Recovery</a>.</p>
 
-<p><strong>Work Memory Areas</strong>:</p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Different operations use different memory areas</span>
-<span class="c1">-- Sort operations</span>
-<span class="k">SET</span> <span class="n">work_mem</span> <span class="o">=</span> <span class="s1">'256MB'</span><span class="p">;</span>  <span class="c1">-- Per operation!</span>
-<span class="k">EXPLAIN</span> <span class="p">(</span><span class="k">ANALYZE</span><span class="p">,</span> <span class="n">BUFFERS</span><span class="p">)</span> 
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">large_table</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">created_at</span><span class="p">;</span>
+<p><strong>Per-operation working memory.</strong> Sorts, hash tables, and some other operators get private memory:</p>
 
-<span class="c1">-- Hash joins</span>
-<span class="c1">-- Hash table must fit in work_mem or spills to disk</span>
-<span class="k">EXPLAIN</span> <span class="p">(</span><span class="k">ANALYZE</span><span class="p">,</span> <span class="n">BUFFERS</span><span class="p">)</span>
-<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">t1</span> <span class="k">JOIN</span> <span class="n">t2</span> <span class="k">ON</span> <span class="n">t1</span><span class="p">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">t2</span><span class="p">.</span><span class="n">id</span><span class="p">;</span>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Default</th>
+      <th>Used by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">work_mem</code></td>
+      <td>4 MB</td>
+      <td>Each sort, and each hash table (times <code class="language-plaintext highlighter-rouge">hash_mem_multiplier</code>), per operation, per process. A complex query can use several multiples of it, and each parallel worker gets its own</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hash_mem_multiplier</code></td>
+      <td>2.0 (PostgreSQL 15+)</td>
+      <td>Extra headroom for hash joins and hash aggregates, which degrade more sharply than sorts when they spill</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">maintenance_work_mem</code></td>
+      <td>64 MB</td>
+      <td><code class="language-plaintext highlighter-rouge">CREATE INDEX</code>, <code class="language-plaintext highlighter-rouge">VACUUM</code>, <code class="language-plaintext highlighter-rouge">ALTER TABLE ADD FOREIGN KEY</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1">-- Maintenance operations use different pool</span>
-<span class="k">SET</span> <span class="n">maintenance_work_mem</span> <span class="o">=</span> <span class="s1">'1GB'</span><span class="p">;</span>
-<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">idx_large</span> <span class="k">ON</span> <span class="n">large_table</span><span class="p">(</span><span class="k">column</span><span class="p">);</span>
-</code></pre></div></div>
+<p>When an operation exceeds its limit it spills to temporary files: <code class="language-plaintext highlighter-rouge">Sort Method: external merge</code>, a hash with <code class="language-plaintext highlighter-rouge">Batches</code> greater than 1, or a hash aggregate reporting <code class="language-plaintext highlighter-rouge">Disk Usage</code>. Because <code class="language-plaintext highlighter-rouge">work_mem</code> is per operation rather than per connection, raise it for specific sessions or roles (<code class="language-plaintext highlighter-rouge">SET work_mem = '256MB'</code> inside a reporting job) instead of globally.</p>
 
-<h3 id="lock-management-internals">Lock Management Internals</h3>
+<h3 id="locks-taken-by-index-operations">Locks taken by index operations</h3>
 
-<p><strong>Lock Compatibility Matrix</strong>:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># PostgreSQL lock modes
-</span><span class="n">LOCK_COMPATIBILITY</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="c1">#            AS  RS  RE  SUE  S   SSE  E   AE
-</span>    <span class="sh">'</span><span class="s">AS</span><span class="sh">'</span><span class="p">:</span>      <span class="p">[</span> <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">],</span> <span class="c1"># AccessShare
-</span>    <span class="sh">'</span><span class="s">RS</span><span class="sh">'</span><span class="p">:</span>      <span class="p">[</span> <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">],</span> <span class="c1"># RowShare  
-</span>    <span class="sh">'</span><span class="s">RE</span><span class="sh">'</span><span class="p">:</span>      <span class="p">[</span> <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">],</span> <span class="c1"># RowExclusive
-</span>    <span class="sh">'</span><span class="s">SUE</span><span class="sh">'</span><span class="p">:</span>     <span class="p">[</span> <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">],</span> <span class="c1"># ShareUpdateExcl
-</span>    <span class="sh">'</span><span class="s">S</span><span class="sh">'</span><span class="p">:</span>       <span class="p">[</span> <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">],</span> <span class="c1"># Share
-</span>    <span class="sh">'</span><span class="s">SSE</span><span class="sh">'</span><span class="p">:</span>     <span class="p">[</span> <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">],</span> <span class="c1"># ShareRowExcl
-</span>    <span class="sh">'</span><span class="s">E</span><span class="sh">'</span><span class="p">:</span>       <span class="p">[</span> <span class="mi">1</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">],</span> <span class="c1"># Exclusive
-</span>    <span class="sh">'</span><span class="s">AE</span><span class="sh">'</span><span class="p">:</span>      <span class="p">[</span> <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">0</span><span class="p">],</span> <span class="c1"># AccessExclusive
-</span><span class="p">}</span>
-</code></pre></div></div>
+<p>Index maintenance interacts with PostgreSQL’s table-level locks, which is why the choice between <code class="language-plaintext highlighter-rouge">CREATE INDEX</code> and <code class="language-plaintext highlighter-rouge">CREATE INDEX CONCURRENTLY</code> matters in production.</p>
 
-<p><strong>Deadlock Detection Algorithm</strong>:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">DeadlockDetector</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">wait_graph</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># txn -&gt; [waiting_for_txns]
-</span>        
-    <span class="k">def</span> <span class="nf">add_wait</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">waiter</span><span class="p">,</span> <span class="n">holder</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">waiter</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">wait_graph</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">wait_graph</span><span class="p">[</span><span class="n">waiter</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">wait_graph</span><span class="p">[</span><span class="n">waiter</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">holder</span><span class="p">)</span>
-        
-        <span class="c1"># Check for cycle
-</span>        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="nf">_has_cycle</span><span class="p">(</span><span class="n">waiter</span><span class="p">,</span> <span class="n">holder</span><span class="p">,</span> <span class="p">{</span><span class="n">holder</span><span class="p">}):</span>
-            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">_choose_victim</span><span class="p">()</span>
-    
-    <span class="k">def</span> <span class="nf">_has_cycle</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">current</span><span class="p">,</span> <span class="n">visited</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">current</span> <span class="o">==</span> <span class="n">start</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">True</span>
-        <span class="k">if</span> <span class="n">current</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">wait_graph</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">next_txn</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">wait_graph</span><span class="p">[</span><span class="n">current</span><span class="p">]:</span>
-                <span class="k">if</span> <span class="n">next_txn</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">visited</span><span class="p">:</span>
-                    <span class="n">visited</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">next_txn</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="nf">_has_cycle</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">next_txn</span><span class="p">,</span> <span class="n">visited</span><span class="p">):</span>
-                        <span class="k">return</span> <span class="bp">True</span>
-        <span class="k">return</span> <span class="bp">False</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Statement</th>
+      <th>Table lock</th>
+      <th>Blocks</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SELECT</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ACCESS SHARE</code></td>
+      <td>Only <code class="language-plaintext highlighter-rouge">ACCESS EXCLUSIVE</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">INSERT</code> / <code class="language-plaintext highlighter-rouge">UPDATE</code> / <code class="language-plaintext highlighter-rouge">DELETE</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ROW EXCLUSIVE</code></td>
+      <td><code class="language-plaintext highlighter-rouge">SHARE</code> and stronger</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CREATE INDEX</code></td>
+      <td><code class="language-plaintext highlighter-rouge">SHARE</code></td>
+      <td>All writes, for the whole build</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CREATE INDEX CONCURRENTLY</code>, <code class="language-plaintext highlighter-rouge">REINDEX CONCURRENTLY</code>, <code class="language-plaintext highlighter-rouge">VACUUM</code>, <code class="language-plaintext highlighter-rouge">ANALYZE</code></td>
+      <td><code class="language-plaintext highlighter-rouge">SHARE UPDATE EXCLUSIVE</code></td>
+      <td>Other schema changes and vacuums; not reads or writes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">DROP INDEX</code>, most <code class="language-plaintext highlighter-rouge">ALTER TABLE</code> forms</td>
+      <td><code class="language-plaintext highlighter-rouge">ACCESS EXCLUSIVE</code></td>
+      <td>Everything, including reads</td>
+    </tr>
+  </tbody>
+</table>
 
-<hr />
+<p>The complete conflict matrix for the eight table-level modes (an <strong>X</strong> means the two modes conflict):</p>
 
-<h2 id="next-steps">Next Steps</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Requested \ Held</th>
+      <th>AS</th>
+      <th>RS</th>
+      <th>RE</th>
+      <th>SUE</th>
+      <th>S</th>
+      <th>SRE</th>
+      <th>E</th>
+      <th>AE</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>ACCESS SHARE</strong> (AS)</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td>X</td>
+    </tr>
+    <tr>
+      <td><strong>ROW SHARE</strong> (RS)</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td>X</td>
+      <td>X</td>
+    </tr>
+    <tr>
+      <td><strong>ROW EXCLUSIVE</strong> (RE)</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+    </tr>
+    <tr>
+      <td><strong>SHARE UPDATE EXCLUSIVE</strong> (SUE)</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+    </tr>
+    <tr>
+      <td><strong>SHARE</strong> (S)</td>
+      <td> </td>
+      <td> </td>
+      <td>X</td>
+      <td>X</td>
+      <td> </td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+    </tr>
+    <tr>
+      <td><strong>SHARE ROW EXCLUSIVE</strong> (SRE)</td>
+      <td> </td>
+      <td> </td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+    </tr>
+    <tr>
+      <td><strong>EXCLUSIVE</strong> (E)</td>
+      <td> </td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+    </tr>
+    <tr>
+      <td><strong>ACCESS EXCLUSIVE</strong> (AE)</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+      <td>X</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A waiting <code class="language-plaintext highlighter-rouge">ACCESS EXCLUSIVE</code> request also queues every later request behind it, so even a fast <code class="language-plaintext highlighter-rouge">DROP INDEX</code> can stall all reads if it waits behind a long-running transaction. Set <code class="language-plaintext highlighter-rouge">lock_timeout</code> before running DDL on busy tables. Row-level locks, deadlock detection and isolation are covered in <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a>.</p>
+
+<blockquote>
+  <p><strong>Code reference:</strong> Implementations of query-processing algorithms (joins, selection pushdown, cost estimation) are in <a href="../../../code-examples/technology/database-design/query_processing.py"><code class="language-plaintext highlighter-rouge">query_processing.py</code></a>.</p>
+</blockquote>
+
+<h2 id="see-also">See Also</h2>
 
 <ul>
   <li><strong>Previous:</strong> <a href="modeling.html">Data Modeling &amp; Normalization</a></li>
   <li><strong>Next:</strong> <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — how locks and MVCC keep concurrent queries correct.</li>
+  <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the pages, B+ trees and buffer pool that the optimizer reads from.</li>
+  <li><a href="operations-and-monitoring.html">Operations &amp; Monitoring</a> — <code class="language-plaintext highlighter-rouge">pg_stat_statements</code>, autovacuum, and finding slow queries in production.</li>
   <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
-  <li>See also: <a href="storage-internals.html">Storage Engines &amp; Recovery</a> for the pages and buffer pool the optimizer reads from.</li>
 </ul>
 
       </section>

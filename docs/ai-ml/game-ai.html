@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Reference for real-time game AI: agent architecture, perception, decision making (FSMs, behavior trees, StateTree, utility AI, GOAP, HTN), navigation and pat...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Game AI Systems">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Reference for real-time game AI: agent architecture, perception, decision making (FSMs, behavior trees, StateTree, utility AI, GOAP, HTN), navigation and pat...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/ai-ml/game-ai.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Game AI Systems">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Reference for real-time game AI: agent architecture, perception, decision making (FSMs, behavior trees, StateTree, utility AI, GOAP, HTN), navigation and pat...">
 
 <title>Game AI Systems | Andrews Notebook</title>
 
@@ -3133,647 +3133,850 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>How games make characters feel alive: pathfinding, decision-making, steering, and the performance tricks that keep hundreds of agents thinking inside a single frame.</p>
+        <p><strong>Game AI</strong> is the set of techniques that make non-player characters (NPCs) and game systems behave believably in real time. It overlaps with academic AI (search, planning, machine learning) but has different goals: an enemy should be readable, beatable, and fun, and every agent must do its thinking within a small slice of a 16 ms (60 fps) or 33 ms (30 fps) frame. This page covers how an agent is structured, the main decision-making architectures and when to choose each, navigation from navmesh generation to crowd avoidance, tactical reasoning, where machine learning and language models are actually used in shipped games, what the major engines provide, and how to keep hundreds of agents inside a frame budget.</p>
 
-<p>Game AI encompasses the techniques and systems that create intelligent, responsive, and believable non-player characters (NPCs) and game behaviors. Unlike academic AI focused on optimal decision-making, game AI prioritizes engaging, entertaining, and appropriately challenging experiences — all within the hard real-time performance constraints of an interactive frame.</p>
-
-<ul>
-  <li><strong>Pathfinding.</strong> NavMeshes and A* find routes through the world; hierarchical search and smoothing keep it fast and natural.</li>
-  <li><strong>Decision Making.</strong> FSMs, behavior trees, utility AI, and GOAP decide what an agent should do next.</li>
-  <li><strong>Performance.</strong> LOD for AI, time-slicing, and spatial partitioning keep many agents within frame budget.</li>
-</ul>
-
-<blockquote>
-  <p><strong>Read this as a layered stack.</strong> Decision (<em>what to do</em>) feeds steering (<em>how to move</em>) feeds animation (<em>how to look</em>). Each section below maps to one of these layers, progressing from movement up to learned behavior.</p>
-</blockquote>
-
-<h2 id="foundations-of-game-ai">Foundations of Game AI</h2>
-
-<h3 id="goals-of-game-ai">Goals of Game AI</h3>
-
-<p>Game AI differs from academic AI in key ways:</p>
+<h2 id="goals-and-constraints">Goals and Constraints</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Academic AI</th>
-      <th>Game AI</th>
+      <th>Academic AI typically optimises</th>
+      <th>Game AI optimises</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Optimal solutions</td>
-      <td>Entertaining solutions</td>
+      <td>Optimal or winning play</td>
+      <td>Entertaining, appropriately challenging play</td>
     </tr>
     <tr>
-      <td>Unlimited computation</td>
-      <td>Real-time constraints</td>
+      <td>Unbounded compute and training time</td>
+      <td>A fixed per-frame budget, often 1-3 ms for all AI</td>
     </tr>
     <tr>
-      <td>Perfect play</td>
-      <td>Believable play</td>
+      <td>One agent</td>
+      <td>Dozens to thousands of agents at once</td>
     </tr>
     <tr>
-      <td>Win at all costs</td>
-      <td>Create fun experiences</td>
+      <td>Hidden internal reasoning</td>
+      <td>Readable intent: the player should understand why an NPC acted</td>
     </tr>
     <tr>
-      <td>Single agent focus</td>
-      <td>Many agents simultaneously</td>
+      <td>Generalisation</td>
+      <td>Designer control, predictability and debuggability</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="ai-architecture-overview">AI Architecture Overview</h3>
+<p>Two consequences follow. First, most shipped game AI is <strong>authored</strong> (state machines, behavior trees, utility curves, planners over hand-written actions) rather than learned, because designers must be able to tune and debug it. Second, AI deliberately <strong>cheats and handicaps</strong> itself: enemies miss their first shots, announce attacks, forget the player after a while, and share information only through visible channels, because perfectly efficient opponents are not fun.</p>
 
-<p>Typical game AI is organized as three layers, each feeding the one below — decide <em>what</em>, then <em>how to move</em>, then <em>how to look</em>:</p>
+<h2 id="agent-architecture">Agent Architecture</h2>
 
-<pre><code class="language-mermaid">flowchart TD
-    subgraph Decision["Decision Layer — what to do"]
-        D1[Goal Selection] --- D2[Planning] --- D3[Behavior Trees / FSMs]
-    end
-    subgraph Steering["Steering Layer — how to move"]
-        S1[Path Following] --- S2[Obstacle Avoidance] --- S3[Formation Movement]
-    end
-    subgraph Animation["Animation Layer — how to look"]
-        A1[Animation State Machine] --- A2[IK / Procedural] --- A3[Facial Expressions]
-    end
-    Decision --&gt; Steering --&gt; Animation
+<p>An agent runs a <strong>sense-think-act</strong> loop. Perception updates what the agent believes; decision making picks a goal or behavior; movement and animation carry it out.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    World["Game world"] --&gt; Sense["Perception&lt;br/&gt;sight, hearing, damage,&lt;br/&gt;team messages"]
+    Sense --&gt; Mem["Knowledge&lt;br/&gt;blackboard, memory,&lt;br/&gt;last known positions"]
+    Mem --&gt; Think["Decision making&lt;br/&gt;BT / StateTree / utility /&lt;br/&gt;planner"]
+    Think --&gt; Move["Navigation + steering&lt;br/&gt;path, avoidance,&lt;br/&gt;formations"]
+    Think --&gt; Act["Actions&lt;br/&gt;attack, use object,&lt;br/&gt;speak"]
+    Move --&gt; Anim["Animation&lt;br/&gt;locomotion, IK,&lt;br/&gt;motion matching"]
+    Act --&gt; Anim
+    Anim --&gt; World
 </code></pre>
 
-<h2 id="pathfinding">Pathfinding</h2>
+<p>The layers run at different rates. Perception queries (raycasts) and decision updates might run at 5-10 Hz per agent, pathfinding only on demand, and steering and animation every frame. Keeping them separate lets each be optimised and time-sliced independently.</p>
 
-<h3 id="navigation-meshes-navmesh">Navigation Meshes (NavMesh)</h3>
+<p>The <strong>blackboard</strong> is the shared key-value store that connects the layers: perception writes <code class="language-plaintext highlighter-rouge">TargetActor</code> and <code class="language-plaintext highlighter-rouge">LastKnownPosition</code>, decision logic reads them, and squad-level systems can share a blackboard across several agents.</p>
 
-<p>Industry standard for 3D environments:</p>
+<h2 id="perception">Perception</h2>
 
-<p><strong>NavMesh Generation:</strong></p>
-<ol>
-  <li>Voxelize walkable geometry</li>
-  <li>Identify walkable surfaces</li>
-  <li>Build regions from voxels</li>
-  <li>Create polygon mesh from regions</li>
-  <li>Add connectivity data</li>
-</ol>
+<p>NPCs should react to what they could plausibly perceive, not to the game’s ground truth.</p>
 
-<p><strong>Properties:</strong></p>
-<ul>
-  <li>Efficient storage and queries</li>
-  <li>Dynamic updates possible</li>
-  <li>Supports different agent sizes</li>
-  <li>Handles multi-level environments</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Sense</th>
+      <th>Typical implementation</th>
+      <th>Tuning concerns</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Sight</td>
+      <td>View cone (angle + range) test, then one or more raycasts to body points</td>
+      <td>Peripheral vision with slower detection; lighting and stance modifiers</td>
+    </tr>
+    <tr>
+      <td>Hearing</td>
+      <td>Sound events with a loudness radius; optional path distance through the navmesh for occlusion</td>
+      <td>Footsteps vs gunfire vs thrown distractions</td>
+    </tr>
+    <tr>
+      <td>Damage / touch</td>
+      <td>Direct event on hit</td>
+      <td>Reveal the attacker’s approximate direction, not exact position</td>
+    </tr>
+    <tr>
+      <td>Team knowledge</td>
+      <td>Shared blackboard or messages</td>
+      <td>Delay and range limits so information spreads visibly</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="a-algorithm">A* Algorithm</h3>
+<p>Detection is usually gradual rather than binary, which gives the player a readable “suspicion” window (the pattern popularised by stealth games):</p>
 
-<p>The foundation of game pathfinding. A* expands nodes in order of an estimated total cost that balances the known cost so far against an optimistic estimate of the cost remaining:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">enum</span> <span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">auto</span>
 
-\[f(n) = g(n) + h(n)\]
+<span class="k">class</span> <span class="nc">Alert</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">UNAWARE</span> <span class="o">=</span> <span class="nf">auto</span><span class="p">()</span>
+    <span class="n">SUSPICIOUS</span> <span class="o">=</span> <span class="nf">auto</span><span class="p">()</span>
+    <span class="n">ALERTED</span> <span class="o">=</span> <span class="nf">auto</span><span class="p">()</span>
 
-<p>where $g(n)$ is the actual cost from the start to node $n$ and $h(n)$ is the heuristic estimate from $n$ to the goal. If $h$ never overestimates the true remaining cost (it is <em>admissible</em>), A* is guaranteed to find the shortest path.</p>
+<span class="k">class</span> <span class="nc">Awareness</span><span class="p">:</span>
+    <span class="n">DETECT_RATE</span> <span class="o">=</span> <span class="mf">60.0</span>   <span class="c1"># detection points per second at full visibility
+</span>    <span class="n">DECAY_RATE</span> <span class="o">=</span> <span class="mf">15.0</span>    <span class="c1"># points per second lost when not visible
+</span>    <span class="n">SUSPICIOUS_AT</span><span class="p">,</span> <span class="n">ALERT_AT</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span> <span class="mf">100.0</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">a_star</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">graph</span><span class="p">):</span>
-    <span class="n">open_set</span> <span class="o">=</span> <span class="nc">PriorityQueue</span><span class="p">()</span>
-    <span class="n">open_set</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">level</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">Alert</span><span class="p">.</span><span class="n">UNAWARE</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">last_known_position</span> <span class="o">=</span> <span class="bp">None</span>
 
-    <span class="n">came_from</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">g_score</span> <span class="o">=</span> <span class="p">{</span><span class="n">start</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
-    <span class="n">f_score</span> <span class="o">=</span> <span class="p">{</span><span class="n">start</span><span class="p">:</span> <span class="nf">heuristic</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">goal</span><span class="p">)}</span>
+    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">visibility</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">target_pos</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">visibility in [0, 1]: view-cone falloff x light x stance x LOS.</span><span class="sh">"""</span>
+        <span class="k">if</span> <span class="n">visibility</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">level</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">ALERT_AT</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">level</span> <span class="o">+</span> <span class="n">visibility</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">DETECT_RATE</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">last_known_position</span> <span class="o">=</span> <span class="n">target_pos</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">level</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">level</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">DECAY_RATE</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
 
-    <span class="k">while</span> <span class="ow">not</span> <span class="n">open_set</span><span class="p">.</span><span class="nf">empty</span><span class="p">():</span>
-        <span class="n">current</span> <span class="o">=</span> <span class="n">open_set</span><span class="p">.</span><span class="nf">get</span><span class="p">()</span>
-
-        <span class="k">if</span> <span class="n">current</span> <span class="o">==</span> <span class="n">goal</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nf">reconstruct_path</span><span class="p">(</span><span class="n">came_from</span><span class="p">,</span> <span class="n">current</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">neighbor</span> <span class="ow">in</span> <span class="n">graph</span><span class="p">.</span><span class="nf">neighbors</span><span class="p">(</span><span class="n">current</span><span class="p">):</span>
-            <span class="n">tentative_g</span> <span class="o">=</span> <span class="n">g_score</span><span class="p">[</span><span class="n">current</span><span class="p">]</span> <span class="o">+</span> <span class="nf">cost</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">neighbor</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="n">tentative_g</span> <span class="o">&lt;</span> <span class="n">g_score</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">neighbor</span><span class="p">,</span> <span class="n">infinity</span><span class="p">):</span>
-                <span class="n">came_from</span><span class="p">[</span><span class="n">neighbor</span><span class="p">]</span> <span class="o">=</span> <span class="n">current</span>
-                <span class="n">g_score</span><span class="p">[</span><span class="n">neighbor</span><span class="p">]</span> <span class="o">=</span> <span class="n">tentative_g</span>
-                <span class="n">f_score</span><span class="p">[</span><span class="n">neighbor</span><span class="p">]</span> <span class="o">=</span> <span class="n">tentative_g</span> <span class="o">+</span> <span class="nf">heuristic</span><span class="p">(</span><span class="n">neighbor</span><span class="p">,</span> <span class="n">goal</span><span class="p">)</span>
-
-                <span class="k">if</span> <span class="n">neighbor</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">open_set</span><span class="p">:</span>
-                    <span class="n">open_set</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="n">neighbor</span><span class="p">,</span> <span class="n">f_score</span><span class="p">[</span><span class="n">neighbor</span><span class="p">])</span>
-
-    <span class="k">return</span> <span class="bp">None</span>  <span class="c1"># No path found
-</span></code></pre></div></div>
-
-<p><strong>Heuristics:</strong></p>
-<ul>
-  <li><strong>Euclidean</strong>: Straight-line distance (any angle movement)</li>
-  <li><strong>Manhattan</strong>: Grid distance (4-directional)</li>
-  <li><strong>Chebyshev</strong>: Grid distance (8-directional)</li>
-  <li><strong>Octile</strong>: Weighted diagonal movement</li>
-</ul>
-
-<h3 id="hierarchical-pathfinding">Hierarchical Pathfinding</h3>
-
-<p>Searching a single huge graph node-by-node is too slow for open worlds. Hierarchical pathfinding searches a coarse graph first, then refines only the part of the path the agent is about to walk:</p>
-
-<pre><code class="language-mermaid">flowchart TD
-    L3["Region graph&lt;br/&gt;(zones)"] --&gt; L2["Cluster graph&lt;br/&gt;(neighborhoods)"]
-    L2 --&gt; L1["NavMesh polygons&lt;br/&gt;(rooms)"]
-    L1 --&gt; L0["Detailed path&lt;br/&gt;(within polygon)"]
-</code></pre>
-
-<p>The agent plans a route through regions, refines it through clusters, and only computes the fine path for the immediate stretch. This keeps searches small even on massive maps, uses far less memory than one flat graph, and fits naturally with streaming worlds where distant regions aren’t loaded yet.</p>
-
-<h3 id="path-smoothing">Path Smoothing</h3>
-
-<p>Post-processing for natural movement:</p>
-
-<ul>
-  <li><strong>String Pulling</strong>: Funnel algorithm for shortest path</li>
-  <li><strong>Bezier Curves</strong>: Smooth corners</li>
-  <li><strong>Catmull-Rom Splines</strong>: Natural curves through waypoints</li>
-  <li><strong>Runtime Smoothing</strong>: Adjust path during movement</li>
-</ul>
-
-<h2 id="steering-behaviors">Steering Behaviors</h2>
-
-<h3 id="reynolds-steering-behaviors">Reynolds’ Steering Behaviors</h3>
-
-<p>Classic autonomous movement algorithms:</p>
-
-<p><strong>Basic Behaviors:</strong></p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">seek</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-    <span class="n">desired</span> <span class="o">=</span> <span class="nf">normalize</span><span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">position</span><span class="p">)</span> <span class="o">*</span> <span class="n">max_speed</span>
-    <span class="k">return</span> <span class="n">desired</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">velocity</span>
-
-<span class="k">def</span> <span class="nf">flee</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-    <span class="k">return</span> <span class="o">-</span><span class="nf">seek</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">arrive</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">slowing_radius</span><span class="p">):</span>
-    <span class="n">to_target</span> <span class="o">=</span> <span class="n">target</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">position</span>
-    <span class="n">distance</span> <span class="o">=</span> <span class="nf">length</span><span class="p">(</span><span class="n">to_target</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">distance</span> <span class="o">&lt;</span> <span class="n">slowing_radius</span><span class="p">:</span>
-        <span class="n">desired_speed</span> <span class="o">=</span> <span class="n">max_speed</span> <span class="o">*</span> <span class="p">(</span><span class="n">distance</span> <span class="o">/</span> <span class="n">slowing_radius</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">desired_speed</span> <span class="o">=</span> <span class="n">max_speed</span>
-
-    <span class="n">desired</span> <span class="o">=</span> <span class="nf">normalize</span><span class="p">(</span><span class="n">to_target</span><span class="p">)</span> <span class="o">*</span> <span class="n">desired_speed</span>
-    <span class="k">return</span> <span class="n">desired</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">velocity</span>
+        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">level</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">ALERT_AT</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">Alert</span><span class="p">.</span><span class="n">ALERTED</span>
+        <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="ow">is</span> <span class="n">Alert</span><span class="p">.</span><span class="n">ALERTED</span> <span class="ow">and</span> <span class="n">self</span><span class="p">.</span><span class="n">level</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">pass</span>                                   <span class="c1"># stay alerted (searching) until fully decayed
+</span>        <span class="k">elif</span> <span class="n">self</span><span class="p">.</span><span class="n">level</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">SUSPICIOUS_AT</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">Alert</span><span class="p">.</span><span class="n">SUSPICIOUS</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">Alert</span><span class="p">.</span><span class="n">UNAWARE</span>
 </code></pre></div></div>
 
-<p><strong>Group Behaviors:</strong></p>
-<ul>
-  <li><strong>Separation</strong>: Avoid crowding neighbors</li>
-  <li><strong>Alignment</strong>: Steer toward average heading</li>
-  <li><strong>Cohesion</strong>: Steer toward average position</li>
-  <li><strong>Flocking</strong>: Combination of above three</li>
-</ul>
-
-<h3 id="obstacle-avoidance">Obstacle Avoidance</h3>
-
-<p>Real-time collision prevention:</p>
-
-<p><strong>Context Steering:</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1. Create interest map (directions toward goal)
-2. Create danger map (directions toward obstacles)
-3. Combine: interest - danger
-4. Select highest-scoring direction
-</code></pre></div></div>
-
-<p><strong>Velocity Obstacles (VO):</strong></p>
-<ul>
-  <li>Project obstacle’s future positions</li>
-  <li>Calculate collision cone</li>
-  <li>Choose velocity outside all cones</li>
-  <li>ORCA variant for multi-agent</li>
-</ul>
-
-<h3 id="local-avoidance">Local Avoidance</h3>
-
-<p>For crowds and traffic:</p>
-
-<ul>
-  <li><strong>RVO2</strong>: Reciprocal Velocity Obstacles</li>
-  <li><strong>Social Forces</strong>: Crowd simulation model</li>
-  <li><strong>Flow Fields</strong>: Precomputed direction vectors</li>
-  <li><strong>Continuum Crowds</strong>: Density-based movement</li>
-</ul>
+<p>Once alerted, the agent reasons about the <strong>last known position</strong> rather than the player’s live position, which is what makes breaking line of sight and flanking work.</p>
 
 <h2 id="decision-making">Decision Making</h2>
 
-<h3 id="finite-state-machines-fsm">Finite State Machines (FSM)</h3>
+<h3 id="choosing-an-architecture">Choosing an Architecture</h3>
 
-<p>Simple, reliable decision structure. Each state has clear entry/exit transitions triggered by game events:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Architecture</th>
+      <th>Core idea</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+      <th>Well-known uses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Finite state machine (FSM)</td>
+      <td>One active state; explicit transitions</td>
+      <td>Simple, cheap, easy to debug</td>
+      <td>Transition count explodes with states</td>
+      <td>Pac-Man ghosts, countless simple enemies</td>
+    </tr>
+    <tr>
+      <td>Hierarchical FSM</td>
+      <td>States contain sub-machines</td>
+      <td>Shared transitions at parent level</td>
+      <td>Still transition-centric</td>
+      <td>Animation state machines</td>
+    </tr>
+    <tr>
+      <td>Behavior tree (BT)</td>
+      <td>Tree of tasks re-evaluated by priority</td>
+      <td>Modular, reusable, designer friendly</td>
+      <td>Awkward for long-running state and memory</td>
+      <td>Halo 2 (popularised), Unreal and Unity AI</td>
+    </tr>
+    <tr>
+      <td>StateTree (Unreal)</td>
+      <td>Hierarchical state machine with BT-style selection and data binding</td>
+      <td>Explicit states plus BT-like selection; fast; works with Mass</td>
+      <td>Unreal-specific</td>
+      <td>Unreal 5 projects, Mass crowds</td>
+    </tr>
+    <tr>
+      <td>Utility AI</td>
+      <td>Score every option; pick the best</td>
+      <td>Smooth, context-sensitive choices</td>
+      <td>Harder to predict; curves need tuning</td>
+      <td>The Sims needs system</td>
+    </tr>
+    <tr>
+      <td>GOAP</td>
+      <td>Search for an action sequence that satisfies a goal</td>
+      <td>Emergent multi-step behavior from reusable actions</td>
+      <td>Search cost; harder to art-direct</td>
+      <td>F.E.A.R., Middle-earth: Shadow of Mordor</td>
+    </tr>
+    <tr>
+      <td>HTN planning</td>
+      <td>Decompose high-level tasks with designer-written methods</td>
+      <td>Plans that follow authored strategies; fast</td>
+      <td>More authoring than GOAP</td>
+      <td>Killzone 2, Horizon Zero Dawn</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Many games mix them: a behavior tree or StateTree for moment-to-moment control, utility scoring inside selector nodes to rank options, and a planner for multi-step goals.</p>
+
+<h3 id="finite-state-machines">Finite State Machines</h3>
+
+<p>An FSM has one active state and transitions triggered by events or conditions:</p>
 
 <pre><code class="language-mermaid">stateDiagram-v2
     [*] --&gt; Patrol
-    Patrol --&gt; Chase: see enemy
-    Chase --&gt; Search: lost enemy
-    Search --&gt; Patrol: timeout
+    Patrol --&gt; Investigate: heard noise
+    Investigate --&gt; Patrol: nothing found
+    Patrol --&gt; Chase: saw player
+    Investigate --&gt; Chase: saw player
     Chase --&gt; Attack: in range
-    Attack --&gt; Celebrate: enemy dead
-    Celebrate --&gt; Patrol
+    Attack --&gt; Chase: out of range
+    Chase --&gt; Search: lost sight
+    Search --&gt; Chase: saw player
+    Search --&gt; Patrol: timeout
 </code></pre>
 
-<p><strong>Advantages:</strong></p>
-<ul>
-  <li>Easy to understand and debug</li>
-  <li>Predictable behavior</li>
-  <li>Low runtime cost</li>
-</ul>
+<p>FSMs are the right tool for small, well-bounded behaviors (doors, turrets, simple enemies) and remain standard for animation. Their weakness is <strong>state explosion</strong>: with $n$ states, transitions can grow toward $n^2$, and adding an interrupt such as “flee when health is low” means wiring it into every state.</p>
 
-<p><strong>Disadvantages:</strong></p>
-<ul>
-  <li>State explosion with complexity</li>
-  <li>Hard to reuse across agents</li>
-  <li>Difficult to handle interrupts</li>
-</ul>
+<p>A <strong>hierarchical FSM</strong> nests states. A transition defined on a parent applies to all its children, so “lost the player” on a <em>Combat</em> superstate exits Approach, Attack, Aim or Reload at once:</p>
 
-<h3 id="hierarchical-fsms-hfsm">Hierarchical FSMs (HFSM)</h3>
-
-<p>Plain FSMs suffer <strong>state explosion</strong>: every new behavior risks new transitions to every existing state. HFSMs tame this by nesting states — a high-level state (e.g. <em>Combat</em>) contains its own sub-machine, and transitions can be defined once at the parent level instead of duplicated on every child.</p>
-
-<pre><code class="language-mermaid">flowchart TD
-    Root --&gt; Combat
-    Root --&gt; NonCombat["Non-Combat"]
-    Combat --&gt; Melee
-    Combat --&gt; Ranged
-    Melee --&gt; M1["Approach → Attack → Retreat"]
-    Ranged --&gt; R1["Find Cover → Aim → Fire"]
-    NonCombat --&gt; N1["Patrol / Idle"]
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; NonCombat
+    state NonCombat {
+        [*] --&gt; Patrol
+        Patrol --&gt; Idle
+        Idle --&gt; Patrol
+    }
+    state Combat {
+        [*] --&gt; Approach
+        Approach --&gt; Attack
+        Attack --&gt; Reload
+        Reload --&gt; Attack
+    }
+    NonCombat --&gt; Combat: saw enemy
+    Combat --&gt; NonCombat: lost enemy
 </code></pre>
-
-<p>A single “enemy lost” transition on <em>Combat</em> now pulls the agent out of any combat sub-state at once — no need to wire it to Approach, Attack, Aim, and Fire individually.</p>
 
 <h3 id="behavior-trees">Behavior Trees</h3>
 
-<p>The modern industry standard. A tree of nodes is “ticked” every frame; each node returns <strong>Success</strong>, <strong>Failure</strong>, or <strong>Running</strong>, and its parent reacts to that result. The power comes from a small node vocabulary:</p>
+<p>A behavior tree is <strong>ticked</strong> from the root, typically several times per second. Each node returns <strong>Success</strong>, <strong>Failure</strong>, or <strong>Running</strong>.</p>
 
 <table>
   <thead>
     <tr>
       <th>Category</th>
       <th>Nodes</th>
-      <th>Role</th>
+      <th>Semantics</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Composite</td>
-      <td>Sequence, Selector, Parallel</td>
-      <td>Combine children — Sequence needs all to succeed, Selector tries until one does</td>
+      <td>Sequence</td>
+      <td>Run children left to right; fail on the first failure (logical AND)</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Selector (Fallback)</td>
+      <td>Run children left to right; succeed on the first success (logical OR, priority order)</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Parallel</td>
+      <td>Run children concurrently; succeed or fail by a policy (all/any)</td>
     </tr>
     <tr>
       <td>Decorator</td>
-      <td>Inverter, Repeater, Succeeder, Cooldown</td>
-      <td>Wrap a child to modify its result or timing</td>
+      <td>Inverter, Repeat, Cooldown, Timeout, Blackboard condition</td>
+      <td>Wrap one child and modify its result or when it may run</td>
     </tr>
     <tr>
       <td>Leaf</td>
-      <td>Action, Condition</td>
-      <td>Do the actual work or test the world</td>
+      <td>Condition, Action</td>
+      <td>Test the world, or do something (possibly over many ticks)</td>
     </tr>
   </tbody>
 </table>
 
-<p>The tree reads as prioritized behavior — a Selector tries each branch in order until one succeeds:</p>
-
 <pre><code class="language-mermaid">flowchart TD
-    Sel["Selector&lt;br/&gt;(first to succeed wins)"] --&gt; Atk["Sequence: Attack"]
-    Sel --&gt; Flee["Sequence: Flee"]
-    Sel --&gt; Pat["Action: Patrol"]
-    Atk --&gt; A1{"Enemy visible?"}
-    Atk --&gt; A2{"Has ammo?"}
-    Atk --&gt; A3["Shoot enemy"]
-    Flee --&gt; F1{"Enemy visible?"}
-    Flee --&gt; F2{"Low health?"}
-    Flee --&gt; F3["Flee"]
+    Root["Selector"] --&gt; Flee["Sequence: Flee"]
+    Root --&gt; Fight["Sequence: Fight"]
+    Root --&gt; Patrol["Action: Patrol"]
+    Flee --&gt; F1{"Health &lt; 25%?"}
+    Flee --&gt; F2["Find cover away&lt;br/&gt;from threat"]
+    Flee --&gt; F3["Move to cover"]
+    Fight --&gt; A1{"Target known?"}
+    Fight --&gt; A2["Move into range"]
+    Fight --&gt; A3["Attack"]
 </code></pre>
 
-<p>Because each branch is self-contained, behavior trees scale to complex agents far more gracefully than FSMs: adding a behavior is adding a branch, not rewiring a web of transitions.</p>
+<p>Children of a selector are in <strong>priority order</strong>: fleeing is checked before fighting, fighting before patrolling. When the tree is re-evaluated from the root, a higher-priority branch can interrupt a running lower-priority one; Unreal implements this efficiently with <strong>observer aborts</strong> on blackboard decorators, which only re-evaluate when the watched key changes rather than re-ticking the whole tree.</p>
+
+<p>A minimal implementation shows how little machinery is involved:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
+
+<span class="k">class</span> <span class="nc">Status</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">SUCCESS</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">FAILURE</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">RUNNING</span> <span class="o">=</span> <span class="mi">3</span>
+
+<span class="k">class</span> <span class="nc">Sequence</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="o">*</span><span class="n">children</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">children</span> <span class="o">=</span> <span class="n">children</span>
+
+    <span class="k">def</span> <span class="nf">tick</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">bb</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Status</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">children</span><span class="p">:</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="n">child</span><span class="p">.</span><span class="nf">tick</span><span class="p">(</span><span class="n">bb</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">status</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Status</span><span class="p">.</span><span class="n">SUCCESS</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">status</span>          <span class="c1"># FAILURE or RUNNING stops the sequence
+</span>        <span class="k">return</span> <span class="n">Status</span><span class="p">.</span><span class="n">SUCCESS</span>
+
+<span class="k">class</span> <span class="nc">Selector</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="o">*</span><span class="n">children</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">children</span> <span class="o">=</span> <span class="n">children</span>
+
+    <span class="k">def</span> <span class="nf">tick</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">bb</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Status</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">children</span><span class="p">:</span>
+            <span class="n">status</span> <span class="o">=</span> <span class="n">child</span><span class="p">.</span><span class="nf">tick</span><span class="p">(</span><span class="n">bb</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">status</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">Status</span><span class="p">.</span><span class="n">FAILURE</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">status</span>          <span class="c1"># SUCCESS or RUNNING stops the selector
+</span>        <span class="k">return</span> <span class="n">Status</span><span class="p">.</span><span class="n">FAILURE</span>
+
+<span class="k">class</span> <span class="nc">Condition</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">predicate</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">predicate</span> <span class="o">=</span> <span class="n">predicate</span>
+
+    <span class="k">def</span> <span class="nf">tick</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">bb</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Status</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Status</span><span class="p">.</span><span class="n">SUCCESS</span> <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="nf">predicate</span><span class="p">(</span><span class="n">bb</span><span class="p">)</span> <span class="k">else</span> <span class="n">Status</span><span class="p">.</span><span class="n">FAILURE</span>
+
+<span class="k">class</span> <span class="nc">Action</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">fn</span> <span class="o">=</span> <span class="n">fn</span>                   <span class="c1"># fn(bb) -&gt; Status
+</span>
+    <span class="k">def</span> <span class="nf">tick</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">bb</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Status</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">fn</span><span class="p">(</span><span class="n">bb</span><span class="p">)</span>
+
+<span class="n">tree</span> <span class="o">=</span> <span class="nc">Selector</span><span class="p">(</span>
+    <span class="nc">Sequence</span><span class="p">(</span><span class="nc">Condition</span><span class="p">(</span><span class="k">lambda</span> <span class="n">bb</span><span class="p">:</span> <span class="n">bb</span><span class="p">[</span><span class="sh">"</span><span class="s">health</span><span class="sh">"</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">0.25</span><span class="p">),</span> <span class="nc">Action</span><span class="p">(</span><span class="n">flee</span><span class="p">)),</span>
+    <span class="nc">Sequence</span><span class="p">(</span><span class="nc">Condition</span><span class="p">(</span><span class="k">lambda</span> <span class="n">bb</span><span class="p">:</span> <span class="n">bb</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">target</span><span class="sh">"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">),</span> <span class="nc">Action</span><span class="p">(</span><span class="n">attack</span><span class="p">)),</span>
+    <span class="nc">Action</span><span class="p">(</span><span class="n">patrol</span><span class="p">),</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>This version is <em>stateless</em> (re-evaluated from the root each tick), so higher-priority branches always get a chance to interrupt. Production implementations add memory to composites, abort handling so interrupted actions can clean up, and event-driven evaluation.</p>
+
+<h3 id="statetree">StateTree</h3>
+
+<p>Unreal Engine’s <strong>StateTree</strong> is a general-purpose hierarchical state machine that uses behavior-tree-style <em>selectors</em> to choose which child state to enter, plus explicit <em>transitions</em> and typed <em>data binding</em> between states, tasks and external data. It has matured into a production-ready system over the UE 5.x releases, drives the Mass framework’s large crowds, and is increasingly the default for new AI logic, although behavior trees remain fully supported.</p>
 
 <h3 id="utility-ai">Utility AI</h3>
 
-<p>Score-based decision making:</p>
+<p>Utility AI scores every available action and picks the highest (or samples from the top few for variety). Each action combines several <strong>considerations</strong>, each mapping one input (health, distance, ammo, threat) through a <strong>response curve</strong> to $[0, 1]$.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">select_action</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">actions</span><span class="p">):</span>
-    <span class="n">best_action</span> <span class="o">=</span> <span class="bp">None</span>
-    <span class="n">best_score</span> <span class="o">=</span> <span class="o">-</span><span class="n">infinity</span>
+<p>Common curve shapes, for normalised input $x \in [0, 1]$:</p>
 
-    <span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="n">actions</span><span class="p">:</span>
-        <span class="n">score</span> <span class="o">=</span> <span class="nf">evaluate_utility</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">score</span> <span class="o">&gt;</span> <span class="n">best_score</span><span class="p">:</span>
-            <span class="n">best_score</span> <span class="o">=</span> <span class="n">score</span>
-            <span class="n">best_action</span> <span class="o">=</span> <span class="n">action</span>
+\[\text{linear: } u = m x + b, \qquad \text{power: } u = x^{k}, \qquad \text{logistic: } u = \frac{1}{1 + e^{-k (x - x_0)}}\]
 
-    <span class="k">return</span> <span class="n">best_action</span>
+<p>Considerations are usually multiplied, so any one scoring zero vetoes the action. Multiplying many values in $[0, 1]$ penalises actions with more considerations, so Dave Mark’s Infinite Axis Utility System applies a compensation to each factor $u$ when an action has $n$ considerations:</p>
 
-<span class="k">def</span> <span class="nf">evaluate_utility</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">action</span><span class="p">):</span>
-    <span class="c1"># Combine multiple considerations
-</span>    <span class="n">score</span> <span class="o">=</span> <span class="mf">1.0</span>
-    <span class="n">score</span> <span class="o">*=</span> <span class="nf">health_consideration</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
-    <span class="n">score</span> <span class="o">*=</span> <span class="nf">distance_consideration</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
-    <span class="n">score</span> <span class="o">*=</span> <span class="nf">threat_consideration</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">action</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">score</span>
+\[u' = u + (1 - u)\left(1 - \frac{1}{n}\right) u .\]
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">math</span>
+
+<span class="k">def</span> <span class="nf">logistic</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">math</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">k</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)))</span>
+
+<span class="k">def</span> <span class="nf">score</span><span class="p">(</span><span class="n">action</span><span class="p">,</span> <span class="n">agent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="n">factors</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="p">.</span><span class="nf">curve</span><span class="p">(</span><span class="n">c</span><span class="p">.</span><span class="nf">input</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">action</span><span class="p">))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">action</span><span class="p">.</span><span class="n">considerations</span><span class="p">]</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">factors</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">action</span><span class="p">.</span><span class="n">weight</span>
+    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">factors</span><span class="p">:</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">u</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="n">u</span>   <span class="c1"># IAUS compensation
+</span>        <span class="n">total</span> <span class="o">*=</span> <span class="n">u</span>
+        <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">break</span>                                  <span class="c1"># vetoed
+</span>    <span class="k">return</span> <span class="n">total</span>
+
+<span class="k">def</span> <span class="nf">choose</span><span class="p">(</span><span class="n">actions</span><span class="p">,</span> <span class="n">agent</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nf">max</span><span class="p">(</span><span class="n">actions</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="nf">score</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">agent</span><span class="p">))</span>
 </code></pre></div></div>
 
-<p><strong>Response Curves:</strong></p>
-<ul>
-  <li>Linear, polynomial, logistic</li>
-  <li>Custom curves per consideration</li>
-  <li>Normalize to [0,1] range</li>
-</ul>
-
-<p><strong>Advantages:</strong></p>
-<ul>
-  <li>Smooth, nuanced decisions</li>
-  <li>Easy to tune and balance</li>
-  <li>Natural prioritization</li>
-  <li>No explicit state transitions</li>
-</ul>
+<p>Utility AI produces smooth, context-sensitive behavior (a wounded soldier gradually prefers cover over charging), but it can oscillate between near-equal options. The usual fixes are a <strong>commitment bonus</strong> for the current action and a minimum run time.</p>
 
 <h3 id="goal-oriented-action-planning-goap">Goal-Oriented Action Planning (GOAP)</h3>
 
-<p>Where behavior trees and FSMs are <em>authored</em>, GOAP lets the agent <strong>plan</strong>. You define a goal and a library of actions, each with preconditions and effects; the planner searches (typically A* over world states) for the cheapest action sequence that reaches the goal. Designers add actions, not transitions — the agent figures out how to chain them.</p>
+<p>GOAP, introduced by Jeff Orkin for <em>F.E.A.R.</em> (2005), lets the agent <strong>plan</strong>. The world state is a set of symbolic facts; each action has preconditions, effects and a cost. The planner runs A* over world states, usually <strong>backwards</strong> from the goal, to find the cheapest action sequence.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>World State: {has_weapon: false, enemy_dead: false, in_cover: false}
-Goal State: {enemy_dead: true}
+<pre><code class="language-mermaid">flowchart LR
+    S["Start&lt;br/&gt;has_weapon: no&lt;br/&gt;enemy_dead: no"] --&gt;|"pick_up_weapon (1)"| A["has_weapon: yes"]
+    A --&gt;|"attack (3)"| G["Goal&lt;br/&gt;enemy_dead: yes"]
+    S --&gt;|"melee (6)"| G
+</code></pre>
 
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Goal:    { enemy_dead: true }
 Actions:
-- pickup_weapon: {pre: {}, post: {has_weapon: true}, cost: 1}
-- find_cover: {pre: {}, post: {in_cover: true}, cost: 2}
-- attack: {pre: {has_weapon: true}, post: {enemy_dead: true}, cost: 3}
-
-Planner finds: pickup_weapon → attack
+  pick_up_weapon  pre: { weapon_nearby: true }  effect: { has_weapon: true }  cost: 1
+  attack          pre: { has_weapon: true }     effect: { enemy_dead: true }  cost: 3
+  melee           pre: { }                      effect: { enemy_dead: true }  cost: 6
+Plan:    pick_up_weapon -&gt; attack  (cost 4, cheaper than melee)
 </code></pre></div></div>
 
-<p><strong>Benefits:</strong></p>
-<ul>
-  <li>Emergent complex behaviors</li>
-  <li>Reusable action library</li>
-  <li>Handles novel situations</li>
-</ul>
+<p>Designers add actions rather than transitions; new combinations emerge automatically. The costs are search time (plans are cached and replanned only when the world state changes significantly) and reduced art direction, since designers specify ingredients rather than recipes.</p>
 
-<p><strong>Used in:</strong></p>
-<ul>
-  <li>F.E.A.R. (original implementation)</li>
-  <li>Shadow of Mordor</li>
-  <li>Tomb Raider (2013+)</li>
-</ul>
+<h3 id="hierarchical-task-networks-htn">Hierarchical Task Networks (HTN)</h3>
 
-<h2 id="tactical-and-strategic-ai">Tactical and Strategic AI</h2>
+<p>An HTN planner starts from a high-level <strong>compound task</strong> (“attack the player”) and repeatedly decomposes it using designer-written <strong>methods</strong> (“if the player is in cover: suppress, then flank; otherwise: advance and fire”) until only primitive actions remain. Unlike GOAP it does not search freely over actions, so plans follow authored strategies, run fast, and are easier to art-direct. Guerrilla Games used HTN planning in <em>Killzone 2</em> and <em>Horizon Zero Dawn</em>.</p>
 
-<h3 id="influence-maps">Influence Maps</h3>
+<h2 id="navigation-and-pathfinding">Navigation and Pathfinding</h2>
 
-<p>An influence map turns spatial reasoning into a grid lookup. Each cell accumulates a value from nearby entities, falling off with distance, so the map summarizes “who controls where.” For a cell $c$:</p>
+<h3 id="navigation-meshes">Navigation Meshes</h3>
 
-\[I(c) = \sum_{e \in \text{entities}} \frac{\text{strength}(e)}{1 + \text{decay}\cdot \text{dist}(c, e)}\]
+<p>A <strong>navigation mesh</strong> represents walkable space as convex polygons, so an agent can move in a straight line anywhere inside one polygon. Most engines build navmeshes with <strong>Recast</strong> (Mikko Mononen’s open-source library, the basis of Unreal’s navmesh and many others) or an equivalent pipeline:</p>
 
-<p>Computed once per update (often at coarse resolution), the resulting field answers tactical questions cheaply:</p>
+<pre><code class="language-mermaid">flowchart LR
+    G["Level geometry"] --&gt; V["Voxelize into&lt;br/&gt;heightfield"]
+    V --&gt; W["Mark walkable&lt;br/&gt;spans (slope,&lt;br/&gt;step, clearance)"]
+    W --&gt; E["Erode by&lt;br/&gt;agent radius"]
+    E --&gt; R["Partition into&lt;br/&gt;regions&lt;br/&gt;(watershed)"]
+    R --&gt; C["Trace contours,&lt;br/&gt;simplify"]
+    C --&gt; P["Convex polygons&lt;br/&gt;+ adjacency"]
+    P --&gt; D["Detour:&lt;br/&gt;queries, path&lt;br/&gt;corridors, crowds"]
+</code></pre>
 
-<ul>
-  <li><strong>Safe areas</strong> — cells where enemy influence is low.</li>
-  <li><strong>Frontlines and choke points</strong> — where friendly and enemy influence balance.</li>
-  <li><strong>Strategic positions</strong> — local maxima of friendly control, or flanking routes through low-influence gaps.</li>
-</ul>
+<p>Erosion by agent radius means different agent sizes need different navmeshes (or rebuilt query filters). Large or changing worlds use <strong>tiled</strong> navmeshes so individual tiles can be rebuilt at runtime when a door closes or a wall is destroyed. <strong>Off-mesh links</strong> connect polygons for jumps, ladders and doors.</p>
 
-<h3 id="cover-system">Cover System</h3>
+<h3 id="a">A*</h3>
 
-<p>Finding and using cover:</p>
+<p>Pathfinding over the navmesh adjacency graph (or a grid, or a waypoint graph) is almost always A*. It expands nodes in order of</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">evaluate_cover_point</span><span class="p">(</span><span class="n">cover</span><span class="p">,</span> <span class="n">agent</span><span class="p">,</span> <span class="n">threats</span><span class="p">):</span>
-    <span class="n">score</span> <span class="o">=</span> <span class="mi">0</span>
+\[f(n) = g(n) + h(n),\]
 
-    <span class="c1"># Protection from threats
-</span>    <span class="k">for</span> <span class="n">threat</span> <span class="ow">in</span> <span class="n">threats</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nf">has_line_of_sight</span><span class="p">(</span><span class="n">cover</span><span class="p">,</span> <span class="n">threat</span><span class="p">):</span>
-            <span class="n">score</span> <span class="o">+=</span> <span class="mi">10</span>
+<p>where $g(n)$ is the cost of the best known path from the start to $n$ and $h(n)$ is a heuristic estimate of the remaining cost. If $h$ is <strong>admissible</strong> (never overestimates), A* returns an optimal path; if it is also <strong>consistent</strong> ($h(n) \le c(n, n’) + h(n’)$ for every edge), no node needs to be expanded twice. Weighting the heuristic ($f = g + w h$ with $w &gt; 1$) trades optimality for far fewer expansions and is common in games.</p>
 
-    <span class="c1"># Distance to agent (prefer closer)
-</span>    <span class="n">score</span> <span class="o">-=</span> <span class="nf">distance</span><span class="p">(</span><span class="n">cover</span><span class="p">,</span> <span class="n">agent</span><span class="p">.</span><span class="n">position</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.5</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">heapq</span>
+<span class="kn">import</span> <span class="n">itertools</span>
 
-    <span class="c1"># Flanking opportunity
-</span>    <span class="k">if</span> <span class="nf">can_flank_from</span><span class="p">(</span><span class="n">cover</span><span class="p">,</span> <span class="n">threats</span><span class="p">):</span>
-        <span class="n">score</span> <span class="o">+=</span> <span class="mi">5</span>
+<span class="k">def</span> <span class="nf">a_star</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">goal</span><span class="p">,</span> <span class="n">neighbors</span><span class="p">,</span> <span class="n">cost</span><span class="p">,</span> <span class="n">heuristic</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">neighbors(n) -&gt; iterable of nodes; cost(a, b) -&gt; float; heuristic(n, goal) -&gt; float.</span><span class="sh">"""</span>
+    <span class="n">tie</span> <span class="o">=</span> <span class="n">itertools</span><span class="p">.</span><span class="nf">count</span><span class="p">()</span>                 <span class="c1"># tie-breaker so nodes never get compared
+</span>    <span class="n">open_heap</span> <span class="o">=</span> <span class="p">[(</span><span class="nf">heuristic</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">goal</span><span class="p">),</span> <span class="nf">next</span><span class="p">(</span><span class="n">tie</span><span class="p">),</span> <span class="n">start</span><span class="p">)]</span>
+    <span class="n">came_from</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="p">{</span><span class="n">start</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">}</span>
+    <span class="n">closed</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
 
-    <span class="c1"># Escape routes
-</span>    <span class="n">score</span> <span class="o">+=</span> <span class="nf">count_exit_routes</span><span class="p">(</span><span class="n">cover</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span>
+    <span class="k">while</span> <span class="n">open_heap</span><span class="p">:</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">current</span> <span class="o">=</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">open_heap</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">current</span> <span class="o">==</span> <span class="n">goal</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="p">[</span><span class="n">current</span><span class="p">]</span>
+            <span class="k">while</span> <span class="n">current</span> <span class="ow">in</span> <span class="n">came_from</span><span class="p">:</span>
+                <span class="n">current</span> <span class="o">=</span> <span class="n">came_from</span><span class="p">[</span><span class="n">current</span><span class="p">]</span>
+                <span class="n">path</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">current</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">path</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">current</span> <span class="ow">in</span> <span class="n">closed</span><span class="p">:</span>
+            <span class="k">continue</span>                        <span class="c1"># stale heap entry (lazy deletion)
+</span>        <span class="n">closed</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">current</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">score</span>
-</code></pre></div></div>
+        <span class="k">for</span> <span class="n">nxt</span> <span class="ow">in</span> <span class="nf">neighbors</span><span class="p">(</span><span class="n">current</span><span class="p">):</span>
+            <span class="n">tentative</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="n">current</span><span class="p">]</span> <span class="o">+</span> <span class="nf">cost</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">nxt</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">tentative</span> <span class="o">&lt;</span> <span class="n">g</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">nxt</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="sh">"</span><span class="s">inf</span><span class="sh">"</span><span class="p">)):</span>
+                <span class="n">g</span><span class="p">[</span><span class="n">nxt</span><span class="p">]</span> <span class="o">=</span> <span class="n">tentative</span>
+                <span class="n">came_from</span><span class="p">[</span><span class="n">nxt</span><span class="p">]</span> <span class="o">=</span> <span class="n">current</span>
+                <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">open_heap</span><span class="p">,</span> <span class="p">(</span><span class="n">tentative</span> <span class="o">+</span> <span class="nf">heuristic</span><span class="p">(</span><span class="n">nxt</span><span class="p">,</span> <span class="n">goal</span><span class="p">),</span> <span class="nf">next</span><span class="p">(</span><span class="n">tie</span><span class="p">),</span> <span class="n">nxt</span><span class="p">))</span>
+    <span class="k">return</span> <span class="bp">None</span>                             <span class="c1"># no path
+</span></code></pre></div></div>
 
-<h3 id="squad-tactics">Squad Tactics</h3>
-
-<p>Coordinated group behavior:</p>
-
-<p><strong>Formation Movement:</strong></p>
-<ul>
-  <li>Leader-follower patterns</li>
-  <li>Slot-based formations</li>
-  <li>Dynamic reformation around obstacles</li>
-</ul>
-
-<p><strong>Role Assignment:</strong></p>
-<ul>
-  <li>Point man (first in)</li>
-  <li>Flankers (side attack)</li>
-  <li>Support (covering fire)</li>
-  <li>Medic (heal priority)</li>
-</ul>
-
-<p><strong>Communication:</strong></p>
-<ul>
-  <li>Shared blackboard for knowledge</li>
-  <li>Signal system for coordination</li>
-  <li>Priority-based task allocation</li>
-</ul>
-
-<h2 id="machine-learning-in-games">Machine Learning in Games</h2>
-
-<h3 id="reinforcement-learning">Reinforcement Learning</h3>
-
-<p>Training agents through rewards:</p>
-
-<p><strong>Applications:</strong></p>
-<ul>
-  <li>Racing game AI (learn optimal racing lines)</li>
-  <li>Fighting game opponents (adapt to player style)</li>
-  <li>Strategy game opponents (learn build orders)</li>
-  <li>Procedural animation (physics-based movement)</li>
-</ul>
-
-<p><strong>Challenges:</strong></p>
-<ul>
-  <li>Training time requirements</li>
-  <li>Unpredictable emergent behaviors</li>
-  <li>Difficulty balancing for fun</li>
-  <li>Reproducibility issues</li>
-</ul>
-
-<h3 id="imitation-learning">Imitation Learning</h3>
-
-<p>Learn from human demonstrations:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1. Record human player sessions
-2. Extract state-action pairs
-3. Train model to predict actions
-4. Fine-tune with reinforcement learning
-</code></pre></div></div>
-
-<p><strong>Used in:</strong></p>
-<ul>
-  <li>Racing games (ghost opponents)</li>
-  <li>Sports games (player movement)</li>
-  <li>Driving simulations</li>
-</ul>
-
-<h3 id="neural-network-npcs">Neural Network NPCs</h3>
-
-<p>Deep learning for game AI:</p>
-
-<p><strong>Pros:</strong></p>
-<ul>
-  <li>Can learn complex behaviors</li>
-  <li>Adapts to player patterns</li>
-  <li>Emergent interesting behaviors</li>
-</ul>
-
-<p><strong>Cons:</strong></p>
-<ul>
-  <li>“Black box” debugging</li>
-  <li>Inconsistent behavior</li>
-  <li>High computational cost</li>
-  <li>Requires training data</li>
-</ul>
-
-<h2 id="perception-systems">Perception Systems</h2>
-
-<h3 id="sensory-simulation">Sensory Simulation</h3>
-
-<p>What AI can “see” and “hear”:</p>
-
-<p><strong>Vision:</strong></p>
-<ul>
-  <li>Field of view cone</li>
-  <li>Line of sight checks</li>
-  <li>Distance falloff</li>
-  <li>Peripheral vs focused vision</li>
-</ul>
-
-<p><strong>Hearing:</strong></p>
-<ul>
-  <li>Sound propagation</li>
-  <li>Occlusion by geometry</li>
-  <li>Sound priority/type</li>
-  <li>Memory of heard sounds</li>
-</ul>
-
-<p><strong>Knowledge:</strong></p>
-<ul>
-  <li>Last known position</li>
-  <li>Memory decay over time</li>
-  <li>Shared team knowledge</li>
-</ul>
-
-<h3 id="awareness-system">Awareness System</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">AwarenessComponent</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">detection_level</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># 0-100
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">last_known_position</span> <span class="o">=</span> <span class="bp">None</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">last_seen_time</span> <span class="o">=</span> <span class="mi">0</span>
-
-    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nf">can_see</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
-            <span class="c1"># Increase detection based on visibility
-</span>            <span class="n">visibility</span> <span class="o">=</span> <span class="nf">calculate_visibility</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">detection_level</span> <span class="o">+=</span> <span class="n">visibility</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">detection_rate</span>
-
-            <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">detection_level</span> <span class="o">&gt;=</span> <span class="mi">100</span><span class="p">:</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">ALERT</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">last_known_position</span> <span class="o">=</span> <span class="n">target</span><span class="p">.</span><span class="n">position</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Decay detection when not visible
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">detection_level</span> <span class="o">-=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">decay_rate</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">detection_level</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">detection_level</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h2 id="performance-optimization">Performance Optimization</h2>
-
-<h3 id="lod-for-ai">LOD for AI</h3>
-
-<p>Scale AI complexity with importance:</p>
+<p>For grids, choose the heuristic that matches the movement model, with $\Delta x$ and $\Delta y$ the absolute coordinate differences:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Distance/Importance</th>
-      <th>AI Complexity</th>
+      <th>Movement</th>
+      <th>Heuristic</th>
+      <th>Formula</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>On-screen, close</td>
-      <td>Full behavior tree, full perception</td>
+      <td>4-directional</td>
+      <td>Manhattan</td>
+      <td>$\Delta x + \Delta y$</td>
     </tr>
     <tr>
-      <td>On-screen, far</td>
-      <td>Simplified decisions, reduced updates</td>
+      <td>8-directional, diagonal costs 1</td>
+      <td>Chebyshev</td>
+      <td>$\max(\Delta x, \Delta y)$</td>
     </tr>
     <tr>
-      <td>Off-screen</td>
-      <td>Minimal simulation, time-sliced</td>
+      <td>8-directional, diagonal costs $\sqrt{2}$</td>
+      <td>Octile</td>
+      <td>$\max(\Delta x, \Delta y) + (\sqrt{2} - 1)\min(\Delta x, \Delta y)$</td>
     </tr>
     <tr>
-      <td>Very far</td>
-      <td>Statistical simulation only</td>
+      <td>Any angle</td>
+      <td>Euclidean</td>
+      <td>$\sqrt{\Delta x^2 + \Delta y^2}$</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="scaling-pathfinding">Scaling Pathfinding</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Idea</th>
+      <th>When to use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Hierarchical pathfinding (HPA*)</td>
+      <td>Plan over clusters or regions first, refine only the next stretch</td>
+      <td>Large or streamed worlds</td>
+    </tr>
+    <tr>
+      <td>Jump Point Search (JPS)</td>
+      <td>Skip symmetric paths on uniform-cost grids</td>
+      <td>Grid games with many searches</td>
+    </tr>
+    <tr>
+      <td>Path caching and sharing</td>
+      <td>Reuse paths for agents with similar start and goal</td>
+      <td>Groups moving together</td>
+    </tr>
+    <tr>
+      <td>Flow fields</td>
+      <td>One Dijkstra pass from the goal gives every cell a direction</td>
+      <td>Hundreds of units sharing a destination (RTS, crowds)</td>
+    </tr>
+    <tr>
+      <td>Asynchronous / time-sliced queries</td>
+      <td>Spread searches over frames or worker threads</td>
+      <td>Always, once searches are non-trivial</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart TD
+    R["Region graph: which zones?"] --&gt; C["Cluster graph: which entrances?"]
+    C --&gt; N["Navmesh polygons: which corridor?"]
+    N --&gt; S["String pulling: which corners?"]
+</code></pre>
+
+<h3 id="path-smoothing">Path Smoothing</h3>
+
+<p>A polygon path is a corridor, not a line. The <strong>funnel algorithm</strong> (string pulling) finds the shortest path through that corridor by tracking a left and right boundary and emitting a corner whenever the funnel collapses. Splines (Catmull-Rom, Bezier) then round corners for natural motion, and steering handles the final smoothing at runtime.</p>
+
+<h2 id="steering-and-movement">Steering and Movement</h2>
+
+<h3 id="reynolds-steering-behaviors">Reynolds Steering Behaviors</h3>
+
+<p>Craig Reynolds’ steering behaviors (1999) compute a steering force from the difference between a <strong>desired velocity</strong> and the current velocity:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">seek</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="n">desired</span> <span class="o">=</span> <span class="nf">normalize</span><span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">position</span><span class="p">)</span> <span class="o">*</span> <span class="n">agent</span><span class="p">.</span><span class="n">max_speed</span>
+    <span class="k">return</span> <span class="nf">truncate</span><span class="p">(</span><span class="n">desired</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">velocity</span><span class="p">,</span> <span class="n">agent</span><span class="p">.</span><span class="n">max_force</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">flee</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">threat</span><span class="p">):</span>
+    <span class="n">desired</span> <span class="o">=</span> <span class="nf">normalize</span><span class="p">(</span><span class="n">agent</span><span class="p">.</span><span class="n">position</span> <span class="o">-</span> <span class="n">threat</span><span class="p">)</span> <span class="o">*</span> <span class="n">agent</span><span class="p">.</span><span class="n">max_speed</span>
+    <span class="k">return</span> <span class="nf">truncate</span><span class="p">(</span><span class="n">desired</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">velocity</span><span class="p">,</span> <span class="n">agent</span><span class="p">.</span><span class="n">max_force</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">arrive</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">slowing_radius</span><span class="p">):</span>
+    <span class="n">offset</span> <span class="o">=</span> <span class="n">target</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">position</span>
+    <span class="n">distance</span> <span class="o">=</span> <span class="nf">length</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">distance</span> <span class="o">&lt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">agent</span><span class="p">.</span><span class="n">velocity</span>                       <span class="c1"># brake
+</span>    <span class="n">speed</span> <span class="o">=</span> <span class="n">agent</span><span class="p">.</span><span class="n">max_speed</span> <span class="o">*</span> <span class="nf">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">distance</span> <span class="o">/</span> <span class="n">slowing_radius</span><span class="p">)</span>
+    <span class="n">desired</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">/</span> <span class="n">distance</span> <span class="o">*</span> <span class="n">speed</span>
+    <span class="k">return</span> <span class="nf">truncate</span><span class="p">(</span><span class="n">desired</span> <span class="o">-</span> <span class="n">agent</span><span class="p">.</span><span class="n">velocity</span><span class="p">,</span> <span class="n">agent</span><span class="p">.</span><span class="n">max_force</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><strong>Flocking</strong> (Reynolds’ 1987 boids) combines three neighbourhood behaviors: <strong>separation</strong> (steer away from close neighbours), <strong>alignment</strong> (match average heading) and <strong>cohesion</strong> (steer toward the average position). Weighted sums of behaviors work for simple cases; priority blending (apply avoidance first, then fill remaining force budget with other goals) avoids behaviors cancelling each other out.</p>
+
+<h3 id="obstacle-and-crowd-avoidance">Obstacle and Crowd Avoidance</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Idea</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Context steering</td>
+      <td>Each behavior writes interest and danger values into slots around the agent; pick the best unmasked direction</td>
+      <td>Avoids the cancellation problem of summed forces; popular in action games</td>
+    </tr>
+    <tr>
+      <td>Velocity obstacles (VO)</td>
+      <td>The set of velocities that would collide with an obstacle within a time horizon forms a cone; choose a velocity outside all cones</td>
+      <td>Oscillates when two agents both dodge</td>
+    </tr>
+    <tr>
+      <td>RVO / ORCA</td>
+      <td>Each agent takes half the responsibility for avoiding the other; ORCA solves a small linear program per agent</td>
+      <td>Smooth, collision-free crowds; open-source RVO2 library; Godot’s avoidance and Unreal’s optional RVO avoidance build on it</td>
+    </tr>
+    <tr>
+      <td>Detour crowd</td>
+      <td>Recast/Detour’s local steering plus path corridors</td>
+      <td>Default in many Recast-based engines</td>
+    </tr>
+    <tr>
+      <td>Flow fields / continuum crowds</td>
+      <td>Treat the crowd as a density field</td>
+      <td>Very large crowds with shared goals</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="tactical-and-strategic-reasoning">Tactical and Strategic Reasoning</h2>
+
+<h3 id="influence-maps">Influence Maps</h3>
+
+<p>An influence map summarises “who controls where” on a coarse grid. Each cell accumulates influence from nearby units, decaying with distance:</p>
+
+\[I(c) = \sum_{e \in \text{units}} \frac{s_e}{1 + \lambda\, d(c, e)},\]
+
+<p>with $s_e$ positive for friendly and negative for enemy units, $\lambda$ a decay rate and $d$ a distance (path distance is more accurate than straight-line). Recomputed a few times per second, the map answers tactical questions by simple lookups: safe cells (low enemy influence), front lines (near zero with high total magnitude), and flanking routes (paths through low-influence cells). Separate layers (threat, visibility, resources) can be combined per query.</p>
+
+<h3 id="position-evaluation-and-cover">Position Evaluation and Cover</h3>
+
+<p>Rather than hard-coding where an agent should stand, most modern games <strong>generate candidate points and score them</strong>. Unreal’s <strong>Environment Query System (EQS)</strong> formalises this: a generator produces points (a grid around the agent, cover markers, navmesh samples), tests filter and score them (distance, line of sight to the threat, path length, dot product with the threat direction), and the best point is returned.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">score_cover</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">agent</span><span class="p">,</span> <span class="n">threats</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="n">weights</span><span class="p">.</span><span class="n">protection</span> <span class="o">*</span> <span class="nf">sum</span><span class="p">(</span><span class="ow">not</span> <span class="nf">line_of_sight</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">threats</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">-=</span> <span class="n">weights</span><span class="p">.</span><span class="n">distance</span> <span class="o">*</span> <span class="nf">path_distance</span><span class="p">(</span><span class="n">agent</span><span class="p">.</span><span class="n">position</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">+=</span> <span class="n">weights</span><span class="p">.</span><span class="n">firing</span> <span class="o">*</span> <span class="nf">sum</span><span class="p">(</span><span class="nf">can_peek_and_shoot</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">threats</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">-=</span> <span class="n">weights</span><span class="p">.</span><span class="n">exposure</span> <span class="o">*</span> <span class="nf">exposed_path_length</span><span class="p">(</span><span class="n">agent</span><span class="p">.</span><span class="n">position</span><span class="p">,</span> <span class="n">point</span><span class="p">,</span> <span class="n">threats</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">s</span>
+</code></pre></div></div>
+
+<h3 id="squads-and-coordination">Squads and Coordination</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concern</th>
+      <th>Common approaches</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Formations</td>
+      <td>Slot-based formations anchored to a virtual leader; slots re-assigned as agents fall behind</td>
+    </tr>
+    <tr>
+      <td>Roles</td>
+      <td>Assign roles (suppressor, flanker, rusher) from a squad-level decision, then run individual behavior per role</td>
+    </tr>
+    <tr>
+      <td>Communication</td>
+      <td>Shared squad blackboard; <em>announce</em> intentions (“flanking left”) so players can read the plan</td>
+    </tr>
+    <tr>
+      <td>Token systems</td>
+      <td>Limit how many enemies may attack the player at once; agents request an attack token</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Attack tokens are a clear example of fun over optimality: a crowd of enemies that all attack simultaneously is realistic and miserable, so games queue them.</p>
+
+<h2 id="machine-learning-and-language-models">Machine Learning and Language Models</h2>
+
+<p>Learned behavior has been slower to appear in shipped games than in research, for the reasons in the first table: training cost, unpredictability and difficulty of design control. Where it does ship, it is usually in a bounded role.</p>
+
+<h3 id="reinforcement-and-imitation-learning">Reinforcement and Imitation Learning</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Use</th>
+      <th>Status</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Superhuman opponents in research</td>
+      <td>Demonstrated</td>
+      <td>AlphaStar (StarCraft II), OpenAI Five (Dota 2)</td>
+    </tr>
+    <tr>
+      <td>Shipped learned opponents</td>
+      <td>Rare, in bounded domains</td>
+      <td>Sony AI’s <strong>GT Sophy</strong> (Nature, 2022), added to <em>Gran Turismo 7</em> as a racing opponent</td>
+    </tr>
+    <tr>
+      <td>Automated playtesting and QA</td>
+      <td>Common in large studios</td>
+      <td>RL or scripted bots exploring levels for stuck spots and exploits</td>
+    </tr>
+    <tr>
+      <td>Physics-based character control</td>
+      <td>Growing</td>
+      <td>Learned locomotion and recovery policies</td>
+    </tr>
+    <tr>
+      <td>Imitation from player data</td>
+      <td>Niche</td>
+      <td>Driving and racing opponents; “ghost” behaviors</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Unity ML-Agents</strong> is the most widely used open toolkit; version 4.0 (2025) moved inference onto Unity’s Inference Engine. It trains agents with PPO, SAC and imitation learning (behavioral cloning, GAIL) against Unity scenes. RL in general is covered in <a href="../technology/ai/reinforcement-learning.html">Reinforcement Learning</a>.</p>
+
+<h3 id="llm-driven-characters">LLM-Driven Characters</h3>
+
+<p>Since 2024, several shipped or early-access games have used language models for NPC dialogue and high-level decisions. NVIDIA’s <strong>ACE</strong> stack powers the best-known examples: the <em>PUBG</em> Ally co-playable teammate (built on an 8B-parameter small language model), the “Smart Zoi” characters in <em>inZOI</em> (a ~0.5B on-device model), and AI teammates in <em>NARAKA: BLADEPOINT</em>. Other studios use cloud-hosted models or services such as Inworld.</p>
+
+<p>The pattern that works is <strong>hybrid</strong>: the language model interprets speech or text and chooses an intent from a constrained set, and conventional systems (behavior trees, navigation, animation) execute it.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    P["Player speech&lt;br/&gt;or text"] --&gt; ASR["Speech recognition"]
+    ASR --&gt; LLM["Small language model&lt;br/&gt;+ character prompt&lt;br/&gt;+ game-state summary"]
+    LLM --&gt;|"structured intent&lt;br/&gt;(e.g. loot, follow, attack)"| V["Validator&lt;br/&gt;allowed actions only"]
+    V --&gt; BT["Behavior tree /&lt;br/&gt;StateTree"]
+    BT --&gt; Nav["Navigation,&lt;br/&gt;animation"]
+    LLM --&gt;|"dialogue line"| TTS["Text-to-speech"]
+</code></pre>
+
+<p>The main constraints are latency (a reply must start within about a second), per-player compute or API cost, VRAM contention with rendering on local deployments, and keeping the character on-script and within content rules. Validating model output against an allow-list of actions, and never letting it modify game state directly, is the key safeguard.</p>
+
+<h2 id="engine-support">Engine Support</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Engine</th>
+      <th>Decision making</th>
+      <th>Navigation</th>
+      <th>Other AI features</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Unreal Engine 5</td>
+      <td>Behavior Trees with blackboards and observer aborts; <strong>StateTree</strong> (increasingly preferred for new work)</td>
+      <td>Recast-based navmesh, dynamic tiles, Detour crowds, nav links</td>
+      <td>AI Perception component, EQS, Smart Objects, <strong>Mass</strong> entity framework for large crowds</td>
+    </tr>
+    <tr>
+      <td>Unity 6</td>
+      <td><strong>Unity Behavior</strong> package (behavior graphs, successor to Muse Behavior); many asset-store BT/utility tools</td>
+      <td><strong>AI Navigation</strong> package (NavMeshSurface, links, modifiers)</td>
+      <td>ML-Agents 4.0, Inference Engine for running ONNX models</td>
+    </tr>
+    <tr>
+      <td>Godot 4</td>
+      <td>No built-in BT; plugins such as LimboAI and Beehave</td>
+      <td>NavigationServer2D/3D with navmesh baking, avoidance (RVO)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Custom engines</td>
+      <td>Usually in-house BT/HTN/utility frameworks</td>
+      <td>Recast/Detour is the common open-source choice</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="performance">Performance</h2>
+
+<p>AI competes with rendering, physics and gameplay for the frame. Typical budgets are a few milliseconds for all AI, so costs must scale sublinearly with agent count.</p>
+
+<h3 id="ai-level-of-detail">AI Level of Detail</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Agent situation</th>
+      <th>Treatment</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>On screen, near the player</td>
+      <td>Full perception, decision updates at 10+ Hz, full steering and animation</td>
+    </tr>
+    <tr>
+      <td>On screen, distant</td>
+      <td>Decision updates at 1-5 Hz, simplified perception, cheaper avoidance</td>
+    </tr>
+    <tr>
+      <td>Off screen, nearby</td>
+      <td>Coarse simulation; teleport-free but low-frequency movement</td>
+    </tr>
+    <tr>
+      <td>Far away</td>
+      <td>Statistical or schedule-based simulation (“the guard is at the gate from 8 to 5”)</td>
     </tr>
   </tbody>
 </table>
 
 <h3 id="time-slicing">Time Slicing</h3>
 
-<p>Spread computation across frames:</p>
+<p>Spread expensive work across frames with a per-frame budget. Using a real clock and a round-robin queue keeps any one frame from overrunning:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">AIManager</span><span class="p">:</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">time</span>
+<span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">deque</span>
+
+<span class="k">class</span> <span class="nc">AIScheduler</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">agents</span><span class="p">,</span> <span class="n">budget_ms</span><span class="o">=</span><span class="mf">2.0</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">queue</span> <span class="o">=</span> <span class="nf">deque</span><span class="p">(</span><span class="n">agents</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">budget</span> <span class="o">=</span> <span class="n">budget_ms</span> <span class="o">/</span> <span class="mf">1000.0</span>
+
     <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="c1"># Process subset of agents each frame
-</span>        <span class="n">budget</span> <span class="o">=</span> <span class="mf">2.0</span>  <span class="c1"># ms
-</span>
-        <span class="k">while</span> <span class="n">budget</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">self</span><span class="p">.</span><span class="n">update_queue</span><span class="p">:</span>
-            <span class="n">agent</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">update_queue</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-            <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">now</span><span class="p">()</span>
-            <span class="n">agent</span><span class="p">.</span><span class="nf">update</span><span class="p">()</span>
-            <span class="n">budget</span> <span class="o">-=</span> <span class="n">time</span><span class="p">.</span><span class="nf">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">update_queue</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span>  <span class="c1"># Re-add to end
-</span></code></pre></div></div>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">perf_counter</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">queue</span><span class="p">)):</span>          <span class="c1"># visit each agent at most once per frame
+</span>            <span class="k">if</span> <span class="n">time</span><span class="p">.</span><span class="nf">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span> <span class="o">&gt;=</span> <span class="n">self</span><span class="p">.</span><span class="n">budget</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">agent</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">queue</span><span class="p">.</span><span class="nf">popleft</span><span class="p">()</span>
+            <span class="n">agent</span><span class="p">.</span><span class="nf">think</span><span class="p">()</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">queue</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span>
+</code></pre></div></div>
 
-<h3 id="spatial-partitioning">Spatial Partitioning</h3>
+<p>Pathfinding requests are usually queued the same way, and long searches are paused and resumed across frames.</p>
 
-<p>Efficient queries:</p>
+<h3 id="data-layout-and-threading">Data Layout and Threading</h3>
 
 <ul>
-  <li><strong>Grids</strong>: Simple, fast for uniform distribution</li>
-  <li><strong>Quadtree/Octree</strong>: Adaptive subdivision</li>
-  <li><strong>BVH</strong>: Hierarchical bounding volumes</li>
-  <li><strong>Spatial hashing</strong>: O(1) neighbor lookup</li>
-</ul>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Game AI optimizes for fun, not optimality.</strong> Believable, appropriately-challenging behavior beats perfect play, all under hard real-time budgets.</li>
-  <li><strong>Layer the system:</strong> decision (FSM/behavior tree/utility/GOAP) → steering (pathfinding + avoidance) → animation. Each layer has a clear job.</li>
-  <li><strong>A* is the pathfinding workhorse</strong> — $f(n) = g(n) + h(n)$ with an admissible heuristic guarantees shortest paths; NavMeshes make it practical in 3D.</li>
-  <li><strong>Behavior trees scale better than FSMs</strong> for complex agents; utility AI and GOAP add flexibility when hand-authored logic gets unwieldy.</li>
-  <li><strong>Performance is a first-class concern:</strong> LOD for AI, time-slicing, and spatial partitioning keep hundreds of agents within frame budget.</li>
+  <li><strong>Spatial partitioning</strong> (uniform grids, spatial hashing, quadtrees/octrees, BVHs) makes neighbour and perception queries cheap. Uniform grids or hashing are usually best for similar-sized moving agents.</li>
+  <li><strong>Batch and parallelise.</strong> Perception raycasts, steering and avoidance are independent per agent and suit job systems. Data-oriented frameworks (Unreal’s Mass, Unity’s DOTS/ECS) process thousands of agents by storing their data in contiguous arrays.</li>
+  <li><strong>Event-driven evaluation.</strong> Re-evaluate decisions when relevant blackboard values change rather than every frame.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li><a href="../gamedev/">Game Development</a> - Game development fundamentals</li>
-  <li><a href="../technology/unreal.html">Unreal Engine</a> - UE5 AI systems and behavior frameworks</li>
+  <li><a href="../gamedev/procedural-generation.html">Procedural Generation</a> - Generating the worlds agents navigate</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a> - UE5 gameplay and AI frameworks</li>
+  <li><a href="../technology/ai/reinforcement-learning.html">Reinforcement Learning</a> - Theory behind learned agents</li>
   <li><a href="../optimization/">Performance Optimization</a> - Optimization techniques for real-time systems</li>
-  <li><a href="../technology/ai/">AI Fundamentals</a> - Machine learning foundations behind ML-driven NPCs</li>
+  <li><a href="../technology/ai/">AI Fundamentals</a> - Machine learning foundations</li>
   <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
 </ul>
 

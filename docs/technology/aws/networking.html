@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Amazon VPC design, NAT and endpoints, connectivity between VPCs, Elastic Load Balancing, CloudFront, API Gateway, and Route 53.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AWS Networking & Content Delivery">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Amazon VPC design, NAT and endpoints, connectivity between VPCs, Elastic Load Balancing, CloudFront, API Gateway, and Route 53.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/networking.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AWS Networking & Content Delivery">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Amazon VPC design, NAT and endpoints, connectivity between VPCs, Elastic Load Balancing, CloudFront, API Gateway, and Route 53.">
 
 <title>AWS Networking & Content Delivery | Andrews Notebook</title>
 
@@ -3131,365 +3131,621 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>VPC private networks, CloudFront CDN, API Gateway, and load balancing are the building blocks of secure, fast, and resilient cloud architecture. This page covers each and how they fit together.</p>
-
-<h2 id="why-networking-matters">Why Networking Matters</h2>
-
-<p>Networking is the foundation of every cloud architecture. Get it right, and your applications are secure, fast, and resilient. Get it wrong, and you face security vulnerabilities, performance bottlenecks, or unexpected costs.</p>
-
-<p>This guide covers:</p>
-<ul>
-  <li><strong>VPC (Virtual Private Cloud)</strong>: Your private network in AWS</li>
-  <li><strong>Load Balancing</strong>: Distributing traffic across servers</li>
-  <li><strong>CloudFront</strong>: Delivering content globally with low latency</li>
-  <li><strong>API Gateway</strong>: Managing and securing your APIs</li>
-</ul>
-
-<p>Consider the following before designing your network: Where will users access your application from? What needs to be public vs. private? How will services communicate with each other?</p>
+        <p>AWS networking has two halves. Inside a Region, <strong>Amazon VPC</strong> provides isolated IP networks in which subnets, route tables, gateways, and firewalls determine what can reach what. At the edge, <strong>Elastic Load Balancing, Amazon CloudFront, Amazon API Gateway, and Amazon Route 53</strong> accept traffic from users and deliver it to those private networks. This page covers VPC design and connectivity, the load balancer family, CloudFront, API Gateway, and DNS, and ends with the most common and costly mistakes. For protocol-level background, see <a href="../networking/">Networking Fundamentals</a> and <a href="../networking/cloud-networking.html">Cloud Networking</a>.</p>
 
 <hr />
 
-<h2 id="vpc---your-private-cloud-network">VPC - Your Private Cloud Network</h2>
+<h2 id="how-a-request-reaches-an-application">How a request reaches an application</h2>
 
-<p>VPC (Virtual Private Cloud) lets you create isolated networks in AWS. Think of it as your own private data center in the cloud, complete with subnets, routing rules, and security controls.</p>
+<pre><code class="language-mermaid">flowchart LR
+    U([User]) --&gt; R53[Route 53&lt;br/&gt;DNS]
+    R53 --&gt; CF["CloudFront edge&lt;br/&gt;+ AWS WAF"]
+    CF -- cache hit --&gt; U
+    CF -- cache miss --&gt; ALB["Application Load Balancer&lt;br/&gt;(public or VPC origin)"]
+    subgraph VPC
+        ALB --&gt; T1[Target in AZ-a]
+        ALB --&gt; T2[Target in AZ-b]
+        T1 --&gt; DB[(Database&lt;br/&gt;isolated subnet)]
+        T2 --&gt; DB
+    end
+</code></pre>
 
-<p><strong>Why VPCs matter</strong>: Without a VPC, your resources would be exposed directly to the internet. VPCs provide network isolation, allowing you to control exactly what can communicate with what.</p>
+<p>DNS resolves the hostname to the nearest CloudFront edge. Cached responses return from the edge; cache misses travel over the AWS backbone to the origin, usually an Application Load Balancer, which spreads requests across healthy targets in several Availability Zones. Security groups at each hop admit only the traffic expected from the previous hop.</p>
 
-<h3 id="key-vpc-concepts">Key VPC Concepts</h3>
+<hr />
 
-<p>Before diving in, familiarize yourself with these building blocks:</p>
+<h2 id="amazon-vpc">Amazon VPC</h2>
+
+<p>A <strong>VPC</strong> is a logically isolated network in one Region with one or more IPv4 CIDR blocks (between /16 and /28) and optionally IPv6. It spans every Availability Zone in the Region; each <strong>subnet</strong> lives in exactly one AZ. AWS reserves five addresses in every subnet (network address, VPC router, DNS, one for future use, and broadcast), so a /24 provides 251 usable addresses.</p>
+
+<h3 id="building-blocks">Building blocks</h3>
 
 <table>
   <thead>
     <tr>
       <th>Component</th>
-      <th>What It Does</th>
-      <th>When to Use</th>
+      <th>Scope</th>
+      <th>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Subnets</strong></td>
-      <td>Subdivide your VPC into segments</td>
-      <td>Separate public/private resources</td>
+      <td><strong>Subnet</strong></td>
+      <td>One AZ</td>
+      <td>Address range whose route table determines whether it is public, private, or isolated</td>
     </tr>
     <tr>
-      <td><strong>Internet Gateway</strong></td>
-      <td>Connects VPC to the internet</td>
-      <td>Required for public-facing resources</td>
+      <td><strong>Route table</strong></td>
+      <td>Subnet association</td>
+      <td>Longest-prefix-match routing to local, gateway, endpoint, peering, or Transit Gateway targets</td>
     </tr>
     <tr>
-      <td><strong>NAT Gateway</strong></td>
-      <td>Lets private resources access internet (outbound only)</td>
-      <td>Private servers needing updates/APIs</td>
+      <td><strong>Internet gateway (IGW)</strong></td>
+      <td>VPC</td>
+      <td>Two-way internet access for resources with public IPs; horizontally scaled, no bandwidth limit, no charge</td>
     </tr>
     <tr>
-      <td><strong>Security Groups</strong></td>
-      <td>Instance-level firewalls (stateful)</td>
-      <td>Control traffic to/from each resource</td>
+      <td><strong>Egress-only internet gateway</strong></td>
+      <td>VPC</td>
+      <td>Outbound-only internet access for IPv6</td>
     </tr>
     <tr>
-      <td><strong>Network ACLs</strong></td>
-      <td>Subnet-level firewalls (stateless)</td>
-      <td>Additional layer of defense</td>
+      <td><strong>NAT gateway</strong></td>
+      <td>AZ, or Regional</td>
+      <td>Outbound-only IPv4 internet access for private resources</td>
     </tr>
     <tr>
-      <td><strong>Route Tables</strong></td>
-      <td>Control traffic routing</td>
-      <td>Direct traffic between subnets/internet</td>
+      <td><strong>Security group</strong></td>
+      <td>Network interface</td>
+      <td>Stateful allow-list firewall; can reference other security groups</td>
+    </tr>
+    <tr>
+      <td><strong>Network ACL</strong></td>
+      <td>Subnet</td>
+      <td>Stateless, ordered allow/deny rules; a coarse second layer</td>
+    </tr>
+    <tr>
+      <td><strong>VPC endpoint</strong></td>
+      <td>VPC</td>
+      <td>Private access to AWS services or PrivateLink services without traversing the internet</td>
+    </tr>
+    <tr>
+      <td><strong>VPC Flow Logs</strong></td>
+      <td>VPC, subnet, or ENI</td>
+      <td>Records of accepted and rejected flows, delivered to CloudWatch Logs, S3, or Firehose</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="multi-az-architecture">Multi-AZ Architecture</h3>
+<p>A subnet is <strong>public</strong> if its route table sends <code class="language-plaintext highlighter-rouge">0.0.0.0/0</code> to an internet gateway, <strong>private</strong> if it sends it to a NAT gateway, and <strong>isolated</strong> if it has no default route at all.</p>
 
-<p>For production workloads, spread resources across multiple Availability Zones. If one AZ fails, your application continues running in another. The diagram below shows a canonical three-tier VPC spanning two AZs, with traffic flowing inward from the internet to public, then private, then data subnets.</p>
+<h3 id="security-groups-and-network-acls">Security groups and network ACLs</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Security group</th>
+      <th>Network ACL</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Attached to</td>
+      <td>Elastic network interface (instance, task, Lambda ENI, load balancer)</td>
+      <td>Subnet</td>
+    </tr>
+    <tr>
+      <td>State</td>
+      <td><strong>Stateful</strong>: return traffic is allowed automatically</td>
+      <td><strong>Stateless</strong>: return traffic (ephemeral ports 1024-65535) needs an explicit rule</td>
+    </tr>
+    <tr>
+      <td>Rules</td>
+      <td>Allow only</td>
+      <td>Allow and deny, evaluated in rule-number order</td>
+    </tr>
+    <tr>
+      <td>Sources</td>
+      <td>CIDRs, prefix lists, <strong>other security groups</strong></td>
+      <td>CIDRs only</td>
+    </tr>
+    <tr>
+      <td>Default</td>
+      <td>Deny all inbound, allow all outbound</td>
+      <td>Default NACL allows all</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Security groups are the primary control. Referencing security groups instead of IP ranges (“the database accepts port 5432 from the app tier’s security group”) keeps rules correct as instances scale in and out. Network ACLs are best reserved for broad subnet-level denies, such as blocking a known-bad range.</p>
+
+<h3 id="reference-design-three-tiers-across-azs">Reference design: three tiers across AZs</h3>
 
 <pre><code class="language-mermaid">flowchart TB
-    IGW([Internet Gateway])
+    IGW([Internet gateway])
     subgraph VPC["VPC 10.0.0.0/16"]
         direction LR
-        subgraph AZA["Availability Zone A"]
-            PubA["Public 10.0.1.0/24&lt;br/&gt;ALB · NAT GW"]
-            PrivA["Private 10.0.10.0/24&lt;br/&gt;App Servers"]
-            DataA["Data 10.0.100.0/24&lt;br/&gt;RDS Primary"]
-            PubA --&gt; PrivA --&gt; DataA
+        subgraph AZA["Availability Zone a"]
+            PubA["Public 10.0.0.0/24&lt;br/&gt;ALB node · NAT GW"]
+            AppA["Private 10.0.16.0/20&lt;br/&gt;App tasks / instances"]
+            DataA["Isolated 10.0.64.0/24&lt;br/&gt;DB writer"]
         end
-        subgraph AZB["Availability Zone B"]
-            PubB["Public 10.0.2.0/24&lt;br/&gt;ALB · NAT GW"]
-            PrivB["Private 10.0.20.0/24&lt;br/&gt;App Servers"]
-            DataB["Data 10.0.200.0/24&lt;br/&gt;RDS Standby"]
-            PubB --&gt; PrivB --&gt; DataB
+        subgraph AZB["Availability Zone b"]
+            PubB["Public 10.0.1.0/24&lt;br/&gt;ALB node · NAT GW"]
+            AppB["Private 10.0.32.0/20&lt;br/&gt;App tasks / instances"]
+            DataB["Isolated 10.0.65.0/24&lt;br/&gt;DB standby"]
         end
+        GWE["Gateway endpoints&lt;br/&gt;S3 · DynamoDB"]
     end
-    IGW --&gt; PubA
-    IGW --&gt; PubB
-    DataA -. "synchronous replication" .- DataB
+    IGW &lt;--&gt; PubA
+    IGW &lt;--&gt; PubB
+    PubA --&gt; AppA
+    PubB --&gt; AppB
+    AppA --&gt; DataA
+    AppB --&gt; DataB
+    AppA -. outbound via NAT .-&gt; PubA
+    AppB -. outbound via NAT .-&gt; PubB
+    AppA -.-&gt; GWE
+    AppB -.-&gt; GWE
+    DataA -. synchronous replication .- DataB
 </code></pre>
 
-<p>The public subnets hold internet-facing resources (load balancers, NAT gateways). Private subnets hold application servers that reach the internet only outbound via NAT. Data subnets isolate databases with no internet route at all.</p>
-
-<p><strong>Real-world example</strong>: An e-commerce application runs web servers in public subnets (accessible from the internet) and databases in private subnets (only accessible from web servers). If AZ-A experiences an outage, traffic automatically routes to AZ-B.</p>
-
-<h3 id="vpc-best-practices">VPC Best Practices</h3>
-
 <ul>
-  <li><strong>Use private subnets by default</strong>: Only place resources in public subnets if they must be directly accessible from the internet</li>
-  <li><strong>Deploy NAT Gateways in each AZ</strong>: Prevents cross-AZ traffic charges and provides resilience</li>
-  <li><strong>Use Security Groups as primary firewall</strong>: They are stateful and easier to manage than NACLs</li>
-  <li><strong>Plan your CIDR blocks</strong>: Choose ranges that do not overlap with on-premises networks if you plan to connect them later</li>
+  <li><strong>Public subnets</strong> hold only things that must accept internet traffic or provide egress: load balancer nodes and NAT gateways. They can be small.</li>
+  <li><strong>Private subnets</strong> hold application compute. Size them generously; containers (with <code class="language-plaintext highlighter-rouge">awsvpc</code> networking), Lambda functions in a VPC, and EKS pods each consume an IP address.</li>
+  <li><strong>Isolated subnets</strong> hold databases and caches with no route to the internet.</li>
+  <li><strong>Gateway endpoints</strong> for S3 and DynamoDB are free and keep that traffic off the NAT gateway.</li>
 </ul>
 
-<hr />
+<p>Plan the VPC CIDR so it does not overlap with on-premises networks or other VPCs you may connect later; overlapping ranges cannot be routed between. <strong>Amazon VPC IP Address Manager (IPAM)</strong> allocates non-overlapping ranges across an Organization.</p>
 
-<h2 id="api-gateway---managing-your-apis">API Gateway - Managing Your APIs</h2>
+<h3 id="egress-nat-gateways-endpoints-and-ipv6">Egress: NAT gateways, endpoints, and IPv6</h3>
 
-<p>API Gateway provides a managed service for creating, deploying, and securing APIs. It handles authentication, rate limiting, caching, and monitoring so you can focus on your backend logic.</p>
+<p>NAT gateways are convenient but are often the largest networking charge: an hourly fee <strong>plus a per-GB processing fee</strong> on every byte, on top of normal data transfer (in US East, USD 0.045 per hour and USD 0.045 per GB). Three decisions control that cost and the availability of egress:</p>
 
-<h3 id="when-to-use-api-gateway">When to Use API Gateway</h3>
+<ol>
+  <li><strong>Availability mode.</strong> A classic <strong>zonal</strong> NAT gateway lives in one public subnet and one AZ; highly available designs need one per AZ, each with its own route table entries. A <strong>regional</strong> NAT gateway is a single resource that expands automatically into every AZ where the VPC has workloads (it can take up to an hour to expand into a newly used AZ). It needs no public subnet, supports up to 32 IP addresses per AZ instead of 8, and can be routed to from every private subnet with one route table. Regional mode does not support private NAT; use zonal NAT gateways for private (VPC-to-VPC) address translation.</li>
+  <li><strong>VPC endpoints.</strong> Traffic to AWS services does not need the internet. <strong>Gateway endpoints</strong> (S3, DynamoDB) are route-table entries and have no charge. <strong>Interface endpoints</strong> (AWS PrivateLink) place an ENI in your subnets for most other services (ECR, CloudWatch Logs, Secrets Manager, STS, SQS, and so on) and are billed per hour per AZ and per GB, usually far less than NAT processing for high-volume traffic.</li>
+  <li><strong>IPv6.</strong> Dual-stack subnets with an egress-only internet gateway give outbound internet access with no NAT charge. AWS charges <strong>USD 0.005 per hour for every public IPv4 address</strong> (in use or idle) since February 2024, which also makes IPv6 and private subnets more attractive.</li>
+</ol>
 
-<ul>
-  <li><strong>REST APIs</strong>: Traditional request/response APIs for web and mobile</li>
-  <li><strong>WebSocket APIs</strong>: Real-time two-way communication (chat, gaming)</li>
-  <li><strong>HTTP APIs</strong>: Simpler, cheaper alternative to REST APIs</li>
-</ul>
+<p><strong>VPC Block Public Access</strong> is an account- and Region-wide switch that authoritatively blocks internet gateway traffic, either in both directions or ingress only (NAT and egress-only gateways still work), regardless of route tables and security groups. Specific VPCs or subnets can be excluded. It is a strong guardrail for accounts that should never be internet-facing.</p>
 
-<h3 id="api-gateway-vs-application-load-balancer">API Gateway vs Application Load Balancer</h3>
+<h3 id="connecting-networks">Connecting networks</h3>
+
+<pre><code class="language-mermaid">flowchart TD
+    Q{What needs to connect?}
+    Q --&gt;|Two VPCs, few pairs| PEER["VPC peering&lt;br/&gt;non-transitive, no bandwidth charge within an AZ"]
+    Q --&gt;|Many VPCs and on-premises| TGW["Transit Gateway&lt;br/&gt;hub-and-spoke routing, route domains"]
+    Q --&gt;|Global WAN across Regions| CWAN["Cloud WAN&lt;br/&gt;policy-defined global network"]
+    Q --&gt;|Expose one service to other VPCs/accounts| PL["PrivateLink&lt;br/&gt;endpoint service behind an NLB"]
+    Q --&gt;|Service-to-service across VPCs and accounts,&lt;br/&gt;with auth and L7 routing| LAT["VPC Lattice&lt;br/&gt;service network, IAM auth policies"]
+    Q --&gt;|On-premises data center| HYB["Site-to-Site VPN (fast to set up)&lt;br/&gt;or Direct Connect (dedicated, predictable)"]
+</code></pre>
 
 <table>
   <thead>
     <tr>
-      <th>Feature</th>
-      <th>API Gateway</th>
-      <th>Application Load Balancer</th>
+      <th>Option</th>
+      <th>Layer</th>
+      <th>Transitive</th>
+      <th>Overlapping CIDRs</th>
+      <th>Best for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>API management</td>
-      <td>Full (throttling, keys, usage plans)</td>
-      <td>Basic</td>
-    </tr>
-    <tr>
-      <td>Cost model</td>
-      <td>Per request</td>
-      <td>Per hour + data</td>
-    </tr>
-    <tr>
-      <td>WebSocket support</td>
-      <td>Yes</td>
+      <td>VPC peering</td>
+      <td>3</td>
       <td>No</td>
+      <td>Not allowed</td>
+      <td>A small number of VPC pairs</td>
     </tr>
     <tr>
-      <td>Request transformation</td>
+      <td>Transit Gateway</td>
+      <td>3</td>
+      <td>Yes, via route tables</td>
+      <td>Not allowed</td>
+      <td>Tens to thousands of VPCs plus VPN/Direct Connect</td>
+    </tr>
+    <tr>
+      <td>Cloud WAN</td>
+      <td>3</td>
       <td>Yes</td>
-      <td>No</td>
+      <td>Not allowed</td>
+      <td>Multi-Region networks managed by policy</td>
     </tr>
     <tr>
-      <td>Best for</td>
-      <td>APIs needing management features</td>
-      <td>Simple HTTP routing</td>
+      <td>PrivateLink</td>
+      <td>4 (TCP)</td>
+      <td>N/A, one-way</td>
+      <td><strong>Allowed</strong></td>
+      <td>Publishing a service to consumers you do not want to route to</td>
+    </tr>
+    <tr>
+      <td>VPC Lattice</td>
+      <td>7 (HTTP, gRPC) and TCP</td>
+      <td>N/A</td>
+      <td><strong>Allowed</strong></td>
+      <td>Service-to-service connectivity with IAM-based authorization, without managing routes</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="key-api-gateway-features">Key API Gateway Features</h3>
-
-<p><strong>Request Validation</strong>: Validate request bodies and parameters before they reach your backend:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a request validator</span>
-aws apigateway create-request-validator <span class="nt">--rest-api-id</span> xxx <span class="se">\</span>
-  <span class="nt">--name</span> <span class="s2">"ValidateBody"</span> <span class="nt">--validate-request-body</span>
-</code></pre></div></div>
-
-<p><strong>Usage Plans and API Keys</strong>: Control who can access your API and how much:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a usage plan with rate limiting</span>
-aws apigateway create-usage-plan <span class="nt">--name</span> <span class="s2">"BasicPlan"</span> <span class="se">\</span>
-  <span class="nt">--throttle</span> <span class="nv">burstLimit</span><span class="o">=</span>100,rateLimit<span class="o">=</span>50 <span class="se">\</span>
-  <span class="nt">--quota</span> <span class="nv">limit</span><span class="o">=</span>1000,period<span class="o">=</span>DAY
-</code></pre></div></div>
-
-<p><strong>Custom Authorizers</strong>: Use Lambda functions to implement custom authentication:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a Lambda authorizer</span>
-aws apigateway create-authorizer <span class="nt">--rest-api-id</span> xxx <span class="se">\</span>
-  <span class="nt">--name</span> <span class="s2">"JWTAuthorizer"</span> <span class="nt">--type</span> TOKEN <span class="se">\</span>
-  <span class="nt">--authorizer-uri</span> <span class="s2">"arn:aws:lambda:region:account:function:authorizer"</span>
-</code></pre></div></div>
-
 <hr />
 
-<h2 id="cloudfront---content-delivery-network">CloudFront - Content Delivery Network</h2>
+<h2 id="elastic-load-balancing">Elastic Load Balancing</h2>
 
-<p>CloudFront is AWS’s content delivery network (CDN). Instead of users fetching data from your servers in one region, CloudFront caches content at 600+ edge locations worldwide. Users get data from the nearest location, reducing latency from seconds to milliseconds.</p>
-
-<h3 id="when-to-use-cloudfront">When to Use CloudFront</h3>
-
-<ul>
-  <li><strong>Static assets</strong> (images, CSS, JavaScript): Immediate 10x performance boost</li>
-  <li><strong>API responses</strong> that do not change frequently: Reduce origin load</li>
-  <li><strong>Video streaming</strong>: Adaptive bitrate based on user connection</li>
-  <li><strong>Global applications</strong>: Consistent performance worldwide</li>
-</ul>
-
-<p><strong>Real-world impact</strong>: A news website serving images from S3 in US-East to users in Australia saw 2-second load times. After adding CloudFront, Australian users get 200ms load times from the Sydney edge location.</p>
-
-<h3 id="cloudfront-origin-types">CloudFront Origin Types</h3>
+<p>Load balancers spread traffic across targets (instances, IP addresses, containers, Lambda functions) in multiple AZs, remove unhealthy targets using health checks, and terminate TLS.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Origin Type</th>
-      <th>Use Case</th>
-      <th>Configuration</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>S3 bucket</strong></td>
-      <td>Static websites, media files</td>
-      <td>Use Origin Access Control for security</td>
-    </tr>
-    <tr>
-      <td><strong>Application Load Balancer</strong></td>
-      <td>Dynamic content from EC2/ECS</td>
-      <td>Forward headers for personalization</td>
-    </tr>
-    <tr>
-      <td><strong>Custom origin</strong></td>
-      <td>Any HTTP server</td>
-      <td>Your on-premises or other cloud servers</td>
-    </tr>
-    <tr>
-      <td><strong>Lambda@Edge</strong></td>
-      <td>Serverless at the edge</td>
-      <td>Customize requests/responses globally</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="setting-up-cloudfront">Setting Up CloudFront</h3>
-
-<p><strong>Basic setup for S3 static website</strong>:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a CloudFront distribution with S3 origin</span>
-aws cloudfront create-distribution <span class="se">\</span>
-  <span class="nt">--origin-domain-name</span> my-bucket.s3.amazonaws.com <span class="se">\</span>
-  <span class="nt">--default-root-object</span> index.html
-</code></pre></div></div>
-
-<p><strong>Cache settings to consider</strong>:</p>
-<ul>
-  <li><strong>Static assets</strong> (images, CSS, JS): Cache for 7+ days</li>
-  <li><strong>Dynamic content</strong>: Cache for minutes or disable caching</li>
-  <li><strong>API responses</strong>: Usually no caching, or short TTL</li>
-</ul>
-
-<h3 id="cloudfront-best-practices">CloudFront Best Practices</h3>
-
-<ul>
-  <li><strong>Use Origin Access Control</strong>: Prevent direct S3 access; force all traffic through CloudFront</li>
-  <li><strong>Enable compression</strong>: Reduces file sizes by 60-80% for text-based content</li>
-  <li><strong>Use custom error pages</strong>: Provide friendly 404 and 500 error pages</li>
-  <li><strong>Set up logging</strong>: Track usage patterns and troubleshoot issues</li>
-  <li><strong>Invalidate wisely</strong>: Invalidations cost money; use versioned filenames instead</li>
-</ul>
-
-<hr />
-
-<h2 id="load-balancing">Load Balancing</h2>
-
-<p>Load balancers distribute incoming traffic across multiple targets (EC2 instances, containers, IP addresses). They improve availability by routing around failures and enable horizontal scaling.</p>
-
-<h3 id="choosing-the-right-load-balancer">Choosing the Right Load Balancer</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Load Balancer</th>
-      <th>Best For</th>
-      <th>Key Features</th>
-      <th>Cost</th>
+      <th>Load balancer</th>
+      <th>Layer</th>
+      <th>Protocols</th>
+      <th>Distinguishing features</th>
+      <th>Use for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Application (ALB)</strong></td>
-      <td>Web applications, APIs</td>
-      <td>Path/host routing, WebSocket, HTTP/2</td>
-      <td>Moderate</td>
+      <td>7</td>
+      <td>HTTP/1.1, HTTP/2, gRPC, WebSocket</td>
+      <td>Host, path, header, query-string, and method routing; weighted target groups; OIDC/Cognito authentication; AWS WAF; Lambda targets</td>
+      <td>Web applications and HTTP APIs</td>
     </tr>
     <tr>
       <td><strong>Network (NLB)</strong></td>
-      <td>High-performance, TCP/UDP</td>
-      <td>Ultra-low latency, static IPs</td>
-      <td>Lower</td>
+      <td>4</td>
+      <td>TCP, UDP, TLS</td>
+      <td>Static IP (or Elastic IP) per AZ; millions of requests per second; preserves client IP; security groups; PrivateLink endpoint services</td>
+      <td>Non-HTTP protocols, very high throughput, static IP requirements</td>
     </tr>
     <tr>
       <td><strong>Gateway (GWLB)</strong></td>
-      <td>Security appliances</td>
-      <td>Third-party firewall/IDS integration</td>
-      <td>Varies</td>
+      <td>3</td>
+      <td>IP (GENEVE encapsulation)</td>
+      <td>Transparent insertion of third-party firewalls and inspection appliances</td>
+      <td>Centralised network inspection</td>
     </tr>
     <tr>
-      <td><strong>Classic</strong></td>
-      <td>Legacy applications</td>
-      <td>Avoid for new projects</td>
-      <td>Legacy; avoid for new projects</td>
+      <td><strong>Classic (CLB)</strong></td>
+      <td>4/7</td>
+      <td>HTTP, TCP</td>
+      <td>Previous generation</td>
+      <td>Migrate to ALB or NLB</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Recommendation</strong>: Use ALB for most web applications. Use NLB only when you need ultra-low latency or static IP addresses.</p>
-
-<h3 id="common-load-balancer-patterns">Common Load Balancer Patterns</h3>
-
-<p><strong>Path-based routing</strong> (ALB): Route <code class="language-plaintext highlighter-rouge">/api/*</code> to API servers, <code class="language-plaintext highlighter-rouge">/static/*</code> to static content servers</p>
-
-<p><strong>Host-based routing</strong> (ALB): Route <code class="language-plaintext highlighter-rouge">api.example.com</code> to API, <code class="language-plaintext highlighter-rouge">www.example.com</code> to web servers</p>
-
-<p><strong>Health checks</strong>: Configure targets to be removed from rotation when unhealthy:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create a target group with health checks</span>
-aws elbv2 create-target-group <span class="nt">--name</span> my-targets <span class="se">\</span>
-  <span class="nt">--protocol</span> HTTP <span class="nt">--port</span> 80 <span class="nt">--vpc-id</span> vpc-xxx <span class="se">\</span>
-  <span class="nt">--health-check-path</span> /health <span class="nt">--health-check-interval-seconds</span> 30
-</code></pre></div></div>
-
-<h3 id="end-to-end-request-flow">End-to-End Request Flow</h3>
-
-<p>A typical request for a global web application touches several networking layers before reaching your servers:</p>
-
-<pre><code class="language-mermaid">flowchart LR
-    User([User]) --&gt; CF[CloudFront Edge]
-    CF --&gt;|cache miss| ALB[Application Load Balancer]
-    ALB --&gt; SG{Security Group}
-    SG --&gt; EC2A[App Server AZ-A]
-    SG --&gt; EC2B[App Server AZ-B]
-    CF --&gt;|cache hit| User
-</code></pre>
-
-<p>Cached responses return directly from the nearest edge location. Cache misses route to the origin load balancer, which checks the security group and distributes traffic to healthy targets across AZs.</p>
-
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>Single NAT Gateway:</strong> Placing one NAT Gateway for all AZs creates a single point of failure and incurs cross-AZ data transfer charges. Deploy one per AZ.</li>
-    <li><strong>Overly broad security groups:</strong> <code>0.0.0.0/0</code> on port 22 (SSH) exposes instances to the entire internet. Scope inbound rules to known CIDRs or use Session Manager instead.</li>
-    <li><strong>Overlapping CIDR blocks:</strong> VPCs you intend to peer (or connect to on-premises) must not overlap. Plan address space before creation.</li>
-    <li><strong>Forgetting CloudFront invalidation costs:</strong> Frequent <code>/*</code> invalidations add up. Use versioned object names (<code>app.v2.js</code>) so the CDN caches forever.</li>
-  </ul>
-</div>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p>Behaviour that matters in practice:</p>
 
 <ul>
-  <li><strong>VPC means network isolation.</strong> Public subnets for internet-facing resources, private for app tiers, data subnets with no internet route for databases.</li>
-  <li><strong>Multi-AZ by default.</strong> Spread subnets and NAT gateways across at least two AZs so a single data center failure does not take you offline.</li>
-  <li><strong>ALB for HTTP, NLB for speed.</strong> Use Application Load Balancers for path/host routing; reach for Network Load Balancers only when you need ultra-low latency or static IPs.</li>
-  <li><strong>CloudFront cuts latency.</strong> Serve static assets from edge locations and force origin access through Origin Access Control to keep S3 buckets private.</li>
+  <li><strong>Health checks</strong> should hit a lightweight endpoint that verifies the process can serve requests, not deep dependencies; a database blip that fails every target’s health check takes the whole service offline.</li>
+  <li><strong>Deregistration delay</strong> (connection draining, default 300 seconds) holds a target in rotation for in-flight requests during deployments. Lower it for short requests to speed up deploys.</li>
+  <li><strong>Cross-zone load balancing</strong> is on by default for ALBs and off by default for NLBs; with it off, each AZ’s node only uses targets in its own AZ.</li>
+  <li><strong>Slow start</strong> and <strong>least outstanding requests</strong> routing on ALB avoid overwhelming newly registered or slower targets.</li>
 </ul>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws elbv2 create-target-group <span class="nt">--name</span> web-tg <span class="se">\</span>
+  <span class="nt">--protocol</span> HTTP <span class="nt">--port</span> 8080 <span class="nt">--target-type</span> ip <span class="nt">--vpc-id</span> vpc-0abc123 <span class="se">\</span>
+  <span class="nt">--health-check-path</span> /health <span class="nt">--health-check-interval-seconds</span> 15 <span class="se">\</span>
+  <span class="nt">--healthy-threshold-count</span> 2 <span class="nt">--unhealthy-threshold-count</span> 3
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="amazon-cloudfront">Amazon CloudFront</h2>
+
+<p>CloudFront is AWS’s content delivery network. It terminates TLS and HTTP/2 or HTTP/3 connections at edge locations close to users, serves cached responses from there, and forwards cache misses to the origin over the AWS backbone through regional edge caches. Even uncacheable dynamic traffic benefits from shorter TLS handshakes and a better network path.</p>
+
+<h3 id="origins">Origins</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Origin</th>
+      <th>Securing it</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>S3 bucket</strong></td>
+      <td><strong>Origin Access Control (OAC)</strong>: the bucket stays private and its policy allows only the CloudFront distribution. OAC replaces the legacy Origin Access Identity and supports SSE-KMS</td>
+    </tr>
+    <tr>
+      <td><strong>VPC origin</strong> (ALB, NLB, or EC2 instance in a private subnet)</td>
+      <td>CloudFront reaches the resource through a service-managed ENI; the origin has no public address, and its security group allows only the CloudFront prefix list or the service-managed security group</td>
+    </tr>
+    <tr>
+      <td><strong>Public ALB or custom HTTP origin</strong></td>
+      <td>Restrict inbound traffic to the CloudFront managed prefix list and require a secret custom header, or move to a VPC origin</td>
+    </tr>
+    <tr>
+      <td><strong>API Gateway, Lambda function URL</strong></td>
+      <td>Service-specific access controls (for example, OAC for Lambda function URLs)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Origin groups</strong> provide failover to a secondary origin on specified error codes, and <strong>Origin Shield</strong> adds a central caching layer in front of the origin to raise the cache hit ratio.</p>
+
+<h3 id="caching">Caching</h3>
+
+<p>Caching behaviour is configured per path pattern (<strong>cache behavior</strong>) with reusable policies:</p>
+
+<ul>
+  <li>A <strong>cache policy</strong> defines the cache key (which headers, cookies, and query strings vary the response) and TTLs. Every value added to the cache key lowers the hit ratio, so include only what changes the response.</li>
+  <li>An <strong>origin request policy</strong> controls what is forwarded to the origin <em>without</em> becoming part of the cache key.</li>
+  <li>A <strong>response headers policy</strong> adds security headers (HSTS, CSP), CORS headers, and <code class="language-plaintext highlighter-rouge">Server-Timing</code>.</li>
+</ul>
+
+<p>Use long TTLs with content-hashed filenames (<code class="language-plaintext highlighter-rouge">app.3f9c2a.js</code>) for static assets so deployments never need invalidation; invalidations beyond the free monthly allowance are billed per path. Keep short or zero TTLs for HTML and personalised responses.</p>
+
+<h3 id="edge-compute">Edge compute</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th><strong>CloudFront Functions</strong></th>
+      <th><strong>Lambda@Edge</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Runtime</td>
+      <td>JavaScript (lightweight runtime)</td>
+      <td>Node.js, Python</td>
+    </tr>
+    <tr>
+      <td>Runs at</td>
+      <td>Every edge location</td>
+      <td>Regional edge caches</td>
+    </tr>
+    <tr>
+      <td>Triggers</td>
+      <td>Viewer request / viewer response</td>
+      <td>Viewer and origin request/response</td>
+    </tr>
+    <tr>
+      <td>Execution time</td>
+      <td>Sub-millisecond</td>
+      <td>Up to 5 s (viewer) or 30 s (origin)</td>
+    </tr>
+    <tr>
+      <td>Network and body access</td>
+      <td>No</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>Typical use</td>
+      <td>URL rewrites, redirects, header normalisation, simple token checks</td>
+      <td>Auth against external services, origin selection, body manipulation</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>CloudFront KeyValueStore</strong> gives CloudFront Functions a low-latency key-value lookup (for redirects or feature flags) without redeploying the function.</p>
+
+<p>AWS WAF web ACLs attach to CloudFront distributions (as well as ALBs and API Gateway) to filter requests before they reach the origin; AWS Shield Standard DDoS protection applies to all CloudFront distributions at no charge. See <a href="security.html">Security</a>.</p>
+
+<hr />
+
+<h2 id="amazon-api-gateway">Amazon API Gateway</h2>
+
+<p>API Gateway is a managed front door for APIs backed by Lambda, HTTP services, or direct AWS service integrations. It offers three API types:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th><strong>REST API</strong></th>
+      <th><strong>HTTP API</strong></th>
+      <th><strong>WebSocket API</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Relative cost</td>
+      <td>Higher</td>
+      <td>Lower</td>
+      <td>Per message and connection-minute</td>
+    </tr>
+    <tr>
+      <td>Endpoint types</td>
+      <td>Edge-optimized, Regional, Private</td>
+      <td>Regional</td>
+      <td>Regional</td>
+    </tr>
+    <tr>
+      <td>Authorization</td>
+      <td>IAM, Cognito, Lambda authorizers, resource policies</td>
+      <td>IAM, <strong>native JWT authorizers</strong> (Cognito or any OIDC issuer), Lambda authorizers</td>
+      <td>IAM, Lambda authorizers</td>
+    </tr>
+    <tr>
+      <td>API keys and usage plans (per-client throttling and quotas)</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Request validation and body transformation</td>
+      <td>Yes</td>
+      <td>Parameter mapping only</td>
+      <td>Route selection and templates</td>
+    </tr>
+    <tr>
+      <td>Caching</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>AWS WAF</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Response streaming</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>Not applicable</td>
+    </tr>
+    <tr>
+      <td>X-Ray tracing</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>Private integrations (ALB, NLB)</td>
+      <td>Yes</td>
+      <td>Yes, plus Cloud Map</td>
+      <td>No</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Choose <strong>HTTP APIs</strong> for straightforward Lambda or HTTP proxies with JWT authentication; choose <strong>REST APIs</strong> when you need usage plans, WAF, caching, request validation, private endpoints, or response streaming. REST API integrations time out after 29 seconds by default (HTTP APIs allow up to 30); for longer operations, return <code class="language-plaintext highlighter-rouge">202 Accepted</code> and complete the work asynchronously, or use response streaming.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># REST API: throttle and meter a client tier</span>
+aws apigateway create-usage-plan <span class="nt">--name</span> basic <span class="se">\</span>
+  <span class="nt">--api-stages</span> <span class="nv">apiId</span><span class="o">=</span>a1b2c3d4e5,stage<span class="o">=</span>prod <span class="se">\</span>
+  <span class="nt">--throttle</span> <span class="nv">burstLimit</span><span class="o">=</span>100,rateLimit<span class="o">=</span>50 <span class="se">\</span>
+  <span class="nt">--quota</span> <span class="nv">limit</span><span class="o">=</span>100000,period<span class="o">=</span>MONTH
+
+<span class="c"># HTTP API: JWT authorizer against a Cognito user pool</span>
+aws apigatewayv2 create-authorizer <span class="nt">--api-id</span> a1b2c3d4e5 <span class="se">\</span>
+  <span class="nt">--name</span> cognito-jwt <span class="nt">--authorizer-type</span> JWT <span class="se">\</span>
+  <span class="nt">--identity-source</span> <span class="s1">'$request.header.Authorization'</span> <span class="se">\</span>
+  <span class="nt">--jwt-configuration</span> <span class="nv">Audience</span><span class="o">=</span>my-app-client-id,Issuer<span class="o">=</span>https://cognito-idp.us-east-1.amazonaws.com/us-east-1_EXAMPLE
+</code></pre></div></div>
+
+<p><strong>API Gateway or ALB?</strong> An ALB is priced per hour and per load balancer capacity unit rather than per request, which is cheaper at sustained high request rates and supports long-lived connections, gRPC, and WebSockets. API Gateway adds API management (keys, quotas, validation, per-client throttling) and scales to zero cost at zero traffic. Many architectures use API Gateway for public, partner-facing APIs and an ALB for high-volume first-party traffic.</p>
+
+<p>For API design itself (resource modelling, versioning, pagination, error formats), see <a href="../../api-design/">API Design</a>.</p>
+
+<hr />
+
+<h2 id="amazon-route-53">Amazon Route 53</h2>
+
+<p>Route 53 provides public and private DNS, domain registration, and health checks. <strong>Alias records</strong> point a name (including the zone apex, <code class="language-plaintext highlighter-rouge">example.com</code>) at AWS resources such as CloudFront, ALBs, and API Gateway without a CNAME and without query charges.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Routing policy</th>
+      <th>Behaviour</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Simple</td>
+      <td>One record set</td>
+      <td>Single endpoint</td>
+    </tr>
+    <tr>
+      <td>Weighted</td>
+      <td>Split by weight</td>
+      <td>Canary and blue/green cut-overs</td>
+    </tr>
+    <tr>
+      <td>Latency-based</td>
+      <td>Lowest-latency Region for the resolver</td>
+      <td>Active-active multi-Region</td>
+    </tr>
+    <tr>
+      <td>Failover</td>
+      <td>Primary/secondary driven by health checks</td>
+      <td>Active-passive disaster recovery</td>
+    </tr>
+    <tr>
+      <td>Geolocation / geoproximity</td>
+      <td>By user location, with optional bias</td>
+      <td>Data residency, regional content</td>
+    </tr>
+    <tr>
+      <td>IP-based</td>
+      <td>By client CIDR</td>
+      <td>Routing specific networks to specific endpoints</td>
+    </tr>
+    <tr>
+      <td>Multivalue answer</td>
+      <td>Up to eight healthy records</td>
+      <td>Simple client-side load spreading</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Route 53 Resolver</strong> handles DNS inside VPCs; inbound and outbound Resolver endpoints connect it with on-premises DNS, and <strong>Resolver DNS Firewall</strong> blocks lookups of malicious or unapproved domains. <strong>AWS Global Accelerator</strong> is the alternative to DNS-based steering when clients need two static anycast IP addresses and sub-minute failover independent of DNS caching.</p>
+
+<hr />
+
+<h2 id="common-pitfalls">Common pitfalls</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Pitfall</th>
+      <th>Consequence</th>
+      <th>Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>One zonal NAT gateway for all AZs</td>
+      <td>Egress fails when that AZ fails; cross-AZ data charges</td>
+      <td>One zonal NAT gateway per AZ, or a regional NAT gateway</td>
+    </tr>
+    <tr>
+      <td>All AWS API traffic through NAT</td>
+      <td>Large per-GB NAT processing charges (ECR image pulls and S3 are common culprits)</td>
+      <td>Gateway endpoints for S3/DynamoDB; interface endpoints for high-volume services</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">0.0.0.0/0</code> on SSH or RDP</td>
+      <td>Instances exposed to internet-wide scanning</td>
+      <td>Session Manager instead of SSH; no inbound admin ports</td>
+    </tr>
+    <tr>
+      <td>IP-based security group rules between tiers</td>
+      <td>Rules break as instances and tasks scale</td>
+      <td>Reference security groups</td>
+    </tr>
+    <tr>
+      <td>Overlapping CIDRs</td>
+      <td>VPCs cannot be peered or routed through Transit Gateway</td>
+      <td>Plan with IPAM; PrivateLink or VPC Lattice when overlap is unavoidable</td>
+    </tr>
+    <tr>
+      <td>Undersized private subnets</td>
+      <td>IP exhaustion blocks scaling of ECS tasks, Lambda ENIs, EKS pods</td>
+      <td>Use /20 or larger for compute subnets; add secondary CIDRs or IPv6</td>
+    </tr>
+    <tr>
+      <td>Public S3 origin behind CloudFront</td>
+      <td>Users bypass the CDN, WAF, and access controls</td>
+      <td>Origin Access Control with a private bucket</td>
+    </tr>
+    <tr>
+      <td>Frequent <code class="language-plaintext highlighter-rouge">/*</code> invalidations</td>
+      <td>Invalidation charges and cold caches</td>
+      <td>Content-hashed filenames, long TTLs</td>
+    </tr>
+    <tr>
+      <td>Unused Elastic IPs and public IPv4 addresses</td>
+      <td>USD 0.005 per hour each, in use or idle</td>
+      <td>Release them; prefer private subnets and IPv6</td>
+    </tr>
+  </tbody>
+</table>
 
 <hr />
 
@@ -3497,11 +3753,13 @@ aws elbv2 create-target-group <span class="nt">--name</span> my-targets <span cl
 
 <ul>
   <li><a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
-  <li><a href="compute.html">Compute Services</a> - EC2 and Lambda in VPC</li>
-  <li><a href="security.html">Security</a> - Network security and WAF</li>
-  <li><a href="iac.html">Infrastructure as Code</a> - VPC IaC templates</li>
-  <li><a href="../networking/">Networking Fundamentals</a> - General networking concepts</li>
-  <li><a href="../kubernetes/">Kubernetes on AWS</a> - EKS networking</li>
+  <li><a href="../networking/">Networking Fundamentals</a> - TCP/IP, DNS, routing, and load balancing concepts</li>
+  <li><a href="../networking/cloud-networking.html">Cloud Networking</a> - Cross-provider cloud network design</li>
+  <li><a href="security.html">Security</a> - IAM, WAF, Shield, and network security controls</li>
+  <li><a href="compute.html">Compute Services</a> - EC2, Lambda, and containers inside a VPC</li>
+  <li><a href="iac.html">Infrastructure as Code</a> - Defining VPCs and load balancers in CloudFormation and CDK</li>
+  <li><a href="cost.html">Cost Optimization</a> - Data transfer and NAT cost control</li>
+  <li><a href="../kubernetes/">Kubernetes</a> - EKS networking builds on these VPC primitives</li>
 </ul>
 
       </section>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="The differential geometry of general relativity: manifolds, tensors, the metric, the Levi-Civita connection, geodesics, curvature, Killing vectors, and two d...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Relativity: Tensor Formalism & the Field Equations">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="The differential geometry of general relativity: manifolds, tensors, the metric, the Levi-Civita connection, geodesics, curvature, Killing vectors, and two d...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/relativity/tensor-formalism.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Relativity: Tensor Formalism & the Field Equations">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="The differential geometry of general relativity: manifolds, tensors, the metric, the Levi-Civita connection, geodesics, curvature, Killing vectors, and two d...">
 
 <title>Relativity: Tensor Formalism & the Field Equations | Andrews Notebook</title>
 
@@ -3137,319 +3137,510 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="tensor-formalism--the-field-equations">Tensor Formalism &amp; the Field Equations</h2>
 
-<p>This page builds the mathematical machinery of general relativity from the ground up: tensors on a smooth manifold, the metric, the connection and its Christoffel symbols, the covariant derivative, geodesics, the Riemann and Ricci curvature tensors, and — as the destination — a careful derivation of the <strong>Einstein field equations</strong>, both by Einstein’s original “find the right tensor” route and by varying the Einstein–Hilbert action. It assumes <a href="special-relativity.html">Special Relativity</a> and <a href="general-relativity.html">General Relativity</a> and is a self-contained reference for the differential geometry those pages use.</p>
+<p>This page is a reference for the differential geometry used in general relativity. It defines tensors on a manifold, the metric, the Levi-Civita connection and covariant derivative, geodesics, the Riemann, Ricci, Weyl and Einstein tensors, and Killing symmetries, and it derives the <strong>Einstein field equations</strong> twice: from Einstein’s consistency requirements and from the Einstein–Hilbert action. A single example, the 2-sphere, is carried through every step. It assumes <a href="special-relativity.html">Special Relativity</a> (four-vectors and the Minkowski metric) and complements <a href="general-relativity.html">General Relativity</a>, which covers the physical ideas.</p>
 
-<p><strong>Conventions.</strong> We work in <strong>geometric units</strong> with $G = c = 1$ unless a constant is shown explicitly. The metric signature is <strong>(−,+,+,+)</strong> (“mostly plus”). Greek indices $\mu,\nu,\dots$ run over the four spacetime coordinates $0,1,2,3$; Latin indices $i,j,\dots$ over the three spatial ones. The <strong>Einstein summation convention</strong> is in force: a repeated index, once up and once down, is summed. Round brackets denote symmetrization, $A_{(\mu\nu)} = \tfrac{1}{2}(A_{\mu\nu}+A_{\nu\mu})$, square brackets antisymmetrization, $A_{[\mu\nu]} = \tfrac{1}{2}(A_{\mu\nu}-A_{\nu\mu})$.</p>
+<p><strong>Conventions.</strong> Signature <strong>(−,+,+,+)</strong>, with $c = 1$ and $G$ kept explicit in the field equations. Greek indices $\mu, \nu, \ldots$ run over $0,1,2,3$; Latin indices $i, j, \ldots$ over spatial components. Repeated indices, one up and one down, are summed. Symmetrization and antisymmetrization carry a factor of $1/n!$: $A_{(\mu\nu)} = \tfrac{1}{2}(A_{\mu\nu} + A_{\nu\mu})$, $A_{[\mu\nu]} = \tfrac{1}{2}(A_{\mu\nu} - A_{\nu\mu})$. Curvature sign conventions follow Misner–Thorne–Wheeler and Carroll (“+ + +” in MTW’s classification), so a sphere has positive Ricci scalar.</p>
 
-<h2 id="why-tensors">Why Tensors?</h2>
+<h2 id="why-tensors">Why Tensors</h2>
 
-<p>The central lesson of general relativity is that <strong>the laws of physics must not depend on the coordinates used to write them down</strong>. There is no preferred global inertial frame and no privileged set of coordinates on a curved spacetime, so a physical law expressed as “this collection of numbers equals that collection of numbers” is only meaningful if the equality survives every smooth change of coordinates. Tensors are exactly the objects with that property: they are defined by <strong>how their components transform</strong>, so that an equation of the form $A^{\mu}{}<em>{\nu} = B^{\mu}{}</em>{\nu}$ holding in one coordinate system holds in all of them. This is the principle of <strong>general covariance</strong>, and the entire formalism below exists to make it manifest.</p>
+<p>The laws of physics cannot depend on the coordinates used to write them. On a curved spacetime there is no preferred global inertial frame and no privileged coordinate system, so a physical law must be an equation whose validity survives every smooth change of coordinates. Tensors are defined by how their components transform, in such a way that an equation $A^\mu{}<em>\nu = B^\mu{}</em>\nu$ between tensors of the same type, true in one coordinate system, is true in all. This is <strong>general covariance</strong>, and the formalism below exists to make it manifest.</p>
 
-<h2 id="manifolds-and-the-tangent-space">Manifolds and the Tangent Space</h2>
+<p>The logical dependencies are:</p>
 
-<p>A <strong>smooth manifold</strong> $M$ is a space that looks locally like $\mathbb{R}^n$: it is covered by overlapping coordinate patches (charts) $x^\mu : U \to \mathbb{R}^n$, with smooth transition functions on the overlaps. Spacetime is a four-dimensional Lorentzian manifold. Crucially, a manifold has <em>no</em> intrinsic notion of distance, straight lines, or parallelism until we add extra structure — the metric and the connection supply those.</p>
+<pre><code class="language-mermaid">graph TD
+    MAN["Smooth manifold"] --&gt; TEN["Tensors: vectors, covectors, (k,l) tensors"]
+    TEN --&gt; MET["Metric g: lengths, angles, causal structure"]
+    MET --&gt; CHR["Levi-Civita connection&lt;br/&gt;(Christoffel symbols)"]
+    CHR --&gt; COV["Covariant derivative"]
+    COV --&gt; GEO["Geodesic equation:&lt;br/&gt;how free particles move"]
+    COV --&gt; RIE["Riemann tensor:&lt;br/&gt;commutator of covariant derivatives"]
+    RIE --&gt; RIC["Ricci tensor and scalar"]
+    RIE --&gt; WEY["Weyl tensor"]
+    RIE --&gt; BIA["Bianchi identities"]
+    RIC --&gt; EIN["Einstein tensor"]
+    BIA --&gt; EIN
+    EIN --&gt; EFE["Einstein field equations&lt;br/&gt;G = 8 pi G T"]
+    RIE --&gt; DEV["Geodesic deviation:&lt;br/&gt;tidal forces"]
+</code></pre>
 
-<h3 id="tangent-vectors">Tangent Vectors</h3>
+<h2 id="manifolds-and-tangent-spaces">Manifolds and Tangent Spaces</h2>
 
-<p>At each point $p \in M$ there is a <strong>tangent space</strong> $T_pM$, an $n$-dimensional vector space. The cleanest definition identifies a tangent vector with a <strong>directional derivative operator</strong>: a curve $\gamma(\lambda)$ through $p$ gives the operator</p>
+<p>A <strong>smooth manifold</strong> $M$ of dimension $n$ is a space covered by overlapping coordinate charts $x^\mu: U \to \mathbb{R}^n$ with smooth transition functions on the overlaps. Spacetime is a four-dimensional manifold. A bare manifold has no notion of distance, straightness, or parallelism; the metric and the connection supply them.</p>
 
-\[V[f] = \left.\frac{d}{d\lambda} f\bigl(\gamma(\lambda)\bigr)\right|_{p}\]
+<h3 id="vectors">Vectors</h3>
 
-<p>acting on functions $f$. In a coordinate basis the partial derivatives $\partial_\mu \equiv \partial/\partial x^\mu$ form a basis of $T_pM$, and any vector is $V = V^\mu \partial_\mu$. The numbers $V^\mu$ are the <strong>contravariant components</strong> (upper index).</p>
+<p>At each point $p$ there is a <strong>tangent space</strong> $T_pM$. A tangent vector is identified with a directional derivative: a curve $x^\mu(\lambda)$ through $p$ defines the operator</p>
 
-<h3 id="covectors-the-cotangent-space">Covectors (the Cotangent Space)</h3>
+\[V[f] = \left.\frac{d}{d\lambda} f\bigl(x(\lambda)\bigr)\right|_p = \frac{dx^\mu}{d\lambda}\,\partial_\mu f\]
 
-<p>The dual vector space $T^*<em>pM$ consists of linear maps $T_pM \to \mathbb{R}$. Its elements are <strong>covectors</strong> (one-forms), written with a lower index, $\omega = \omega</em>\mu \, dx^\mu$, where the coordinate differentials $dx^\mu$ form the <strong>dual basis</strong> defined by $dx^\mu(\partial_\nu) = \delta^\mu_\nu$. The pairing of a covector with a vector is the coordinate-independent scalar</p>
+<p>so the coordinate derivatives $\partial_\mu \equiv \partial/\partial x^\mu$ form a basis and $V = V^\mu \partial_\mu$. The components $V^\mu$ carry an upper (contravariant) index.</p>
 
-\[\omega(V) = \omega_\mu V^\mu .\]
+<h3 id="covectors">Covectors</h3>
 
-<h3 id="the-transformation-laws">The Transformation Laws</h3>
+<p>The dual space $T^*<em>pM$ consists of linear maps from vectors to numbers. Its elements are <strong>covectors</strong> or one-forms, $\omega = \omega</em>\mu\, dx^\mu$, where the basis $dx^\mu$ is defined by $dx^\mu(\partial_\nu) = \delta^\mu_\nu$. The pairing $\omega(V) = \omega_\mu V^\mu$ is a coordinate-independent number. The gradient of a function, $df = \partial_\mu f\, dx^\mu$, is the prototypical covector.</p>
 
-<p>Under a coordinate change $x^\mu \to x’^\mu$, the chain rule fixes how components transform. Vectors transform with the Jacobian $\partial x’^\mu / \partial x^\nu$, covectors with its inverse:</p>
+<h3 id="transformation-laws">Transformation laws</h3>
 
-\[V'^\mu = \frac{\partial x'^\mu}{\partial x^\nu}\, V^\nu , \qquad \omega'_\mu = \frac{\partial x^\nu}{\partial x'^\mu}\, \omega_\nu .\]
+<p>Under a change of coordinates $x^\mu \to x’^\mu$ the chain rule gives</p>
 
-<p>A general <strong>$(k,l)$ tensor</strong> has $k$ upper and $l$ lower indices and transforms with one Jacobian factor per index:</p>
+\[V'^\mu = \frac{\partial x'^\mu}{\partial x^\nu}\, V^\nu, \qquad \omega'_\mu = \frac{\partial x^\nu}{\partial x'^\mu}\, \omega_\nu\]
 
-\[T'^{\mu_1\cdots\mu_k}{}_{\nu_1\cdots\nu_l} = \frac{\partial x'^{\mu_1}}{\partial x^{\alpha_1}}\cdots \frac{\partial x^{\beta_1}}{\partial x'^{\nu_1}}\cdots\, T^{\alpha_1\cdots\alpha_k}{}_{\beta_1\cdots\beta_l} .\]
+<p>A <strong>$(k,l)$ tensor</strong> has $k$ upper and $l$ lower indices and transforms with one such factor per index:</p>
 
-<p>This transformation rule is the definition of a tensor. Its payoff: if every term in an equation is a tensor of the same type, and the equation holds in one frame, the matched Jacobian factors guarantee it holds in every frame.</p>
+\[T'^{\mu_1 \cdots \mu_k}{}_{\nu_1 \cdots \nu_l} = \frac{\partial x'^{\mu_1}}{\partial x^{\alpha_1}} \cdots \frac{\partial x'^{\mu_k}}{\partial x^{\alpha_k}}\, \frac{\partial x^{\beta_1}}{\partial x'^{\nu_1}} \cdots \frac{\partial x^{\beta_l}}{\partial x'^{\nu_l}}\, T^{\alpha_1 \cdots \alpha_k}{}_{\beta_1 \cdots \beta_l}\]
 
-<p><strong>Tensor as multilinear map.</strong> Equivalently, a $(k,l)$ tensor is a multilinear machine that eats $k$ covectors and $l$ vectors and returns a number. The metric $g_{\mu\nu}$ is a $(0,2)$ tensor: feed it two vectors and it returns their inner product. This viewpoint makes “tensor” mean a single geometric object whose <em>components</em> are coordinate-dependent but whose <em>identity</em> is not.</p>
-
-<h2 id="the-metric-tensor">The Metric Tensor</h2>
-
-<p>The structure that turns a bare manifold into a geometry is the <strong>metric</strong> $g_{\mu\nu}$, a symmetric, non-degenerate $(0,2)$ tensor. It defines the infinitesimal invariant <strong>line element</strong></p>
-
-\[ds^2 = g_{\mu\nu}\, dx^\mu dx^\nu ,\]
-
-<p>which measures proper distance (spacelike) and proper time (timelike) and is the same in every coordinate system. Its defining properties are:</p>
-
-<ul>
-  <li><strong>Symmetry:</strong> $g_{\mu\nu} = g_{\nu\mu}$.</li>
-  <li><strong>Non-degeneracy:</strong> $\det(g_{\mu\nu}) \neq 0$, so an inverse metric $g^{\mu\nu}$ exists, defined by $g^{\mu\lambda} g_{\lambda\nu} = \delta^\mu_\nu$.</li>
-  <li><strong>Signature:</strong> for spacetime, $(-,+,+,+)$ — one timelike and three spacelike directions.</li>
-</ul>
-
-<p>In a local inertial frame at any point $p$ (Riemann normal coordinates) the metric reduces to the flat <strong>Minkowski metric</strong> $\eta_{\mu\nu} = \mathrm{diag}(-1,+1,+1,+1)$ with vanishing first derivatives, which is the precise statement of the equivalence principle: spacetime is locally special-relativistic.</p>
-
-<h3 id="raising-and-lowering-indices">Raising and Lowering Indices</h3>
-
-<p>The metric and its inverse convert between vectors and covectors — they “raise and lower indices”:</p>
-
-\[V_\mu = g_{\mu\nu} V^\nu , \qquad V^\mu = g^{\mu\nu} V_\nu .\]
-
-<p>The squared norm of a vector and the inner product of two vectors are then coordinate-invariant scalars:</p>
-
-\[V^\mu V_\mu = g_{\mu\nu} V^\mu V^\nu , \qquad U \cdot V = g_{\mu\nu} U^\mu V^\nu .\]
-
-<p>A vector is <strong>timelike</strong> if $V^\mu V_\mu &lt; 0$, <strong>spacelike</strong> if $&gt; 0$, and <strong>null</strong> if $= 0$ (in the mostly-plus convention).</p>
-
-<p><strong>Worked example: the metric on a 2-sphere.</strong> The round sphere of radius $a$, with coordinates $(\theta,\phi)$, has line element $ds^2 = a^2\,d\theta^2 + a^2\sin^2\theta\,d\phi^2$, i.e.</p>
-
-\[g_{\mu\nu} = \begin{pmatrix} a^2 &amp; 0 \\ 0 &amp; a^2\sin^2\theta \end{pmatrix}, \qquad g^{\mu\nu} = \begin{pmatrix} a^{-2} &amp; 0 \\ 0 &amp; a^{-2}\sin^{-2}\theta \end{pmatrix}.\]
-
-<p>This is the simplest curved space and a useful sandbox: every quantity below (Christoffel symbols, Riemann tensor, Ricci scalar) can be computed by hand, and the answer $R = 2/a^2$ confirms the sphere has constant positive curvature.</p>
-
-<h2 id="the-connection-and-covariant-derivative">The Connection and Covariant Derivative</h2>
-
-<p>The ordinary partial derivative $\partial_\mu V^\nu$ is <strong>not a tensor</strong>: under a coordinate change it picks up an extra term from differentiating the Jacobian, so it transforms inhomogeneously. The geometric reason is that comparing vectors at <em>different</em> points requires transporting one to the other, and on a curved manifold there is no canonical way to do that. We supply the missing structure with a <strong>connection</strong>, encoded by the <strong>Christoffel symbols</strong> $\Gamma^\lambda_{\mu\nu}$, which tell us how the basis vectors twist from point to point.</p>
-
-<h3 id="definition">Definition</h3>
-
-<p>The <strong>covariant derivative</strong> $\nabla_\mu$ adds correction terms that cancel the offending inhomogeneous pieces, yielding a genuine tensor. On a vector and a covector:</p>
-
-\[\nabla_\mu V^\nu = \partial_\mu V^\nu + \Gamma^\nu_{\mu\lambda} V^\lambda ,\]
-
-\[\nabla_\mu \omega_\nu = \partial_\mu \omega_\nu - \Gamma^\lambda_{\mu\nu}\, \omega_\lambda .\]
-
-<p>Note the <strong>opposite signs</strong>: upper indices get a $+\Gamma$, lower indices a $-\Gamma$. For a general tensor, add one $+\Gamma$ term per upper index and one $-\Gamma$ term per lower index. The covariant derivative of a scalar is just its partial derivative, $\nabla_\mu f = \partial_\mu f$. The Christoffel symbols are <strong>not tensors</strong> themselves — their non-tensorial transformation is exactly what is needed to fix up the partial derivative.</p>
-
-<h3 id="parallel-transport">Parallel Transport</h3>
-
-<p>A vector is <strong>parallel transported</strong> along a curve with tangent $u^\mu$ when its covariant derivative along the curve vanishes:</p>
-
-\[u^\mu \nabla_\mu V^\nu = 0 .\]
-
-<p>On a curved manifold, parallel transporting a vector around a closed loop generally returns it rotated — this <strong>holonomy</strong> is the operational signature of curvature, and we will see it reappear as the Riemann tensor.</p>
-
-<h3 id="the-levi-civita-connection">The Levi-Civita Connection</h3>
-
-<p>Among all possible connections, general relativity selects the unique one determined by the metric through two conditions:</p>
-
-<ul>
-  <li><strong>Metric compatibility:</strong> $\nabla_\lambda g_{\mu\nu} = 0$. Parallel transport preserves lengths and angles, so the geometry measured by the metric is consistent with the parallelism defined by the connection.</li>
-  <li><strong>Torsion-free (symmetric):</strong> $\Gamma^\lambda_{\mu\nu} = \Gamma^\lambda_{\nu\mu}$.</li>
-</ul>
-
-<p>These two requirements fix the connection completely. Solving the metric-compatibility equation for $\Gamma$ (the “Christoffel trick” of cyclically permuting indices and adding) gives the symbols entirely in terms of the metric:</p>
-
-\[\Gamma^\lambda_{\mu\nu} = \frac{1}{2} g^{\lambda\sigma}\bigl(\partial_\mu g_{\sigma\nu} + \partial_\nu g_{\mu\sigma} - \partial_\sigma g_{\mu\nu}\bigr).\]
-
-<p>This is the workhorse formula of general relativity. Everything downstream — geodesics, curvature, the field equations — is built from these symbols and hence ultimately from the metric and its derivatives.</p>
-
-<p><strong>Worked example: Christoffel symbols of the 2-sphere.</strong> Using the sphere metric above, the only non-zero metric derivative is $\partial_\theta g_{\phi\phi} = 2a^2\sin\theta\cos\theta$. Feeding it into the formula gives the three independent non-vanishing symbols</p>
-
-\[\Gamma^\theta_{\phi\phi} = -\sin\theta\cos\theta , \qquad \Gamma^\phi_{\theta\phi} = \Gamma^\phi_{\phi\theta} = \cot\theta .\]
-
-<p>All others vanish. These encode the fact that “straight” lines on a sphere are great circles, and they feed directly into the geodesic equation below.</p>
-
-<h2 id="geodesics">Geodesics</h2>
-
-<p>A <strong>geodesic</strong> is the curved-space generalization of a straight line: the straightest possible path, defined by parallel-transporting its own tangent vector. Writing the tangent as $u^\mu = dx^\mu/d\lambda$, the condition $u^\nu \nabla_\nu u^\mu = 0$ expands into the <strong>geodesic equation</strong></p>
-
-\[\frac{d^2 x^\mu}{d\lambda^2} + \Gamma^\mu_{\alpha\beta}\, \frac{dx^\alpha}{d\lambda}\frac{dx^\beta}{d\lambda} = 0 ,\]
-
-<p>where $\lambda$ is an <strong>affine parameter</strong> (proper time $\tau$ for massive particles, in which case $u^\mu$ is the four-velocity). This single equation is the precise content of “spacetime tells matter how to move”: a freely falling body feels no force, yet its worldline bends because the Christoffel symbols are non-zero in a curved (or merely curvilinear) spacetime. What we call gravity is this geometric term.</p>
-
-<h3 id="geodesics-as-extremal-proper-time">Geodesics as Extremal Proper Time</h3>
-
-<p>Equivalently, timelike geodesics <strong>extremize proper time</strong> between two events. Starting from the action</p>
-
-\[\tau = \int \sqrt{-g_{\mu\nu}\,\frac{dx^\mu}{d\lambda}\frac{dx^\nu}{d\lambda}}\; d\lambda ,\]
-
-<p>the Euler–Lagrange equations reproduce the geodesic equation, with the Christoffel symbols emerging automatically from the variation. This is the relativistic version of the principle of least action and is often the fastest practical route to the Christoffel symbols: read them off the Euler–Lagrange equations rather than computing the $\Gamma$ formula directly.</p>
-
-<h3 id="geodesic-deviation">Geodesic Deviation</h3>
-
-<p>Two nearby geodesics separated by $S^\mu$ do not stay parallel; their relative acceleration is governed by the <strong>geodesic deviation equation</strong></p>
-
-\[\frac{D^2 S^\mu}{d\tau^2} = -R^\mu{}_{\alpha\nu\beta}\, u^\alpha S^\nu u^\beta ,\]
-
-<p>where $D/d\tau \equiv u^\nu\nabla_\nu$ is the covariant derivative along the curve. This is the rigorous statement of <strong>tidal gravity</strong>: in flat space neighboring free-fallers stay parallel, but real gravitational fields stretch and squeeze a cloud of test particles, and the Riemann tensor on the right-hand side is exactly the measure of that effect. Gravity-as-a-force is encoded entirely in curvature.</p>
-
-<h2 id="curvature">Curvature</h2>
-
-<p>Curvature measures the failure of a manifold to be flat, and it can be detected entirely from within the manifold (no embedding required) through three equivalent operational signatures: the holonomy of parallel transport around a loop, the geodesic deviation of nearby free-fallers, and the non-commutativity of covariant derivatives.</p>
-
-<h3 id="the-riemann-tensor">The Riemann Tensor</h3>
-
-<p>The cleanest definition is the last: apply two covariant derivatives to a vector in each order and subtract. On flat space partials commute and the result vanishes; in general it does not, and the obstruction is a tensor — the <strong>Riemann curvature tensor</strong>:</p>
-
-\[[\nabla_\mu, \nabla_\nu] V^\rho = R^\rho{}_{\sigma\mu\nu}\, V^\sigma .\]
-
-<p>Working out the commutator in terms of the connection gives the explicit formula in Christoffel symbols:</p>
-
-\[R^\rho{}_{\sigma\mu\nu} = \partial_\mu \Gamma^\rho_{\nu\sigma} - \partial_\nu \Gamma^\rho_{\mu\sigma} + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma} - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma} .\]
-
-<p>A spacetime is flat <strong>if and only if</strong> $R^\rho{}_{\sigma\mu\nu} = 0$ everywhere; no choice of coordinates can hide genuine curvature, and conversely curvature that appears in a bad coordinate chart (like the “singularity” at the Schwarzschild horizon) but for which the Riemann tensor is finite is a mere coordinate artifact.</p>
-
-<h3 id="symmetries-and-the-bianchi-identities">Symmetries and the Bianchi Identities</h3>
-
-<p>Lowering the first index with the metric, $R_{\rho\sigma\mu\nu} = g_{\rho\lambda} R^\lambda{}_{\sigma\mu\nu}$, the Riemann tensor obeys a set of algebraic symmetries that drastically cut down its independent components:</p>
-
-\[R_{\rho\sigma\mu\nu} = -R_{\sigma\rho\mu\nu} = -R_{\rho\sigma\nu\mu} = R_{\mu\nu\rho\sigma} ,\]
-
-\[R_{\rho[\sigma\mu\nu]} = 0 \quad \text{(first Bianchi identity)} .\]
-
-<p>In $n$ dimensions these leave $\tfrac{1}{12}n^2(n^2-1)$ independent components — <strong>20</strong> in four-dimensional spacetime. There is also a differential constraint, the <strong>second (contracted) Bianchi identity</strong>, which will be the structural key to the field equations:</p>
-
-\[\nabla_{[\lambda} R_{\rho\sigma]\mu\nu} = 0 .\]
-
-<h3 id="ricci-tensor-and-scalar-curvature">Ricci Tensor and Scalar Curvature</h3>
-
-<p>Contracting the Riemann tensor on its first and third indices gives the symmetric <strong>Ricci tensor</strong>, and contracting once more with the metric gives the <strong>scalar curvature</strong> (Ricci scalar):</p>
-
-\[R_{\mu\nu} = R^\lambda{}_{\mu\lambda\nu} , \qquad R = g^{\mu\nu} R_{\mu\nu} .\]
-
-<p>The Ricci tensor measures how the volume of a small ball of free-falling test particles changes — the part of tidal gravity that compresses (sourced directly by local matter). The remaining <strong>trace-free</strong> part of Riemann, which distorts shape without changing volume and carries gravity through empty space (tidal forces, gravitational waves), is the <strong>Weyl tensor</strong> $C_{\rho\sigma\mu\nu}$. The split</p>
-
-\[R_{\rho\sigma\mu\nu} = C_{\rho\sigma\mu\nu} + (\text{Ricci terms}) + (\text{scalar terms})\]
-
-<p>cleanly separates locally-sourced curvature (Ricci) from free, propagating curvature (Weyl).</p>
-
-<h3 id="the-einstein-tensor">The Einstein Tensor</h3>
-
-<p>Contracting the second Bianchi identity twice produces a remarkable result. Define the <strong>Einstein tensor</strong></p>
-
-\[G_{\mu\nu} = R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R .\]
-
-<p>The double contraction of the Bianchi identity then yields the <strong>contracted Bianchi identity</strong></p>
-
-\[\nabla^\mu G_{\mu\nu} = 0 .\]
-
-<p>The Einstein tensor is <strong>automatically, identically divergence-free</strong> — a pure geometric fact, true for every metric. This is the linchpin of the next section: it is precisely the property a conserved source like energy–momentum demands.</p>
-
-<h2 id="the-einstein-field-equations">The Einstein Field Equations</h2>
-
-<p>We now have everything needed to write down the law relating geometry to matter. There are two complementary derivations: Einstein’s original requirement-driven argument, and the variational derivation from an action.</p>
-
-<h3 id="route-1-the-requirement-driven-argument">Route 1: The Requirement-Driven Argument</h3>
-
-<p>Einstein sought a tensor equation of the form $(\text{geometry})<em>{\mu\nu} = \kappa\, T</em>{\mu\nu}$, where $T_{\mu\nu}$ is the <strong>stress–energy tensor</strong> carrying the energy density, momentum density, and stresses of matter. The left side must satisfy four physical requirements:</p>
-
-<ol>
-  <li>It is a <strong>symmetric $(0,2)$ tensor</strong> (to match $T_{\mu\nu}$, which is symmetric).</li>
-  <li>It is built from the <strong>metric and its first and second derivatives</strong> only — the curvature, since that is what encodes the gravitational field.</li>
-  <li>It is <strong>divergence-free</strong>, $\nabla^\mu(\cdot)<em>{\mu\nu} = 0$, because local energy–momentum conservation requires $\nabla^\mu T</em>{\mu\nu} = 0$.</li>
-  <li>It reduces to <strong>Newtonian gravity</strong> ($\nabla^2 \Phi = 4\pi\rho$) in the weak-field, slow-motion limit, which fixes the constant $\kappa$.</li>
-</ol>
-
-<p>Requirements 1–3 are met almost uniquely by the Einstein tensor: the contracted Bianchi identity guarantees $\nabla^\mu G_{\mu\nu} = 0$ identically, and $G_{\mu\nu}$ is symmetric and built from exactly the right curvature ingredients. (Adding a term $\Lambda g_{\mu\nu}$, with $\Lambda$ the cosmological constant, also satisfies 1–3 since $\nabla_\lambda g_{\mu\nu}=0$; we set it aside for the moment.) This gives</p>
-
-\[G_{\mu\nu} = R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R = \kappa\, T_{\mu\nu} .\]
-
-<p>Matching the Newtonian limit (requirement 4) fixes $\kappa = 8\pi G/c^4$, or $8\pi$ in geometric units. The result is the <strong>Einstein field equations</strong>:</p>
-
-\[\boxed{\;R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R = 8\pi G\, T_{\mu\nu}\;}\]
-
-<p>Including the cosmological constant gives the form used in modern cosmology:</p>
-
-\[R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R + \Lambda g_{\mu\nu} = 8\pi G\, T_{\mu\nu} .\]
-
-<p>These are ten coupled, non-linear, second-order partial differential equations for the ten independent components of $g_{\mu\nu}$. The contracted Bianchi identity supplies four differential relations among them, leaving the expected number of dynamical degrees of freedom (and reflecting the four-fold coordinate freedom).</p>
-
-<h3 id="the-newtonian-limit">The Newtonian Limit</h3>
+<p>Equivalently, a $(k,l)$ tensor is a multilinear map taking $k$ covectors and $l$ vectors to a number. Its components depend on the coordinates; the object does not.</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Examples</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>To verify requirement 4, take a nearly flat metric $g_{\mu\nu} = \eta_{\mu\nu} + h_{\mu\nu}$ with $</td>
-      <td>h_{\mu\nu}</td>
-      <td>\ll 1$, slowly moving sources, and a weak static field. The dominant metric component is $g_{00} \approx -(1 + 2\Phi)$ with $\Phi$ the Newtonian potential, and the dominant stress–energy component is the rest-energy density $T_{00} \approx \rho$. The time–time component of the field equations then reduces to</td>
+      <td>$(0,0)$</td>
+      <td>Scalar field $\phi$, Ricci scalar $R$</td>
+      <td>A number at each point, the same in all coordinates</td>
+    </tr>
+    <tr>
+      <td>$(1,0)$</td>
+      <td>Four-velocity $u^\mu$, Killing vector $K^\mu$</td>
+      <td>Direction and rate of change along a curve</td>
+    </tr>
+    <tr>
+      <td>$(0,1)$</td>
+      <td>Gradient $\partial_\mu \phi$, four-momentum $p_\mu$</td>
+      <td>Linear function of vectors</td>
+    </tr>
+    <tr>
+      <td>$(0,2)$</td>
+      <td>Metric $g_{\mu\nu}$, stress–energy $T_{\mu\nu}$, Ricci $R_{\mu\nu}$</td>
+      <td>Bilinear function of two vectors</td>
+    </tr>
+    <tr>
+      <td>$(1,1)$</td>
+      <td>Kronecker delta $\delta^\mu_\nu$, a linear map on vectors</td>
+      <td>Maps vectors to vectors</td>
+    </tr>
+    <tr>
+      <td>$(1,3)$</td>
+      <td>Riemann tensor $R^\rho{}_{\sigma\mu\nu}$</td>
+      <td>Change of a vector transported around an infinitesimal loop</td>
     </tr>
   </tbody>
 </table>
 
-\[\nabla^2 \Phi = 4\pi G\, \rho ,\]
+<h3 id="tensor-operations">Tensor operations</h3>
 
-<p>which is exactly the <strong>Poisson equation</strong> of Newtonian gravity. This recovery is not optional decoration — it is what pins the coupling constant to $8\pi G$ and certifies that general relativity contains Newton’s theory as its weak-field limit.</p>
+<p>All of the following produce tensors from tensors, so equations built from them are automatically covariant:</p>
+
+<ul>
+  <li><strong>Linear combination</strong> of tensors of the same type at the same point.</li>
+  <li><strong>Outer product</strong>: $(A \otimes B)^{\mu}{}<em>{\nu\rho} = A^\mu{}</em>\nu B_\rho$.</li>
+  <li><strong>Contraction</strong> of one upper with one lower index: $T^\mu{}_{\mu\nu}$ is a $(0,1)$ tensor.</li>
+  <li><strong>Symmetrization and antisymmetrization</strong> over indices of the same position.</li>
+  <li><strong>Raising and lowering</strong> with the metric (below).</li>
+</ul>
+
+<p>Partial derivatives of tensor components are <em>not</em> tensors except for scalars; this is what the covariant derivative repairs.</p>
+
+<h2 id="the-metric">The Metric</h2>
+
+<p>The <strong>metric</strong> $g_{\mu\nu}$ is a symmetric, non-degenerate $(0,2)$ tensor. It defines the invariant line element</p>
+
+\[ds^2 = g_{\mu\nu}\, dx^\mu dx^\nu\]
+
+<p>which gives proper time along timelike curves ($d\tau^2 = -ds^2$) and proper distance along spacelike ones. Non-degeneracy ($\det g \neq 0$) guarantees an inverse $g^{\mu\nu}$ with $g^{\mu\lambda} g_{\lambda\nu} = \delta^\mu_\nu$. A Lorentzian metric has signature $(-,+,+,+)$.</p>
+
+<p>At any point one can choose coordinates (Riemann normal coordinates, or a local inertial frame) in which</p>
+
+\[g_{\mu\nu}(p) = \eta_{\mu\nu}, \qquad \partial_\lambda g_{\mu\nu}(p) = 0\]
+
+<p>The second derivatives cannot all be removed; the 20 combinations that survive are the components of the Riemann tensor. This is the mathematical content of the equivalence principle: spacetime is locally Minkowskian, and gravity shows up only in second derivatives of the metric as tidal effects.</p>
+
+<h3 id="raising-and-lowering-indices">Raising and lowering indices</h3>
+
+<p>The metric identifies vectors with covectors:</p>
+
+\[V_\mu = g_{\mu\nu} V^\nu, \qquad V^\mu = g^{\mu\nu} V_\nu\]
+
+<p>Inner products $U \cdot V = g_{\mu\nu} U^\mu V^\nu = U_\mu V^\mu$ are scalars. A vector is <strong>timelike</strong> if $V \cdot V &lt; 0$, <strong>null</strong> if $V \cdot V = 0$, and <strong>spacelike</strong> if $V \cdot V &gt; 0$. The invariant volume element is $\sqrt{-g}\, d^4x$ with $g = \det g_{\mu\nu}$, because $\sqrt{-g}$ transforms with the inverse of the Jacobian of $d^4x$.</p>
+
+<h3 id="example-the-2-sphere">Example: the 2-sphere</h3>
+
+<p>The sphere of radius $a$ in coordinates $(\theta, \phi)$ has $ds^2 = a^2 d\theta^2 + a^2 \sin^2\theta\, d\phi^2$:</p>
+
+\[g_{\mu\nu} = \begin{pmatrix} a^2 &amp; 0 \\ 0 &amp; a^2 \sin^2\theta \end{pmatrix}, \qquad g^{\mu\nu} = \begin{pmatrix} a^{-2} &amp; 0 \\ 0 &amp; a^{-2}\sin^{-2}\theta \end{pmatrix}\]
+
+<p>It is the simplest curved space, and every quantity below can be computed for it by hand.</p>
+
+<h2 id="the-connection-and-covariant-derivative">The Connection and Covariant Derivative</h2>
+
+<p>Under a coordinate change, $\partial_\mu V^\nu$ picks up a term involving second derivatives of the coordinate transformation, so it is not a tensor. Geometrically, differentiating requires comparing vectors at neighboring points, which live in different tangent spaces; one needs a rule, the <strong>connection</strong>, for carrying a vector from one to the other.</p>
+
+<h3 id="definition">Definition</h3>
+
+<p>The <strong>covariant derivative</strong> adds correction terms linear in the connection coefficients $\Gamma^\lambda_{\mu\nu}$:</p>
+
+\[\nabla_\mu V^\nu = \partial_\mu V^\nu + \Gamma^\nu_{\mu\lambda} V^\lambda, \qquad \nabla_\mu \omega_\nu = \partial_\mu \omega_\nu - \Gamma^\lambda_{\mu\nu}\, \omega_\lambda\]
+
+<p>Each upper index gets a $+\Gamma$ term and each lower index a $-\Gamma$ term; on scalars $\nabla_\mu f = \partial_\mu f$. For example,</p>
+
+\[\nabla_\lambda T^\mu{}_\nu = \partial_\lambda T^\mu{}_\nu + \Gamma^\mu_{\lambda\sigma} T^\sigma{}_\nu - \Gamma^\sigma_{\lambda\nu} T^\mu{}_\sigma\]
+
+<p>The $\Gamma$ are not tensor components; their inhomogeneous transformation cancels that of the partial derivative. They can be set to zero at any single point by choice of coordinates, but not in a neighborhood if the space is curved.</p>
+
+<h3 id="the-levi-civita-connection">The Levi-Civita connection</h3>
+
+<p>General relativity uses the unique connection that is</p>
+
+<ul>
+  <li><strong>metric-compatible</strong>, $\nabla_\lambda g_{\mu\nu} = 0$, so that parallel transport preserves lengths and angles, and</li>
+  <li><strong>torsion-free</strong>, $\Gamma^\lambda_{\mu\nu} = \Gamma^\lambda_{\nu\mu}$.</li>
+</ul>
+
+<p>Writing out $\nabla_\lambda g_{\mu\nu} = 0$ for the three cyclic permutations of the indices, adding two and subtracting the third, gives the <strong>Christoffel symbols</strong></p>
+
+\[\Gamma^\lambda_{\mu\nu} = \frac{1}{2} g^{\lambda\sigma}\left(\partial_\mu g_{\sigma\nu} + \partial_\nu g_{\mu\sigma} - \partial_\sigma g_{\mu\nu}\right)\]
+
+<p>Metric compatibility also means $\nabla$ commutes with raising and lowering indices. Alternative theories (Einstein–Cartan theory, teleparallel gravity) relax torsion-freeness or use a different connection, but they are not needed for standard GR.</p>
+
+<p><strong>Sphere example.</strong> The only non-zero metric derivative is $\partial_\theta g_{\phi\phi} = 2a^2 \sin\theta\cos\theta$, giving</p>
+
+\[\Gamma^\theta_{\phi\phi} = -\sin\theta\cos\theta, \qquad \Gamma^\phi_{\theta\phi} = \Gamma^\phi_{\phi\theta} = \cot\theta\]
+
+<p>with all others zero.</p>
+
+<h3 id="parallel-transport">Parallel transport</h3>
+
+<p>A vector $V^\mu$ is <strong>parallel transported</strong> along a curve $x^\mu(\lambda)$ with tangent $u^\mu = dx^\mu/d\lambda$ if</p>
+
+\[\frac{DV^\mu}{d\lambda} \equiv u^\nu \nabla_\nu V^\mu = \frac{dV^\mu}{d\lambda} + \Gamma^\mu_{\nu\lambda}\, u^\nu V^\lambda = 0\]
+
+<p>On a curved space the result of transporting a vector between two points depends on the path. Around a closed loop the vector returns rotated, an effect called <strong>holonomy</strong>. For a small loop the rotation is proportional to the enclosed area times the curvature; on a 2-surface the total rotation equals the integral of the Gaussian curvature over the enclosed region.</p>
+
+<figure style="margin: 1.5em auto; max-width: 420px;">
+<svg viewBox="0 0 400 330" role="img" aria-label="Parallel transport of a vector around a triangle on a sphere with three right angles; the vector returns rotated by ninety degrees" style="width: 100%; height: auto; font-family: inherit;">
+  <defs>
+    <marker id="tf-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#1c7ed6" />
+    </marker>
+    <marker id="tf-arrow-o" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#e8590c" />
+    </marker>
+  </defs>
+  <circle cx="200" cy="200" r="150" fill="none" stroke="currentColor" stroke-width="1.5" />
+  <ellipse cx="200" cy="200" rx="150" ry="40" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4,4" opacity="0.6" />
+  <path d="M200,50 L200,240 A150,40 0 0,0 350,200 A150,150 0 0,0 200,50 Z" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="2.2" />
+  <!-- transported vector along the loop (all pointing "south" along the path) -->
+  <line x1="200" y1="50" x2="200" y2="95" stroke="#1c7ed6" stroke-width="2.5" marker-end="url(#tf-arrow)" />
+  <line x1="200" y1="140" x2="200" y2="180" stroke="#1c7ed6" stroke-width="2.5" marker-end="url(#tf-arrow)" />
+  <line x1="200" y1="240" x2="200" y2="280" stroke="#1c7ed6" stroke-width="2.5" marker-end="url(#tf-arrow)" />
+  <line x1="297" y1="230" x2="297" y2="270" stroke="#1c7ed6" stroke-width="2.5" marker-end="url(#tf-arrow)" />
+  <line x1="350" y1="200" x2="350" y2="240" stroke="#1c7ed6" stroke-width="2.5" marker-end="url(#tf-arrow)" />
+  <line x1="306" y1="94" x2="334" y2="122" stroke="#1c7ed6" stroke-width="2.5" marker-end="url(#tf-arrow)" />
+  <!-- returned vector at the pole -->
+  <line x1="200" y1="50" x2="248" y2="50" stroke="#e8590c" stroke-width="2.5" marker-end="url(#tf-arrow-o)" />
+  <path d="M200,72 A22,22 0 0,0 222,50" fill="none" stroke="#e8590c" stroke-width="1.5" />
+  <circle cx="200" cy="50" r="3.5" fill="currentColor" />
+  <circle cx="200" cy="240" r="3.5" fill="currentColor" />
+  <circle cx="350" cy="200" r="3.5" fill="currentColor" />
+  <text x="190" y="42" font-size="14" fill="currentColor" text-anchor="end">N</text>
+  <text x="190" y="256" font-size="14" fill="currentColor" text-anchor="end">A</text>
+  <text x="362" y="196" font-size="14" fill="currentColor">B</text>
+  <text x="256" y="40" font-size="13" fill="#e8590c">returns rotated 90°</text>
+  <text x="200" y="320" font-size="12" fill="currentColor" text-anchor="middle">Path N to A to B to N; the loop encloses 1/8 of the sphere</text>
+</svg>
+<figcaption style="font-size: 0.9em; text-align: center;">Parallel transport around a geodesic triangle with three right angles. The vector (blue) is kept parallel along each great-circle arc and returns to the north pole rotated by $\pi/2$ (orange), equal to the enclosed area $\pi a^2/2$ times the Gaussian curvature $1/a^2$.</figcaption>
+</figure>
+
+<h3 id="lie-derivative-and-killing-vectors">Lie derivative and Killing vectors</h3>
+
+<p>A second, connection-independent derivative compares tensors along the flow of a vector field $K^\mu$. This <strong>Lie derivative</strong> acts on the metric as</p>
+
+\[\mathcal{L}_K\, g_{\mu\nu} = \nabla_\mu K_\nu + \nabla_\nu K_\mu\]
+
+<p>The metric is invariant under the flow (a symmetry, or <strong>isometry</strong>) exactly when $K$ satisfies <strong>Killing’s equation</strong></p>
+
+\[\nabla_{(\mu} K_{\nu)} = 0\]
+
+<p>Killing vectors produce conserved quantities: along any geodesic with tangent $u^\mu$, $K_\mu u^\mu$ is constant. In a static, spherically symmetric spacetime such as Schwarzschild, the time-translation Killing vector $\partial_t$ gives the conserved energy per unit mass $E = -u_t$, and the rotational Killing vector $\partial_\phi$ gives the conserved angular momentum $L = u_\phi$. These two constants reduce orbit problems to one-dimensional effective-potential problems. A maximally symmetric space in $n$ dimensions has $n(n+1)/2$ Killing vectors: 10 for Minkowski space (the Poincaré group), 3 for the 2-sphere.</p>
+
+<h2 id="geodesics">Geodesics</h2>
+
+<p>A <strong>geodesic</strong> is a curve that parallel transports its own tangent, $u^\nu \nabla_\nu u^\mu = 0$. In coordinates this is the <strong>geodesic equation</strong></p>
+
+\[\frac{d^2 x^\mu}{d\lambda^2} + \Gamma^\mu_{\alpha\beta}\, \frac{dx^\alpha}{d\lambda}\frac{dx^\beta}{d\lambda} = 0\]
+
+<p>where $\lambda$ is an <strong>affine parameter</strong>, unique up to $\lambda \to a\lambda + b$. For massive particles one takes proper time $\tau$, so $u^\mu$ is the four-velocity and $u \cdot u = -1$; for light, $u \cdot u = 0$. Freely falling bodies follow timelike geodesics and light follows null geodesics. There is no gravitational force term: the apparent force is the Christoffel term.</p>
+
+<p><strong>Newtonian limit.</strong> For slow motion ($dx^i/d\tau \ll dt/d\tau$) in a weak static field with $g_{00} = -(1 + 2\Phi)$, the only significant Christoffel symbol is $\Gamma^i_{00} = -\tfrac{1}{2}\partial_i h_{00} = \partial_i\Phi$ (using $h_{00} = -2\Phi$), and with $dt/d\tau \approx 1$ the geodesic equation becomes</p>
+
+\[\frac{d^2 x^i}{dt^2} = -\partial_i \Phi\]
+
+<p>which is Newton’s law of gravitation.</p>
+
+<h3 id="geodesics-as-extremal-proper-time">Geodesics as extremal proper time</h3>
+
+<p>Timelike geodesics extremize (locally maximize) the proper time</p>
+
+\[\tau = \int \sqrt{-g_{\mu\nu}\,\frac{dx^\mu}{d\lambda}\frac{dx^\nu}{d\lambda}}\; d\lambda\]
+
+<p>between two events, which is the geometric content of the twin paradox in <a href="special-relativity.html#the-twin-paradox">special relativity</a>. In practice it is easier to use the Lagrangian $L = \tfrac{1}{2} g_{\mu\nu}\dot x^\mu \dot x^\nu$, which gives the same equations with an affine parameter. Its Euler–Lagrange equations reproduce the geodesic equation, so the Christoffel symbols can be read off without evaluating the formula.</p>
+
+<p><strong>Sphere example.</strong> With $L = \tfrac{1}{2}a^2(\dot\theta^2 + \sin^2\theta\,\dot\phi^2)$ the Euler–Lagrange equations are</p>
+
+\[\ddot\theta - \sin\theta\cos\theta\,\dot\phi^2 = 0, \qquad \ddot\phi + 2\cot\theta\,\dot\theta\,\dot\phi = 0\]
+
+<p>Comparison with the geodesic equation gives $\Gamma^\theta_{\phi\phi} = -\sin\theta\cos\theta$ and $\Gamma^\phi_{\theta\phi} = \cot\theta$ (the factor 2 counts both orderings of the symmetric lower indices). The solutions are great circles; $\phi$ has no explicit appearance, so $\sin^2\theta\,\dot\phi$ is conserved, the Killing constant associated with $\partial_\phi$.</p>
+
+<h3 id="geodesic-deviation">Geodesic deviation</h3>
+
+<p>Let $S^\mu$ be the separation vector between two neighbouring geodesics with tangent $u^\mu$. Its second covariant derivative along the curves is</p>
+
+\[\frac{D^2 S^\mu}{d\tau^2} = R^\mu{}_{\nu\rho\sigma}\, u^\nu u^\rho S^\sigma\]
+
+<p>In flat spacetime nearby free-fallers keep a constant relative velocity. In a gravitational field they accelerate relative to each other: this is <strong>tidal gravity</strong>, and the Riemann tensor is its complete description. Gravitational-wave detectors measure precisely this quantity.</p>
+
+<h2 id="curvature">Curvature</h2>
+
+<h3 id="the-riemann-tensor">The Riemann tensor</h3>
+
+<p>Curvature is the failure of covariant derivatives to commute. For the Levi-Civita connection,</p>
+
+\[[\nabla_\mu, \nabla_\nu]\, V^\rho = R^\rho{}_{\sigma\mu\nu}\, V^\sigma\]
+
+<p>which defines the <strong>Riemann tensor</strong>. In terms of the connection,</p>
+
+\[R^\rho{}_{\sigma\mu\nu} = \partial_\mu \Gamma^\rho_{\nu\sigma} - \partial_\nu \Gamma^\rho_{\mu\sigma} + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma} - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}\]
+
+<p>The Riemann tensor vanishes everywhere if and only if the spacetime is flat, meaning that coordinates exist in which $g_{\mu\nu} = \eta_{\mu\nu}$ throughout a region. It captures three equivalent signatures of curvature: non-commuting derivatives, holonomy around loops, and geodesic deviation.</p>
+
+<p>Whether a singularity is physical or a coordinate artifact is decided by scalar invariants built from curvature, since individual components depend on the coordinates. For the Schwarzschild metric the metric component $g_{rr}$ diverges at $r = 2GM$, but the <strong>Kretschmann scalar</strong> $R_{\mu\nu\rho\sigma}R^{\mu\nu\rho\sigma} = 48G^2M^2/r^6$ is finite there, so the horizon is a coordinate singularity. The same scalar diverges at $r = 0$, a genuine curvature singularity. See <a href="black-holes.html#the-schwarzschild-solution">Black Holes</a>.</p>
+
+<h3 id="symmetries-and-the-bianchi-identities">Symmetries and the Bianchi identities</h3>
+
+<p>With the first index lowered, the Riemann tensor satisfies</p>
+
+\[R_{\rho\sigma\mu\nu} = -R_{\sigma\rho\mu\nu} = -R_{\rho\sigma\nu\mu} = R_{\mu\nu\rho\sigma}, \qquad R_{\rho[\sigma\mu\nu]} = 0\]
+
+<p>The last is the <strong>first (algebraic) Bianchi identity</strong>. Together these leave $n^2(n^2 - 1)/12$ independent components: 1 in two dimensions, 6 in three, <strong>20</strong> in four. There is also a differential identity, the <strong>second Bianchi identity</strong>,</p>
+
+\[\nabla_{[\lambda} R_{\rho\sigma]\mu\nu} = 0\]
+
+<p>which is the structural key to the field equations.</p>
+
+<h3 id="ricci-tensor-scalar-and-weyl-tensor">Ricci tensor, scalar, and Weyl tensor</h3>
+
+<p>Contracting the Riemann tensor gives the symmetric <strong>Ricci tensor</strong> and the <strong>Ricci scalar</strong>:</p>
+
+\[R_{\mu\nu} = R^\lambda{}_{\mu\lambda\nu}, \qquad R = g^{\mu\nu} R_{\mu\nu}\]
+
+<p>The trace-free remainder is the <strong>Weyl tensor</strong> $C_{\rho\sigma\mu\nu}$. In four dimensions</p>
+
+\[R_{\rho\sigma\mu\nu} = C_{\rho\sigma\mu\nu} + \left(g_{\rho[\mu} R_{\nu]\sigma} - g_{\sigma[\mu} R_{\nu]\rho}\right) - \frac{1}{3} R\, g_{\rho[\mu} g_{\nu]\sigma}\]
+
+<table>
+  <thead>
+    <tr>
+      <th>Object</th>
+      <th>Independent components (4D)</th>
+      <th>Physical role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Riemann $R_{\rho\sigma\mu\nu}$</td>
+      <td>20</td>
+      <td>Complete tidal field</td>
+    </tr>
+    <tr>
+      <td>Ricci $R_{\mu\nu}$</td>
+      <td>10</td>
+      <td>Volume change of a ball of free-falling particles; fixed locally by matter through the field equations</td>
+    </tr>
+    <tr>
+      <td>Weyl $C_{\rho\sigma\mu\nu}$</td>
+      <td>10</td>
+      <td>Shape distortion at fixed volume; the part of curvature that exists in vacuum and propagates as gravitational waves</td>
+    </tr>
+    <tr>
+      <td>Ricci scalar $R$</td>
+      <td>1</td>
+      <td>Trace; in vacuum GR without $\Lambda$, $R = 0$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The Weyl tensor is invariant under conformal rescalings $g \to \Omega^2 g$ and vanishes identically in three or fewer dimensions, which is why 3D general relativity has no local propagating degrees of freedom.</p>
+
+<p><strong>Sphere example.</strong> From the Christoffel symbols,</p>
+
+\[R^\theta{}_{\phi\theta\phi} = \partial_\theta \Gamma^\theta_{\phi\phi} - \Gamma^\theta_{\phi\phi}\Gamma^\phi_{\theta\phi} = (\sin^2\theta - \cos^2\theta) + \cos^2\theta = \sin^2\theta\]
+
+<p>This is the one independent component in two dimensions. Contracting gives $R_{\theta\theta} = 1$ and $R_{\phi\phi} = \sin^2\theta$, that is $R_{\mu\nu} = g_{\mu\nu}/a^2$, and</p>
+
+\[R = g^{\theta\theta} R_{\theta\theta} + g^{\phi\phi} R_{\phi\phi} = \frac{1}{a^2} + \frac{1}{a^2} = \frac{2}{a^2}\]
+
+<p>In two dimensions $R = 2K$, where $K = 1/a^2$ is the Gaussian curvature, consistent with the holonomy figure above.</p>
+
+<h3 id="the-einstein-tensor">The Einstein tensor</h3>
+
+<p>Contracting the second Bianchi identity twice gives the <strong>contracted Bianchi identity</strong>:</p>
+
+\[\nabla^\mu G_{\mu\nu} = 0, \qquad G_{\mu\nu} \equiv R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R\]
+
+<p>The <strong>Einstein tensor</strong> $G_{\mu\nu}$ is divergence-free for every metric, as a geometric identity. This is exactly the property required of anything set equal to a conserved stress–energy tensor.</p>
+
+<h2 id="the-einstein-field-equations">The Einstein Field Equations</h2>
+
+<h3 id="route-1-the-requirement-driven-argument">Route 1: The Requirement-Driven Argument</h3>
+
+<p>Einstein looked for an equation $\mathcal{G}<em>{\mu\nu} = \kappa\, T</em>{\mu\nu}$, where $T_{\mu\nu}$ is the <strong>stress–energy tensor</strong> of matter. The left side must be</p>
+
+<ol>
+  <li>a symmetric $(0,2)$ tensor, like $T_{\mu\nu}$;</li>
+  <li>built from the metric and its first and second derivatives only, so that the equations are second-order like other field equations;</li>
+  <li>divergence-free, because local energy–momentum conservation in curved spacetime is $\nabla^\mu T_{\mu\nu} = 0$;</li>
+  <li>such that the Newtonian limit $\nabla^2\Phi = 4\pi G\rho$ is recovered.</li>
+</ol>
+
+<p><strong>Lovelock’s theorem</strong> (1971) states that in four dimensions the only tensor satisfying 1–3 is a combination $a\,G_{\mu\nu} + b\,g_{\mu\nu}$. Setting $b = \Lambda$ (the cosmological constant) and fixing $a$ and $\kappa$ by requirement 4 gives the <strong>Einstein field equations</strong></p>
+
+\[G_{\mu\nu} + \Lambda g_{\mu\nu} = 8\pi G\, T_{\mu\nu}\]
+
+<p>or, restoring $c$, $G_{\mu\nu} + \Lambda g_{\mu\nu} = (8\pi G/c^4)\, T_{\mu\nu}$.</p>
+
+<p>Taking the trace ($g^{\mu\nu}g_{\mu\nu} = 4$) gives $-R + 4\Lambda = 8\pi G\, T$, which lets the equations be written in <strong>trace-reversed</strong> form:</p>
+
+\[R_{\mu\nu} = 8\pi G\left(T_{\mu\nu} - \frac{1}{2} T g_{\mu\nu}\right) + \Lambda g_{\mu\nu}\]
+
+<p>In vacuum with $\Lambda = 0$ this reduces to $R_{\mu\nu} = 0$: the Ricci tensor vanishes, but the Weyl tensor, and so tidal gravity, need not.</p>
+
+<h3 id="counting-equations-and-degrees-of-freedom">Counting equations and degrees of freedom</h3>
+
+<p>The field equations are ten coupled, non-linear, second-order PDEs for the ten components of $g_{\mu\nu}$. They are not independent: the contracted Bianchi identity imposes four differential relations. Four more components are coordinate (gauge) freedom from diffeomorphism invariance. Of the remaining equations, four are <strong>constraints</strong> on initial data (the Hamiltonian and momentum constraints of the 3+1 split) rather than evolution equations. The result is <strong>two</strong> physical degrees of freedom per point, the two polarizations of gravitational waves (see <a href="gravitational-waves.html#two-polarizations">Counting the Polarizations</a>).</p>
+
+<h3 id="the-newtonian-limit">The Newtonian Limit</h3>
+
+<p>Take a weak, static field $g_{\mu\nu} = \eta_{\mu\nu} + h_{\mu\nu}$ with $h_{00} = -2\Phi$, and non-relativistic matter (dust) with $T_{00} = \rho$ and $T = g^{\mu\nu}T_{\mu\nu} \approx -\rho$. The time–time component of the trace-reversed equations (with $\Lambda = 0$) is</p>
+
+\[R_{00} = 8\pi G\left(\rho - \frac{1}{2}\rho\right) = 4\pi G\rho\]
+
+<p>For a static weak field, $R_{00} \approx \partial_i \Gamma^i_{00} = \nabla^2\Phi$ to first order. So</p>
+
+\[\nabla^2 \Phi = 4\pi G\, \rho\]
+
+<p>the Poisson equation of Newtonian gravity. This fixes the coupling $\kappa = 8\pi G$.</p>
 
 <h3 id="route-2-the-einsteinhilbert-action">Route 2: The Einstein–Hilbert Action</h3>
 
-<p>The same equations follow far more elegantly from a variational principle, which is also the natural starting point for coupling gravity to other fields and for quantization. The dynamics come from the <strong>Einstein–Hilbert action</strong> plus a matter action:</p>
+<p>The same equations follow from the action</p>
 
-\[S = \frac{1}{16\pi G}\int d^4x\, \sqrt{-g}\, R \;+\; \int d^4x\, \sqrt{-g}\, \mathcal{L}_m ,\]
+\[S = \frac{1}{16\pi G}\int d^4x\, \sqrt{-g}\,\left(R - 2\Lambda\right) + S_m\]
 
-<p>where $g = \det(g_{\mu\nu})$ and $\sqrt{-g}$ is the invariant volume element that makes $d^4x\,\sqrt{-g}$ coordinate-independent. We vary $S$ with respect to the inverse metric $g^{\mu\nu}$ and demand $\delta S = 0$. The two ingredients we need are</p>
+<p>where $S_m$ is the matter action. Varying with respect to the inverse metric requires</p>
 
-\[\delta\sqrt{-g} = -\frac{1}{2}\sqrt{-g}\, g_{\mu\nu}\, \delta g^{\mu\nu} ,\]
+\[\delta\sqrt{-g} = -\frac{1}{2}\sqrt{-g}\, g_{\mu\nu}\, \delta g^{\mu\nu}, \qquad \delta R = R_{\mu\nu}\,\delta g^{\mu\nu} + g_{\mu\nu}\,\Box\,\delta g^{\mu\nu} - \nabla_\mu\nabla_\nu\,\delta g^{\mu\nu}\]
 
-\[\delta R = R_{\mu\nu}\, \delta g^{\mu\nu} + g_{\mu\nu}\, \Box\, \delta g^{\mu\nu} - \nabla_\mu \nabla_\nu\, \delta g^{\mu\nu} ,\]
+<p>with $\Box = \nabla^\lambda\nabla_\lambda$. The last two terms of $\delta R$ are total divergences (from the Palatini identity) and integrate to a boundary term. For a well-posed variational principle with the metric fixed on the boundary, that term is cancelled by adding the <strong>Gibbons–Hawking–York</strong> boundary term to the action. The gravitational variation is then</p>
 
-<p>where $\Box \equiv \nabla^\lambda \nabla_\lambda$ and the last two terms are total covariant divergences (the “Palatini” boundary terms). Combining them, the gravitational part of the variation is</p>
+\[\delta S_{EH} = \frac{1}{16\pi G}\int d^4x\, \sqrt{-g}\,\left(R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R + \Lambda g_{\mu\nu}\right)\delta g^{\mu\nu}\]
 
-\[\delta S_{EH} = \frac{1}{16\pi G}\int d^4x\, \sqrt{-g}\left(R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R\right)\delta g^{\mu\nu} + (\text{boundary term}) .\]
+<p>Defining the stress–energy tensor by</p>
 
-<p>The boundary term integrates to a surface contribution that vanishes for variations vanishing on the boundary (or is cancelled by the <strong>Gibbons–Hawking–York</strong> term when the boundary is held fixed). Defining the <strong>stress–energy tensor</strong> as the response of the matter action to the metric,</p>
+\[T_{\mu\nu} = -\frac{2}{\sqrt{-g}}\,\frac{\delta S_m}{\delta g^{\mu\nu}}\]
 
-\[T_{\mu\nu} = -\frac{2}{\sqrt{-g}}\frac{\delta(\sqrt{-g}\,\mathcal{L}_m)}{\delta g^{\mu\nu}} ,\]
+<p>and requiring $\delta S = 0$ for all $\delta g^{\mu\nu}$ gives $G_{\mu\nu} + \Lambda g_{\mu\nu} = 8\pi G\, T_{\mu\nu}$.</p>
 
-<p>the condition $\delta S = 0$ for arbitrary $\delta g^{\mu\nu}$ forces the integrand to vanish pointwise, giving back</p>
+<p>The action route makes three things explicit:</p>
 
-\[R_{\mu\nu} - \frac{1}{2} g_{\mu\nu} R = 8\pi G\, T_{\mu\nu} .\]
+<ul>
+  <li>$G_{\mu\nu}$ appears because it is the metric variation of $\sqrt{-g}\,R$.</li>
+  <li>$\nabla^\mu T_{\mu\nu} = 0$ follows from the diffeomorphism invariance of $S_m$ whenever the matter fields obey their equations of motion; it is a Noether identity, not an extra assumption.</li>
+  <li>The cosmological constant is a constant term in the Lagrangian, equivalent to a vacuum energy density $\rho_\Lambda = \Lambda/8\pi G$.</li>
+</ul>
 
-<p>This derivation makes three things transparent that the requirement-driven route only asserts: the Einstein tensor appears <em>because</em> it is the metric-variation of the scalar curvature; the conservation law $\nabla^\mu T_{\mu\nu}=0$ follows from the diffeomorphism invariance of $S_m$ (a Noether identity); and the cosmological constant is simply a constant added to the Lagrangian, $\mathcal{L} \to \mathcal{L} - \Lambda/8\pi G$.</p>
+<p>It is also the starting point for coupling other fields, for higher-curvature corrections, and for <a href="quantum-gravity.html#perturbative-quantum-gravity">quantization</a>.</p>
 
-<p><strong>Reading the equation both ways.</strong> Wheeler’s slogan splits cleanly along the two sides. The right-hand side, $T_{\mu\nu}$, is “matter tells spacetime how to curve” — energy and momentum source the geometry. The left-hand side feeds back through the Christoffel symbols into the geodesic equation, “spacetime tells matter how to move.” The non-linearity — gravity gravitates, because curvature itself carries energy and re-sources the field — is what makes the equations hard and the physics rich: black holes, gravitational waves, and an expanding universe all live in that non-linearity.</p>
+<h3 id="interpreting-the-equations">Interpreting the equations</h3>
 
-<h2 id="putting-it-together-the-schwarzschild-example">Putting It Together: the Schwarzschild Example</h2>
+<p>The field equations relate the part of curvature that is locally determined by matter (Ricci) to the energy, momentum, pressure and stress of that matter. The Weyl part is not fixed locally; it is determined by boundary conditions and by distant sources, and it carries gravitational waves. Because the equations are non-linear, gravitational fields themselves act as sources, which leads to black holes, gravitational-wave emission and the dynamics of an expanding universe.</p>
 
-<p>To see the whole machine run end to end, take the most symmetric non-trivial case: the static, spherically symmetric vacuum. With $T_{\mu\nu} = 0$, the trace of the field equations gives $R = 0$, so the vacuum equations reduce to $R_{\mu\nu} = 0$. Writing the most general static, spherically symmetric metric, computing its Christoffel symbols, assembling the Ricci tensor, and setting it to zero yields a pair of ordinary differential equations whose solution is the <strong>Schwarzschild metric</strong></p>
+<h2 id="worked-example-the-schwarzschild-solution">Worked Example: the Schwarzschild Solution</h2>
 
-\[ds^2 = -\left(1 - \frac{2GM}{r}\right)dt^2 + \left(1 - \frac{2GM}{r}\right)^{-1}dr^2 + r^2\bigl(d\theta^2 + \sin^2\theta\, d\phi^2\bigr) ,\]
+<p>The static, spherically symmetric vacuum solution illustrates the whole chain. The most general static, spherically symmetric metric can be written</p>
 
-<p>the integration constant $M$ being fixed as the mass by matching the Newtonian limit far from the source. Every step in that calculation uses exactly the tools built on this page: the metric, the Christoffel formula, the Riemann and Ricci tensors, and the field equations. The detailed solution, its horizon, and its physics are developed on the <a href="general-relativity.html">General Relativity</a> page and in the graduate <a href="advanced.html">Formalism &amp; Frontiers</a> reference.</p>
+\[ds^2 = -e^{2\alpha(r)}\,dt^2 + e^{2\beta(r)}\,dr^2 + r^2\left(d\theta^2 + \sin^2\theta\,d\phi^2\right)\]
 
-<h2 id="summary-of-the-logical-chain">Summary of the Logical Chain</h2>
+<p>Computing the Christoffel symbols and the Ricci tensor, the vacuum equations $R_{\mu\nu} = 0$ reduce to ordinary differential equations. The combination $R_{tt}e^{-2\alpha} + R_{rr}e^{-2\beta} = 0$ gives $\alpha’ + \beta’ = 0$, so $\alpha = -\beta$ after rescaling $t$, and $R_{\theta\theta} = 0$ then gives $\bigl(r e^{2\alpha}\bigr)’ = 1$, that is $e^{2\alpha} = 1 - r_s/r$. Matching the Newtonian limit $g_{00} \approx -(1 + 2\Phi)$ with $\Phi = -GM/r$ fixes $r_s = 2GM$:</p>
 
-<pre><code class="language-mermaid">graph TD
-    MAN["Smooth manifold M"] --&gt; MET["Metric g (line element, distances)"]
-    MET --&gt; CHR["Christoffel symbols (connection)"]
-    CHR --&gt; COV["Covariant derivative"]
-    COV --&gt; GEO["Geodesic equation&lt;br/&gt;(how matter moves)"]
-    COV --&gt; RIE["Riemann curvature tensor"]
-    RIE --&gt; RIC["Ricci tensor &amp; scalar"]
-    RIE --&gt; BIA["Bianchi identity"]
-    RIC --&gt; EIN["Einstein tensor G"]
-    BIA --&gt; EIN
-    EIN --&gt; EFE["Einstein field equations&lt;br/&gt;G = 8 pi G T"]
-    classDef geom fill:#e0f2f1,stroke:#11998e,stroke-width:2px;
-    classDef field fill:#fff3e0,stroke:#e65100,stroke-width:2px;
-    class MAN,MET,CHR,COV,RIE,RIC,BIA geom;
-    class GEO,EIN,EFE field;
-</code></pre>
+\[ds^2 = -\left(1 - \frac{2GM}{r}\right)dt^2 + \left(1 - \frac{2GM}{r}\right)^{-1}dr^2 + r^2\left(d\theta^2 + \sin^2\theta\,d\phi^2\right)\]
 
-<p>Each arrow is a construction we carried out: the metric defines distances, the metric-compatible torsion-free condition fixes the Christoffel symbols, those build the covariant derivative, whose non-commutativity <em>is</em> the Riemann tensor, whose contractions and Bianchi identity assemble the divergence-free Einstein tensor — which can only be sourced by the conserved stress–energy of matter. The field equations are the unique sensible endpoint of that chain.</p>
+<p>By <strong>Birkhoff’s theorem</strong> this is the unique spherically symmetric vacuum solution, so it describes the exterior of any spherical body, static or not. The horizon, orbits and light bending are developed on the <a href="black-holes.html">Black Holes</a> and <a href="general-relativity.html">General Relativity</a> pages.</p>
+
+<h2 id="computing-curvature-in-practice">Computing Curvature in Practice</h2>
+
+<p>Hand computation of curvature is error-prone beyond simple metrics, and symbolic algebra is standard. Widely used tools include xAct (xTensor, xCoba) for Mathematica, SageManifolds (part of SageMath), Cadabra, Maxima’s ctensor package, and SymPy in Python. The following SymPy script computes the Christoffel symbols, Riemann tensor, Ricci tensor and Ricci scalar of the 2-sphere directly from the formulas above; changing <code class="language-plaintext highlighter-rouge">coords</code> and <code class="language-plaintext highlighter-rouge">g</code> handles any metric.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">sympy</span> <span class="k">as</span> <span class="n">sp</span>
+
+<span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">symbols</span><span class="p">(</span><span class="sh">"</span><span class="s">theta phi a</span><span class="sh">"</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">]</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nc">Matrix</span><span class="p">([[</span><span class="n">a</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">a</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sp</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">]])</span>
+<span class="n">ginv</span> <span class="o">=</span> <span class="n">g</span><span class="p">.</span><span class="nf">inv</span><span class="p">()</span>
+<span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+
+<span class="c1"># Gamma[l][m][k] = Gamma^l_{mk} = 1/2 g^{ls} (d_m g_{sk} + d_k g_{ms} - d_s g_{mk})
+</span><span class="n">Gamma</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">sp</span><span class="p">.</span><span class="nf">simplify</span><span class="p">(</span><span class="nf">sum</span><span class="p">(</span><span class="n">ginv</span><span class="p">[</span><span class="n">l</span><span class="p">,</span> <span class="n">s</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">sp</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="n">k</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="n">m</span><span class="p">])</span>
+                                        <span class="o">+</span> <span class="n">sp</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="n">s</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+                                        <span class="o">-</span> <span class="n">sp</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="n">k</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="n">s</span><span class="p">]))</span>
+                           <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+           <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+
+<span class="k">def</span> <span class="nf">riemann</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">R^r_{s m v} = d_m Gamma^r_{vs} - d_v Gamma^r_{ms}
+                     + Gamma^r_{ml} Gamma^l_{vs} - Gamma^r_{vl} Gamma^l_{ms}</span><span class="sh">"""</span>
+    <span class="n">expr</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="n">v</span><span class="p">][</span><span class="n">s</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="n">m</span><span class="p">])</span> <span class="o">-</span> <span class="n">sp</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="n">m</span><span class="p">][</span><span class="n">s</span><span class="p">],</span> <span class="n">coords</span><span class="p">[</span><span class="n">v</span><span class="p">])</span>
+    <span class="n">expr</span> <span class="o">+=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="n">m</span><span class="p">][</span><span class="n">l</span><span class="p">]</span> <span class="o">*</span> <span class="n">Gamma</span><span class="p">[</span><span class="n">l</span><span class="p">][</span><span class="n">v</span><span class="p">][</span><span class="n">s</span><span class="p">]</span> <span class="o">-</span> <span class="n">Gamma</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="n">v</span><span class="p">][</span><span class="n">l</span><span class="p">]</span> <span class="o">*</span> <span class="n">Gamma</span><span class="p">[</span><span class="n">l</span><span class="p">][</span><span class="n">m</span><span class="p">][</span><span class="n">s</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">sp</span><span class="p">.</span><span class="nf">simplify</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+
+<span class="c1"># Ricci tensor R_{sv} = R^r_{s r v}, Ricci scalar R = g^{sv} R_{sv}
+</span><span class="n">ricci</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nc">Matrix</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">s</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">sp</span><span class="p">.</span><span class="nf">simplify</span><span class="p">(</span><span class="nf">sum</span><span class="p">(</span><span class="nf">riemann</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">))))</span>
+<span class="n">R</span> <span class="o">=</span> <span class="n">sp</span><span class="p">.</span><span class="nf">simplify</span><span class="p">(</span><span class="nf">sum</span><span class="p">(</span><span class="n">ginv</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">ricci</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">)))</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">Gamma</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">Gamma</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>  <span class="c1"># -sin(2*theta)/2, 1/tan(theta)
+</span><span class="nf">print</span><span class="p">(</span><span class="n">sp</span><span class="p">.</span><span class="nf">trigsimp</span><span class="p">(</span><span class="n">ricci</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>        <span class="c1"># an expression equal to sin(theta)**2
+</span><span class="nf">print</span><span class="p">(</span><span class="n">R</span><span class="p">)</span>                               <span class="c1"># 2/a**2
+</span></code></pre></div></div>
+
+<p>SymPy may print trigonometric results in equivalent forms (for example $-\sin 2\theta/2$ for $-\sin\theta\cos\theta$). For four-dimensional metrics the nested-list approach is still practical, but dedicated packages exploit the Riemann symmetries and are much faster. Numerical relativity codes (such as the Einstein Toolkit) solve the field equations in 3+1 form rather than working with the covariant tensors directly; see <a href="../computational-physics/">Computational Physics</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <p>Within relativity:</p>
 
 <ul>
-  <li><a href="general-relativity.html">General Relativity</a> — the equivalence principle, the field equations in context, and the Schwarzschild solution applied.</li>
-  <li><a href="special-relativity.html">Special Relativity</a> — Minkowski spacetime, four-vectors, and the flat-space limit this formalism reduces to.</li>
-  <li><a href="advanced.html">Graduate Formalism &amp; Frontiers</a> — exact solutions (Kerr, FLRW, de Sitter), the Weyl tensor, ADM formalism, black-hole thermodynamics, and quantum-gravity frontiers.</li>
-  <li><a href="./">Relativity Hub</a> — overview and navigation.</li>
+  <li><a href="general-relativity.html">General Relativity</a> — the equivalence principle and the physical content of the field equations.</li>
+  <li><a href="special-relativity.html">Special Relativity</a> — Minkowski spacetime and four-vectors, the flat-space limit of this formalism.</li>
+  <li><a href="black-holes.html">Black Holes</a> — Schwarzschild, Reissner–Nordström and Kerr solutions and their causal structure.</li>
+  <li><a href="gravitational-waves.html">Gravitational Waves</a> — linearized field equations and the Weyl curvature of radiation.</li>
+  <li><a href="quantum-gravity.html">Toward Quantum Gravity</a> — what happens when the Einstein–Hilbert action is quantized.</li>
+  <li><a href="advanced.html">Graduate Formalism &amp; Frontiers</a> and <a href="./">Relativity Hub</a> — overview and navigation.</li>
 </ul>
 
 <p>Elsewhere in physics:</p>
 
 <ul>
-  <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — action principles, Noether’s theorem, and the stress–energy tensor in the relativistic quantum setting.</li>
-  <li><a href="../string-theory/">String Theory</a> — a leading candidate for quantizing the field equations derived here.</li>
-  <li><a href="../computational-physics/">Computational Physics</a> — numerically solving the field equations for binary mergers and gravitational waves.</li>
-  <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
+  <li><a href="../classical-mechanics/lagrangian-hamiltonian.html">Lagrangian and Hamiltonian Mechanics</a> — variational principles and Noether’s theorem in classical mechanics.</li>
+  <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — action principles and the stress–energy tensor in relativistic field theory.</li>
+  <li><a href="../string-theory/">String Theory</a> — a candidate quantum theory of the geometry described here.</li>
+  <li><a href="../computational-physics/">Computational Physics</a> — numerical solution of the field equations.</li>
+  <li><a href="../">Physics Hub</a> — all physics topics.</li>
 </ul>
 
       </section>

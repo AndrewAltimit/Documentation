@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How disorder and quantum interference turn metals into insulators: Anderson localization, weak localization and antilocalization, the mobility edge, the scal...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Condensed Matter: Disorder & Localization">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How disorder and quantum interference turn metals into insulators: Anderson localization, weak localization and antilocalization, the mobility edge, the scal...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/condensed-matter/disorder-and-localization.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Condensed Matter: Disorder & Localization">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How disorder and quantum interference turn metals into insulators: Anderson localization, weak localization and antilocalization, the mobility edge, the scal...">
 
 <title>Condensed Matter: Disorder & Localization | Andrews Notebook</title>
 
@@ -3133,342 +3133,737 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Condensed Matter Physics</a> » Disorder &amp; Localization</p>
 
-<!-- Custom styles are now loaded via main.scss -->
-
 <h2 id="disorder--localization">Disorder &amp; Localization</h2>
 
-<h2 id="why-disorder-changes-everything">Why Disorder Changes Everything</h2>
+<p>Disorder in a solid (impurities, vacancies, alloy randomness, rough interfaces)
+does more than add resistance. Quantum interference between waves scattered by
+random impurities can trap electrons completely, producing an insulator with no
+band gap and no interactions. This page covers that phenomenon, <strong>Anderson
+localization</strong>, from its weak precursor in good metals (weak localization and
+antilocalization) through the metal-insulator transition at the mobility edge,
+the single-parameter scaling theory that organizes the whole subject, transport
+in the localized phase, and <strong>many-body localization</strong>, the interacting,
+finite-temperature extension whose status is still debated. Band theory and
+Bloch states are covered on the <a href="./">hub</a>; the field-theoretic and Green’s-function
+methods on <a href="advanced-formalism.html">Graduate-Level Formalism</a>.</p>
 
-<p>Bloch’s theorem is the foundation of band theory: in a <em>perfect</em> crystal, the eigenstates are extended plane-wave-like states $\psi_{n\mathbf{k}}$ that spread coherently over the entire sample. A perfect crystal with a partially filled band is therefore a <em>perfect conductor</em> — at zero temperature an electron in an extended state propagates forever, and the only thing that gives a real metal finite resistance is scattering off lattice vibrations (phonons) and impurities.</p>
+<h2 id="why-disorder-matters">Why disorder matters</h2>
 
-<p>The conventional picture treats that impurity scattering perturbatively. An electron travels ballistically for a <strong>mean free path</strong> $\ell = v_F \tau$ (with $\tau$ the elastic scattering time and $v_F$ the Fermi velocity), then scatters into a new direction; many such events randomize its momentum and the motion becomes diffusive with diffusion constant $D = v_F^2 \tau / d$ in $d$ dimensions. The Drude/Boltzmann conductivity follows,</p>
+<p>In a perfect crystal Bloch’s theorem guarantees extended eigenstates, so a
+partially filled band is a perfect conductor at $T = 0$. Real metals have finite
+resistance because electrons scatter from phonons and defects. In the
+semiclassical (Drude-Boltzmann) picture an electron travels a <strong>mean free path</strong>
+$\ell = v_F\tau$ between elastic collisions, and over many collisions its motion
+becomes diffusive with diffusion constant $D = v_F^2\tau/d$ in $d$ dimensions. The
+conductivity is</p>
 
-\[\sigma = \frac{n e^2 \tau}{m} = e^2 \, \nu(E_F) \, D,\]
+\[\sigma = \frac{ne^2\tau}{m} = e^2\,\nu(E_F)\,D,\]
 
-<p>where $n$ is the carrier density, $m$ the effective mass, and $\nu(E_F)$ the density of states at the Fermi level. In this <strong>semiclassical</strong> picture disorder merely <em>limits</em> the conductivity to a finite value; it never destroys metallic behavior outright.</p>
+<p>the second form (the Einstein relation) using the density of states per unit
+volume $\nu(E_F)$. In this picture disorder only <em>limits</em> the conductivity.</p>
 
-<p>In 1958 P. W. Anderson showed this picture is incomplete. If the disorder is strong enough — or, as we will see, in low enough dimension for <em>any</em> disorder — quantum interference between the many scattered partial waves can cause the electron wavefunction to become <strong>exponentially localized</strong>:</p>
+<p>In 1958 P. W. Anderson showed that the picture is incomplete. When disorder is
+strong enough, or in low enough dimension for <em>any</em> disorder, interference between
+scattered partial waves makes eigenstates <strong>exponentially localized</strong>:</p>
 
 \[|\psi(\mathbf{r})| \sim \exp\left(-\frac{|\mathbf{r} - \mathbf{r}_0|}{\xi}\right),\]
 
-<p>bound to a region of size $\xi$ (the <strong>localization length</strong>) around some point $\mathbf{r}_0$. A localized electron cannot carry current at $T = 0$: $\sigma \to 0$ even though the density of states at $E_F$ is finite and nonzero. This is <strong>Anderson localization</strong> — a genuine <em>insulator made entirely by disorder</em>, with no band gap, no broken symmetry, and no interactions required. It is one of the cleanest examples of a quantum phase transition driven purely by quantum interference.</p>
+<p>with <strong>localization length</strong> $\xi$. A localized electron carries no dc current at
+$T = 0$, so $\sigma \to 0$ even though the density of states at $E_F$ is finite.
+The result is an insulator produced by disorder alone. Anderson shared the 1977
+Nobel Prize partly for this work, and the effect has since been observed for
+electrons, light, sound, and ultracold atoms.</p>
 
-<p>This page develops the physics in four steps: the Anderson model and the localization transition; the <em>weak-localization</em> quantum correction that survives even in good metals; the <strong>mobility edge</strong> that separates extended from localized states and drives the metal-insulator transition; the <strong>scaling theory</strong> that ties it all together; and finally a note on the modern, interacting cousin, <strong>many-body localization</strong>.</p>
+<h3 id="length-scales-and-regimes">Length scales and regimes</h3>
 
-<h2 id="anderson-localization">Anderson Localization</h2>
+<p>Localization physics is organized by comparing a few lengths with each other and
+with the sample size $L$:</p>
 
-<h3 id="the-anderson-tight-binding-model">The Anderson Tight-Binding Model</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Length</th>
+      <th>Definition</th>
+      <th>Physical meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Fermi wavelength $\lambda_F$</td>
+      <td>$2\pi/k_F$</td>
+      <td>Scale of quantum interference</td>
+    </tr>
+    <tr>
+      <td>Mean free path $\ell$</td>
+      <td>$v_F\tau$</td>
+      <td>Distance between elastic collisions</td>
+    </tr>
+    <tr>
+      <td>Phase-coherence length $L_\phi$</td>
+      <td>$\sqrt{D\tau_\phi}$</td>
+      <td>Distance over which phase memory survives inelastic scattering</td>
+    </tr>
+    <tr>
+      <td>Localization length $\xi$</td>
+      <td>decay length of eigenstates</td>
+      <td>Size of a localized state</td>
+    </tr>
+    <tr>
+      <td>Thermal length $L_T$</td>
+      <td>$\sqrt{\hbar D/k_BT}$</td>
+      <td>Scale set by thermal energy smearing</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The canonical model is a tight-binding lattice with random on-site energies. On a $d$-dimensional lattice with sites $i$,</p>
+<table>
+  <thead>
+    <tr>
+      <th>Regime</th>
+      <th>Condition</th>
+      <th>Behaviour</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Ballistic</td>
+      <td>$L &lt; \ell$</td>
+      <td>Conductance set by the number of channels (Landauer)</td>
+    </tr>
+    <tr>
+      <td>Diffusive, weakly disordered</td>
+      <td>$\ell &lt; L$, $k_F\ell \gg 1$, $L &lt; \xi$</td>
+      <td>Ohmic, with small interference corrections (weak localization)</td>
+    </tr>
+    <tr>
+      <td>Strongly localized</td>
+      <td>$L &gt; \xi$</td>
+      <td>Conductance $\sim e^{-2L/\xi}$; insulating at $T = 0$</td>
+    </tr>
+    <tr>
+      <td>Mesoscopic</td>
+      <td>$L \lesssim L_\phi$</td>
+      <td>Sample-specific fluctuations of order $e^2/h$ (universal conductance fluctuations)</td>
+    </tr>
+  </tbody>
+</table>
 
-\[H = \sum_i \varepsilon_i \, c_i^\dagger c_i - t \sum_{\langle i j \rangle} \left( c_i^\dagger c_j + \text{h.c.} \right),\]
+<p>The <strong>Ioffe-Regel criterion</strong> $k_F\ell \sim 1$ marks where the semiclassical
+picture must fail: the mean free path cannot be shorter than a wavelength.</p>
 
-<p>where $t$ is the hopping amplitude between nearest neighbours and the on-site energies $\varepsilon_i$ are <em>independent random variables</em>, usually drawn from a uniform box distribution of width $W$:</p>
+<p>A useful dimensionless measure is the <strong>Thouless conductance</strong>
+$g = E_{\text{Th}}/\delta$, the ratio of the Thouless energy $E_{\text{Th}} = \hbar D/L^2$
+(the inverse time to diffuse across the sample) to the mean level spacing
+$\delta = 1/(\nu L^d)$. It equals the conductance in units of $e^2/h$ up to a
+numerical factor. Eigenstates are extended when $g \gg 1$ (levels hybridize across
+the sample) and localized when $g \ll 1$. How $g$ changes with $L$ is the content
+of the <a href="#scaling-theory-of-localization">scaling theory</a>.</p>
+
+<h2 id="anderson-localization">Anderson localization</h2>
+
+<h3 id="the-anderson-model">The Anderson model</h3>
+
+<p>The canonical model is a tight-binding lattice with random on-site energies,</p>
+
+\[H = \sum_i \varepsilon_i\, c_i^\dagger c_i - t\sum_{\langle ij\rangle}\left(c_i^\dagger c_j + \text{h.c.}\right),\]
+
+<p>where $t$ is the nearest-neighbour hopping and the $\varepsilon_i$ are independent
+random variables, conventionally drawn from a box distribution of width $W$:</p>
 
 \[P(\varepsilon_i) = \frac{1}{W} \quad \text{for} \quad -\frac{W}{2} \le \varepsilon_i \le \frac{W}{2}.\]
 
-<p>The single dimensionless control parameter is the <strong>disorder strength</strong> $W/t$. When $W = 0$ the model is a clean tight-binding band of width $2zt$ (with $z$ the coordination number), all states extended. The question is what happens as $W/t$ grows.</p>
+<p>The control parameter is the dimensionless disorder strength $W/t$. At $W = 0$ the
+model is a clean band of width $2zt$ ($z$ the coordination number) with all states
+extended.</p>
 
-<h3 id="the-localization-transition">The Localization Transition</h3>
+<h3 id="the-localization-transition">The localization transition</h3>
 
-<p>The physical content is a competition between two effects:</p>
+<p>Hopping delocalizes; disorder localizes. An electron on a site of energy
+$\varepsilon_i$ tunnels efficiently only to a neighbour whose energy lies within
+about $t$ of its own. When the typical mismatch $W$ greatly exceeds $t$, such
+resonances are rare and the electron is trapped. Anderson’s analysis of the
+convergence of the locator (strong-disorder) expansion showed that above a
+critical disorder every eigenstate is localized:</p>
 
-<ul>
-  <li><strong>Hopping</strong> $t$ delocalizes: it wants to spread the electron over the lattice into extended Bloch-like states.</li>
-  <li><strong>Disorder</strong> $W$ localizes: large random energy mismatches between neighbouring sites suppress resonant hopping. An electron on a site of energy $\varepsilon_i$ can only hop efficiently to a neighbour whose energy lies within $\sim t$ of $\varepsilon_i$; when the typical mismatch $\sim W$ greatly exceeds $t$, such resonant neighbours are rare and the electron is trapped.</li>
-</ul>
+\[\frac{W}{t} &gt; \left(\frac{W}{t}\right)_c \;\Longrightarrow\; \text{all states localized} \;\Longrightarrow\; \text{insulator}.\]
 
-<p>Anderson’s insight, sharpened by the locator expansion and later by self-consistent and scaling treatments, is that above a critical disorder $W_c$ <em>all</em> eigenstates become localized:</p>
-
-\[\frac{W}{t} &gt; \left(\frac{W}{t}\right)_c \;\;\Longrightarrow\;\; \text{all states localized} \;\;\Longrightarrow\;\; \text{insulator}.\]
-
-<p>For the 3D cubic-lattice Anderson model with a box distribution the critical value is $(W/t)_c \approx 16.5$. Below threshold, states in the band centre remain extended while states in the band tails are localized — the two are separated by a <em>mobility edge</em> (next section but one).</p>
-
-<h3 id="inverse-participation-ratio-a-diagnostic">Inverse Participation Ratio: A Diagnostic</h3>
-
-<p>A convenient quantitative measure of how spread out an eigenstate $\psi_n(i)$ is across $N$ sites is the <strong>inverse participation ratio</strong> (IPR),</p>
-
-\[P_2^{(n)} = \sum_i |\psi_n(i)|^4 .\]
+<p>The outcome depends on dimension:</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Dimension</th>
+      <th>Critical disorder</th>
+      <th>Localization length at weak disorder</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>If the state spreads uniformly over $M$ sites, each amplitude is $</td>
-      <td>\psi</td>
-      <td>^2 \sim 1/M$ and $P_2 \sim 1/M$. Hence:</td>
+      <td>$d = 1$</td>
+      <td>$W_c = 0$: any disorder localizes all states</td>
+      <td>$\xi \approx 24(4t^2 - E^2)/W^2$ lattice spacings (Thouless); anomalous near $E = 0$, where $\xi \approx 105\,t^2/W^2$</td>
+    </tr>
+    <tr>
+      <td>$d = 2$ (orthogonal class)</td>
+      <td>$W_c = 0$: marginal</td>
+      <td>$\xi \sim \ell\,\exp(\pi k_F\ell/2)$, exponentially large</td>
+    </tr>
+    <tr>
+      <td>$d = 3$ (cubic, box distribution)</td>
+      <td>$W_c \approx 16.5\,t$</td>
+      <td>States in the band centre stay extended for $W &lt; W_c$</td>
     </tr>
   </tbody>
 </table>
 
-<ul>
-  <li><strong>Extended state:</strong> $M \sim N$, so $P_2 \sim 1/N \to 0$ as the system grows.</li>
-  <li><strong>Localized state:</strong> $M \sim \xi^d$, independent of $N$, so $P_2 \to \text{const} &gt; 0$ in the thermodynamic limit.</li>
-</ul>
+<p>For $W &lt; W_c$ in three dimensions, band-centre states are extended while the
+band tails are localized, and the two are separated by a mobility edge
+(<a href="#the-mobility-edge-and-the-metal-insulator-transition">below</a>). Precisely at the
+transition, eigenstates are neither extended nor localized but <strong>multifractal</strong>:
+their moments scale as $\sum_i |\psi(i)|^{2q} \sim L^{-\tau_q}$ with a nonlinear
+spectrum $\tau_q$.</p>
 
-<p>The IPR is the workhorse diagnostic in numerical studies of localization. The following code builds a 1D Anderson chain, diagonalizes it, and shows that <em>every</em> eigenstate is localized — the hallmark of one dimension.</p>
+<h3 id="diagnostics-participation-ratio-and-level-statistics">Diagnostics: participation ratio and level statistics</h3>
+
+<p>The <strong>inverse participation ratio</strong> (IPR) of a normalized eigenstate on $N$ sites,</p>
+
+\[P_2 = \sum_i |\psi(i)|^4,\]
+
+<p>measures the number of sites it occupies, $1/P_2$. An extended state has
+$P_2 \sim 1/N \to 0$; a localized state has $P_2 \to \text{const}$ independent of
+$N$. The code below diagonalizes the 1D Anderson chain and compares the
+disorder-averaged IPR of band-centre states with the clean chain.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<span class="k">def</span> <span class="nf">anderson_1d</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Build the 1D Anderson Hamiltonian: random on-site energies + hopping.</span><span class="sh">"""</span>
+<span class="k">def</span> <span class="nf">anderson_1d</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">1D Anderson Hamiltonian: box-distributed on-site energies + NN hopping.</span><span class="sh">"""</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">W</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">W</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">N</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">t</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">k</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">mean_ipr</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">samples</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Average IPR of eigenstates with |E| &lt; window over disorder realizations.</span><span class="sh">"""</span>
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-    <span class="n">eps</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">W</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">W</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">N</span><span class="p">)</span>   <span class="c1"># disordered on-site energies
-</span>    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">eps</span><span class="p">)</span>
-    <span class="n">off</span> <span class="o">=</span> <span class="o">-</span><span class="n">t</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">ones</span><span class="p">(</span><span class="n">N</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">H</span> <span class="o">+=</span> <span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">off</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">diag</span><span class="p">(</span><span class="n">off</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>    <span class="c1"># nearest-neighbour hopping
-</span>    <span class="k">return</span> <span class="n">H</span>
+    <span class="n">iprs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">samples</span><span class="p">):</span>
+        <span class="n">evals</span><span class="p">,</span> <span class="n">evecs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">eigh</span><span class="p">(</span><span class="nf">anderson_1d</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">))</span>
+        <span class="n">sel</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">evals</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">window</span>
+        <span class="n">iprs</span><span class="p">.</span><span class="nf">extend</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">evecs</span><span class="p">[:,</span> <span class="n">sel</span><span class="p">])</span> <span class="o">**</span> <span class="mi">4</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">iprs</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">inverse_participation_ratio</span><span class="p">(</span><span class="n">psi</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">IPR of a normalized eigenvector; ~1/N if extended, O(1) if localized.</span><span class="sh">"""</span>
-    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
-    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">p</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
-
-<span class="c1"># In 1D, ANY nonzero disorder localizes every state.
-</span><span class="k">for</span> <span class="n">N</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">):</span>
-    <span class="n">H</span> <span class="o">=</span> <span class="nf">anderson_1d</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">W</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-    <span class="n">evals</span><span class="p">,</span> <span class="n">evecs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">eigh</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
-    <span class="n">mid</span> <span class="o">=</span> <span class="n">N</span> <span class="o">//</span> <span class="mi">2</span>                       <span class="c1"># a band-centre state
-</span>    <span class="n">ipr</span> <span class="o">=</span> <span class="nf">inverse_participation_ratio</span><span class="p">(</span><span class="n">evecs</span><span class="p">[:,</span> <span class="n">mid</span><span class="p">])</span>
-    <span class="c1"># IPR stays ~constant as N grows -&gt; localized (a 1/N trend would mean extended)
-</span>    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">N=</span><span class="si">{</span><span class="n">N</span><span class="si">:</span><span class="mi">5</span><span class="n">d</span><span class="si">}</span><span class="s">  IPR(mid)=</span><span class="si">{</span><span class="n">ipr</span><span class="si">:</span><span class="p">.</span><span class="mi">4</span><span class="n">e</span><span class="si">}</span><span class="s">  -&gt;  effective extent ~ </span><span class="si">{</span><span class="mi">1</span><span class="o">/</span><span class="n">ipr</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">f</span><span class="si">}</span><span class="s"> sites</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">W</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">N</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">250</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">):</span>
+        <span class="n">p2</span> <span class="o">=</span> <span class="nf">mean_ipr</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">samples</span><span class="o">=</span><span class="mi">1</span> <span class="k">if</span> <span class="n">W</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">20</span><span class="p">)</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">W=</span><span class="si">{</span><span class="n">W</span><span class="si">:</span><span class="mf">3.1</span><span class="n">f</span><span class="si">}</span><span class="s">  N=</span><span class="si">{</span><span class="n">N</span><span class="si">:</span><span class="mi">5</span><span class="n">d</span><span class="si">}</span><span class="s">  &lt;IPR&gt;=</span><span class="si">{</span><span class="n">p2</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">e</span><span class="si">}</span><span class="s">  N*&lt;IPR&gt;=</span><span class="si">{</span><span class="n">N</span> <span class="o">*</span> <span class="n">p2</span><span class="si">:</span><span class="mf">7.1</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>Running this shows the IPR (and hence the localization length read off as $1/\text{IPR}$) saturating to an $N$-independent value: the state occupies a fixed number of sites no matter how long the chain. Contrast this with a clean chain ($W = 0$), where the IPR would fall off as $1/N$.</p>
+<p>Typical output:</p>
 
-<h2 id="weak-localization--quantum-corrections-to-conductivity">Weak Localization &amp; Quantum Corrections to Conductivity</h2>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>W=0.0  N=  250  &lt;IPR&gt;=5.976e-03  N*&lt;IPR&gt;=    1.5
+W=0.0  N= 2000  &lt;IPR&gt;=7.496e-04  N*&lt;IPR&gt;=    1.5
+W=2.0  N=  250  &lt;IPR&gt;=4.511e-02  N*&lt;IPR&gt;=   11.3
+W=2.0  N= 2000  &lt;IPR&gt;=3.798e-02  N*&lt;IPR&gt;=   76.0
+</code></pre></div></div>
 
-<p>Anderson localization in its strong form needs large disorder. But quantum interference leaves a fingerprint <em>even in good metals</em> with $k_F \ell \gg 1$, in the form of a small, temperature- and field-dependent correction to the Drude conductivity called <strong>weak localization</strong>. It is the precursor of full localization and one of the most experimentally accessible interference effects in solids.</p>
+<p>In the clean chain $N \cdot P_2$ is constant (it equals $3/2$ for standing
+waves), so the IPR falls as $1/N$. With $W = 2t$ the IPR saturates at about
+$0.04$: each state occupies a few tens of sites however long the chain. (For
+localization lengths comparable to $N$ the IPR still drifts, which is why
+numerical work uses finite-size scaling or the transfer-matrix method, where $\xi$
+is the inverse of the smallest Lyapunov exponent of a product of random
+$2\times 2$ transfer matrices.)</p>
 
-<h3 id="the-coherent-backscattering-picture">The Coherent Backscattering Picture</h3>
+<p>A second diagnostic uses the spectrum alone. Localized states at nearby energies
+sit in different places and do not repel, so their level spacings follow Poisson
+statistics; extended states mix and show random-matrix (Wigner-Dyson) level
+repulsion. The mean ratio of consecutive spacings,
+$\langle r\rangle = \langle\min(s_n, s_{n+1})/\max(s_n, s_{n+1})\rangle$, needs no
+unfolding of the density of states and takes the values $2\ln 2 - 1 \approx 0.386$
+(Poisson), $\approx 0.531$ (GOE), $\approx 0.600$ (GUE), and $\approx 0.674$ (GSE).</p>
 
-<p>Consider the quantum amplitude for an electron to return to its starting point after diffusing through the disordered medium. The return probability is a sum over all closed diffusive paths. For any such loop there is a <strong>time-reversed partner</strong> that traverses exactly the same impurities in the opposite order. In the absence of magnetic fields or magnetic impurities, the two amplitudes $A_+$ and $A_- = A_+$ are <em>identical</em> (time-reversal symmetry), so when we square the total amplitude the cross term survives:</p>
+<h2 id="weak-localization-and-antilocalization">Weak localization and antilocalization</h2>
 
-\[|A_+ + A_-|^2 = |A_+|^2 + |A_-|^2 + 2\,\mathrm{Re}(A_+ A_-^*) = 4|A_+|^2,\]
+<p>Strong localization needs strong disorder, but interference leaves a measurable
+fingerprint even in good metals with $k_F\ell \gg 1$: a small, temperature- and
+field-dependent correction to the Drude conductivity called <strong>weak
+localization</strong>. It is the perturbative precursor of Anderson localization.</p>
 
-<table>
-  <tbody>
-    <tr>
-      <td>twice the classical (incoherent) value $2</td>
-      <td>A_+</td>
-      <td>^2$. The electron is therefore <em>more</em> likely to return to its origin than classical diffusion predicts. Enhanced backscattering means reduced forward transport, so the conductivity is <em>reduced</em> below the Drude value. This <strong>constructive interference of time-reversed loops</strong> is the microscopic origin of weak localization, and in diagrammatic language it is the sum of maximally crossed (“Cooperon”) diagrams.</td>
-    </tr>
-  </tbody>
-</table>
+<h3 id="coherent-backscattering">Coherent backscattering</h3>
 
-<h3 id="magnitude-and-dimensionality">Magnitude and Dimensionality</h3>
+<p>The probability for a diffusing electron to return to its starting point is a
+sum over closed paths. Every closed path has a <strong>time-reversed partner</strong> that
+visits the same impurities in the opposite order. With time-reversal symmetry the
+two amplitudes are equal, $A_+ = A_-$, so</p>
 
-<p>Summing over diffusive loops of all durations from the elastic time $\tau$ up to the <strong>phase-coherence time</strong> $\tau_\phi$ (beyond which inelastic scattering randomizes the phase and kills the interference) gives the weak-localization correction. In two dimensions it is logarithmic:</p>
+\[|A_+ + A_-|^2 = |A_+|^2 + |A_-|^2 + 2\,\text{Re}(A_+A_-^*) = 4|A_+|^2,\]
 
-\[\Delta\sigma = -\frac{e^2}{\pi h} \ln\!\left(\frac{\tau_\phi}{\tau}\right) = -\frac{e^2}{\pi h} \ln\!\left(\frac{L_\phi}{\ell}\right),\]
+<p>twice the classical value $2|A_+|^2$. Enhanced return probability means reduced
+forward transport, so the conductivity falls below the Drude value. In
+diagrammatic language this is the sum of maximally crossed diagrams (the
+<strong>Cooperon</strong>). The same effect appears in optics as the coherent-backscattering
+cone of light reflected from a random medium.</p>
 
-<p>where $L_\phi = \sqrt{D \tau_\phi}$ is the phase-coherence length. The general dimensional dependence of the correction (per unit volume in 3D, per square in 2D, per length in 1D) is</p>
+<h3 id="size-of-the-correction">Size of the correction</h3>
 
-\[\Delta\sigma \propto
+<p>Loops contribute from the elastic time $\tau$ up to the <strong>phase-coherence time</strong>
+$\tau_\phi$, beyond which inelastic scattering (electron-electron,
+electron-phonon) randomizes the phase. In two dimensions the correction per
+square is logarithmic:</p>
+
+\[\Delta\sigma_{2D} = -\frac{e^2}{2\pi^2\hbar}\ln\frac{\tau_\phi}{\tau} = -\frac{e^2}{\pi h}\ln\frac{\tau_\phi}{\tau} = -\frac{2e^2}{\pi h}\ln\frac{L_\phi}{L_e},\]
+
+<p>with $L_e = \sqrt{D\tau}$ (spin degeneracy included). In general dimension, up to
+positive numerical prefactors,</p>
+
+\[\Delta\sigma \propto -\frac{e^2}{h}\times
 \begin{cases}
--(L_\phi - \ell) &amp; d = 1, \\
--\ln(L_\phi / \ell) &amp; d = 2, \\
-+(1/\ell - 1/L_\phi) &amp; d = 3.
+L_\phi - L_e &amp; d = 1 \;(\text{conductance times length}), \\
+\ln(L_\phi/L_e) &amp; d = 2, \\
+1/L_e - 1/L_\phi &amp; d = 3 .
 \end{cases}\]
 
-<p>The crucial observation is that in $d \le 2$ the correction <em>diverges</em> as $\tau_\phi \to \infty$ (i.e. as $T \to 0$, since $\tau_\phi$ grows on cooling). The metallic state in one and two dimensions is therefore <em>unstable</em>: lowering the temperature drives $\sigma$ down without bound, and the system flows toward an insulator. This is the perturbative signature of the scaling result that there is <strong>no true metal in 1D or 2D</strong> for noninteracting electrons with time-reversal symmetry.</p>
+<p>The correction is negative in every dimension. In $d = 3$ it stays finite as
+$L_\phi \to \infty$, but in $d \le 2$ it diverges. Because $\tau_\phi$ grows on
+cooling (typically $\tau_\phi \propto T^{-p}$ with $p$ between 1 and 3), the
+conductivity of a 1D or 2D metal decreases without bound as $T \to 0$. This is the
+perturbative signature of the scaling-theory result that non-interacting,
+time-reversal-symmetric electrons have <strong>no true metal in $d \le 2$</strong>.</p>
 
-<h3 id="magnetoresistance-the-experimental-smoking-gun">Magnetoresistance: The Experimental Smoking Gun</h3>
+<h3 id="magnetoresistance-as-the-fingerprint">Magnetoresistance as the fingerprint</h3>
 
-<p>Weak localization is most cleanly identified through its response to a magnetic field. A perpendicular field $B$ threads the time-reversed loops with opposite Aharonov-Bohm phases, breaking the equality $A_+ = A_-$ once the flux through a typical coherent loop reaches a flux quantum. The field thus <em>destroys</em> the interference correction and <em>restores</em> the Drude conductivity:</p>
+<p>A perpendicular magnetic field gives time-reversed loops opposite Aharonov-Bohm
+phases, destroying the interference once the flux through a typical coherent loop
+reaches about one flux quantum. The field therefore <em>restores</em> conductance, giving
+a <strong>negative magnetoresistance</strong> of order $e^2/h$ per square at low field. For a
+2D film, Hikami, Larkin, and Nagaoka (HLN) derived</p>
 
-\[\Delta\sigma(B) - \Delta\sigma(0) &gt; 0 \quad\Longrightarrow\quad \text{negative magnetoresistance.}\]
+\[\sigma(B) - \sigma(0) = \alpha\,\frac{e^2}{2\pi^2\hbar}\left[\psi\!\left(\frac{1}{2} + \frac{B_\phi}{B}\right) - \ln\frac{B_\phi}{B}\right], \qquad B_\phi = \frac{\hbar}{4eL_\phi^2},\]
 
-<p>A characteristic <strong>negative magnetoresistance</strong> at low fields and low temperatures, with a magnitude of order $e^2/h$ per square and a width set by $B_\phi \sim \hbar/(e L_\phi^2)$, is the experimental signature. Measuring its field and temperature dependence is the standard way to extract the phase-coherence length $L_\phi(T)$ in mesoscopic metals and 2D electron gases.</p>
+<p>where $\psi$ is the digamma function. The bracket is positive and grows with $B$.
+In the simplest limits $\alpha = 1$ for weak localization (conductance rises with
+field) and $\alpha = -1/2$ for weak antilocalization (conductance falls). Fitting
+this form to low-field data is the standard way to extract $L_\phi(T)$ in thin
+metal films, semiconductor heterostructures, graphene, and topological-insulator
+surfaces.</p>
 
-<h3 id="spin-orbit-coupling-and-antilocalization">Spin-Orbit Coupling and Antilocalization</h3>
+<h3 id="symmetry-classes-and-antilocalization">Symmetry classes and antilocalization</h3>
 
-<p>The sign of the effect depends on the symmetry class. Strong <strong>spin-orbit scattering</strong> rotates the electron spin around the loop in a way that flips the relative sign of the time-reversed amplitudes, so the interference becomes <em>destructive</em> and <em>enhances</em> the conductivity. This is <strong>weak antilocalization</strong>, which produces a <em>positive</em> low-field magnetoresistance instead — a hallmark of materials with strong spin-orbit coupling (heavy-element metals, topological-insulator surface states). The three canonical behaviours map onto the Wigner-Dyson symmetry classes: orthogonal (weak localization), symplectic (weak antilocalization), and unitary (no correction, time-reversal already broken by $B$).</p>
-
-<h2 id="the-mobility-edge--metal-insulator-transition">The Mobility Edge &amp; Metal-Insulator Transition</h2>
-
-<h3 id="motts-mobility-edge">Mott’s Mobility Edge</h3>
-
-<p>In three dimensions, weak and moderate disorder does not localize everything. Instead, as N. F. Mott emphasized, localized and extended states <em>coexist in energy but never at the same energy</em> — they are separated by a sharp boundary called the <strong>mobility edge</strong> $E_c$:</p>
-
-<ul>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td>States with energy $</td>
-          <td>E</td>
-          <td>&gt; E_c$ (in the band tails, where the density of states is low) are <strong>localized</strong>.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td>States with energy $</td>
-          <td>E</td>
-          <td>&lt; E_c$ (near the band centre, high density of states) are <strong>extended</strong>.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-</ul>
-
-<p>The mobility edge cannot lie at an energy where extended and localized states overlap, because an extended and a localized state at the same energy would hybridize and the localized one would delocalize. The transition at $E_c$ is therefore sharp.</p>
-
-<h3 id="driving-the-metal-insulator-transition">Driving the Metal-Insulator Transition</h3>
-
-<p>Whether the material is a metal or an insulator at $T = 0$ depends on where the Fermi level sits relative to the mobility edge:</p>
-
-\[E_F &gt; E_c \;\Rightarrow\; \text{metal} \qquad\qquad E_F &lt; E_c \;\Rightarrow\; \text{insulator}.\]
-
-<p>There are two experimental knobs:</p>
-
-<ol>
-  <li><strong>Tune the disorder</strong> $W$. Increasing disorder pushes the mobility edge <em>inward</em> toward the band centre. At the critical disorder the two mobility edges (one in each tail) merge at the band centre, $E_c \to 0$, and <em>all</em> states localize — the Anderson transition described earlier.</li>
-  <li><strong>Tune the carrier density / Fermi level.</strong> In doped semiconductors (the textbook example is phosphorus-doped silicon, Si:P) one sweeps $E_F$ through a fixed $E_c$ by changing the dopant concentration. Below a critical density $n_c$ the system is a disorder-driven insulator; above it, a metal.</li>
-</ol>
-
-<p>This <strong>Anderson metal-insulator transition</strong> is a genuine $T = 0$ quantum critical point. It is distinct from the <strong>Mott metal-insulator transition</strong>, which is driven by electron-electron <em>interaction</em> ($U/t$ in the Hubbard model) rather than disorder; real materials such as Si:P near the transition involve <em>both</em> effects, and disentangling them (the “Anderson-Mott” problem) remains an active research question.</p>
-
-<h3 id="critical-behaviour">Critical Behaviour</h3>
+<p>Strong spin-orbit scattering rotates the spin along a loop so that the
+time-reversed amplitudes acquire a relative phase of $\pi$ (a Berry phase from
+the $2\pi$ spin rotation), turning constructive interference into destructive.
+This <strong>weak antilocalization</strong> <em>raises</em> the conductivity and produces a positive
+low-field magnetoresistance. The three behaviours correspond to the Wigner-Dyson
+symmetry classes:</p>
 
 <table>
+  <thead>
+    <tr>
+      <th>Class</th>
+      <th>Time reversal</th>
+      <th>Spin rotation</th>
+      <th>$\beta$</th>
+      <th>Interference correction</th>
+      <th>2D non-interacting ground state</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>Near the transition the localization length on the insulating side and the dc conductivity on the metallic side scale as power laws in the distance $</td>
-      <td>E - E_c</td>
-      <td>$ from the mobility edge:</td>
+      <td>Orthogonal</td>
+      <td>yes</td>
+      <td>yes</td>
+      <td>1</td>
+      <td>weak localization</td>
+      <td>insulator</td>
+      <td>ordinary metal films, Si MOSFETs</td>
+    </tr>
+    <tr>
+      <td>Unitary</td>
+      <td>broken</td>
+      <td>either</td>
+      <td>2</td>
+      <td>suppressed at leading order</td>
+      <td>insulator (except quantum Hall transitions)</td>
+      <td>samples in a field, magnetic impurities</td>
+    </tr>
+    <tr>
+      <td>Symplectic</td>
+      <td>yes ($\Theta^2 = -1$)</td>
+      <td>broken</td>
+      <td>4</td>
+      <td>weak antilocalization</td>
+      <td>metal-insulator transition possible</td>
+      <td>heavy-metal films, InAs/InSb, topological-insulator surfaces</td>
     </tr>
   </tbody>
 </table>
 
-\[\xi \sim |E - E_c|^{-\nu} \qquad (\text{insulating side}), \qquad
-\sigma \sim |E - E_c|^{s} \qquad (\text{metallic side}).\]
+<p>The index $\beta$ is the Dyson index of the corresponding random-matrix ensemble.
+The Altland-Zirnbauer extension to ten classes (adding particle-hole and chiral
+symmetries) underlies the classification of topological insulators and
+superconductors: topological surface states are exactly those that cannot be
+localized by disorder respecting the protecting symmetry.</p>
 
-<p>For the 3D orthogonal class numerics give a critical exponent $\nu \approx 1.57$. Wegner’s scaling relation ties the conductivity exponent to the localization-length exponent,</p>
+<h3 id="interaction-corrections">Interaction corrections</h3>
 
-\[s = \nu \, (d - 2),\]
+<p>Electron-electron interactions in a disordered metal add a separate correction,
+the <strong>Altshuler-Aronov</strong> effect: diffusive motion makes the Coulomb interaction
+more effective, producing a $\ln T$ correction to $\sigma$ in 2D and a zero-bias
+anomaly (a dip in the tunneling density of states at $E_F$). It is distinguished
+experimentally from weak localization because it is insensitive to weak
+perpendicular fields. Interactions also supply the dephasing that sets
+$\tau_\phi$.</p>
 
-<p>so in three dimensions $s = \nu$. The vanishing of $s$ at $d = 2$ is yet another statement that two dimensions is the <strong>lower critical dimension</strong> for the Anderson transition.</p>
+<h2 id="the-mobility-edge-and-the-metal-insulator-transition">The mobility edge and the metal-insulator transition</h2>
 
-<h2 id="scaling-theory-of-localization">Scaling Theory of Localization</h2>
+<h3 id="motts-mobility-edge">Mott’s mobility edge</h3>
 
-<h3 id="the-single-parameter-scaling-hypothesis">The Single-Parameter Scaling Hypothesis</h3>
+<p>In three dimensions moderate disorder localizes only part of the spectrum. As N.
+F. Mott emphasized, localized and extended states are separated in energy by a
+sharp <strong>mobility edge</strong> $E_c$: states in the band tails, where the density of
+states is low, are localized; states in the band centre are extended. The two
+cannot coexist at the same energy, because a localized state degenerate with an
+extended one would hybridize with it and delocalize.</p>
 
-<p>The unifying framework is the <strong>scaling theory of localization</strong> of Abrahams, Anderson, Licciardello, and Ramakrishnan (the “Gang of Four”, 1979). Its central postulate is that the dimensionless conductance of a block of size $L$,</p>
+<figure style="margin: 1.5rem auto; max-width: 480px;">
+<svg viewBox="0 0 480 250" role="img" aria-labelledby="me-title me-desc" style="width: 100%; height: auto; color: currentColor;">
+  <title id="me-title">Mobility edges in a disordered band</title>
+  <desc id="me-desc">Density of states versus energy for a disordered 3D band. The central region between two mobility edges, minus E_c and plus E_c, contains extended states; the two tails beyond them contain localized states. A Fermi level inside a tail gives an insulator; inside the central region a metal.</desc>
+  <defs>
+    <marker id="me-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor" /></marker>
+    <pattern id="me-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1" stroke-opacity="0.45" /></pattern>
+  </defs>
+  <line x1="30" y1="200" x2="460" y2="200" stroke="currentColor" stroke-width="1.5" marker-end="url(#me-arrow)" />
+  <text x="455" y="222" font-size="14" fill="currentColor" text-anchor="end">E</text>
+  <text x="40" y="40" font-size="13" fill="currentColor">DOS</text>
+  <path d="M40,200 C90,199 120,190 150,165 C185,130 205,60 245,60 C285,60 305,130 340,165 C370,190 400,199 450,200 Z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.8" />
+  <path d="M40,200 C90,199 120,190 150,165 L150,200 Z" fill="url(#me-hatch)" />
+  <path d="M340,165 C370,190 400,199 450,200 L340,200 Z" fill="url(#me-hatch)" />
+  <line x1="150" y1="200" x2="150" y2="120" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5,4" />
+  <line x1="340" y1="200" x2="340" y2="120" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5,4" />
+  <text x="150" y="112" font-size="13" fill="currentColor" text-anchor="middle">−E_c</text>
+  <text x="340" y="112" font-size="13" fill="currentColor" text-anchor="middle">+E_c</text>
+  <text x="245" y="150" font-size="14" fill="currentColor" text-anchor="middle">extended</text>
+  <text x="85" y="160" font-size="13" fill="currentColor" text-anchor="middle">localized</text>
+  <text x="405" y="160" font-size="13" fill="currentColor" text-anchor="middle">localized</text>
+  <text x="245" y="238" font-size="12" fill="currentColor" text-anchor="middle">E_F in the extended region: metal. E_F in a hatched tail: insulator.</text>
+</svg>
+<figcaption style="text-align: center; font-size: 0.9em;">Increasing disorder moves the mobility edges toward the band centre; at W = W_c they meet and every state is localized.</figcaption>
+</figure>
 
-\[g(L) = \frac{G(L)}{e^2/h} = \frac{\sigma L^{d-2}}{e^2/h},\]
+<h3 id="driving-the-transition">Driving the transition</h3>
 
-<p>controls everything: when blocks are combined into larger blocks, the <em>only</em> quantity needed to predict the new conductance is the old conductance. The way $g$ changes with system size is captured by a single <strong>beta function</strong>,</p>
+<p>Whether a sample is a metal at $T = 0$ depends on where the Fermi level sits
+relative to $E_c$. There are two ways to cross the transition:</p>
 
-\[\beta(g) = \frac{d \ln g}{d \ln L},\]
+<ol>
+  <li><strong>Tune the disorder.</strong> Increasing $W$ moves both mobility edges inward. At $W_c$ they meet at the band centre and all states localize.</li>
+  <li><strong>Tune the carrier density.</strong> In doped semiconductors, the textbook case being phosphorus-doped silicon (Si:P), changing the dopant concentration sweeps $E_F$ through $E_c$. Below a critical density $n_c$ the material is insulating; above it, metallic. Mott’s criterion $n_c^{1/3}a_B^\ast \approx 0.26$, with $a_B^\ast$ the effective Bohr radius, holds across many semiconductors.</li>
+</ol>
 
-<p>which depends on $g$ alone (not separately on microscopic details). The sign of $\beta$ decides the fate of the system as $L \to \infty$:</p>
+<p>This <strong>Anderson transition</strong> is a $T = 0$ quantum phase transition. It is distinct
+from the <strong>Mott transition</strong>, driven by electron-electron repulsion ($U/t$ in the
+Hubbard model) rather than disorder. Real doped semiconductors involve both, and
+the combined Anderson-Mott problem remains incompletely understood.</p>
+
+<h3 id="critical-behaviour">Critical behaviour</h3>
+
+<p>Near the transition the localization length on the insulating side and the dc
+conductivity on the metallic side follow power laws:</p>
+
+\[\xi \sim |E - E_c|^{-\nu} \quad (\text{insulating side}), \qquad
+\sigma \sim |E - E_c|^{s} \quad (\text{metallic side}).\]
+
+<p>Wegner’s scaling relation ties the exponents together,</p>
+
+\[s = \nu\,(d - 2),\]
+
+<p>so $s = \nu$ in three dimensions and $s \to 0$ as $d \to 2$, another sign that
+two is the lower critical dimension. Transfer-matrix and finite-size-scaling
+numerics for the 3D orthogonal class give $\nu \approx 1.57$ (Slevin and
+Ohtsuki), and the $2 + \epsilon$ expansion gives $\nu \approx 1/\epsilon$ near two
+dimensions. Experiments on doped semiconductors have long reported smaller
+conductivity exponents in some systems (early Si:P data gave $s \approx 1/2$), a
+discrepancy usually attributed to Coulomb interactions placing real materials in
+a different universality class.</p>
+
+<h3 id="transport-in-the-localized-phase">Transport in the localized phase</h3>
+
+<p>An Anderson insulator still conducts at $T &gt; 0$, by phonon-assisted tunneling
+(“hopping”) between localized states. Mott argued that at low temperature the
+optimal hop balances distance against energy mismatch, giving <strong>variable-range
+hopping</strong>:</p>
+
+\[\sigma(T) \propto \exp\left[-\left(\frac{T_0}{T}\right)^{1/(d+1)}\right].\]
+
+<p>Long-range Coulomb interactions open a soft <strong>Coulomb gap</strong> in the single-particle
+density of states at $E_F$, $\nu(E) \propto |E - E_F|^{d-1}$, which changes the
+law to the Efros-Shklovskii form</p>
+
+\[\sigma(T) \propto \exp\left[-\left(\frac{T_{\text{ES}}}{T}\right)^{1/2}\right]\]
+
+<p>in every dimension. A crossover from Mott to Efros-Shklovskii behaviour on cooling
+is commonly observed.</p>
+
+<h2 id="scaling-theory-of-localization">Scaling theory of localization</h2>
+
+<h3 id="single-parameter-scaling">Single-parameter scaling</h3>
+
+<p>The unifying framework is the scaling theory of Abrahams, Anderson, Licciardello,
+and Ramakrishnan (the “Gang of Four”, 1979). Its central hypothesis is that the
+dimensionless conductance of a block of size $L$,</p>
+
+\[g(L) = \frac{G(L)}{e^2/h}, \qquad G(L) = \sigma L^{d-2} \text{ in the ohmic regime},\]
+
+<p>is the only parameter that matters: when blocks are combined into larger blocks,
+the new conductance depends only on the old one. Its flow is captured by a single
+<strong>beta function</strong></p>
+
+\[\beta(g) = \frac{d\ln g}{d\ln L}.\]
+
+<p>If $\beta &gt; 0$, $g$ grows with size and the system is a metal; if $\beta &lt; 0$, $g$
+shrinks toward zero and the system is an insulator.</p>
+
+<h3 id="limits-fix-the-shape-of-the-beta-function">Limits fix the shape of the beta function</h3>
 
 <ul>
-  <li>$\beta(g) &gt; 0$: $g$ <em>grows</em> with size $\to$ flows to large $g$ $\to$ <strong>metal</strong> (extended states).</li>
-  <li>$\beta(g) &lt; 0$: $g$ <em>shrinks</em> with size $\to$ flows to $g \to 0$ $\to$ <strong>insulator</strong> (localized states).</li>
+  <li><strong>Good metal ($g \gg 1$).</strong> Ohm’s law gives $g \propto L^{d-2}$, so
+$\beta(g) = d - 2 - a/g + \ldots$ The $-a/g$ term ($a &gt; 0$ in the orthogonal
+class) is exactly the weak-localization correction computed above.</li>
+  <li><strong>Strong insulator ($g \ll 1$).</strong> Conductance is set by tunneling through the
+sample, $g \sim e^{-L/\xi}$, so $\beta(g) = \ln g + \text{const} \to -\infty$.</li>
 </ul>
 
-<h3 id="limits-fix-the-shape-of-beta">Limits Fix the Shape of $\beta$</h3>
+<p>Assuming $\beta$ is continuous and monotonic between these limits gives the
+standard scaling diagram:</p>
 
-<p>Two limits pin down the beta function:</p>
+<figure style="margin: 1.5rem auto; max-width: 520px;">
+<svg viewBox="0 0 500 320" role="img" aria-labelledby="beta-title beta-desc" style="width: 100%; height: auto; color: currentColor;">
+  <title id="beta-title">Scaling function beta(g) for d = 1, 2, 3</title>
+  <desc id="beta-desc">beta equals d ln g over d ln L plotted against ln g. All three curves go to minus infinity at small g. For d = 3 the curve crosses zero at a critical conductance g_c and approaches plus one at large g; for d = 2 it approaches zero from below; for d = 1 it approaches minus one. Arrows on the ln g axis show flow away from g_c in d = 3.</desc>
+  <defs>
+    <marker id="beta-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="currentColor" /></marker>
+  </defs>
+  <line x1="40" y1="140" x2="480" y2="140" stroke="currentColor" stroke-width="1.5" marker-end="url(#beta-arrow)" />
+  <line x1="60" y1="305" x2="60" y2="20" stroke="currentColor" stroke-width="1.5" marker-end="url(#beta-arrow)" />
+  <text x="475" y="160" font-size="14" fill="currentColor" text-anchor="end">ln g</text>
+  <text x="68" y="28" font-size="14" fill="currentColor">β(g) = d ln g / d ln L</text>
+  <line x1="60" y1="60" x2="470" y2="60" stroke="currentColor" stroke-width="0.8" stroke-dasharray="3,4" stroke-opacity="0.6" />
+  <line x1="60" y1="220" x2="470" y2="220" stroke="currentColor" stroke-width="0.8" stroke-dasharray="3,4" stroke-opacity="0.6" />
+  <text x="52" y="64" font-size="12" fill="currentColor" text-anchor="end">+1</text>
+  <text x="52" y="144" font-size="12" fill="currentColor" text-anchor="end">0</text>
+  <text x="52" y="224" font-size="12" fill="currentColor" text-anchor="end">−1</text>
+  <path d="M70,285 C170,110 250,62 460,61" fill="none" stroke="currentColor" stroke-width="2.4" />
+  <path d="M70,292 C170,165 260,146 460,143" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="9,5" />
+  <path d="M70,299 C170,240 260,223 460,222" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="2,4" />
+  <text x="462" y="54" font-size="13" fill="currentColor" text-anchor="end">d = 3</text>
+  <text x="462" y="134" font-size="13" fill="currentColor" text-anchor="end">d = 2</text>
+  <text x="462" y="214" font-size="13" fill="currentColor" text-anchor="end">d = 1</text>
+  <circle cx="179" cy="140" r="5" fill="currentColor" />
+  <text x="186" y="130" font-size="13" fill="currentColor">g_c</text>
+  <line x1="170" y1="125" x2="120" y2="125" stroke="currentColor" stroke-width="1.5" marker-end="url(#beta-arrow)" />
+  <line x1="215" y1="118" x2="265" y2="118" stroke="currentColor" stroke-width="1.5" marker-end="url(#beta-arrow)" />
+  <text x="100" y="112" font-size="11" fill="currentColor">insulator</text>
+  <text x="235" y="108" font-size="11" fill="currentColor">metal</text>
+</svg>
+<figcaption style="text-align: center; font-size: 0.9em;">Single-parameter scaling for the orthogonal class. Arrows show the direction of flow as the system size grows in d = 3; g_c is an unstable fixed point.</figcaption>
+</figure>
+
+<h3 id="what-the-diagram-says">What the diagram says</h3>
 
 <ul>
-  <li>
-    <p><strong>Good metal (large $g$):</strong> Ohm’s law holds, $g = \sigma L^{d-2}$, so
-\(\beta(g) = d - 2 + O(1/g).\)
-The $O(1/g)$ correction is exactly the weak-localization term computed above, and it is <em>negative</em>, pushing $\beta$ below its classical value $d-2$.</p>
-  </li>
-  <li>
-    <p><strong>Strong insulator (small $g$):</strong> conductance is set by exponentially small tunnelling, $g \sim e^{-L/\xi}$, so
-\(\beta(g) = \ln g + \text{const} \;\xrightarrow{g \to 0}\; -\infty.\)</p>
-  </li>
+  <li><strong>$d = 1$.</strong> $\beta &lt; 0$ for all $g$: every state is localized for any disorder, confirming the numerics above.</li>
+  <li><strong>$d = 2$.</strong> The classical term $d - 2$ vanishes and the weak-localization correction makes $\beta$ slightly negative for all $g$. Conductance flows logarithmically slowly to zero, so two dimensions is the lower critical dimension and non-interacting 2D electrons with time-reversal and spin-rotation symmetry are always localized, though $\xi$ can be astronomically large. In the symplectic class $a &lt; 0$, $\beta$ is positive at large $g$, and a genuine 2D metal-insulator transition exists.</li>
+  <li><strong>$d = 3$.</strong> $\beta$ crosses zero at an unstable fixed point $g_c$. Samples starting above $g_c$ flow to a metal, those below to an insulator; the fixed point is the mobility edge. Linearizing, $\beta(g) \approx (g - g_c)/(\nu g_c)$, so the slope at the crossing gives the localization-length exponent $\nu = 1/[g_c\,\beta’(g_c)]$.</li>
 </ul>
 
-<p>Interpolating smoothly between these limits gives the celebrated scaling diagram:</p>
+<p>One curve therefore explains why disorder always wins in low dimensions, why three
+dimensions has a true metal-insulator transition, and how weak localization and
+strong localization are two ends of the same flow. The field-theoretic
+formulation is the nonlinear sigma model of Wegner and Efetov, in which $\beta(g)$
+is the RG beta function of the coupling $1/g$.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   beta(g) = d ln g / d ln L
-        ^
-        |                              ___________  d = 3  (beta = +1 at large g)
-   +1 --|--------------------_________/
-        |               ____/        UNSTABLE FIXED POINT g_c
-        |          ____/  *............... d = 2  (beta -&gt; 0 from below)
-    0 --|------*--/-------------------------------------------&gt; ln g
-        |     /:
-        |    / :
-        |   /  :                      d = 1  (always below: beta &lt; 0)
-        |  /   :
-        | /    : metal  ---&gt;  if beta&gt;0, g grows  -&gt;  EXTENDED
-        |/     : insulator -&gt; if beta&lt;0, g shrinks -&gt; LOCALIZED
-   -inf *      :
-              g_c (mobility edge, d=3 only)
-</code></pre></div></div>
-
-<h3 id="what-the-diagram-tells-us">What the Diagram Tells Us</h3>
-
-<p>Reading off the three dimensionalities:</p>
+<h3 id="where-single-parameter-scaling-is-modified">Where single-parameter scaling is modified</h3>
 
 <ul>
-  <li>
-    <p><strong>$d = 1$:</strong> $\beta &lt; 0$ for all $g$. <em>Every</em> state is localized for <em>any</em> disorder. A one-dimensional disordered wire is always an insulator at $T = 0$, no matter how weak the disorder — confirming the exact-diagonalization result above.</p>
-  </li>
-  <li>
-    <p><strong>$d = 2$:</strong> $\beta(g) \to 0^-$ from below as $g \to \infty$. The classical term $d - 2 = 0$ vanishes, and the weak-localization correction tips $\beta$ slightly <em>negative</em> for all $g$. So $g$ always flows (logarithmically slowly) to zero: <strong>two dimensions is the marginal, lower critical dimension</strong> — noninteracting electrons in 2D with time-reversal symmetry are <em>always</em> localized, though the localization length can be astronomically large. (Strong spin-orbit coupling changes the symmetry class and can rescue a 2D metal — the antilocalization story.)</p>
-  </li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>$d = 3$:</strong> $\beta$ crosses zero at an <em>unstable fixed point</em> $g = g_c$. This sign change <em>is</em> the mobility edge. If a sample starts with $g &gt; g_c$ it flows to a metal; if $g &lt; g_c$ it flows to an insulator. The fixed point is a genuine <strong>quantum critical point</strong>, and linearizing $\beta$ about $g_c$ gives the localization-length exponent $\nu = 1/\beta’(g_c)$, recovering the critical scaling $\xi \sim</td>
-          <td>E - E_c</td>
-          <td>^{-\nu}$ of the previous section.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
+  <li><strong>Quantum Hall systems.</strong> In a strong field (unitary class) almost all states in a disordered Landau level are localized, which produces the plateaus of the <a href="emergent-phases.html#quantum-hall-effects">quantum Hall effect</a>, but one critical energy per level carries extended states. The plateau transition is a two-parameter flow in $(\sigma_{xx}, \sigma_{xy})$; numerical studies of the Chalker-Coddington network model give $\nu \approx 2.6$, and the critical theory is still not established.</li>
+  <li><strong>Interacting 2D systems.</strong> Clean, low-density silicon MOSFETs and other 2D carrier systems show an apparent metal-insulator transition (Kravchenko and co-workers, 1994 onward), contrary to the non-interacting prediction. Strong interactions ($r_s \gg 1$) are believed responsible; the nature of the metallic phase remains debated.</li>
+  <li><strong>Topological protection.</strong> Surface states of 3D topological insulators and edge states of quantum spin Hall insulators are not localized by time-reversal-symmetric disorder. The quantum spin Hall edge, for example, cannot backscatter without breaking time-reversal symmetry.</li>
 </ul>
 
-<p>Single-parameter scaling thus explains, from one curve, why disorder always wins in low dimensions, why three dimensions has a true metal-insulator transition, and how the weak-localization correction and the strong-localization insulator are two ends of the same flow.</p>
+<h2 id="experimental-realizations">Experimental realizations</h2>
 
-<h2 id="a-note-on-many-body-localization">A Note on Many-Body Localization</h2>
+<p>Anderson localization is a wave phenomenon and has been observed well beyond
+electrons in solids:</p>
 
-<p>Everything above concerns <em>noninteracting</em> electrons (or, in the weak-localization story, interactions treated only as a source of dephasing). A profound modern question is what survives when strong interactions are present at $T &gt; 0$. The answer is <strong>many-body localization (MBL)</strong> — a phase in which an <em>interacting, isolated</em> quantum system fails to reach thermal equilibrium because of disorder.</p>
+<table>
+  <thead>
+    <tr>
+      <th>System</th>
+      <th>Observation</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Doped semiconductors (Si:P, Si:B, Ge:Sb)</td>
+      <td>Density-tuned metal-insulator transition; variable-range hopping</td>
+      <td>Coulomb interactions always present</td>
+    </tr>
+    <tr>
+      <td>Thin metal films, 2D electron gases, graphene</td>
+      <td>Weak localization and antilocalization magnetoresistance</td>
+      <td>Standard measurement of $L_\phi$</td>
+    </tr>
+    <tr>
+      <td>Light in disordered photonic lattices</td>
+      <td>Transverse localization of a beam (2007)</td>
+      <td>Clean control of disorder; earlier 3D claims were contested because absorption mimics localization</td>
+    </tr>
+    <tr>
+      <td>Ultrasound in elastic networks</td>
+      <td>3D localization of classical waves (2008)</td>
+      <td>No interactions, no dephasing</td>
+    </tr>
+    <tr>
+      <td>Ultracold atoms</td>
+      <td>1D localization of Bose-Einstein condensates in speckle and quasi-periodic potentials (2008); 3D localization and mobility-edge measurements (2011-2015)</td>
+      <td>Direct imaging of exponential profiles; tunable interactions</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="localization-meets-thermalization">Localization Meets Thermalization</h3>
+<h2 id="many-body-localization">Many-body localization</h2>
 
-<p>An isolated quantum many-body system is normally expected to act as its own heat bath: under unitary evolution local subsystems reach a thermal (Gibbs) state, a statement formalized by the <strong>eigenstate thermalization hypothesis</strong> (ETH). MBL is the dramatic <em>failure</em> of ETH. In a strongly disordered, interacting system the highly excited many-body eigenstates remain <em>non-thermal</em>: the system retains memory of its initial conditions forever, transport is absent at <em>finite</em> energy density, and the usual machinery of statistical mechanics simply does not apply.</p>
+<p>Everything above concerns non-interacting particles, with interactions entering
+only as a source of dephasing. <strong>Many-body localization (MBL)</strong> asks whether
+localization survives in an isolated, interacting system at nonzero energy
+density. If it does, the system never reaches thermal equilibrium on its own.</p>
 
-<p>Whereas Anderson localization concerns single-particle wavefunctions at $T = 0$, MBL is a property of <em>all</em> (or many) eigenstates across the <em>entire</em> many-body spectrum, surviving at nonzero energy density (effectively $T &gt; 0$) even with interactions switched on.</p>
+<h3 id="thermalization-and-its-failure">Thermalization and its failure</h3>
 
-<h3 id="signatures-of-the-mbl-phase">Signatures of the MBL Phase</h3>
+<p>An isolated quantum many-body system is normally its own heat bath: under unitary
+evolution, small subsystems approach a thermal state. The <strong>eigenstate
+thermalization hypothesis</strong> (ETH) explains this by positing that individual highly
+excited eigenstates already look thermal to local observables. MBL is the proposed
+failure of ETH. Basko, Aleiner, and Altshuler (2006) argued perturbatively that
+weakly interacting electrons with localized single-particle states remain
+insulating up to a finite temperature, and numerical studies of spin chains such
+as the random-field Heisenberg model</p>
 
-<p>The MBL phase is characterized by a cluster of related properties:</p>
+\[H = J\sum_i \mathbf{S}_i\cdot\mathbf{S}_{i+1} + \sum_i h_i S_i^z, \qquad h_i \in [-W, W],\]
+
+<p>found an apparent transition from ergodic to localized behaviour near
+$W/J \approx 3.5$-$4$.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Thermal (ETH)</th>
+      <th>Anderson (non-interacting)</th>
+      <th>Many-body localized</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Local memory of initial state</td>
+      <td>lost</td>
+      <td>retained</td>
+      <td>retained</td>
+    </tr>
+    <tr>
+      <td>dc transport at $T &gt; 0$</td>
+      <td>yes</td>
+      <td>none without a bath</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Eigenstate entanglement</td>
+      <td>volume law</td>
+      <td>area law</td>
+      <td>area law</td>
+    </tr>
+    <tr>
+      <td>Entanglement growth after a quench</td>
+      <td>linear in $t$</td>
+      <td>saturates quickly</td>
+      <td>logarithmic in $t$</td>
+    </tr>
+    <tr>
+      <td>Level statistics</td>
+      <td>Wigner-Dyson</td>
+      <td>Poisson</td>
+      <td>Poisson</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="phenomenology-of-the-mbl-regime">Phenomenology of the MBL regime</h3>
+
+<p>Deep in the localized regime the Hamiltonian can be written in terms of an
+extensive set of quasi-local conserved quantities $\tau_i^z$, the <strong>l-bits</strong>,
+which are dressed versions of the local degrees of freedom:</p>
+
+\[H = \sum_i h_i\,\tau_i^z + \sum_{ij}J_{ij}\,\tau_i^z\tau_j^z + \sum_{ijk}K_{ijk}\,\tau_i^z\tau_j^z\tau_k^z + \cdots,\]
+
+<p>with couplings decaying exponentially with distance. Because each $\tau_i^z$ is
+conserved, nothing is transported, yet the exponentially small couplings
+$J_{ij}$ dephase distant l-bits over times $t \sim e^{|i-j|/\xi}$. That is why
+entanglement grows as $S(t) \sim \ln t$ even though energy and particles do not
+move, the sharpest difference between MBL and Anderson localization.</p>
+
+<h3 id="experiments">Experiments</h3>
+
+<p>Signatures of MBL have been reported in several quantum simulators: persistent
+density imbalance of fermions in a 1D quasi-periodic optical lattice (Munich,
+2015) and of bosons in 2D (2016), and localization with slow entanglement growth
+in trapped-ion chains and superconducting-qubit processors. Related
+disorder-free forms exist: <strong>Stark MBL</strong> in a linear potential, and
+<strong>quasi-periodic</strong> localization (Aubry-André), which has a sharp transition even
+in 1D. Many-body localization was also the first proposed mechanism for
+stabilizing <strong>discrete time crystals</strong>, observed in trapped ions and NV-centre
+ensembles in 2017 and on a superconducting processor in 2021-22.</p>
+
+<h3 id="the-stability-debate">The stability debate</h3>
+
+<p>Whether MBL is a true phase of matter in the thermodynamic limit, rather than a
+very long-lived transient, has been the central question since about 2020.</p>
 
 <ul>
-  <li><strong>Emergent integrability / local integrals of motion (l-bits).</strong> Deep in the MBL phase the Hamiltonian can be written in terms of an extensive set of <em>quasi-local</em> conserved quantities $\tau_i^z$ (“l-bits”),
-\(H = \sum_i h_i\, \tau_i^z + \sum_{ij} J_{ij}\, \tau_i^z \tau_j^z + \sum_{ijk} K_{ijk}\, \tau_i^z \tau_j^z \tau_k^z + \cdots,\)
-with couplings $J_{ij}$ that decay exponentially with distance. These conserved l-bits are dressed versions of the bare single-particle localized states and are the structural reason equilibration fails.</li>
-  <li><strong>Logarithmic entanglement growth.</strong> Starting from a product state, the entanglement entropy grows only <em>logarithmically</em> in time, $S(t) \sim \ln t$, in stark contrast to the <em>ballistic</em> (linear-in-$t$) growth of a thermalizing system. Crucially, this slow growth happens even though transport of energy and charge is frozen — interactions dephase the l-bits without moving them.</li>
-  <li><strong>Poisson level statistics.</strong> Energy levels in the MBL phase are <em>uncorrelated</em> and obey Poisson statistics (no level repulsion), whereas a thermalizing system shows Wigner-Dyson (random-matrix) level repulsion. The crossover in the level-spacing ratio is a standard numerical diagnostic of the MBL transition.</li>
-  <li><strong>Area-law excited states.</strong> Highly excited MBL eigenstates obey an <em>area law</em> for entanglement entropy, like ground states, rather than the <em>volume law</em> expected of thermal states.</li>
+  <li><strong>Finite-size drifts.</strong> Šuntajs, Bonča, Prosen, and Vidmar (2020) pointed out that the apparent critical disorder in exact-diagonalization studies drifts upward with system size, so the thermodynamic-limit transition could lie at much stronger disorder, or not exist.</li>
+  <li><strong>Avalanches.</strong> De Roeck and Huveneers argued that rare, locally ergodic regions can act as baths that thermalize their surroundings, with the thermal region growing like an avalanche. This destabilizes MBL in $d &gt; 1$ and with sufficiently slowly decaying interactions, and in 1D pushes the critical disorder well above the early estimates.</li>
+  <li><strong>Prethermal MBL.</strong> The emerging picture distinguishes a <strong>prethermal MBL regime</strong>, in which dynamics are frozen on all experimentally and numerically accessible time scales, from asymptotic MBL at infinite times. The existence of the latter in 1D at very strong disorder is still unresolved, and in two or more dimensions it is widely thought not to exist.</li>
 </ul>
 
-<h3 id="why-it-matters-and-open-questions">Why It Matters and Open Questions</h3>
+<p>For experiments and quantum devices, which always operate at finite times, the
+prethermal regime already delivers the practical payoff: slow relaxation that
+protects local quantum information and non-equilibrium order. Sierant, Lewenstein,
+Scardicchio, Vidmar, and Zakrzewski, “Many-body localization in the age of
+classical computing” (<em>Rep. Prog. Phys.</em>, 2025), review the current state of the
+problem.</p>
 
-<p>MBL is significant because it is one of very few known mechanisms that protects quantum coherence at finite temperature in a generic interacting system — it can shelter quantum order and even forbidden phases (such as time crystals and certain symmetry-protected topological orders) in highly excited states where thermal fluctuations would normally destroy them.</p>
+<h2 id="references">References</h2>
 
-<p>The field remains unsettled. The existence and stability of a true MBL <em>phase</em> in the thermodynamic limit, especially in dimensions above one and in the presence of rare thermal “avalanche” inclusions, is actively debated; much of the firm evidence comes from one-dimensional numerics and from cold-atom and trapped-ion experiments that realize isolated, tunable disordered chains. MBL sits at the intersection of localization physics, quantum thermodynamics, and quantum information, and is treated further among the non-equilibrium frontiers in <a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a>.</p>
+<ol>
+  <li>P. W. Anderson, “Absence of diffusion in certain random lattices,” <em>Phys. Rev.</em> 109, 1492 (1958).</li>
+  <li>E. Abrahams, P. W. Anderson, D. C. Licciardello, T. V. Ramakrishnan, “Scaling theory of localization,” <em>Phys. Rev. Lett.</em> 42, 673 (1979).</li>
+  <li>P. A. Lee and T. V. Ramakrishnan, “Disordered electronic systems,” <em>Rev. Mod. Phys.</em> 57, 287 (1985).</li>
+  <li>F. Evers and A. D. Mirlin, “Anderson transitions,” <em>Rev. Mod. Phys.</em> 80, 1355 (2008).</li>
+  <li>E. Akkermans and G. Montambaux, <em>Mesoscopic Physics of Electrons and Photons</em> (2007).</li>
+  <li>B. I. Shklovskii and A. L. Efros, <em>Electronic Properties of Doped Semiconductors</em> (1984).</li>
+  <li>D. A. Abanin, E. Altman, I. Bloch, M. Serbyn, “Colloquium: Many-body localization, thermalization, and entanglement,” <em>Rev. Mod. Phys.</em> 91, 021001 (2019).</li>
+</ol>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and the Bloch states that disorder localizes.</li>
-  <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — quantum Hall plateaus rely on disorder-localized states between extended edge channels.</li>
-  <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — Green’s functions, ARPES/transport probes, and the many-body-localization frontier.</li>
-  <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic (nonlinear sigma model) treatments of the localization classes.</li>
+  <li><a href="metals-and-magnetism.html">Metals &amp; Magnetism</a> — Drude and Fermi-liquid theory of the clean metal.</li>
+  <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — quantum Hall plateaus rely on localized states between extended ones.</li>
+  <li><a href="advanced-formalism.html">Graduate-Level Formalism</a> — Green’s functions, the tenfold way, and scaling theory of quantum phase transitions.</li>
+  <li><a href="experimental-techniques.html">Experimental Techniques</a> — magnetotransport and the measurement of $L_\phi$.</li>
+  <li><a href="../quantum-field-theory.html">Quantum Field Theory</a> — field-theoretic methods, including the nonlinear sigma model.</li>
   <li><a href="../computational-physics/">Computational Physics</a> — exact diagonalization and transfer-matrix methods used to map localization transitions.</li>
 </ul>
 

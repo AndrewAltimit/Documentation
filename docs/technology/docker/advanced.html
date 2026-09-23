@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Running Docker in production: Compose for deployment, resource limits, health-gated rollouts, secrets, network segmentation, Docker Swarm, and reference arch...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Docker: Production Patterns">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Running Docker in production: Compose for deployment, resource limits, health-gated rollouts, secrets, network segmentation, Docker Swarm, and reference arch...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/docker/advanced.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Docker: Production Patterns">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Running Docker in production: Compose for deployment, resource limits, health-gated rollouts, secrets, network segmentation, Docker Swarm, and reference arch...">
 
 <title>Docker: Production Patterns | Andrews Notebook</title>
 
@@ -3133,248 +3133,347 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Docker</a> » Production Patterns</p>
 
-<p>This page assumes you are comfortable with images, containers, and Dockerfiles. It looks at how Docker is run <strong>in production at scale</strong>: the recurring shapes of real-world architectures, how to grow a Docker Compose file from a laptop convenience into a deployable production stack, how Docker Swarm turns a fleet of hosts into one cluster, and what migrating to containers looks like through worked case studies. Treat it as a tour of “what good looks like” once the basics are second nature.</p>
+<p>This page covers what changes when containers move from a laptop to production: replication, resource governance, health-gated rolling updates, secrets, network segmentation, and logging, expressed first with <strong>Docker Compose</strong> and then across a cluster with <strong>Docker Swarm</strong>. It closes with two reference architectures (a microservices storefront and an ML model-serving platform) and guidance on when to move to Kubernetes. It assumes familiarity with images, Dockerfiles, and Compose. Multi-container patterns (sidecar, ambassador, init) and image hardening are on <a href="docker-design-patterns.html">Design Patterns</a>; alternative runtimes (gVisor, Kata, Firecracker, WebAssembly) are on <a href="../container-runtimes.html">Container Runtimes</a>.</p>
 
-<div class="notice--info">
-  <p><strong>Two topics moved out of this page.</strong> The multi-container <em>design patterns</em> (Sidecar, Ambassador, Adapter, Init) and image/runtime <em>security patterns</em> (distroless, non-root, Falco) now live on <a href="docker-design-patterns.html">Docker: Design Patterns</a>. The <em>runtime alternatives</em> below Docker — gVisor, Kata, Firecracker microVMs, and WebAssembly/WASI — now live on <a href="../container-runtimes.html">Container Runtimes &amp; Alternatives</a>. This page links to both rather than duplicating them.</p>
-</div>
+<h2 id="what-production-adds">What Production Adds</h2>
 
-<h2 id="what-production-adds">What “Production” Adds</h2>
+<p>The image that runs in production is the same artifact that ran in CI. What differs is everything around it:</p>
 
-<p>A container that runs on your laptop and a container that runs in production are the same artifact, but the surrounding machinery is entirely different. Production deployment is mostly about the <em>non-functional</em> requirements the happy-path demo never exercises:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Concern</th>
+      <th>Failure it prevents</th>
+      <th>Compose / Swarm mechanism</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Replication</td>
+      <td>One crash takes the service down</td>
+      <td><code class="language-plaintext highlighter-rouge">deploy.replicas</code>, Swarm scheduling</td>
+    </tr>
+    <tr>
+      <td>Resource governance</td>
+      <td>One service starves its neighbors, or the host OOM-kills the wrong process</td>
+      <td><code class="language-plaintext highlighter-rouge">deploy.resources.limits</code> and <code class="language-plaintext highlighter-rouge">reservations</code></td>
+    </tr>
+    <tr>
+      <td>Health checking</td>
+      <td>Traffic sent to a process that is up but not working</td>
+      <td><code class="language-plaintext highlighter-rouge">healthcheck</code>, <code class="language-plaintext highlighter-rouge">depends_on: service_healthy</code></td>
+    </tr>
+    <tr>
+      <td>Zero-downtime updates</td>
+      <td>Deploys cause outages; bad versions stay live</td>
+      <td><code class="language-plaintext highlighter-rouge">update_config</code>, <code class="language-plaintext highlighter-rouge">rollback_config</code> (Swarm)</td>
+    </tr>
+    <tr>
+      <td>Secret management</td>
+      <td>Credentials leaked through images, <code class="language-plaintext highlighter-rouge">docker inspect</code>, or logs</td>
+      <td><code class="language-plaintext highlighter-rouge">secrets:</code> mounted under <code class="language-plaintext highlighter-rouge">/run/secrets</code></td>
+    </tr>
+    <tr>
+      <td>Network segmentation</td>
+      <td>A compromised front end reaches the database</td>
+      <td>Multiple networks, <code class="language-plaintext highlighter-rouge">internal: true</code></td>
+    </tr>
+    <tr>
+      <td>Log management</td>
+      <td>Unbounded log files fill the disk</td>
+      <td>Logging driver with rotation</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>Replication and load distribution</strong> — one instance is a single point of failure; production runs N replicas behind a load balancer.</li>
-  <li><strong>Zero-downtime updates</strong> — new versions roll out a few replicas at a time, with health gates and automatic rollback if the new version is unhealthy.</li>
-  <li><strong>Resource governance</strong> — CPU and memory limits so one noisy service cannot starve its neighbors, and reservations so the scheduler places work where it fits.</li>
-  <li><strong>Secret management</strong> — credentials injected at runtime, never baked into the image or committed to a compose file.</li>
-  <li><strong>Network segmentation</strong> — public-facing services on one network, databases on an internal-only network the outside world cannot reach.</li>
-  <li><strong>Observability</strong> — health checks, metrics, and logs wired in so failures are detected before users notice.</li>
-</ul>
+<h2 id="reference-architectures">Reference Architectures</h2>
 
-<p>The rest of this page shows how Compose and Swarm express each of these, anchored in real architectures.</p>
-
-<h2 id="real-world-architectures">Real-World Architectures</h2>
-
-<p>Most production Docker deployments fall into a handful of recurring shapes. Recognizing which one you are building tells you which concerns to prioritize.</p>
-
-<pre><code class="language-mermaid">flowchart TB
-    Internet((Internet)) --&gt; LB["Load balancer /&lt;br/&gt;API gateway"]
-    LB --&gt; S1["Service A&lt;br/&gt;(N replicas)"]
-    LB --&gt; S2["Service B&lt;br/&gt;(N replicas)"]
-    S1 --&gt; Cache[("Cache&lt;br/&gt;Redis")]
-    S1 --&gt; DB1[("Database A")]
-    S2 --&gt; MQ[("Message queue&lt;br/&gt;Kafka")]
-    S2 --&gt; DB2[("Database B")]
-    subgraph frontend["frontend network (encrypted overlay)"]
-        LB
-    end
-    subgraph backend["backend network (internal only)"]
-        S1
-        S2
-        Cache
-        DB1
-        DB2
-        MQ
-    end
-</code></pre>
+<p>Most containerized systems follow one of a few shapes, and the shape determines which concerns dominate.</p>
 
 <table>
   <thead>
     <tr>
       <th>Architecture</th>
       <th>Shape</th>
-      <th>Where Docker fits</th>
+      <th>Dominant concerns</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Microservices</strong></td>
-      <td>Many small services behind a gateway, each owning its data</td>
-      <td>One image per service; replicas scaled independently</td>
+      <td>Many services behind a gateway, each owning its data</td>
+      <td>Independent scaling and rollouts, service discovery, network segmentation</td>
     </tr>
     <tr>
       <td><strong>Worker pool</strong></td>
-      <td>A queue feeding a horizontally scaled set of stateless workers</td>
-      <td>Scale the worker service to match queue depth</td>
+      <td>A queue feeding horizontally scaled stateless workers</td>
+      <td>Scaling to queue depth, idempotent processing, graceful shutdown</td>
     </tr>
     <tr>
-      <td><strong>Edge / CDN origin</strong></td>
-      <td>Stateless app servers fronted by a CDN, sharing a cache tier</td>
-      <td>Tiny, fast-starting images for rapid scale-out</td>
+      <td><strong>Stateless web tier</strong></td>
+      <td>Identical app servers behind a load balancer or CDN, shared cache</td>
+      <td>Fast startup, small images, health-gated rollouts</td>
     </tr>
     <tr>
-      <td><strong>Batch / ETL</strong></td>
-      <td>Short-lived jobs that run to completion on a schedule</td>
-      <td>Run-once containers; orchestrator handles retries</td>
+      <td><strong>Batch / scheduled jobs</strong></td>
+      <td>Containers that run to completion</td>
+      <td>Retries, exit codes, resource requests (often GPUs)</td>
     </tr>
   </tbody>
 </table>
 
-<p>The microservices shape is the one most teams reach for, and it is the architecture the case study below walks through end to end.</p>
+<pre><code class="language-mermaid">flowchart TB
+    Internet((Internet)) --&gt; GW["API gateway&lt;br/&gt;(replicated)"]
+    subgraph frontend["frontend network"]
+        GW
+    end
+    subgraph backend["backend network (internal: no external route)"]
+        P["product service&lt;br/&gt;(N replicas)"]
+        O["order service&lt;br/&gt;(N replicas)"]
+        C[("Redis cache")]
+        PDB[("product DB")]
+        ODB[("order DB")]
+        K[("Kafka")]
+        W["workers&lt;br/&gt;(consume events)"]
+    end
+    GW --&gt; P
+    GW --&gt; O
+    P --&gt; C
+    P --&gt; PDB
+    O --&gt; ODB
+    O --&gt;|order events| K
+    K --&gt; W
+</code></pre>
 
-<h2 id="docker-compose-at-scale">Docker Compose at Scale</h2>
+<p>The gateway is the only service attached to the public network. Everything else, including every data store, sits on an internal network with no route to or from the outside.</p>
 
-<p>Docker Compose starts life as a developer convenience — <code class="language-plaintext highlighter-rouge">docker compose up</code> to bring a stack online locally. The same file format, with the <code class="language-plaintext highlighter-rouge">deploy:</code> block and a few discipline changes, becomes a legitimate production descriptor (deployed directly by Docker Swarm via <code class="language-plaintext highlighter-rouge">docker stack deploy</code>, or used as the source of truth a CI pipeline translates). Growing a compose file to production scale means layering on the concerns from the previous section.</p>
+<h2 id="compose-in-production">Compose in Production</h2>
 
-<h3 id="replicas-resources-and-update-policy">Replicas, Resources, and Update Policy</h3>
+<p>Compose files are the usual deployment descriptor for single-host production and, through <code class="language-plaintext highlighter-rouge">docker stack deploy</code>, for Swarm. The same format covers both, but the two consumers honor different parts of it.</p>
 
-<p>The <code class="language-plaintext highlighter-rouge">deploy:</code> block is the heart of a production compose service. It is <em>ignored</em> by plain <code class="language-plaintext highlighter-rouge">docker compose up</code> but honored by <code class="language-plaintext highlighter-rouge">docker stack deploy</code> (Swarm). It declares how many replicas to run, how to bound their resource use, and how to roll new versions out.</p>
+<h3 id="what-each-tool-honors">What each tool honors</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Compose key</th>
+      <th><code class="language-plaintext highlighter-rouge">docker compose up</code> (single host)</th>
+      <th><code class="language-plaintext highlighter-rouge">docker stack deploy</code> (Swarm)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">deploy.replicas</code></td>
+      <td>Yes (runs N containers)</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">deploy.resources</code> (limits, reservations, GPU devices)</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">deploy.update_config</code>, <code class="language-plaintext highlighter-rouge">rollback_config</code></td>
+      <td>Ignored</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">deploy.placement</code></td>
+      <td>Ignored</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">depends_on</code></td>
+      <td>Yes (with conditions)</td>
+      <td>Ignored: services must tolerate dependencies starting in any order</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">build:</code></td>
+      <td>Yes</td>
+      <td>Ignored: images must come from a registry</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">secrets:</code></td>
+      <td>File-backed secrets only</td>
+      <td>Swarm secrets (<code class="language-plaintext highlighter-rouge">external: true</code>) or files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">healthcheck</code></td>
+      <td>Yes</td>
+      <td>Yes (also gates rolling updates)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The top-level <code class="language-plaintext highlighter-rouge">version:</code> key is obsolete: current Compose ignores it and warns. Omit it.</p>
+
+<h3 id="structuring-files-per-environment">Structuring files per environment</h3>
+
+<p>Keep one base file and layer environment-specific differences on top:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># compose.yaml holds the service graph; compose.prod.yaml adds limits, replicas, logging</span>
+docker compose <span class="nt">-f</span> compose.yaml <span class="nt">-f</span> compose.prod.yaml up <span class="nt">-d</span> <span class="nt">--wait</span>
+</code></pre></div></div>
+
+<p>Later files override or extend earlier ones key by key. <code class="language-plaintext highlighter-rouge">--wait</code> blocks until services are running and healthy, which makes the command usable as a deployment step. Other structuring features: <code class="language-plaintext highlighter-rouge">include:</code> pulls in another project’s Compose file (with its own relative paths), and <code class="language-plaintext highlighter-rouge">profiles:</code> marks optional services (debug tools, one-off admin jobs) that start only when their profile is enabled.</p>
+
+<h3 id="replicas-resources-and-update-policy">Replicas, resources, and update policy</h3>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">services</span><span class="pi">:</span>
   <span class="na">product-service</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">company/product-service:${VERSION}</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/product-service:${VERSION:?set VERSION}</span>
     <span class="na">deploy</span><span class="pi">:</span>
       <span class="na">replicas</span><span class="pi">:</span> <span class="m">5</span>
       <span class="na">resources</span><span class="pi">:</span>
         <span class="na">limits</span><span class="pi">:</span>
-          <span class="na">cpus</span><span class="pi">:</span> <span class="s1">'</span><span class="s">2'</span>
+          <span class="na">cpus</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span>
           <span class="na">memory</span><span class="pi">:</span> <span class="s">2G</span>
         <span class="na">reservations</span><span class="pi">:</span>
-          <span class="na">cpus</span><span class="pi">:</span> <span class="s1">'</span><span class="s">1'</span>
+          <span class="na">cpus</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0.5"</span>
           <span class="na">memory</span><span class="pi">:</span> <span class="s">1G</span>
       <span class="na">update_config</span><span class="pi">:</span>
-        <span class="na">parallelism</span><span class="pi">:</span> <span class="m">2</span>          <span class="c1"># update 2 replicas at a time</span>
-        <span class="na">delay</span><span class="pi">:</span> <span class="s">10s</span>              <span class="c1"># wait 10s between batches</span>
-        <span class="na">failure_action</span><span class="pi">:</span> <span class="s">rollback</span> <span class="c1"># auto-revert if the new version is unhealthy</span>
-        <span class="na">order</span><span class="pi">:</span> <span class="s">start-first</span>      <span class="c1"># start the new task before stopping the old</span>
+        <span class="na">parallelism</span><span class="pi">:</span> <span class="m">2</span>            <span class="c1"># replace 2 replicas per batch</span>
+        <span class="na">delay</span><span class="pi">:</span> <span class="s">10s</span>                <span class="c1"># pause between batches</span>
+        <span class="na">monitor</span><span class="pi">:</span> <span class="s">30s</span>              <span class="c1"># watch each batch this long for failures</span>
+        <span class="na">failure_action</span><span class="pi">:</span> <span class="s">rollback</span>
+        <span class="na">order</span><span class="pi">:</span> <span class="s">start-first</span>        <span class="c1"># start new task before stopping the old one</span>
       <span class="na">restart_policy</span><span class="pi">:</span>
         <span class="na">condition</span><span class="pi">:</span> <span class="s">on-failure</span>
         <span class="na">max_attempts</span><span class="pi">:</span> <span class="m">3</span>
 </code></pre></div></div>
 
-<p>Two distinctions matter here. <strong>Limits vs. reservations:</strong> <code class="language-plaintext highlighter-rouge">limits</code> is the ceiling the kernel enforces (the container is throttled or OOM-killed past it); <code class="language-plaintext highlighter-rouge">reservations</code> is the floor the scheduler guarantees when <em>placing</em> the task, so it only lands on a node with that much free capacity. <strong><code class="language-plaintext highlighter-rouge">order: start-first</code> vs. <code class="language-plaintext highlighter-rouge">stop-first</code>:</strong> start-first briefly runs old and new replicas together for true zero-downtime (at the cost of extra capacity during the rollout); stop-first is cheaper but drops a replica’s worth of capacity mid-update.</p>
+<ul>
+  <li><strong>Limits vs. reservations.</strong> A <em>limit</em> is enforced by the kernel through cgroups: CPU above it is throttled, and memory above it gets the container OOM-killed. A <em>reservation</em> is used by the Swarm scheduler to place the task only on a node with that much unreserved capacity. Set memory limits on every service; a service without one can exhaust the host.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">start-first</code> vs. <code class="language-plaintext highlighter-rouge">stop-first</code>.</strong> <code class="language-plaintext highlighter-rouge">start-first</code> briefly runs old and new tasks side by side, so capacity never drops, at the cost of headroom during the rollout. <code class="language-plaintext highlighter-rouge">stop-first</code> (the default) needs no spare capacity but removes a batch before its replacements are ready. Services that bind a fixed host port in <code class="language-plaintext highlighter-rouge">mode: host</code> must use <code class="language-plaintext highlighter-rouge">stop-first</code>.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">${VERSION:?...}</code></strong> makes the deploy fail if the variable is unset, rather than silently pulling an empty or <code class="language-plaintext highlighter-rouge">latest</code> tag. Deploying by digest (<code class="language-plaintext highlighter-rouge">image: repo/app@sha256:...</code>) is stricter still.</li>
+</ul>
 
-<h3 id="health-checks-gate-the-rollout">Health Checks Gate the Rollout</h3>
+<p>The same limits apply to single containers: <code class="language-plaintext highlighter-rouge">docker run --memory 1g --memory-reservation 750m --cpus 2 --pids-limit 256 my-app</code>.</p>
 
-<p>An update is only “zero-downtime” if Docker knows when a new replica is actually ready. A health check turns <code class="language-plaintext highlighter-rouge">failure_action: rollback</code> from a hope into a guarantee — an unhealthy new replica never receives traffic and trips the rollback.</p>
+<h3 id="health-checks-gate-the-rollout">Health checks gate the rollout</h3>
+
+<p>A rolling update is only as safe as the signal that a new replica works. A health check provides that signal:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">services</span><span class="pi">:</span>
   <span class="na">product-service</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">company/product-service:${VERSION}</span>
     <span class="na">healthcheck</span><span class="pi">:</span>
-      <span class="na">test</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">CMD"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">curl"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-f"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">http://localhost:8080/health"</span><span class="pi">]</span>
-      <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
-      <span class="na">timeout</span><span class="pi">:</span> <span class="s">10s</span>
+      <span class="na">test</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">CMD"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">/app/healthcheck"</span><span class="pi">]</span>    <span class="c1"># or ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]</span>
+      <span class="na">interval</span><span class="pi">:</span> <span class="s">10s</span>
+      <span class="na">timeout</span><span class="pi">:</span> <span class="s">3s</span>
       <span class="na">retries</span><span class="pi">:</span> <span class="m">3</span>
-      <span class="na">start_period</span><span class="pi">:</span> <span class="s">40s</span>     <span class="c1"># grace window before failures count, for slow boots</span>
+      <span class="na">start_period</span><span class="pi">:</span> <span class="s">40s</span>        <span class="c1"># failures during startup do not count</span>
+      <span class="na">start_interval</span><span class="pi">:</span> <span class="s">2s</span>       <span class="c1"># probe quickly during start_period</span>
 </code></pre></div></div>
 
-<p>During a rolling update, Swarm starts a new task, waits for it to report <code class="language-plaintext highlighter-rouge">healthy</code>, and only then proceeds to the next batch. If a task fails its health check within the <code class="language-plaintext highlighter-rouge">update_config</code> window, the deploy is reverted to the previous image.</p>
+<p>The check runs <em>inside</em> the container, so the command must exist in the image. Minimal and distroless images usually lack <code class="language-plaintext highlighter-rouge">curl</code>; ship a small health-check binary or a subcommand of the application itself. Kubernetes ignores the image’s <code class="language-plaintext highlighter-rouge">HEALTHCHECK</code> and uses its own liveness, readiness, and startup probes.</p>
 
-<h3 id="secrets-and-network-segmentation">Secrets and Network Segmentation</h3>
+<h3 id="secrets-and-network-segmentation">Secrets and network segmentation</h3>
 
-<p>Two production disciplines that a local compose file usually skips. <strong>Secrets</strong> are mounted as files under <code class="language-plaintext highlighter-rouge">/run/secrets/&lt;name&gt;</code> rather than passed as environment variables (which leak into <code class="language-plaintext highlighter-rouge">docker inspect</code>, logs, and child-process environments). Many images support the <code class="language-plaintext highlighter-rouge">*_FILE</code> convention — point them at the secret path:</p>
+<p>Secrets are mounted as files under <code class="language-plaintext highlighter-rouge">/run/secrets/&lt;name&gt;</code> (in-memory under Swarm) rather than passed as environment variables, which appear in <code class="language-plaintext highlighter-rouge">docker inspect</code>, crash dumps, and child processes. Many official images accept a <code class="language-plaintext highlighter-rouge">*_FILE</code> variant of their configuration variables:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">services</span><span class="pi">:</span>
   <span class="na">product-db</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:15-alpine</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:18</span>
     <span class="na">environment</span><span class="pi">:</span>
       <span class="na">POSTGRES_PASSWORD_FILE</span><span class="pi">:</span> <span class="s">/run/secrets/db_password</span>
-    <span class="na">secrets</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">db_password</span>
+    <span class="na">secrets</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">db_password</span><span class="pi">]</span>
 
 <span class="na">secrets</span><span class="pi">:</span>
   <span class="na">db_password</span><span class="pi">:</span>
-    <span class="na">external</span><span class="pi">:</span> <span class="kc">true</span>    <span class="c1"># created out-of-band: docker secret create db_password ./pw.txt</span>
+    <span class="na">external</span><span class="pi">:</span> <span class="kc">true</span>    <span class="c1"># Swarm: created with `docker secret create db_password -`</span>
+    <span class="c1"># single host alternative:  file: ./secrets/db_password.txt</span>
 </code></pre></div></div>
 
-<p><strong>Network segmentation</strong> puts public-facing services on one network and data stores on an internal-only network. Marking the backend network <code class="language-plaintext highlighter-rouge">internal: true</code> removes its default gateway, so containers there have <em>no route to the outside world</em> — a database cannot be reached from the internet even if a port is misconfigured, and a compromised service cannot exfiltrate over it.</p>
+<p>Segmentation puts public-facing services on one network and data stores on another marked <code class="language-plaintext highlighter-rouge">internal: true</code>, which has no gateway to the outside: a database there cannot be reached from the internet even if a port is misconfigured, and a compromised service on it cannot open outbound connections.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">networks</span><span class="pi">:</span>
   <span class="na">frontend</span><span class="pi">:</span>
     <span class="na">driver</span><span class="pi">:</span> <span class="s">overlay</span>
     <span class="na">driver_opts</span><span class="pi">:</span>
-      <span class="na">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>     <span class="c1"># encrypt cross-node traffic on this overlay</span>
+      <span class="na">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>   <span class="c1"># IPsec between Swarm nodes</span>
   <span class="na">backend</span><span class="pi">:</span>
     <span class="na">driver</span><span class="pi">:</span> <span class="s">overlay</span>
     <span class="na">driver_opts</span><span class="pi">:</span>
       <span class="na">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
-    <span class="na">internal</span><span class="pi">:</span> <span class="kc">true</span>          <span class="c1"># no egress: not reachable from outside the cluster</span>
+    <span class="na">internal</span><span class="pi">:</span> <span class="kc">true</span>
 </code></pre></div></div>
 
-<h3 id="compose-vs-an-orchestrator">Compose vs. an Orchestrator</h3>
+<p>On a single host, drop the <code class="language-plaintext highlighter-rouge">driver: overlay</code> lines and the same file creates bridge networks. <a href="docker-networking.html#network-security">Networking</a> covers the underlying mechanics and firewall integration.</p>
 
-<p>A production compose stack carries you a long way, but it has a ceiling. Compose (even via Swarm’s <code class="language-plaintext highlighter-rouge">stack deploy</code>) does not give you horizontal <em>cluster autoscaling</em>, sophisticated scheduling (affinity/anti-affinity, taints), or the vast ecosystem of operators and CRDs that Kubernetes does. The decision is one of operational scale:</p>
+<h3 id="logging">Logging</h3>
 
-<table>
-  <thead>
-    <tr>
-      <th>Need</th>
-      <th>Compose / Swarm stack</th>
-      <th>Kubernetes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Single host, handful of services</td>
-      <td>Ideal — minimal overhead</td>
-      <td>Overkill</td>
-    </tr>
-    <tr>
-      <td>Small multi-node cluster, simple scaling</td>
-      <td>Good fit (Swarm)</td>
-      <td>Workable but heavy</td>
-    </tr>
-    <tr>
-      <td>Large fleet, advanced scheduling, autoscaling</td>
-      <td>Hits limits</td>
-      <td>Designed for this</td>
-    </tr>
-    <tr>
-      <td>Rich ecosystem (operators, service mesh, GitOps)</td>
-      <td>Limited</td>
-      <td>Extensive</td>
-    </tr>
-  </tbody>
-</table>
+<p>The default <code class="language-plaintext highlighter-rouge">json-file</code> logging driver does not rotate logs, so a chatty container can fill the host’s disk. Configure rotation daemon-wide in <code class="language-plaintext highlighter-rouge">/etc/docker/daemon.json</code> (applies to containers created afterwards):</p>
 
-<p>When a compose stack stops fitting, the next step up is usually Docker Swarm (covered next) for a gentle move, or <a href="../kubernetes/">Kubernetes</a> for full-scale orchestration.</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"log-driver"</span><span class="p">:</span><span class="w"> </span><span class="s2">"local"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"log-opts"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"max-size"</span><span class="p">:</span><span class="w"> </span><span class="s2">"10m"</span><span class="p">,</span><span class="w"> </span><span class="nl">"max-file"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5"</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">local</code> driver stores compressed, rotated logs and still supports <code class="language-plaintext highlighter-rouge">docker logs</code>. For centralized logging, either ship from the host (an agent reading container logs) or use a driver such as <code class="language-plaintext highlighter-rouge">fluentd</code>, <code class="language-plaintext highlighter-rouge">gelf</code>, <code class="language-plaintext highlighter-rouge">syslog</code>, or <code class="language-plaintext highlighter-rouge">awslogs</code> per service with <code class="language-plaintext highlighter-rouge">logging:</code> in Compose. Applications should log to stdout/stderr, not to files inside the container.</p>
+
+<h3 id="gpus">GPUs</h3>
+
+<p>Compose reserves GPUs through the device-reservation syntax (requires the NVIDIA Container Toolkit on the host):</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">services</span><span class="pi">:</span>
+  <span class="na">inference</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/model-server:2.1.0</span>
+    <span class="na">deploy</span><span class="pi">:</span>
+      <span class="na">resources</span><span class="pi">:</span>
+        <span class="na">reservations</span><span class="pi">:</span>
+          <span class="na">devices</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">driver</span><span class="pi">:</span> <span class="s">nvidia</span>
+              <span class="na">count</span><span class="pi">:</span> <span class="m">1</span>            <span class="c1"># or: device_ids: ["0"]</span>
+              <span class="na">capabilities</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">gpu</span><span class="pi">]</span>
+</code></pre></div></div>
 
 <h2 id="docker-swarm">Docker Swarm</h2>
 
-<p>Docker Swarm is Docker’s built-in orchestrator: it turns a set of Docker hosts into a single logical cluster and runs the production compose stacks above across that cluster, no extra tooling required. The CLI essentials — <code class="language-plaintext highlighter-rouge">docker swarm init</code>, <code class="language-plaintext highlighter-rouge">docker swarm join</code>, <code class="language-plaintext highlighter-rouge">docker service create</code>, and <code class="language-plaintext highlighter-rouge">docker stack deploy</code> — are introduced in <a href="dockerfiles.html#docker-swarm-native-orchestration">Dockerfiles &amp; CI/CD</a>. This section focuses on what running Swarm <em>in production</em> requires.</p>
+<p>Swarm mode is Docker Engine’s built-in orchestrator. <code class="language-plaintext highlighter-rouge">docker swarm init</code> turns an Engine into a cluster manager; other hosts join as managers or workers; and services, stacks, secrets, configs, and overlay networks become cluster-wide objects. Swarm remains part of Docker Engine and continues to receive fixes (the Engine 29 releases improved overlay-network convergence and node-failure recovery), but the container ecosystem’s new orchestration features are built for Kubernetes.</p>
 
-<h3 id="cluster-topology-managers-and-workers">Cluster Topology: Managers and Workers</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker swarm init <span class="nt">--advertise-addr</span> 10.0.0.11                 <span class="c"># first manager</span>
+docker swarm join-token worker                               <span class="c"># prints the join command</span>
+docker swarm <span class="nb">join</span> <span class="nt">--token</span> &lt;token&gt; 10.0.0.11:2377             <span class="c"># on each worker</span>
+docker node <span class="nb">ls
+</span>docker service create <span class="nt">--name</span> web <span class="nt">--replicas</span> 3 <span class="nt">-p</span> 80:80 nginx:1.29
+docker service scale <span class="nv">web</span><span class="o">=</span>5
+</code></pre></div></div>
 
-<p>A Swarm has two node roles. <strong>Managers</strong> maintain cluster state in a Raft-replicated store and make scheduling decisions; <strong>workers</strong> run the containers managers assign them. Managers can also run workloads, but in production they are usually dedicated to keep the control plane stable.</p>
+<h3 id="cluster-topology-managers-and-workers">Cluster topology: managers and workers</h3>
+
+<p><strong>Managers</strong> hold the cluster state in a Raft-replicated store and make scheduling decisions; <strong>workers</strong> run tasks. Managers can also run workloads, but in production they are usually drained (<code class="language-plaintext highlighter-rouge">docker node update --availability drain &lt;manager&gt;</code>) so application load cannot destabilize the control plane.</p>
 
 <pre><code class="language-mermaid">flowchart TB
-    subgraph managers["Manager nodes (Raft quorum)"]
-        M1["Manager 1&lt;br/&gt;(leader)"]
-        M2["Manager 2"]
-        M3["Manager 3"]
-        M1 &lt;--&gt; M2
-        M2 &lt;--&gt; M3
+    subgraph managers["Managers (Raft quorum), one per availability zone"]
+        M1["Manager 1&lt;br/&gt;(leader)"] &lt;--&gt; M2["Manager 2"]
+        M2 &lt;--&gt; M3["Manager 3"]
         M1 &lt;--&gt; M3
     end
-    subgraph workers["Worker nodes"]
+    subgraph workers["Workers"]
         W1["Worker 1"]
         W2["Worker 2"]
         W3["Worker 3"]
         W4["Worker 4"]
     end
-    M1 --&gt;|schedules tasks| W1
-    M1 --&gt; W2
-    M1 --&gt; W3
-    M1 --&gt; W4
+    M1 --&gt;|assigns tasks| W1 &amp; W2 &amp; W3 &amp; W4
 </code></pre>
 
-<p>The control plane uses Raft consensus, which demands a <strong>quorum</strong> — a strict majority of managers must be reachable to make decisions. This is why manager counts must be <strong>odd</strong>: with <code class="language-plaintext highlighter-rouge">2m+1</code> managers the cluster tolerates <code class="language-plaintext highlighter-rouge">m</code> failures.</p>
+<p>Raft needs a <strong>quorum</strong>, a strict majority of managers, to change cluster state. With $2m+1$ managers the cluster tolerates $m$ manager failures:</p>
 
 <table>
   <thead>
     <tr>
       <th>Managers</th>
-      <th>Quorum (majority)</th>
-      <th>Failures tolerated</th>
+      <th>Quorum</th>
+      <th>Manager failures tolerated</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>1</td>
       <td>1</td>
-      <td>0 (no HA)</td>
+      <td>0</td>
     </tr>
     <tr>
       <td>3</td>
@@ -3394,62 +3493,90 @@ document.addEventListener('DOMContentLoaded', function () {
   </tbody>
 </table>
 
-<p>An <em>even</em> count is actively worse than the odd number below it: 4 managers still only tolerate 1 failure (quorum is 3) while exposing more nodes that can fail. Spread managers across availability zones so a single zone outage never costs you quorum, and keep the count at 3 or 5 — more managers means more Raft coordination overhead, not more resilience.</p>
+<p>An even count adds failure points without adding tolerance: 4 managers need 3 for quorum, so they tolerate only 1 failure, the same as 3. Use 3 or 5 managers spread across failure domains; beyond that, Raft replication overhead grows with no practical gain. If quorum is lost, running tasks keep running, but no changes (deploys, rescheduling after failures) are possible until quorum is restored or the cluster is recovered with <code class="language-plaintext highlighter-rouge">docker swarm init --force-new-cluster</code> on a surviving manager.</p>
 
-<h3 id="overlay-networking-and-the-routing-mesh">Overlay Networking and the Routing Mesh</h3>
+<h3 id="overlay-networking-and-the-routing-mesh">Overlay networking and the routing mesh</h3>
 
-<p>Swarm’s overlay networks span every node, so a container on host A reaches a container on host B by service name as if they were local — Docker tunnels the traffic (VXLAN) and, with <code class="language-plaintext highlighter-rouge">encrypted: "true"</code>, encrypts it across the wire.</p>
+<p>Overlay networks span all nodes: a task on one node reaches a task on another by service name, with traffic tunneled in VXLAN and optionally encrypted with IPsec. Each service name resolves to a virtual IP that load-balances across its healthy tasks. The underlay details (ports 2377, 7946, 4789, MTU) are on <a href="docker-networking.html#multi-host-networking-with-overlay">Networking</a>.</p>
 
-<p>The <strong>routing mesh</strong> is the feature that makes published ports work cluster-wide: when you publish a service port, <em>every</em> node in the swarm listens on it, and an internal IPVS load balancer forwards each incoming connection to a healthy replica wherever it runs. A client can hit any node’s IP and reach the service even if no replica runs on that node.</p>
+<p>A published port uses the <strong>ingress routing mesh</strong> by default: every node listens on the port and forwards each connection to a healthy task on any node through IPVS. An external load balancer can therefore target all nodes without knowing where the tasks run.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    Client((Client)) --&gt; AnyNode["Any node:80&lt;br/&gt;(routing mesh)"]
-    AnyNode --&gt;|IPVS load balance| R1["replica on&lt;br/&gt;node 2"]
-    AnyNode --&gt; R2["replica on&lt;br/&gt;node 4"]
-    AnyNode --&gt; R3["replica on&lt;br/&gt;node 5"]
+    LB["External load balancer"] --&gt; N1["node 1 :80"]
+    LB --&gt; N2["node 2 :80"]
+    LB --&gt; N3["node 3 :80"]
+    N1 --&gt;|IPVS via ingress overlay| T1["task on node 2"]
+    N1 --&gt; T2["task on node 3"]
+    N2 --&gt; T1
+    N3 --&gt; T2
 </code></pre>
 
-<p>This means an external load balancer in front of the swarm can target <em>all</em> nodes without knowing which ones currently host a given service — the mesh handles the last hop.</p>
+<p>The mesh adds a hop and replaces the client’s source address with an internal one. When a service needs the real client IP, or the extra hop matters, publish in <strong>host mode</strong> instead: only nodes running a task listen, and each task binds the host port directly (so run at most one task per node, typically as a <code class="language-plaintext highlighter-rouge">mode: global</code> service).</p>
 
-<h3 id="production-stack-constraints-rollouts-and-rollback">Production Stack: Constraints, Rollouts, and Rollback</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="na">ports</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">target</span><span class="pi">:</span> <span class="m">80</span>
+        <span class="na">published</span><span class="pi">:</span> <span class="m">80</span>
+        <span class="na">protocol</span><span class="pi">:</span> <span class="s">tcp</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">host</span>
+</code></pre></div></div>
 
-<p>A production Swarm stack combines placement control, rolling updates, and automatic rollback. Placement constraints and preferences steer tasks onto the right nodes (databases onto labeled storage nodes; replicas spread across zones for resilience):</p>
+<h3 id="rolling-updates-and-rollback">Rolling updates and rollback</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># stack.production.yml  →  docker stack deploy -c stack.production.yml shop</span>
+<p><code class="language-plaintext highlighter-rouge">docker service update</code> (or re-running <code class="language-plaintext highlighter-rouge">docker stack deploy</code> with a new image) replaces tasks in batches according to <code class="language-plaintext highlighter-rouge">update_config</code>:</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Updating: new image or config
+    Updating --&gt; Batch: take next parallelism tasks
+    Batch --&gt; Monitoring: new tasks started, healthy
+    Monitoring --&gt; Updating: no failures within monitor window, wait delay
+    Monitoring --&gt; RollingBack: failure ratio exceeded (failure_action rollback)
+    Updating --&gt; Completed: all tasks replaced
+    RollingBack --&gt; RolledBack: previous spec restored (rollback_config)
+    Completed --&gt; [*]
+    RolledBack --&gt; [*]
+</code></pre>
+
+<p>A task counts as failed if it exits or never becomes healthy. <code class="language-plaintext highlighter-rouge">max_failure_ratio</code> (default 0) sets how many failures are tolerated before <code class="language-plaintext highlighter-rouge">failure_action</code> triggers.</p>
+
+<h3 id="a-production-stack">A production stack</h3>
+
+<p>Placement constraints pin tasks to suitable nodes; placement preferences spread them across failure domains:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># stack.yml  -&gt;  docker stack deploy -c stack.yml shop</span>
 <span class="na">services</span><span class="pi">:</span>
   <span class="na">web</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">company/web:${VERSION}</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/web:${VERSION:?}</span>
     <span class="na">deploy</span><span class="pi">:</span>
       <span class="na">replicas</span><span class="pi">:</span> <span class="m">6</span>
       <span class="na">placement</span><span class="pi">:</span>
-        <span class="na">constraints</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="s">node.role == worker</span>
+        <span class="na">constraints</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">node.role == worker</span><span class="pi">]</span>
         <span class="na">preferences</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="na">spread</span><span class="pi">:</span> <span class="s">node.labels.zone</span>   <span class="c1"># balance replicas across zones</span>
+          <span class="pi">-</span> <span class="na">spread</span><span class="pi">:</span> <span class="s">node.labels.zone</span>      <span class="c1"># balance across zones</span>
       <span class="na">update_config</span><span class="pi">:</span>
         <span class="na">parallelism</span><span class="pi">:</span> <span class="m">2</span>
         <span class="na">delay</span><span class="pi">:</span> <span class="s">15s</span>
+        <span class="na">monitor</span><span class="pi">:</span> <span class="s">30s</span>
         <span class="na">order</span><span class="pi">:</span> <span class="s">start-first</span>
         <span class="na">failure_action</span><span class="pi">:</span> <span class="s">rollback</span>
       <span class="na">rollback_config</span><span class="pi">:</span>
-        <span class="na">parallelism</span><span class="pi">:</span> <span class="m">0</span>                 <span class="c1"># roll all replicas back at once on failure</span>
+        <span class="na">parallelism</span><span class="pi">:</span> <span class="m">0</span>                    <span class="c1"># 0 = roll back all tasks at once</span>
         <span class="na">order</span><span class="pi">:</span> <span class="s">stop-first</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">frontend</span>
+      <span class="na">resources</span><span class="pi">:</span>
+        <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">cpus</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">512M</span> <span class="pi">}</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">frontend</span><span class="pi">,</span> <span class="nv">backend</span><span class="pi">]</span>
 
   <span class="na">db</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:15-alpine</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:18</span>
     <span class="na">deploy</span><span class="pi">:</span>
       <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
       <span class="na">placement</span><span class="pi">:</span>
-        <span class="na">constraints</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="s">node.labels.storage == ssd</span>  <span class="c1"># pin the DB to a storage-class node</span>
+        <span class="na">constraints</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">node.labels.storage == ssd</span><span class="pi">]</span>
     <span class="na">environment</span><span class="pi">:</span>
       <span class="na">POSTGRES_PASSWORD_FILE</span><span class="pi">:</span> <span class="s">/run/secrets/db_password</span>
-    <span class="na">secrets</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">db_password</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">backend</span>
+    <span class="na">secrets</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">db_password</span><span class="pi">]</span>
+    <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">db-data:/var/lib/postgresql</span>       <span class="c1"># PostgreSQL 18+ image layout</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">backend</span><span class="pi">]</span>
 
 <span class="na">networks</span><span class="pi">:</span>
   <span class="na">frontend</span><span class="pi">:</span>
@@ -3460,392 +3587,421 @@ document.addEventListener('DOMContentLoaded', function () {
     <span class="na">driver_opts</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span> <span class="pi">}</span>
     <span class="na">internal</span><span class="pi">:</span> <span class="kc">true</span>
 
+<span class="na">volumes</span><span class="pi">:</span>
+  <span class="na">db-data</span><span class="pi">:</span>
+
 <span class="na">secrets</span><span class="pi">:</span>
   <span class="na">db_password</span><span class="pi">:</span>
     <span class="na">external</span><span class="pi">:</span> <span class="kc">true</span>
 </code></pre></div></div>
 
-<p>Operating it day to day:</p>
+<p>The database is pinned to one labeled node because a <code class="language-plaintext highlighter-rouge">local</code> volume exists only on the node that created it. Swarm has no built-in replicated storage; stateful services need either node pinning, a volume plugin backed by shared storage, or (commonly) a managed database outside the cluster.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Deploy or update the whole stack from one file</span>
-docker stack deploy <span class="nt">-c</span> stack.production.yml shop
+<p>Day-to-day operations:</p>
 
-<span class="c"># Watch a rolling update progress, replica by replica</span>
-docker service ps shop_web
-
-<span class="c"># Ship a new version (image tag change) and let update_config roll it out</span>
-docker service update <span class="nt">--image</span> company/web:v2.4.0 shop_web
-
-<span class="c"># Manually roll back the last update if needed</span>
-docker service rollback shop_web
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker node update <span class="nt">--label-add</span> <span class="nv">zone</span><span class="o">=</span>a <span class="nt">--label-add</span> <span class="nv">storage</span><span class="o">=</span>ssd node-3
+docker stack deploy <span class="nt">-c</span> stack.yml shop               <span class="c"># create or update the stack</span>
+docker service ps shop_web                          <span class="c"># task-level rollout progress</span>
+docker service update <span class="nt">--image</span> registry.example.com/web:2.4.0 shop_web
+docker service rollback shop_web                    <span class="c"># revert to the previous spec</span>
+docker node update <span class="nt">--availability</span> drain node-5      <span class="c"># move tasks off for maintenance</span>
 </code></pre></div></div>
 
-<p>The rollout is gated by each task’s health check (defined as in the Compose section): a new replica must report healthy before the next batch starts, and a failure within the update window triggers the <code class="language-plaintext highlighter-rouge">rollback_config</code> policy automatically. Swarm secrets are encrypted in the Raft log at rest and delivered only to the nodes running a service that requests them, then mounted as in-memory files — never written to disk on the worker.</p>
+<p>Swarm secrets are stored encrypted in the Raft log, sent only to nodes running a service that uses them, and mounted into containers on an in-memory filesystem.</p>
 
-<h3 id="swarm-vs-kubernetes-briefly">Swarm vs. Kubernetes, Briefly</h3>
+<h3 id="swarm-vs-kubernetes">Swarm vs. Kubernetes</h3>
 
-<p>Swarm trades breadth for simplicity. It gives you clustering, overlay networking, secrets, rolling updates, and rollback with almost no learning curve and a single binary. It does <em>not</em> offer cluster autoscaling, a large operator ecosystem, or fine-grained scheduling. For small-to-medium fleets run by a small team, Swarm is often the right amount of orchestration; past that, teams graduate to <a href="../kubernetes/">Kubernetes</a>. The full comparison table lives on the <a href="dockerfiles.html#docker-swarm-native-orchestration">Dockerfiles &amp; CI/CD</a> page.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Factor</th>
+      <th>Docker Swarm</th>
+      <th>Kubernetes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Setup</td>
+      <td>Built into Docker Engine; a cluster in minutes</td>
+      <td>Separate distribution (managed EKS/GKE/AKS, k3s, kubeadm)</td>
+    </tr>
+    <tr>
+      <td>Configuration</td>
+      <td>Compose files</td>
+      <td>Kubernetes manifests, Helm, Kustomize</td>
+    </tr>
+    <tr>
+      <td>Learning curve</td>
+      <td>Small</td>
+      <td>Large</td>
+    </tr>
+    <tr>
+      <td>Scheduling</td>
+      <td>Constraints, preferences, replicated or global</td>
+      <td>Affinity/anti-affinity, taints, topology spread, priorities, custom schedulers</td>
+    </tr>
+    <tr>
+      <td>Autoscaling</td>
+      <td>None built in</td>
+      <td>Horizontal/vertical Pod autoscaling, cluster autoscaling (Cluster Autoscaler, Karpenter)</td>
+    </tr>
+    <tr>
+      <td>Storage</td>
+      <td>Volume plugins</td>
+      <td>CSI drivers, dynamic provisioning, StatefulSets</td>
+    </tr>
+    <tr>
+      <td>Extensibility</td>
+      <td>Limited</td>
+      <td>CRDs and operators, service meshes, GitOps tooling</td>
+    </tr>
+    <tr>
+      <td>Ecosystem and managed offerings</td>
+      <td>Small</td>
+      <td>Very large; every major cloud</td>
+    </tr>
+    <tr>
+      <td>Good fit</td>
+      <td>Small teams, a handful of nodes, Compose-centric workflows</td>
+      <td>Large fleets, multi-team platforms, complex scheduling</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="case-studies">Case Studies</h2>
+<h2 id="reference-architecture-microservices-storefront">Reference Architecture: Microservices Storefront</h2>
 
-<h3 id="e-commerce-platform-migration-to-microservices">E-Commerce Platform Migration to Microservices</h3>
+<p>The stack below expresses the microservices diagram above as one Swarm stack: a gateway on the public network, independently scaled services each with its own database (database-per-service), a cache, and Kafka for asynchronous order events. It is illustrative; production data stores are frequently managed services rather than containers in the cluster.</p>
 
-<p>A major e-commerce company migrated from a monolithic application to Docker-based microservices, reporting a 70% reduction in deployment time and roughly 50% infrastructure cost savings. The production stack below is the shape they landed on — an API gateway fronting independently scaled product and order services, each with its own database, plus shared cache and message-queue tiers, all wired across an encrypted public network and an internal-only backend network.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># docker-compose.production.yml  (deployed via `docker stack deploy`)</span>
-<span class="na">version</span><span class="pi">:</span> <span class="s1">'</span><span class="s">3.8'</span>
-
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># stack.production.yml  -&gt;  docker stack deploy -c stack.production.yml shop</span>
 <span class="na">services</span><span class="pi">:</span>
-  <span class="c1"># API Gateway — the only public-facing service</span>
   <span class="na">gateway</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">company/api-gateway:${VERSION}</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/api-gateway:${VERSION:?}</span>
+    <span class="na">ports</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">443:8443"</span>
     <span class="na">deploy</span><span class="pi">:</span>
       <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
       <span class="na">resources</span><span class="pi">:</span>
-        <span class="na">limits</span><span class="pi">:</span>
-          <span class="na">cpus</span><span class="pi">:</span> <span class="s1">'</span><span class="s">2'</span>
-          <span class="na">memory</span><span class="pi">:</span> <span class="s">2G</span>
-        <span class="na">reservations</span><span class="pi">:</span>
-          <span class="na">cpus</span><span class="pi">:</span> <span class="s1">'</span><span class="s">1'</span>
-          <span class="na">memory</span><span class="pi">:</span> <span class="s">1G</span>
-    <span class="na">ports</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s2">"</span><span class="s">443:443"</span>
+        <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">cpus</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">1G</span> <span class="pi">}</span>
+      <span class="na">update_config</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">parallelism</span><span class="pi">:</span> <span class="nv">1</span><span class="pi">,</span> <span class="nv">order</span><span class="pi">:</span> <span class="nv">start-first</span><span class="pi">,</span> <span class="nv">failure_action</span><span class="pi">:</span> <span class="nv">rollback</span> <span class="pi">}</span>
+    <span class="na">secrets</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">jwt_key</span><span class="pi">]</span>
     <span class="na">environment</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">RATE_LIMIT=1000</span>
-      <span class="pi">-</span> <span class="s">JWT_SECRET_FILE=/run/secrets/jwt_key</span>
-    <span class="na">secrets</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">jwt_key</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">frontend</span>
-      <span class="pi">-</span> <span class="s">backend</span>
+      <span class="na">JWT_KEY_FILE</span><span class="pi">:</span> <span class="s">/run/secrets/jwt_key</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">frontend</span><span class="pi">,</span> <span class="nv">backend</span><span class="pi">]</span>
 
-  <span class="c1"># Product Service — scaled to demand, rolling updates with auto-rollback</span>
   <span class="na">product-service</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">company/product-service:${VERSION}</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/product-service:${VERSION:?}</span>
     <span class="na">deploy</span><span class="pi">:</span>
       <span class="na">replicas</span><span class="pi">:</span> <span class="m">5</span>
-      <span class="na">update_config</span><span class="pi">:</span>
-        <span class="na">parallelism</span><span class="pi">:</span> <span class="m">2</span>
-        <span class="na">delay</span><span class="pi">:</span> <span class="s">10s</span>
-        <span class="na">failure_action</span><span class="pi">:</span> <span class="s">rollback</span>
+      <span class="na">resources</span><span class="pi">:</span>
+        <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">cpus</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">512M</span> <span class="pi">}</span>
+      <span class="na">update_config</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">parallelism</span><span class="pi">:</span> <span class="nv">2</span><span class="pi">,</span> <span class="nv">delay</span><span class="pi">:</span> <span class="nv">10s</span><span class="pi">,</span> <span class="nv">failure_action</span><span class="pi">:</span> <span class="nv">rollback</span> <span class="pi">}</span>
     <span class="na">environment</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">DB_HOST=product-db</span>
-      <span class="pi">-</span> <span class="s">CACHE_HOST=redis-product</span>
-    <span class="na">depends_on</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">product-db</span>
-      <span class="pi">-</span> <span class="s">redis-product</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">backend</span>
+      <span class="na">DB_HOST</span><span class="pi">:</span> <span class="s">product-db</span>
+      <span class="na">CACHE_HOST</span><span class="pi">:</span> <span class="s">redis</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">backend</span><span class="pi">]</span>
 
-  <span class="c1"># Order Service — talks to its own DB and the message bus</span>
   <span class="na">order-service</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">company/order-service:${VERSION}</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/order-service:${VERSION:?}</span>
     <span class="na">deploy</span><span class="pi">:</span>
       <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+      <span class="na">resources</span><span class="pi">:</span>
+        <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">cpus</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">512M</span> <span class="pi">}</span>
     <span class="na">environment</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">DB_HOST=order-db</span>
-      <span class="pi">-</span> <span class="s">KAFKA_BROKERS=kafka:9092</span>
-    <span class="na">depends_on</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">order-db</span>
-      <span class="pi">-</span> <span class="s">kafka</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">backend</span>
+      <span class="na">DB_HOST</span><span class="pi">:</span> <span class="s">order-db</span>
+      <span class="na">KAFKA_BOOTSTRAP_SERVERS</span><span class="pi">:</span> <span class="s">kafka:9092</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">backend</span><span class="pi">]</span>
 
-  <span class="c1"># Databases — one per service (database-per-service pattern)</span>
   <span class="na">product-db</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:15-alpine</span>
-    <span class="na">volumes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">product-data:/var/lib/postgresql/data</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:18</span>
+    <span class="na">deploy</span><span class="pi">:</span>
+      <span class="na">placement</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">constraints</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">node.labels.db == product</span><span class="pi">]</span> <span class="pi">}</span>
     <span class="na">environment</span><span class="pi">:</span>
-      <span class="na">POSTGRES_PASSWORD_FILE</span><span class="pi">:</span> <span class="s">/run/secrets/db_password</span>
-    <span class="na">secrets</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">db_password</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">backend</span>
+      <span class="na">POSTGRES_PASSWORD_FILE</span><span class="pi">:</span> <span class="s">/run/secrets/product_db_password</span>
+    <span class="na">secrets</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">product_db_password</span><span class="pi">]</span>
+    <span class="na">volumes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">product-data</span><span class="pi">:</span><span class="nv">/var/lib/postgresql</span><span class="pi">]</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">backend</span><span class="pi">]</span>
 
   <span class="na">order-db</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:15-alpine</span>
-    <span class="na">volumes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">order-data:/var/lib/postgresql/data</span>
-    <span class="na">environment</span><span class="pi">:</span>
-      <span class="na">POSTGRES_PASSWORD_FILE</span><span class="pi">:</span> <span class="s">/run/secrets/db_password</span>
-    <span class="na">secrets</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">db_password</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">backend</span>
-
-  <span class="c1"># Caching tier</span>
-  <span class="na">redis-product</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">redis:7-alpine</span>
-    <span class="na">command</span><span class="pi">:</span> <span class="s">redis-server --maxmemory 2gb --maxmemory-policy allkeys-lru</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:18</span>
     <span class="na">deploy</span><span class="pi">:</span>
-      <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">backend</span>
+      <span class="na">placement</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">constraints</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">node.labels.db == order</span><span class="pi">]</span> <span class="pi">}</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">POSTGRES_PASSWORD_FILE</span><span class="pi">:</span> <span class="s">/run/secrets/order_db_password</span>
+    <span class="na">secrets</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">order_db_password</span><span class="pi">]</span>
+    <span class="na">volumes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">order-data</span><span class="pi">:</span><span class="nv">/var/lib/postgresql</span><span class="pi">]</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">backend</span><span class="pi">]</span>
 
-  <span class="c1"># Message bus for asynchronous order events</span>
+  <span class="na">redis</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">redis:8-alpine</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">redis-server"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">--maxmemory"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">1gb"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">--maxmemory-policy"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">allkeys-lru"</span><span class="pi">]</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">backend</span><span class="pi">]</span>
+
+  <span class="c1"># Single-node Kafka in KRaft mode (Kafka 4.x has no ZooKeeper)</span>
   <span class="na">kafka</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">confluentinc/cp-kafka:latest</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">apache/kafka:4.1.0</span>
+    <span class="na">deploy</span><span class="pi">:</span>
+      <span class="na">placement</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">constraints</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">node.labels.kafka == true</span><span class="pi">]</span> <span class="pi">}</span>
     <span class="na">environment</span><span class="pi">:</span>
-      <span class="na">KAFKA_ZOOKEEPER_CONNECT</span><span class="pi">:</span> <span class="s">zookeeper:2181</span>
+      <span class="na">KAFKA_NODE_ID</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">KAFKA_PROCESS_ROLES</span><span class="pi">:</span> <span class="s">broker,controller</span>
+      <span class="na">KAFKA_LISTENERS</span><span class="pi">:</span> <span class="s">PLAINTEXT://:9092,CONTROLLER://:9093</span>
       <span class="na">KAFKA_ADVERTISED_LISTENERS</span><span class="pi">:</span> <span class="s">PLAINTEXT://kafka:9092</span>
-    <span class="na">depends_on</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">zookeeper</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">backend</span>
-
-  <span class="na">zookeeper</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">confluentinc/cp-zookeeper:latest</span>
-    <span class="na">environment</span><span class="pi">:</span>
-      <span class="na">ZOOKEEPER_CLIENT_PORT</span><span class="pi">:</span> <span class="m">2181</span>
-    <span class="na">networks</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">backend</span>
+      <span class="na">KAFKA_CONTROLLER_LISTENER_NAMES</span><span class="pi">:</span> <span class="s">CONTROLLER</span>
+      <span class="na">KAFKA_LISTENER_SECURITY_PROTOCOL_MAP</span><span class="pi">:</span> <span class="s">CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT</span>
+      <span class="na">KAFKA_CONTROLLER_QUORUM_VOTERS</span><span class="pi">:</span> <span class="s">1@kafka:9093</span>
+      <span class="na">KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">KAFKA_LOG_DIRS</span><span class="pi">:</span> <span class="s">/var/lib/kafka/data</span>
+    <span class="na">volumes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">kafka-data</span><span class="pi">:</span><span class="nv">/var/lib/kafka/data</span><span class="pi">]</span>
+    <span class="na">networks</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">backend</span><span class="pi">]</span>
 
 <span class="na">networks</span><span class="pi">:</span>
   <span class="na">frontend</span><span class="pi">:</span>
     <span class="na">driver</span><span class="pi">:</span> <span class="s">overlay</span>
-    <span class="na">driver_opts</span><span class="pi">:</span>
-      <span class="na">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+    <span class="na">driver_opts</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span> <span class="pi">}</span>
   <span class="na">backend</span><span class="pi">:</span>
     <span class="na">driver</span><span class="pi">:</span> <span class="s">overlay</span>
-    <span class="na">driver_opts</span><span class="pi">:</span>
-      <span class="na">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
-    <span class="na">internal</span><span class="pi">:</span> <span class="kc">true</span>          <span class="c1"># databases &amp; queue unreachable from the internet</span>
+    <span class="na">driver_opts</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span> <span class="pi">}</span>
+    <span class="na">internal</span><span class="pi">:</span> <span class="kc">true</span>
 
 <span class="na">volumes</span><span class="pi">:</span>
   <span class="na">product-data</span><span class="pi">:</span>
-    <span class="na">driver</span><span class="pi">:</span> <span class="s">local</span>
   <span class="na">order-data</span><span class="pi">:</span>
-    <span class="na">driver</span><span class="pi">:</span> <span class="s">local</span>
+  <span class="na">kafka-data</span><span class="pi">:</span>
 
 <span class="na">secrets</span><span class="pi">:</span>
-  <span class="na">db_password</span><span class="pi">:</span>
-    <span class="na">external</span><span class="pi">:</span> <span class="kc">true</span>
   <span class="na">jwt_key</span><span class="pi">:</span>
     <span class="na">external</span><span class="pi">:</span> <span class="kc">true</span>
+  <span class="na">product_db_password</span><span class="pi">:</span>
+    <span class="na">external</span><span class="pi">:</span> <span class="kc">true</span>
+  <span class="na">order_db_password</span><span class="pi">:</span>
+    <span class="na">external</span><span class="pi">:</span> <span class="kc">true</span>
 </code></pre></div></div>
 
-<p><strong>What makes this production-grade.</strong> Every concern from earlier in the page appears: replicas with resource limits, rolling updates with auto-rollback, file-based secrets, a public/internal network split, and a database-per-service so the order and product domains scale and fail independently. The reported wins followed directly from these choices.</p>
-
-<p><strong>Implementation highlights reported by the team:</strong></p>
+<p>Design points:</p>
 
 <ul>
-  <li><strong>Service mesh</strong> — Istio for advanced traffic management and observability (the Envoy data plane is the Ambassador pattern from <a href="docker-design-patterns.html">Design Patterns</a>).</li>
-  <li><strong>Auto-scaling</strong> — Kubernetes HPA with custom metrics for demand-based scaling once they outgrew Swarm.</li>
-  <li><strong>Zero-downtime</strong> — rolling updates gated by health checks, exactly as the <code class="language-plaintext highlighter-rouge">update_config</code> above expresses.</li>
-  <li><strong>Security</strong> — mutual TLS between services and automated secret rotation.</li>
-  <li><strong>Monitoring</strong> — full observability with Prometheus, Grafana, and distributed tracing.</li>
+  <li><strong>Only the gateway publishes a port</strong> and joins <code class="language-plaintext highlighter-rouge">frontend</code>; every data store is on the internal <code class="language-plaintext highlighter-rouge">backend</code> network.</li>
+  <li><strong>Separate credentials per database</strong>, so a compromise of one service does not expose the other’s data.</li>
+  <li><strong>No <code class="language-plaintext highlighter-rouge">depends_on</code>.</strong> Swarm ignores it, so each service must retry its connections at startup; this is also what makes it survive a dependency restarting later.</li>
+  <li><strong>Stateful services are pinned</strong> to labeled nodes because their volumes are node-local.</li>
+  <li><strong>Kafka 4.x runs in KRaft mode.</strong> ZooKeeper support was removed in Kafka 4.0; older examples with a <code class="language-plaintext highlighter-rouge">zookeeper</code> service do not work with current images. A production cluster runs three or more brokers with replication factor 3.</li>
 </ul>
 
-<h3 id="containerized-ml-model-serving">Containerized ML Model Serving</h3>
+<p>As a system like this grows, the usual pressure points are autoscaling on custom metrics, per-request traffic policy (canaries, retries, mTLS between services), and operators for stateful components, which is typically when teams move it to Kubernetes.</p>
 
-<p>A different production shape: a machine-learning team needed to serve trained models behind an HTTP API with reproducible, hardened images. The serving image is a multi-stage build that compiles dependencies in a fat builder stage, then copies only the virtual environment into a slim, non-root runtime — a small, CVE-light image that boots fast for scale-out.</p>
+<h2 id="reference-architecture-ml-model-serving">Reference Architecture: ML Model Serving</h2>
 
-<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Dockerfile for ML model serving</span>
-<span class="k">FROM</span><span class="w"> </span><span class="s">python:3.12-slim</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">builder</span>
+<p>Model serving is a long-running, replicated, health-checked <strong>service</strong>; training is a <strong>batch job</strong> that requests accelerators, runs to completion, and exits. The two halves use containers differently.</p>
 
-<span class="c"># Install build dependencies (only present in the builder stage)</span>
-<span class="k">RUN </span>apt-get update <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="se">\
-</span>    build-essential <span class="se">\
-</span>    <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span>
+<h3 id="serving-image">Serving image</h3>
 
-<span class="c"># Create an isolated virtual environment</span>
+<p>A multi-stage build compiles dependencies in a builder stage and copies only the virtual environment into a slim, non-root runtime image:</p>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># syntax=docker/dockerfile:1</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">python:3.13-slim</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">builder</span>
+<span class="k">RUN </span>apt-get update <span class="se">\
+</span> <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> build-essential <span class="se">\
+</span> <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span>
 <span class="k">RUN </span>python <span class="nt">-m</span> venv /opt/venv
 <span class="k">ENV</span><span class="s"> PATH="/opt/venv/bin:$PATH"</span>
-
-<span class="c"># Install Python dependencies</span>
 <span class="k">COPY</span><span class="s"> requirements.txt .</span>
-<span class="k">RUN </span>pip <span class="nb">install</span> <span class="nt">--no-cache-dir</span> <span class="nt">-r</span> requirements.txt
+<span class="k">RUN </span><span class="nt">--mount</span><span class="o">=</span><span class="nb">type</span><span class="o">=</span>cache,target<span class="o">=</span>/root/.cache/pip pip <span class="nb">install</span> <span class="nt">-r</span> requirements.txt
 
-<span class="c"># Production stage — slim, no build toolchain</span>
-<span class="k">FROM</span><span class="s"> python:3.12-slim</span>
-
-<span class="c"># Copy the prepared virtual environment from the builder</span>
+<span class="k">FROM</span><span class="s"> python:3.13-slim</span>
+<span class="k">RUN </span>apt-get update <span class="se">\
+</span> <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="nt">--no-install-recommends</span> libgomp1 <span class="se">\
+</span> <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span> <span class="se">\
+</span> <span class="o">&amp;&amp;</span> useradd <span class="nt">--system</span> <span class="nt">--uid</span> 10001 <span class="nt">--create-home</span> ml
 <span class="k">COPY</span><span class="s"> --from=builder /opt/venv /opt/venv</span>
-<span class="k">ENV</span><span class="s"> PATH="/opt/venv/bin:$PATH"</span>
-
-<span class="c"># Only the runtime shared libs the model needs</span>
-<span class="k">RUN </span>apt-get update <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="se">\
-</span>    libgomp1 <span class="se">\
-</span>    <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> /var/lib/apt/lists/<span class="k">*</span>
-
-<span class="c"># Run as a non-root user</span>
-<span class="k">RUN </span>useradd <span class="nt">-m</span> <span class="nt">-u</span> 1000 mluser
-<span class="k">USER</span><span class="s"> mluser</span>
-
-<span class="c"># Copy model and application code, owned by the runtime user</span>
+<span class="k">ENV</span><span class="s"> PATH="/opt/venv/bin:$PATH" PYTHONUNBUFFERED=1</span>
 <span class="k">WORKDIR</span><span class="s"> /app</span>
-<span class="k">COPY</span><span class="s"> --chown=mluser:mluser model/ ./model/</span>
-<span class="k">COPY</span><span class="s"> --chown=mluser:mluser src/ ./src/</span>
+<span class="k">COPY</span><span class="s"> --chown=ml:ml src/ ./src/</span>
+<span class="k">USER</span><span class="s"> ml</span>
 
-<span class="c"># Health check so the orchestrator can gate traffic on readiness</span>
-<span class="k">HEALTHCHECK</span><span class="s"> --interval=30s --timeout=10s --start-period=30s --retries=3 \</span>
-  CMD python -c "import requests; requests.get('http://localhost:8080/health').raise_for_status()"
+<span class="c"># Uses only the standard library, so no curl is needed in the image</span>
+<span class="k">HEALTHCHECK</span><span class="s"> --interval=15s --timeout=3s --start-period=60s --retries=3 \</span>
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2)"]
 
-# Serve the model with a production WSGI server
 <span class="k">EXPOSE</span><span class="s"> 8080</span>
-<span class="k">CMD</span><span class="s"> ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--timeout", "120", "src.app:app"]</span>
+<span class="k">CMD</span><span class="s"> ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "120", "src.app:app"]</span>
 </code></pre></div></div>
 
-<p>Training, by contrast, is a <em>batch</em> workload — a job that requests GPUs, runs to completion, and exits. It is expressed as a run-once container the orchestrator retries on failure (shown here as a Kubernetes <code class="language-plaintext highlighter-rouge">Job</code>, since GPU scheduling and per-job resource requests exceed what a Swarm service expresses cleanly):</p>
+<p>Model weights are deliberately not copied into the image. Multi-gigabyte weights make every image push and pull slow and couple model releases to code releases; they are usually mounted from a volume or object storage at startup, or distributed as separate OCI artifacts. Large-language-model serving typically uses a purpose-built server image (vLLM, TensorRT-LLM, llama.cpp) instead of a custom web app, with the same service concerns: GPU reservation, readiness gated on the model being loaded, and long start periods.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># kubernetes-job.yaml</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
+<h3 id="training-job">Training job</h3>
+
+<p>Training is expressed as a run-to-completion job. GPU scheduling, per-job resource requests, and retry limits are the reason this is usually a Kubernetes <code class="language-plaintext highlighter-rouge">Job</code> rather than a Swarm service:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Job</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">model-training-job</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">train-model</span>
 <span class="na">spec</span><span class="pi">:</span>
+  <span class="na">backoffLimit</span><span class="pi">:</span> <span class="m">2</span>                      <span class="c1"># retries before the Job is marked failed</span>
+  <span class="na">ttlSecondsAfterFinished</span><span class="pi">:</span> <span class="m">86400</span>       <span class="c1"># clean up a day after completion</span>
   <span class="na">template</span><span class="pi">:</span>
     <span class="na">spec</span><span class="pi">:</span>
-      <span class="na">containers</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">training</span>
-        <span class="na">image</span><span class="pi">:</span> <span class="s">company/ml-training:latest</span>
-        <span class="na">resources</span><span class="pi">:</span>
-          <span class="na">limits</span><span class="pi">:</span>
-            <span class="na">nvidia.com/gpu</span><span class="pi">:</span> <span class="m">2</span>
-            <span class="na">memory</span><span class="pi">:</span> <span class="s">32Gi</span>
-            <span class="na">cpu</span><span class="pi">:</span> <span class="m">8</span>
-          <span class="na">requests</span><span class="pi">:</span>
-            <span class="na">nvidia.com/gpu</span><span class="pi">:</span> <span class="m">2</span>
-            <span class="na">memory</span><span class="pi">:</span> <span class="s">16Gi</span>
-            <span class="na">cpu</span><span class="pi">:</span> <span class="m">4</span>
-        <span class="na">volumeMounts</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">dataset</span>
-          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/data</span>
-        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">model-output</span>
-          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/output</span>
-        <span class="na">env</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">EPOCHS</span>
-          <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100"</span>
-        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">BATCH_SIZE</span>
-          <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">64"</span>
-        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">LEARNING_RATE</span>
-          <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0.001"</span>
-      <span class="na">volumes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">dataset</span>
-        <span class="na">persistentVolumeClaim</span><span class="pi">:</span>
-          <span class="na">claimName</span><span class="pi">:</span> <span class="s">training-dataset</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">model-output</span>
-        <span class="na">persistentVolumeClaim</span><span class="pi">:</span>
-          <span class="na">claimName</span><span class="pi">:</span> <span class="s">model-storage</span>
-      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Never</span>
       <span class="na">nodeSelector</span><span class="pi">:</span>
-        <span class="na">gpu-type</span><span class="pi">:</span> <span class="s">nvidia-v100</span>
+        <span class="na">nvidia.com/gpu.product</span><span class="pi">:</span> <span class="s">NVIDIA-H100-80GB-HBM3</span>   <span class="c1"># label set by GPU feature discovery</span>
+      <span class="na">containers</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">train</span>
+          <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/ml-training:3.2.0</span>
+          <span class="na">args</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">--epochs=100"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">--batch-size=64"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">--lr=0.001"</span><span class="pi">]</span>
+          <span class="na">resources</span><span class="pi">:</span>
+            <span class="na">requests</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">8"</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">64Gi</span> <span class="pi">}</span>
+            <span class="na">limits</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">nvidia.com/gpu</span><span class="pi">:</span> <span class="nv">2</span><span class="pi">,</span> <span class="nv">memory</span><span class="pi">:</span> <span class="nv">64Gi</span> <span class="pi">}</span>
+          <span class="na">volumeMounts</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="pi">{</span> <span class="nv">name</span><span class="pi">:</span> <span class="nv">dataset</span><span class="pi">,</span> <span class="nv">mountPath</span><span class="pi">:</span> <span class="nv">/data</span><span class="pi">,</span> <span class="nv">readOnly</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>
+            <span class="pi">-</span> <span class="pi">{</span> <span class="nv">name</span><span class="pi">:</span> <span class="nv">output</span><span class="pi">,</span>  <span class="nv">mountPath</span><span class="pi">:</span> <span class="nv">/output</span> <span class="pi">}</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">dataset</span>
+          <span class="na">persistentVolumeClaim</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">claimName</span><span class="pi">:</span> <span class="nv">training-dataset</span> <span class="pi">}</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">output</span>
+          <span class="na">persistentVolumeClaim</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">claimName</span><span class="pi">:</span> <span class="nv">model-output</span> <span class="pi">}</span>
 </code></pre></div></div>
 
-<p>The two halves of the ML platform illustrate the <strong>service vs. batch</strong> split from the architectures table: the serving image is a long-running, replicated, health-checked <em>service</em>; training is a short-lived, GPU-hungry <em>batch job</em> the orchestrator schedules, retries, and reaps.</p>
+<p>GPUs are an extended resource: they are requested through <code class="language-plaintext highlighter-rouge">limits</code> only, and cannot be shared or overcommitted without additional configuration (time-slicing or MIG).</p>
 
-<h2 id="putting-it-into-practice">Putting It Into Practice</h2>
+<h2 id="choosing-an-orchestration-level">Choosing an Orchestration Level</h2>
 
-<p>The patterns on this page — replicated compose stacks, segmented networks, Swarm rollouts with rollback, and the service-vs-batch split — all serve the same goals: high availability, safe delivery, and predictable behavior at scale. Which ones matter most depends on your role.</p>
+<pre><code class="language-mermaid">flowchart TD
+    Q1{"More than one host?"} --&gt;|No| C["Compose on a single host&lt;br/&gt;(restart policies, --wait, healthchecks)"]
+    Q1 --&gt;|Yes| Q2{"Need autoscaling, operators,&lt;br/&gt;advanced scheduling, or a&lt;br/&gt;multi-team platform?"}
+    Q2 --&gt;|No| Q3{"Prefer to run the&lt;br/&gt;control plane yourself?"}
+    Q2 --&gt;|Yes| K["Kubernetes&lt;br/&gt;(usually a managed service)"]
+    Q3 --&gt;|Yes| S["Docker Swarm"]
+    Q3 --&gt;|No| M["Managed container service&lt;br/&gt;(ECS, Cloud Run, Azure Container Apps)"]
+</code></pre>
 
-<p><strong>Newcomers</strong></p>
+<p>Managed container services are a frequently overlooked middle ground: they run images from a registry with scaling and rolling deploys, and no cluster to operate.</p>
 
-<ul>
-  <li>Solidify the basics in <a href="fundamentals.html">Fundamentals</a> before adopting these patterns</li>
-  <li>Reach for a single Docker Compose file before any orchestrator</li>
-  <li>Add the <code class="language-plaintext highlighter-rouge">deploy:</code> block and health checks before you scale past one host</li>
-  <li>Follow security best practices from day one, not as a retrofit</li>
-</ul>
+<h2 id="production-checklist">Production Checklist</h2>
 
-<p><strong>For developers</strong></p>
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Check</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Images</td>
+      <td>Built by CI, pinned by digest or immutable tag, scanned, non-root, minimal base</td>
+    </tr>
+    <tr>
+      <td>Configuration</td>
+      <td>No secrets in images or environment variables; <code class="language-plaintext highlighter-rouge">*_FILE</code> secrets; per-environment override files</td>
+    </tr>
+    <tr>
+      <td>Resources</td>
+      <td>Memory limit on every service; CPU limits or reservations where contention matters</td>
+    </tr>
+    <tr>
+      <td>Health</td>
+      <td>Health check on every long-running service; <code class="language-plaintext highlighter-rouge">start_period</code> sized for real startup time</td>
+    </tr>
+    <tr>
+      <td>Rollouts</td>
+      <td><code class="language-plaintext highlighter-rouge">update_config</code> with <code class="language-plaintext highlighter-rouge">failure_action: rollback</code>; <code class="language-plaintext highlighter-rouge">start-first</code> where capacity allows</td>
+    </tr>
+    <tr>
+      <td>Networking</td>
+      <td>Only edge services publish ports; data stores on internal networks; overlays encrypted</td>
+    </tr>
+    <tr>
+      <td>State</td>
+      <td>Volumes pinned or on shared storage; backups tested; managed databases considered</td>
+    </tr>
+    <tr>
+      <td>Logging</td>
+      <td>Rotation configured; logs to stdout/stderr; shipped off-host</td>
+    </tr>
+    <tr>
+      <td>Cluster</td>
+      <td>3 or 5 managers across failure domains; managers drained of workloads; underlay ports documented</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li>Keep a single compose file as the source of truth from dev to prod</li>
-  <li>Use multi-stage builds to keep production images small and fast to scale</li>
-  <li>Implement health checks so rolling updates can gate on readiness</li>
-  <li>Inject secrets as files, never as environment variables</li>
-</ul>
-
-<p><strong>For DevOps/SRE</strong></p>
-
-<ul>
-  <li>Run an odd number of Swarm managers across availability zones</li>
-  <li>Segment networks: public frontend, internal-only backend</li>
-  <li>Tune <code class="language-plaintext highlighter-rouge">update_config</code> and <code class="language-plaintext highlighter-rouge">rollback_config</code> for zero-downtime deploys</li>
-  <li>Front the routing mesh with an external load balancer targeting all nodes</li>
-</ul>
-
-<p><strong>For architects</strong></p>
-
-<ul>
-  <li>Pick the architecture (microservices, worker pool, batch) before the tooling</li>
-  <li>Choose the lightest orchestrator that meets the scale: Compose, Swarm, then Kubernetes</li>
-  <li>Adopt database-per-service so domains scale and fail independently</li>
-  <li>Plan the migration path from Swarm to Kubernetes before you hit Swarm’s ceiling</li>
-</ul>
-
-<h3 id="the-modern-toolchain">The Modern Toolchain</h3>
-
-<p>The ecosystem around production Docker has matured well beyond the original CLI and daemon. The tools below change how you build, ship, and operate images day to day.</p>
+<h2 id="current-tooling">Current Tooling</h2>
 
 <table>
   <thead>
     <tr>
       <th>Area</th>
       <th>Tool</th>
-      <th>What it gives you</th>
+      <th>Role</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Supply chain</td>
-      <td>Docker Scout</td>
-      <td>Vulnerability scanning and SBOM generation</td>
-    </tr>
-    <tr>
-      <td>Supply chain</td>
-      <td>Build attestations</td>
-      <td>SLSA provenance baked into the image</td>
-    </tr>
-    <tr>
       <td>Build</td>
-      <td>BuildKit</td>
-      <td>The default builder: parallel stages, cache mounts, secrets</td>
+      <td>BuildKit / Buildx</td>
+      <td>Default builder: parallel stages, cache and secret mounts, multi-platform, attestations</td>
     </tr>
     <tr>
       <td>Build</td>
       <td>Docker Build Cloud</td>
-      <td>Remote, shared builders for faster CI</td>
+      <td>Remote shared builders and cache for CI</td>
     </tr>
     <tr>
-      <td>Orchestration</td>
-      <td>Docker Swarm</td>
-      <td>Built-in clustering, overlay networking, rolling updates</td>
+      <td>Supply chain</td>
+      <td>Docker Scout, Trivy, Grype</td>
+      <td>Vulnerability scanning and SBOM analysis</td>
     </tr>
     <tr>
-      <td>Orchestration</td>
-      <td>Kubernetes</td>
-      <td>Full-scale scheduling, autoscaling, operator ecosystem</td>
+      <td>Supply chain</td>
+      <td>Docker Hardened Images, Chainguard Images, distroless</td>
+      <td>Minimal, low-CVE base images</td>
     </tr>
     <tr>
-      <td>Runtime</td>
-      <td>containerd</td>
-      <td>The OCI runtime Docker and Kubernetes share</td>
+      <td>Engine</td>
+      <td>containerd image store</td>
+      <td>Default for new installations since Engine 29; stores multi-platform images and attestations</td>
     </tr>
     <tr>
       <td>Dev loop</td>
-      <td>Compose Watch</td>
-      <td>Auto-sync source into running containers</td>
+      <td>Compose Watch (<code class="language-plaintext highlighter-rouge">docker compose watch</code>)</td>
+      <td>Syncs source changes into running containers or rebuilds on change</td>
+    </tr>
+    <tr>
+      <td>Testing</td>
+      <td>Testcontainers</td>
+      <td>Disposable real dependencies (databases, brokers) in integration tests</td>
+    </tr>
+    <tr>
+      <td>Orchestration</td>
+      <td>Swarm, Kubernetes, managed container services</td>
+      <td>See <a href="#choosing-an-orchestration-level">Choosing an Orchestration Level</a></td>
     </tr>
   </tbody>
 </table>
 
-<p>The durable principles do not change with the tooling: build for <strong>consistency, isolation, and portability</strong>, replicate for availability, gate every rollout on health, and choose the lightest orchestrator that meets your scale.</p>
-
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="docker-design-patterns.html">Docker: Design Patterns</a> - Sidecar, ambassador, adapter, init, and image/runtime security patterns</li>
-  <li><a href="../container-runtimes.html">Container Runtimes &amp; Alternatives</a> - gVisor, Kata, Firecracker microVMs, and WebAssembly/WASI</li>
-  <li><a href="dockerfiles.html">Docker: Dockerfiles &amp; CI/CD</a> - Multi-stage builds, Swarm basics, and pipelines</li>
-  <li><a href="../docker-essentials.html">Docker Essentials</a> - Quick reference and command cheat sheet</li>
-  <li><a href="../kubernetes/">Kubernetes</a> - Container orchestration at scale</li>
-  <li><a href="../ci-cd/">CI/CD</a> - Docker in continuous integration workflows</li>
-  <li><a href="../aws/">AWS</a> - ECS, EKS, and cloud container services</li>
-  <li><a href="../terraform/">Terraform</a> - Infrastructure as Code for container deployments</li>
-  <li><a href="../networking/">Networking</a> - Network concepts and container networking</li>
-  <li><a href="../../distributed-systems/">Distributed Systems</a> - Distributed computing principles</li>
+  <li><a href="docker-design-patterns.html">Design Patterns</a> - Sidecar, ambassador, adapter, init, and image hardening</li>
+  <li><a href="dockerfiles.html">Dockerfiles &amp; CI/CD</a> - Multi-stage builds, BuildKit, and CI pipelines</li>
+  <li><a href="docker-networking.html">Networking</a> - Overlay networks, port publishing, and firewall integration</li>
+  <li><a href="storage-security.html">Storage &amp; Security</a> - Volumes, secrets, and container hardening</li>
+  <li><a href="registry.html">Registries &amp; Supply Chain</a> - Tagging, digests, and provenance</li>
+  <li><a href="../container-runtimes.html">Container Runtimes</a> - gVisor, Kata, Firecracker, and WebAssembly</li>
+  <li><a href="../docker-essentials.html">Docker Essentials</a> - Command reference</li>
+  <li><a href="../kubernetes/">Kubernetes</a> - Orchestration at scale</li>
+  <li><a href="../aws/">AWS</a> - ECS, EKS, and Fargate</li>
+  <li><a href="../../distributed-systems/">Distributed Systems</a> - Consensus, replication, and failure models</li>
+</ul>
+
+<h2 id="references">References</h2>
+
+<ul>
+  <li><a href="https://docs.docker.com/reference/compose-file/">Compose file reference</a></li>
+  <li><a href="https://docs.docker.com/reference/compose-file/deploy/">Compose deploy specification</a></li>
+  <li><a href="https://docs.docker.com/engine/swarm/">Swarm mode overview</a></li>
+  <li><a href="https://docs.docker.com/engine/swarm/raft/">Raft consensus in Swarm mode</a></li>
+  <li><a href="https://docs.docker.com/engine/logging/configure/">Configure logging drivers</a></li>
 </ul>
 
       </section>

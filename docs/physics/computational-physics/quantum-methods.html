@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Numerical quantum mechanics: discretizing the Schrödinger equation, unitary time propagation (split-operator, Crank–Nicolson, Krylov), density functional the...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Computational Physics: Quantum Computational Methods">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Numerical quantum mechanics: discretizing the Schrödinger equation, unitary time propagation (split-operator, Crank–Nicolson, Krylov), density functional the...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/computational-physics/quantum-methods.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Computational Physics: Quantum Computational Methods">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Numerical quantum mechanics: discretizing the Schrödinger equation, unitary time propagation (split-operator, Crank–Nicolson, Krylov), density functional the...">
 
 <title>Computational Physics: Quantum Computational Methods | Andrews Notebook</title>
 
@@ -3133,242 +3133,447 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Computational Physics</a> › Quantum Computational Methods</p>
 
-<p>Evolving wavefunctions in time and finding electronic ground states — the numerical heart of quantum simulation.</p>
+<p>This page covers the numerical core of quantum simulation. It explains how to represent a wavefunction on a computer, how to find stationary states, how to propagate a state in time without losing unitarity, and how <strong>density functional theory</strong> (DFT) turns the many-electron problem into a self-consistent one-electron problem. Wavefunction-based electronic-structure methods (Hartree–Fock, coupled cluster) are on <a href="electronic-structure-beyond-dft.html">Electronic Structure Beyond DFT</a>. Stochastic approaches are under <a href="monte-carlo-and-md.html#quantum-monte-carlo">Quantum Monte Carlo</a>.</p>
+
+<p>All equations use <strong>atomic units</strong> ($\hbar = m_e = e = 4\pi\varepsilon_0 = 1$). Energies are in hartree (1 Ha ≈ 27.211 eV) and lengths in bohr (≈ 0.529 Å).</p>
+
+<h2 id="representing-the-wavefunction">Representing the Wavefunction</h2>
+
+<p>Every method starts by choosing a finite representation of $\psi$. The Hamiltonian then becomes a matrix, and the Schrödinger equation becomes linear algebra.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Representation</th>
+      <th>$\hat{H}$ becomes</th>
+      <th>Strengths</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Finite-difference grid</strong></td>
+      <td>Sparse banded matrix</td>
+      <td>Simple; any potential; local operators</td>
+      <td>1D/2D model problems, real-space DFT codes</td>
+    </tr>
+    <tr>
+      <td><strong>Fourier (plane-wave) grid</strong></td>
+      <td>$\hat{T}$ diagonal in $k$-space, $\hat{V}$ diagonal in $x$-space; switch with FFTs</td>
+      <td>Spectral accuracy for smooth $\psi$; natural for periodic systems</td>
+      <td>Split-operator dynamics, plane-wave DFT</td>
+    </tr>
+    <tr>
+      <td><strong>Localized basis</strong> (Gaussians, atomic orbitals)</td>
+      <td>Small dense matrix plus overlap matrix $S$</td>
+      <td>Compact for molecules; analytic integrals</td>
+      <td>Quantum chemistry</td>
+    </tr>
+    <tr>
+      <td><strong>Discrete variable representation</strong> (DVR)</td>
+      <td>Diagonal $\hat{V}$, dense $\hat{T}$</td>
+      <td>Spectral accuracy with grid-like simplicity</td>
+      <td>Molecular vibrations, reactive scattering</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>On a uniform grid with spacing $\Delta x$, the three-point stencil gives</p>
+
+\[\hat{H}\psi_j \approx -\frac{1}{2}\, \frac{\psi_{j+1} - 2\psi_j + \psi_{j-1}}{\Delta x^2} + V_j\, \psi_j,\]
+
+<p>a real symmetric tridiagonal matrix with $O(\Delta x^2)$ truncation error. Stationary states come from a sparse or banded eigensolver. You rarely need a dense <code class="language-plaintext highlighter-rouge">eigh</code>. For the harmonic oscillator, whose exact levels are $E_n = n + \tfrac{1}{2}$:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy.linalg</span> <span class="kn">import</span> <span class="n">eigh_tridiagonal</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2001</span><span class="p">)</span>
+<span class="n">dx</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">V</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span>
+<span class="n">diag</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">V</span>                         <span class="c1"># -1/2 * (-2/dx^2) + V
+</span><span class="n">off</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>        <span class="c1"># -1/2 * (1/dx^2)
+</span><span class="n">E</span><span class="p">,</span> <span class="n">phi</span> <span class="o">=</span> <span class="nf">eigh_tridiagonal</span><span class="p">(</span><span class="n">diag</span><span class="p">,</span> <span class="n">off</span><span class="p">,</span> <span class="n">select</span><span class="o">=</span><span class="sh">"</span><span class="s">i</span><span class="sh">"</span><span class="p">,</span> <span class="n">select_range</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">E</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>        <span class="c1"># [0.5  1.49998  2.49996  3.49992  4.49987] -- O(dx^2) error
+</span><span class="n">phi</span> <span class="o">/=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span>       <span class="c1"># normalize so that sum |phi|^2 dx = 1
+</span></code></pre></div></div>
+
+<p>The error grows with $n$ because higher states oscillate faster on the same grid. For 2D and 3D problems, build the Hamiltonian with <code class="language-plaintext highlighter-rouge">scipy.sparse</code> (Kronecker sums of 1D operators) and use <code class="language-plaintext highlighter-rouge">scipy.sparse.linalg.eigsh</code> with shift-invert (<code class="language-plaintext highlighter-rouge">sigma=</code>) for the lowest eigenpairs.</p>
 
 <h2 id="time-dependent-schrödinger-equation">Time-Dependent Schrödinger Equation</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">QuantumEvolution</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Solve time-dependent Schrödinger equation</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x_range</span><span class="p">,</span> <span class="n">n_points</span><span class="o">=</span><span class="mi">256</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">x_min</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">x_max</span> <span class="o">=</span> <span class="n">x_range</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">n_points</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">x_max</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">x_min</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">n_points</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">x_min</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">x_max</span><span class="p">,</span> <span class="n">n_points</span><span class="p">)</span>
-        
-        <span class="c1"># Momentum space
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">k</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">n_points</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="p">)</span>
-        
-    <span class="k">def</span> <span class="nf">gaussian_wavepacket</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">k0</span><span class="p">,</span> <span class="n">sigma</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Initialize Gaussian wavepacket</span><span class="sh">"""</span>
-        <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
-        <span class="n">psi</span> <span class="o">*=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">k0</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">psi</span> <span class="o">/=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.25</span>
-        <span class="k">return</span> <span class="n">psi</span>
-    
-    <span class="k">def</span> <span class="nf">split_operator_step</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Split-operator method for time evolution</span><span class="sh">"""</span>
-        <span class="c1"># Half step in position space
-</span>        <span class="n">psi</span> <span class="o">*=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">V</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
-        
-        <span class="c1"># Full step in momentum space
-</span>        <span class="n">psi_k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span>
-        <span class="n">psi_k</span> <span class="o">*=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">k</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft</span><span class="p">(</span><span class="n">psi_k</span><span class="p">)</span>
-        
-        <span class="c1"># Half step in position space
-</span>        <span class="n">psi</span> <span class="o">*=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">1j</span> <span class="o">*</span> <span class="n">V</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">psi</span>
-    
-    <span class="k">def</span> <span class="nf">crank_nicolson_step</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">psi</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Crank-Nicolson method for time evolution</span><span class="sh">"""</span>
-        <span class="c1"># (1 + i*dt*H/2)𝜓(t+dt) = (1 - i*dt*H/2)𝜓(t)
-</span>        <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">)</span>
-        <span class="n">A</span> <span class="o">=</span> <span class="n">I</span> <span class="o">+</span> <span class="mf">1j</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">H</span> <span class="o">/</span> <span class="mi">2</span>
-        <span class="n">B</span> <span class="o">=</span> <span class="n">I</span> <span class="o">-</span> <span class="mf">1j</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">H</span> <span class="o">/</span> <span class="mi">2</span>
-        
-        <span class="c1"># Solve linear system
-</span>        <span class="n">b</span> <span class="o">=</span> <span class="n">B</span> <span class="o">@</span> <span class="n">psi</span>
-        <span class="n">psi_new</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">solve</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">psi_new</span>
-    
-    <span class="k">def</span> <span class="nf">finite_difference_hamiltonian</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">V</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Construct Hamiltonian matrix using finite differences</span><span class="sh">"""</span>
-        <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">complex</span><span class="p">)</span>
-        
-        <span class="c1"># Kinetic energy (second derivative)
-</span>        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
-            <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">V</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">H</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
-        
-        <span class="c1"># Boundary conditions
-</span>        <span class="n">H</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">V</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">H</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
-        <span class="n">H</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span>
-        <span class="n">H</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">V</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        
-        <span class="k">return</span> <span class="n">H</span>
-    
-    <span class="k">def</span> <span class="nf">tunnel_barrier_simulation</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Quantum tunneling through a barrier</span><span class="sh">"""</span>
-        <span class="c1"># Potential barrier
-</span>        <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">x</span><span class="p">)</span>
-        <span class="n">barrier_width</span> <span class="o">=</span> <span class="mf">2.0</span>
-        <span class="n">barrier_height</span> <span class="o">=</span> <span class="mf">5.0</span>
-        <span class="n">V</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">x</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">barrier_width</span><span class="o">/</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">barrier_height</span>
-        
-        <span class="c1"># Initial wavepacket
-</span>        <span class="n">psi</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">gaussian_wavepacket</span><span class="p">(</span><span class="n">x0</span><span class="o">=-</span><span class="mi">5</span><span class="p">,</span> <span class="n">k0</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-        
-        <span class="c1"># Time evolution
-</span>        <span class="n">dt</span> <span class="o">=</span> <span class="mf">0.01</span>
-        <span class="n">n_steps</span> <span class="o">=</span> <span class="mi">1000</span>
-        
-        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
-            <span class="n">psi</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">split_operator_step</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="c1"># Calculate transmission and reflection
-</span>                <span class="n">transmitted</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">barrier_width</span><span class="o">/</span><span class="mi">2</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span>
-                <span class="n">reflected</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">x</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">barrier_width</span><span class="o">/</span><span class="mi">2</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span>
-                
-                <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span>
-                    <span class="sh">'</span><span class="s">time</span><span class="sh">'</span><span class="p">:</span> <span class="n">step</span> <span class="o">*</span> <span class="n">dt</span><span class="p">,</span>
-                    <span class="sh">'</span><span class="s">psi</span><span class="sh">'</span><span class="p">:</span> <span class="n">psi</span><span class="p">.</span><span class="nf">copy</span><span class="p">(),</span>
-                    <span class="sh">'</span><span class="s">transmitted</span><span class="sh">'</span><span class="p">:</span> <span class="n">transmitted</span><span class="p">,</span>
-                    <span class="sh">'</span><span class="s">reflected</span><span class="sh">'</span><span class="p">:</span> <span class="n">reflected</span>
-                <span class="p">})</span>
-        
-        <span class="k">return</span> <span class="n">results</span><span class="p">,</span> <span class="n">V</span>
+<p>The equation $i\, \partial_t \psi = \hat{H} \psi$ has the formal solution $\psi(t + \Delta t) = e^{-i\hat{H}\Delta t}\, \psi(t)$ when $\hat{H}$ is time-independent. A good propagator approximates this exponential while keeping its key properties:</p>
 
-<span class="c1"># Visualize quantum tunneling
-</span><span class="n">qe</span> <span class="o">=</span> <span class="nc">QuantumEvolution</span><span class="p">(</span><span class="n">x_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">n_points</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
-<span class="n">results</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">qe</span><span class="p">.</span><span class="nf">tunnel_barrier_simulation</span><span class="p">()</span>
+<ul>
+  <li><strong>Unitarity.</strong> The norm is conserved, so probability neither leaks nor grows.</li>
+  <li><strong>Time reversibility.</strong> Stepping forward then backward returns the initial state.</li>
+  <li><strong>Stability.</strong> Explicit methods such as forward Euler are unconditionally <em>unstable</em> for the Schrödinger equation, and RK4 is only conditionally stable and slowly loses norm.</li>
+</ul>
 
-<span class="c1"># Animation of wavefunction
-</span><span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<h3 id="split-operator-fourier-method">Split-operator Fourier method</h3>
 
-<span class="c1"># Wavefunction plot
-</span><span class="n">line1</span><span class="p">,</span> <span class="o">=</span> <span class="n">ax1</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">qe</span><span class="p">.</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">psi</span><span class="sh">'</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="sh">'</span><span class="s">b-</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">|𝜓|²</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">line2</span><span class="p">,</span> <span class="o">=</span> <span class="n">ax1</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">qe</span><span class="p">.</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="sh">'</span><span class="s">psi</span><span class="sh">'</span><span class="p">]),</span> <span class="sh">'</span><span class="s">r--</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Re(𝜓)</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax1</span><span class="p">.</span><span class="nf">fill_between</span><span class="p">(</span><span class="n">qe</span><span class="p">.</span><span class="n">x</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">V</span><span class="o">/</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Potential</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax1</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Wavefunction</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax1</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
-<span class="n">ax1</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+<p>The kinetic operator $\hat{T} = \hat{p}^2/2$ is diagonal in momentum space and $\hat{V}$ is diagonal in position space. <strong>Strang splitting</strong> factorizes the propagator into pieces that are each trivial to apply in their own basis:</p>
 
-<span class="c1"># Transmission/Reflection plot
-</span><span class="n">times</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="sh">'</span><span class="s">time</span><span class="sh">'</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<span class="n">trans</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="sh">'</span><span class="s">transmitted</span><span class="sh">'</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<span class="n">refl</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="sh">'</span><span class="s">reflected</span><span class="sh">'</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+\[e^{-i(\hat{T} + \hat{V})\Delta t} = e^{-i\hat{V}\Delta t/2}\, e^{-i\hat{T}\Delta t}\, e^{-i\hat{V}\Delta t/2} + O(\Delta t^3).\]
 
-<span class="n">ax2</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="sh">'</span><span class="s">g-</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Transmitted</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax2</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">refl</span><span class="p">,</span> <span class="sh">'</span><span class="s">r-</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Reflected</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax2</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Time</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax2</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Probability</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax2</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
-<span class="n">ax2</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
+<p>The splitting error comes from the commutator $[\hat{T}, \hat{V}]$. It is $O(\Delta t^3)$ per step and $O(\Delta t^2)$ globally. Each factor is a pure phase, so the scheme is <strong>exactly unitary</strong> whatever the time step. Each step costs two FFTs, $O(N \log N)$. Higher-order compositions (Yoshida, Suzuki) and time-dependent potentials fit the same pattern.</p>
 
-<span class="n">plt</span><span class="p">.</span><span class="nf">tight_layout</span><span class="p">()</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
+<pre><code class="language-mermaid">flowchart LR
+    A["psi(x, t)"] --&gt; B["Multiply by exp(-i V dt/2)"]
+    B --&gt; C["FFT to k-space"]
+    C --&gt; D["Multiply by exp(-i k^2 dt/2)"]
+    D --&gt; E["Inverse FFT to x-space"]
+    E --&gt; F["Multiply by exp(-i V dt/2)"]
+    F --&gt; G["psi(x, t + dt)"]
+</code></pre>
+
+<p>The example sends a Gaussian wavepacket with mean energy $E = k_0^2/2 = 0.72$ at a rectangular barrier of height $V_0 = 1$ and width $a = 1$. The energy is below the barrier top, so any transmission is tunnelling.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="n">n</span><span class="p">,</span> <span class="n">L</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span> <span class="mf">200.0</span>                                   <span class="c1"># periodic box for the FFT
+</span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">-</span> <span class="n">n</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">L</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">dx</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">k</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">dx</span><span class="p">)</span>              <span class="c1"># angular wavenumbers in FFT order
+</span>
+<span class="k">def</span> <span class="nf">wavepacket</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">k0</span><span class="p">,</span> <span class="n">sigma</span><span class="p">):</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1j</span> <span class="o">*</span> <span class="n">k0</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">psi</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">split_operator</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+    <span class="n">half_V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5j</span> <span class="o">*</span> <span class="n">V</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>                  <span class="c1"># exp(-i V dt/2)
+</span>    <span class="n">full_T</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5j</span> <span class="o">*</span> <span class="n">k</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>               <span class="c1"># exp(-i (k^2/2) dt)
+</span>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+        <span class="n">psi</span> <span class="o">=</span> <span class="n">half_V</span> <span class="o">*</span> <span class="n">psi</span>
+        <span class="n">psi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft</span><span class="p">(</span><span class="n">full_T</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft</span><span class="p">(</span><span class="n">psi</span><span class="p">))</span>
+        <span class="n">psi</span> <span class="o">=</span> <span class="n">half_V</span> <span class="o">*</span> <span class="n">psi</span>
+    <span class="k">return</span> <span class="n">psi</span>
+
+<span class="n">V0</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">k0</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.2</span>
+<span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">V0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<span class="n">psi</span> <span class="o">=</span> <span class="nf">split_operator</span><span class="p">(</span><span class="nf">wavepacket</span><span class="p">(</span><span class="n">x0</span><span class="o">=-</span><span class="mf">40.0</span><span class="p">,</span> <span class="n">k0</span><span class="o">=</span><span class="n">k0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">5.0</span><span class="p">),</span> <span class="n">V</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">4000</span><span class="p">)</span>
+
+<span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>                    <span class="c1"># 1.000000000000 (unitary)
+</span><span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">psi</span><span class="p">[</span><span class="n">x</span> <span class="o">&gt;</span> <span class="n">a</span> <span class="o">/</span> <span class="mi">2</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>            <span class="c1"># ~0.50
+</span><span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">norm = </span><span class="si">{</span><span class="n">norm</span><span class="si">:</span><span class="p">.</span><span class="mi">12</span><span class="n">f</span><span class="si">}</span><span class="s">, transmission = </span><span class="si">{</span><span class="n">T</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
+
+<p>The simulated transmission (about 0.50) is below the plane-wave value at $k_0$,</p>
+
+\[T(E) = \left[ 1 + \frac{V_0^2 \sinh^2(\kappa a)}{4E(V_0 - E)} \right]^{-1}, \qquad \kappa = \sqrt{2(V_0 - E)},\]
+
+<p>which gives 0.545. The difference is expected: a wavepacket is a superposition of momenta and the result is $T(k)$ averaged over its momentum distribution. Narrowing the spread (a larger $\sigma$) brings the two together. Two practical points apply. First, the FFT imposes <strong>periodic boundaries</strong>, so a packet leaving one side re-enters on the other. Either make the box large enough, as here, or add a <strong>complex absorbing potential</strong> $-i W(x)$ near the edges. Second, the grid must resolve the largest momentum present: $k_{\max} = \pi/\Delta x$.</p>
+
+<h3 id="cranknicolson">Crank–Nicolson</h3>
+
+<p>Crank–Nicolson uses the Cayley (Padé [1/1]) approximation of the exponential:</p>
+
+\[\left(1 + \frac{i\Delta t}{2}\hat{H}\right) \psi^{n+1} = \left(1 - \frac{i\Delta t}{2}\hat{H}\right) \psi^{n}.\]
+
+<p>For Hermitian $\hat{H}$ the resulting map is exactly unitary and unconditionally stable, with second-order accuracy. It needs a linear solve every step. With a finite-difference $\hat{H}$ the matrix is sparse (tridiagonal in 1D), so factorize it <strong>once</strong> and reuse the factors. Never form a dense matrix or call <code class="language-plaintext highlighter-rouge">np.linalg.solve</code> in the loop.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">sparse</span>
+<span class="kn">from</span> <span class="n">scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">splu</span>
+
+<span class="k">def</span> <span class="nf">fd_hamiltonian</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+    <span class="n">off</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">V</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sparse</span><span class="p">.</span><span class="nf">diags</span><span class="p">([</span><span class="n">off</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">V</span><span class="p">,</span> <span class="n">off</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">csc</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">0.02</span>
+<span class="n">H</span> <span class="o">=</span> <span class="nf">fd_hamiltonian</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+<span class="n">I</span> <span class="o">=</span> <span class="n">sparse</span><span class="p">.</span><span class="nf">identity</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">V</span><span class="p">),</span> <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">csc</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">lu</span> <span class="o">=</span> <span class="nf">splu</span><span class="p">((</span><span class="n">I</span> <span class="o">+</span> <span class="mf">0.5j</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">H</span><span class="p">).</span><span class="nf">tocsc</span><span class="p">())</span>       <span class="c1"># factorize once: O(n) for tridiagonal
+</span><span class="n">B</span> <span class="o">=</span> <span class="p">(</span><span class="n">I</span> <span class="o">-</span> <span class="mf">0.5j</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">H</span><span class="p">).</span><span class="nf">tocsc</span><span class="p">()</span>
+
+<span class="n">psi</span> <span class="o">=</span> <span class="nf">wavepacket</span><span class="p">(</span><span class="n">x0</span><span class="o">=-</span><span class="mf">40.0</span><span class="p">,</span> <span class="n">k0</span><span class="o">=</span><span class="n">k0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">4000</span><span class="p">):</span>
+    <span class="n">psi</span> <span class="o">=</span> <span class="n">lu</span><span class="p">.</span><span class="nf">solve</span><span class="p">(</span><span class="n">B</span> <span class="o">@</span> <span class="n">psi</span><span class="p">)</span>                  <span class="c1"># each step is O(n)
+</span></code></pre></div></div>
+
+<p>With hard-wall (Dirichlet) boundaries instead of periodic ones, this gives the same transmission as the split-operator run to within about 0.001.</p>
+
+<h3 id="choosing-a-propagator">Choosing a propagator</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Order</th>
+      <th>Unitary</th>
+      <th>Cost per step</th>
+      <th>Best for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Split-operator (Strang)</td>
+      <td>2 (higher with compositions)</td>
+      <td>Exactly</td>
+      <td>2 FFTs</td>
+      <td>Smooth potentials, periodic or large boxes</td>
+    </tr>
+    <tr>
+      <td>Crank–Nicolson</td>
+      <td>2</td>
+      <td>Exactly</td>
+      <td>Sparse solve</td>
+      <td>Finite-difference and finite-element grids, hard walls</td>
+    </tr>
+    <tr>
+      <td>Chebyshev expansion</td>
+      <td>Spectral</td>
+      <td>To machine precision</td>
+      <td>Many $\hat{H}\psi$ products</td>
+      <td>Long steps with time-independent $\hat{H}$</td>
+    </tr>
+    <tr>
+      <td>Short-iterative Lanczos / Krylov</td>
+      <td>Adaptive</td>
+      <td>To tolerance</td>
+      <td>$m$ products of $\hat{H}\psi$</td>
+      <td>Large sparse $\hat{H}$, including many-body</td>
+    </tr>
+    <tr>
+      <td>RK4</td>
+      <td>4</td>
+      <td>No (slow norm drift)</td>
+      <td>4 products of $\hat{H}\psi$</td>
+      <td>Quick prototypes only</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For time-dependent Hamiltonians, such as a laser pulse coupling as $-\mathbf{E}(t)\cdot\mathbf{r}$, use midpoint-in-time evaluation or Magnus expansions to keep the method’s order.</p>
+
+<h3 id="imaginary-time-propagation">Imaginary-time propagation</h3>
+
+<p>Substituting $t \to -i\tau$ turns the propagator into $e^{-\hat{H}\tau}$, which damps each eigencomponent as $e^{-E_n \tau}$. Propagating any starting state that overlaps the ground state and renormalizing each step converges to the <strong>ground state</strong>. Orthogonalizing against lower states gives the excited states one at a time. The split-operator code above does this with <code class="language-plaintext highlighter-rouge">dt</code> replaced by <code class="language-plaintext highlighter-rouge">-1j * dtau</code>. The same idea underlies diffusion Monte Carlo and imaginary-time TEBD for tensor networks.</p>
 
 <h2 id="density-functional-theory-dft">Density Functional Theory (DFT)</h2>
 
-<div class="notice--info">
-  <p>The snippet below is <strong>illustrative, simplified pseudocode</strong> meant to show the shape of a self-consistent Kohn-Sham loop — building the effective potential, solving for a density, and mixing. It is <em>not</em> a numerically valid DFT solver: a real implementation diagonalizes a Hamiltonian whose kinetic operator is diagonal in momentum space while the potential is diagonal in position space (so the two are never simply added in the same basis), and it constructs the new density from the resulting eigenfunctions.</p>
-</div>
+<p>For $N$ interacting electrons the wavefunction depends on $3N$ coordinates, and storing it on any grid is impossible beyond a few electrons. <strong>Density functional theory</strong> reformulates the problem in terms of the electron density $\rho(\mathbf{r})$, which has three coordinates. Two theorems underpin it:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SimpleDFT</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Simplified 1D DFT implementation (schematic — see note above)</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_grid</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">box_length</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">n_grid</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">L</span> <span class="o">=</span> <span class="n">box_length</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">dx</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">L</span> <span class="o">/</span> <span class="n">n_grid</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">self</span><span class="p">.</span><span class="n">L</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">L</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_grid</span><span class="p">)</span>
-        
-        <span class="c1"># Kinetic energy operator in momentum space
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">k</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">n_grid</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">T_k</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">k</span><span class="o">**</span><span class="mi">2</span>
-    
-    <span class="k">def</span> <span class="nf">thomas_fermi_functional</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Thomas-Fermi kinetic energy functional</span><span class="sh">"""</span>
-        <span class="n">C_TF</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="mi">10</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">C_TF</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span><span class="o">**</span><span class="p">(</span><span class="mi">5</span><span class="o">/</span><span class="mi">3</span><span class="p">))</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span>
-    
-    <span class="k">def</span> <span class="nf">exchange_functional</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Local density approximation for exchange</span><span class="sh">"""</span>
-        <span class="n">C_x</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="mi">4</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">C_x</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span><span class="o">**</span><span class="p">(</span><span class="mi">4</span><span class="o">/</span><span class="mi">3</span><span class="p">))</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span>
-    
-    <span class="k">def</span> <span class="nf">hartree_potential</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Solve Poisson equation for Hartree potential</span><span class="sh">"""</span>
-        <span class="c1"># Fourier space solution
-</span>        <span class="n">n_k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-        <span class="n">V_H_k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">n_k</span><span class="p">)</span>
-        
-        <span class="c1"># V_H = 4π n / k² (avoiding k=0)
-</span>        <span class="n">V_H_k</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">n_k</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">k</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">**</span><span class="mi">2</span>
-        <span class="n">V_H_k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Set DC component
-</span>        
-        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft</span><span class="p">(</span><span class="n">V_H_k</span><span class="p">))</span>
-    
-    <span class="k">def</span> <span class="nf">kohn_sham_step</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">V_ext</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Single Kohn-Sham iteration</span><span class="sh">"""</span>
-        <span class="c1"># Calculate potentials
-</span>        <span class="n">V_H</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">hartree_potential</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-        
-        <span class="c1"># Exchange-correlation potential (LDA)
-</span>        <span class="n">V_xc</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">n</span><span class="o">**</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="mi">3</span><span class="p">)</span>
-        
-        <span class="c1"># Total effective potential
-</span>        <span class="n">V_eff</span> <span class="o">=</span> <span class="n">V_ext</span> <span class="o">+</span> <span class="n">V_H</span> <span class="o">+</span> <span class="n">V_xc</span>
-        
-        <span class="c1"># SCHEMATIC ONLY: a real Kohn-Sham solver diagonalizes a Hamiltonian
-</span>        <span class="c1"># whose kinetic term T_k is diagonal in momentum space and whose
-</span>        <span class="c1"># potential V_eff is diagonal in position space. The two operators
-</span>        <span class="c1"># live in different bases and must NOT be added directly; the line
-</span>        <span class="c1"># below is a placeholder standing in for that diagonalization.
-</span>        <span class="n">H_diag</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">T_k</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft</span><span class="p">(</span><span class="n">V_eff</span><span class="p">)</span>  <span class="c1"># not physical — schematic placeholder
-</span>        
-        <span class="c1"># Find eigenvalues and eigenvectors
-</span>        <span class="c1"># (Simplified: assuming non-interacting electrons)
-</span>        <span class="n">energies</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sort</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">H_diag</span><span class="p">))</span>
-        
-        <span class="c1"># Construct new density (simplified)
-</span>        <span class="c1"># In real DFT, we'd solve for eigenfunctions
-</span>        <span class="n">n_new</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">initial_density</span><span class="p">(</span><span class="n">V_ext</span><span class="p">)</span>  <span class="c1"># Placeholder
-</span>        
-        <span class="k">return</span> <span class="n">n_new</span><span class="p">,</span> <span class="n">energies</span>
-    
-    <span class="k">def</span> <span class="nf">initial_density</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">V_ext</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Initial guess for electron density</span><span class="sh">"""</span>
-        <span class="c1"># Use Thomas-Fermi approximation
-</span>        <span class="n">mu</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># Chemical potential (adjust as needed)
-</span>        <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">mu</span> <span class="o">-</span> <span class="n">V_ext</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
-        
-        <span class="c1"># Normalize to correct number of electrons
-</span>        <span class="n">N_electrons</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Example
-</span>        <span class="n">n</span> <span class="o">*=</span> <span class="n">N_electrons</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">dx</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">n</span>
-    
-    <span class="k">def</span> <span class="nf">self_consistent_field</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">V_ext</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Self-consistent field iteration</span><span class="sh">"""</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">initial_density</span><span class="p">(</span><span class="n">V_ext</span><span class="p">)</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">max_iter</span><span class="p">):</span>
-            <span class="n">n_old</span> <span class="o">=</span> <span class="n">n</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
-            
-            <span class="c1"># Kohn-Sham step
-</span>            <span class="n">n</span><span class="p">,</span> <span class="n">energies</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">kohn_sham_step</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">V_ext</span><span class="p">)</span>
-            
-            <span class="c1"># Mix old and new density
-</span>            <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.3</span>  <span class="c1"># Mixing parameter
-</span>            <span class="n">n</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">n</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">n_old</span>
-            
-            <span class="c1"># Check convergence
-</span>            <span class="n">error</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">n_old</span><span class="p">))</span>
-            <span class="k">if</span> <span class="n">error</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
-                <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Converged in </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s"> iterations</span><span class="sh">"</span><span class="p">)</span>
-                <span class="k">break</span>
-        
-        <span class="k">return</span> <span class="n">n</span><span class="p">,</span> <span class="n">energies</span>
-</code></pre></div></div>
+<ol>
+  <li><strong>Hohenberg–Kohn I.</strong> The ground-state density determines the external potential up to a constant, and therefore every ground-state property.</li>
+  <li><strong>Hohenberg–Kohn II.</strong> A universal functional $E[\rho]$ exists whose minimum over valid densities is the exact ground-state energy.</li>
+</ol>
+
+<p>The theorems say nothing about what the functional looks like. The <strong>Kohn–Sham</strong> construction makes DFT practical by introducing a fictitious system of <em>non-interacting</em> electrons with the same density. Its kinetic energy $T_s$ is computed exactly from orbitals, and everything that is not known exactly goes into one term, the <strong>exchange–correlation energy</strong> $E_{xc}$:</p>
+
+\[E[\rho] = T_s[\rho] + \int v_{\text{ext}}(\mathbf{r})\, \rho(\mathbf{r})\, d\mathbf{r} + \frac{1}{2} \iint \frac{\rho(\mathbf{r})\, \rho(\mathbf{r}')}{\lvert \mathbf{r} - \mathbf{r}' \rvert}\, d\mathbf{r}\, d\mathbf{r}' + E_{xc}[\rho].\]
+
+<p>Minimizing with respect to the orbitals gives the <strong>Kohn–Sham equations</strong>:</p>
+
+\[\left[ -\frac{1}{2} \nabla^2 + v_{\text{ext}}(\mathbf{r}) + v_H(\mathbf{r}) + v_{xc}(\mathbf{r}) \right] \phi_i(\mathbf{r}) = \varepsilon_i\, \phi_i(\mathbf{r}), \qquad \rho(\mathbf{r}) = \sum_{i}^{\text{occ}} f_i \lvert \phi_i(\mathbf{r}) \rvert^2,\]
+
+\[v_H(\mathbf{r}) = \int \frac{\rho(\mathbf{r}')}{\lvert \mathbf{r} - \mathbf{r}' \rvert}\, d\mathbf{r}', \qquad v_{xc}(\mathbf{r}) = \frac{\delta E_{xc}[\rho]}{\delta \rho(\mathbf{r})}.\]
+
+<p>Here $f_i$ are occupation numbers. The effective potential depends on the density, and the density depends on the orbitals, so the equations must be solved <strong>self-consistently</strong>.</p>
+
+<h3 id="the-self-consistent-field-loop">The self-consistent field loop</h3>
+
+<pre><code class="language-mermaid">flowchart TD
+    G["Initial density rho_in&lt;br/&gt;(superposed atomic densities)"] --&gt; V["Build v_eff = v_ext + v_H[rho_in] + v_xc[rho_in]"]
+    V --&gt; S["Solve Kohn-Sham eigenproblem&lt;br/&gt;for occupied orbitals phi_i"]
+    S --&gt; R["New density rho_out = sum_i f_i abs(phi_i)^2"]
+    R --&gt; C{"Change in density&lt;br/&gt;below tolerance?"}
+    C --&gt;|"no"| M["Mix densities&lt;br/&gt;(linear, Pulay/DIIS, Broyden, Kerker)"]
+    M --&gt; V
+    C --&gt;|"yes"| E["Total energy, forces, stress,&lt;br/&gt;band structure, properties"]
+</code></pre>
+
+<p>Feeding $\rho_{\text{out}}$ straight back in usually oscillates or diverges (“charge sloshing”, which is worst in large metallic systems). <strong>Density mixing</strong> is therefore essential. Simple linear mixing, $\rho_{\text{in}} \leftarrow (1-\alpha)\rho_{\text{in}} + \alpha\rho_{\text{out}}$, is robust but slow. Pulay/DIIS and Broyden methods extrapolate from the history of residuals. Kerker preconditioning damps long-wavelength charge oscillations in metals.</p>
+
+<p>The minimal but numerically valid Kohn–Sham solver below treats four electrons in a 1D harmonic trap. It uses a soft-Coulomb interaction $1/\sqrt{(x-x’)^2 + 1}$, the standard regularization for 1D model systems, and a placeholder local exchange term. Every step is real: the Hamiltonian is built on a grid, diagonalized for the occupied orbitals, and used to rebuild the density.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy.linalg</span> <span class="kn">import</span> <span class="n">eigh_tridiagonal</span>
+
+<span class="n">n</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N_el</span> <span class="o">=</span> <span class="mi">401</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">,</span> <span class="mi">4</span>                       <span class="c1"># grid points, box length, electrons
+</span><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">L</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">L</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">dx</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">v_ext</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span>
+<span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">((</span><span class="n">x</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:])</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span>   <span class="c1"># soft-Coulomb kernel
+</span>
+<span class="k">def</span> <span class="nf">v_hartree</span><span class="p">(</span><span class="n">rho</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">w</span> <span class="o">@</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">dx</span>
+
+<span class="k">def</span> <span class="nf">v_xc</span><span class="p">(</span><span class="n">rho</span><span class="p">):</span>
+    <span class="c1"># Dirac/LDA exchange form -(3 rho / pi)^(1/3), used here as a model term;
+</span>    <span class="c1"># quantitative 1D work uses a functional fitted to the 1D soft-Coulomb gas.
+</span>    <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="mf">3.0</span> <span class="o">*</span> <span class="n">rho</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">kohn_sham_orbitals</span><span class="p">(</span><span class="n">v_eff</span><span class="p">,</span> <span class="n">n_occ</span><span class="p">):</span>
+    <span class="n">diag</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">v_eff</span>                 <span class="c1"># finite-difference -1/2 d^2/dx^2 + v_eff
+</span>    <span class="n">off</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">eps</span><span class="p">,</span> <span class="n">phi</span> <span class="o">=</span> <span class="nf">eigh_tridiagonal</span><span class="p">(</span><span class="n">diag</span><span class="p">,</span> <span class="n">off</span><span class="p">,</span> <span class="n">select</span><span class="o">=</span><span class="sh">"</span><span class="s">i</span><span class="sh">"</span><span class="p">,</span> <span class="n">select_range</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_occ</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">eps</span><span class="p">,</span> <span class="n">phi</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span>              <span class="c1"># normalize: sum |phi|^2 dx = 1
+</span>
+<span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">rho</span> <span class="o">*=</span> <span class="n">N_el</span> <span class="o">/</span> <span class="p">(</span><span class="n">rho</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span>                 <span class="c1"># initial guess with the right electron count
+</span><span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">201</span><span class="p">):</span>
+    <span class="n">v_eff</span> <span class="o">=</span> <span class="n">v_ext</span> <span class="o">+</span> <span class="nf">v_hartree</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span> <span class="o">+</span> <span class="nf">v_xc</span><span class="p">(</span><span class="n">rho</span><span class="p">)</span>
+    <span class="n">eps</span><span class="p">,</span> <span class="n">phi</span> <span class="o">=</span> <span class="nf">kohn_sham_orbitals</span><span class="p">(</span><span class="n">v_eff</span><span class="p">,</span> <span class="n">N_el</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">rho_out</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">phi</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>     <span class="c1"># spin-paired: 2 electrons per orbital
+</span>    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">rho_out</span> <span class="o">-</span> <span class="n">rho</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+        <span class="k">break</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">rho</span> <span class="o">+</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">rho_out</span>            <span class="c1"># linear mixing
+</span><span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">converged in </span><span class="si">{</span><span class="n">it</span><span class="si">}</span><span class="s"> iterations, eigenvalues </span><span class="si">{</span><span class="n">eps</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># ~60 iterations
+</span></code></pre></div></div>
+
+<p>In 3D production codes the same loop runs with plane waves or Gaussians, $k$-point sampling of the Brillouin zone, and pseudopotentials. The code for a real molecule is just as short. With <a href="https://pyscf.org/">PySCF</a>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">pyscf</span> <span class="kn">import</span> <span class="n">gto</span><span class="p">,</span> <span class="n">dft</span>
+
+<span class="n">mol</span> <span class="o">=</span> <span class="n">gto</span><span class="p">.</span><span class="nc">M</span><span class="p">(</span><span class="n">atom</span><span class="o">=</span><span class="sh">"</span><span class="s">O 0 0 0.117; H 0 0.757 -0.469; H 0 -0.757 -0.469</span><span class="sh">"</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="sh">"</span><span class="s">def2-svp</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">mf</span> <span class="o">=</span> <span class="n">dft</span><span class="p">.</span><span class="nc">RKS</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="n">mf</span><span class="p">.</span><span class="n">xc</span> <span class="o">=</span> <span class="sh">"</span><span class="s">r2scan</span><span class="sh">"</span>               <span class="c1"># any Libxc functional name: "pbe", "b3lyp", "wb97m-v", ...
+</span><span class="n">energy</span> <span class="o">=</span> <span class="n">mf</span><span class="p">.</span><span class="nf">kernel</span><span class="p">()</span>           <span class="c1"># runs the SCF loop above; prints the converged energy in Ha
+</span></code></pre></div></div>
+
+<h3 id="exchangecorrelation-functionals">Exchange–correlation functionals</h3>
+
+<p>Everything about DFT’s accuracy lies in $E_{xc}$. Perdew’s “Jacob’s ladder” orders approximations by the ingredients they use. Each rung adds accuracy and cost:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rung</th>
+      <th>Ingredients</th>
+      <th>Examples</th>
+      <th>Character</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LDA</td>
+      <td>$\rho$</td>
+      <td>SVWN, PW92</td>
+      <td>Overbinds; good densities for nearly uniform systems</td>
+    </tr>
+    <tr>
+      <td>GGA</td>
+      <td>$\rho$, $\nabla\rho$</td>
+      <td>PBE, PBEsol, BLYP</td>
+      <td>Solid-state workhorse; underestimates band gaps</td>
+    </tr>
+    <tr>
+      <td>meta-GGA</td>
+      <td>$+\ \tau$ (kinetic-energy density)</td>
+      <td>SCAN, r2SCAN</td>
+      <td>Better energetics at near-GGA cost; r2SCAN fixes SCAN’s numerical instability</td>
+    </tr>
+    <tr>
+      <td>Hybrid</td>
+      <td>$+$ exact (Hartree–Fock) exchange</td>
+      <td>B3LYP, PBE0, HSE06, ωB97X-V</td>
+      <td>Better gaps and barriers; much costlier in plane waves</td>
+    </tr>
+    <tr>
+      <td>Double hybrid</td>
+      <td>$+$ MP2-like correlation</td>
+      <td>B2PLYP, DSD-PBEP86</td>
+      <td>Near-chemical accuracy for molecules</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The systematic failures are well characterized:</p>
+
+<ul>
+  <li><strong>Band gaps.</strong> GGAs underestimate them by 30–50%. Range-separated hybrids such as HSE06, or GW, correct this.</li>
+  <li><strong>Self-interaction error.</strong> An electron partly repels itself, which over-delocalizes charge and biases barrier heights.</li>
+  <li><strong>Dispersion.</strong> Van der Waals attraction is missing from semilocal functionals. Add an empirical correction (Grimme D3/D4) or use a nonlocal functional (VV10, rVV10).</li>
+  <li><strong>Strong correlation.</strong> Transition-metal oxides and bond breaking need DFT+U, DMFT, or wavefunction methods (see <a href="electronic-structure-beyond-dft.html">Electronic Structure Beyond DFT</a>).</li>
+</ul>
+
+<h3 id="dft-in-practice">DFT in practice</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Choice</th>
+      <th>Options</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Basis</td>
+      <td>Plane waves + pseudopotentials / PAW (VASP, Quantum ESPRESSO, ABINIT, CASTEP)</td>
+      <td>Periodic solids; converge the kinetic-energy cutoff</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Gaussians / numerical atomic orbitals (PySCF, ORCA, Gaussian, FHI-aims, SIESTA)</td>
+      <td>Molecules; converge the basis set (def2-, cc-pVXZ families)</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Real-space grids (GPAW, Octopus)</td>
+      <td>Finite systems and real-time TDDFT</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Mixed Gaussian and plane-wave (CP2K)</td>
+      <td>Large condensed-phase <em>ab initio</em> MD</td>
+    </tr>
+    <tr>
+      <td>Brillouin zone</td>
+      <td>Monkhorst–Pack $k$-point meshes</td>
+      <td>Metals need dense meshes and smearing</td>
+    </tr>
+    <tr>
+      <td>Scaling</td>
+      <td>Cubic in system size (orthogonalization and diagonalization)</td>
+      <td>Linear-scaling methods exist for insulators; GPU ports are now standard in the major codes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>DFT calculations also generate the training data for <a href="ml-for-physics.html#machine-learned-interatomic-potentials">machine-learned interatomic potentials</a>, which reuse DFT accuracy for MD at far lower cost. Large open DFT datasets, such as the Materials Project and Meta’s OMat24 and OMol25, now serve as shared training sets.</p>
+
+<h2 id="many-body-lattice-methods">Many-Body Lattice Methods</h2>
+
+<p>For strongly correlated lattice models (Hubbard, Heisenberg, and related models), mean-field DFT is inadequate. Several methods work directly with the many-body Hilbert space:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Idea</th>
+      <th>Reach</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Exact diagonalization</strong></td>
+      <td>Build $\hat{H}$ in a symmetry-reduced basis and find the low eigenstates with Lanczos</td>
+      <td>About 40–50 spins on large machines; exact benchmarks (e.g. QuSpin)</td>
+    </tr>
+    <tr>
+      <td><strong>DMRG / matrix product states</strong></td>
+      <td>Variationally optimize a low-entanglement tensor-network ansatz</td>
+      <td>Near-exact for 1D and quasi-1D systems; ground states, TEBD/TDVP dynamics (ITensor, TeNPy, block2)</td>
+    </tr>
+    <tr>
+      <td><strong>PEPS and other 2D tensor networks</strong></td>
+      <td>Tensor networks with area-law entanglement in 2D</td>
+      <td>Active research; costly contractions</td>
+    </tr>
+    <tr>
+      <td><strong>Quantum Monte Carlo</strong></td>
+      <td>Stochastic sampling (SSE, AFQMC, determinant QMC)</td>
+      <td>Large systems where there is no sign problem; see <a href="monte-carlo-and-md.html#quantum-monte-carlo">Quantum Monte Carlo</a></td>
+    </tr>
+    <tr>
+      <td><strong>Neural quantum states</strong></td>
+      <td>Neural-network wavefunction optimized with VMC</td>
+      <td>Frustrated 2D models; see <a href="ml-for-physics.html#other-directions">Machine Learning for Physics</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Quantum computers are a potential long-term route to simulating strongly correlated quantum systems. The algorithms (Trotterized time evolution, phase estimation, variational methods) are covered on the <a href="../quantum-mechanics/qm-computing.html">quantum computing</a> page.</p>
 
 <hr />
 
@@ -3377,9 +3582,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the physics behind wavefunction evolution and the Schrödinger equation.</li>
-  <li><a href="../condensed-matter/">Condensed Matter Physics</a> — density functional theory and electronic structure in solids.</li>
-  <li><a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a> — variational and quantum Monte Carlo methods.</li>
+  <li><a href="../quantum-mechanics/">Quantum Mechanics</a>: the Schrödinger equation, operators, and analytic solutions these methods reproduce.</li>
+  <li><a href="../quantum-mechanics/qm-computational-methods.html">Quantum Mechanics: Computational Methods</a>: numerical techniques from the quantum-mechanics side.</li>
+  <li><a href="electronic-structure-beyond-dft.html">Electronic Structure Beyond DFT</a>: Hartree–Fock, MP2, coupled cluster, and TD-DFT excited states.</li>
+  <li><a href="../condensed-matter/">Condensed Matter Physics</a>: band structure and electronic properties of solids.</li>
+  <li><a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a>: variational and diffusion Monte Carlo, and <em>ab initio</em> MD.</li>
 </ul>
 
       </section>

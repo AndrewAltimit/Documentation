@@ -2875,167 +2875,224 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>Cutting-edge techniques and complex workflows for pushing the boundaries of AI image generation.</p>
+        <p><a href="./">AI/ML Documentation</a> » Advanced Techniques</p>
 
-<h2 id="who-this-guide-is-for">Who This Guide Is For</h2>
+<p>This page is a reference for image-generation techniques that go beyond choosing a prompt, sampler, and step count. It covers latent-space manipulation, regional control, guidance methods that improve on plain classifier-free guidance, few-step distillation and flow matching, multi-stage pipelines, and the kernels, caches, and quantization formats that make large models practical on consumer GPUs. It assumes familiarity with the material in <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> and basic <a href="comfyui-guide.html">ComfyUI</a> workflows.</p>
 
-<p>This guide is for users already comfortable with prompting, samplers, and basic ComfyUI workflows who want to push further. It covers latent-space manipulation, regional prompting, advanced sampling, and multi-stage pipelines — plus the newer ideas (consistency distillation, flow matching, adversarial distillation) that now make near-real-time generation possible without collapsing quality. Read it as a toolbox: most real results come from combining a few of these techniques, not from any single one.</p>
+<p>Most of these techniques are consumed rather than implemented: a LoRA, a distilled checkpoint, a node, or a launch flag. Knowing what each one changes explains its trade-offs and which combinations are compatible.</p>
 
-<ul>
-  <li>
-<strong>Latent Control.</strong> Interpolate, blend, and mask in latent space (SLERP, regional prompts) for transitions and composition prompts alone can’t reach.</li>
-  <li>
-<strong>Faster Sampling.</strong> Distillation (LCM, ADD) and flow matching cut 30+ steps to 1-8, trading a little quality for real-time speed.</li>
-  <li>
-<strong>Multi-Stage Pipelines.</strong> Progressive upscaling, detail passes, and self-attention guidance stack into reference-grade results.</li>
-</ul>
+<h2 id="where-the-cost-of-an-image-goes">Where the Cost of an Image Goes</h2>
 
-<h2 id="latent-space-techniques">Latent Space Techniques</h2>
-
-<p>The latent is just a tensor, so you can do math on it directly — blend two latents, walk between them, or composite regions — before or between sampling passes. This unlocks transitions and compositions that prompting alone cannot reach.</p>
-
-<h3 id="latent-interpolation">Latent Interpolation</h3>
-
-<p>The simplest move is <strong>linear interpolation</strong>: blend two latents with a weight $\alpha$ that sweeps from 0 to 1, sampling each blend to produce a frame. Stepping $\alpha$ across a range gives a morph sequence between two images or concepts:</p>
-
-\[\mathbf{x}_\alpha = (1-\alpha)\,\mathbf{x}_a + \alpha\,\mathbf{x}_b, \qquad \alpha \in [0, 1]\]
-
-<p>Linear blends are easy but flawed — see SLERP next.</p>
-
-<h3 id="spherical-linear-interpolation-slerp">Spherical Linear Interpolation (SLERP)</h3>
-
-<p>Linear interpolation cuts a straight chord through latent space, which can pass through low-quality regions. SLERP instead follows the arc of the hypersphere, preserving the magnitude that diffusion models expect:</p>
-
-\[\text{slerp}(\mathbf{a}, \mathbf{b}; \alpha) = \frac{\sin\big((1-\alpha)\theta\big)}{\sin\theta}\,\mathbf{a} + \frac{\sin(\alpha\theta)}{\sin\theta}\,\mathbf{b}, \qquad \theta = \arccos\!\left(\frac{\mathbf{a}\cdot\mathbf{b}}{\lVert\mathbf{a}\rVert\,\lVert\mathbf{b}\rVert}\right)\]
-
-<p>This keeps interpolated latents on the sphere, producing smoother, higher-quality transitions:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">slerp</span><span class="p">(</span><span class="n">latent_a</span><span class="p">,</span> <span class="n">latent_b</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-    <span class="c1"># Normalize vectors
-</span>    <span class="n">a_norm</span> <span class="o">=</span> <span class="n">latent_a</span> <span class="o">/</span> <span class="n">torch</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">latent_a</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-    <span class="n">b_norm</span> <span class="o">=</span> <span class="n">latent_b</span> <span class="o">/</span> <span class="n">torch</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">latent_b</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-    
-    <span class="c1"># Calculate angle
-</span>    <span class="n">dot</span> <span class="o">=</span> <span class="p">(</span><span class="n">a_norm</span> <span class="o">*</span> <span class="n">b_norm</span><span class="p">).</span><span class="nf">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-    <span class="n">theta</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">acos</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">clamp</span><span class="p">(</span><span class="n">dot</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-    
-    <span class="c1"># SLERP formula
-</span>    <span class="n">sin_theta</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
-    <span class="n">wa</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">theta</span><span class="p">)</span> <span class="o">/</span> <span class="n">sin_theta</span>
-    <span class="n">wb</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">theta</span><span class="p">)</span> <span class="o">/</span> <span class="n">sin_theta</span>
-    
-    <span class="k">return</span> <span class="n">wa</span><span class="p">.</span><span class="nf">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">latent_a</span> <span class="o">+</span> <span class="n">wb</span><span class="p">.</span><span class="nf">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">latent_b</span>
-</code></pre></div></div>
-
-<h3 id="latent-space-navigation">Latent Space Navigation</h3>
-
-<p>A ComfyUI exploration workflow blends two (or more) latents before sampling:</p>
+<p>The cost of an image is roughly the product of three factors. Each technique family on this page attacks one of them.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    A["Latent A"] --&gt; Interp["Latent Interpolate"]
-    B["Latent B"] --&gt; Interp
-    Interp --&gt; KS["KSampler"] --&gt; Prev["Preview"]
-    subgraph Multi["Multi-dimensional navigation"]
-        C["Center latent"] --&gt; Blend["Blend"]
-        D1["+ Noise direction 1"] --&gt; Blend
-        D2["+ Noise direction 2"] --&gt; Blend
-    end
+    C["Cost of one image"] --&gt; S["Number of steps"]
+    C --&gt; P["Forward passes per step"]
+    C --&gt; F["Cost of one pass"]
+    S --&gt; S1["Distillation: LCM, Lightning,&lt;br/&gt;DMD2, Turbo, schnell, klein"]
+    S --&gt; S2["Better solvers and schedules;&lt;br/&gt;straighter flow-matching paths"]
+    P --&gt; P1["Guidance distillation&lt;br/&gt;(CFG 1: one pass instead of two)"]
+    F --&gt; F1["Attention kernels:&lt;br/&gt;SDPA, FlashAttention, SageAttention"]
+    F --&gt; F2["Quantization: fp8, GGUF,&lt;br/&gt;NVFP4, SVDQuant"]
+    F --&gt; F3["Step caching: TeaCache,&lt;br/&gt;first-block cache"]
 </code></pre>
 
-<h3 id="latent-composition">Latent Composition</h3>
+<p>Quality techniques (guidance variants, detailers, multi-pass upscaling) usually add cost. The practical skill is spending that budget where it shows.</p>
 
-<p>Instead of blending two latents globally, you can <strong>composite by region</strong> using masks: keep latent A where mask A is white, latent B where mask B is white, and so on. This stitches separately-generated content into one frame at the latent level, which blends more cleanly than pasting pixels because the VAE decode harmonizes the seams. It is the latent-space cousin of regional prompting below.</p>
+<h2 id="latent-space-techniques">Latent-Space Techniques</h2>
 
-<h2 id="regional-prompting">Regional Prompting</h2>
+<p>The latent is a tensor, so it can be manipulated directly before or between sampling passes: blended, interpolated, or composited by region.</p>
 
-<p>A single prompt applies everywhere, which is why “a robot on the left, a forest on the right” so often bleeds the two together. <strong>Regional prompting</strong> fixes this by routing different prompts to different image regions, each with its own mask and weight.</p>
+<h3 id="linear-and-spherical-interpolation">Linear and spherical interpolation</h3>
 
-<h3 id="attention-masking">Attention Masking</h3>
+<p>Linear interpolation (LERP) blends two latents with a weight $\alpha$:</p>
 
-<p>The most common approach masks the <strong>cross-attention</strong> so each prompt only influences its region. You define a region as a (prompt, mask, weight) triple — for example a <code class="language-plaintext highlighter-rouge">detailed robot</code> prompt bound to the left half and a <code class="language-plaintext highlighter-rouge">lush forest</code> prompt bound to the right — and the sampler keeps each prompt’s influence inside its mask. ComfyUI offers this through nodes like <em>Conditioning (Set Area)</em> / <em>Set Mask</em>; A1111/Forge through the Regional Prompter extension.</p>
+\[\mathbf{x}_\alpha = (1-\alpha)\,\mathbf{x}_a + \alpha\,\mathbf{x}_b, \qquad \alpha \in [0, 1].\]
 
-<h3 id="gligen-box-grounded-placement">GLIGEN: Box-Grounded Placement</h3>
+<p>For <strong>initial noise</strong> this is the wrong operation. A high-dimensional Gaussian sample lies close to a sphere of radius $\sqrt{d}$, and the midpoint of two independent samples has norm about $\sqrt{d/2}$. The sampler then receives noise with too little variance and produces flat, washed-out images. <strong>Spherical linear interpolation (SLERP)</strong> follows the arc between the two vectors and keeps the norm approximately constant:</p>
 
-<p>Where masks define <em>areas</em>, <strong>GLIGEN</strong> (Grounded Language-to-Image Generation) places phrases inside <strong>bounding boxes</strong> — “put <code class="language-plaintext highlighter-rouge">a red car</code> in this box” — giving object-level layout control without hand-painting masks. It is the cleaner choice when you know <em>where</em> each object goes but not its exact silhouette.</p>
+\[\operatorname{slerp}(\mathbf{a}, \mathbf{b}; \alpha) = \frac{\sin\big((1-\alpha)\theta\big)}{\sin\theta}\,\mathbf{a} + \frac{\sin(\alpha\theta)}{\sin\theta}\,\mathbf{b}, \qquad \theta = \arccos\!\left(\frac{\mathbf{a}\cdot\mathbf{b}}{\lVert\mathbf{a}\rVert\,\lVert\mathbf{b}\rVert}\right)\]
 
-<h3 id="composable-and-scheduled-prompts">Composable and Scheduled Prompts</h3>
+<p>The angle must be computed over the whole latent of each sample, not per channel:</p>
 
-<p>Two prompt-level techniques complement masking:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
 
-<ul>
-  <li>
-<strong>Composable diffusion</strong> combines independent concepts with <code class="language-plaintext highlighter-rouge">AND</code>, denoising each separately and merging — <code class="language-plaintext highlighter-rouge">a cat AND a dog</code> makes both more likely to appear (and survive) than <code class="language-plaintext highlighter-rouge">a cat and a dog</code>. Per-term weights (<code class="language-plaintext highlighter-rouge">(cat:1.2) AND (dog:0.8)</code>) bias the balance.</li>
-  <li>
-<strong>Prompt scheduling</strong> swaps the prompt partway through sampling, e.g. <code class="language-plaintext highlighter-rouge">[a cat|a dog]</code> alternates each step, or <code class="language-plaintext highlighter-rouge">[cat:dog:0.4]</code> switches from cat to dog at 40% — useful for hybrids and gradual morphs.</li>
-</ul>
+<span class="k">def</span> <span class="nf">slerp</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="p">.</span><span class="n">Tensor</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Spherical interpolation between two batches of latents of shape [B, C, H, W].</span><span class="sh">"""</span>
+    <span class="n">a_flat</span><span class="p">,</span> <span class="n">b_flat</span> <span class="o">=</span> <span class="n">a</span><span class="p">.</span><span class="nf">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">b</span><span class="p">.</span><span class="nf">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">a_unit</span> <span class="o">=</span> <span class="n">a_flat</span> <span class="o">/</span> <span class="n">a_flat</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">b_unit</span> <span class="o">=</span> <span class="n">b_flat</span> <span class="o">/</span> <span class="n">b_flat</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">dot</span> <span class="o">=</span> <span class="p">(</span><span class="n">a_unit</span> <span class="o">*</span> <span class="n">b_unit</span><span class="p">).</span><span class="nf">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">).</span><span class="nf">clamp</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">+</span> <span class="n">eps</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">acos</span><span class="p">(</span><span class="n">dot</span><span class="p">)</span>
+    <span class="n">sin_theta</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+    <span class="n">wa</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">theta</span><span class="p">)</span> <span class="o">/</span> <span class="n">sin_theta</span><span class="p">).</span><span class="nf">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">wb</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">theta</span><span class="p">)</span> <span class="o">/</span> <span class="n">sin_theta</span><span class="p">).</span><span class="nf">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">wa</span> <span class="o">*</span> <span class="n">a_flat</span> <span class="o">+</span> <span class="n">wb</span> <span class="o">*</span> <span class="n">b_flat</span>
+    <span class="c1"># Nearly parallel vectors: SLERP degenerates, fall back to LERP
+</span>    <span class="n">lerp</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">a_flat</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">b_flat</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">sin_theta</span><span class="p">.</span><span class="nf">abs</span><span class="p">().</span><span class="nf">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="n">lerp</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span><span class="p">.</span><span class="nf">view_as</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+</code></pre></div></div>
 
-<h2 id="advanced-sampling-methods">Advanced Sampling Methods</h2>
+<p>Sweeping $\alpha$ while holding the prompt fixed produces a smooth morph between two seeds. Interpolating the text conditioning instead, or as well, morphs between concepts. For video-quality transitions, dedicated video models (Wan, LTX-Video, HunyuanVideo) now do far better than frame-by-frame latent walks.</p>
 
-<p>Beyond picking a sampler and step count, several refinements address specific failure modes — oversaturation at high CFG, the distribution of noise across steps, and getting more quality from the same step budget. Most are exposed as toggles in your tool rather than something you implement.</p>
+<h3 id="latent-composition">Latent composition</h3>
+
+<p>Instead of blending globally, latents can be <strong>composited by region</strong> with masks: latent A where mask A is set, latent B where mask B is set. Seams blend more cleanly than pasted pixels because a subsequent low-denoise pass and the VAE decode harmonize the boundary. This is the latent-space counterpart of regional prompting.</p>
+
+<h2 id="regional-and-layout-control">Regional and Layout Control</h2>
+
+<p>A single prompt applies to the whole image. On CLIP-conditioned models, “a robot on the left, a forest on the right” often bleeds the two together. Two remedies exist: route different prompts to different regions, or use a model whose text encoder understands layout.</p>
 
 <table>
   <thead>
     <tr>
       <th>Technique</th>
-      <th>Problem it solves</th>
-      <th>What it does</th>
+      <th>Mechanism</th>
+      <th>Where available</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>CFG rescale</td>
-      <td>Washed-out, oversaturated images at high CFG</td>
-      <td>Rescales the guided prediction back toward the conditional prediction’s statistics, so high CFG follows the prompt without blowing out contrast</td>
+      <td>Area / mask conditioning</td>
+      <td>Each prompt’s conditioning is restricted to a rectangle or mask; the predictions are combined per region</td>
+      <td>ComfyUI <em>Conditioning (Set Area)</em> and <em>Conditioning (Set Mask)</em>; Forge Regional Prompter</td>
     </tr>
     <tr>
-      <td>Dynamic thresholding</td>
-      <td>Color/clipping artifacts at high guidance</td>
-      <td>Clamps extreme latent values per-step using a high percentile instead of a hard limit, preventing the “burnt” look</td>
+      <td>Attention masking</td>
+      <td>Cross-attention from each region’s pixels is restricted to that region’s prompt tokens</td>
+      <td>Regional-prompting node packs; built into some FLUX and SDXL regional nodes</td>
     </tr>
     <tr>
-      <td>Karras schedule</td>
-      <td>Wasted steps on low-information ranges</td>
-      <td>Distributes noise levels (sigmas) so more steps land where they matter; reaches quality in fewer steps</td>
+      <td>GLIGEN</td>
+      <td>Extra gated attention layers ground phrases in bounding boxes</td>
+      <td>SD 1.5 (largely superseded)</td>
     </tr>
     <tr>
-      <td>EDM-style stochasticity</td>
-      <td>Over-smooth, lifeless detail</td>
-      <td>Injects a controlled bit of noise mid-sampling (the <code class="language-plaintext highlighter-rouge">s_churn</code> knob) to recover texture</td>
+      <td>Composable diffusion (<code class="language-plaintext highlighter-rouge">AND</code>)</td>
+      <td>Each sub-prompt is denoised separately and the guided predictions are summed</td>
+      <td>A1111/Forge syntax; ComfyUI via <em>Conditioning (Combine)</em>
+</td>
     </tr>
     <tr>
-      <td>Restart sampling</td>
-      <td>Detail plateaus on long runs</td>
-      <td>Periodically re-adds noise and re-denoises, escaping the smoothing that long deterministic runs cause</td>
+      <td>Prompt scheduling</td>
+      <td>The prompt changes partway through sampling (<code class="language-plaintext highlighter-rouge">[cat:dog:0.4]</code> switches at 40%)</td>
+      <td>A1111/Forge syntax; ComfyUI via timestep-range conditioning nodes</td>
+    </tr>
+    <tr>
+      <td>Layout in the prompt</td>
+      <td>The model’s LLM text encoder resolves “left”, “behind”, and counts directly</td>
+      <td>FLUX.2, Qwen-Image, Z-Image, HiDream</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="karras-scheduling-briefly">Karras Scheduling, Briefly</h3>
+<p>On current LLM-encoded models, spatial phrasing in the prompt succeeds often enough that regional conditioning is needed mainly for strict layouts, or for several characters that each need their own LoRA.</p>
 
-<p>The most useful of these in everyday work is the <strong>Karras</strong> noise schedule (offered alongside <code class="language-plaintext highlighter-rouge">normal</code>/<code class="language-plaintext highlighter-rouge">simple</code>/<code class="language-plaintext highlighter-rouge">exponential</code>). It places the sampling sigmas along a curve</p>
+<h2 id="guidance-beyond-plain-cfg">Guidance Beyond Plain CFG</h2>
 
-\[\sigma_i = \left(\sigma_{\max}^{1/\rho} + \frac{i}{n-1}\big(\sigma_{\min}^{1/\rho} - \sigma_{\max}^{1/\rho}\big)\right)^{\rho}\]
+<p>Classifier-free guidance combines an unconditional (or negative-prompt) prediction $\epsilon_u$ with a conditional one $\epsilon_c$:</p>
 
-<p>with $\rho \approx 7$, which concentrates steps in the perceptually important mid-noise range. Pairing <code class="language-plaintext highlighter-rouge">dpmpp_2m</code> with <code class="language-plaintext highlighter-rouge">karras</code> is a strong default for SD/SDXL; FLUX prefers <code class="language-plaintext highlighter-rouge">simple</code>.</p>
+\[\hat{\epsilon} = \epsilon_u + w\,(\epsilon_c - \epsilon_u).\]
 
-<h3 id="high-cfg-without-the-burn">High CFG Without the Burn</h3>
+<p>A large $w$ improves prompt adherence but pushes the prediction outside the range the model was trained on. The result is oversaturated colors, burnt contrast, and reduced diversity. The methods below keep the benefit and reduce the damage, or recover guidance for models that cannot run true CFG.</p>
 
-<p>If you need strong prompt adherence (high CFG) but get oversaturated results, enable <strong>CFG rescale</strong> (sometimes “CFG rescale φ”, ~0.7) rather than just lowering CFG. It keeps the prompt-following strength while pulling the output’s statistics back toward natural contrast.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>What it does</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+<strong>CFG rescale</strong> (Lin et al., 2023)</td>
+      <td>Rescales the guided prediction to match the standard deviation of $\epsilon_c$, then blends with factor $\phi \approx 0.7$</td>
+      <td>High CFG on v-prediction and zero-terminal-SNR models</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Dynamic thresholding</strong> (Imagen)</td>
+      <td>Clamps the predicted clean image to a per-step percentile of its magnitude</td>
+      <td>Very high CFG on pixel or latent models</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Guidance interval</strong> (Kynkäänniemi et al., 2024)</td>
+      <td>Applies CFG only in the middle of the noise range and skips it at the highest and lowest noise levels</td>
+      <td>Better diversity and fewer artifacts at no extra cost</td>
+    </tr>
+    <tr>
+      <td>
+<strong>APG</strong> (Sadat et al., 2024)</td>
+      <td>Splits the guidance update into components parallel and orthogonal to the conditional prediction and down-weights the parallel part</td>
+      <td>Removes oversaturation at high guidance scales</td>
+    </tr>
+    <tr>
+      <td>
+<strong>PAG</strong> (Ahn et al., 2024)</td>
+      <td>Guides away from a prediction made with self-attention maps replaced by identity, which degrades structure</td>
+      <td>Sharper structure; works without a prompt</td>
+    </tr>
+    <tr>
+      <td>
+<strong>SAG</strong> (Hong et al., 2023)</td>
+      <td>Guides away from a version blurred in the regions the model attends to</td>
+      <td>Mild detail enhancement</td>
+    </tr>
+    <tr>
+      <td>
+<strong>NAG</strong> (Chen et al., 2025)</td>
+      <td>Applies guidance in attention-feature space with normalization, using the negative prompt</td>
+      <td>Negative prompts on few-step and guidance-distilled models that run at CFG 1</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="picking-and-tuning-samplers">Picking and Tuning Samplers</h2>
+<p>APG shows how simple these fixes can be. With $D_c$ the conditional denoised prediction and $\Delta = D_c - D_u$ the guidance direction:</p>
 
-<p>Two ideas explain most sampler behavior:</p>
+\[\Delta_\parallel = \frac{\langle \Delta, D_c\rangle}{\lVert D_c\rVert^2}\,D_c, \qquad \Delta_\perp = \Delta - \Delta_\parallel, \qquad \hat{D} = D_c + (w-1)\left(\Delta_\perp + \eta\,\Delta_\parallel\right)\]
+
+<p>With $\eta = 1$ this reduces to standard CFG. Setting $\eta$ near $0$ removes the component that mainly inflates saturation, while the orthogonal component that improves detail and adherence is kept.</p>
+
+<p><strong>Guidance-distilled models.</strong> FLUX.1 [dev] and similar models embed guidance strength as an input and run a single forward pass per step at <code class="language-plaintext highlighter-rouge">cfg = 1.0</code>. Raising CFG on them doubles the cost and usually harms the image. Negative prompts on these models need NAG, or a <em>true CFG</em> pass that deliberately runs the model twice at a low scale.</p>
+
+<h2 id="samplers-and-noise-schedules">Samplers and Noise Schedules</h2>
 
 <ul>
   <li>
-<strong>Ancestral samplers</strong> (the <code class="language-plaintext highlighter-rouge">_a</code> family, e.g. <code class="language-plaintext highlighter-rouge">euler_a</code>) inject fresh noise each step, so they keep exploring and never fully converge — great for creative variety, worse for reproducibility. Non-ancestral samplers (<code class="language-plaintext highlighter-rouge">euler</code>, <code class="language-plaintext highlighter-rouge">dpmpp_2m</code>) converge to a stable image as steps increase.</li>
+<strong>Ancestral samplers</strong> (<code class="language-plaintext highlighter-rouge">euler_ancestral</code>, <code class="language-plaintext highlighter-rouge">dpmpp_2s_ancestral</code>, and other <code class="language-plaintext highlighter-rouge">_a</code> or SDE variants) inject fresh noise at every step. They never converge to a fixed image as the step count rises, which trades reproducibility for variety and texture. Deterministic samplers (<code class="language-plaintext highlighter-rouge">euler</code>, <code class="language-plaintext highlighter-rouge">dpmpp_2m</code>, <code class="language-plaintext highlighter-rouge">uni_pc</code>) converge.</li>
   <li>
-<strong>Best-of-N selection</strong> is the simplest quality boost: generate several seeds and keep the best. Automated pickers score candidates with an aesthetic or CLIP model, but for most work, eyeballing a batch of 4-8 is enough and avoids baking a scorer’s bias into your output.</li>
+    <p><strong>Karras schedule.</strong> Places the noise levels on the curve below, with $\rho = 7$, which concentrates steps at low noise levels where fine detail forms:</p>
+
+\[\sigma_i = \left(\sigma_{\max}^{1/\rho} + \frac{i}{n-1}\big(\sigma_{\min}^{1/\rho} - \sigma_{\max}^{1/\rho}\big)\right)^{\rho}, \qquad i = 0, \dots, n-1.\]
+
+    <p><code class="language-plaintext highlighter-rouge">dpmpp_2m</code> with <code class="language-plaintext highlighter-rouge">karras</code> remains a strong default for SD 1.5 and SDXL.</p>
+  </li>
+  <li>
+<strong>Timestep shift for flow models.</strong> Flow-matching models are sampled on $t \in [0,1]$ with a <em>shift</em> that spends more steps at high noise for larger images. It corresponds to ComfyUI’s <code class="language-plaintext highlighter-rouge">ModelSamplingFlux</code>, <code class="language-plaintext highlighter-rouge">ModelSamplingSD3</code>, and <code class="language-plaintext highlighter-rouge">ModelSamplingAuraFlow</code> nodes. Use <code class="language-plaintext highlighter-rouge">euler</code> or <code class="language-plaintext highlighter-rouge">dpmpp_2m</code> with the <code class="language-plaintext highlighter-rouge">simple</code> or <code class="language-plaintext highlighter-rouge">beta</code> scheduler, and raise the shift if large images come out incoherent.</li>
+  <li>
+<strong>Restart sampling</strong> (Xu et al., 2023) periodically re-adds a large amount of noise and re-integrates. This recovers some of the quality advantage of stochastic sampling at deterministic-sampler step counts.</li>
+  <li>
+<strong>Best-of-N.</strong> Generating 4–8 seeds and choosing one is still the cheapest quality lever. Automatic selection with an aesthetic or preference model (for example, a VLM judge) works at scale but inherits the scorer’s biases.</li>
 </ul>
 
-<h2 id="few-step-generation-how-the-speedups-work">Few-Step Generation: How the Speedups Work</h2>
+<h2 id="few-step-generation">Few-Step Generation</h2>
 
-<p>Standard diffusion needs 20-50 steps because each step makes a small, careful move along a curved path from noise to image. The techniques below all attack that step count — and you mostly <em>consume</em> them (as an LCM-LoRA, a Turbo/Lightning checkpoint, or a FLUX-schnell model) rather than implement them. Knowing what each does explains their trade-offs:</p>
+<p>Standard diffusion needs 20–50 steps because each step moves only a short distance along a curved trajectory from noise to image. Two strategies reduce this: <strong>make the path straighter</strong> (flow matching and reflow) or <strong>train a student that takes large jumps</strong> (distillation).</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    T["Teacher model&lt;br/&gt;(20-50 steps, CFG)"] --&gt; GD["Guidance distillation&lt;br/&gt;CFG folded into weights"]
+    T --&gt; CD["Consistency distillation&lt;br/&gt;LCM, TCD"]
+    T --&gt; AD["Adversarial distillation&lt;br/&gt;ADD, LADD, Lightning"]
+    T --&gt; DM["Distribution matching&lt;br/&gt;DMD2, Decoupled-DMD"]
+    GD --&gt; S1["1 pass / step&lt;br/&gt;FLUX.1 dev"]
+    CD --&gt; S2["4-8 steps&lt;br/&gt;portable LoRA"]
+    AD --&gt; S3["1-4 steps&lt;br/&gt;SDXL-Turbo, SD3.5 Turbo, schnell"]
+    DM --&gt; S4["4-8 steps&lt;br/&gt;SDXL DMD2, Z-Image-Turbo"]
+</code></pre>
 
 <table>
   <thead>
@@ -3043,68 +3100,103 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Method</th>
       <th>Idea</th>
       <th>Steps</th>
+      <th>Examples</th>
       <th>Trade-off</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Consistency distillation (LCM, TCD)</td>
-      <td>Train a student to jump directly toward the clean image from any point on the path</td>
-      <td>4-8</td>
-      <td>Slight softness; LCM ships as a portable LoRA</td>
+      <td>Guidance distillation</td>
+      <td>Student reproduces the CFG output in one pass, with guidance scale as an input</td>
+      <td>Unchanged (halves passes)</td>
+      <td>FLUX.1 [dev]</td>
+      <td>Negative prompts need extra techniques</td>
     </tr>
     <tr>
-      <td>Adversarial distillation (ADD → SDXL-Turbo)</td>
-      <td>Add a GAN-style discriminator so few-step outputs look real, not blurry</td>
-      <td>1-4</td>
-      <td>Less diversity; can over-sharpen</td>
+      <td>Consistency distillation</td>
+      <td>Student maps any point on a trajectory to its endpoint</td>
+      <td>4–8</td>
+      <td>LCM-LoRA, TCD</td>
+      <td>Softer detail; ships as a LoRA</td>
     </tr>
     <tr>
-      <td>Latent Adversarial (LADD → SD3-Turbo)</td>
-      <td>ADD applied in latent space for higher-res efficiency</td>
-      <td>1-4</td>
-      <td>Same family of trade-offs</td>
+      <td>Adversarial distillation</td>
+      <td>Discriminator loss keeps few-step outputs sharp</td>
+      <td>1–4</td>
+      <td>SDXL-Turbo (ADD), SD3-Turbo and SD3.5 Large Turbo (LADD), FLUX.1 [schnell]</td>
+      <td>Lower diversity; CFG must stay near 1</td>
     </tr>
     <tr>
-      <td>Rectified flow (FLUX, SD3)</td>
-      <td>Train near-straight paths that an ODE solver can traverse in few steps</td>
-      <td>20-28 (1-4 distilled)</td>
-      <td>Architectural, not bolt-on</td>
+      <td>Progressive adversarial distillation</td>
+      <td>Step count halved in stages with an adversarial loss</td>
+      <td>2–8</td>
+      <td>SDXL-Lightning, Hyper-SD</td>
+      <td>LoRA or full checkpoint; per-step-count variants</td>
+    </tr>
+    <tr>
+      <td>Distribution matching (DMD2 and variants)</td>
+      <td>Student’s output distribution is matched to the teacher’s through score differences, plus a GAN loss</td>
+      <td>1–8</td>
+      <td>SDXL DMD2, Z-Image-Turbo (Decoupled-DMD)</td>
+      <td>Among the best quality-per-step today</td>
+    </tr>
+    <tr>
+      <td>Size and step distillation</td>
+      <td>Smaller student distilled from a large flow model</td>
+      <td>4</td>
+      <td>FLUX.2 [klein]</td>
+      <td>Smaller model, lower ceiling</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Consistency models</strong> ask the network to map <em>any</em> noisy point on a trajectory to the same endpoint, so a handful of big steps replace many small ones. <strong>Adversarial distillation</strong> instead pits the few-step generator against a discriminator, which is why SDXL-Turbo produces a usable image in a single step. Both are <em>distillations</em> of a slow teacher model — you trade a little diversity and fidelity for a large speedup.</p>
+<p>Most of these ship both as full checkpoints and as LoRAs that retrofit an existing fine-tune. Use the sampler, scheduler, and CFG listed on the distilled model’s card. They are usually <code class="language-plaintext highlighter-rouge">euler</code> or LCM, few steps, and CFG between 1 and 2, and defaults tuned for a 30-step model give poor results.</p>
 
-<h3 id="flow-matching">Flow Matching</h3>
+<h3 id="flow-matching">Flow matching</h3>
 
-<p>The alternative to traditional diffusion used in FLUX and SD3. Instead of predicting noise, the model learns a <strong>velocity field</strong> that transports a sample along a straight path from noise $\mathbf{x}_0$ to data $\mathbf{x}_1$. The interpolant and its target velocity are simply:</p>
+<p>SD3, FLUX, Qwen-Image, and Z-Image are trained with <strong>flow matching</strong> (rectified flow). With $\mathbf{x}_0$ noise and $\mathbf{x}_1$ data, the model learns a velocity field along the straight-line interpolant:</p>
 
-\[\mathbf{x}_t = (1-t)\,\mathbf{x}_0 + t\,\mathbf{x}_1, \qquad \mathbf{v}_{\text{target}} = \mathbf{x}_1 - \mathbf{x}_0\]
+\[\mathbf{x}_t = (1-t)\,\mathbf{x}_0 + t\,\mathbf{x}_1, \qquad \mathcal{L} = \mathbb{E}_{t,\mathbf{x}_0,\mathbf{x}_1}\Big[\big\lVert \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0)\big\rVert^2\Big]\]
 
-<p>The model is trained to match that velocity, $\mathcal{L} = \mathbb{E}\big[\lVert \mathbf{v}_\theta(\mathbf{x}_t, t) - (\mathbf{x}_1 - \mathbf{x}_0)\rVert^2\big]$. Because the target paths are nearly straight, sampling needs far fewer ODE steps than classic diffusion:</p>
+<p>Libraries differ in the direction of $t$. Diffusers and the SD3 paper put noise at $t = 1$, so check the convention before reusing code. SD3 found that sampling $t$ from a <strong>logit-normal</strong> distribution, which concentrates training on intermediate noise levels, works better than uniform sampling.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">flow_matching_loss</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Rectified flow training</span><span class="sh">"""</span>
-    <span class="c1"># Interpolate between noise and data
-</span>    <span class="n">xt</span> <span class="o">=</span> <span class="n">t</span> <span class="o">*</span> <span class="n">x1</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span> <span class="o">*</span> <span class="n">x0</span>
-    
-    <span class="c1"># Target velocity
-</span>    <span class="n">target_v</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">-</span> <span class="n">x0</span>
-    
-    <span class="c1"># Predicted velocity vs. target; the loss is a simple MSE
-</span>    <span class="k">return</span> <span class="n">F</span><span class="p">.</span><span class="nf">mse_loss</span><span class="p">(</span><span class="nf">model</span><span class="p">(</span><span class="n">xt</span><span class="p">,</span> <span class="n">t</span><span class="p">),</span> <span class="n">target_v</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">import</span> <span class="n">torch.nn.functional</span> <span class="k">as</span> <span class="n">F</span>
+
+<span class="k">def</span> <span class="nf">flow_matching_loss</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x_data</span><span class="p">,</span> <span class="n">cond</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Rectified-flow training loss; noise at t=0, data at t=1.</span><span class="sh">"""</span>
+    <span class="n">noise</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn_like</span><span class="p">(</span><span class="n">x_data</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">sigmoid</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">x_data</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">device</span><span class="o">=</span><span class="n">x_data</span><span class="p">.</span><span class="n">device</span><span class="p">))</span>  <span class="c1"># logit-normal
+</span>    <span class="n">t_b</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="nf">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="p">([</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">x_data</span><span class="p">.</span><span class="nf">dim</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>                          <span class="c1"># broadcastable
+</span>    <span class="n">x_t</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t_b</span><span class="p">)</span> <span class="o">*</span> <span class="n">noise</span> <span class="o">+</span> <span class="n">t_b</span> <span class="o">*</span> <span class="n">x_data</span>
+    <span class="k">return</span> <span class="n">F</span><span class="p">.</span><span class="nf">mse_loss</span><span class="p">(</span><span class="nf">model</span><span class="p">(</span><span class="n">x_t</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">cond</span><span class="p">),</span> <span class="n">x_data</span> <span class="o">-</span> <span class="n">noise</span><span class="p">)</span>
+
+<span class="nd">@torch.no_grad</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">sample_euler</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">cond</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="sh">"</span><span class="s">cuda</span><span class="sh">"</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Integrate dx/dt = v(x, t) from noise (t=0) to data (t=1).</span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">ts</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">t0</span><span class="p">,</span> <span class="n">t1</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">ts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">ts</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="p">(</span><span class="n">t1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span> <span class="o">*</span> <span class="nf">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">t0</span><span class="p">.</span><span class="nf">expand</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">cond</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">x</span>
 </code></pre></div></div>
 
-<p>Sampling then just integrates that velocity field as an ODE — start at noise and step forward with $\mathbf{x}<em>{t+\Delta t} = \mathbf{x}_t + \mathbf{v}</em>\theta(\mathbf{x}_t, t)\,\Delta t$. Because the learned paths are nearly straight, a coarse step size still lands on a good image.</p>
+<p>The ideal paths are straight, but the paths the model actually learns are only close to straight. That is why flow models still use about 20–30 steps, and why reflow (retraining on the model’s own noise–image pairs) and distillation are still needed to reach 1–4 steps.</p>
 
 <h2 id="multi-stage-workflows">Multi-Stage Workflows</h2>
 
-<p>The strongest images rarely come from one pass. Multi-stage pipelines generate a solid base, then add resolution and detail in controlled increments — each pass at a lower denoise so it refines rather than redraws.</p>
+<p>The strongest results rarely come from one pass. Multi-stage pipelines establish composition at native resolution, then add resolution and detail in controlled increments. Each later pass uses a lower denoise so that it refines the image rather than redrawing it.</p>
 
-<h3 id="progressive-upscaling">Progressive Upscaling</h3>
+<pre><code class="language-mermaid">flowchart LR
+    Base["Base pass&lt;br/&gt;native res, denoise 1.0"] --&gt; Up["Upscale 1.5-2x&lt;br/&gt;(model or latent)"]
+    Up --&gt; Ref["Refine pass&lt;br/&gt;denoise 0.3-0.5"]
+    Ref --&gt; Det["Detailer&lt;br/&gt;detect face / hands"]
+    Det --&gt; Crop["Crop, upscale,&lt;br/&gt;re-sample at 0.3-0.45"]
+    Crop --&gt; Comp["Composite back&lt;br/&gt;with feathered mask"]
+    Comp --&gt; Final["Final image"]
+</code></pre>
 
-<p>Rather than jumping straight to 4K (which causes repetition and OOM), climb in stages, dropping the denoise strength as you go so each pass adds detail without changing the composition:</p>
+<h3 id="progressive-upscaling">Progressive upscaling</h3>
 
 <table>
   <thead>
@@ -3118,231 +3210,168 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td>Base</td>
-      <td>1024 (native)</td>
+      <td>Native (about 1 MP)</td>
       <td>1.0</td>
-      <td>Establish composition</td>
+      <td>Composition</td>
     </tr>
     <tr>
       <td>Upscale 1</td>
-      <td>~1.5x</td>
-      <td>~0.5</td>
-      <td>Add structure, fix coherence</td>
+      <td>~1.5×</td>
+      <td>0.4–0.5</td>
+      <td>Structure and coherence at the new scale</td>
     </tr>
     <tr>
-      <td>Upscale 2</td>
-      <td>~2x</td>
-      <td>~0.35</td>
-      <td>Sharpen detail</td>
+      <td>Upscale 2 (tiled)</td>
+      <td>~2×</td>
+      <td>0.25–0.35</td>
+      <td>Fine detail</td>
     </tr>
     <tr>
-      <td>Final</td>
-      <td>target</td>
-      <td>~0.25</td>
+      <td>Final (optional)</td>
+      <td>Target</td>
+      <td>0.15–0.25</td>
       <td>Polish without redrawing</td>
     </tr>
   </tbody>
 </table>
 
-<p>The “Ultimate SD Upscale” and tiled-diffusion workflows automate this, optionally with a Tile ControlNet to keep tiles coherent.</p>
+<p>Beyond about 2 MP, sample in overlapping tiles (Ultimate SD Upscale, or tiled-diffusion nodes), optionally with a Tile ControlNet so that each tile stays faithful to the low-resolution image. FLUX.2 and Qwen-Image generate natively at higher resolutions than the U-Net models, so they need fewer stages. Dedicated restoration upscalers (SUPIR, SeedVR2) are an alternative when the goal is fidelity rather than added detail.</p>
 
-<h3 id="detail-enhancement-faceregion-fixing">Detail Enhancement (Face/Region Fixing)</h3>
+<h3 id="detailers">Detailers</h3>
 
-<p>A second common pattern detects a region (commonly faces, via the Impact Pack’s detectors), crops and re-generates just that region at higher effective resolution, then composites it back. This is why workflows like ADetailer/FaceDetailer dramatically improve faces and hands without re-rolling the whole image:</p>
+<p>A detailer finds a region with a detector (a YOLO face or hand model, or a segmentation model such as SAM 2), crops it with padding, upscales the crop so the model works at its native resolution, re-samples it at low denoise, and pastes it back with a feathered mask. ComfyUI’s Impact Pack <em>FaceDetailer</em> and Forge’s ADetailer implement this pattern. It fixes small faces and hands far more cheaply than regenerating the whole image.</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    Base["Base generation"] --&gt; Det["Detect region&lt;br/&gt;(face / hands)"]
-    Det --&gt; Crop["Crop + upscale region"]
-    Crop --&gt; Reg["Re-generate at low denoise"]
-    Reg --&gt; Comp["Composite back"]
-    Base --&gt; Comp
-    Comp --&gt; Out["Final image"]
-</code></pre>
+<h3 id="editing-models-as-a-stage">Editing models as a stage</h3>
 
-<h3 id="style-mixing">Style Mixing</h3>
+<p>Instruction-editing models (FLUX.1 Kontext, FLUX.2 with reference images, Qwen-Image-Edit-2511) can now replace several classic stages: changing an outfit, relighting, removing an object, or keeping a character consistent across shots. They take the image plus a text instruction and need no mask. See <a href="inpainting-editing.html">Inpainting and Editing</a> for when a mask-based approach is still better. <a href="inpainting-editing.html#differential-diffusion">Differential diffusion</a> generalizes the binary mask to a continuous per-pixel change strength and gives seamless, feathered edits.</p>
 
-<p>To blend the character of several models, generate the same seed/prompt with each and combine — either by <strong>merging the models</strong> beforehand (a fixed blend) or by <strong>prompt-traveling</strong> between checkpoints. A simpler, more controllable alternative is one base model plus stacked style LoRAs at reduced strengths, which avoids the unpredictability of latent averaging across different model distributions.</p>
+<h3 id="style-mixing">Style mixing</h3>
 
-<h2 id="optimization-techniques">Optimization Techniques</h2>
+<p>To combine the character of several models, the options, from most to least controllable, are: one base model with stacked style LoRAs at reduced strengths; a merged checkpoint (a fixed weighted blend of models <em>of the same architecture</em>); and switching checkpoints between passes, for example composing with one model and refining with another at low denoise. Averaging latents across different model families does not work, because their latent spaces differ.</p>
 
-<p>When you push resolution, batch size, or step count, you eventually hit compute or VRAM limits. Two categories of optimization help — making attention cheaper, and trading time for memory.</p>
+<h2 id="performance-and-memory">Performance and Memory</h2>
 
-<h3 id="speed-cheaper-attention">Speed: Cheaper Attention</h3>
+<p>When resolution, batch size, or model size exceeds the GPU, there are three kinds of lever: make each forward pass cheaper, skip redundant computation, or trade speed for memory. The <a href="optimization-guide.html">Optimization Guide</a> covers the underlying numerics.</p>
 
-<p>Attention is the dominant cost in diffusion. The practical levers:</p>
+<h3 id="faster-forward-passes">Faster forward passes</h3>
 
 <table>
   <thead>
     <tr>
       <th>Technique</th>
       <th>Effect</th>
-      <th>How to use it</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Flash Attention / SDPA</td>
-      <td>Fused, memory-efficient attention kernels</td>
-      <td>On by default in recent PyTorch/diffusers; just keep your stack current</td>
+      <td>PyTorch SDPA / FlashAttention</td>
+      <td>Fused, memory-efficient attention</td>
+      <td>Default in current PyTorch, ComfyUI, and diffusers; xFormers is no longer needed</td>
+    </tr>
+    <tr>
+      <td>
+<strong>SageAttention</strong> (2 and 3)</td>
+      <td>8-bit (and on Blackwell GPUs, FP4) attention kernels</td>
+      <td>ComfyUI <code class="language-plaintext highlighter-rouge">--use-sage-attention</code>; large gains on video and high-resolution work, small quality cost</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">torch.compile</code></td>
-      <td>Fuses ops into optimized kernels</td>
-      <td>One-line wrapper; large speedup after a warm-up compile</td>
+      <td>Fuses operations into optimized kernels</td>
+      <td>Warm-up compile on first run; recompiles when shapes change</td>
     </tr>
     <tr>
-      <td>Token Merging (ToMe)</td>
+      <td>fp8 weights</td>
+      <td>Halves memory versus bf16 with little quality loss</td>
+      <td>Native fp8 compute on Ada, Hopper, and Blackwell GPUs; ComfyUI <code class="language-plaintext highlighter-rouge">--fast</code> enables fp8 matrix multiplication</td>
+    </tr>
+    <tr>
+      <td><strong>SVDQuant / Nunchaku</strong></td>
+      <td>4-bit weights <em>and</em> activations, with a low-rank branch that absorbs outliers</td>
+      <td>About 3.5× less memory than bf16 FLUX.1 with ~3× speedup over NF4 (ICLR 2025); community ComfyUI nodes for FLUX, Qwen-Image, and others</td>
+    </tr>
+    <tr>
+      <td>NVFP4</td>
+      <td>Hardware 4-bit floating point on Blackwell (RTX 50-series, B200)</td>
+      <td>Official NVFP4 checkpoints exist for FLUX.2 [klein] and other models</td>
+    </tr>
+    <tr>
+      <td>Token merging (ToMe)</td>
       <td>Merges redundant tokens before attention</td>
-      <td>A ratio knob (~0.5); trades a little fidelity for speed</td>
-    </tr>
-    <tr>
-      <td>xFormers</td>
-      <td>Memory-efficient attention (older stacks)</td>
-      <td>Mostly superseded by built-in SDPA/Flash Attention</td>
+      <td>Mainly SD 1.5 and SDXL; less useful on DiTs</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="memory-trade-time-for-vram">Memory: Trade Time for VRAM</h3>
+<h3 id="skipping-redundant-computation">Skipping redundant computation</h3>
 
-<p>When you are VRAM-bound rather than time-bound:</p>
+<p>Adjacent sampling steps produce very similar intermediate features. <strong>Step caching</strong> methods reuse them. TeaCache (CVPR 2025) estimates from the timestep-modulated input how much the output will change and skips the transformer when the change is small. First-block caching compares the first block’s residual between steps for the same purpose. Speedups of 1.5–2× are common, and the cost is a loss of fine detail if the threshold is set too aggressively. Caching is especially valuable for video models.</p>
+
+<h3 id="fitting-in-memory">Fitting in memory</h3>
 
 <ul>
   <li>
-<strong>Tiled VAE / tiled diffusion</strong> decode (or generate) the image in overlapping tiles, so peak memory scales with tile size, not full resolution — the standard fix for high-res OOM.</li>
+<strong>Offloading.</strong> ComfyUI loads and unloads models automatically, and <code class="language-plaintext highlighter-rouge">--lowvram</code> or <code class="language-plaintext highlighter-rouge">--novram</code> force weights to stream from system RAM. diffusers offers <code class="language-plaintext highlighter-rouge">enable_model_cpu_offload()</code> and sequential offload. Both are slower but let 20–30B models run on 12–16 GB cards.</li>
   <li>
-<strong>Sequential CPU offload</strong> keeps idle components (text encoder, VAE) in system RAM and streams them to GPU on demand. Slower, but lets large models fit small cards.</li>
+<strong>GGUF quantization</strong> (Q8 down to Q4 and below) through the ComfyUI-GGUF nodes. Q8 is nearly lossless; Q4 visibly degrades fine detail.</li>
   <li>
-<strong>Quantization (fp8, GGUF)</strong> shrinks the model’s footprint with minor quality cost — the difference between FLUX fitting in 12 GB or not.</li>
+<strong>Tiled VAE decode.</strong> The VAE decode of a large image can use more memory than the denoiser. Use <code class="language-plaintext highlighter-rouge">VAE Decode (Tiled)</code>, whose peak memory scales with tile size.</li>
   <li>
-<strong>Gradient checkpointing</strong> matters only when <em>training</em> (e.g. LoRAs): it recomputes activations instead of storing them.</li>
+<strong>Text-encoder placement.</strong> A 7–24B text encoder can run on the CPU or in fp8, or be unloaded after encoding, because it runs only once per prompt.</li>
+  <li>
+<strong>Gradient checkpointing</strong> matters only for training (see <a href="lora-training.html">LoRA Training</a>).</li>
 </ul>
 
-<h2 id="advanced-prompt-engineering">Advanced Prompt Engineering</h2>
+<h2 id="advanced-controlnet-use">Advanced ControlNet Use</h2>
 
-<p>At the expert level, prompting becomes less about stacking adjectives and more about <em>structure and iteration</em>:</p>
+<p>These patterns extend the basics covered in the <a href="controlnet.html">ControlNet guide</a>.</p>
 
 <ul>
   <li>
-<strong>Build, don’t dump.</strong> Lead with subject, then composition, then style, then lighting. Newer models (FLUX, SD3) reward natural sentences; older CLIP-based ones reward ordered tags. Quality-spam (“masterpiece, 4k, trending on ArtStation”) helps SD 1.5 far more than it helps FLUX.</li>
+<strong>Control windowing.</strong> Apply structure strongly early and release it before the final steps (<code class="language-plaintext highlighter-rouge">start_percent</code> and <code class="language-plaintext highlighter-rouge">end_percent</code> on <em>Apply ControlNet</em>). Late steps then add detail that the control map never specified, which avoids the “traced” look.</li>
   <li>
-<strong>Iterate one axis at a time.</strong> Fix the seed, change a single clause, and compare. This isolates what each phrase actually does — the manual version of the “optimize toward a target” idea, and far more reliable than changing several things at once.</li>
+<strong>Union and multi-condition models.</strong> Single ControlNets that accept several control types (for example the Union models for SDXL and FLUX) replace a stack of per-type models, which saves VRAM.</li>
   <li>
-<strong>Push concepts into regions or weights</strong> when a flat prompt won’t separate two subjects — use the regional prompting and composable-diffusion techniques above instead of longer prose.</li>
+<strong>Reference instead of control.</strong> For identity and style, reference-image conditioning (IP-Adapter, FLUX Redux, or the reference inputs of FLUX.2 and Qwen-Image-Edit) often beats structural ControlNets.</li>
   <li>
-<strong>Let a VLM draft the prompt.</strong> A vision-language model can caption a reference image into a detailed starting prompt you then refine — a practical substitute for hand-tuning from scratch.</li>
+<strong>Temporal consistency.</strong> Per-frame control maps flicker because each is estimated independently. For video, use a video model with native control inputs (Wan VACE, for example) rather than image ControlNets applied frame by frame.</li>
 </ul>
 
-<h2 id="advanced-controlnet-techniques">Advanced ControlNet Techniques</h2>
+<h2 id="automation-and-experiment-design">Automation and Experiment Design</h2>
 
-<p>Two patterns extend basic ControlNet (covered fully in the <a href="controlnet.html">ControlNet guide</a>):</p>
-
-<ul>
-  <li>
-<strong>Control windowing.</strong> Apply structure strongly early (when composition is set) and release it before the final steps via <code class="language-plaintext highlighter-rouge">end_percent</code>, so late steps add detail the control map never specified. This is the practical form of “multi-scale” control and prevents the traced look.</li>
-  <li>
-<strong>Temporal control for video.</strong> Extracting a control map per frame causes flicker because each map is computed independently. Blending each frame’s map slightly toward the previous frame’s smooths the conditioning over time, reducing jitter — a cheap consistency win before reaching for dedicated video models.</li>
-</ul>
-
-<h2 id="automating-and-scaling-workflows">Automating and Scaling Workflows</h2>
-
-<p>Once a workflow works, the next step is running it at scale and reproducibly. ComfyUI’s API (export as <em>Save (API Format)</em>) is the backbone here — see the <a href="comfyui-guide.html">ComfyUI guide</a> for the request format. The patterns worth knowing:</p>
+<p>Once a workflow works, run it reproducibly and at scale through ComfyUI’s HTTP and WebSocket API. The <a href="comfyui-guide.html#automation-with-the-api">ComfyUI guide</a> shows the request format.</p>
 
 <ul>
   <li>
-<strong>Parameter sweeps / batch.</strong> Load the exported workflow JSON, programmatically patch the fields you want to vary (prompt, seed, CFG, LoRA strength), and submit each variant. Recording the patched values alongside each output turns generation into a reproducible experiment.</li>
+<strong>Parameter sweeps.</strong> Load an API-format workflow, patch the fields to vary (seed, CFG, LoRA strength, shift), queue each variant, and store the patched values with each output. ComfyUI also embeds the full workflow in each PNG’s metadata.</li>
   <li>
-<strong>A/B comparison.</strong> Sweep one parameter across a fixed seed set and lay the grid out side by side. Changing exactly one axis at a time is what makes the comparison meaningful — the same discipline that applies to manual tuning.</li>
+<strong>Change one variable at a time.</strong> Hold seeds fixed and vary a single axis. Lay the results out as an XY grid, so each difference has a single known cause.</li>
   <li>
-<strong>Real-time loops.</strong> For interactive use, the cost lives in two places: model load and text encoding. Load the model once, cache encodings for repeated prompts, and use a few-step model (LCM/Turbo, CFG ≈ 1-1.5) so each generation is a handful of steps. That combination is what makes live preview and art-stream overlays feel responsive.</li>
+<strong>Real-time loops.</strong> Keep the model resident, cache text encodings for repeated prompts, and use a 1–4-step distilled model (FLUX.2 [klein], Z-Image-Turbo, SDXL with DMD2 or Lightning). This combination makes live preview responsive.</li>
   <li>
-<strong>Profiling before optimizing.</strong> Track wall-clock time and peak VRAM per run before reaching for optimizations, so you tune the actual bottleneck rather than a guessed one.</li>
-</ul>
-
-<h2 id="two-more-techniques-worth-knowing">Two More Techniques Worth Knowing</h2>
-
-<ul>
-  <li>
-<strong>Differential diffusion</strong> generalizes inpainting from a binary mask to a <em>continuous</em> strength map: instead of “regenerate here, freeze there,” you specify <em>how much</em> to change each pixel. This gives feathered, seamless edits — strong changes in the center of a region fading to none at its edges — without the hard seams a binary mask leaves.</li>
-  <li>
-<strong>Self-Attention Guidance (SAG)</strong> sharpens detail by blurring the regions the model is <em>already</em> attending to and guiding generation away from that blurred version, effectively telling the model to add detail where it matters. It is a CFG-like quality nudge that needs no extra prompt and is exposed as a node/toggle in most tools.</li>
-</ul>
-
-<h2 id="best-practices">Best Practices</h2>
-
-<h3 id="workflow-design">Workflow Design</h3>
-
-<ol>
-  <li>
-<strong>Modularity</strong>: Build reusable components</li>
-  <li>
-<strong>Validation</strong>: Test each stage independently</li>
-  <li>
-<strong>Documentation</strong>: Comment complex operations</li>
-  <li>
-<strong>Version Control</strong>: Track workflow changes</li>
-  <li>
-<strong>Performance</strong>: Profile and optimize bottlenecks</li>
-  <li>
-<strong>Future-Proofing</strong>: Design for new model architectures</li>
-</ol>
-
-<h3 id="experimentation-guidelines">Experimentation Guidelines</h3>
-
-<ol>
-  <li>
-<strong>Controlled Testing</strong>: Change one variable at a time</li>
-  <li>
-<strong>Reproducibility</strong>: Fix seeds for comparisons</li>
-  <li>
-<strong>Metrics</strong>: Define clear success criteria</li>
-  <li>
-<strong>Iteration</strong>: Start simple, add complexity</li>
-  <li>
-<strong>Documentation</strong>: Record successful configurations</li>
-  <li>
-<strong>Benchmarking</strong>: Compare against established baselines</li>
-  <li>
-<strong>Community Sharing</strong>: Contribute findings back</li>
-</ol>
-
-<h2 id="conclusion">Conclusion</h2>
-
-<p>These techniques fall into three buckets: <strong>control</strong> (latent interpolation, regional prompting, ControlNet windowing) for results prompts can’t reach; <strong>speed</strong> (consistency and adversarial distillation, flow matching) that has collapsed 30+ steps toward single-digit counts; and <strong>scale</strong> (tiling, offloading, quantization, automation) that lets a workflow run bigger and run repeatably.</p>
-
-<p>You rarely implement the underlying math — you consume it as an LCM-LoRA, a Turbo checkpoint, a node, or a toggle. The leverage comes from understanding <em>what each one does</em> so you can combine the right few and tune one variable at a time. The most impressive results almost always come from a deliberate stack of techniques, not a single advanced trick.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li>
-<strong>Interpolate on the sphere, not the chord.</strong> SLERP preserves latent magnitude for smoother transitions than linear blending.</li>
-  <li>
-<strong>Regional prompting and attention masking</strong> let different parts of one image follow different prompts — far more reliable than cramming everything into one prompt.</li>
-  <li>
-<strong>Distillation buys speed.</strong> LCM and ADD compress 30+ steps down to 1-8, enabling near-real-time generation with a modest quality trade-off.</li>
-  <li>
-<strong>Flow matching (FLUX/SD3) learns a velocity field</strong> along near-straight noise→data paths ($\mathbf{v}_{\text{target}} = \mathbf{x}_1 - \mathbf{x}_0$), needing fewer sampling steps than classic diffusion.</li>
-  <li>
-<strong>Compose, don’t replace.</strong> The strongest results come from layering techniques (multi-stage upscaling, SAG, regional control) — and from changing one variable at a time while you tune.</li>
+<strong>Profile before optimizing.</strong> Measure wall-clock time and peak VRAM per stage, including model load, text encoding, sampling, and VAE decode. The bottleneck is often not the sampler.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li>
-<a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Core concepts these techniques build on</li>
+<a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>: diffusion, samplers, CFG, and flow matching</li>
   <li>
-<a href="comfyui-guide.html">ComfyUI Guide</a> - Build the multi-stage workflows described here</li>
+<a href="comfyui-guide.html">ComfyUI Guide</a>: building the workflows described here</li>
   <li>
-<a href="controlnet.html">ControlNet</a> - Precise control over generation</li>
+<a href="base-models-comparison.html">Base Models Comparison</a>: choosing between SDXL, FLUX, Qwen-Image, Z-Image, and others</li>
   <li>
-<a href="lora-training.html">LoRA Training</a> - Train custom models</li>
+<a href="inpainting-editing.html">Inpainting and Editing</a>: masks, differential diffusion, and instruction editing</li>
   <li>
-<a href="base-models-comparison.html">Base Models Comparison</a> - SD 1.5, SDXL, FLUX compared</li>
+<a href="controlnet.html">ControlNet</a>: structural control</li>
   <li>
-<a href="output-formats.html">Output Formats</a> - Exporting and using generated content</li>
+<a href="lora-training.html">LoRA Training</a>: training custom adapters</li>
   <li>
-<a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
+<a href="optimization-guide.html">Optimization Guide</a>: precision, quantization, and inference speed</li>
+  <li>
+<a href="output-formats.html">Output Formats</a>: exporting and using generated content</li>
+  <li><a href="./">AI/ML Documentation Hub</a></li>
 </ul>
 
       </section>

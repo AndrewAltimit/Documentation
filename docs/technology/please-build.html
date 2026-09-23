@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Please (plz), Thought Machine's Bazel-style build system for polyglot monorepos: build graph and labels, plugins, configuration, BUILD rules, testing, CI, re...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Please Build">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Please (plz), Thought Machine's Bazel-style build system for polyglot monorepos: build graph and labels, plugins, configuration, BUILD rules, testing, CI, re...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/please-build.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Please Build">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Please (plz), Thought Machine's Bazel-style build system for polyglot monorepos: build graph and labels, plugins, configuration, BUILD rules, testing, CI, re...">
 
 <title>Please Build | Andrews Notebook</title>
 
@@ -3133,218 +3133,344 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Technology</a> » Please Build</p>
 
-<p>Please (the <code class="language-plaintext highlighter-rouge">plz</code> command) is a high-performance, extensible build system that brings the power of Google’s Blaze/Bazel to a wider audience with a more approachable syntax. Built for polyglot monorepos, it emphasizes correctness, reproducibility, and speed: targets declare their inputs so Please rebuilds only what changed, builds run hermetically and content-addressed so they reproduce everywhere, and one consistent build spans Go, Python, Java, C++, Rust, and more.</p>
+<p><strong>Please</strong> (command <code class="language-plaintext highlighter-rouge">plz</code>) is an open-source build system from Thought Machine. It follows the model of Google’s Blaze/Bazel: every target declares its inputs and dependencies in a <code class="language-plaintext highlighter-rouge">BUILD</code> file, Please assembles those declarations into a dependency graph, and it rebuilds only the targets whose inputs have changed. Each action runs in its own isolated directory, and outputs are cached by the hash of their inputs. Language support comes from versioned <strong>plugins</strong> (Go, Python, Java, C/C++, protobuf, and more), so one tool builds and tests a polyglot monorepo. Please is written in Go, ships as a single self-updating binary, and runs on Linux and macOS.</p>
 
-<p><strong>When does a tool like Please earn its keep?</strong> For a single-language app, your language’s native tool (<code class="language-plaintext highlighter-rouge">go build</code>, <code class="language-plaintext highlighter-rouge">npm</code>, <code class="language-plaintext highlighter-rouge">cargo</code>) is simpler. Please shines in <strong>polyglot monorepos</strong> where you need one consistent, cached, parallel build across many languages — and where reproducibility and incremental rebuilds across a large dependency graph actually matter.</p>
+<p>This page covers the model, setup, configuration, rules, testing, CI, remote builds, and graph queries. For how Please compares with Nx, Turborepo, Bazel, Buck2, and Pants, see <a href="../advanced/monorepo-tooling/">Monorepo Tooling</a>.</p>
 
-<h3 id="how-please-thinks-the-build-graph">How Please thinks: the build graph</h3>
+<p><em>Versions cited are current as of September 2026 (Please v17.33).</em></p>
 
-<p>Every target declares its inputs and dependencies in a <code class="language-plaintext highlighter-rouge">BUILD</code> file. Please assembles these into a directed graph, then builds only what changed — running independent branches in parallel and reusing cached results for everything else.</p>
+<h2 id="when-to-use-it">When to use it</h2>
 
-<pre><code class="language-mermaid">flowchart BT
-    UTILS["//common:utils"] --&gt; LIB["//src:lib"]
-    LIB --&gt; APP["//src:app (binary)"]
-    LIB --&gt; TEST["//src:lib_test"]
-    REQ["//third_party/python:requests"] --&gt; APP
-    style APP fill:#4facfe,color:#fff
-    style TEST fill:#00c9a7,color:#fff
-</code></pre>
-
-<p>Change <code class="language-plaintext highlighter-rouge">utils</code> and Please rebuilds <code class="language-plaintext highlighter-rouge">lib</code>, <code class="language-plaintext highlighter-rouge">app</code>, and <code class="language-plaintext highlighter-rouge">lib_test</code>; change only the test, and just the test reruns.</p>
-
-<h2 id="key-features">Key Features</h2>
+<p>A graph-based build system pays for itself when several of the following are true:</p>
 
 <ul>
-  <li><strong>Language-agnostic</strong> — first-class rules for Go, Python, Java, C++, JavaScript, and Rust, with custom rules for anything else.</li>
-  <li><strong>Hermetic builds</strong> — each action runs in an isolated sandbox, so the same inputs always produce the same outputs.</li>
-  <li><strong>Parallel and incremental</strong> — independent targets build concurrently; content-addressed caching rebuilds only what changed.</li>
-  <li><strong>Remote execution</strong> — fan builds out across a worker pool and share a remote cache for team-wide speedups.</li>
-  <li><strong>Extensible</strong> — write custom rules in <code class="language-plaintext highlighter-rouge">build_defs</code> using a Python-like dialect (Starlark-style).</li>
-  <li><strong>Queryable graph</strong> — inspect, visualize, and reason about dependencies with <code class="language-plaintext highlighter-rouge">plz query</code>.</li>
+  <li>The repository mixes languages. Go services, Python tooling, Java libraries, and protobuf definitions all depend on each other.</li>
+  <li>Full builds are slow, and developers or CI would benefit from rebuilding and retesting only what a change affects.</li>
+  <li>Reproducibility matters. The same commit should produce the same outputs on every laptop and CI runner.</li>
+  <li>A team-wide remote cache would save substantial compute.</li>
 </ul>
 
-<h3 id="how-it-compares">How it compares</h3>
+<p>For a single-language repository, the language’s own tool (<code class="language-plaintext highlighter-rouge">go build</code>, <code class="language-plaintext highlighter-rouge">cargo</code>, <code class="language-plaintext highlighter-rouge">uv</code>, Gradle) is simpler and usually good enough. Every build system in this category makes you declare dependencies explicitly, and that is an ongoing cost as well as the source of its correctness.</p>
 
-<p>Please occupies the same niche as Bazel and Buck — correct, cached, graph-driven builds — but trades some of Bazel’s ecosystem breadth for a gentler learning curve.</p>
+<h2 id="core-concepts">Core concepts</h2>
+
+<h3 id="packages-targets-and-labels">Packages, targets, and labels</h3>
+
+<p>Any directory that contains a <code class="language-plaintext highlighter-rouge">BUILD</code> file (or <code class="language-plaintext highlighter-rouge">BUILD.plz</code>) is a <strong>package</strong>. Each rule call in that file defines a <strong>target</strong>, and targets are addressed by <strong>build labels</strong>:</p>
 
 <table>
   <thead>
     <tr>
-      <th> </th>
-      <th>Please</th>
-      <th>Bazel</th>
-      <th>Native tools (<code class="language-plaintext highlighter-rouge">go</code>/<code class="language-plaintext highlighter-rouge">npm</code>/<code class="language-plaintext highlighter-rouge">cargo</code>)</th>
+      <th>Label form</th>
+      <th>Meaning</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Sweet spot</strong></td>
-      <td>Polyglot monorepos</td>
-      <td>Very large polyglot monorepos</td>
-      <td>Single-language projects</td>
+      <td><code class="language-plaintext highlighter-rouge">//src/server:server</code></td>
+      <td>Target <code class="language-plaintext highlighter-rouge">server</code> in package <code class="language-plaintext highlighter-rouge">src/server</code> (absolute from the repo root)</td>
     </tr>
     <tr>
-      <td><strong>Learning curve</strong></td>
-      <td>Moderate</td>
-      <td>Steep</td>
-      <td>Low</td>
+      <td><code class="language-plaintext highlighter-rouge">//src/server</code></td>
+      <td>Shorthand for <code class="language-plaintext highlighter-rouge">//src/server:server</code></td>
     </tr>
     <tr>
-      <td><strong>Hermeticity</strong></td>
-      <td>Yes (sandboxed)</td>
-      <td>Yes (sandboxed)</td>
-      <td>No (relies on local env)</td>
+      <td><code class="language-plaintext highlighter-rouge">:lib</code></td>
+      <td>Target <code class="language-plaintext highlighter-rouge">lib</code> in the current package</td>
     </tr>
     <tr>
-      <td><strong>Remote cache / exec</strong></td>
-      <td>Built-in (REAPI)</td>
-      <td>Built-in (REAPI)</td>
-      <td>None</td>
+      <td><code class="language-plaintext highlighter-rouge">//src/...</code></td>
+      <td>Every target in <code class="language-plaintext highlighter-rouge">src</code> and below (a wildcard for commands)</td>
     </tr>
     <tr>
-      <td><strong>Rule language</strong></td>
-      <td>Python-like build defs</td>
-      <td>Starlark</td>
-      <td>N/A</td>
+      <td><code class="language-plaintext highlighter-rouge">//src:all</code></td>
+      <td>Every target in package <code class="language-plaintext highlighter-rouge">src</code> only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">///go//build_defs:go</code></td>
+      <td>A target inside a <strong>subrepo</strong> (here, the Go plugin)</td>
     </tr>
   </tbody>
 </table>
 
-<blockquote>
-  <p><strong>Both Please and Bazel speak REAPI.</strong> Remote caching and execution use the <strong>Remote Execution API</strong> standard, so Please can share a cache/executor backend (such as BuildBarn or BuildBuddy) with other REAPI-compatible build tools.</p>
-</blockquote>
+<p><strong>Visibility</strong> decides who may depend on a target. The default is the target’s own package. <code class="language-plaintext highlighter-rouge">visibility = ["//services/..."]</code> opens it to a subtree, and <code class="language-plaintext highlighter-rouge">["PUBLIC"]</code> opens it to everyone. Keeping visibility narrow is how a large repository enforces its architectural boundaries.</p>
+
+<h3 id="the-build-graph">The build graph</h3>
+
+<pre><code class="language-mermaid">flowchart BT
+    UTILS["//common:utils&lt;br/&gt;(python_library)"] --&gt; LIB["//src:lib&lt;br/&gt;(python_library)"]
+    LIB --&gt; APP["//src:app&lt;br/&gt;(python_binary)"]
+    LIB --&gt; TEST["//src:lib_test&lt;br/&gt;(python_test)"]
+    REQ["//third_party/python:requests&lt;br/&gt;(pip_library)"] --&gt; APP
+</code></pre>
+
+<p>Arrows point from a dependency to the target that uses it. A change to <code class="language-plaintext highlighter-rouge">utils</code> invalidates <code class="language-plaintext highlighter-rouge">lib</code>, <code class="language-plaintext highlighter-rouge">app</code>, and <code class="language-plaintext highlighter-rouge">lib_test</code>. A change to <code class="language-plaintext highlighter-rouge">lib_test.py</code> reruns only that test. Targets that don’t depend on each other build in parallel.</p>
+
+<h3 id="how-a-target-is-built">How a target is built</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+    P["Parse BUILD files&lt;br/&gt;(only packages needed)"] --&gt; G["Add targets to graph"]
+    G --&gt; H["Hash rule definition&lt;br/&gt;+ source files&lt;br/&gt;+ dependency outputs"]
+    H --&gt; C{"Output with this hash&lt;br/&gt;in local / remote cache?"}
+    C -- hit --&gt; O["Link outputs into plz-out/"]
+    C -- miss --&gt; T["Build in isolated plz-out/tmp/ dir&lt;br/&gt;containing only declared inputs"]
+    T --&gt; S["Store outputs in cache"]
+    S --&gt; O
+</code></pre>
+
+<p>Two consequences follow:</p>
+
+<ul>
+  <li><strong>Undeclared inputs fail loudly.</strong> A command can see only the files listed in <code class="language-plaintext highlighter-rouge">srcs</code>, <code class="language-plaintext highlighter-rouge">deps</code>, and <code class="language-plaintext highlighter-rouge">tools</code>. A build that works with <code class="language-plaintext highlighter-rouge">go build</code> but fails under Please is almost always reading a file it never declared.</li>
+  <li><strong>Caching is safe.</strong> The cache key covers the rule’s command and attributes as well as its inputs, so editing a <code class="language-plaintext highlighter-rouge">BUILD</code> file invalidates exactly the targets whose definitions changed.</li>
+</ul>
+
+<p>The temporary directory keeps a target from seeing <em>files</em> it did not declare. On Linux, Please can also put each build or test action in a <strong>sandbox</strong> that cuts it off from the network, IPC, and the rest of the repository’s filesystem. Sandboxing is off by default. Turn it on with <code class="language-plaintext highlighter-rouge">[sandbox]</code> (see <a href="#configuration">Configuration</a>), and opt individual targets out with <code class="language-plaintext highlighter-rouge">sandbox = False</code>. On macOS the temporary directory is the only isolation.</p>
+
+<h3 id="output-layout">Output layout</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Path</th>
+      <th>Contents</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz-out/gen/</code></td>
+      <td>Generated files and library outputs</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz-out/bin/</code></td>
+      <td>Binaries (<code class="language-plaintext highlighter-rouge">plz-out/bin/src/app.pex</code>, <code class="language-plaintext highlighter-rouge">plz-out/bin/src/server/server</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz-out/tmp/</code></td>
+      <td>Per-target working directories (kept for inspection with <code class="language-plaintext highlighter-rouge">--keep_workdirs</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz-out/log/</code></td>
+      <td><code class="language-plaintext highlighter-rouge">build.log</code>, <code class="language-plaintext highlighter-rouge">test_results.xml</code> (JUnit), <code class="language-plaintext highlighter-rouge">coverage.json</code> and <code class="language-plaintext highlighter-rouge">coverage.xml</code></td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="installation">Installation</h2>
 
-<h3 id="quick-install-recommended">Quick Install (Recommended)</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Latest stable version</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Installs the latest release into ~/.please and puts `plz` on your PATH</span>
 curl <span class="nt">-sSfL</span> https://get.please.build | bash
-
-<span class="c"># Or pin a specific version (recommended for reproducibility)</span>
-curl <span class="nt">-sSfL</span> https://get.please.build | bash <span class="nt">-s</span> <span class="nt">--</span> <span class="nt">--version</span><span class="o">=</span>17.8.0
+plz <span class="nt">--version</span>
 </code></pre></div></div>
 
-<blockquote>
-  <p><strong>Pin the version.</strong> Pin a specific release here and in <code class="language-plaintext highlighter-rouge">.plzconfig</code> — check the <a href="https://github.com/thought-machine/please/releases">releases page</a> for the current one. Pinning is what keeps every machine on an identical <code class="language-plaintext highlighter-rouge">plz</code>.</p>
-</blockquote>
+<p>In practice, repositories do not depend on a global install. <code class="language-plaintext highlighter-rouge">plz init</code> writes a <code class="language-plaintext highlighter-rouge">pleasew</code> wrapper script at the repo root. It downloads and runs the exact version pinned in <code class="language-plaintext highlighter-rouge">.plzconfig</code>, so contributors and CI need only a shell and <code class="language-plaintext highlighter-rouge">curl</code>:</p>
 
-<h3 id="alternative-installation-methods">Alternative Installation Methods</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># macOS with Homebrew</span>
-brew tap thought-machine/please
-brew <span class="nb">install </span>please
-
-<span class="c"># From source</span>
-git clone https://github.com/thought-machine/please.git
-<span class="nb">cd </span>please
-./bootstrap.sh
-
-<span class="c"># Using Go</span>
-go <span class="nb">install </span>github.com/thought-machine/please@latest
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./pleasew build //...      <span class="c"># same result on every machine, whatever is installed globally</span>
 </code></pre></div></div>
 
-<h3 id="verify-installation">Verify Installation</h3>
+<p>With <code class="language-plaintext highlighter-rouge">selfupdate</code> enabled, a globally installed <code class="language-plaintext highlighter-rouge">plz</code> also switches itself to the repo’s pinned <code class="language-plaintext highlighter-rouge">version</code>. Please supports Linux and macOS on amd64 and arm64. Windows is not supported natively; use WSL2.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz <span class="nt">--version</span>
-<span class="c"># Output: Please version 17.8.0</span>
+<h2 id="setting-up-a-repository">Setting up a repository</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz init                 <span class="c"># creates .plzconfig and the pleasew wrapper</span>
+plz init plugin go       <span class="c"># adds the Go plugin</span>
+plz init plugin python   <span class="c"># adds the Python plugin</span>
 </code></pre></div></div>
 
-<h2 id="getting-started">Getting Started</h2>
+<p>Since Please v17, language rules are no longer built in. They live in separately versioned plugin repositories under the <code class="language-plaintext highlighter-rouge">please-build</code> GitHub organization, and a repo pins them like any other dependency. <code class="language-plaintext highlighter-rouge">plz init plugin</code> writes two things: a <code class="language-plaintext highlighter-rouge">plugin_repo</code> target and a <code class="language-plaintext highlighter-rouge">[Plugin "…"]</code> config section pointing at it.</p>
 
-<h3 id="creating-a-new-project">Creating a New Project</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># plugins/BUILD
+</span><span class="nf">plugin_repo</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">go</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">revision</span> <span class="o">=</span> <span class="sh">"</span><span class="s">vX.Y.Z</span><span class="sh">"</span><span class="p">,</span>     <span class="c1"># pin a go-rules release
+</span><span class="p">)</span>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Initialize Please in the current repository</span>
-plz init
+<span class="nf">plugin_repo</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">python</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">revision</span> <span class="o">=</span> <span class="sh">"</span><span class="s">vX.Y.Z</span><span class="sh">"</span><span class="p">,</span>     <span class="c1"># pin a python-rules release
+</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>This creates:</p>
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">.plzconfig</code> — the main configuration file at the repo root</li>
-  <li><code class="language-plaintext highlighter-rouge">pleasew</code> — a wrapper script that bootstraps the pinned Please version, so contributors and CI don’t need Please pre-installed (commit it and run <code class="language-plaintext highlighter-rouge">./pleasew build //...</code>)</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Plugin</th>
+      <th>Rules it provides</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">go</code></td>
+      <td><code class="language-plaintext highlighter-rouge">go_library</code>, <code class="language-plaintext highlighter-rouge">go_binary</code>, <code class="language-plaintext highlighter-rouge">go_test</code>, <code class="language-plaintext highlighter-rouge">go_repo</code> (third-party modules)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">python</code></td>
+      <td><code class="language-plaintext highlighter-rouge">python_library</code>, <code class="language-plaintext highlighter-rouge">python_binary</code> (builds a <code class="language-plaintext highlighter-rouge">.pex</code>), <code class="language-plaintext highlighter-rouge">python_test</code>, <code class="language-plaintext highlighter-rouge">pip_library</code>, <code class="language-plaintext highlighter-rouge">python_wheel</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">java</code></td>
+      <td><code class="language-plaintext highlighter-rouge">java_library</code>, <code class="language-plaintext highlighter-rouge">java_binary</code>, <code class="language-plaintext highlighter-rouge">java_test</code>, <code class="language-plaintext highlighter-rouge">maven_jar</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cc</code></td>
+      <td><code class="language-plaintext highlighter-rouge">cc_library</code>, <code class="language-plaintext highlighter-rouge">cc_binary</code>, <code class="language-plaintext highlighter-rouge">cc_test</code> (C and C++)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">proto</code>, <code class="language-plaintext highlighter-rouge">go-proto</code>, <code class="language-plaintext highlighter-rouge">python-proto</code></td>
+      <td><code class="language-plaintext highlighter-rouge">proto_library</code>, <code class="language-plaintext highlighter-rouge">grpc_library</code> and per-language code generation</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">shell</code></td>
+      <td><code class="language-plaintext highlighter-rouge">sh_binary</code>, <code class="language-plaintext highlighter-rouge">sh_test</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">docker</code>, <code class="language-plaintext highlighter-rouge">k8s</code> (community rules)</td>
+      <td>Container images and Kubernetes manifests</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Language support is added through <strong>plugins</strong> rather than templates. Pull in the rules for a language with:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz init plugin go
-plz init plugin python
-plz init plugin java
-</code></pre></div></div>
-
-<blockquote>
-  <p><strong>Plugins, not templates.</strong> Older guides reference per-language <code class="language-plaintext highlighter-rouge">plz init --template=…</code> flags; current Please uses the plugin system above. Check <code class="language-plaintext highlighter-rouge">plz init --help</code> for the options your installed version supports.</p>
-</blockquote>
+<p>Core built-ins such as <code class="language-plaintext highlighter-rouge">genrule</code>, <code class="language-plaintext highlighter-rouge">gentest</code>, <code class="language-plaintext highlighter-rouge">filegroup</code>, <code class="language-plaintext highlighter-rouge">remote_file</code>, <code class="language-plaintext highlighter-rouge">export_file</code>, <code class="language-plaintext highlighter-rouge">subinclude</code>, and <code class="language-plaintext highlighter-rouge">plugin_repo</code> need no plugin. <a href="https://github.com/please-build/puku">Puku</a> generates and updates Go <code class="language-plaintext highlighter-rouge">BUILD</code> files from import statements, much as Gazelle does for Bazel.</p>
 
 <h2 id="configuration">Configuration</h2>
 
-<h3 id="basic-configuration">Basic Configuration</h3>
+<p><code class="language-plaintext highlighter-rouge">.plzconfig</code> is an INI-style file at the repo root. Please merges it with optional overlays, in increasing priority:</p>
 
-<p>Edit <code class="language-plaintext highlighter-rouge">.plzconfig</code> to configure Please Build:</p>
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Purpose</th>
+      <th>Commit it?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/etc/please/plzconfig</code>, <code class="language-plaintext highlighter-rouge">~/.config/please/plzconfig</code></td>
+      <td>Machine and user defaults</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">.plzconfig</code></td>
+      <td>Project configuration</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">.plzconfig_&lt;os&gt;_&lt;arch&gt;</code></td>
+      <td>Platform-specific overrides (for example <code class="language-plaintext highlighter-rouge">.plzconfig_linux_amd64</code>)</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">.plzconfig.&lt;profile&gt;</code></td>
+      <td>Loaded with <code class="language-plaintext highlighter-rouge">--profile &lt;profile&gt;</code> (for example <code class="language-plaintext highlighter-rouge">ci</code>, <code class="language-plaintext highlighter-rouge">remote</code>)</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">.plzconfig.local</code></td>
+      <td>Personal overrides</td>
+      <td>No (add to <code class="language-plaintext highlighter-rouge">.gitignore</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Any single value can also be overridden on the command line with <code class="language-plaintext highlighter-rouge">-o section.key:value</code>, for example <code class="language-plaintext highlighter-rouge">-o build.timeout:1200</code>.</p>
 
 <div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[please]</span>
-<span class="py">version</span> <span class="p">=</span> <span class="s">17.8.0</span>
-<span class="py">selfupdate</span> <span class="p">=</span> <span class="s">true</span>
-<span class="py">location</span> <span class="p">=</span> <span class="s">~/.please</span>
+<span class="py">version</span> <span class="p">=</span> <span class="s">17.33.0              ; pinned; pleasew and selfupdate honour this</span>
+
+<span class="nn">[parse]</span>
+<span class="c">; make plugin rules available in every BUILD file without a subinclude()
+</span><span class="py">preloadsubincludes</span> <span class="p">=</span> <span class="s">///go//build_defs:go</span>
+<span class="py">preloadsubincludes</span> <span class="p">=</span> <span class="s">///python//build_defs:python</span>
 
 <span class="nn">[build]</span>
-<span class="py">path</span> <span class="p">=</span> <span class="s">src/</span>
-<span class="py">languages</span> <span class="p">=</span> <span class="s">python,go,java</span>
-<span class="py">timeout</span> <span class="p">=</span> <span class="s">600</span>
-<span class="py">workers</span> <span class="p">=</span> <span class="s">4</span>
+<span class="py">timeout</span> <span class="p">=</span> <span class="s">600                  ; per-action timeout, seconds</span>
+<span class="py">passenv</span> <span class="p">=</span> <span class="s">HOME                 ; environment variables allowed into build actions</span>
+
+<span class="nn">[sandbox]</span>
+<span class="py">build</span> <span class="p">=</span> <span class="s">true                   ; Linux only; off by default</span>
+<span class="py">test</span> <span class="p">=</span> <span class="s">true</span>
 
 <span class="nn">[cache]</span>
-<span class="py">dir</span> <span class="p">=</span> <span class="s">~/.cache/please</span>
-<span class="py">httpurl</span> <span class="p">=</span> <span class="s">https://cache.example.com  # Optional remote cache</span>
+<span class="py">dir</span> <span class="p">=</span> <span class="s">~/.cache/please          ; local directory cache</span>
 
-<span class="nn">[python]</span>
-<span class="py">defaultinterpreter</span> <span class="p">=</span> <span class="s">python3</span>
-<span class="py">piptool</span> <span class="p">=</span> <span class="s">pip3</span>
-<span class="py">moduledir</span> <span class="p">=</span> <span class="s">third_party/python</span>
+<span class="nn">[Plugin "go"]</span>
+<span class="py">Target</span> <span class="p">=</span> <span class="s">//plugins:go</span>
+<span class="py">ImportPath</span> <span class="p">=</span> <span class="s">github.com/example/monorepo</span>
 
-<span class="nn">[go]</span>
-<span class="py">goroot</span> <span class="p">=</span> <span class="s">/usr/local/go</span>
-<span class="py">importpath</span> <span class="p">=</span> <span class="s">github.com/myorg/myproject</span>
+<span class="nn">[Plugin "python"]</span>
+<span class="py">Target</span> <span class="p">=</span> <span class="s">//plugins:python</span>
+<span class="py">DefaultInterpreter</span> <span class="p">=</span> <span class="s">python3</span>
+<span class="py">ModuleDir</span> <span class="p">=</span> <span class="s">third_party.python</span>
 </code></pre></div></div>
 
-<h3 id="advanced-configuration">Advanced Configuration</h3>
+<p>Concurrency is set per invocation with <code class="language-plaintext highlighter-rouge">-n/--num_threads</code>, which defaults to the number of CPUs plus 2. <code class="language-plaintext highlighter-rouge">plz query config</code> prints the fully merged configuration, which helps when several overlays interact. The <a href="https://please.build/config.html">config reference</a> lists every section and key.</p>
 
-<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[remote]</span>
-<span class="py">url</span> <span class="p">=</span> <span class="s">grpc://remote-execution.example.com:8980</span>
-<span class="py">instancename</span> <span class="p">=</span> <span class="s">main</span>
-<span class="py">numexecutors</span> <span class="p">=</span> <span class="s">100</span>
+<h2 id="writing-build-files">Writing BUILD files</h2>
 
-<span class="nn">[metrics]</span>
-<span class="py">pushgatewayurl</span> <span class="p">=</span> <span class="s">http://prometheus-pushgateway:9091</span>
+<p><code class="language-plaintext highlighter-rouge">BUILD</code> files use the <strong>Please build language</strong>, a restricted Python dialect similar to Bazel’s Starlark. It has functions, list and dict literals, comprehensions, and string formatting, but no imports, classes, or I/O. Evaluating it is deterministic and fast.</p>
 
-<span class="nn">[experimental]</span>
-<span class="py">go_modules</span> <span class="p">=</span> <span class="s">true</span>
-<span class="py">python_wheel</span> <span class="p">=</span> <span class="s">true</span>
-<span class="py">rust_cargo</span> <span class="p">=</span> <span class="s">true</span>
+<h3 id="go">Go</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># src/server/BUILD
+</span><span class="nf">go_binary</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">server</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.go</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sh">"</span><span class="s">//src/server/handlers</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">//third_party/go:mux</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
 </code></pre></div></div>
 
-<h2 id="build-rules">Build Rules</h2>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># src/server/handlers/BUILD
+</span><span class="nf">go_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">handlers</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*.go</span><span class="sh">"</span><span class="p">],</span> <span class="n">exclude</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">*_test.go</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">//src/server/...</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
 
-<h3 id="core-concepts">Core Concepts</h3>
+<span class="nf">go_test</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">handlers_test</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*_test.go</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="sh">"</span><span class="s">:handlers</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">//third_party/go:testify</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div></div>
 
-<p>Build rules define how to build targets. Create <code class="language-plaintext highlighter-rouge">BUILD</code> files (or <code class="language-plaintext highlighter-rouge">BUILD.plz</code>) in directories:</p>
+<p>Third-party modules are declared once, usually in <code class="language-plaintext highlighter-rouge">third_party/go/BUILD</code>. Only the listed packages are compiled:</p>
 
-<h3 id="python-example">Python Example</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">go_repo</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">testify</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="sh">"</span><span class="s">github.com/stretchr/testify</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="sh">"</span><span class="s">v1.9.0</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">install</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">assert</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">require</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># BUILD file
-</span><span class="nf">python_binary</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">main</span> <span class="o">=</span> <span class="sh">"</span><span class="s">main.py</span><span class="sh">"</span><span class="p">,</span>
+<span class="nf">go_repo</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">mux</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="sh">"</span><span class="s">github.com/gorilla/mux</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="sh">"</span><span class="s">v1.8.1</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="python">Python</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># src/BUILD
+</span><span class="nf">python_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">lib</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*.py</span><span class="sh">"</span><span class="p">],</span> <span class="n">exclude</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">*_test.py</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">main.py</span><span class="sh">"</span><span class="p">]),</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">//common:utils</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="nf">python_binary</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span>                        <span class="c1"># builds plz-out/bin/src/app.pex
+</span>    <span class="n">main</span> <span class="o">=</span> <span class="sh">"</span><span class="s">main.py</span><span class="sh">"</span><span class="p">,</span>
     <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
         <span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">,</span>
         <span class="sh">"</span><span class="s">//third_party/python:requests</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">],</span>
-<span class="p">)</span>
-
-<span class="nf">python_library</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">lib</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*.py</span><span class="sh">"</span><span class="p">],</span> <span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">*_test.py</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">main.py</span><span class="sh">"</span><span class="p">]),</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="sh">"</span><span class="s">//common:utils</span><span class="sh">"</span><span class="p">,</span>
     <span class="p">],</span>
 <span class="p">)</span>
 
@@ -3355,447 +3481,368 @@ plz init plugin java
 <span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="go-example">Go Example</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">go_binary</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">server</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.go</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="sh">"</span><span class="s">:handlers</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">//third_party/go:github.com_gorilla_mux</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">],</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># third_party/python/BUILD
+</span><span class="nf">pip_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">requests</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="sh">"</span><span class="s">2.32.3</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:urllib3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">:certifi</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">:idna</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">:charset_normalizer</span><span class="sh">"</span><span class="p">],</span>
 <span class="p">)</span>
 
-<span class="nf">go_library</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">handlers</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*.go</span><span class="sh">"</span><span class="p">],</span> <span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">*_test.go</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">main.go</span><span class="sh">"</span><span class="p">]),</span>
-    <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">//service/...</span><span class="sh">"</span><span class="p">],</span>
-<span class="p">)</span>
-
-<span class="nf">go_test</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">handlers_test</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">handlers_test.go</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:handlers</span><span class="sh">"</span><span class="p">],</span>
-<span class="p">)</span>
-</code></pre></div></div>
-
-<blockquote>
-  <p><strong>Hermeticity gotcha.</strong> Because builds run in a sandbox, a target can only see files it explicitly declares as <code class="language-plaintext highlighter-rouge">srcs</code> or <code class="language-plaintext highlighter-rouge">deps</code>. A build that “works on my machine” but fails under Please is almost always reading an undeclared file. List every input — that strictness is exactly what makes the build reproducible.</p>
-</blockquote>
-
-<h3 id="cross-language-dependencies">Cross-Language Dependencies</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Protocol buffers used by multiple languages
-</span><span class="nf">proto_library</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">api_proto</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">api.proto</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">python</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">go</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">java</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">PUBLIC</span><span class="sh">"</span><span class="p">],</span>
-<span class="p">)</span>
-
-<span class="c1"># Docker image with multi-language app
-</span><span class="nf">docker_image</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">microservice</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="sh">"</span><span class="s">:go_server</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">:python_worker</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">],</span>
-    <span class="n">base</span> <span class="o">=</span> <span class="sh">"</span><span class="s">alpine:3.18</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">dockerfile</span> <span class="o">=</span> <span class="sh">"</span><span class="s">Dockerfile</span><span class="sh">"</span><span class="p">,</span>
-<span class="p">)</span>
-</code></pre></div></div>
-
-<h2 id="testing">Testing</h2>
-
-<h3 id="writing-tests">Writing Tests</h3>
-
-<p>Please Build has first-class support for testing:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Unit tests
-</span><span class="nf">python_test</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">unit_tests</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">*_test.py</span><span class="sh">"</span><span class="p">]),</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">size</span> <span class="o">=</span> <span class="sh">"</span><span class="s">small</span><span class="sh">"</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="c1"># Integration tests
-</span><span class="nf">python_test</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">integration_tests</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">integration_test.py</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:app</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">size</span> <span class="o">=</span> <span class="sh">"</span><span class="s">medium</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">timeout</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">integration</span><span class="sh">"</span><span class="p">],</span>
-<span class="p">)</span>
-
-<span class="c1"># Benchmarks
-</span><span class="nf">go_test</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">bench</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">bench_test.go</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">flags</span> <span class="o">=</span> <span class="sh">"</span><span class="s">-bench=.</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">benchmark</span><span class="sh">"</span><span class="p">],</span>
-<span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="running-tests">Running Tests</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Run all tests</span>
-plz <span class="nb">test</span>
-
-<span class="c"># Run specific test</span>
-plz <span class="nb">test</span> //src:unit_tests
-
-<span class="c"># Run tests matching pattern</span>
-plz <span class="nb">test</span> //..._test
-
-<span class="c"># Run tests with specific label</span>
-plz <span class="nb">test</span> <span class="nt">--include</span> integration
-
-<span class="c"># Run each test multiple times (e.g. to flush out flaky tests)</span>
-plz <span class="nb">test</span> //src:unit_tests <span class="nt">--num_runs</span><span class="o">=</span>10
-
-<span class="c"># Generate coverage report</span>
-plz cover //src:unit_tests
-</code></pre></div></div>
-
-<h3 id="test-sharding">Test Sharding</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Automatically shard large test suites
-</span><span class="nf">python_test</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">large_test_suite</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">test_*.py</span><span class="sh">"</span><span class="p">]),</span>
-    <span class="n">shard_count</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>  <span class="c1"># Split across 4 parallel jobs
+<span class="nf">pip_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">numpy</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="sh">"</span><span class="s">2.1.3</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">zip_safe</span> <span class="o">=</span> <span class="bp">False</span><span class="p">,</span>     <span class="c1"># compiled extensions can't be imported from inside a zip
 </span><span class="p">)</span>
 </code></pre></div></div>
 
-<h2 id="continuous-integration">Continuous Integration</h2>
+<p>Transitive Python dependencies are declared explicitly. There is no resolver running at build time, so the <code class="language-plaintext highlighter-rouge">BUILD</code> file is itself the lock file.</p>
 
-<h3 id="github-actions">GitHub Actions</h3>
+<h3 id="generic-rules">Generic rules</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">Please Build CI</span>
+<p><code class="language-plaintext highlighter-rouge">genrule</code> wraps an arbitrary command. The command runs in the target’s temporary directory with these variables set: <code class="language-plaintext highlighter-rouge">$SRCS</code> (inputs), <code class="language-plaintext highlighter-rouge">$OUT</code> or <code class="language-plaintext highlighter-rouge">$OUTS</code> (outputs to produce), <code class="language-plaintext highlighter-rouge">$TOOL</code> or <code class="language-plaintext highlighter-rouge">$TOOLS</code> (declared tool binaries), <code class="language-plaintext highlighter-rouge">$PKG</code> (package path), and <code class="language-plaintext highlighter-rouge">$TMP_DIR</code>.</p>
 
-<span class="na">on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">push</span><span class="pi">,</span> <span class="nv">pull_request</span><span class="pi">]</span>
-
-<span class="na">jobs</span><span class="pi">:</span>
-  <span class="na">build</span><span class="pi">:</span>
-    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
-    <span class="na">steps</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
-    
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Install Please</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">curl -sSfL https://get.please.build | bash</span>
-        <span class="s"># Make plz available to every subsequent step (PATH set with `export`</span>
-        <span class="s"># only survives within a single `run:` block).</span>
-        <span class="s">echo "$HOME/.please/bin" &gt;&gt; "$GITHUB_PATH"</span>
-    
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">plz build //...</span>
-    
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Test</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">plz test //...</span>
-    
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Coverage</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">plz cover //... --coverage_results_file=cover.xml</span>
-    
-    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">codecov/codecov-action@v4</span>
-      <span class="na">with</span><span class="pi">:</span>
-        <span class="na">file</span><span class="pi">:</span> <span class="s">./cover.xml</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">genrule</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">version</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">VERSION</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">outs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">version.go</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">cmd</span> <span class="o">=</span> <span class="sh">"</span><span class="s">echo </span><span class="se">\"</span><span class="s">package version</span><span class="se">\n\n</span><span class="s">const V = </span><span class="se">\\\"</span><span class="s">$(cat $SRCS)</span><span class="se">\\\"\"</span><span class="s"> &gt; $OUT</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="gitlab-ci">GitLab CI</h3>
+<h3 id="custom-rules">Custom rules</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">image</span><span class="pi">:</span> <span class="s">ubuntu:22.04</span>
-
-<span class="na">before_script</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apt-get update &amp;&amp; apt-get install -y curl</span>
-  <span class="pi">-</span> <span class="s">curl -sSfL https://get.please.build | bash</span>
-  <span class="pi">-</span> <span class="s">export PATH="$HOME/.please/bin:$PATH"</span>
-
-<span class="na">build</span><span class="pi">:</span>
-  <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">plz build //...</span>
-  <span class="na">artifacts</span><span class="pi">:</span>
-    <span class="na">paths</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">plz-out/</span>
-
-<span class="na">test</span><span class="pi">:</span>
-  <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">plz test //...</span>
-  <span class="na">artifacts</span><span class="pi">:</span>
-    <span class="na">reports</span><span class="pi">:</span>
-      <span class="c1"># Please writes combined results in xUnit/JUnit format here by default.</span>
-      <span class="na">junit</span><span class="pi">:</span> <span class="s">plz-out/log/test_results.xml</span>
-</code></pre></div></div>
-
-<blockquote>
-  <p><strong>Pin the version in CI.</strong> The <code class="language-plaintext highlighter-rouge">version</code> field in <code class="language-plaintext highlighter-rouge">.plzconfig</code> makes Please self-bootstrap to that exact release on every machine, so the CI bootstrap script and every developer’s laptop all run the same <code class="language-plaintext highlighter-rouge">plz</code>. Combined with a shared remote cache, this is what makes “it builds the same everywhere” true rather than aspirational.</p>
-</blockquote>
-
-<h3 id="remote-caching-for-ci">Remote Caching for CI</h3>
-
-<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># .plzconfig for CI
-</span><span class="nn">[cache]</span>
-<span class="py">dir</span> <span class="p">=</span> <span class="s">~/.cache/please</span>
-<span class="py">httpurl</span> <span class="p">=</span> <span class="s">https://please-cache.example.com</span>
-<span class="py">httpwriteable</span> <span class="p">=</span> <span class="s">true</span>
-<span class="py">httpheaders</span> <span class="p">=</span> <span class="s">Authorization: Bearer $CACHE_TOKEN</span>
-</code></pre></div></div>
-
-<h2 id="advanced-features">Advanced Features</h2>
-
-<h3 id="remote-execution">Remote Execution</h3>
-
-<p>Distribute builds across multiple machines:</p>
-
-<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># .plzconfig
-</span><span class="nn">[remote]</span>
-<span class="py">url</span> <span class="p">=</span> <span class="s">grpc://remote.example.com:8980</span>
-<span class="py">instancename</span> <span class="p">=</span> <span class="s">main</span>
-<span class="py">numexecutors</span> <span class="p">=</span> <span class="s">50</span>
-<span class="py">casurl</span> <span class="p">=</span> <span class="s">grpc://cas.example.com:8981</span>
-</code></pre></div></div>
-
-<h3 id="custom-build-rules">Custom Build Rules</h3>
+<p>Reusable macros go in a <code class="language-plaintext highlighter-rouge">.build_defs</code> file that is exported through a <code class="language-plaintext highlighter-rouge">filegroup</code>. A <code class="language-plaintext highlighter-rouge">BUILD</code> file pulls them in with <code class="language-plaintext highlighter-rouge">subinclude</code>:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># build_defs/BUILD
 </span><span class="nf">filegroup</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">rules</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">rust_rules.build_defs</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">markdown</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">markdown.build_defs</span><span class="sh">"</span><span class="p">],</span>
     <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">PUBLIC</span><span class="sh">"</span><span class="p">],</span>
 <span class="p">)</span>
 </code></pre></div></div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># build_defs/rust_rules.build_defs
-</span><span class="k">def</span> <span class="nf">rust_binary</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">srcs</span><span class="p">,</span> <span class="n">deps</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">visibility</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Build a Rust binary.</span><span class="sh">"""</span>
-    <span class="k">return</span> <span class="nf">build_rule</span><span class="p">(</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># build_defs/markdown.build_defs
+</span><span class="k">def</span> <span class="nf">markdown_html</span><span class="p">(</span><span class="n">name</span><span class="p">:</span><span class="nb">str</span><span class="p">,</span> <span class="n">src</span><span class="p">:</span><span class="nb">str</span><span class="p">,</span> <span class="n">visibility</span><span class="p">:</span><span class="nb">list</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Render one Markdown file to HTML with an in-repo converter.</span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">genrule</span><span class="p">(</span>
         <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">,</span>
-        <span class="n">srcs</span> <span class="o">=</span> <span class="n">srcs</span><span class="p">,</span>
-        <span class="n">deps</span> <span class="o">=</span> <span class="n">deps</span><span class="p">,</span>
-        <span class="n">outs</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span><span class="p">],</span>
-        <span class="n">cmd</span> <span class="o">=</span> <span class="sh">"</span><span class="s">rustc $SRCS -o $OUT</span><span class="sh">"</span><span class="p">,</span>
-        <span class="n">binary</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span>
+        <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="n">src</span><span class="p">],</span>
+        <span class="n">outs</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="o">+</span> <span class="sh">"</span><span class="s">.html</span><span class="sh">"</span><span class="p">],</span>
+        <span class="n">tools</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">//tools:md2html</span><span class="sh">"</span><span class="p">],</span>      <span class="c1"># a python_binary elsewhere in the repo
+</span>        <span class="n">cmd</span> <span class="o">=</span> <span class="sh">"</span><span class="s">$TOOL $SRCS &gt; $OUT</span><span class="sh">"</span><span class="p">,</span>
         <span class="n">visibility</span> <span class="o">=</span> <span class="n">visibility</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="build-graph-analysis">Build Graph Analysis</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># docs/BUILD
+</span><span class="nf">subinclude</span><span class="p">(</span><span class="sh">"</span><span class="s">//build_defs:markdown</span><span class="sh">"</span><span class="p">)</span>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Visualize dependencies</span>
-plz query graph <span class="nt">--to</span> //src:app | dot <span class="nt">-Tpng</span> <span class="o">&gt;</span> graph.png
-
-<span class="c"># Find all reverse dependencies</span>
-plz query revdeps //common:utils
-
-<span class="c"># Query for specific attributes</span>
-plz query print //src:app <span class="nt">--field</span><span class="o">=</span>deps
-
-<span class="c"># Find all tests</span>
-plz query alltargets <span class="nt">--include</span> <span class="nb">test</span>
+<span class="nf">markdown_html</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">guide</span><span class="sh">"</span><span class="p">,</span> <span class="n">src</span> <span class="o">=</span> <span class="sh">"</span><span class="s">guide.md</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="performance-optimization">Performance Optimization</h3>
+<p>Because <code class="language-plaintext highlighter-rouge">//tools:md2html</code> is itself a target, changing the converter’s source rebuilds every page it produced. Non-hermetic tools taken from the host’s <code class="language-plaintext highlighter-rouge">PATH</code> would not get this.</p>
 
-<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[build]</span>
-<span class="py">workers</span> <span class="p">=</span> <span class="s">16  # Parallel build jobs</span>
-<span class="py">memorylimit</span> <span class="p">=</span> <span class="s">8GB</span>
+<h2 id="testing">Testing</h2>
 
-<span class="nn">[test]</span>
-<span class="py">defaulttimeout</span> <span class="p">=</span> <span class="s">300</span>
-<span class="py">workers</span> <span class="p">=</span> <span class="s">8</span>
+<p>A test target is a build target whose output is run. Its result is cached against the same input hash, so <code class="language-plaintext highlighter-rouge">plz test //...</code> on an unchanged tree reruns nothing.</p>
 
-<span class="nn">[metrics]</span>
-<span class="py">pushgatewayurl</span> <span class="p">=</span> <span class="s">http://prometheus:9091</span>
-<span class="py">namespace</span> <span class="p">=</span> <span class="s">please_build</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz <span class="nb">test</span> //...                              <span class="c"># all tests (cached results reused)</span>
+plz <span class="nb">test</span> //src:lib_test                     <span class="c"># one target</span>
+plz <span class="nb">test</span> //src:lib_test TestParse           <span class="c"># one test case (selector passed to the runner)</span>
+plz <span class="nb">test</span> <span class="nt">-i</span> integration //...               <span class="c"># only targets labelled "integration"</span>
+plz <span class="nb">test</span> <span class="nt">-e</span> e2e //...                       <span class="c"># everything except "e2e"</span>
+plz <span class="nb">test</span> <span class="nt">--num_runs</span><span class="o">=</span>20 //src:lib_test       <span class="c"># repeat to flush out flakiness</span>
+plz <span class="nb">test</span> <span class="nt">--rerun</span> //src:lib_test             <span class="c"># ignore the cached result</span>
+plz <span class="nb">test</span> <span class="nt">-f</span>                                 <span class="c"># rerun only the tests that failed last time</span>
+plz cover //src/...                         <span class="c"># run with coverage instrumentation</span>
 </code></pre></div></div>
 
-<h3 id="integration-with-modern-tools">Integration with Modern Tools</h3>
+<p>Test attributes worth knowing:</p>
 
-<h4 id="docker-support">Docker Support</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">docker_image</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app_image</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:app_binary</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">dockerfile</span> <span class="o">=</span> <span class="sh">"</span><span class="s">Dockerfile</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">latest</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">$VERSION</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">repo</span> <span class="o">=</span> <span class="sh">"</span><span class="s">myorg/myapp</span><span class="sh">"</span><span class="p">,</span>
-<span class="p">)</span>
+<table>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">labels = ["integration"]</code></td>
+      <td>Lets <code class="language-plaintext highlighter-rouge">-i</code>/<code class="language-plaintext highlighter-rouge">-e</code> select the test</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">size = "medium"</code></td>
+      <td>Applies a named timeout class (small, medium, large, enormous; configurable in <code class="language-plaintext highlighter-rouge">[size]</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">timeout = 300</code></td>
+      <td>Explicit per-test timeout, in seconds</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flaky = 3</code></td>
+      <td>Reruns up to 3 times before reporting failure (<code class="language-plaintext highlighter-rouge">True</code> uses the default count). Treat it as a stopgap, not a fix</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">data = [...]</code></td>
+      <td>Runtime files the test reads, copied into its sandbox</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="continuous-integration">Continuous integration</h2>
+
+<p>The two things that matter most in CI are running the pinned version (through <code class="language-plaintext highlighter-rouge">pleasew</code>) and building and testing only what changed.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    PR["Pull request"] --&gt; CH["plz query changes&lt;br/&gt;--since origin/main --level=-1"]
+    CH --&gt; F["Changed targets +&lt;br/&gt;transitive dependents"]
+    F --&gt; B["plz build / plz test&lt;br/&gt;(reads targets from stdin)"]
+    B --&gt; RC[("Remote cache")]
+    RC -.-&gt;|"hits skip work"| B
+    B --&gt; R["JUnit + coverage XML&lt;br/&gt;in plz-out/log/"]
+</code></pre>
+
+<h3 id="github-actions">GitHub Actions</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">ci</span>
+<span class="na">on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">pull_request</span><span class="pi">]</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">test</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v5</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">fetch-depth</span><span class="pi">:</span> <span class="m">0</span>              <span class="c1"># `query changes` needs the merge base</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Test affected targets</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">./pleasew query changes --since origin/${GITHUB_BASE_REF} --level=-1 \</span>
+            <span class="s">| ./pleasew test --profile ci -</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Publish test results</span>
+        <span class="na">if</span><span class="pi">:</span> <span class="s">always()</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/upload-artifact@v4</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">test-results</span>
+          <span class="na">path</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">plz-out/log/test_results.xml</span>
+            <span class="s">plz-out/log/coverage.xml</span>
 </code></pre></div></div>
 
-<h4 id="kubernetes-deployment">Kubernetes Deployment</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">k8s_config</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">deployment</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">k8s/*.yaml</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">containers</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">:app_image</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">},</span>
-<span class="p">)</span>
+<p><code class="language-plaintext highlighter-rouge">query changes</code> compares the working tree with the given revision and prints the affected targets. <code class="language-plaintext highlighter-rouge">--level=-1</code> adds every transitive dependent, so a library change also retests its consumers. The trailing <code class="language-plaintext highlighter-rouge">-</code> makes <code class="language-plaintext highlighter-rouge">plz test</code> read its targets from stdin. On pushes to <code class="language-plaintext highlighter-rouge">main</code>, run a full <code class="language-plaintext highlighter-rouge">./pleasew test //...</code> instead, which also refreshes the cache.</p>
+
+<h3 id="remote-cache">Remote cache</h3>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">; .plzconfig.ci
+</span><span class="nn">[cache]</span>
+<span class="py">httpurl</span> <span class="p">=</span> <span class="s">https://please-cache.example.com</span>
+<span class="py">httpwriteable</span> <span class="p">=</span> <span class="s">true            ; CI populates the cache; developers usually read-only</span>
 </code></pre></div></div>
 
-<h4 id="protocol-buffers--grpc">Protocol Buffers &amp; gRPC</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">grpc_library</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">api_grpc</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">api.proto</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">python</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">go</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">protoc_flags</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">--experimental_allow_proto3_optional</span><span class="sh">"</span><span class="p">],</span>
-<span class="p">)</span>
+<p>The HTTP cache is a simple content-addressed GET/PUT store, and any service that speaks the protocol works. A common arrangement lets CI write and developers only read. That way, a bad local environment cannot poison the shared cache.</p>
+
+<h2 id="remote-execution">Remote execution</h2>
+
+<p>Please implements the <strong>Remote Execution API</strong> (REAPI v2.1), the same gRPC protocol Bazel and Buck2 use. It can therefore send actions to a build farm such as BuildBarn, BuildBuddy, or BuildGrid, or to a commercial REAPI service, instead of running them locally:</p>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">; .plzconfig.remote   (use with: plz build --profile remote //...)
+</span><span class="nn">[remote]</span>
+<span class="py">url</span> <span class="p">=</span> <span class="s">remote.example.com:443</span>
+<span class="py">secure</span> <span class="p">=</span> <span class="s">true                   ; use TLS</span>
+<span class="py">instance</span> <span class="p">=</span> <span class="s">main</span>
+<span class="py">numexecutors</span> <span class="p">=</span> <span class="s">100</span>
 </code></pre></div></div>
 
-<h2 id="best-practices">Best Practices</h2>
+<p>Please’s documentation still labels remote execution as experimental. Every tool an action uses has to be available on the workers, and <code class="language-plaintext highlighter-rouge">remote_file</code> needs a Remote Asset API implementation on the server. Most teams start with the HTTP cache alone, which gives most of the benefit for much less operational work.</p>
 
-<h3 id="monorepo-organization">Monorepo Organization</h3>
+<h2 id="querying-the-graph">Querying the graph</h2>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/
-├── .plzconfig
-├── BUILD              # Root build file
-├── build_defs/        # Custom build rules
-├── common/            # Shared libraries
-├── services/          # Microservices
-│   ├── api/
-│   ├── auth/
-│   └── worker/
-├── tools/             # Development tools
-└── third_party/       # External dependencies
-    ├── go/
-    ├── python/
-    └── java/
-</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">plz query</code> answers questions about the dependency graph without building anything:</p>
 
-<h3 id="dependency-management">Dependency Management</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th>Answers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query deps //src:app</code></td>
+      <td>What does <code class="language-plaintext highlighter-rouge">app</code> depend on (transitively by default; <code class="language-plaintext highlighter-rouge">--level=1</code> for direct only)?</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query deps --dot //src:app \| dot -Tsvg &gt; app.svg</code></td>
+      <td>The same, rendered as a Graphviz diagram</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query revdeps //common:utils</code></td>
+      <td>What depends directly on <code class="language-plaintext highlighter-rouge">utils</code>? Add <code class="language-plaintext highlighter-rouge">--level=-1</code> for all transitive dependents</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query somepath //src:app //third_party/python:urllib3</code></td>
+      <td>Why is <code class="language-plaintext highlighter-rouge">urllib3</code> in <code class="language-plaintext highlighter-rouge">app</code>’s closure?</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query whatinputs src/lib/parse.py</code></td>
+      <td>Which targets consume this file?</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query changes --since origin/main</code></td>
+      <td>Which targets did a branch affect?</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query print //src:app</code></td>
+      <td>The fully evaluated rule, after macros have run (<code class="language-plaintext highlighter-rouge">-f deps</code> for a single field)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query alltargets //src/...</code></td>
+      <td>Every target under a path (<code class="language-plaintext highlighter-rouge">-i</code>/<code class="language-plaintext highlighter-rouge">-e</code> to filter by label)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query graph //src/...</code></td>
+      <td>The graph as JSON, for your own tooling</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plz query outputs //src:app</code></td>
+      <td>The files a target produces</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># third_party/python/BUILD
-</span><span class="nf">pip_library</span><span class="p">(</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">requests</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">version</span> <span class="o">=</span> <span class="sh">"</span><span class="s">2.31.0</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">hashes</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">sha256:...</span><span class="sh">"</span><span class="p">],</span>
-    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="sh">"</span><span class="s">:urllib3</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">:certifi</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">],</span>
-<span class="p">)</span>
+<h2 id="debugging-builds">Debugging builds</h2>
 
-<span class="c1"># Lock dependencies
-# Run: plz hash --update //third_party/python/...
-</span></code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Tool</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Need to see what a failing action actually ran</td>
+      <td><code class="language-plaintext highlighter-rouge">plz build //x --shell</code> opens a shell in the target’s prepared build directory, with its environment set</td>
+    </tr>
+    <tr>
+      <td>Want the full compiler or test output</td>
+      <td><code class="language-plaintext highlighter-rouge">--show_all_output</code> streams all subprocess output; <code class="language-plaintext highlighter-rouge">plz-out/log/build.log</code> keeps the full log</td>
+    </tr>
+    <tr>
+      <td>Need to inspect working files after a success</td>
+      <td><code class="language-plaintext highlighter-rouge">--keep_workdirs</code> preserves <code class="language-plaintext highlighter-rouge">plz-out/tmp/…</code></td>
+    </tr>
+    <tr>
+      <td>Build is slow and you don’t know why</td>
+      <td><code class="language-plaintext highlighter-rouge">--trace_file=trace.json</code>, then open it in <code class="language-plaintext highlighter-rouge">chrome://tracing</code> or Perfetto</td>
+    </tr>
+    <tr>
+      <td>Python test failing</td>
+      <td><code class="language-plaintext highlighter-rouge">plz test -d //x:test</code> drops into the debugger on failure</td>
+    </tr>
+    <tr>
+      <td>Binary under a debugger</td>
+      <td><code class="language-plaintext highlighter-rouge">plz debug //x:bin</code> (for rule types that support it)</td>
+    </tr>
+    <tr>
+      <td>Suspect stale state</td>
+      <td><code class="language-plaintext highlighter-rouge">plz clean //x</code> or <code class="language-plaintext highlighter-rouge">plz clean</code> (the whole <code class="language-plaintext highlighter-rouge">plz-out</code>)</td>
+    </tr>
+    <tr>
+      <td>Unused targets piling up</td>
+      <td><code class="language-plaintext highlighter-rouge">plz gc</code> lists targets that nothing depends on</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="build-optimization-tips">Build Optimization Tips</h3>
+<p><code class="language-plaintext highlighter-rouge">plz fmt</code> (alias of <code class="language-plaintext highlighter-rouge">plz format</code>) formats <code class="language-plaintext highlighter-rouge">BUILD</code> files consistently. <code class="language-plaintext highlighter-rouge">plz watch //x</code> rebuilds or retests whenever a target’s sources change.</p>
 
-<ol>
-  <li><strong>Use Remote Caching</strong>: Share build artifacts across team</li>
-  <li><strong>Minimize Dependencies</strong>: Keep build graphs shallow</li>
-  <li><strong>Parallelize Tests</strong>: Use test sharding for large suites</li>
-  <li><strong>Per-environment config</strong>: keep CI-specific overrides in <code class="language-plaintext highlighter-rouge">.plzconfig.ci</code> and select it with <code class="language-plaintext highlighter-rouge">plz build --profile=ci //...</code></li>
-  <li><strong>Incremental Builds</strong>: Design rules for maximum incrementality</li>
-</ol>
-
-<h2 id="troubleshooting">Troubleshooting</h2>
-
-<h3 id="common-issues">Common Issues</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Clean all cached outputs (forces a full rebuild next time)</span>
-plz clean
-
-<span class="c"># Clean and rebuild just one target</span>
-plz clean //src:app <span class="o">&amp;&amp;</span> plz build //src:app
-
-<span class="c"># Drop into a debugger for a failing test</span>
-plz <span class="nb">test</span> //src:app_test <span class="nt">--debug</span>
-
-<span class="c"># Stream full subprocess output instead of Please's summary view</span>
-plz build //src:app <span class="nt">--show_all_output</span>
-
-<span class="c"># Record a Chrome-tracing timeline of the build</span>
-plz build //src:app <span class="nt">--trace_file</span><span class="o">=</span>trace.json
-</code></pre></div></div>
-
-<h3 id="build-reproducibility">Build Reproducibility</h3>
-
-<p>Hermetic, content-addressed builds should be bit-for-bit reproducible: the same inputs produce the same output hash. You can verify this by building, clearing the cache, and rebuilding:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>plz build //src:app
-<span class="nb">sha256sum </span>plz-out/bin/src/app
-
-plz clean
-plz build //src:app
-<span class="nb">sha256sum </span>plz-out/bin/src/app   <span class="c"># hash should match the first build</span>
-</code></pre></div></div>
-
-<h2 id="migration-guide">Migration Guide</h2>
+<h2 id="migrating-to-please">Migrating to Please</h2>
 
 <h3 id="from-bazel">From Bazel</h3>
 
-<p>Core rule names and the <code class="language-plaintext highlighter-rouge">//package:target</code> label syntax are deliberately close to Bazel’s, so simple targets often port verbatim:</p>
+<p>Labels (<code class="language-plaintext highlighter-rouge">//pkg:target</code>), <code class="language-plaintext highlighter-rouge">BUILD</code> files, <code class="language-plaintext highlighter-rouge">glob</code>, <code class="language-plaintext highlighter-rouge">visibility</code>, and most rule attribute names carry over. Ordinary targets often port with little more than a plugin swap. The differences are in the surrounding machinery:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bazel and Please both spell this the same way
-</span><span class="nf">cc_binary</span><span class="p">(</span>
+<table>
+  <thead>
+    <tr>
+      <th>Bazel</th>
+      <th>Please</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">MODULE.bazel</code> / Bzlmod (WORKSPACE was removed in Bazel 9)</td>
+      <td><code class="language-plaintext highlighter-rouge">plugins/BUILD</code> (<code class="language-plaintext highlighter-rouge">plugin_repo</code>) plus third-party targets (<code class="language-plaintext highlighter-rouge">go_repo</code>, <code class="language-plaintext highlighter-rouge">pip_library</code>, <code class="language-plaintext highlighter-rouge">maven_jar</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">.bazelrc</code> configs</td>
+      <td><code class="language-plaintext highlighter-rouge">.plzconfig</code> profiles (<code class="language-plaintext highlighter-rouge">--profile ci</code>) and <code class="language-plaintext highlighter-rouge">-o</code> overrides</td>
+    </tr>
+    <tr>
+      <td>Starlark <code class="language-plaintext highlighter-rouge">.bzl</code> files, <code class="language-plaintext highlighter-rouge">load()</code></td>
+      <td><code class="language-plaintext highlighter-rouge">.build_defs</code> files, <code class="language-plaintext highlighter-rouge">subinclude()</code></td>
+    </tr>
+    <tr>
+      <td>Rule implementations with providers and actions</td>
+      <td>Macros over <code class="language-plaintext highlighter-rouge">build_rule</code>/<code class="language-plaintext highlighter-rouge">genrule</code>; simpler to write, less expressive</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">bazel query</code> / <code class="language-plaintext highlighter-rouge">cquery</code></td>
+      <td><code class="language-plaintext highlighter-rouge">plz query</code></td>
+    </tr>
+    <tr>
+      <td>Remote cache and execution (REAPI)</td>
+      <td>The same protocol, so the same backends work</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Bazel’s advantages are ecosystem size, platform/toolchain modeling, and first-class Windows support. Please’s are a smaller conceptual surface, faster onboarding, and a simpler rule model. For a detailed comparison, see <a href="../advanced/monorepo-tooling/">Monorepo Tooling</a>.</p>
+
+<h3 id="from-make">From Make</h3>
+
+<p>Make tracks file modification times and only the dependencies you remember to write down. Please tracks content hashes and enforces declared inputs. A mechanical translation turns each Make target into a <code class="language-plaintext highlighter-rouge">genrule</code>, or into a language rule where one exists, with its prerequisites as <code class="language-plaintext highlighter-rouge">srcs</code> and <code class="language-plaintext highlighter-rouge">deps</code>:</p>
+
+<div class="language-makefile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Makefile
+</span><span class="nl">app</span><span class="o">:</span> <span class="nf">main.c lib.c lib.h</span>
+	cc <span class="nt">-o</span> app main.c lib.c
+</code></pre></div></div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># BUILD (with the cc plugin)
+</span><span class="nf">cc_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">lib</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">lib.c</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">hdrs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">lib.h</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="nf">cc_binary</span><span class="p">(</span>
     <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.cc</span><span class="sh">"</span><span class="p">],</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">main.c</span><span class="sh">"</span><span class="p">],</span>
     <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">:lib</span><span class="sh">"</span><span class="p">],</span>
 <span class="p">)</span>
 </code></pre></div></div>
 
-<p>The real differences are in the surrounding ecosystem: Bazel’s <code class="language-plaintext highlighter-rouge">WORKSPACE</code>/<code class="language-plaintext highlighter-rouge">MODULE.bazel</code> and <code class="language-plaintext highlighter-rouge">http_archive</code> become Please’s <code class="language-plaintext highlighter-rouge">.plzconfig</code> plus per-language rules like <code class="language-plaintext highlighter-rouge">pip_library</code> and <code class="language-plaintext highlighter-rouge">go_module</code>, and Please’s rule language is a Python-like dialect rather than strict Starlark. Expect to rewrite third-party dependency declarations rather than your own targets.</p>
-
-<h3 id="from-make">From Make</h3>
-
-<div class="language-makefile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Makefile
-</span><span class="nl">app</span><span class="o">:</span> <span class="nf">main.o lib.o</span>
-    <span class="err">gcc</span> <span class="err">-o</span> <span class="err">app</span> <span class="err">main.o</span> <span class="err">lib.o</span>
-
-<span class="c"># Please BUILD file
-</span><span class="err">cc_binary(</span>
-    <span class="nv">name</span> <span class="o">=</span> <span class="s2">"app"</span>,
-    <span class="nv">srcs</span> <span class="o">=</span> <span class="o">[</span><span class="s2">"main.c"</span><span class="o">]</span>,
-    <span class="nv">deps</span> <span class="o">=</span> <span class="o">[</span><span class="s2">":lib"</span><span class="o">]</span>,
-<span class="err">)</span>
-</code></pre></div></div>
-
-<h2 id="faq">FAQ</h2>
-
-<p><strong>Q: How does Please compare to Bazel?</strong>
-A: Please is inspired by Bazel but focuses on simplicity and ease of use. It has a gentler learning curve while maintaining most of Bazel’s power.</p>
-
-<p><strong>Q: Can I use Please for small projects?</strong>
-A: Yes! Please scales from single-file projects to massive monorepos.</p>
-
-<p><strong>Q: Does Please support Windows?</strong>
-A: Please has experimental Windows support via WSL2.</p>
-
-<p><strong>Q: How do I debug failing builds?</strong>
-A: Run with <code class="language-plaintext highlighter-rouge">--show_all_output</code> to see full subprocess logs, drop into a debugger on a failing test with <code class="language-plaintext highlighter-rouge">plz test //... --debug</code>, or inspect the per-target logs under <code class="language-plaintext highlighter-rouge">plz-out/log/</code>.</p>
-
-<p>For more FAQs, see the <a href="https://please.build/faq.html">official FAQ</a>.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Please targets polyglot monorepos</strong> — one build system across Go, Python, Java, C++, and more, with a gentler learning curve than Bazel.</li>
-  <li><strong>The build graph drives everything:</strong> declare inputs and deps in <code class="language-plaintext highlighter-rouge">BUILD</code> files, and Please rebuilds only what changed.</li>
-  <li><strong>Content-addressed caching plus parallelism</strong> deliver fast, incremental builds; remote caching and execution scale this across a team.</li>
-  <li><strong>Hermetic builds</strong> make results reproducible — the same inputs always produce the same outputs.</li>
-  <li><strong>Use native tooling for single-language projects;</strong> reach for Please when scale, polyglot needs, or reproducibility justify it.</li>
-</ul>
-
 <h2 id="resources">Resources</h2>
 
 <ul>
-  <li><a href="https://please.build/">Official Documentation</a></li>
-  <li><a href="https://github.com/thought-machine/please">GitHub Repository</a></li>
-  <li><a href="https://github.com/thought-machine/please/tree/master/test">Rule Examples</a></li>
-  <li><a href="https://github.com/thought-machine/please/discussions">Please Community Discussions</a></li>
-  <li><a href="https://please.build/language.html">Build Language Reference</a></li>
-  <li><a href="https://please.build/faq.html">Please FAQ</a> - Common questions and answers</li>
+  <li><a href="https://please.build/">please.build</a>: official documentation, codelabs, and the <a href="https://please.build/config.html">config reference</a></li>
+  <li><a href="https://github.com/thought-machine/please">thought-machine/please</a>: source code and <a href="https://github.com/thought-machine/please/releases">releases</a></li>
+  <li><a href="https://github.com/please-build/please-rules">please-build/please-rules</a>: a curated index of language and technology plugins</li>
+  <li><a href="https://please.build/language.html">Build language reference</a></li>
+  <li><a href="https://please.build/faq.html">Please FAQ</a></li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="ci-cd/">CI/CD</a> — wire Please builds into automated pipelines</li>
-  <li><a href="git/">Git Version Control</a> — monorepo strategies and large-repo tooling</li>
-  <li><a href="docker/">Docker</a> — package Please build artifacts into container images</li>
-  <li><a href="kubernetes/">Kubernetes</a> — deploy the services Please builds</li>
+  <li><a href="../advanced/monorepo/">Monorepos</a> and <a href="../advanced/monorepo-tooling/">Monorepo Tooling</a>: where graph-based build systems fit</li>
+  <li><a href="ci-cd/">CI/CD</a>: pipeline design around incremental builds</li>
+  <li><a href="git/">Git Version Control</a>: large-repository practices</li>
+  <li><a href="docker/">Docker</a>: packaging build outputs as images</li>
+  <li><a href="kubernetes/">Kubernetes</a>: deploying the services Please builds</li>
 </ul>
 
       </section>

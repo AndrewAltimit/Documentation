@@ -3131,313 +3131,664 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p><a href="./">Networking</a></p>
+        <p><a href="./">Networking</a> » Performance, QoS &amp; Security</p>
 
-<!-- Custom styles are now loaded via main.scss -->
+<p>Whether a network feels fast depends mostly on what happens in the queues at its bottleneck links. This page develops the queueing models that explain latency, the buffer-management and quality-of-service mechanisms that keep queues under control, the network-layer security primitives (firewalls, VPNs, segmentation, DDoS mitigation) that sit on the same data path, and the tools and telemetry used to diagnose and monitor all of it.</p>
 
-<p>What makes a network feel fast or slow comes down to queues filling at bottleneck links. This page builds the queueing models that explain latency, then turns to defending the network (firewalls, VPNs, ACLs), prioritizing traffic with quality of service, and the tools and metrics for troubleshooting and monitoring.</p>
+<p>The scope is the network layer. Threat modelling, zero trust, detection engineering, and incident response are covered in <a href="../cybersecurity/">Cybersecurity</a>; the <a href="#network-observability">observability section</a> below describes how network telemetry feeds those workflows.</p>
 
-<blockquote>
-  <p><strong>How this page is organized.</strong> It covers two intertwined but distinct concerns:</p>
+<h2 id="where-latency-comes-from">Where Latency Comes From</h2>
 
-  <ul>
-    <li><strong>Performance &amp; QoS</strong> — the queueing models that explain latency (<a href="#understanding-network-performance">Understanding Network Performance</a>), how traffic is prioritized (<a href="#quality-of-service-managing-network-traffic">Quality of Service</a>), and how you diagnose slow or broken paths (<a href="#troubleshooting-networks-tools-and-techniques">Troubleshooting Networks</a>).</li>
-    <li><strong>Network-defense primitives</strong> — the building blocks that protect the data plane (<a href="#securing-networks-defense-in-depth">Securing Networks: Defense in Depth</a>) and the visibility you need to operate and defend it (<a href="#network-observability">Network Observability</a>).</li>
-  </ul>
+<p>The one-way delay a packet experiences at each hop is the sum of four components:</p>
 
-  <p>These are the <em>network-layer</em> primitives. Higher-level defense — threat models, zero trust, detection engineering, and incident response — lives in <a href="../cybersecurity/">Cybersecurity</a>. Observability data feeds directly into those workflows, and the <a href="#network-observability">Network Observability</a> section below shows the hand-off into <a href="../cybersecurity/security-operations.html">Security Operations</a>.</p>
-</blockquote>
+\[d_{\text{hop}} = d_{\text{proc}} + d_{\text{queue}} + \frac{L}{R} + \frac{D}{s}\]
 
-<h2 id="understanding-network-performance">Understanding Network Performance</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Cause</th>
+      <th>Typical magnitude</th>
+      <th>What changes it</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Processing $d_{\text{proc}}$</td>
+      <td>Header parsing, lookup, checksum</td>
+      <td>Nanoseconds to microseconds in hardware</td>
+      <td>Faster silicon; software forwarding is slower</td>
+    </tr>
+    <tr>
+      <td>Queueing $d_{\text{queue}}$</td>
+      <td>Waiting behind other packets</td>
+      <td>Zero to hundreds of milliseconds</td>
+      <td>Load, burstiness, buffer size, queue management</td>
+    </tr>
+    <tr>
+      <td>Transmission $L/R$</td>
+      <td>Serializing $L$ bits onto a link of rate $R$</td>
+      <td>1500 B at 1 Gb/s = 12 μs; at 10 Mb/s = 1.2 ms</td>
+      <td>Link speed</td>
+    </tr>
+    <tr>
+      <td>Propagation $D/s$</td>
+      <td>Signal travelling distance $D$ at speed $s$</td>
+      <td>About 5 μs per km in fibre (light travels at roughly $2c/3$)</td>
+      <td>Physics; only a shorter path helps</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>When network engineers talk about performance, they’re often dealing with queues—just like lines at a coffee shop.</p>
+<p>Propagation sets the floor (a New York to London round trip cannot be much below 56 ms over fibre), transmission matters only on slow links, and processing is negligible in modern hardware. <strong>Queueing is the component that varies</strong>, which is why it dominates jitter and why most performance engineering is really queue engineering.</p>
 
-<h3 id="why-networks-need-queues">Why Networks Need Queues</h3>
+<p>A related quantity is the <strong>bandwidth-delay product</strong> (BDP), $R \times \text{RTT}$: the amount of data that must be in flight to keep a path full. A 1 Gb/s path with a 40 ms RTT has a BDP of 5 MB, which is the minimum window a TCP sender needs to fill it and the classic reference point for sizing buffers.</p>
 
-<p>Imagine a router as a busy intersection. Packets arrive from multiple sources, but the router can only forward them one at a time. When packets arrive faster than they can be processed, they must wait in a queue. This waiting time directly impacts your experience—it’s why video calls sometimes freeze or web pages load slowly.</p>
+<h2 id="queueing-models">Queueing Models</h2>
 
-<p>This real-world problem motivates queueing theory. By modeling network devices as queuing systems, we can predict and optimize performance.</p>
+<p>Queueing theory treats a router output port as a server that transmits packets at rate $\mu$ while packets arrive at rate $\lambda$. The ratio $\rho = \lambda / \mu$ is the <strong>utilization</strong>; a queue is stable only when $\rho &lt; 1$.</p>
 
-<h3 id="modeling-network-queues">Modeling Network Queues</h3>
+<h3 id="littles-law">Little’s Law</h3>
 
-<p>The Python models below are <em>illustrative</em> — small M/M/1 and queueing-network models that make the formulas concrete.</p>
+<p>For any stable system, the mean number of items in the system equals the arrival rate times the mean time each spends there:</p>
+
+\[L = \lambda W\]
+
+<p>Little’s law makes no assumptions about arrival or service distributions, which makes it the most widely used result in performance analysis. A switch port holding an average of 200 packets while forwarding 100,000 packets/s adds an average of 2 ms of delay; a service handling 500 requests/s with a mean latency of 40 ms has about 20 requests in flight.</p>
+
+<h3 id="the-mm1-queue">The M/M/1 Queue</h3>
+
+<p>The simplest analytic model assumes Poisson arrivals, exponentially distributed service times, one server, and an unbounded FIFO buffer (M/M/1 in Kendall notation). Its steady-state results are:</p>
+
+\[L = \frac{\rho}{1-\rho}, \qquad
+L_q = \frac{\rho^2}{1-\rho}, \qquad
+W = \frac{1}{\mu - \lambda}, \qquad
+W_q = \frac{\rho}{\mu - \lambda}\]
+
+<p>where $L$ and $W$ count the packet in service and $L_q$ and $W_q$ count only waiting packets. The response time is itself exponentially distributed, $P(T &gt; t) = e^{-(\mu - \lambda)t}$, so tail latency grows at the same rate as the mean.</p>
+
+<p>The critical feature is the $1/(1-\rho)$ factor: delay is modest at moderate load and grows without bound as utilization approaches 1.</p>
+
+<figure>
+<svg viewBox="0 0 480 260" role="img" aria-labelledby="mm1-title" style="max-width:480px;width:100%;height:auto;background:transparent" xmlns="http://www.w3.org/2000/svg">
+  <title id="mm1-title">M/M/1 mean time in system, normalized to one service time, versus utilization</title>
+  <g stroke="currentColor" fill="none" stroke-width="1">
+    <line x1="50" y1="220" x2="460" y2="220" />
+    <line x1="50" y1="220" x2="50" y2="20" />
+    <line x1="50" y1="170" x2="460" y2="170" stroke-dasharray="2 4" opacity="0.4" />
+    <line x1="50" y1="120" x2="460" y2="120" stroke-dasharray="2 4" opacity="0.4" />
+    <line x1="50" y1="70" x2="460" y2="70" stroke-dasharray="2 4" opacity="0.4" />
+    <line x1="460" y1="20" x2="460" y2="220" stroke-dasharray="4 4" opacity="0.6" />
+  </g>
+  <polyline fill="none" stroke="currentColor" stroke-width="2.5" points="50.0,210.0 56.6,209.8 63.2,209.7 69.8,209.5 76.4,209.3 83.0,209.1 89.6,208.9 96.2,208.7 102.8,208.5 109.4,208.3 116.0,208.1 122.6,207.8 129.2,207.6 135.8,207.4 142.4,207.1 149.0,206.8 155.6,206.5 162.2,206.2 168.8,205.9 175.4,205.6 182.0,205.2 188.6,204.9 195.2,204.5 201.8,204.1 208.4,203.7 215.0,203.3 221.6,202.8 228.2,202.3 234.8,201.8 241.4,201.2 248.1,200.7 254.7,200.0 261.3,199.4 267.9,198.7 274.5,197.9 281.1,197.1 287.7,196.2 294.3,195.3 300.9,194.2 307.5,193.1 314.1,191.9 320.7,190.6 327.3,189.1 333.9,187.5 340.5,185.7 347.1,183.7 353.7,181.4 360.3,178.9 366.9,176.0 373.5,172.6 380.1,168.7 386.7,164.1 393.3,158.5 399.9,151.8 406.5,143.4 413.1,132.6 419.7,118.3 426.3,98.4 432.9,68.7 439.5,20.0" />
+  <g fill="currentColor" font-size="12" font-family="sans-serif">
+    <circle cx="255" cy="200" r="3.5" /><text x="248" y="190" text-anchor="end">&#961;=0.5: 2&#215;</text>
+    <circle cx="378" cy="170" r="3.5" /><text x="370" y="160" text-anchor="end">&#961;=0.8: 5&#215;</text>
+    <circle cx="419" cy="120" r="3.5" /><text x="411" y="110" text-anchor="end">&#961;=0.9: 10&#215;</text>
+    <text x="44" y="224" text-anchor="end">0</text>
+    <text x="44" y="174" text-anchor="end">5</text>
+    <text x="44" y="124" text-anchor="end">10</text>
+    <text x="44" y="74" text-anchor="end">15</text>
+    <text x="44" y="24" text-anchor="end">20</text>
+    <text x="50" y="238" text-anchor="middle">0</text>
+    <text x="255" y="238" text-anchor="middle">0.5</text>
+    <text x="460" y="238" text-anchor="middle">1.0</text>
+    <text x="255" y="255" text-anchor="middle">utilization &#961;</text>
+    <text x="14" y="120" text-anchor="middle" transform="rotate(-90 14 120)">W / service time</text>
+  </g>
+</svg>
+<figcaption>Mean time in an M/M/1 system, in multiples of one packet's service time. Going from 80% to 90% utilization doubles the delay.</figcaption>
+</figure>
+
+<p>This is the quantitative reason operators keep links well below 100% average utilization and why bursts, which briefly push the instantaneous load above 1, cause most latency spikes.</p>
+
+<p>The closed forms are easy to check against a direct simulation. The listing below computes M/M/1 metrics and simulates the same queue with <strong>Lindley’s recursion</strong>, $W_k = \max(0,\, W_{k-1} + S_{k-1} - A_k)$, which gives each packet’s waiting time from its predecessor’s:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
 
-<span class="k">class</span> <span class="nc">NetworkQueue</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Model a network device (like a router) as a queue to predict performance.
-    
-    This M/M/1 model helps us understand:
-    - How long packets wait in router buffers
-    - When a network link becomes congested
-    - How to size buffers appropriately
-    </span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">arrival_rate</span><span class="p">,</span> <span class="n">service_rate</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">lambda_</span> <span class="o">=</span> <span class="n">arrival_rate</span>  <span class="c1"># λ
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">service_rate</span>       <span class="c1"># μ
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rho</span> <span class="o">=</span> <span class="n">arrival_rate</span> <span class="o">/</span> <span class="n">service_rate</span>  <span class="c1"># ρ = λ/μ
-</span>        
-        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">rho</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">System is unstable (ρ &gt;= 1)</span><span class="sh">"</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">average_customers</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">L = ρ / (1 - ρ)</span><span class="sh">"""</span>
-        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">rho</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">rho</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">average_queue_length</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Lq = ρ² / (1 - ρ)</span><span class="sh">"""</span>
-        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">rho</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">rho</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">average_waiting_time</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">W = 1 / (μ - λ)</span><span class="sh">"""</span>
-        <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">mu</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">lambda_</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">average_queue_time</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Wq = ρ / (μ - λ)</span><span class="sh">"""</span>
-        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">rho</span> <span class="o">/</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">mu</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">lambda_</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">response_time_distribution</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">P(T ≤ t) = 1 - e^(-(μ-λ)t)</span><span class="sh">"""</span>
-        <span class="k">return</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">mu</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">lambda_</span><span class="p">)</span> <span class="o">*</span> <span class="n">t</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">simulate</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Discrete event simulation</span><span class="sh">"""</span>
-        <span class="n">events</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">current_time</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">customers_in_system</span> <span class="o">=</span> <span class="mi">0</span>
-        
-        <span class="k">while</span> <span class="n">current_time</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
-            <span class="c1"># Next arrival
-</span>            <span class="n">inter_arrival</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">self</span><span class="p">.</span><span class="n">lambda_</span><span class="p">)</span>
-            <span class="n">arrival_time</span> <span class="o">=</span> <span class="n">current_time</span> <span class="o">+</span> <span class="n">inter_arrival</span>
-            
-            <span class="c1"># Service time
-</span>            <span class="n">service_time</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">self</span><span class="p">.</span><span class="n">mu</span><span class="p">)</span>
-            
-            <span class="n">events</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span>
-                <span class="sh">'</span><span class="s">time</span><span class="sh">'</span><span class="p">:</span> <span class="n">arrival_time</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">arrival</span><span class="sh">'</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">service_time</span><span class="sh">'</span><span class="p">:</span> <span class="n">service_time</span>
-            <span class="p">})</span>
-            
-            <span class="n">current_time</span> <span class="o">=</span> <span class="n">arrival_time</span>
-            
-        <span class="k">return</span> <span class="n">events</span>
+<span class="k">def</span> <span class="nf">mm1</span><span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="n">mu</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Closed-form M/M/1 metrics (times in the units of 1/mu).</span><span class="sh">"""</span>
+    <span class="n">rho</span> <span class="o">=</span> <span class="n">lam</span> <span class="o">/</span> <span class="n">mu</span>
+    <span class="k">if</span> <span class="n">rho</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">unstable: rho = </span><span class="si">{</span><span class="n">rho</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> &gt;= 1</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">rho</span><span class="sh">"</span><span class="p">:</span> <span class="n">rho</span><span class="p">,</span>
+            <span class="sh">"</span><span class="s">L</span><span class="sh">"</span><span class="p">:</span> <span class="n">rho</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">rho</span><span class="p">),</span>          <span class="c1"># mean packets in system
+</span>            <span class="sh">"</span><span class="s">Lq</span><span class="sh">"</span><span class="p">:</span> <span class="n">rho</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">rho</span><span class="p">),</span>      <span class="c1"># mean packets waiting
+</span>            <span class="sh">"</span><span class="s">W</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">mu</span> <span class="o">-</span> <span class="n">lam</span><span class="p">),</span>           <span class="c1"># mean time in system
+</span>            <span class="sh">"</span><span class="s">Wq</span><span class="sh">"</span><span class="p">:</span> <span class="n">rho</span> <span class="o">/</span> <span class="p">(</span><span class="n">mu</span> <span class="o">-</span> <span class="n">lam</span><span class="p">)}</span>        <span class="c1"># mean time waiting
+</span>
+<span class="k">def</span> <span class="nf">simulate_wq</span><span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">200_000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Mean waiting time of a FIFO single-server queue via Lindley</span><span class="sh">'</span><span class="s">s recursion.</span><span class="sh">"""</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">lam</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>        <span class="c1"># inter-arrival times
+</span>    <span class="n">s</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">mu</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>         <span class="c1"># service times
+</span>    <span class="n">w</span><span class="p">,</span> <span class="n">total</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">w</span> <span class="o">+</span> <span class="n">s</span><span class="p">[</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+        <span class="n">total</span> <span class="o">+=</span> <span class="n">w</span>
+    <span class="k">return</span> <span class="n">total</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
 
-<span class="c1"># Example: Analyzing a home router handling video streaming
-# Your router receives 800 packets/second during Netflix streaming
-# It can forward 1000 packets/second to your device
-</span><span class="n">router</span> <span class="o">=</span> <span class="nc">NetworkQueue</span><span class="p">(</span><span class="n">arrival_rate</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">service_rate</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Average packets waiting: </span><span class="si">{</span><span class="n">router</span><span class="p">.</span><span class="nf">average_queue_length</span><span class="p">()</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Average delay added: </span><span class="si">{</span><span class="n">router</span><span class="p">.</span><span class="nf">average_queue_time</span><span class="p">()</span><span class="o">*</span><span class="mi">1000</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> ms</span><span class="sh">"</span><span class="p">)</span>
-
-<span class="c1"># This 4ms delay might not seem like much, but it adds up across multiple hops!
+<span class="c1"># A link that forwards 1,000 packets/s, offered 800 packets/s
+</span><span class="n">m</span> <span class="o">=</span> <span class="nf">mm1</span><span class="p">(</span><span class="mi">800</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">utilization </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="sh">'</span><span class="s">rho</span><span class="sh">'</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">0</span><span class="o">%</span><span class="si">}</span><span class="s">, mean queueing delay </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="sh">'</span><span class="s">Wq</span><span class="sh">'</span><span class="p">]</span><span class="o">*</span><span class="mf">1e3</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> ms</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">simulated queueing delay       </span><span class="si">{</span><span class="nf">simulate_wq</span><span class="p">(</span><span class="mi">800</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span><span class="o">*</span><span class="mf">1e3</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> ms</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># utilization 80%, mean queueing delay 4.00 ms
+# simulated queueing delay       4.08 ms
 </span></code></pre></div></div>
 
-<h3 id="when-single-queues-arent-enough">When Single Queues Aren’t Enough</h3>
+<h3 id="beyond-poisson-kingmans-formula">Beyond Poisson: Kingman’s Formula</h3>
 
-<p>Real networks have multiple devices, each adding its own delays. To understand end-to-end performance, we need to model networks of queues. This is particularly important for cloud applications where data might traverse dozens of devices.</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MultiHopNetwork</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Model traffic flow through multiple network devices.
-    
-    Use this to analyze:
-    - Cloud application latency (web server → load balancer → app server → database)
-    - Content delivery networks
-    - Multi-datacenter architectures
-    </span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">num_nodes</span> <span class="o">=</span> <span class="n">num_nodes</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">routing_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">))</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">external_arrivals</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">service_rates</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">num_nodes</span><span class="p">)</span>
-        
-    <span class="k">def</span> <span class="nf">set_routing</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">from_node</span><span class="p">,</span> <span class="n">to_node</span><span class="p">,</span> <span class="n">probability</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Set routing probability between nodes</span><span class="sh">"""</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">routing_matrix</span><span class="p">[</span><span class="n">from_node</span><span class="p">,</span> <span class="n">to_node</span><span class="p">]</span> <span class="o">=</span> <span class="n">probability</span>
-        
-    <span class="k">def</span> <span class="nf">solve_traffic_equations</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Solve λᵢ = γᵢ + Σⱼ λⱼ * Pⱼᵢ</span><span class="sh">"""</span>
-        <span class="c1"># Form system: (I - P^T)λ = γ
-</span>        <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">num_nodes</span><span class="p">)</span>
-        <span class="n">A</span> <span class="o">=</span> <span class="n">I</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">routing_matrix</span><span class="p">.</span><span class="n">T</span>
-        
-        <span class="c1"># Solve for arrival rates at each node
-</span>        <span class="n">arrival_rates</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">solve</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">external_arrivals</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">arrival_rates</span>
-    
-    <span class="k">def</span> <span class="nf">analyze_performance</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Analyze performance metrics for each node</span><span class="sh">"""</span>
-        <span class="n">arrival_rates</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">solve_traffic_equations</span><span class="p">()</span>
-        <span class="n">metrics</span> <span class="o">=</span> <span class="p">[]</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">num_nodes</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">arrival_rates</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">service_rates</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
-                <span class="n">queue</span> <span class="o">=</span> <span class="nc">NetworkQueue</span><span class="p">(</span><span class="n">arrival_rates</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">self</span><span class="p">.</span><span class="n">service_rates</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-                <span class="n">metrics</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span>
-                    <span class="sh">'</span><span class="s">node</span><span class="sh">'</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
-                    <span class="sh">'</span><span class="s">utilization</span><span class="sh">'</span><span class="p">:</span> <span class="n">queue</span><span class="p">.</span><span class="n">rho</span><span class="p">,</span>
-                    <span class="sh">'</span><span class="s">avg_delay</span><span class="sh">'</span><span class="p">:</span> <span class="n">queue</span><span class="p">.</span><span class="nf">average_waiting_time</span><span class="p">(),</span>
-                    <span class="sh">'</span><span class="s">avg_queue</span><span class="sh">'</span><span class="p">:</span> <span class="n">queue</span><span class="p">.</span><span class="nf">average_customers</span><span class="p">()</span>
-                <span class="p">})</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">metrics</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span>
-                    <span class="sh">'</span><span class="s">node</span><span class="sh">'</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
-                    <span class="sh">'</span><span class="s">utilization</span><span class="sh">'</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">inf</span><span class="sh">'</span><span class="p">),</span>
-                    <span class="sh">'</span><span class="s">avg_delay</span><span class="sh">'</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">inf</span><span class="sh">'</span><span class="p">),</span>
-                    <span class="sh">'</span><span class="s">avg_queue</span><span class="sh">'</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">inf</span><span class="sh">'</span><span class="p">)</span>
-                <span class="p">})</span>
-                
-        <span class="k">return</span> <span class="n">metrics</span>
-</code></pre></div></div>
+<p>Real packet sizes are not exponential and real arrivals are burstier than Poisson (see <a href="modern-architecture.html#traffic-models">traffic models</a>). For a general single-server queue (G/G/1), <strong>Kingman’s approximation</strong> captures how variability inflates waiting time:</p>
 
-<blockquote>
-  <p>Congestion control (TCP Reno and BBR, in <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a>) exists precisely to keep these queues from filling up and overflowing.</p>
-</blockquote>
+\[W_q \approx \left( \frac{\rho}{1-\rho} \right) \left( \frac{c_a^2 + c_s^2}{2} \right) \tau\]
 
-<h2 id="securing-networks-defense-in-depth">Securing Networks: Defense in Depth</h2>
+<p>Here $\tau = 1/\mu$ is the mean service time and $c_a$, $c_s$ are the coefficients of variation (standard deviation over mean) of inter-arrival and service times. For M/M/1 both equal 1 and the formula is exact. The formula separates the three levers available: reduce utilization, reduce <strong>arrival variability</strong> (pacing, shaping, smoothing bursts), or reduce <strong>service variability</strong> (more uniform packet or request sizes). Doubling burstiness hurts roughly as much as a large increase in load.</p>
 
-<p><em>This section and <a href="#network-observability">Network Observability</a> cover the network-defense primitives; the performance/QoS material is in the <a href="#understanding-network-performance">other sections</a>.</em></p>
+<h3 id="networks-of-queues">Networks of Queues</h3>
 
-<p>Every network connection is a potential security risk. Let’s explore how networks are protected at multiple layers. These primitives — firewalls, VPNs, and ACLs — operate on the data plane itself; they are the enforcement points that the policies in <a href="../cybersecurity/">Cybersecurity</a> ultimately push down to.</p>
+<p>A path through a network, or a request through a multi-tier service, visits several queues. In a <strong>Jackson network</strong> (Poisson external arrivals, exponential service, probabilistic routing), each node behaves like an independent M/M/1 queue once its total arrival rate is known. Those rates come from the <strong>traffic equations</strong>:</p>
 
-<h3 id="firewalls-the-networks-bouncer">Firewalls: The Network’s Bouncer</h3>
-<p>Firewalls examine traffic and block anything suspicious, like a bouncer checking IDs at a club.</p>
+\[\lambda_i = \gamma_i + \sum_j \lambda_j P_{ji}
+\quad\Longleftrightarrow\quad
+\boldsymbol{\lambda} = (I - P^{\mathsf{T}})^{-1} \boldsymbol{\gamma}\]
 
-<p><strong>Types</strong>:</p>
+<p>where $\gamma_i$ is the external arrival rate at node $i$ and $P_{ji}$ the probability that a job leaving node $j$ goes next to node $i$. The example models a load balancer, an application tier, and a database that the application calls back into:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="c1"># Nodes: 0 = load balancer, 1 = app server, 2 = database
+</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">500.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>      <span class="c1"># external arrivals (req/s)
+</span><span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>            <span class="c1"># LB -&gt; app always
+</span>              <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">],</span>            <span class="c1"># app -&gt; DB 60% of the time, else leaves
+</span>              <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]])</span>           <span class="c1"># DB -&gt; back to app
+</span><span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">5000.0</span><span class="p">,</span> <span class="mf">1500.0</span><span class="p">,</span> <span class="mf">900.0</span><span class="p">])</span>    <span class="c1"># service rates (req/s)
+</span>
+<span class="n">lam</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">solve</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">-</span> <span class="n">P</span><span class="p">.</span><span class="n">T</span><span class="p">,</span> <span class="n">gamma</span><span class="p">)</span>   <span class="c1"># traffic equations
+</span><span class="n">rho</span> <span class="o">=</span> <span class="n">lam</span> <span class="o">/</span> <span class="n">mu</span>
+<span class="n">W</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="n">mu</span> <span class="o">-</span> <span class="n">lam</span><span class="p">)</span>                              <span class="c1"># per-visit time at each node
+</span><span class="n">visits</span> <span class="o">=</span> <span class="n">lam</span> <span class="o">/</span> <span class="n">gamma</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span>                      <span class="c1"># mean visits per request
+</span><span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">l</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">([</span><span class="sh">"</span><span class="s">LB</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">app</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">DB</span><span class="sh">"</span><span class="p">],</span> <span class="n">lam</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">visits</span><span class="p">,</span> <span class="n">W</span><span class="p">):</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="o">&gt;</span><span class="mi">3</span><span class="si">}</span><span class="s">: lambda=</span><span class="si">{</span><span class="n">l</span><span class="si">:</span><span class="mf">7.1</span><span class="n">f</span><span class="si">}</span><span class="s">/s  rho=</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s">  visits=</span><span class="si">{</span><span class="n">v</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s">  W=</span><span class="si">{</span><span class="n">w</span><span class="o">*</span><span class="mf">1e3</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> ms</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">end-to-end mean latency: </span><span class="si">{</span><span class="p">(</span><span class="n">visits</span> <span class="o">*</span> <span class="n">W</span><span class="p">).</span><span class="nf">sum</span><span class="p">()</span><span class="o">*</span><span class="mf">1e3</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> ms</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1">#  LB: lambda=  500.0/s  rho=0.10  visits=1.00  W=0.22 ms
+# app: lambda= 1250.0/s  rho=0.83  visits=2.50  W=4.00 ms
+#  DB: lambda=  750.0/s  rho=0.83  visits=1.50  W=6.67 ms
+# end-to-end mean latency: 20.22 ms
+</span></code></pre></div></div>
+
+<p>The feedback loop is the instructive part: although only 500 requests/s enter, the application tier sees 1,250/s because each request visits it 2.5 times on average, so it runs at 83% utilization and dominates end-to-end latency.</p>
+
+<h2 id="buffers-bufferbloat-and-active-queue-management">Buffers, Bufferbloat, and Active Queue Management</h2>
+
+<p>A router needs buffers to absorb bursts, but how much buffering is right is a long-running debate.</p>
+
 <ul>
-  <li>Packet filtering</li>
-  <li>Stateful inspection</li>
-  <li>Application layer</li>
-  <li>Next-generation (NGFW)</li>
+  <li><strong>Rule of thumb (BDP).</strong> A single TCP flow needs about one bandwidth-delay product of buffer to keep a bottleneck busy through its sawtooth. This rule, from Villamizar and Song (1994), drove router design for a decade.</li>
+  <li><strong>Many flows.</strong> Appenzeller, Keslassy, and McKeown (“Sizing Router Buffers”, 2004) showed that with $N$ desynchronized flows, $\text{BDP}/\sqrt{N}$ suffices, which for backbone links means orders of magnitude less memory.</li>
+  <li><strong>Bufferbloat.</strong> Cheap memory led to the opposite problem at the edge: home routers, cable modems, and cellular base stations with seconds of buffering. Loss-based congestion control (Reno, CUBIC) keeps increasing its window until the buffer overflows, so an oversized, always-full buffer adds its entire depth to every packet’s latency. A video call sharing a link with an upload can see hundreds of milliseconds of added delay even though no packets are lost.</li>
 </ul>
 
-<h3 id="vpn-virtual-private-network">VPN (Virtual Private Network)</h3>
-<p>Creates encrypted tunnels.</p>
+<p>The remedy is <strong>active queue management</strong> (AQM): let the queue absorb short bursts, but signal congestion early (by dropping or ECN-marking packets) when a standing queue forms.</p>
 
-<p><strong>Types</strong>:</p>
-<ul>
-  <li>Site-to-site</li>
-  <li>Remote access</li>
-  <li>SSL/TLS VPN</li>
-  <li>IPSec</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism</th>
+      <th>Idea</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Tail drop</td>
+      <td>Drop arrivals only when the buffer is full</td>
+      <td>Default on much hardware; causes bufferbloat and global synchronization</td>
+    </tr>
+    <tr>
+      <td>RED</td>
+      <td>Drop with probability rising with average queue length</td>
+      <td>1990s design; hard to tune, rarely enabled</td>
+    </tr>
+    <tr>
+      <td>CoDel (RFC 8289)</td>
+      <td>Drop when packets’ <strong>sojourn time</strong> stays above a 5 ms target for a 100 ms interval</td>
+      <td>Parameterless in practice; standard in Linux</td>
+    </tr>
+    <tr>
+      <td>FQ-CoDel (RFC 8290)</td>
+      <td>Hash flows into separate queues, round-robin between them, CoDel on each</td>
+      <td>Linux default qdisc on most distributions; isolates sparse flows (DNS, games, VoIP) from bulk transfers</td>
+    </tr>
+    <tr>
+      <td>PIE (RFC 8033)</td>
+      <td>Control-theoretic drop probability targeting a queueing delay</td>
+      <td>Mandated in DOCSIS 3.1 cable modems</td>
+    </tr>
+    <tr>
+      <td>CAKE</td>
+      <td>FQ-CoDel plus built-in shaper, per-host fairness, and DiffServ tins</td>
+      <td>Linux <code class="language-plaintext highlighter-rouge">sch_cake</code> since 4.19; common in OpenWrt home routers</td>
+    </tr>
+    <tr>
+      <td>L4S (RFC 9330-9332)</td>
+      <td>Separate low-latency queue for scalable congestion controls that respond to fine-grained ECN marking</td>
+      <td>Standardized 2023; being deployed by cable operators and supported in Apple platforms</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="access-control-lists-acls">Access Control Lists (ACLs)</h3>
-<p>Define permitted/denied traffic.</p>
+<p><strong>L4S</strong> (Low Latency, Low Loss, Scalable throughput) is the most significant recent change. Senders using a scalable congestion control such as TCP Prague or DCTCP-style algorithms set the ECT(1) codepoint; a <strong>dual-queue coupled AQM</strong> (RFC 9332) keeps their traffic in a shallow queue marked at a sub-millisecond threshold, while classic traffic uses a separate queue, and the two queues’ marking probabilities are coupled so the flows share capacity fairly. The goal is consistently low queueing delay (around 1 ms) at full utilization, which matters for cloud gaming, video conferencing, and interactive AR.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Cisco ACL example
-access-list 100 permit tcp any host 192.168.1.10 eq 80
-access-list 100 deny ip any any
+<p>On Linux, replacing a bloated queue is a one-line change:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Flow-queue CoDel on an interface (already the default qdisc on most distros)</span>
+tc qdisc replace dev eth0 root fq_codel
+
+<span class="c"># CAKE with shaping just below the ISP rate, so the queue forms here</span>
+<span class="c"># (where it is managed) rather than in the modem</span>
+tc qdisc replace dev eth0 root cake bandwidth 90mbit
+
+<span class="c"># Inspect drops, ECN marks, and backlog</span>
+tc <span class="nt">-s</span> qdisc show dev eth0
 </code></pre></div></div>
 
-<blockquote>
-  <p>For threat models, zero-trust, and attack techniques, see <a href="../cybersecurity/">Cybersecurity</a>.</p>
-</blockquote>
+<h2 id="quality-of-service">Quality of Service</h2>
 
-<h2 id="quality-of-service-managing-network-traffic">Quality of Service: Managing Network Traffic</h2>
+<p>AQM keeps queues short; <strong>quality of service</strong> (QoS) decides which traffic gets served first when a link is congested. QoS only has an effect at points of contention: on an uncongested link every packet is transmitted immediately regardless of its marking.</p>
 
-<p>Not all traffic is equal. Would you rather have your video call drop or your background download slow down? QoS lets networks make these decisions intelligently.</p>
+<h3 id="qos-models">QoS Models</h3>
 
-<h3 id="how-qos-works">How QoS Works</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>How it works</th>
+      <th>Where it is used</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Best effort</td>
+      <td>All packets treated equally</td>
+      <td>The public internet between providers</td>
+    </tr>
+    <tr>
+      <td>IntServ</td>
+      <td>Per-flow reservations signalled with RSVP along the whole path</td>
+      <td>Rarely; per-flow state does not scale (RSVP-TE survives in MPLS traffic engineering)</td>
+    </tr>
+    <tr>
+      <td>DiffServ</td>
+      <td>Packets marked with a class at the edge; each hop applies a per-class behaviour</td>
+      <td>Enterprise, campus, carrier, and data-centre networks</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>DiffServ</strong> is the model in practice. The 6-bit <strong>DSCP</strong> field in the IPv4 ToS byte or IPv6 Traffic Class selects a <strong>per-hop behaviour</strong> (PHB). Markings are honoured only inside a domain that agrees on them; most providers reset or ignore customer DSCP at their borders.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Traffic class (RFC 4594)</th>
+      <th>PHB</th>
+      <th>DSCP</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Network control (routing protocols)</td>
+      <td>CS6</td>
+      <td>48</td>
+    </tr>
+    <tr>
+      <td>Telephony (voice media)</td>
+      <td>EF (Expedited Forwarding)</td>
+      <td>46</td>
+    </tr>
+    <tr>
+      <td>Signalling</td>
+      <td>CS5</td>
+      <td>40</td>
+    </tr>
+    <tr>
+      <td>Multimedia conferencing</td>
+      <td>AF41</td>
+      <td>34</td>
+    </tr>
+    <tr>
+      <td>Multimedia streaming</td>
+      <td>AF31</td>
+      <td>26</td>
+    </tr>
+    <tr>
+      <td>Low-latency data (interactive, transactional)</td>
+      <td>AF21</td>
+      <td>18</td>
+    </tr>
+    <tr>
+      <td>High-throughput data (bulk)</td>
+      <td>AF11</td>
+      <td>10</td>
+    </tr>
+    <tr>
+      <td>Standard</td>
+      <td>DF (default)</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>Lower-effort (scavenger, backups)</td>
+      <td>LE (RFC 8622)</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Each Assured Forwarding class AF<em>xy</em> has a drop precedence <em>y</em> (1 = low, 3 = high), so a policer can re-mark out-of-contract traffic from AF41 to AF43 rather than dropping it.</p>
+
+<h3 id="the-qos-pipeline">The QoS Pipeline</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+    IN[Ingress] --&gt; CL[Classify]
+    CL --&gt; MK[Mark DSCP]
+    MK --&gt; PO{Police}
+    PO --&gt;|in profile| Q[Per-class queues]
+    PO --&gt;|excess| RM[Drop or re-mark]
+    RM --&gt; Q
+    Q --&gt; SC[Schedule: priority + weighted fair]
+    SC --&gt; SH[Shape to link rate]
+    SH --&gt; OUT[Egress]
+</code></pre>
+
 <ul>
-  <li>Classification and marking</li>
-  <li>Queuing</li>
-  <li>Policing and shaping</li>
-  <li>Congestion avoidance</li>
+  <li><strong>Classification and marking</strong> happen once, as close to the source as possible (the access switch or the host itself), based on ports, addresses, or application identity.</li>
+  <li><strong>Policing and shaping</strong> both use a <strong>token bucket</strong> with rate $r$ and depth $b$: over any interval of length $t$, conforming traffic satisfies $A(t) \le r t + b$. A <strong>policer</strong> drops or re-marks excess packets immediately; a <strong>shaper</strong> delays them in a queue until tokens are available, trading latency for smoothness.</li>
+  <li><strong>Scheduling</strong> decides which queue transmits next. A <strong>strict-priority</strong> (low-latency) queue serves voice first, but must be policed or it can starve everything else. The remaining classes share bandwidth by weight, using <strong>weighted fair queueing</strong> or its cheaper approximation <strong>deficit round robin</strong>.</li>
+  <li><strong>Congestion avoidance</strong> within each class uses AQM (WRED on traditional hardware, CoDel-family algorithms in software).</li>
 </ul>
 
-<p><strong>Common QoS Models</strong>:</p>
+<h2 id="network-security-primitives">Network Security Primitives</h2>
+
+<p>Firewalls, VPNs, segmentation, and DDoS defences are the enforcement points on the data path. Higher-level policy (zero trust, identity-aware access) ultimately compiles down to rules in these devices.</p>
+
+<h3 id="firewalls">Firewalls</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Inspects</th>
+      <th>Strengths</th>
+      <th>Limits</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Stateless packet filter (ACL)</td>
+      <td>Individual packet headers: addresses, ports, protocol</td>
+      <td>Fast, runs in switch hardware</td>
+      <td>Must explicitly allow return traffic; no notion of a connection</td>
+    </tr>
+    <tr>
+      <td>Stateful firewall</td>
+      <td>Headers plus a connection-tracking table</td>
+      <td>Allows replies to established connections automatically; blocks unsolicited inbound</td>
+      <td>State table can be exhausted (SYN floods)</td>
+    </tr>
+    <tr>
+      <td>Application-layer proxy / WAF</td>
+      <td>Application protocol content (HTTP requests, DNS queries)</td>
+      <td>Blocks attacks invisible at L3/L4 (SQL injection, protocol abuse)</td>
+      <td>Higher latency and cost; must terminate TLS to see content</td>
+    </tr>
+    <tr>
+      <td>Next-generation firewall (NGFW)</td>
+      <td>All of the above plus application identification, user identity, IPS signatures, TLS inspection</td>
+      <td>Policy by application and user rather than port</td>
+      <td>Complex; TLS interception has privacy and breakage costs</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>On Linux, <strong>nftables</strong> has replaced iptables as the standard packet-filtering framework (it is the default backend on current Debian, Ubuntu, and RHEL releases; the <code class="language-plaintext highlighter-rouge">iptables</code> command is often a compatibility shim over it). A minimal stateful host firewall:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>table inet filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+        ct state established,related accept
+        ct state invalid drop
+        iif "lo" accept
+        meta l4proto { icmp, ipv6-icmp } accept   # IPv6 and PMTU discovery need ICMP
+        tcp dport { 22, 443 } accept
+    }
+}
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">inet</code> family covers IPv4 and IPv6 with one ruleset. Blocking all ICMP is a common mistake: IPv6 neighbour discovery depends on ICMPv6, and dropping “packet too big” messages breaks path-MTU discovery and causes connections that hang after the handshake.</p>
+
+<p>Router ACLs follow the same first-match logic with an implicit deny at the end. A Cisco IOS extended ACL permitting only HTTPS to one server:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ip access-list extended WEB-IN
+ permit tcp any host 192.0.2.10 eq 443
+ deny   ip any any log
+!
+interface GigabitEthernet0/1
+ ip access-group WEB-IN in
+</code></pre></div></div>
+
+<h3 id="vpns-and-remote-access">VPNs and Remote Access</h3>
+
+<p>A VPN carries traffic through an encrypted tunnel across an untrusted network. <strong>Site-to-site</strong> VPNs connect whole networks (branch to headquarters, data centre to cloud VPC); <strong>remote-access</strong> VPNs connect individual devices.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technology</th>
+      <th>Layer</th>
+      <th>Characteristics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>IPsec (IKEv2, ESP)</td>
+      <td>Network</td>
+      <td>Standards-based and universally supported by routers, firewalls, and cloud VPN gateways; the default for site-to-site</td>
+    </tr>
+    <tr>
+      <td>WireGuard</td>
+      <td>Network (over UDP)</td>
+      <td>In the Linux kernel since 5.6 (2020); small codebase, fixed modern cryptography (Curve25519, ChaCha20-Poly1305), fast roaming; basis of many mesh VPNs</td>
+    </tr>
+    <tr>
+      <td>TLS VPN (OpenVPN, SSL VPN appliances)</td>
+      <td>Transport</td>
+      <td>Traverses restrictive firewalls on TCP/443; historically common for remote access</td>
+    </tr>
+    <tr>
+      <td>ZTNA</td>
+      <td>Application</td>
+      <td>Replaces “join the network” with per-application, identity- and device-checked access through a broker; no lateral network reachability</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Remote-access VPN concentrators have been among the most heavily exploited internet-facing devices in recent years, which is one driver behind the move to <strong>zero-trust network access</strong> (ZTNA): rather than placing a remote user on the internal network, each connection to each application is authorized separately. See <a href="../cybersecurity/">Cybersecurity</a> for the zero-trust model.</p>
+
+<h3 id="segmentation">Segmentation</h3>
+
+<p>Flat networks let an attacker who compromises one host reach every other. <strong>Segmentation</strong> limits that blast radius:</p>
+
 <ul>
-  <li>Best Effort</li>
-  <li>IntServ (Integrated Services)</li>
-  <li>DiffServ (Differentiated Services)</li>
+  <li><strong>VLANs and subnets with inter-zone firewalls</strong> — the traditional approach; coarse, and rules are tied to IP addresses.</li>
+  <li><strong>Microsegmentation</strong> — policy enforced at every workload (host firewalls, hypervisor distributed firewalls, Kubernetes NetworkPolicy, eBPF-based enforcement such as Cilium), typically expressed in terms of workload identity or labels rather than addresses.</li>
+  <li><strong>Cloud security groups</strong> — stateful, per-instance rules that are microsegmentation by default; see <a href="cloud-networking.html">Cloud Networking</a>.</li>
 </ul>
 
-<h2 id="troubleshooting-networks-tools-and-techniques">Troubleshooting Networks: Tools and Techniques</h2>
+<h3 id="ddos-mitigation">DDoS Mitigation</h3>
 
-<p>When networks fail, you need to diagnose problems quickly. Here are the essential tools every network engineer uses.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Attack class</th>
+      <th>Example</th>
+      <th>Mitigation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Volumetric</td>
+      <td>UDP reflection/amplification (DNS, NTP, memcached), botnet floods measured in Tb/s</td>
+      <td>Absorb with anycast scrubbing capacity (CDN or scrubbing service); upstream filtering; remotely-triggered black hole (RTBH) as a last resort</td>
+    </tr>
+    <tr>
+      <td>Protocol / state exhaustion</td>
+      <td>SYN floods, fragment floods</td>
+      <td>SYN cookies, connection-rate limits, stateless filtering ahead of stateful devices</td>
+    </tr>
+    <tr>
+      <td>Application layer</td>
+      <td>HTTP request floods, HTTP/2 Rapid Reset (2023)</td>
+      <td>Rate limiting, bot detection, WAF rules, server patches</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="essential-diagnostic-tools">Essential Diagnostic Tools</h3>
+<p><strong>BGP Flowspec</strong> (RFC 8955) lets a network distribute fine-grained filter rules to its edge routers through BGP, and <strong>source address validation</strong> (BCP 38 ingress filtering) at provider edges is the systemic defence against the spoofing that reflection attacks rely on.</p>
 
-<p><strong>ping</strong>: Test connectivity</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ping <span class="nt">-c</span> 4 google.com
-</code></pre></div></div>
+<h2 id="troubleshooting">Troubleshooting</h2>
 
-<p><strong>traceroute</strong>: Show path to destination</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>traceroute google.com
-</code></pre></div></div>
+<h3 id="diagnostic-tools">Diagnostic Tools</h3>
 
-<p><strong>netstat</strong>: Display connections</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>netstat <span class="nt">-tulpn</span>
-</code></pre></div></div>
+<p>Several classic tools have modern replacements on Linux: <code class="language-plaintext highlighter-rouge">ss</code> supersedes <code class="language-plaintext highlighter-rouge">netstat</code>, and the <code class="language-plaintext highlighter-rouge">ip</code> command supersedes <code class="language-plaintext highlighter-rouge">ifconfig</code>, <code class="language-plaintext highlighter-rouge">route</code>, and <code class="language-plaintext highlighter-rouge">arp</code>.</p>
 
-<p><strong>tcpdump</strong>: Capture packets</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>tcpdump <span class="nt">-i</span> eth0 <span class="nt">-w</span> capture.pcap
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Tool</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Is the host reachable, and with what RTT and loss?</td>
+      <td><code class="language-plaintext highlighter-rouge">ping</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ping -c 20 192.0.2.1</code></td>
+    </tr>
+    <tr>
+      <td>Where along the path is delay or loss introduced?</td>
+      <td><code class="language-plaintext highlighter-rouge">mtr</code> (continuous traceroute)</td>
+      <td><code class="language-plaintext highlighter-rouge">mtr -rwzc 100 example.com</code></td>
+    </tr>
+    <tr>
+      <td>What is the path and its MTU?</td>
+      <td><code class="language-plaintext highlighter-rouge">traceroute</code>, <code class="language-plaintext highlighter-rouge">tracepath</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tracepath example.com</code></td>
+    </tr>
+    <tr>
+      <td>What addresses, routes, and neighbours does this host have?</td>
+      <td><code class="language-plaintext highlighter-rouge">ip</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ip -br addr</code>, <code class="language-plaintext highlighter-rouge">ip route get 192.0.2.1</code>, <code class="language-plaintext highlighter-rouge">ip neigh</code></td>
+    </tr>
+    <tr>
+      <td>Which sockets are open, and which process owns them?</td>
+      <td><code class="language-plaintext highlighter-rouge">ss</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ss -tulpn</code></td>
+    </tr>
+    <tr>
+      <td>Does the name resolve, and to what?</td>
+      <td><code class="language-plaintext highlighter-rouge">dig</code></td>
+      <td><code class="language-plaintext highlighter-rouge">dig +short AAAA example.com @1.1.1.1</code></td>
+    </tr>
+    <tr>
+      <td>What is actually on the wire?</td>
+      <td><code class="language-plaintext highlighter-rouge">tcpdump</code>, Wireshark/<code class="language-plaintext highlighter-rouge">tshark</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tcpdump -ni eth0 'tcp port 443'</code></td>
+    </tr>
+    <tr>
+      <td>How much throughput does the path support?</td>
+      <td><code class="language-plaintext highlighter-rouge">iperf3</code></td>
+      <td><code class="language-plaintext highlighter-rouge">iperf3 -c server -R -t 30</code></td>
+    </tr>
+    <tr>
+      <td>Where does a web request spend its time?</td>
+      <td><code class="language-plaintext highlighter-rouge">curl</code> timing</td>
+      <td><code class="language-plaintext highlighter-rouge">curl -so /dev/null -w '%{time_connect} %{time_appconnect} %{time_starttransfer}\n' https://example.com</code></td>
+    </tr>
+    <tr>
+      <td>Which hosts and ports are exposed?</td>
+      <td><code class="language-plaintext highlighter-rouge">nmap</code> (authorized targets only)</td>
+      <td><code class="language-plaintext highlighter-rouge">nmap -sS -p 1-1000 192.0.2.0/24</code></td>
+    </tr>
+    <tr>
+      <td>Does latency rise under load (bufferbloat)?</td>
+      <td><code class="language-plaintext highlighter-rouge">flent</code>, or <code class="language-plaintext highlighter-rouge">ping</code> during a large upload</td>
+      <td><code class="language-plaintext highlighter-rouge">flent rrul -H server</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>nmap</strong>: Network discovery</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nmap <span class="nt">-sS</span> <span class="nt">-p</span> 1-1000 192.168.1.0/24
-</code></pre></div></div>
+<h3 id="a-layered-method">A Layered Method</h3>
 
-<p><strong>dig</strong>: DNS lookup</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dig @8.8.8.8 example.com
-</code></pre></div></div>
+<p>Work up the stack, confirming each layer before blaming the next:</p>
 
-<h3 id="systematic-troubleshooting">Systematic Troubleshooting</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Question</th>
+      <th>Checks</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Physical</td>
+      <td>Is there link?</td>
+      <td>Link lights, <code class="language-plaintext highlighter-rouge">ip link</code> (state UP), interface error and CRC counters, optics levels</td>
+    </tr>
+    <tr>
+      <td>Data link</td>
+      <td>Can the host reach its gateway?</td>
+      <td><code class="language-plaintext highlighter-rouge">ip neigh</code> for the gateway’s MAC, VLAN tagging, switch port status, STP state</td>
+    </tr>
+    <tr>
+      <td>Network</td>
+      <td>Can it reach remote networks?</td>
+      <td><code class="language-plaintext highlighter-rouge">ip route get</code>, ping a remote IP, <code class="language-plaintext highlighter-rouge">mtr</code> to see where loss begins</td>
+    </tr>
+    <tr>
+      <td>Transport</td>
+      <td>Can it open the connection?</td>
+      <td><code class="language-plaintext highlighter-rouge">nc -vz host port</code>, firewall and security-group rules, <code class="language-plaintext highlighter-rouge">ss</code> on the server to confirm it is listening</td>
+    </tr>
+    <tr>
+      <td>Application</td>
+      <td>Does the service answer correctly?</td>
+      <td>DNS resolution, TLS certificate and SNI, HTTP status, application logs</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>When things don’t work, follow the OSI model from bottom to top:</strong></p>
+<p>When the complaint is “slow” rather than “broken”:</p>
 
-<p><strong>Layer 1 - Physical</strong>: Is it plugged in?</p>
-<ul>
-  <li>Check cable connections</li>
-  <li>Look for damaged cables</li>
-  <li>Verify link lights on switches</li>
-</ul>
-
-<p><strong>Layer 2 - Data Link</strong>: Can you reach local devices?</p>
-<ul>
-  <li>Ping your default gateway</li>
-  <li>Check ARP cache (<code class="language-plaintext highlighter-rouge">arp -a</code>)</li>
-  <li>Verify VLAN configuration</li>
-</ul>
-
-<p><strong>Layer 3 - Network</strong>: Can you reach remote networks?</p>
-<ul>
-  <li>Ping external IPs (8.8.8.8)</li>
-  <li>Traceroute to see where packets stop</li>
-  <li>Check routing table (<code class="language-plaintext highlighter-rouge">ip route</code>)</li>
-</ul>
-
-<p><strong>Layer 4+ - Transport/Application</strong>: Are services working?</p>
-<ul>
-  <li>Test specific ports with telnet/nc</li>
-  <li>Check firewall rules</li>
-  <li>Verify DNS resolution</li>
-  <li>Look at application logs</li>
-</ul>
-
-<p><strong>Slow Performance</strong>:</p>
 <ol>
-  <li>Check bandwidth utilization</li>
-  <li>Look for packet loss</li>
-  <li>Measure latency</li>
-  <li>Check for duplex mismatch</li>
-  <li>Verify MTU settings</li>
+  <li><strong>Separate latency from throughput.</strong> High RTT with low loss suggests distance or queueing; low throughput with low RTT suggests loss, a small window, or a rate limit.</li>
+  <li><strong>Measure latency under load.</strong> If idle ping is 15 ms and it rises to 300 ms during a transfer, the problem is bufferbloat, and the fix is AQM or shaping, not more bandwidth.</li>
+  <li><strong>Look for loss and retransmissions</strong> with <code class="language-plaintext highlighter-rouge">mtr</code> and <code class="language-plaintext highlighter-rouge">tshark -Y tcp.analysis.retransmission</code>. Loss that appears at one hop and persists to the destination is real; loss only at an intermediate hop is usually ICMP rate limiting on that router.</li>
+  <li><strong>Check MTU.</strong> Tunnels (VPN, VXLAN, GRE) reduce the effective MTU; if ICMP “packet too big” is filtered, large transfers hang while small requests succeed.</li>
+  <li><strong>Check interface counters</strong> for errors, discards, and (on older copper links) duplex mismatch.</li>
 </ol>
 
 <h2 id="network-observability">Network Observability</h2>
 
-<p>Observability is the difference between <em>knowing a link is slow</em> and <em>knowing why</em>. A well-instrumented network produces three complementary streams of data — <strong>packets</strong> (the raw ground truth), <strong>flows</strong> (who talked to whom, and how much), and <strong>metrics/telemetry</strong> (counters and gauges sampled over time) — plus the <strong>logs</strong> devices emit about their own state. Each operates at a different granularity and cost, and mature operations correlate all of them. This data serves performance work (capacity planning, latency hunting) <em>and</em> network defense (anomaly detection, forensics), which is why observability sits on the boundary between the two halves of this page.</p>
+<p>Observability is the difference between knowing a link is slow and knowing why. A well-instrumented network produces four complementary data streams, each at a different granularity and cost. The same data serves performance engineering (capacity planning, latency hunting) and security (anomaly detection, forensics).</p>
 
 <table>
   <thead>
     <tr>
       <th>Data source</th>
       <th>Granularity</th>
-      <th>Typical volume</th>
+      <th>Volume</th>
       <th>Primary uses</th>
     </tr>
   </thead>
@@ -3449,254 +3800,262 @@ access-list 100 deny ip any any
       <td>Deep troubleshooting, forensics, intrusion analysis</td>
     </tr>
     <tr>
-      <td>Flow records (NetFlow/IPFIX/sFlow)</td>
+      <td>Flow records (NetFlow, IPFIX, sFlow)</td>
       <td>Per-conversation summaries</td>
       <td>Moderate</td>
-      <td>Traffic analysis, anomaly detection, capacity planning, billing</td>
+      <td>Traffic matrices, anomaly detection, capacity planning, billing</td>
     </tr>
     <tr>
-      <td>Metrics/telemetry (SNMP, gNMI)</td>
-      <td>Per-interface counters/gauges</td>
+      <td>Metrics and telemetry (SNMP, gNMI)</td>
+      <td>Per-interface counters and gauges</td>
       <td>Low</td>
-      <td>Dashboards, alerting, trend analysis</td>
+      <td>Dashboards, alerting, trends</td>
     </tr>
     <tr>
-      <td>Logs (syslog, flow logs, audit)</td>
+      <td>Logs (syslog, cloud flow logs, audit)</td>
       <td>Per-event records</td>
-      <td>Moderate–high</td>
-      <td>Audit trails, security investigation, change correlation</td>
+      <td>Moderate to high</td>
+      <td>Change correlation, audit trails, investigation</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="packet-capture-workflows">Packet Capture Workflows</h3>
+<h3 id="packet-capture">Packet Capture</h3>
 
-<p>Packet capture is the ground truth — it records the actual bytes, so it answers questions that aggregated data cannot (which TLS handshake failed, why a retransmission storm started, what an attacker exfiltrated). Because the volume is enormous, the practical workflow is <strong>capture narrowly, store briefly, analyze offline</strong>.</p>
+<p>Packet capture is the ground truth: it answers questions aggregated data cannot, such as which TLS handshake failed or why a retransmission storm began. Because volume is enormous, the practical workflow is to capture narrowly, store briefly, and analyze offline.</p>
 
-<p><strong>Capture with a BPF filter so you keep only what matters:</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Capture only HTTP/HTTPS to one host, rotate files at 100 MB, keep 10 files</span>
-tcpdump <span class="nt">-i</span> eth0 <span class="nt">-G</span> 0 <span class="nt">-C</span> 100 <span class="nt">-W</span> 10 <span class="nt">-w</span> cap_%Y%m%d_%H%M%S.pcap <span class="se">\</span>
-  <span class="s1">'host 192.168.1.10 and (tcp port 80 or tcp port 443)'</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Capture only HTTP/HTTPS to one host; rotate at 100 MB, keep 10 files</span>
+tcpdump <span class="nt">-ni</span> eth0 <span class="nt">-C</span> 100 <span class="nt">-W</span> 10 <span class="nt">-w</span> cap.pcap <span class="se">\</span>
+  <span class="s1">'host 192.0.2.10 and (tcp port 80 or tcp port 443)'</span>
 
-<span class="c"># Snap length 96 bytes: capture headers only, not payloads (privacy + size)</span>
-tcpdump <span class="nt">-i</span> eth0 <span class="nt">-s</span> 96 <span class="nt">-w</span> headers.pcap
-</code></pre></div></div>
+<span class="c"># Headers only (first 128 bytes of each packet): smaller and more privacy-preserving</span>
+tcpdump <span class="nt">-ni</span> eth0 <span class="nt">-s</span> 128 <span class="nt">-w</span> headers.pcap
 
-<p><strong>Analyze the capture offline</strong> (so the capture host stays light):</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Top talkers by bytes</span>
-tshark <span class="nt">-r</span> cap.pcap <span class="nt">-q</span> <span class="nt">-z</span> conv,ip
-
-<span class="c"># Just the TCP retransmissions — a fast pointer at loss/congestion</span>
+<span class="c"># Offline analysis with tshark</span>
+tshark <span class="nt">-r</span> cap.pcap <span class="nt">-q</span> <span class="nt">-z</span> conv,ip                        <span class="c"># top conversations</span>
 tshark <span class="nt">-r</span> cap.pcap <span class="nt">-Y</span> <span class="s1">'tcp.analysis.retransmission'</span> <span class="se">\</span>
-  <span class="nt">-T</span> fields <span class="nt">-e</span> frame.time <span class="nt">-e</span> ip.src <span class="nt">-e</span> ip.dst
-
-<span class="c"># Reconstruct the bytes of TCP stream 0</span>
-tshark <span class="nt">-r</span> cap.pcap <span class="nt">-q</span> <span class="nt">-z</span> follow,tcp,raw,0
+  <span class="nt">-T</span> fields <span class="nt">-e</span> frame.time <span class="nt">-e</span> ip.src <span class="nt">-e</span> ip.dst           <span class="c"># retransmissions only</span>
+tshark <span class="nt">-r</span> cap.pcap <span class="nt">-q</span> <span class="nt">-z</span> follow,tcp,ascii,0             <span class="c"># reconstruct TCP stream 0</span>
 </code></pre></div></div>
 
-<p>Operational notes:</p>
 <ul>
-  <li><strong>Tap vs. SPAN.</strong> A passive optical/network <strong>TAP</strong> copies every frame without loss; a switch <strong>SPAN/mirror port</strong> is cheaper but drops frames under load and can reorder them. Use a TAP when the capture must be authoritative (security forensics, compliance).</li>
-  <li><strong>Privacy and scope.</strong> Full payload capture often contains credentials and personal data. Use snap-length limits, capture only header fields where possible, and treat pcap as sensitive. See <a href="../cybersecurity/privacy-engineering.html">Privacy Engineering</a>.</li>
-  <li><strong>Continuous capture</strong> appliances (e.g. ring-buffer “network recorders”) keep a rolling N hours of full packets so that when an alert fires you can retrieve the packets <em>around the event</em> — packet capture is most valuable retrospectively.</li>
+  <li><strong>TAP versus SPAN.</strong> A passive network TAP copies every frame without loss; a switch SPAN (mirror) port is cheaper but drops and reorders frames under load. Use a TAP when the capture must be authoritative.</li>
+  <li><strong>Privacy.</strong> Payloads can contain credentials and personal data. Limit snap length, capture headers where possible, and treat pcap files as sensitive; see <a href="../cybersecurity/privacy-engineering.html">Privacy Engineering</a>.</li>
+  <li><strong>Continuous capture.</strong> Ring-buffer recorders keep a rolling window of full packets so analysts can retrieve traffic from just before an alert fired.</li>
+  <li><strong>Encryption limits visibility.</strong> With TLS 1.3 and QUIC, captures show handshake metadata but not content; analysis shifts to flow behaviour, timing, and endpoint telemetry.</li>
 </ul>
 
-<h3 id="flow-telemetry-netflow-ipfix--sflow">Flow Telemetry: NetFlow, IPFIX &amp; sFlow</h3>
+<h3 id="flow-telemetry-netflow-ipfix-and-sflow">Flow Telemetry: NetFlow, IPFIX, and sFlow</h3>
 
-<p>Capturing every packet everywhere is infeasible, so routers and switches export <strong>flow records</strong> — one summary row per conversation (5-tuple of src/dst IP, src/dst port, protocol) with byte/packet counts and timestamps. Flow data is the workhorse of network visibility: small enough to keep for months, detailed enough to spot a scan, a DDoS ramp, or a top talker.</p>
+<p>Routers and switches summarize traffic as <strong>flow records</strong>: one row per conversation, keyed by the 5-tuple (source and destination address and port, protocol), with byte and packet counts and timestamps. Flow data is small enough to retain for months and detailed enough to spot a scan, a DDoS ramp, or an unexpected top talker.</p>
 
 <ul>
-  <li><strong>NetFlow / IPFIX</strong> (Cisco’s NetFlow v9 was standardized as <strong>IPFIX</strong>, RFC 7011) export <em>every</em> flow the device sees. Records are aggregated in the device’s flow cache and exported when the flow ends or a timer expires.</li>
-  <li><strong>sFlow</strong> instead <strong>samples</strong> 1-in-N packets and streams interface counters. Sampling makes it cheap and constant-cost at line rate, at the price of statistical (rather than exact) byte counts — fine for trends and anomaly detection, less so for billing.</li>
+  <li><strong>NetFlow v9 and IPFIX</strong> (RFC 7011, the IETF standard derived from NetFlow v9) aggregate packets in a flow cache on the device and export each record when the flow ends or a timer expires.</li>
+  <li><strong>sFlow</strong> samples 1 in <em>N</em> packets and streams interface counters. Sampling keeps the cost constant at line rate, at the price of statistical rather than exact byte counts: adequate for trends and anomaly detection, less so for billing.</li>
 </ul>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                 +-------------------+
-   packets  --&gt;  |  Router / Switch  |  flow cache (5-tuple + counters)
-                 +---------+---------+
-                           | export (UDP) NetFlow v9 / IPFIX / sFlow
-                           v
-                 +-------------------+      +---------------------+
-                 |  Flow Collector   | ---&gt; |  Analysis / SIEM /  |
-                 | (nfcapd, etc.)    |      |  capacity dashboards|
-                 +-------------------+      +---------------------+
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    D["Router / switch&lt;br/&gt;flow cache"] --&gt;|"IPFIX / NetFlow / sFlow over UDP"| C["Flow collector&lt;br/&gt;(nfcapd, pmacct, GoFlow2)"]
+    C --&gt; A["Analysis: traffic matrix,&lt;br/&gt;capacity dashboards"]
+    C --&gt; S["SIEM / NDR"]
+</code></pre>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Collect NetFlow v5/v9/IPFIX with nfdump's collector on UDP/2055</span>
-nfcapd <span class="nt">-w</span> <span class="nt">-D</span> <span class="nt">-p</span> 2055 <span class="nt">-l</span> /var/flows
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Collect NetFlow/IPFIX on UDP 2055 with nfdump's collector</span>
+nfcapd <span class="nt">-D</span> <span class="nt">-p</span> 2055 <span class="nt">-w</span> /var/flows
 
-<span class="c"># Top 10 talkers by bytes from collected flows</span>
-nfdump <span class="nt">-R</span> /var/flows <span class="nt">-s</span> ip/bytes <span class="nt">-n</span> 10
+<span class="c"># Top 10 source addresses by bytes</span>
+nfdump <span class="nt">-R</span> /var/flows <span class="nt">-s</span> srcip/bytes <span class="nt">-n</span> 10
 
-<span class="c"># Flows to an unusual port — a quick exfiltration/scan check</span>
+<span class="c"># Flows to ports commonly used by backdoors and old IRC botnets</span>
 nfdump <span class="nt">-R</span> /var/flows <span class="s1">'dst port 4444 or dst port 6667'</span>
 </code></pre></div></div>
 
-<p><strong>Use cases</strong> (the same data, two audiences):</p>
-<ul>
-  <li><em>Performance:</em> capacity planning, identifying top talkers, validating QoS classification, peering/transit cost analysis (billing on 95th-percentile).</li>
-  <li><em>Security:</em> detecting port scans (many dst ports, few bytes each), beaconing (regular small flows to one host), DDoS (sudden fan-in), and data exfiltration (large egress to an unfamiliar destination).</li>
-</ul>
+<p>The same records serve two audiences. For <strong>performance</strong>, they give traffic matrices for capacity planning, validate QoS classification, and support 95th-percentile transit billing. For <strong>security</strong>, they reveal port scans (many destination ports, few bytes each), beaconing (small, regular flows to one host), DDoS fan-in, and exfiltration (large egress to an unfamiliar destination).</p>
 
-<h3 id="metrics--streaming-telemetry">Metrics &amp; Streaming Telemetry</h3>
+<h3 id="metrics-and-streaming-telemetry">Metrics and Streaming Telemetry</h3>
 
-<p>Metrics are sampled numeric counters and gauges — interface octets, errors, discards, CPU, queue depth — that drive dashboards and alerts.</p>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>SNMP</th>
+      <th>Streaming telemetry (gNMI, NETCONF/YANG)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Model</td>
+      <td>Pull: a manager polls agents</td>
+      <td>Push: the device streams updates on subscription</td>
+    </tr>
+    <tr>
+      <td>Data schema</td>
+      <td>MIB tree of OIDs</td>
+      <td>YANG models (often OpenConfig, vendor-neutral)</td>
+    </tr>
+    <tr>
+      <td>Typical resolution</td>
+      <td>60-300 s polling</td>
+      <td>Sub-second sampling or on-change</td>
+    </tr>
+    <tr>
+      <td>Microburst visibility</td>
+      <td>None</td>
+      <td>Good</td>
+    </tr>
+    <tr>
+      <td>Security</td>
+      <td>Use SNMPv3 (authPriv); v1/v2c send community strings in cleartext</td>
+      <td>TLS-protected gRPC</td>
+    </tr>
+    <tr>
+      <td>Transport</td>
+      <td>UDP</td>
+      <td>gRPC over HTTP/2</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li>
-    <p><strong>SNMP (Simple Network Management Protocol)</strong> is the long-standing pull model: a <strong>Manager</strong> polls <strong>Agents</strong> on each device, walking a <strong>MIB</strong> (Management Information Base) tree of OIDs. It is universally supported but poll-based (typically 60–300 s intervals), so it misses microbursts, and SNMP <strong>v3</strong> (authenticated + encrypted) should be used in place of the community-string-only v1/v2c.</p>
+<p>SNMP remains universal, but its polling interval averages away the microbursts that cause drops in data-centre fabrics. Streaming telemetry pushes high-frequency counters and state changes to collectors such as Telegraf or gnmic, which write to a time-series database (Prometheus, InfluxDB) visualized in Grafana.</p>
 
-    <p><strong>SNMP components:</strong></p>
-    <ul>
-      <li>Manager: the monitoring/polling system</li>
-      <li>Agent: software on the managed device that answers queries</li>
-      <li>MIB: the schema of OIDs the agent exposes</li>
-    </ul>
-
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Poll an interface's inbound octet counter (SNMPv3, authPriv)</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Poll an interface's 64-bit inbound octet counter over SNMPv3</span>
 snmpget <span class="nt">-v3</span> <span class="nt">-l</span> authPriv <span class="nt">-u</span> monitor <span class="nt">-a</span> SHA <span class="nt">-A</span> <span class="s2">"</span><span class="nv">$AUTHPASS</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nt">-x</span> AES <span class="nt">-X</span> <span class="s2">"</span><span class="nv">$PRIVPASS</span><span class="s2">"</span> 192.168.1.1 IF-MIB::ifInOctets.2
-</code></pre></div>    </div>
-  </li>
-  <li>
-    <p><strong>Streaming telemetry (gNMI/gRPC, NETCONF/YANG)</strong> is the modern push model: the device <em>streams</em> state changes and high-frequency samples (sub-second) to a collector, instead of waiting to be polled. This catches microbursts and scales to large fabrics far better than SNMP polling. Collectors such as <strong>Telegraf</strong> normalize SNMP, gNMI, and flow data into a time-series database (Prometheus, InfluxDB) visualized in Grafana.</p>
-  </li>
-</ul>
+  <span class="nt">-x</span> AES <span class="nt">-X</span> <span class="s2">"</span><span class="nv">$PRIVPASS</span><span class="s2">"</span> 192.0.2.1 IF-MIB::ifHCInOctets.2
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   Devices  --(SNMP poll / gNMI stream)--&gt;  Telegraf  --&gt;  TSDB (Prometheus/Influx)  --&gt;  Grafana
+<span class="c"># Subscribe to the same counter with gNMI, sampled every 10 s</span>
+gnmic <span class="nt">-a</span> 192.0.2.1:57400 <span class="nt">-u</span> admin <span class="nt">-p</span> <span class="s2">"</span><span class="nv">$PASS</span><span class="s2">"</span> <span class="nt">--skip-verify</span> <span class="se">\</span>
+  subscribe <span class="nt">--path</span> <span class="s2">"/interfaces/interface[name=Ethernet1]/state/counters/in-octets"</span> <span class="se">\</span>
+  <span class="nt">--stream-mode</span> sample <span class="nt">--sample-interval</span> 10s
 </code></pre></div></div>
 
-<h4 id="core-network-performance-metrics">Core Network Performance Metrics</h4>
-<p>These are the headline numbers every dashboard tracks and every alert thresholds on:</p>
+<p>Programmable data planes add finer-grained sources: <strong>In-band Network Telemetry</strong> (INT) records per-hop queue depth and latency inside the packets themselves, and eBPF programs on hosts can export per-socket RTT and retransmission data without packet capture (see <a href="programmable-networks.html">Programmable Networks</a>).</p>
 
-<ul>
-  <li><strong>Bandwidth</strong>: maximum data rate a link can carry</li>
-  <li><strong>Throughput</strong>: actual achieved data rate</li>
-  <li><strong>Utilization</strong>: throughput as a fraction of bandwidth (the input to the queueing models above — recall delay explodes as utilization ρ approaches 1)</li>
-  <li><strong>Latency</strong>: one-way or round-trip delay</li>
-  <li><strong>Jitter</strong>: variation in latency (critical for voice/video)</li>
-  <li><strong>Packet loss</strong>: fraction of packets dropped</li>
-  <li><strong>Interface errors/discards</strong>: CRC errors, drops, and discards that point at physical or buffer problems</li>
-</ul>
+<p>The headline metrics every dashboard tracks:</p>
 
-<h3 id="logs-retention--cost">Logs, Retention &amp; Cost</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Definition</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Bandwidth (capacity)</td>
+      <td>Maximum rate a link can carry</td>
+      <td>A property of the link</td>
+    </tr>
+    <tr>
+      <td>Throughput</td>
+      <td>Rate actually achieved</td>
+      <td>Limited by the bottleneck, window size, and loss</td>
+    </tr>
+    <tr>
+      <td>Utilization</td>
+      <td>Throughput divided by capacity</td>
+      <td>The $\rho$ of the queueing models; averages hide bursts</td>
+    </tr>
+    <tr>
+      <td>Latency</td>
+      <td>One-way or round-trip delay</td>
+      <td>Track percentiles (p50, p99), not just the mean</td>
+    </tr>
+    <tr>
+      <td>Jitter</td>
+      <td>Variation in latency</td>
+      <td>Critical for voice and video; absorbed by playout buffers</td>
+    </tr>
+    <tr>
+      <td>Packet loss</td>
+      <td>Fraction of packets dropped</td>
+      <td>Even 1% loss sharply reduces loss-based TCP throughput</td>
+    </tr>
+    <tr>
+      <td>Errors and discards</td>
+      <td>CRC errors, buffer drops</td>
+      <td>Errors point at physical faults; discards point at congestion</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Devices also emit <strong>logs</strong> — syslog from routers/firewalls, flow logs from cloud VPCs, audit logs from management planes. Logs answer <em>“what changed and when”</em>, which is essential for correlating a performance regression or a security event with a config push.</p>
+<h3 id="retention-and-cost">Retention and Cost</h3>
 
-<p>Every observability stream forces a <strong>retention vs. cost</strong> decision, because volume and value diverge over time:</p>
+<p>Volume and value diverge over time, so each stream needs its own retention policy:</p>
 
 <table>
   <thead>
     <tr>
       <th>Stream</th>
-      <th>Typical hot retention</th>
-      <th>Typical cold/archive</th>
+      <th>Hot retention</th>
+      <th>Archive</th>
       <th>Rationale</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Full packet capture</td>
-      <td>Hours to a few days</td>
-      <td>Rarely archived (huge)</td>
-      <td>Only needed around an active incident</td>
+      <td>Hours to days</td>
+      <td>Rarely</td>
+      <td>Needed only around an active incident</td>
     </tr>
     <tr>
       <td>Flow records</td>
       <td>Weeks to months</td>
-      <td>Months–years (compressed)</td>
-      <td>Cheap enough to keep for trend + forensic lookback</td>
+      <td>Months to years, compressed</td>
+      <td>Cheap enough for trend analysis and forensic look-back</td>
     </tr>
     <tr>
       <td>Metrics</td>
       <td>Days at full resolution</td>
-      <td>Months–years, <strong>downsampled</strong></td>
-      <td>Old data only needs trend resolution, not per-second</td>
+      <td>Months to years, downsampled</td>
+      <td>Old data needs trend resolution only</td>
     </tr>
     <tr>
       <td>Logs</td>
-      <td>Days–weeks hot/searchable</td>
-      <td>Months–years (compliance)</td>
-      <td>Audit/forensics + regulatory mandates</td>
+      <td>Days to weeks, searchable</td>
+      <td>Months to years</td>
+      <td>Audit, forensics, and regulatory requirements</td>
     </tr>
   </tbody>
 </table>
 
-<p>Practical patterns:</p>
-<ul>
-  <li><strong>Tiered storage:</strong> keep recent data hot and searchable; roll older data to cheap object storage (e.g. S3) with lifecycle rules.</li>
-  <li><strong>Downsampling/roll-ups:</strong> store metrics at 10 s for a week, 1 min for a month, 1 h for a year — preserving trends without the volume.</li>
-  <li><strong>Compliance-driven minimums:</strong> many frameworks mandate retaining security-relevant logs for a fixed period (commonly 90 days hot, one year archived); see <a href="../cybersecurity/compliance-and-governance.html">Compliance &amp; Governance</a>.</li>
-  <li><strong>Sampling and aggregation at the source</strong> (sFlow sampling, flow-cache timeouts) is the cheapest way to control volume before it ever reaches storage.</li>
-</ul>
+<p>Common patterns are tiered storage (hot, searchable storage for recent data; object storage for older data), downsampling (for example 10 s resolution for a week, 1 min for a month, 1 h for a year), and sampling or aggregation at the source, which is the cheapest place to control volume. Compliance frameworks often set minimum retention for security-relevant logs; see <a href="../cybersecurity/compliance-and-governance.html">Compliance &amp; Governance</a>.</p>
 
 <h3 id="integration-with-security-operations">Integration with Security Operations</h3>
 
-<p>Network observability is not just for performance engineers — it is a primary sensor for the <strong>security operations center (SOC)</strong>. The hand-off looks like this:</p>
+<p>Network telemetry is a primary sensor for the security operations centre (SOC):</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   pcap / flows / metrics / logs
-              |
-              v
-   +----------------------+        +-------------------------+
-   |  Collectors / TSDB   |  ---&gt;  |  SIEM (correlation,     |
-   |  + flow analyzers    |        |  alerting, retention)   |
-   +----------------------+        +-----------+-------------+
-                                               |
-                            detections, threat hunting, IR
-                                               v
-                                   Security Operations workflows
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    SRC["pcap, flows,&lt;br/&gt;metrics, logs"] --&gt; COL["Collectors, TSDB,&lt;br/&gt;flow analyzers"]
+    COL --&gt; SIEM["SIEM / NDR:&lt;br/&gt;correlation, alerting"]
+    SIEM --&gt; OPS["Detection, threat hunting,&lt;br/&gt;incident response"]
+    OPS -.-&gt;|"pull packets around the event"| SRC
+</code></pre>
 
 <ul>
-  <li><strong>Flow records</strong> feed network-detection-and-response: a SIEM correlates a beaconing pattern in flows with a suspicious DNS log and a firewall deny to raise one high-fidelity alert instead of three weak ones.</li>
-  <li><strong>Packet capture</strong> is the forensic backstop — when an alert fires, analysts pull the packets around the event to confirm scope and extract indicators.</li>
-  <li><strong>Metrics and logs</strong> provide the timeline: a CPU spike, a config change, and an unusual egress flow line up to tell the story.</li>
+  <li><strong>Flow records</strong> feed network detection and response (NDR). Correlating a beaconing pattern with a suspicious DNS lookup and a firewall deny yields one high-confidence alert instead of three weak ones.</li>
+  <li><strong>Packet capture</strong> is the forensic backstop for confirming scope and extracting indicators once an alert fires.</li>
+  <li><strong>Metrics and logs</strong> provide the timeline: a configuration change, a CPU spike, and an unusual egress flow, lined up, tell the story.</li>
 </ul>
 
-<p>This is exactly the data pipeline that detection engineering and incident response consume. For how this telemetry is turned into detections, triaged, and acted on, see <a href="../cybersecurity/security-operations.html">Security Operations</a>, <a href="../cybersecurity/operations-and-response.html">Operations &amp; Response</a>, and <a href="../cybersecurity/incident-response.html">Incident Response</a>. For the threat models that decide <em>what</em> to look for, see <a href="../cybersecurity/attacks-and-defense.html">Attacks &amp; Defense</a>.</p>
-
-<h2 id="best-practices">Best Practices</h2>
-
-<h3 id="network-design">Network Design</h3>
-<ul>
-  <li>Follow hierarchical model (core, distribution, access)</li>
-  <li>Implement redundancy</li>
-  <li>Use standard protocols</li>
-  <li>Document everything</li>
-  <li>Plan for growth</li>
-</ul>
-
-<h3 id="security">Security</h3>
-<ul>
-  <li>Implement defense in depth</li>
-  <li>Use strong encryption</li>
-  <li>Regular security audits</li>
-  <li>Keep firmware updated</li>
-  <li>Monitor for anomalies</li>
-</ul>
-
-<h3 id="performance">Performance</h3>
-<ul>
-  <li>Optimize routing paths</li>
-  <li>Implement QoS appropriately</li>
-  <li>Monitor utilization</li>
-  <li>Use caching where possible</li>
-  <li>Regular capacity planning</li>
-</ul>
+<p>For how this telemetry becomes detections and response actions, see <a href="../cybersecurity/security-operations.html">Security Operations</a>, <a href="../cybersecurity/operations-and-response.html">Operations &amp; Response</a>, and <a href="../cybersecurity/incident-response.html">Incident Response</a>; for the threat models that decide what to look for, see <a href="../cybersecurity/attacks-and-defense.html">Attacks &amp; Defense</a>.</p>
 
 <hr />
 
 <h2 id="continue">Continue</h2>
 
-<p><strong>Previous:</strong> <a href="routing.html">Routing &amp; Switching</a> — the paths whose performance we measure here.  <strong>Next:</strong> <a href="modern-architecture.html">Modern &amp; Future Networking</a> — programmable, cloud, and research-frontier networks.</p>
+<p><strong>Previous:</strong> <a href="routing.html">Routing &amp; Switching</a> — the paths whose performance is measured here.  <strong>Next:</strong> <a href="modern-architecture.html">Modern Architecture &amp; Frontiers</a> — realistic traffic models, AI-cluster fabrics, and the research frontier.</p>
 
 <h3 id="see-also">See Also</h3>
 
 <ul>
-  <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — congestion control, the response to queue buildup.</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> — deeper coverage of network defense and zero trust.</li>
-  <li><a href="../cybersecurity/security-operations.html">Security Operations</a> — where flow, packet, and log telemetry becomes detections and alerts.</li>
-  <li><a href="../cybersecurity/attacks-and-defense.html">Attacks &amp; Defense</a> — the threat models that decide what your observability should watch for.</li>
-  <li><a href="../aws/">AWS</a> — security groups, NACLs, and cloud monitoring with CloudWatch.</li>
+  <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — congestion control, the host-side response to queue build-up</li>
+  <li><a href="programmable-networks.html">Programmable Networks</a> — eBPF, P4, and in-band telemetry</li>
+  <li><a href="../cybersecurity/">Cybersecurity</a> — zero trust and network defence beyond the primitives here</li>
+  <li><a href="../cybersecurity/security-operations.html">Security Operations</a> — turning flow, packet, and log telemetry into detections</li>
+  <li><a href="../../observability/">Observability</a> — metrics, logs, and tracing for distributed applications</li>
+  <li><a href="../aws/">AWS</a> — security groups, network ACLs, VPC Flow Logs, and CloudWatch</li>
 </ul>
 
       </section>

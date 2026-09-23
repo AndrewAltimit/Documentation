@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Reference for extended-reality (XR) development: hardware landscape, stereo rendering, frame timing and reprojection, OpenXR, ARKit/ARCore, WebXR, spatial UX...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="VR & AR Development">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Reference for extended-reality (XR) development: hardware landscape, stereo rendering, frame timing and reprojection, OpenXR, ARKit/ARCore, WebXR, spatial UX...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/vr-ar/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="VR & AR Development">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Reference for extended-reality (XR) development: hardware landscape, stereo rendering, frame timing and reprojection, OpenXR, ARKit/ARCore, WebXR, spatial UX...">
 
 <title>VR & AR Development | Andrews Notebook</title>
 
@@ -3136,762 +3136,975 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Building immersive spatial computing experiences for virtual and augmented reality</p>
 </div>
 
-<p>Welcome to the guide for Extended Reality (XR) development. From standalone VR experiences to mobile AR applications, this resource covers the technical foundations and best practices for building immersive spatial computing experiences. Virtual Reality fully replaces the user’s perception of reality; Augmented Reality enhances it. Both demand specialized development approaches, strict performance budgets, and careful attention to human factors. Four ideas dominate XR work:</p>
+<p><strong>Extended reality (XR)</strong> is the umbrella term for virtual reality (VR), which replaces the user’s view of the world, and augmented/mixed reality (AR/MR), which layers synthetic content onto it. This page is a self-contained reference to the engineering side of XR as of late 2026: the device landscape, how a frame gets from the application to the eye, the runtime and engine stack (OpenXR, Unity, Unreal, native SDKs, WebXR), mobile and headset AR, and the human-factors rules that decide whether an experience is comfortable.</p>
 
-<ul>
-  <li><strong>Latency is comfort.</strong> Motion-to-photon latency under ~20 ms and a rock-steady frame rate are not nice-to-haves — they are the difference between immersion and nausea.</li>
-  <li><strong>Render twice, every frame.</strong> Stereo rendering doubles the work. Single-pass stereo, foveation, and reprojection exist to claw that cost back.</li>
-  <li><strong>Interaction is spatial.</strong> Hands, controllers, and gaze replace mouse and keyboard. Comfortable locomotion and reachable UI define the experience.</li>
-  <li><strong>AR must understand reality.</strong> Plane detection, occlusion, and light estimation anchor virtual content believably in the physical world.</li>
-</ul>
-
-<h2 id="explore-this-hub">Explore This Hub</h2>
-
-<p>Start with <a href="#understanding-xr-technologies">Understanding XR Technologies</a> for the landscape, then dive into the strand that matches your work. Everything on this page is self-contained; the cards below are an orientation map, not a prerequisite chain.</p>
+<p>Four constraints shape almost every XR design decision:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Topic</th>
-      <th>What it covers</th>
+      <th>Constraint</th>
+      <th>Why it matters</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><a href="#understanding-xr-technologies">Understanding XR Technologies</a></td>
-      <td>The reality-virtuality continuum and the current hardware landscape</td>
+      <td><strong>Latency is comfort</strong></td>
+      <td>Motion-to-photon latency above roughly 20 ms, or a dropped frame, is perceived as the world “swimming” and is a leading cause of simulator sickness.</td>
     </tr>
     <tr>
-      <td><a href="#vr-development-fundamentals">VR Development Fundamentals</a></td>
-      <td>Stereo rendering, motion-sickness prevention, and spatial interaction</td>
+      <td><strong>Every frame is rendered twice</strong></td>
+      <td>Two eyes at 72–120 Hz and 2–4K per eye. Multiview, foveation and reprojection exist to claw back that cost.</td>
     </tr>
     <tr>
-      <td><a href="#ar-development">AR Development</a></td>
-      <td>Spatial understanding, ARKit vs ARCore, and WebXR</td>
+      <td><strong>Input is spatial</strong></td>
+      <td>Hands, tracked controllers, eyes and voice replace mouse and keyboard; UI lives at a depth and angle, not at pixel coordinates.</td>
     </tr>
     <tr>
-      <td><a href="#xr-development-platforms">XR Development Platforms</a></td>
-      <td>Unity XR, Unreal, and native SDKs</td>
-    </tr>
-    <tr>
-      <td><a href="#performance-optimization-for-xr">Performance Optimization for XR</a></td>
-      <td>Frame budgets, foveated rendering, and reprojection</td>
-    </tr>
-    <tr>
-      <td><a href="#ux-design-for-xr">UX Design for XR</a></td>
-      <td>Spatial UI, comfort guidelines, and accessibility</td>
-    </tr>
-    <tr>
-      <td><a href="#mixed-reality-features">Mixed Reality Features</a></td>
-      <td>Passthrough, spatial anchors, and hand/body tracking</td>
+      <td><strong>AR must understand the room</strong></td>
+      <td>Tracking, plane and mesh detection, occlusion, anchors and light estimation make virtual objects appear physically present.</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="prerequisites">Prerequisites</h3>
+<p><strong>Prerequisites.</strong> 3D math (vectors, quaternions, homogeneous transforms), a game engine (<a href="../gamedev/">Game Development Hub</a>), the rendering pipeline (<a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a>) and profiling (<a href="../optimization/">Performance Optimization</a>). For phone AR add Swift (ARKit) or Kotlin (ARCore).</p>
 
-<p>You will move fastest with <strong>3D math and transforms</strong>, hands-on <strong>game-engine experience</strong> (Unity C# or Unreal C++; see the <a href="../gamedev/">Game Development Hub</a>), a working grasp of <strong>rendering pipelines</strong> (<a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a>), and <strong>profiling/optimization</strong> skills (<a href="../optimization/">Performance Optimization</a>). For mobile AR, add native iOS (Swift) or Android (Kotlin). A feel for human perception and ergonomics pays off everywhere.</p>
+<h3 id="reading-paths">Reading paths</h3>
 
-<h2 id="learning-paths">Learning Paths</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Goal</th>
+      <th>Read in this order</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>VR game developer (Quest, PSVR2, PC VR, Steam Frame)</td>
+      <td><a href="#the-xr-frame-pipeline">Frame pipeline</a> → <a href="#stereo-rendering">Stereo rendering</a> → <a href="#performance-optimization">Performance</a> → <a href="#locomotion-and-comfort">Locomotion and comfort</a> → <a href="#engines-and-sdks">Engines</a></td>
+    </tr>
+    <tr>
+      <td>Mobile AR developer</td>
+      <td><a href="#how-tracking-works">Tracking</a> → <a href="#scene-understanding">Scene understanding</a> → <a href="#arkit-vs-arcore">ARKit vs ARCore</a> → <a href="#spatial-anchors-and-shared-space">Anchors</a></td>
+    </tr>
+    <tr>
+      <td>Mixed-reality / enterprise developer</td>
+      <td><a href="#passthrough-mixed-reality">Passthrough MR</a> → <a href="#spatial-anchors-and-shared-space">Anchors</a> → <a href="#input-modalities">Hand and eye input</a> → <a href="#spatial-ui">Spatial UI</a></td>
+    </tr>
+    <tr>
+      <td>WebXR developer</td>
+      <td><a href="#webxr">WebXR</a> → <a href="#openxr-and-the-runtime-stack">OpenXR and runtimes</a> → <a href="#spatial-ui">Spatial UI</a></td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Pick the card closest to your goal. Each lists the on-page sections to read in order plus the best external companions.</p>
+<h2 id="the-xr-landscape">The XR Landscape</h2>
 
-<div class="takeaway-grid">
-  <div class="nav-card">
-    <h4><i class="fas fa-gamepad"></i> VR Game Developer</h4>
-    <p>Immersive games for Quest, PSVR2, or PC VR.</p>
-    <p><strong>Read:</strong> <a href="#vr-development-fundamentals">VR Fundamentals</a> &rarr; <a href="#performance-optimization-for-xr">Performance for XR</a> &rarr; <a href="#spatial-ui-design">Spatial UI</a> &rarr; <a href="#unity-xr">Unity XR</a>.</p>
-    <p><strong>Then:</strong> <a href="../gamedev/">Game Development Hub</a>, <a href="../technology/unreal.html">Unreal Engine Guide</a>.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-mobile-alt"></i> Mobile AR Developer</h4>
-    <p>Smartphone AR with ARKit (iOS) or ARCore (Android).</p>
-    <p><strong>Read:</strong> <a href="#spatial-understanding">Spatial Understanding</a> &rarr; <a href="#arkit-vs-arcore">ARKit vs ARCore</a> &rarr; <a href="#performance-optimization-for-xr">Performance for XR</a>.</p>
-    <p><strong>Then:</strong> <a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a>, <a href="../optimization/">Performance Optimization</a>.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-building"></i> Enterprise XR Developer</h4>
-    <p>Productivity and training apps for HoloLens, Magic Leap, or enterprise VR.</p>
-    <p><strong>Read:</strong> <a href="#mixed-reality-features">Mixed Reality Features</a> &rarr; <a href="#spatial-ui-design">Spatial UI</a> &rarr; <a href="#hand-and-body-tracking">Hand &amp; Body Tracking</a>.</p>
-    <p><strong>Then:</strong> <a href="../technology/unreal.html">Unreal Engine Guide</a>, <a href="../optimization/">Performance Optimization</a>.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-globe"></i> WebXR Developer</h4>
-    <p>Zero-install, browser-based XR on any device.</p>
-    <p><strong>Read:</strong> <a href="#webxr">WebXR</a> &rarr; <a href="#understanding-xr-technologies">XR Technologies</a> &rarr; <a href="#spatial-ui-design">Spatial UI</a>.</p>
-    <p><strong>Then:</strong> <a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a>, <a href="../gamedev/">Game Development Hub</a>.</p>
-  </div>
-</div>
+<h3 id="the-realityvirtuality-continuum">The reality–virtuality continuum</h3>
 
-<h2 id="understanding-xr-technologies">Understanding XR Technologies</h2>
-
-<h3 id="the-reality-virtuality-continuum">The Reality-Virtuality Continuum</h3>
-
-<p>First described by Milgram &amp; Kishino (1994), XR spans a continuum from the fully physical world to the fully synthetic, with AR and MR occupying the blended middle:</p>
+<p>Milgram and Kishino (1994) described a continuum from the unmodified physical world to a fully synthetic one. Modern devices blur the categories: a passthrough headset such as Quest 3 or Vision Pro spans the whole range in software.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    R["Real Environment&lt;br/&gt;physical world only"] --&gt; AR["Augmented Reality&lt;br/&gt;digital overlays&lt;br/&gt;&lt;i&gt;Pokemon GO, Snapchat&lt;/i&gt;"]
-    AR --&gt; MR["Mixed Reality&lt;br/&gt;digital interacts with physical&lt;br/&gt;&lt;i&gt;HoloLens, Quest MR&lt;/i&gt;"]
-    MR --&gt; V["Virtual Reality&lt;br/&gt;fully synthetic&lt;br/&gt;&lt;i&gt;Beat Saber, VRChat&lt;/i&gt;"]
+    R["Real environment&lt;br/&gt;no synthetic content"] --&gt; AR["Augmented reality&lt;br/&gt;overlays registered to the world&lt;br/&gt;&lt;i&gt;phone AR, smart glasses&lt;/i&gt;"]
+    AR --&gt; MR["Mixed reality&lt;br/&gt;virtual content occluded by and&lt;br/&gt;interacting with real geometry&lt;br/&gt;&lt;i&gt;Quest 3, Vision Pro, Galaxy XR&lt;/i&gt;"]
+    MR --&gt; V["Virtual reality&lt;br/&gt;fully synthetic view&lt;br/&gt;&lt;i&gt;PC VR, PSVR2, Steam Frame&lt;/i&gt;"]
 </code></pre>
 
-<p>The further right on the continuum, the more the system must render and the less it relies on the real world — pushing performance demands up and shifting the design challenge from <em>world understanding</em> (AR) to <em>presence and comfort</em> (VR).</p>
+<p>Moving right, the system renders more and relies less on the real world: the engineering problem shifts from <em>world understanding</em> (AR) toward <em>rendering throughput and comfort</em> (VR).</p>
 
-<h3 id="xr-hardware-landscape">XR Hardware Landscape</h3>
-
-<p><strong>VR Headsets:</strong></p>
+<h3 id="headsets-late-2026">Headsets (late 2026)</h3>
 
 <table>
   <thead>
     <tr>
       <th>Device</th>
-      <th>Type</th>
-      <th>Resolution (per eye)</th>
-      <th>Refresh Rate</th>
-      <th>Tracking</th>
+      <th>Released</th>
+      <th>Platform / OS</th>
+      <th>Per-eye resolution</th>
+      <th>Refresh</th>
+      <th>Eye tracking</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Meta Quest 3</td>
-      <td>Standalone</td>
-      <td>2064x2208</td>
-      <td>120Hz</td>
-      <td>Inside-out</td>
+      <td>Oct 2023</td>
+      <td>Meta Horizon OS (Android-based)</td>
+      <td>2064 × 2208</td>
+      <td>72–120 Hz</td>
+      <td>No</td>
+      <td>Pancake lenses, colour passthrough, depth sensor; the reference standalone MR device</td>
     </tr>
     <tr>
-      <td>Valve Index</td>
-      <td>PC VR</td>
-      <td>1440x1600</td>
-      <td>144Hz</td>
-      <td>Outside-in</td>
+      <td>Meta Quest 3S</td>
+      <td>Sep 2024</td>
+      <td>Meta Horizon OS</td>
+      <td>1832 × 1920</td>
+      <td>72–120 Hz</td>
+      <td>No</td>
+      <td>Budget model with Fresnel lenses, same XR2 Gen 2 chip as Quest 3</td>
+    </tr>
+    <tr>
+      <td>Apple Vision Pro (M5)</td>
+      <td>Oct 2025</td>
+      <td>visionOS</td>
+      <td>~3660 × 3200 (micro-OLED)</td>
+      <td>up to 120 Hz</td>
+      <td>Yes</td>
+      <td>M5 refresh of the 2024 M2 model (which topped out at 100 Hz); eyes-and-pinch input</td>
+    </tr>
+    <tr>
+      <td>Samsung Galaxy XR</td>
+      <td>Oct 2025</td>
+      <td>Android XR</td>
+      <td>3552 × 3840 (micro-OLED)</td>
+      <td>60–90 Hz</td>
+      <td>Yes</td>
+      <td>First Android XR headset; Snapdragon XR2+ Gen 2</td>
+    </tr>
+    <tr>
+      <td>Valve Steam Frame</td>
+      <td>2026</td>
+      <td>SteamOS (Arm)</td>
+      <td>2160 × 2160 LCD</td>
+      <td>72–144 Hz</td>
+      <td>Yes</td>
+      <td>Standalone and PC-streaming; eye-tracked <em>foveated streaming</em> spends encoder bitrate where the user looks</td>
     </tr>
     <tr>
       <td>PlayStation VR2</td>
-      <td>Console</td>
-      <td>2000x2040</td>
-      <td>120Hz</td>
-      <td>Inside-out</td>
-    </tr>
-    <tr>
-      <td>Apple Vision Pro</td>
-      <td>Standalone</td>
-      <td>3660x3200</td>
-      <td>90Hz</td>
-      <td>Inside-out</td>
-    </tr>
-    <tr>
-      <td>HTC Vive XR Elite</td>
-      <td>Standalone/PC</td>
-      <td>1920x1920</td>
-      <td>90Hz</td>
-      <td>Inside-out</td>
+      <td>Feb 2023</td>
+      <td>PS5 (PC via adapter)</td>
+      <td>2000 × 2040 OLED</td>
+      <td>90/120 Hz</td>
+      <td>Yes</td>
+      <td>Eye-tracked foveated rendering in shipping titles</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>AR Devices:</strong></p>
+<p>Specifications change with firmware; treat the table as orientation, not a procurement sheet. Older devices still common in the field include Quest 2 and Quest Pro (both discontinued), Valve Index and HTC Vive-family PC headsets.</p>
+
+<h3 id="ar-glasses-and-phones">AR glasses and phones</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Examples</th>
+      <th>Development surface</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Phone / tablet AR</td>
+      <td>iPhone and iPad (ARKit), Android (ARCore)</td>
+      <td>ARKit + RealityKit, ARCore, Unity AR Foundation, WebXR (Android Chrome)</td>
+    </tr>
+    <tr>
+      <td>Optical see-through MR</td>
+      <td>Magic Leap 2, HoloLens 2</td>
+      <td>OpenXR. Microsoft ended HoloLens 2 production in 2024 and supports it only through 2027, so it is a maintenance target, not a new-project target</td>
+    </tr>
+    <tr>
+      <td>Display smart glasses</td>
+      <td>Meta Ray-Ban Display (2025, monocular HUD with an EMG “Neural Band” wristband)</td>
+      <td>Limited third-party surfaces; primarily glanceable UI and AI assistant</td>
+    </tr>
+    <tr>
+      <td>Camera/audio glasses</td>
+      <td>Ray-Ban Meta, Oakley Meta</td>
+      <td>No display; camera and assistant integrations</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="the-xr-frame-pipeline">The XR Frame Pipeline</h2>
+
+<p>The core engineering loop of any headset is: predict where the head (and eyes, and hands) will be when photons leave the display, render for that pose, then correct the image at the last moment for whatever the prediction got wrong.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant S as Sensors (IMU + cameras)
+    participant R as XR runtime / compositor
+    participant A as Application
+    participant G as GPU
+    participant D as Display
+    A-&gt;&gt;R: xrWaitFrame (throttle to display rate)
+    R--&gt;&gt;A: predicted display time
+    A-&gt;&gt;R: xrLocateViews(predicted time)
+    R--&gt;&gt;A: predicted eye poses + FOV
+    A-&gt;&gt;G: record and submit stereo frame
+    G--&gt;&gt;R: xrEndFrame (layers: projection, quad, ...)
+    S-&gt;&gt;R: latest head pose (~1 ms before scan-out)
+    R-&gt;&gt;G: reproject / timewarp to latest pose, lens distortion
+    G-&gt;&gt;D: scan-out
+</code></pre>
+
+<p>Key terms:</p>
+
 <ul>
-  <li><strong>Meta Ray-Ban</strong>: Consumer smart glasses</li>
-  <li><strong>Microsoft HoloLens 2</strong>: Enterprise AR</li>
-  <li><strong>Magic Leap 2</strong>: Enterprise/industrial</li>
-  <li><strong>Smartphones</strong>: ARKit (iOS) / ARCore (Android)</li>
+  <li><strong>Motion-to-photon latency</strong> – time from a head movement to light reflecting it. Pose prediction makes the <em>effective</em> latency far lower than the raw pipeline depth; the target is imperceptible (about 20 ms or less).</li>
+  <li><strong>Pose prediction</strong> – the runtime extrapolates head motion to the predicted display time it hands the app. Always render with the pose from that call, never a pose you sampled yourself.</li>
+  <li><strong>Late latching</strong> – some runtimes (Meta Quest) patch the pose into GPU constant buffers after the CPU has recorded commands, shaving a frame of latency.</li>
+  <li><strong>Compositor</strong> – the runtime process that owns the display. Apps submit <em>layers</em>; the compositor applies lens distortion and chromatic-aberration correction, reprojection, and draws system UI.</li>
+  <li><strong>Compositor layers</strong> – text and UI submitted as separate quad or cylinder layers are sampled once at display resolution by the compositor, so they stay sharper than the same content rendered into the eye buffer.</li>
 </ul>
 
-<h2 id="vr-development-fundamentals">VR Development Fundamentals</h2>
+<h3 id="frame-budgets">Frame budgets</h3>
 
-<h3 id="rendering-requirements">Rendering Requirements</h3>
+\[t_{\text{frame}} = \frac{1000\ \text{ms}}{f_{\text{refresh}}}\]
 
-<p>VR demands exceptional performance:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Refresh rate</th>
+      <th>Budget per frame</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>72 Hz</td>
+      <td>13.9 ms</td>
+      <td>Quest default for heavy content</td>
+    </tr>
+    <tr>
+      <td>90 Hz</td>
+      <td>11.1 ms</td>
+      <td>PC VR baseline, Vision Pro, Galaxy XR</td>
+    </tr>
+    <tr>
+      <td>120 Hz</td>
+      <td>8.3 ms</td>
+      <td>Quest 3, PSVR2, Vision Pro (M5)</td>
+    </tr>
+    <tr>
+      <td>144 Hz</td>
+      <td>6.9 ms</td>
+      <td>Steam Frame, high-end PC VR</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Target Metrics:
-- Frame Rate: 90Hz minimum (72-120Hz typical)
-- Latency: &lt;20ms motion-to-photon
-- Resolution: 2K+ per eye
-- Stereo Rendering: 2x geometry passes
+<p>CPU and GPU work are pipelined (the GPU renders frame <em>N</em> while the CPU simulates <em>N + 1</em>), so each must fit the budget independently rather than summed. On standalone hardware leave headroom: thermal throttling and the compositor itself consume part of the GPU.</p>
 
-Effective load:
-90 FPS × 2 eyes × 4MP per eye = 720M pixels/second
-(vs 60 FPS × 1 view × 2MP = 120M pixels/second for traditional)
-</code></pre></div></div>
+<h3 id="reprojection-and-frame-synthesis">Reprojection and frame synthesis</h3>
 
-<p><strong>Stereo Rendering Techniques:</strong></p>
+<p>When an app misses its deadline the runtime shows a corrected old frame rather than a stutter. The techniques differ in what they can correct:</p>
 
 <table>
   <thead>
     <tr>
       <th>Technique</th>
-      <th>Description</th>
-      <th>Performance</th>
+      <th>Corrects</th>
+      <th>Inputs</th>
+      <th>Where</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Rotational timewarp (ATW)</td>
+      <td>Head rotation only</td>
+      <td>Last frame + new orientation</td>
+      <td>Every runtime, every frame</td>
+    </tr>
+    <tr>
+      <td>Positional timewarp</td>
+      <td>Head rotation and translation</td>
+      <td>Last frame + depth buffer</td>
+      <td>Runtimes that receive depth (submit it)</td>
+    </tr>
+    <tr>
+      <td>Asynchronous SpaceWarp (ASW, PC)</td>
+      <td>Motion of objects and head</td>
+      <td>Frame history; motion estimated by the runtime</td>
+      <td>Meta PC runtime, SteamVR <em>Motion Smoothing</em></td>
+    </tr>
+    <tr>
+      <td>Application SpaceWarp (AppSW)</td>
+      <td>Motion of objects and head</td>
+      <td>App-supplied motion vectors and depth</td>
+      <td>Meta Quest; app deliberately renders at half rate (for example 36 → 72 Hz)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>All frame synthesis produces artifacts in disoccluded regions (content revealed behind moving objects), on transparent surfaces and on fast-moving thin geometry. Treat it as a safety net or a deliberate budget tool, not a substitute for hitting frame rate.</p>
+
+<h2 id="rendering-for-xr">Rendering for XR</h2>
+
+<h3 id="stereo-rendering">Stereo rendering</h3>
+
+<p>Each eye needs its own view and projection matrix; the naive approach draws the scene twice.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>How it works</th>
+      <th>Cost relative to multi-pass</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Multi-pass</td>
-      <td>Render scene twice</td>
-      <td>Baseline</td>
+      <td>Full scene submitted once per eye</td>
+      <td>Baseline; doubles CPU draw-call cost</td>
     </tr>
     <tr>
-      <td>Instanced Stereo</td>
-      <td>Single draw, dual viewports</td>
-      <td>1.5-2x faster</td>
+      <td>Single-pass instanced</td>
+      <td>One draw call with instance count doubled; the vertex shader selects the eye and render-target array slice</td>
+      <td>Roughly halves CPU submission cost</td>
     </tr>
     <tr>
-      <td>Single Pass Stereo</td>
-      <td>Geometry shader duplication</td>
-      <td>Variable</td>
+      <td>Multiview (<code class="language-plaintext highlighter-rouge">OVR_multiview</code>, <code class="language-plaintext highlighter-rouge">VK_KHR_multiview</code>, Metal vertex amplification)</td>
+      <td>Driver broadcasts one draw to two array layers; shader reads a view index</td>
+      <td>Same CPU saving, preferred on mobile/tile GPUs</td>
     </tr>
     <tr>
-      <td>Variable Rate Shading</td>
-      <td>Lower resolution periphery</td>
-      <td>20-30% savings</td>
+      <td>Legacy single-pass (double-wide)</td>
+      <td>Both eyes side by side in one wide target, often via geometry shader</td>
+      <td>Superseded; avoid</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="motion-sickness-prevention">Motion Sickness Prevention</h3>
+<p>Engines expose this as a setting (Unity <em>Render Mode: Single Pass Instanced / Multiview</em>, Unreal <em>Instanced Stereo</em> / <em>Mobile Multi-View</em>). The GPU still shades both eyes’ pixels, which is why pixel-side techniques matter more.</p>
 
-<p>Causes and mitigations:</p>
+<h3 id="foveated-rendering">Foveated rendering</h3>
 
-<p><strong>Vestibular Mismatch:</strong></p>
-<ul>
-  <li>Visual motion without physical motion</li>
-  <li>Worse with acceleration, rotation</li>
-  <li>Accumulates over time</li>
-</ul>
-
-<p><strong>Mitigation Strategies:</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1. Locomotion Design
-   - Teleportation (safest)
-   - Snap turning (reduce smooth rotation)
-   - Comfort vignette during movement
-   - User-controlled movement speed
-
-2. Technical Requirements
-   - Maintain target frame rate always
-   - Minimize latency
-   - Lock horizon/reference points
-   - Avoid camera shake
-
-3. User Options
-   - Comfort settings exposed
-   - Gradual exposure modes
-   - Session length recommendations
-</code></pre></div></div>
-
-<h3 id="interaction-design">Interaction Design</h3>
-
-<p>VR-specific input paradigms:</p>
-
-<p><strong>Hand Tracking:</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Gestures:
-- Pinch: Select/grab
-- Point: Direct manipulation
-- Open palm: Menu/UI
-- Fist: Grip objects
-- Thumbs up: Confirm
-
-Hand presence adds:
-- Natural object manipulation
-- Social expression
-- Accessibility without controllers
-</code></pre></div></div>
-
-<p><strong>Controller Interactions:</strong></p>
-<ul>
-  <li>Trigger: Primary action</li>
-  <li>Grip: Grab/hold objects</li>
-  <li>Thumbstick: Locomotion/menu navigation</li>
-  <li>Buttons: Context actions</li>
-  <li>Haptics: Tactile feedback</li>
-</ul>
-
-<p><strong>Gaze-Based:</strong></p>
-<ul>
-  <li>Dwell time selection</li>
-  <li>Head-tracked cursor</li>
-  <li>Eye tracking for foveated rendering</li>
-  <li>Natural social cues</li>
-</ul>
-
-<h2 id="ar-development">AR Development</h2>
-
-<h3 id="spatial-understanding">Spatial Understanding</h3>
-
-<p>AR requires understanding the physical world:</p>
-
-<p><strong>Plane Detection:</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Types:
-- Horizontal (floors, tables)
-- Vertical (walls)
-- Arbitrary angle (stairs)
-
-Quality:
-- Boundaries refinement over time
-- Hole detection
-- Classification (floor vs table)
-</code></pre></div></div>
-
-<p><strong>Scene Understanding:</strong></p>
-<ul>
-  <li>Mesh reconstruction (real-time 3D scanning)</li>
-  <li>Semantic segmentation (identify objects)</li>
-  <li>Occlusion (virtual behind real)</li>
-  <li>Light estimation (match virtual to real lighting)</li>
-</ul>
-
-<h3 id="arkit-vs-arcore">ARKit vs ARCore</h3>
-
-<p><strong>Apple ARKit (iOS):</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Features:
-- World Tracking (6DoF)
-- Plane Detection
-- Image/Object Recognition
-- Face Tracking (TrueDepth)
-- Body Tracking
-- LiDAR (Pro devices)
-- RoomPlan API
-</code></pre></div></div>
-
-<p><strong>Google ARCore (Android):</strong></p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Features:
-- Motion Tracking
-- Environmental Understanding
-- Light Estimation
-- Cloud Anchors (shared experiences)
-- Augmented Faces
-- Depth API
-- Geospatial API (outdoor positioning)
-</code></pre></div></div>
-
-<h3 id="webxr">WebXR</h3>
-
-<p>Browser-based XR experiences:</p>
-
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Basic WebXR session</span>
-<span class="k">async</span> <span class="kd">function</span> <span class="nf">startXR</span><span class="p">()</span> <span class="p">{</span>
-    <span class="k">if </span><span class="p">(</span><span class="nb">navigator</span><span class="p">.</span><span class="nx">xr</span><span class="p">)</span> <span class="p">{</span>
-        <span class="kd">const</span> <span class="nx">session</span> <span class="o">=</span> <span class="k">await</span> <span class="nb">navigator</span><span class="p">.</span><span class="nx">xr</span><span class="p">.</span><span class="nf">requestSession</span><span class="p">(</span>
-            <span class="dl">'</span><span class="s1">immersive-vr</span><span class="dl">'</span><span class="p">,</span>  <span class="c1">// or 'immersive-ar'</span>
-            <span class="p">{</span>
-                <span class="na">requiredFeatures</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">local-floor</span><span class="dl">'</span><span class="p">],</span>
-                <span class="na">optionalFeatures</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">hand-tracking</span><span class="dl">'</span><span class="p">]</span>
-            <span class="p">}</span>
-        <span class="p">);</span>
-
-        <span class="c1">// Set up render loop</span>
-        <span class="nx">session</span><span class="p">.</span><span class="nf">requestAnimationFrame</span><span class="p">(</span><span class="nx">onXRFrame</span><span class="p">);</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="kd">function</span> <span class="nf">onXRFrame</span><span class="p">(</span><span class="nx">time</span><span class="p">,</span> <span class="nx">frame</span><span class="p">)</span> <span class="p">{</span>
-    <span class="kd">const</span> <span class="nx">pose</span> <span class="o">=</span> <span class="nx">frame</span><span class="p">.</span><span class="nf">getViewerPose</span><span class="p">(</span><span class="nx">referenceSpace</span><span class="p">);</span>
-
-    <span class="k">if </span><span class="p">(</span><span class="nx">pose</span><span class="p">)</span> <span class="p">{</span>
-        <span class="k">for </span><span class="p">(</span><span class="kd">const</span> <span class="nx">view</span> <span class="k">of</span> <span class="nx">pose</span><span class="p">.</span><span class="nx">views</span><span class="p">)</span> <span class="p">{</span>
-            <span class="nf">renderView</span><span class="p">(</span><span class="nx">view</span><span class="p">);</span>
-        <span class="p">}</span>
-    <span class="p">}</span>
-
-    <span class="nx">frame</span><span class="p">.</span><span class="nx">session</span><span class="p">.</span><span class="nf">requestAnimationFrame</span><span class="p">(</span><span class="nx">onXRFrame</span><span class="p">);</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h2 id="xr-development-platforms">XR Development Platforms</h2>
-
-<h3 id="unity-xr">Unity XR</h3>
-
-<p>Cross-platform XR development:</p>
-
-<p><strong>XR Interaction Toolkit:</strong></p>
-<ul>
-  <li>Standardized input handling</li>
-  <li>Locomotion systems</li>
-  <li>Grab/socket interactions</li>
-  <li>UI interaction</li>
-</ul>
-
-<p><strong>Supported Platforms:</strong></p>
-<ul>
-  <li>Meta Quest (native, PC VR)</li>
-  <li>SteamVR (Index, Vive)</li>
-  <li>PlayStation VR2</li>
-  <li>Apple Vision Pro (visionOS)</li>
-  <li>ARKit/ARCore</li>
-</ul>
-
-<h3 id="unreal-engine-vr">Unreal Engine VR</h3>
-
-<p>Enterprise-grade XR:</p>
-
-<p><strong>Features:</strong></p>
-<ul>
-  <li>OpenXR support</li>
-  <li>Motion controller support</li>
-  <li>VR Template projects</li>
-  <li>Stereo instancing</li>
-  <li>Forward renderer (better for VR)</li>
-</ul>
-
-<p>See our <a href="../technology/unreal.html">Unreal Engine Guide</a> for details.</p>
-
-<h3 id="native-development">Native Development</h3>
-
-<p>Platform-specific SDKs:</p>
-
-<p><strong>Meta Quest (Oculus SDK):</strong></p>
-<ul>
-  <li>Native Android development</li>
-  <li>Best performance on Quest hardware</li>
-  <li>Access to all platform features</li>
-</ul>
-
-<p><strong>Apple Vision Pro (visionOS):</strong></p>
-<ul>
-  <li>SwiftUI for spatial computing</li>
-  <li>RealityKit for 3D</li>
-  <li>ARKit for world understanding</li>
-</ul>
-
-<p><strong>SteamVR (OpenVR):</strong></p>
-<ul>
-  <li>C++ SDK</li>
-  <li>Works with any SteamVR headset</li>
-  <li>Room-scale and seated configurations</li>
-</ul>
-
-<h2 id="performance-optimization-for-xr">Performance Optimization for XR</h2>
-
-<h3 id="frame-budget">Frame Budget</h3>
-
-<p>Strict timing requirements. At 90 Hz you have just <strong>11.1 ms per frame</strong> to fit everything:</p>
+<p>The eye resolves fine detail only in the central ~2° of the fovea; acuity falls off steeply outside it. Foveated rendering spends shading work accordingly.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Stage</th>
-      <th>Typical budget</th>
+      <th>Variant</th>
+      <th>Mechanism</th>
+      <th>Hardware</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Game logic</td>
-      <td>2–3 ms</td>
+      <td>Fixed foveated rendering (FFR)</td>
+      <td>Lower shading rate toward lens edges, where lens blur hides it anyway</td>
+      <td>Quest family, most standalone headsets</td>
     </tr>
     <tr>
-      <td>Physics</td>
-      <td>1–2 ms</td>
+      <td>Eye-tracked (dynamic) foveated rendering (ETFR / DFR)</td>
+      <td>High-rate region follows the measured gaze point</td>
+      <td>PSVR2, Vision Pro, Galaxy XR, Quest Pro</td>
     </tr>
     <tr>
-      <td>Animation</td>
-      <td>1 ms</td>
-    </tr>
-    <tr>
-      <td>Rendering (CPU)</td>
-      <td>3–4 ms</td>
-    </tr>
-    <tr>
-      <td>Rendering (GPU)</td>
-      <td>8–10 ms</td>
-    </tr>
-    <tr>
-      <td>OS/Driver overhead</td>
-      <td>1–2 ms</td>
+      <td>Foveated streaming / transport</td>
+      <td>Encoder allocates more bitrate where the user looks</td>
+      <td>Steam Frame PC streaming</td>
     </tr>
   </tbody>
 </table>
 
-<p>Note: the GPU renders the previous frame while the CPU prepares the next (pipelining), so CPU and GPU budgets overlap rather than simply summing.</p>
+<p>Mechanisms include variable-rate shading (VRS), fragment density maps (Vulkan) and Metal rasterization-rate maps. Savings depend on how pixel-bound the app is; eye-tracked foveation gives larger savings than fixed because the full-rate region can be much smaller. Eye-tracking latency and saccades are the limiting factor: the high-detail region must be large enough to cover gaze-prediction error.</p>
 
-<h3 id="foveated-rendering">Foveated Rendering</h3>
-
-<p>Reduce peripheral detail. Shading resolution drops with distance from the center of vision:</p>
+<h3 id="performance-optimization">Performance optimization</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Region</th>
-      <th>Angle from center</th>
-      <th>Shading</th>
+      <th>Area</th>
+      <th>Practices</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Fovea</td>
-      <td>Central 10–15°</td>
-      <td>Full resolution</td>
+      <td>Rendering path</td>
+      <td>Forward (or forward+) rendering with MSAA rather than deferred plus post-process AA; deferred G-buffers are expensive on tile-based mobile GPUs and TAA smears under head motion</td>
     </tr>
     <tr>
-      <td>Mid</td>
-      <td>15–45°</td>
-      <td>Medium</td>
+      <td>Geometry</td>
+      <td>Aggressive LOD, occlusion culling, GPU instancing, static batching</td>
     </tr>
     <tr>
-      <td>Periphery</td>
-      <td>45°+</td>
-      <td>Low</td>
+      <td>Shading</td>
+      <td>Baked or mixed lighting, few real-time shadowed lights, cheap materials, avoid full-screen post-processing and overdraw from transparency</td>
+    </tr>
+    <tr>
+      <td>Resolution</td>
+      <td>Use the runtime’s recommended eye-buffer size; use dynamic resolution rather than letting frames drop</td>
+    </tr>
+    <tr>
+      <td>CPU</td>
+      <td>Avoid garbage-collection spikes (pooling, no per-frame allocations), move work to job systems, keep physics tick cost bounded</td>
+    </tr>
+    <tr>
+      <td>Thermals (standalone)</td>
+      <td>Choose CPU/GPU performance levels explicitly and profile after the device is warm</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Types:</strong></p>
-<ul>
-  <li><strong>Fixed</strong>: Static regions (most compatible)</li>
-  <li><strong>Dynamic</strong>: Follows gaze (requires eye tracking)</li>
-  <li><strong>Application-based</strong>: Content-aware</li>
-</ul>
+<p>Profiling tools: OVR Metrics Tool and Meta Quest Developer Hub (Quest), RenderDoc and vendor GPU profilers (Snapdragon Profiler, Arm Performance Studio), Xcode Instruments / RealityKit Trace (visionOS), Unity Profiler and Unreal Insights, PIX on Windows PC VR.</p>
 
-<p>Savings: 30–50% GPU time.</p>
+<h2 id="openxr-and-the-runtime-stack">OpenXR and the Runtime Stack</h2>
 
-<h3 id="application-spacewarp-asw--reprojection">Application SpaceWarp (ASW) / Reprojection</h3>
+<p><strong>OpenXR</strong> (Khronos) is the cross-vendor API between applications and XR runtimes. Version 1.0 shipped in 2019 and 1.1 in April 2024, which folded several widely used extensions into core; the SDK now receives roughly monthly 1.1.x revisions. Meta, Valve (SteamVR), Pico, HTC, Magic Leap, Microsoft and Google’s Android XR all ship conformant OpenXR runtimes, and Unity, Unreal and Godot use OpenXR as their primary XR backend. Apple’s visionOS is the notable exception: it uses its own ARKit/RealityKit/Compositor Services APIs.</p>
 
-<p>Frame synthesis when performance drops:</p>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph App["Application layer"]
+        U["Unity&lt;br/&gt;XR Interaction Toolkit / AR Foundation"]
+        UE["Unreal Engine&lt;br/&gt;OpenXR plugin"]
+        GD["Godot / native C++"]
+        WX["WebXR page&lt;br/&gt;(three.js, Babylon.js)"]
+    end
+    BR["Browser&lt;br/&gt;(Chromium, Quest Browser)"]
+    L["OpenXR loader"]
+    subgraph RT["Vendor runtimes"]
+        M["Meta Horizon OS"]
+        SV["SteamVR / SteamOS"]
+        AX["Android XR"]
+        OT["Pico, Magic Leap, ..."]
+    end
+    V["visionOS&lt;br/&gt;ARKit + RealityKit + Compositor Services"]
+    U --&gt; L
+    UE --&gt; L
+    GD --&gt; L
+    WX --&gt; BR --&gt; L
+    L --&gt; M &amp; SV &amp; AX &amp; OT
+    U -. "PolySpatial / visionOS plugin" .-&gt; V
+</code></pre>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Normal: Render at 90 FPS, display at 90 FPS
-ASW: Render at 45 FPS, synthesize to 90 FPS
+<p>Core OpenXR concepts:</p>
 
-How it works:
-1. Detect missed frame deadline
-2. Take previous frame
-3. Apply motion vectors
-4. Reproject to new head position
-5. Display synthesized frame
+<table>
+  <thead>
+    <tr>
+      <th>Object</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">XrInstance</code> / <code class="language-plaintext highlighter-rouge">XrSystemId</code></td>
+      <td>Connection to a runtime and the device it drives</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">XrSession</code></td>
+      <td>Lifecycle of rendering to the device (see state machine below)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">XrSpace</code></td>
+      <td>Coordinate frames: <code class="language-plaintext highlighter-rouge">VIEW</code>, <code class="language-plaintext highlighter-rouge">LOCAL</code>, <code class="language-plaintext highlighter-rouge">LOCAL_FLOOR</code> (core in 1.1), <code class="language-plaintext highlighter-rouge">STAGE</code>, plus action and anchor spaces</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">XrSwapchain</code></td>
+      <td>Images the app renders into and hands to the compositor</td>
+    </tr>
+    <tr>
+      <td>Actions and action sets</td>
+      <td>Abstract input (“grab”, “teleport”) bound to physical controls through <em>interaction profiles</em>, so apps do not hard-code controller buttons</td>
+    </tr>
+    <tr>
+      <td>Extensions</td>
+      <td>Hand tracking (<code class="language-plaintext highlighter-rouge">XR_EXT_hand_tracking</code>, 26 joints per hand), eye gaze, passthrough, and the multi-vendor spatial-entity family (<code class="language-plaintext highlighter-rouge">XR_EXT_spatial_entity</code>, <code class="language-plaintext highlighter-rouge">XR_EXT_spatial_plane_tracking</code>, anchors, persistence) that is replacing per-vendor scene APIs</td>
+    </tr>
+  </tbody>
+</table>
 
-Artifacts:
-- Edge shimmer
-- Disocclusion errors
-- Latency perception
-</code></pre></div></div>
+<p>Session state machine — apps must only render and submit frames in the states the runtime allows:</p>
 
-<h3 id="optimization-techniques">Optimization Techniques</h3>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; IDLE: xrCreateSession
+    IDLE --&gt; READY: runtime ready
+    READY --&gt; SYNCHRONIZED: xrBeginSession
+    SYNCHRONIZED --&gt; VISIBLE: frames shown
+    VISIBLE --&gt; FOCUSED: receives input
+    FOCUSED --&gt; VISIBLE: system UI takes focus
+    VISIBLE --&gt; SYNCHRONIZED: hidden
+    SYNCHRONIZED --&gt; STOPPING: runtime requests stop
+    STOPPING --&gt; IDLE: xrEndSession
+    IDLE --&gt; EXITING: app or runtime quits
+    EXITING --&gt; [*]: xrDestroySession
+</code></pre>
 
-<p><strong>Rendering:</strong></p>
-<ul>
-  <li>Single-pass stereo rendering</li>
-  <li>Aggressive LOD</li>
-  <li>Occlusion culling</li>
-  <li>Baked lighting where possible</li>
-  <li>Forward rendering (simpler, faster)</li>
-</ul>
+<h2 id="engines-and-sdks">Engines and SDKs</h2>
 
-<p><strong>Assets:</strong></p>
-<ul>
-  <li>Mobile-quality textures</li>
-  <li>Simplified materials</li>
-  <li>Instance static meshes</li>
-  <li>Compress and stream textures</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Stack</th>
+      <th>Targets</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Unity</strong> + OpenXR plugin, XR Interaction Toolkit 3.x, AR Foundation</td>
+      <td>Quest, Android XR, SteamVR, PSVR2, Pico; iOS/Android AR; visionOS via PolySpatial</td>
+      <td>Most XR titles ship on Unity. XRI provides interactors/interactables, locomotion providers and XR UI input; AR Foundation abstracts ARKit/ARCore/OpenXR AR features</td>
+    </tr>
+    <tr>
+      <td><strong>Meta XR SDKs</strong> (Core, Interaction, Movement, Platform) for Unity and Unreal; Meta Spatial SDK (Android/Kotlin)</td>
+      <td>Quest</td>
+      <td>Built on OpenXR; add Meta-specific features (Scene API, shared spatial anchors, passthrough camera access, body tracking). Legacy OVR/”Oculus” plugins are superseded by the OpenXR-based path</td>
+    </tr>
+    <tr>
+      <td><strong>Unreal Engine 5</strong> + OpenXR plugin</td>
+      <td>Quest, SteamVR, PSVR2, Android XR</td>
+      <td>Use the Forward Shading renderer with MSAA and Instanced Stereo / Mobile Multi-View; start from the VR Template. See the <a href="../technology/unreal.html">Unreal Engine Guide</a></td>
+    </tr>
+    <tr>
+      <td><strong>Godot 4</strong></td>
+      <td>OpenXR devices</td>
+      <td>Open-source; OpenXR built in, with vendor plugin for Meta/Pico extras</td>
+    </tr>
+    <tr>
+      <td><strong>Android XR</strong> (Jetpack XR SDK, Jetpack Compose for XR, ARCore for Jetpack XR)</td>
+      <td>Galaxy XR and future Android XR devices</td>
+      <td>Existing Android apps run as 2D panels; spatial apps use Compose “spatial panels” and SceneCore, or Unity/OpenXR for games</td>
+    </tr>
+    <tr>
+      <td><strong>visionOS</strong> (SwiftUI, RealityKit, ARKit, Reality Composer Pro)</td>
+      <td>Apple Vision Pro</td>
+      <td>Apps are windows, volumes, or full <em>immersive spaces</em>; privacy model hides raw camera and gaze data from apps (hover effects are rendered by the system)</td>
+    </tr>
+    <tr>
+      <td><strong>WebXR</strong> (three.js, Babylon.js, A-Frame, PlayCanvas)</td>
+      <td>Browsers on Quest, Android XR, Android phones (AR), PC; Safari on visionOS (VR)</td>
+      <td>Zero-install distribution; see <a href="#webxr">WebXR</a></td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Code:</strong></p>
-<ul>
-  <li>Object pooling</li>
-  <li>Avoid GC allocations</li>
-  <li>Multithreaded physics</li>
-  <li>Job system for parallel work</li>
-</ul>
+<h2 id="input-modalities">Input Modalities</h2>
 
-<h2 id="ux-design-for-xr">UX Design for XR</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Modality</th>
+      <th>Strengths</th>
+      <th>Weaknesses</th>
+      <th>Typical mapping</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Tracked controllers</td>
+      <td>Precise, low-latency, haptics, buttons for reliable discrete actions</td>
+      <td>Must be picked up; less natural</td>
+      <td>Trigger = select/fire, grip = grab, thumbstick = locomotion or snap turn</td>
+    </tr>
+    <tr>
+      <td>Hand tracking</td>
+      <td>Natural, controller-free, social expression</td>
+      <td>Occlusion when hands overlap, no haptics, fatigue (“gorilla arm”)</td>
+      <td>Pinch = select, pinch-and-drag = move, palm-up = system menu; <em>poke</em> for near UI</td>
+    </tr>
+    <tr>
+      <td>Eye gaze + pinch</td>
+      <td>Fast targeting with minimal motion (visionOS default, Android XR)</td>
+      <td>“Midas touch” risk: looking must not act by itself</td>
+      <td>Look to target, pinch to confirm</td>
+    </tr>
+    <tr>
+      <td>Head gaze + dwell</td>
+      <td>Works everywhere; accessibility fallback</td>
+      <td>Slow, fatiguing</td>
+      <td>Reticle plus dwell timer</td>
+    </tr>
+    <tr>
+      <td>Voice</td>
+      <td>Hands-free, good for text and commands</td>
+      <td>Noisy environments, privacy</td>
+      <td>Search, dictation, system commands</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="spatial-ui-design">Spatial UI Design</h3>
+<p>Design principles: provide a <em>ray</em> for far interaction and <em>direct touch/poke</em> for near interaction; give every interaction visual (and where possible haptic or audio) feedback on hover, press and release; never require precision that hand tracking cannot deliver (targets smaller than about 1.5–2 cm are unreliable).</p>
 
-<p>UI in 3D space:</p>
+<h3 id="hand-and-body-tracking">Hand and body tracking</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Placement:
-- Comfortable viewing: 1-2m distance
-- Avoid extremes of vision
-- World-locked vs head-locked
-- Hand-anchored for tools
+<p>OpenXR and WebXR report <strong>26 hand joints</strong> (palm, wrist, and four or five joints per finger including tips) with position, orientation and radius. Gesture recognition is usually done in the app or SDK from joint poses (pinch strength from thumb–index tip distance). Full-body avatars on consumer headsets are mostly <em>inferred</em>: upper body from head and hand poses via inverse kinematics, legs synthesised by learned models (Meta’s Movement SDK generates legs on Quest 3) rather than directly tracked.</p>
 
-Sizing:
-- Minimum text: 1.5° of visual angle
-- Comfortable text: 2-3°
-- Touch targets: 2cm minimum
+<h2 id="locomotion-and-comfort">Locomotion and Comfort</h2>
 
-Depth:
-- Avoid UI at arm's length (focus conflict)
-- Match UI depth to content
-- Use subtle depth cues
-</code></pre></div></div>
+<h3 id="why-xr-makes-people-sick">Why XR makes people sick</h3>
 
-<h3 id="comfort-guidelines">Comfort Guidelines</h3>
+<p>Simulator sickness is mostly a <strong>visual–vestibular conflict</strong>: the eyes report self-motion that the inner ear does not. Linear and especially angular <em>acceleration</em> are the strongest triggers; constant-velocity motion is tolerated better. Sensitivity varies widely between users and decreases with exposure.</p>
 
-<p><strong>Physical Comfort:</strong></p>
-<ul>
-  <li>Session length recommendations</li>
-  <li>Break reminders</li>
-  <li>Adjust for IPD (interpupillary distance)</li>
-  <li>Standing vs seated options</li>
-</ul>
+<p>A second, independent discomfort source is the <strong>vergence–accommodation conflict (VAC)</strong>: the eyes converge on the virtual depth of an object while focusing (accommodating) on the fixed optical focal plane of the display, typically 1–2 m. Content far from the focal distance, especially very close to the face, causes eye strain. Varifocal and light-field displays remain research and prototype technology.</p>
 
-<p><strong>Visual Comfort:</strong></p>
-<ul>
-  <li>Avoid vergence-accommodation conflict</li>
-  <li>Maintain stable frame rate</li>
-  <li>Limit bright flashing</li>
-  <li>Provide reference points</li>
-</ul>
+<h3 id="locomotion-options">Locomotion options</h3>
 
-<p><strong>Motion Comfort:</strong></p>
-<ul>
-  <li>Offer locomotion options</li>
-  <li>Gradual exposure for new users</li>
-  <li>User-controlled speed</li>
-  <li>Comfort vignettes</li>
-</ul>
+<pre><code class="language-mermaid">flowchart TD
+    Q{"Does the experience need&lt;br/&gt;artificial movement?"} --&gt;|No| RS["Room-scale / physical walking&lt;br/&gt;(most comfortable)"]
+    Q --&gt;|Yes| C{"Comfort priority?"}
+    C --&gt;|Maximum| T["Teleport + snap turn&lt;br/&gt;(no visual acceleration)"]
+    C --&gt;|Balanced| S["Smooth move + snap turn&lt;br/&gt;+ tunnelling vignette"]
+    C --&gt;|Immersion, experienced users| F["Smooth move + smooth turn&lt;br/&gt;(offer as opt-in)"]
+    T &amp; S &amp; F --&gt; O["Always: user-selectable options,&lt;br/&gt;seated mode, stable horizon"]
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th>Rationale</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Never move the camera without user intent; never add camera shake, head bob or forced rotation</td>
+      <td>Unexpected visual motion is the strongest trigger</td>
+    </tr>
+    <tr>
+      <td>Keep the horizon level and provide static reference frames (cockpit, nose, floor grid)</td>
+      <td>Stable references reduce perceived self-motion</td>
+    </tr>
+    <tr>
+      <td>Snap turn in 30–45° increments by default</td>
+      <td>Removes angular acceleration entirely</td>
+    </tr>
+    <tr>
+      <td>Vignette (reduce peripheral FOV) during smooth locomotion</td>
+      <td>Peripheral optic flow drives vection</td>
+    </tr>
+    <tr>
+      <td>Use constant velocity; avoid ramps and sudden stops</td>
+      <td>Acceleration, not speed, is the problem</td>
+    </tr>
+    <tr>
+      <td>Hold frame rate; handle frame drops by degrading quality, not frame rate</td>
+      <td>Judder and swimming break comfort for everyone</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="spatial-ui">Spatial UI</h2>
+
+<h3 id="placement-and-sizing">Placement and sizing</h3>
+
+<p>Size UI by <strong>visual angle</strong>, not by metres or pixels. An element subtending angle $\theta$ at distance $d$ has height</p>
+
+\[h = 2d \tan\left(\frac{\theta}{2}\right)\]
+
+<p>so body text at about 1° at 1.5 m is roughly 2.6 cm tall; minimum legible sizes depend on the headset’s pixels per degree.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Guideline</th>
+      <th>Typical value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Comfortable UI distance</td>
+      <td>1–2 m for reading panels (near the display focal plane, minimizing VAC)</td>
+    </tr>
+    <tr>
+      <td>Near (touch/poke) UI</td>
+      <td>0.4–0.6 m, within arm’s reach; short sessions only</td>
+    </tr>
+    <tr>
+      <td>Horizontal placement</td>
+      <td>Primary content within about ±30° of forward; avoid requiring head turns for routine tasks</td>
+    </tr>
+    <tr>
+      <td>Vertical placement</td>
+      <td>Slightly below eye level (about 10–15° down)</td>
+    </tr>
+    <tr>
+      <td>Text</td>
+      <td>Large, high-contrast, avoid thin fonts; submit as a compositor layer where supported</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="anchoring">Anchoring</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Anchoring</th>
+      <th>Behaviour</th>
+      <th>Use for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>World-locked</td>
+      <td>Fixed in the room</td>
+      <td>Primary panels, objects, most UI</td>
+    </tr>
+    <tr>
+      <td>Body-locked (lazy follow)</td>
+      <td>Follows the user with damping, stays upright</td>
+      <td>Menus the user should not lose</td>
+    </tr>
+    <tr>
+      <td>Hand-anchored</td>
+      <td>Attached to a wrist or palm</td>
+      <td>Tool palettes, watches, quick menus</td>
+    </tr>
+    <tr>
+      <td>Head-locked</td>
+      <td>Fixed relative to the view</td>
+      <td>Brief alerts only; locked UI in the view is uncomfortable and blocks vision</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="accessibility">Accessibility</h3>
 
-<p>Inclusive XR design:</p>
+<p>Provide seated and standing modes with height calibration, one-handed and remappable controls, alternatives to every motion or gesture requirement, subtitles positioned in world space with speaker direction indicators, colour-blind-safe indicators, adjustable text size, and head-gaze fallbacks for eye or hand tracking. The XR Accessibility User Requirements (W3C) and platform guidelines (Meta, Apple Human Interface Guidelines for visionOS) are the standard references.</p>
 
-<ul>
-  <li><strong>Seated play mode</strong>: For mobility limitations</li>
-  <li><strong>One-handed mode</strong>: Controller remapping</li>
-  <li><strong>Subtitles</strong>: Spatial audio visualization</li>
-  <li><strong>Colorblind modes</strong>: Visual indicators</li>
-  <li><strong>Eye tracking alternatives</strong>: Head gaze fallback</li>
-  <li><strong>Adjustable text size</strong>: Readability options</li>
-</ul>
+<h2 id="ar-development">AR Development</h2>
 
-<h2 id="mixed-reality-features">Mixed Reality Features</h2>
+<h3 id="how-tracking-works">How tracking works</h3>
 
-<h3 id="passthrough">Passthrough</h3>
+<p>Phones and headsets both use <strong>visual–inertial odometry (VIO)</strong>: high-rate IMU integration gives smooth short-term motion, and camera feature tracking corrects the drift. Building and re-localizing against a map of visual features (SLAM) lets content stay in place across the session.</p>
 
-<p>Seeing the real world in VR:</p>
+<pre><code class="language-mermaid">flowchart LR
+    IMU["IMU&lt;br/&gt;~1 kHz accel + gyro"] --&gt; F["Sensor fusion&lt;br/&gt;(VIO filter / optimizer)"]
+    CAM["Camera frames&lt;br/&gt;30-60 Hz feature tracks"] --&gt; F
+    DEP["Depth&lt;br/&gt;(LiDAR / ToF / stereo)"] --&gt; SU
+    F --&gt; POSE["6DoF device pose"]
+    F --&gt; MAP["Feature map&lt;br/&gt;(relocalization, anchors)"]
+    CAM --&gt; SU["Scene understanding&lt;br/&gt;planes, mesh, semantics, depth"]
+    POSE --&gt; REN["Renderer"]
+    SU --&gt; REN
+    MAP --&gt; ANC["Anchors"] --&gt; REN
+</code></pre>
 
-<p><strong>Types:</strong></p>
-<ul>
-  <li>Grayscale (older devices)</li>
-  <li>Color (Quest 3, Vision Pro)</li>
-  <li>High-resolution (Vision Pro)</li>
-</ul>
+<p>Tracking degrades on textureless surfaces (white walls), in low light, with fast motion blur, and in dynamic scenes; good apps surface tracking state (“move your device slowly”) instead of failing silently.</p>
 
-<p><strong>Uses:</strong></p>
-<ul>
-  <li>Room awareness</li>
-  <li>Mixed reality games</li>
-  <li>AR mode in VR headset</li>
-  <li>Safety boundaries</li>
-</ul>
+<h3 id="scene-understanding">Scene understanding</h3>
 
-<h3 id="spatial-anchors">Spatial Anchors</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Capability</th>
+      <th>What it gives you</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Plane detection</td>
+      <td>Horizontal and vertical (and on some platforms arbitrary) planes, refined over time, with semantic classification (floor, wall, table, ceiling)</td>
+    </tr>
+    <tr>
+      <td>Scene mesh</td>
+      <td>Triangle mesh of the environment from depth sensors (LiDAR iPhones/iPads, Vision Pro, Quest 3) for physics and occlusion</td>
+    </tr>
+    <tr>
+      <td>Depth / occlusion</td>
+      <td>Per-pixel depth so real objects hide virtual ones; people occlusion via segmentation</td>
+    </tr>
+    <tr>
+      <td>Light estimation</td>
+      <td>Ambient intensity and colour, or environment probes/HDR cube maps, so virtual materials match real lighting</td>
+    </tr>
+    <tr>
+      <td>Image, object and face tracking</td>
+      <td>Anchors attached to known images, scanned objects, or faces</td>
+    </tr>
+    <tr>
+      <td>Room capture</td>
+      <td>Structured room models (Apple RoomPlan, Meta Scene API room layout)</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Persistent placement in space:</p>
+<h3 id="arkit-vs-arcore">ARKit vs ARCore</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Local Anchors:
-- Saved to device
-- Persist across sessions
-- Limited to original location
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>ARKit (Apple)</th>
+      <th>ARCore (Google)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Platforms</td>
+      <td>iPhone, iPad, Vision Pro (with visionOS-specific data providers)</td>
+      <td>Android phones, Android XR (via Jetpack XR)</td>
+    </tr>
+    <tr>
+      <td>Rendering</td>
+      <td>RealityKit (SceneKit for legacy apps)</td>
+      <td>Bring your own (Filament, Sceneform community fork, Unity, Unreal)</td>
+    </tr>
+    <tr>
+      <td>Depth</td>
+      <td>LiDAR Scene Reconstruction and scene depth on LiDAR devices</td>
+      <td>Depth API from motion stereo or ToF on supported phones</td>
+    </tr>
+    <tr>
+      <td>Faces and bodies</td>
+      <td>Face tracking (TrueDepth), body motion capture</td>
+      <td>Augmented Faces</td>
+    </tr>
+    <tr>
+      <td>Room scanning</td>
+      <td>RoomPlan</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Geolocation</td>
+      <td>Location anchors (supported cities)</td>
+      <td>Geospatial API (Visual Positioning System using Street View data; broad global coverage), Streetscape Geometry, rooftop anchors</td>
+    </tr>
+    <tr>
+      <td>Shared/persistent anchors</td>
+      <td>Collaborative sessions, world maps saved on device</td>
+      <td>Cloud Anchors (persistent up to 365 days)</td>
+    </tr>
+    <tr>
+      <td>Cross-platform layer</td>
+      <td>Unity AR Foundation, WebXR (not in iOS Safari)</td>
+      <td>Unity AR Foundation, WebXR (Chrome for Android)</td>
+    </tr>
+  </tbody>
+</table>
 
-Cloud Anchors:
-- Shared across devices
-- Multi-user experiences
-- Azure Spatial Anchors, ARCore Cloud Anchors
+<h3 id="spatial-anchors-and-shared-space">Spatial anchors and shared space</h3>
 
-World Anchors:
-- GPS + visual positioning
-- Outdoor AR experiences
-- City-scale applications
+<p>An <strong>anchor</strong> pins a pose to features of the real environment so the runtime can keep correcting it as its map improves. Rules: anchor content near where it was placed (error grows with distance from the anchor), use one anchor per cluster of content rather than one per object, and never assume anchor poses are fixed between frames.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Scope</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Session / local</td>
+      <td>ARKit <code class="language-plaintext highlighter-rouge">ARAnchor</code>, ARCore anchors, OpenXR spatial anchors</td>
+    </tr>
+    <tr>
+      <td>Persistent on device</td>
+      <td>Saved ARKit world maps, visionOS <code class="language-plaintext highlighter-rouge">WorldAnchor</code>, Meta persisted spatial anchors, OpenXR anchor persistence</td>
+    </tr>
+    <tr>
+      <td>Shared across users/devices</td>
+      <td>ARCore Cloud Anchors, Meta shared spatial anchors / colocation discovery, ARKit collaborative sessions</td>
+    </tr>
+    <tr>
+      <td>Geospatial</td>
+      <td>ARCore Geospatial anchors, ARKit location anchors</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Microsoft <strong>Azure Spatial Anchors was retired in November 2024</strong>; apps that depended on it must migrate to platform-native or vendor anchor services.</p>
+
+<h3 id="passthrough-mixed-reality">Passthrough mixed reality</h3>
+
+<p>Video-passthrough headsets (Quest 3, Vision Pro, Galaxy XR, Steam Frame) reconstruct the real world from cameras and reproject it to the eyes, which allows full occlusion and relighting but adds latency and distortion that optical see-through (HoloLens, Magic Leap) avoids. MR apps on these devices combine passthrough with scene data (room mesh, planes) so virtual objects sit on real tables and are hidden by real furniture. Raw camera access for computer vision is now available with user permission on some platforms (Meta’s Passthrough Camera API on Quest 3/3S, Android XR camera access, visionOS enterprise entitlements); otherwise apps receive only derived data.</p>
+
+<h3 id="webxr">WebXR</h3>
+
+<p>The <strong>WebXR Device API</strong> exposes <code class="language-plaintext highlighter-rouge">immersive-vr</code> and <code class="language-plaintext highlighter-rouge">immersive-ar</code> sessions to web pages. It is supported in Chromium browsers (Chrome/Android, Edge, Quest Browser, Android XR) via OpenXR, and in Safari on visionOS for <code class="language-plaintext highlighter-rouge">immersive-vr</code>; iOS Safari does not support WebXR. Feature modules add hand input, hit testing, anchors, plane detection, depth sensing, layers and DOM overlays; availability varies per browser. Sessions must be started from a user gesture (a click on an “Enter VR” button).</p>
+
+<p>A minimal session with WebGL:</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">const</span> <span class="nx">canvas</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nf">createElement</span><span class="p">(</span><span class="dl">'</span><span class="s1">canvas</span><span class="dl">'</span><span class="p">);</span>
+<span class="kd">const</span> <span class="nx">gl</span> <span class="o">=</span> <span class="nx">canvas</span><span class="p">.</span><span class="nf">getContext</span><span class="p">(</span><span class="dl">'</span><span class="s1">webgl2</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">xrCompatible</span><span class="p">:</span> <span class="kc">true</span> <span class="p">});</span>
+<span class="kd">let</span> <span class="nx">refSpace</span><span class="p">;</span>
+
+<span class="k">async</span> <span class="kd">function</span> <span class="nf">enterXR</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nb">navigator</span><span class="p">.</span><span class="nx">xr</span> <span class="o">||</span> <span class="o">!</span><span class="p">(</span><span class="k">await</span> <span class="nb">navigator</span><span class="p">.</span><span class="nx">xr</span><span class="p">.</span><span class="nf">isSessionSupported</span><span class="p">(</span><span class="dl">'</span><span class="s1">immersive-vr</span><span class="dl">'</span><span class="p">)))</span> <span class="p">{</span>
+    <span class="k">return</span><span class="p">;</span> <span class="c1">// show a non-XR fallback</span>
+  <span class="p">}</span>
+  <span class="c1">// Must be called from a user-activation event handler.</span>
+  <span class="kd">const</span> <span class="nx">session</span> <span class="o">=</span> <span class="k">await</span> <span class="nb">navigator</span><span class="p">.</span><span class="nx">xr</span><span class="p">.</span><span class="nf">requestSession</span><span class="p">(</span><span class="dl">'</span><span class="s1">immersive-vr</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span>
+    <span class="na">requiredFeatures</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">local-floor</span><span class="dl">'</span><span class="p">],</span>
+    <span class="na">optionalFeatures</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">hand-tracking</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">bounded-floor</span><span class="dl">'</span><span class="p">],</span>
+  <span class="p">});</span>
+  <span class="nx">session</span><span class="p">.</span><span class="nf">updateRenderState</span><span class="p">({</span> <span class="na">baseLayer</span><span class="p">:</span> <span class="k">new</span> <span class="nc">XRWebGLLayer</span><span class="p">(</span><span class="nx">session</span><span class="p">,</span> <span class="nx">gl</span><span class="p">)</span> <span class="p">});</span>
+  <span class="nx">refSpace</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">session</span><span class="p">.</span><span class="nf">requestReferenceSpace</span><span class="p">(</span><span class="dl">'</span><span class="s1">local-floor</span><span class="dl">'</span><span class="p">);</span>
+  <span class="nx">session</span><span class="p">.</span><span class="nf">addEventListener</span><span class="p">(</span><span class="dl">'</span><span class="s1">end</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span> <span class="nx">refSpace</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span> <span class="p">});</span>
+  <span class="nx">session</span><span class="p">.</span><span class="nf">requestAnimationFrame</span><span class="p">(</span><span class="nx">onXRFrame</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nf">onXRFrame</span><span class="p">(</span><span class="nx">time</span><span class="p">,</span> <span class="nx">frame</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">session</span> <span class="o">=</span> <span class="nx">frame</span><span class="p">.</span><span class="nx">session</span><span class="p">;</span>
+  <span class="nx">session</span><span class="p">.</span><span class="nf">requestAnimationFrame</span><span class="p">(</span><span class="nx">onXRFrame</span><span class="p">);</span>
+
+  <span class="kd">const</span> <span class="nx">pose</span> <span class="o">=</span> <span class="nx">frame</span><span class="p">.</span><span class="nf">getViewerPose</span><span class="p">(</span><span class="nx">refSpace</span><span class="p">);</span>
+  <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">pose</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span> <span class="c1">// tracking lost this frame</span>
+
+  <span class="kd">const</span> <span class="nx">layer</span> <span class="o">=</span> <span class="nx">session</span><span class="p">.</span><span class="nx">renderState</span><span class="p">.</span><span class="nx">baseLayer</span><span class="p">;</span>
+  <span class="nx">gl</span><span class="p">.</span><span class="nf">bindFramebuffer</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">FRAMEBUFFER</span><span class="p">,</span> <span class="nx">layer</span><span class="p">.</span><span class="nx">framebuffer</span><span class="p">);</span>
+  <span class="nx">gl</span><span class="p">.</span><span class="nf">clear</span><span class="p">(</span><span class="nx">gl</span><span class="p">.</span><span class="nx">COLOR_BUFFER_BIT</span> <span class="o">|</span> <span class="nx">gl</span><span class="p">.</span><span class="nx">DEPTH_BUFFER_BIT</span><span class="p">);</span>
+
+  <span class="k">for </span><span class="p">(</span><span class="kd">const</span> <span class="nx">view</span> <span class="k">of</span> <span class="nx">pose</span><span class="p">.</span><span class="nx">views</span><span class="p">)</span> <span class="p">{</span>           <span class="c1">// one view per eye</span>
+    <span class="kd">const</span> <span class="nx">vp</span> <span class="o">=</span> <span class="nx">layer</span><span class="p">.</span><span class="nf">getViewport</span><span class="p">(</span><span class="nx">view</span><span class="p">);</span>
+    <span class="nx">gl</span><span class="p">.</span><span class="nf">viewport</span><span class="p">(</span><span class="nx">vp</span><span class="p">.</span><span class="nx">x</span><span class="p">,</span> <span class="nx">vp</span><span class="p">.</span><span class="nx">y</span><span class="p">,</span> <span class="nx">vp</span><span class="p">.</span><span class="nx">width</span><span class="p">,</span> <span class="nx">vp</span><span class="p">.</span><span class="nx">height</span><span class="p">);</span>
+    <span class="nf">drawScene</span><span class="p">(</span><span class="nx">view</span><span class="p">.</span><span class="nx">projectionMatrix</span><span class="p">,</span> <span class="nx">view</span><span class="p">.</span><span class="nx">transform</span><span class="p">.</span><span class="nx">inverse</span><span class="p">.</span><span class="nx">matrix</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nb">document</span><span class="p">.</span><span class="nf">querySelector</span><span class="p">(</span><span class="dl">'</span><span class="s1">#enter-vr</span><span class="dl">'</span><span class="p">).</span><span class="nf">addEventListener</span><span class="p">(</span><span class="dl">'</span><span class="s1">click</span><span class="dl">'</span><span class="p">,</span> <span class="nx">enterXR</span><span class="p">);</span>
 </code></pre></div></div>
 
-<h3 id="hand-and-body-tracking">Hand and Body Tracking</h3>
-
-<p>Natural interaction:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Hand Tracking Capabilities:
-- 26 joints per hand
-- Finger gestures
-- Hand poses
-- Pinch detection
-
-Body Tracking:
-- Full body (Quest 3 experimental)
-- Upper body (common)
-- Inverse kinematics for legs
-- Social presence in VR
-</code></pre></div></div>
+<p>In practice most WebXR work uses three.js (<code class="language-plaintext highlighter-rouge">renderer.xr</code>), Babylon.js (<code class="language-plaintext highlighter-rouge">WebXRDefaultExperience</code>) or A-Frame, which wrap this loop, controller input and hit testing.</p>
 
 <h2 id="development-workflow">Development Workflow</h2>
 
-<h3 id="testing-and-iteration">Testing and Iteration</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Practice</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Test on device early and often</td>
+      <td>Simulators (Meta XR Simulator, visionOS Simulator, Android XR emulator, Immersive Web Emulator) are for logic and layout; performance, comfort and tracking behaviour can only be judged in a headset</td>
+    </tr>
+    <tr>
+      <td>Profile on the lowest-spec target</td>
+      <td>A Quest 3S or phone budget, not a desktop GPU</td>
+    </tr>
+    <tr>
+      <td>Instrument frame timing</td>
+      <td>Log app CPU/GPU time and dropped/synthesised frames per build; regressions are comfort bugs</td>
+    </tr>
+    <tr>
+      <td>Playtest with new users</td>
+      <td>Experienced developers are desensitised to motion sickness and gestures; track comfort ratings per session</td>
+    </tr>
+    <tr>
+      <td>Automate what you can</td>
+      <td>Record-and-replay of head and hand input enables repeatable performance captures</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>XR-specific challenges:</p>
-
-<p><strong>Device Testing:</strong></p>
-<ul>
-  <li>Regular on-device testing essential</li>
-  <li>Simulator has limitations</li>
-  <li>Performance differs significantly</li>
-  <li>Comfort only testable in VR</li>
-</ul>
-
-<p><strong>Play Testing:</strong></p>
-<ul>
-  <li>Recruit diverse testers</li>
-  <li>Track comfort metrics</li>
-  <li>Observe natural behaviors</li>
-  <li>Iterate on feedback</li>
-</ul>
-
-<h3 id="tools-and-debugging">Tools and Debugging</h3>
-
-<p><strong>In-VR Tools:</strong></p>
-<ul>
-  <li>Performance HUD overlays</li>
-  <li>Debug visualization</li>
-  <li>Console access in VR</li>
-  <li>Screenshot/recording</li>
-</ul>
-
-<p><strong>External Tools:</strong></p>
-<ul>
-  <li>OVR Metrics Tool (Quest)</li>
-  <li>RenderDoc (GPU debugging)</li>
-  <li>PIX (Windows)</li>
-  <li>Unity Profiler</li>
-</ul>
-
-<h2 id="future-directions">Future Directions</h2>
-
-<h3 id="emerging-technologies">Emerging Technologies</h3>
+<h2 id="emerging-directions">Emerging Directions</h2>
 
 <ul>
-  <li><strong>Neural interfaces</strong>: Direct brain input</li>
-  <li><strong>Haptic suits</strong>: Full-body feedback</li>
-  <li><strong>Varifocal displays</strong>: Natural focus depth</li>
-  <li><strong>Wider FOV</strong>: 200°+ field of view</li>
-  <li><strong>Higher resolution</strong>: 8K+ per eye</li>
-  <li><strong>Lighter form factors</strong>: Glasses-like devices</li>
-</ul>
-
-<h3 id="market-trends">Market Trends</h3>
-
-<ul>
-  <li>Enterprise adoption accelerating</li>
-  <li>Consumer VR gaming maturing</li>
-  <li>AR glasses approaching viability</li>
-  <li>Spatial computing as new paradigm</li>
-  <li>AI integration for scene understanding</li>
-</ul>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Comfort is the prime directive.</strong> Hold target frame rate and minimize latency. Teleport locomotion, snap turning, and comfort vignettes prevent motion sickness.</li>
-  <li><strong>Optimize for stereo.</strong> Single-pass stereo, aggressive LOD, foveated rendering, and forward rendering reclaim the cost of drawing two eyes 90+ times a second.</li>
-  <li><strong>AR needs world understanding.</strong> Plane detection, occlusion, and light estimation (ARKit/ARCore) make virtual objects feel physically present.</li>
-  <li><strong>Choose the right stack.</strong> Unity XR and Unreal cover most platforms; WebXR enables zero-install reach; native SDKs squeeze out maximum performance.</li>
-  <li><strong>Design UI in 3D space.</strong> Place UI 1–2 m away, size text by visual angle, and avoid focus conflicts at arm’s length.</li>
-  <li><strong>Test on real hardware.</strong> Emulators cannot teach comfort. On-device testing with diverse users is non-negotiable.</li>
+  <li><strong>Display glasses and AI assistants.</strong> Lightweight glasses with monocular or binocular HUDs (Meta Ray-Ban Display, Android XR glasses partners) shift design toward glanceable, context-aware UI driven by multimodal AI rather than full 3D scenes.</li>
+  <li><strong>Neural and EMG input.</strong> Wrist-worn surface EMG (Meta Neural Band) reads motor-neuron signals for subtle finger gestures without cameras.</li>
+  <li><strong>Eye tracking as a default.</strong> Eye-tracked foveated rendering and streaming, gaze-based targeting and social eye contact are standard on higher-end headsets and spreading downward.</li>
+  <li><strong>Open cross-vendor spatial APIs.</strong> Ratified OpenXR spatial-entity extensions (planes, anchors, markers, persistence) are replacing vendor-specific scene APIs.</li>
+  <li><strong>Display research.</strong> Varifocal and holographic optics to resolve VAC, and wider fields of view in thinner pancake and waveguide optics.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="../optimization/">Performance Optimization</a> - Frame-budget and profiling techniques; XR’s hard 11.1 ms-per-frame target makes the <a href="../optimization/gpu-optimization.html">GPU optimization</a> and <a href="../optimization/cpu-optimization.html">CPU optimization</a> pages essential reading for hitting 90+ Hz</li>
-  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - The rendering pipeline behind stereo, single-pass, and foveated rendering</li>
-  <li><a href="../graphics/shaders.html">Shaders</a> - Variable-rate shading and the GPU programming that drives XR rendering cost</li>
-  <li><a href="../gamedev/">Game Development</a> - Game development fundamentals for interactive XR experiences</li>
-  <li><a href="../technology/unreal.html">Unreal Engine</a> - UE5 VR development with the forward renderer and stereo instancing</li>
+  <li><a href="../optimization/">Performance Optimization</a> — profiling and frame-budget work; see <a href="../optimization/gpu-optimization.html">GPU optimization</a> and <a href="../optimization/cpu-optimization.html">CPU optimization</a> for hitting 90–120 Hz</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> — the rasterization pipeline behind stereo, multiview and foveated rendering</li>
+  <li><a href="../graphics/shaders.html">Shaders</a> — variable-rate shading and GPU programming</li>
+  <li><a href="../gamedev/">Game Development</a> — engine fundamentals for interactive XR; <a href="../gamedev/ui-design.html">UI design</a> and <a href="../gamedev/audio-design.html">audio design</a> for spatial UI and sound</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a> — UE5 VR development with the forward renderer and instanced stereo</li>
 </ul>
 
       </section>

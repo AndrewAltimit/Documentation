@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Terraform and OpenTofu: declarative infrastructure as code, the plan/apply model, state, modules, team patterns, and recent releases.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Terraform">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Terraform and OpenTofu: declarative infrastructure as code, the plan/apply model, state, modules, team patterns, and recent releases.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/terraform/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Terraform">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Terraform and OpenTofu: declarative infrastructure as code, the plan/apply model, state, modules, team patterns, and recent releases.">
 
 <title>Terraform | Andrews Notebook</title>
 
@@ -3136,88 +3136,107 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="margin-top: 0.5rem; opacity: 0.9;">Infrastructure as Code: theory and practice</p>
 </div>
 
-<p>Terraform manages infrastructure as code: instead of clicking through cloud consoles or writing fragile scripts, you describe servers, networks, and services in declarative configuration files, and Terraform figures out how to create, update, and destroy them to match.</p>
+<p><strong>Terraform</strong> is a declarative infrastructure-as-code (IaC) tool created by HashiCorp (an IBM company since February 2025). You describe the infrastructure you want (networks, virtual machines, DNS records, Kubernetes objects, SaaS settings) in the HashiCorp Configuration Language (HCL). Terraform then works out which API calls will move the real world to that description, shows you the plan, and carries it out. <strong>OpenTofu</strong> is a community fork, started in 2023, that uses the same language and workflow. Nearly everything in this section applies to both.</p>
 
-<h2 id="why-learn-terraform">Why Learn Terraform?</h2>
+<p>As of September 2026 the current releases are Terraform <strong>1.16</strong> (1.17 in beta) and OpenTofu <strong>1.12</strong> (1.13 in release candidate).</p>
 
-<p>Consider the following scenario: Your team needs to deploy the same application across development, staging, and production environments. Without Infrastructure as Code, you might spend hours clicking through web consoles, hoping you remember every setting. With Terraform, you write the configuration once and deploy it consistently everywhere.</p>
+<h2 id="how-terraform-works">How Terraform works</h2>
 
-<p><strong>Terraform helps you:</strong></p>
+<p>Terraform itself is a fairly small program. It reads configuration, builds a dependency graph, and compares the result with a <strong>state</strong> file that records what it manages. It then asks <strong>provider</strong> plugins to make any changes. Providers are separate binaries that Terraform talks to over gRPC. Each one wraps one API (AWS, Azure, Google Cloud, Kubernetes, GitHub, Cloudflare, and several thousand more on the public registry).</p>
 
-<ul>
-  <li><strong>Eliminate manual errors</strong> - No more forgotten security groups or misconfigured databases</li>
-  <li><strong>Enable team collaboration</strong> - Infrastructure changes go through code review just like application code</li>
-  <li><strong>Recover quickly from disasters</strong> - Rebuild entire environments from version-controlled configurations</li>
-  <li><strong>Track changes over time</strong> - See exactly what changed, when, and why through git history</li>
-</ul>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Author["You"]
+        Cfg[".tf configuration&lt;br/&gt;(desired state)"]
+    end
+    subgraph Core["Terraform Core"]
+        Graph["Dependency graph"]
+        Diff["Plan: diff desired&lt;br/&gt;vs. recorded state"]
+    end
+    State[("State&lt;br/&gt;(local or remote backend)")]
+    subgraph Plugins["Provider plugins (gRPC)"]
+        AWS["aws"]
+        K8s["kubernetes"]
+        Other["..."]
+    end
+    APIs["Cloud / service APIs"]
 
-<hr />
+    Cfg --&gt; Graph --&gt; Diff
+    State &lt;--&gt; Diff
+    Diff --&gt; Plugins
+    Plugins &lt;--&gt; APIs
+</code></pre>
 
-<h2 id="quick-navigation">Quick Navigation</h2>
+<p>This split explains a lot of how Terraform behaves. The core knows nothing about any cloud. It knows about graphs, types, and state. Everything specific to a service lives in a provider, which is released and versioned separately from Terraform.</p>
 
-<h3 id="core-concepts"><a href="core-concepts.html">Core Concepts</a></h3>
-<p><strong>Best for:</strong> Getting started with Terraform, understanding the basics, writing your first configuration.</p>
+<h2 id="pages-in-this-section">Pages in this section</h2>
 
-<p>Learn the fundamentals of Terraform from installation to your first deployment. This section takes you from zero knowledge to deploying real infrastructure in about 30 minutes.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Page</th>
+      <th>Covers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="core-concepts.html">Core Concepts</a></td>
+      <td>Installation, HCL blocks, the <code class="language-plaintext highlighter-rouge">init</code> / <code class="language-plaintext highlighter-rouge">plan</code> / <code class="language-plaintext highlighter-rouge">apply</code> workflow, how plans are computed, the dependency graph, providers and the lock file, meta-arguments (<code class="language-plaintext highlighter-rouge">count</code>, <code class="language-plaintext highlighter-rouge">for_each</code>, <code class="language-plaintext highlighter-rouge">lifecycle</code>), variables, and expressions</td>
+    </tr>
+    <tr>
+      <td><a href="state-modules.html">State &amp; Modules</a></td>
+      <td>What state records, remote backends and locking, state commands, workspaces, outputs, and writing and consuming modules</td>
+    </tr>
+    <tr>
+      <td><a href="patterns.html">Enterprise Patterns</a></td>
+      <td>Stack layout and blast radius, cross-stack data, multi-account and multi-region setups, CI/CD pipelines, policy as code, security scanning, testing, and reference architectures</td>
+    </tr>
+    <tr>
+      <td><a href="advanced.html">Advanced Topics</a></td>
+      <td>Refactoring blocks (<code class="language-plaintext highlighter-rouge">moved</code>, <code class="language-plaintext highlighter-rouge">import</code>, <code class="language-plaintext highlighter-rouge">removed</code>), dynamic blocks, checks, ephemeral and write-only values, actions and <code class="language-plaintext highlighter-rouge">terraform query</code>, troubleshooting, and the Terraform/OpenTofu release history</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li>Prerequisites and installation</li>
-  <li>Terraform Crash Course (Zero to Hero in 30 minutes)</li>
-  <li>HCL language basics and variables</li>
-  <li>Providers and resource lifecycles</li>
-</ul>
+<p>Suggested reading order: Core Concepts, then State &amp; Modules. The other two pages can be read in any order after that.</p>
 
-<h3 id="state--modules"><a href="state-modules.html">State &amp; Modules</a></h3>
-<p><strong>Best for:</strong> Working in teams, managing multiple environments, creating reusable infrastructure components.</p>
+<h2 id="why-infrastructure-as-code">Why infrastructure as code</h2>
 
-<p>State is what makes Terraform powerful - it tracks what exists in the real world and calculates the minimal changes needed. Modules let you package and reuse infrastructure patterns across projects.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Without IaC</th>
+      <th>With Terraform</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Settings live in consoles and people’s memory</td>
+      <td>Settings live in version-controlled files</td>
+    </tr>
+    <tr>
+      <td>Changes are made first and explained later, if at all</td>
+      <td>Changes are proposed as a diff (<code class="language-plaintext highlighter-rouge">plan</code>) and reviewed before they run</td>
+    </tr>
+    <tr>
+      <td>Environments drift apart over time</td>
+      <td>Dev, staging, and production come from the same modules with different inputs</td>
+    </tr>
+    <tr>
+      <td>Disaster recovery means rebuilding by hand</td>
+      <td>Environments can be recreated from code (data still needs its own backups)</td>
+    </tr>
+    <tr>
+      <td>Drift is discovered during an outage</td>
+      <td>A scheduled <code class="language-plaintext highlighter-rouge">plan</code> finds drift</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li>Understanding Terraform state and why it matters</li>
-  <li>Local vs. remote state backends</li>
-  <li>Workspaces for environment management</li>
-  <li>Creating and consuming modules</li>
-</ul>
+<p>Terraform is not a configuration-management tool. It provisions and configures resources through their APIs, but it does not manage packages or files inside a running machine. That job belongs to image builders (Packer), cloud-init, Ansible, or container images.</p>
 
-<h3 id="enterprise-patterns"><a href="patterns.html">Enterprise Patterns</a></h3>
-<p><strong>Best for:</strong> Production deployments, large teams, compliance requirements, scaling infrastructure.</p>
+<h2 id="terraform-vs-opentofu">Terraform vs. OpenTofu</h2>
 
-<p>Real-world case studies and battle-tested patterns from organizations running Terraform at scale. Learn from the challenges others have solved.</p>
-
-<ul>
-  <li>Multi-region disaster recovery patterns</li>
-  <li>Security and compliance automation</li>
-  <li>Performance optimization techniques</li>
-  <li>Testing infrastructure code</li>
-</ul>
-
-<h3 id="advanced-topics"><a href="advanced.html">Advanced Topics</a></h3>
-<p><strong>Best for:</strong> Power users, platform teams, complex automation scenarios.</p>
-
-<p>Push Terraform’s boundaries with meta-programming, dynamic configuration generation, and the latest features.</p>
-
-<ul>
-  <li>Meta-programming and code generation</li>
-  <li>Policy as Code integration</li>
-  <li>Troubleshooting guide</li>
-  <li>Future directions in IaC</li>
-</ul>
-
-<hr />
-
-<h2 id="key-capabilities">Key Capabilities</h2>
-
-<ul>
-  <li><strong>Smart dependencies</strong> — automatically determines the right order to create resources from their references.</li>
-  <li><strong>Reliable updates</strong> — plans and applies the minimal change set to move from current to desired state.</li>
-  <li><strong>Error prevention</strong> — validates and plans configuration, catching mistakes before they reach production.</li>
-</ul>
-
-<hr />
-
-<h2 id="choosing-your-tool-terraform-vs-opentofu">Choosing Your Tool: Terraform vs OpenTofu</h2>
-
-<p>In 2023, HashiCorp changed Terraform’s license from open-source to BSL (Business Source License). The community responded by creating OpenTofu, a fully open-source fork. Here is how they compare:</p>
+<p>In August 2023 HashiCorp moved Terraform from the Mozilla Public License (MPL 2.0) to the Business Source License (BUSL 1.1), starting with version 1.6. A group of vendors and community members forked the last MPL release, 1.5.x, as OpenTofu. OpenTofu is a Linux Foundation project and was accepted into the CNCF Sandbox in April 2025.</p>
 
 <table>
   <thead>
@@ -3229,53 +3248,90 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>License</strong></td>
-      <td>BSL (Business Source License)</td>
-      <td>MPL 2.0 (Open Source)</td>
+      <td>License</td>
+      <td>BUSL 1.1 (source-available; restricts competing hosted offerings)</td>
+      <td>MPL 2.0 (open source)</td>
     </tr>
     <tr>
-      <td><strong>Maintained by</strong></td>
-      <td>HashiCorp</td>
-      <td>Linux Foundation</td>
+      <td>Steward</td>
+      <td>HashiCorp / IBM</td>
+      <td>Linux Foundation (CNCF Sandbox)</td>
     </tr>
     <tr>
-      <td><strong>Command</strong></td>
+      <td>CLI</td>
       <td><code class="language-plaintext highlighter-rouge">terraform</code></td>
       <td><code class="language-plaintext highlighter-rouge">tofu</code></td>
     </tr>
     <tr>
-      <td><strong>Compatibility</strong></td>
-      <td>Original tool</td>
-      <td>Drop-in replacement</td>
+      <td>Registry</td>
+      <td>registry.terraform.io</td>
+      <td>registry.opentofu.org (mirrors most public providers and modules); also OCI registries</td>
     </tr>
     <tr>
-      <td><strong>Enterprise features</strong></td>
-      <td>Terraform Cloud/Enterprise</td>
-      <td>Community-driven alternatives</td>
+      <td>Managed service</td>
+      <td>HCP Terraform, Terraform Enterprise</td>
+      <td>Third-party platforms (Spacelift, env0, Scalr, Harness, and others)</td>
+    </tr>
+    <tr>
+      <td>Features only in this tool</td>
+      <td>Stacks (HCP Terraform), actions, <code class="language-plaintext highlighter-rouge">terraform query</code>, <code class="language-plaintext highlighter-rouge">store</code> block</td>
+      <td>Client-side state encryption, <code class="language-plaintext highlighter-rouge">enabled</code> meta-argument, provider <code class="language-plaintext highlighter-rouge">for_each</code>, <code class="language-plaintext highlighter-rouge">-exclude</code>, <code class="language-plaintext highlighter-rouge">.tofu</code> override files</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>When to use Terraform:</strong> You need official HashiCorp support, are already invested in Terraform Cloud, or prefer the stability of the original tool.</p>
+<p>Both tools read the same <code class="language-plaintext highlighter-rouge">.tf</code> files and the same provider protocol, so a module that uses only shared features runs on either one. The two languages have been drifting apart since about 2024. Each project now ships blocks and flags the other does not understand. Pick one tool for each code base and use features exclusive to that tool on purpose. <a href="advanced.html">Advanced Topics</a> lists the per-release differences.</p>
 
-<p><strong>When to use OpenTofu:</strong> You prefer open-source licensing, want community governance, or your organization has licensing concerns with BSL.</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Terraform: official packages, or a version manager such as tfenv / mise</span>
+terraform version
 
-<p>Both tools use identical HCL configuration syntax, so skills transfer directly between them.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install OpenTofu</span>
-curl <span class="nt">-fsSL</span> https://get.opentofu.org/install-opentofu.sh | bash
+<span class="c"># OpenTofu: official installer script (also packaged for Homebrew, apt, etc.)</span>
+curl <span class="nt">-fsSL</span> https://get.opentofu.org/install-opentofu.sh | sh <span class="nt">-s</span> <span class="nt">--</span> <span class="nt">--install-method</span> standalone
 tofu version
 </code></pre></div></div>
 
-<hr />
+<h2 id="alternatives">Alternatives</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Model</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pulumi</td>
+      <td>General-purpose languages (TypeScript, Python, Go, C#, Java)</td>
+      <td>Similar engine (desired state + state file); can use Terraform providers through a bridge</td>
+    </tr>
+    <tr>
+      <td>AWS CloudFormation / AWS CDK</td>
+      <td>AWS-native templates; CDK compiles code to CloudFormation</td>
+      <td>AWS stores the state for you; covers only AWS. See <a href="../aws/iac.html">AWS Infrastructure as Code</a></td>
+    </tr>
+    <tr>
+      <td>Crossplane</td>
+      <td>Kubernetes controllers reconcile cloud resources continuously</td>
+      <td>Suits teams that already run everything through the Kubernetes API</td>
+    </tr>
+    <tr>
+      <td>CDK for Terraform (CDKTF)</td>
+      <td>Code-generated Terraform JSON</td>
+      <td>Archived by HashiCorp on 10 December 2025; not recommended for new work</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="../aws/">AWS Cloud Services</a> - Deploy infrastructure on AWS</li>
-  <li><a href="../kubernetes/">Kubernetes</a> - Container orchestration</li>
-  <li><a href="../docker/">Docker</a> - Container fundamentals</li>
-  <li><a href="../ci-cd/">CI/CD</a> - Continuous integration and deployment</li>
+  <li><a href="../aws/">AWS Cloud Services</a>: the most common Terraform target</li>
+  <li><a href="../aws/iac.html">AWS Infrastructure as Code</a>: CloudFormation and CDK compared with Terraform</li>
+  <li><a href="../kubernetes/">Kubernetes</a>: container orchestration, often provisioned with Terraform</li>
+  <li><a href="../docker/">Docker</a>: container fundamentals</li>
+  <li><a href="../ci-cd/">CI/CD</a>: running <code class="language-plaintext highlighter-rouge">plan</code> and <code class="language-plaintext highlighter-rouge">apply</code> from pipelines</li>
 </ul>
 
       </section>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Git's content-addressable object store: blobs, trees, commits and tags, how objects are hashed and stored, the index, the three trees, and how references are...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Git Internals: Object Model & Storage">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Git's content-addressable object store: blobs, trees, commits and tags, how objects are hashed and stored, the index, the three trees, and how references are...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git/object-model.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Git Internals: Object Model & Storage">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Git's content-addressable object store: blobs, trees, commits and tags, how objects are hashed and stored, the index, the three trees, and how references are...">
 
 <title>Git Internals: Object Model & Storage | Andrews Notebook</title>
 
@@ -3135,13 +3135,115 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Git Internals</a> ›</p>
 
-<p>Content-addressable storage, the four object types, the three trees, and how it all lives on disk.</p>
+<p>Git is a content-addressable object store with a version-control interface built on top. This page describes that store from the bottom up: how an object is named and encoded, the four object types and the graph they form, where objects and references live on disk, the index (staging area), and how everyday commands move data between HEAD, the index and the working tree. Packfiles and the network protocol are covered on the next page, <a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a>.</p>
 
-<h2 id="core-architecture">Core Architecture</h2>
+<h2 id="content-addressable-storage">Content-Addressable Storage</h2>
 
-<h3 id="object-model">Object Model</h3>
+<p>The object database is a key-value store. The key is the hash of an object’s contents, the <em>object ID</em> (OID); the value is the object itself. Nothing in the store can be edited in place: changing a single byte produces a different hash and therefore a different object.</p>
 
-<p>At its core, Git is a content-addressable filesystem: a simple key-value store where the <em>key</em> is the SHA hash of the content and the <em>value</em> is the content itself. Everything else — branches, tags, history — is built from just four object types layered on top of that store.</p>
+<p>Every object is hashed with a short header that records its type and size:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;type&gt; SP &lt;size in bytes&gt; NUL &lt;content&gt;
+</code></pre></div></div>
+
+<p>The OID is <code class="language-plaintext highlighter-rouge">SHA-1(header + content)</code> in a default repository, or <code class="language-plaintext highlighter-rouge">SHA-256(header + content)</code> in a SHA-256 repository. A <em>loose</em> object is that same byte string compressed with zlib and written to <code class="language-plaintext highlighter-rouge">.git/objects/&lt;first 2 hex digits&gt;/&lt;remaining digits&gt;</code>.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    C["file contents&lt;br/&gt;6 bytes: hello + LF"] --&gt; H["prepend header&lt;br/&gt;blob 6 + NUL"]
+    H --&gt; S["hash&lt;br/&gt;SHA-1 or SHA-256"]
+    H --&gt; Z["zlib deflate"]
+    S --&gt; OID["OID ce0136..."]
+    Z --&gt; F[".git/objects/ce/0136..."]
+    OID -. names .-&gt; F
+</code></pre>
+
+<p>Three properties follow directly from this design:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Why it holds</th>
+      <th>Consequence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Deduplication</strong></td>
+      <td>Identical content always hashes to the same OID</td>
+      <td>A file that appears in 1,000 commits, or is copied or renamed, is stored once</td>
+    </tr>
+    <tr>
+      <td><strong>Integrity</strong></td>
+      <td>An OID is a checksum of the object it names</td>
+      <td>Corruption is detectable; <code class="language-plaintext highlighter-rouge">git fsck</code> re-hashes objects to verify them</td>
+    </tr>
+    <tr>
+      <td><strong>Tamper-evidence</strong></td>
+      <td>Commits and trees embed the OIDs of what they point to</td>
+      <td>A commit ID commits to its entire tree and history (a Merkle DAG)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The OID of a blob depends only on its bytes, never on its filename or location. You can reproduce Git’s hashing with a few lines of Python:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">hashlib</span><span class="p">,</span> <span class="n">zlib</span>
+
+<span class="n">content</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">hello</span><span class="se">\n</span><span class="sh">"</span>
+<span class="n">header</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">blob </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span><span class="si">}</span><span class="se">\0</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span>
+
+<span class="n">oid</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>   <span class="c1"># ce013625030ba8dba906f756967f9e9ca394464a
+</span><span class="n">loose</span> <span class="o">=</span> <span class="n">zlib</span><span class="p">.</span><span class="nf">compress</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">)</span>             <span class="c1"># bytes stored under .git/objects/ce/
+</span></code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span><span class="nb">echo</span> <span class="s2">"hello"</span> | git hash-object <span class="nt">--stdin</span>
+ce013625030ba8dba906f756967f9e9ca394464a
+</code></pre></div></div>
+
+<blockquote>
+  <p><strong>Code reference:</strong> <a href="../../../code-examples/technology/git/content_addressable_storage.py"><code class="language-plaintext highlighter-rouge">content_addressable_storage.py</code></a> implements the object model, Merkle trees and DAG operations in Python.</p>
+</blockquote>
+
+<h3 id="hash-functions-sha-1-and-sha-256">Hash Functions: SHA-1 and SHA-256</h3>
+
+<p>Git was designed around SHA-1, which is no longer collision-resistant (the 2017 SHAttered attack produced two colliding PDFs, and the 2020 “Shambles” chosen-prefix attack made practical forgeries cheaper). Git’s response has two parts:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>SHA-1 repositories</th>
+      <th>SHA-256 repositories</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Status</strong></td>
+      <td>Default for new repositories in Git 2.x</td>
+      <td>Supported; opt-in with <code class="language-plaintext highlighter-rouge">git init --object-format=sha256</code> or <code class="language-plaintext highlighter-rouge">init.defaultObjectFormat=sha256</code></td>
+    </tr>
+    <tr>
+      <td><strong>OID length</strong></td>
+      <td>20 bytes (40 hex digits)</td>
+      <td>32 bytes (64 hex digits)</td>
+    </tr>
+    <tr>
+      <td><strong>Collision defence</strong></td>
+      <td>Git uses a hardened SHA-1 implementation (SHA-1DC) that detects the known collision-attack patterns and refuses such objects</td>
+      <td>Collision resistance of SHA-256 itself</td>
+    </tr>
+    <tr>
+      <td><strong>Interoperability</strong></td>
+      <td>Works with every forge and tool</td>
+      <td>No interoperability with SHA-1 repositories yet: you cannot push a SHA-256 repository to a SHA-1 remote, and forge and library support is still limited</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The Git project plans to make SHA-256 the default for new repositories in Git 3.0, while keeping SHA-1 repositories fully supported. Work on a translation layer that maps between SHA-1 and SHA-256 names (so one repository can talk to both kinds of remotes) started in Git 2.45 and is still in progress as of Git 2.55. The Git documentation no longer expects incompatible changes to the SHA-256 format, so repositories created today should remain usable. See the <a href="./">Git Internals hub</a> for the full list of planned Git 3.0 changes.</p>
+
+<h2 id="the-four-object-types">The Four Object Types</h2>
 
 <table>
   <thead>
@@ -3149,7 +3251,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Object</th>
       <th>Represents</th>
       <th>Points to</th>
-      <th>Key properties</th>
+      <th>Content</th>
     </tr>
   </thead>
   <tbody>
@@ -3157,151 +3259,390 @@ document.addEventListener('DOMContentLoaded', function () {
       <td><strong>Blob</strong></td>
       <td>File contents</td>
       <td>Nothing</td>
-      <td>Raw bytes only, no filename or metadata; identical files share one blob</td>
+      <td>Raw bytes only; no name, mode or timestamp</td>
     </tr>
     <tr>
       <td><strong>Tree</strong></td>
-      <td>A directory</td>
-      <td>Blobs and other trees</td>
-      <td>Stores names and file modes — gives blobs their structure</td>
+      <td>One directory level</td>
+      <td>Blobs, sub-trees and (for submodules) commits</td>
+      <td>Sorted list of <code class="language-plaintext highlighter-rouge">(mode, name, OID)</code> entries</td>
     </tr>
     <tr>
       <td><strong>Commit</strong></td>
-      <td>A snapshot in time</td>
-      <td>One tree + parent commit(s)</td>
-      <td>Adds author, committer, timestamp, and message</td>
+      <td>A snapshot plus its place in history</td>
+      <td>Exactly one tree and zero or more parent commits</td>
+      <td>Tree, parents, author, committer, optional signature, message</td>
     </tr>
     <tr>
-      <td><strong>Tag</strong></td>
+      <td><strong>Tag</strong> (annotated)</td>
       <td>A named, signable pointer</td>
-      <td>Any object (usually a commit)</td>
-      <td>Annotated tags carry a tagger, message, and optional GPG/SSH signature</td>
+      <td>Any object, usually a commit</td>
+      <td>Target OID and type, tag name, tagger, message, optional signature</td>
     </tr>
   </tbody>
 </table>
 
-<p>The objects nest predictably: a <strong>commit</strong> names one <strong>tree</strong> (the whole project at that moment) plus its parent commit(s); each <strong>tree</strong> lists <strong>blobs</strong> (file contents) and sub-trees. Because every object is keyed by the hash of its content, two things follow for free — identical content is stored once (deduplication), and altering any byte changes the hash all the way up the chain (tamper-evidence).</p>
+<p>A lightweight tag is not an object at all: it is only a reference under <code class="language-plaintext highlighter-rouge">refs/tags/</code> that points straight at a commit.</p>
 
-<p>These objects compose into a graph: each <strong>commit</strong> points to one <strong>tree</strong> (the project snapshot) and to its <strong>parent</strong> commit(s). Trees point to <strong>blobs</strong> (file contents) and nested trees. Following parent links backward traces the full history as a directed acyclic graph (DAG).</p>
+<h3 id="trees-and-file-modes">Trees and File Modes</h3>
+
+<p>A tree is a binary list of entries, each encoded as <code class="language-plaintext highlighter-rouge">&lt;mode&gt; SP &lt;name&gt; NUL &lt;raw OID bytes&gt;</code>. <code class="language-plaintext highlighter-rouge">git cat-file -p</code> renders it in a readable form:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>git cat-file <span class="nt">-p</span> <span class="s1">'HEAD^{tree}'</span>
+100644 blob 8ab686eafeb1f44702738c8b0f24f2567c36da6d    README.md
+040000 tree 5c1b7a12e3d0c6f0b8e57a3d34b1f5e3a2cd9f10    src
+160000 commit 3f2e1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f   vendor/lib
+</code></pre></div></div>
+
+<p>Git records only a handful of modes; it does not store full Unix permissions, ownership or timestamps.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">100644</code></td>
+      <td>Regular file</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">100755</code></td>
+      <td>Executable file</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">120000</code></td>
+      <td>Symbolic link (the blob holds the link target)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">040000</code></td>
+      <td>Sub-directory (a tree)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">160000</code></td>
+      <td>Gitlink: a submodule, recorded as a commit OID in another repository</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Because a tree is itself hashed, an unchanged directory keeps its OID from one commit to the next, and its whole subtree is shared rather than copied. Comparing two trees can therefore skip any sub-tree whose OID has not changed, which is why <code class="language-plaintext highlighter-rouge">git diff</code> between distant commits of a large project is fast.</p>
+
+<h3 id="commits">Commits</h3>
+
+<p>A commit is a small text object:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>git cat-file <span class="nt">-p</span> HEAD
+tree 9c1f0d4b2e7a6c3d8f5e1a0b4c7d2e9f6a3b8c1d
+parent 1e4a7c0f3b6d9e2a5c8f1b4d7e0a3c6f9b2d5e8a
+author Jane Dev &lt;jane@example.com&gt; 1758528000 +0200
+committer Jane Dev &lt;jane@example.com&gt; 1758528000 +0200
+gpgsig <span class="nt">-----BEGIN</span> SSH SIGNATURE-----
+ U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg...
+ <span class="nt">-----END</span> SSH SIGNATURE-----
+
+Add greeting
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Header</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tree</code></td>
+      <td>Exactly one; the full snapshot of the project</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">parent</code></td>
+      <td>None for a root commit, one for an ordinary commit, two or more for a merge</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">author</code> / <code class="language-plaintext highlighter-rouge">committer</code></td>
+      <td>Name, email, Unix timestamp and UTC offset. They differ after a rebase, cherry-pick or <code class="language-plaintext highlighter-rouge">git am</code>: the author wrote the change, the committer applied it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gpgsig</code></td>
+      <td>Optional OpenPGP, SSH or X.509 signature over the rest of the commit (see <a href="auth-and-access-control.html">Authentication &amp; Access Control</a>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">encoding</code>, <code class="language-plaintext highlighter-rouge">mergetag</code></td>
+      <td>Optional: non-UTF-8 message encoding, and embedded signed tags of merged commits</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A commit stores a complete snapshot, not a diff. Diffs are computed on demand by comparing trees, and delta compression happens separately, inside packfiles.</p>
+
+<h3 id="annotated-tags">Annotated Tags</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>git cat-file <span class="nt">-p</span> v2.0.0
+object 1e4a7c0f3b6d9e2a5c8f1b4d7e0a3c6f9b2d5e8a
+<span class="nb">type </span>commit
+tag v2.0.0
+tagger Jane Dev &lt;jane@example.com&gt; 1758528000 +0200
+
+Release 2.0.0
+<span class="nt">-----BEGIN</span> PGP SIGNATURE-----
+...
+</code></pre></div></div>
+
+<p>The tag object carries its own name, author and optional signature, so a signed tag remains verifiable even if the <code class="language-plaintext highlighter-rouge">refs/tags/v2.0.0</code> reference is later moved or deleted.</p>
+
+<h2 id="the-object-graph">The Object Graph</h2>
+
+<p>Commits point to trees and parents; trees point to blobs and sub-trees. The result is a Merkle directed acyclic graph (DAG): history is the commit chain, and each commit roots a tree of the project at that moment. In the example below, commit C2 changed only <code class="language-plaintext highlighter-rouge">src/main.py</code>, so it reuses the <code class="language-plaintext highlighter-rouge">README</code> blob from C1 and only the changed path gets new tree and blob objects.</p>
 
 <pre><code class="language-mermaid">flowchart RL
-    C2["commit C2&lt;br/&gt;(parent: C1)"] --&gt; C1["commit C1&lt;br/&gt;(root)"]
+    HEAD(["HEAD"]) --&gt; MAIN(["refs/heads/main"])
+    MAIN --&gt; C2
+    C2["commit C2"] --&gt;|parent| C1["commit C1&lt;br/&gt;root commit"]
     C2 --&gt; T2["tree /"]
     C1 --&gt; T1["tree /"]
-    T2 --&gt; Bsrc["tree src/"]
-    T2 --&gt; Breadme["blob README"]
-    Bsrc --&gt; Bmain["blob main.py"]
-    T1 --&gt; Breadme
-    HEAD["HEAD → main"] --&gt; C2
+    T2 --&gt; S2["tree src/"]
+    T1 --&gt; S1["tree src/"]
+    T2 --&gt; R["blob README"]
+    T1 --&gt; R
+    S2 --&gt; M2["blob main.py v2"]
+    S1 --&gt; M1["blob main.py v1"]
 </code></pre>
 
-<p>Because objects are addressed by the hash of their content, identical files anywhere in history share a single blob, and any tampering changes the hash — giving Git both deduplication and cryptographic integrity.</p>
+<p>Two consequences are worth stating precisely:</p>
 
-<h4 id="seeing-the-object-model-directly">Seeing the Object Model Directly</h4>
+<ul>
+  <li><strong>History cannot be rewritten in place.</strong> Amending a commit, rebasing or filtering history creates <em>new</em> commits with new IDs; the old ones remain in the object store until nothing references them and garbage collection removes them. This is what makes the reflog-based recovery described in <a href="conflict-and-recovery.html">Conflict Resolution &amp; Recovery</a> possible.</li>
+  <li><strong>A commit ID authenticates everything beneath it.</strong> Signing one commit (or tag) vouches for the whole tree and all ancestors, provided the hash function is collision-resistant.</li>
+</ul>
 
-<p>The abstract model becomes concrete with Git’s <em>plumbing</em> commands. The session below creates a blob, wraps it in a tree, and seals that tree into a commit — the exact three steps <code class="language-plaintext highlighter-rouge">git commit</code> performs internally:</p>
+<h3 id="building-a-commit-by-hand">Building a Commit by Hand</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Store a blob and get its hash</span>
-<span class="nv">$ </span><span class="nb">echo</span> <span class="s2">"hello"</span> | git hash-object <span class="nt">-w</span> <span class="nt">--stdin</span>
+<p><code class="language-plaintext highlighter-rouge">git add</code> and <code class="language-plaintext highlighter-rouge">git commit</code> are built from <em>plumbing</em> commands that can be run directly. The session below performs the same steps without the porcelain:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Write a blob into the object store</span>
+<span class="nv">$ </span><span class="nb">echo</span> <span class="s2">"hello"</span> <span class="o">&gt;</span> greeting.txt
+<span class="nv">$ </span>git hash-object <span class="nt">-w</span> greeting.txt
 ce013625030ba8dba906f756967f9e9ca394464a
 
-<span class="c"># 2. Inspect any object: its type, and its content</span>
-<span class="nv">$ </span>git cat-file <span class="nt">-t</span> ce013625        <span class="c"># -&gt; blob</span>
-<span class="nv">$ </span>git cat-file <span class="nt">-p</span> ce013625        <span class="c"># -&gt; hello</span>
+<span class="c"># 2. Stage it: add an index entry (mode, OID, path)</span>
+<span class="nv">$ </span>git update-index <span class="nt">--add</span> <span class="nt">--cacheinfo</span> 100644,ce013625030ba8dba906f756967f9e9ca394464a,greeting.txt
 
-<span class="c"># 3. A commit is just text pointing at a tree and parent(s)</span>
-<span class="nv">$ </span>git cat-file <span class="nt">-p</span> HEAD
-tree   a1b2c3...        <span class="c"># the snapshot</span>
-parent d4e5f6...        <span class="c"># previous commit (omitted for the root commit)</span>
-author  Jane Dev &lt;jane@example.com&gt; 1700000000 +0000
-committer Jane Dev &lt;jane@example.com&gt; 1700000000 +0000
+<span class="c"># 3. Turn the index into a tree object</span>
+<span class="nv">$ </span>git write-tree
+57e9529754dc514a3ec10db2ff882018fbe1fcbf
 
-    Add greeting
+<span class="c"># 4. Create a commit pointing at that tree (add -p &lt;parent&gt; for non-root commits)</span>
+<span class="nv">$ </span>git commit-tree 57e95297 <span class="nt">-m</span> <span class="s2">"Add greeting"</span>
+a7c3...                      <span class="c"># depends on author, timestamp and message</span>
+
+<span class="c"># 5. Move the branch to the new commit</span>
+<span class="nv">$ </span>git update-ref refs/heads/main a7c3...
+
+<span class="c"># Inspect any object</span>
+<span class="nv">$ </span>git cat-file <span class="nt">-t</span> ce013625   <span class="c"># blob</span>
+<span class="nv">$ </span>git cat-file <span class="nt">-s</span> ce013625   <span class="c"># 6 (bytes)</span>
+<span class="nv">$ </span>git cat-file <span class="nt">-p</span> ce013625   <span class="c"># hello</span>
 </code></pre></div></div>
 
-<p>The hash of a blob depends only on its content (plus a <code class="language-plaintext highlighter-rouge">blob &lt;size&gt;\0</code> header), never on its filename or location — that is why renaming a file or copying it elsewhere costs zero extra storage.</p>
+<p>The blob and tree OIDs above are deterministic: anyone running these commands gets the same values. The commit OID differs per run because it includes the author and timestamp.</p>
 
-<h3 id="storage-model">Storage Model</h3>
+<h2 id="on-disk-layout">On-Disk Layout</h2>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>.git/
-├── objects/           # Content-addressable storage
-│   ├── 2d/           # First 2 chars of SHA-1
-│   │   └── 3f4a...  # Remaining 38 chars
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>.git/
+├── HEAD                  # symbolic ref, e.g. "ref: refs/heads/main"
+├── config                # repository-level configuration
+├── index                 # the staging area (binary)
+├── objects/
+│   ├── ce/0136...        # loose objects: zlib-compressed, one file per object
 │   ├── info/
-│   └── pack/         # Packed objects
-├── refs/             # References
-│   ├── heads/        # Branch tips
-│   ├── tags/         # Tag references
-│   └── remotes/      # Remote tracking
-├── HEAD              # Current branch
-├── index             # Staging area
-└── config            # Repository configuration
+│   │   ├── alternates    # optional: other object stores to borrow from
+│   │   └── commit-graph  # optional: precomputed commit metadata
+│   └── pack/
+│       ├── pack-&lt;hash&gt;.pack     # many objects, delta-compressed
+│       ├── pack-&lt;hash&gt;.idx      # OID -&gt; offset lookup for one pack
+│       ├── pack-&lt;hash&gt;.rev      # reverse index (offset -&gt; position)
+│       ├── pack-&lt;hash&gt;.bitmap   # optional reachability bitmaps
+│       └── multi-pack-index     # optional: one lookup across all packs
+├── refs/                 # "files" backend: one file per loose ref
+│   ├── heads/            #   branches
+│   ├── tags/
+│   └── remotes/          #   remote-tracking branches
+├── packed-refs           # "files" backend: many refs in one sorted file
+├── reftable/             # "reftable" backend (replaces refs/ + packed-refs)
+├── logs/                 # reflogs (files backend)
+├── hooks/
+└── info/exclude          # repository-local ignore rules
 </code></pre></div></div>
 
-<h3 id="repository-initialization">Repository Initialization</h3>
+<p>New objects are written loose. Over time, <code class="language-plaintext highlighter-rouge">git gc</code> or <code class="language-plaintext highlighter-rouge">git maintenance</code> moves them into packfiles, where similar objects are stored as deltas against each other; a mature repository keeps nearly all of its objects packed. Pack, index, bitmap and multi-pack-index formats are described in <a href="protocols-and-performance.html#pack-and-index-formats">Protocols, Packs &amp; Performance</a>.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Initialize new repository</span>
-git init
-git init <span class="nt">--bare</span>              <span class="c"># Bare repository (no working tree)</span>
-git init <span class="nt">--object-format</span><span class="o">=</span>sha256  <span class="c"># SHA-256 (experimental; incompatible with SHA-1 remotes like GitHub)</span>
+<p>Two auxiliary structures speed up history walks without changing the object model:</p>
 
-<span class="c"># Clone existing repository</span>
-git clone &lt;url&gt;
-git clone <span class="nt">--depth</span> 1 &lt;url&gt;    <span class="c"># Shallow clone</span>
-git clone <span class="nt">--filter</span><span class="o">=</span>blob:none &lt;url&gt;  <span class="c"># Partial clone</span>
+<ul>
+  <li><strong>commit-graph</strong> caches each commit’s tree, parents, commit date and <em>generation number</em> in a compact, memory-mappable file, so walks such as <code class="language-plaintext highlighter-rouge">git log --graph</code> or merge-base computation avoid inflating commit objects. It can also store <em>changed-path Bloom filters</em>, which let <code class="language-plaintext highlighter-rouge">git log -- &lt;path&gt;</code> skip commits that certainly did not touch the path.</li>
+  <li><strong>alternates</strong> let one repository read objects from another’s store, which is how forges share objects between forks and how <code class="language-plaintext highlighter-rouge">git clone --reference</code> saves disk space.</li>
+</ul>
+
+<p>Repositories are initialized with the formats fixed at creation time:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git init                                <span class="c"># SHA-1 objects, "files" ref backend</span>
+git init <span class="nt">--bare</span>                         <span class="c"># no working tree (servers, mirrors)</span>
+git init <span class="nt">--object-format</span><span class="o">=</span>sha256         <span class="c"># SHA-256 objects</span>
+git init <span class="nt">--ref-format</span><span class="o">=</span>reftable          <span class="c"># reftable ref storage (Git 2.45+)</span>
 </code></pre></div></div>
 
-<h3 id="the-three-trees">The Three Trees</h3>
+<h2 id="index-staging-area-structure">Index (Staging Area) Structure</h2>
 
-<p>Almost every day-to-day Git command moves data between three “trees” (snapshots of the project). Understanding them demystifies <code class="language-plaintext highlighter-rouge">add</code>, <code class="language-plaintext highlighter-rouge">commit</code>, <code class="language-plaintext highlighter-rouge">reset</code>, and <code class="language-plaintext highlighter-rouge">checkout</code> — they are all just different ways of synchronizing these three states.</p>
+<p>The index, stored in <code class="language-plaintext highlighter-rouge">.git/index</code>, is a flat, sorted list of every tracked path together with the blob OID staged for it and a cached copy of the file’s <code class="language-plaintext highlighter-rouge">stat()</code> data. It serves three purposes:</p>
+
+<ol>
+  <li><strong>The proposed next commit.</strong> <code class="language-plaintext highlighter-rouge">git write-tree</code> (and therefore <code class="language-plaintext highlighter-rouge">git commit</code>) builds tree objects directly from it.</li>
+  <li><strong>A change-detection cache.</strong> If a file’s size, mtime, inode and other <code class="language-plaintext highlighter-rouge">stat</code> fields still match the cached values, <code class="language-plaintext highlighter-rouge">git status</code> assumes the file is unchanged and skips re-hashing it.</li>
+  <li><strong>Merge-conflict storage.</strong> During a conflicted merge a path has up to three entries, at <em>stages</em> 1 (common ancestor), 2 (ours) and 3 (theirs), instead of the usual single stage-0 entry.</li>
+</ol>
+
+<p>The file format (documented in <code class="language-plaintext highlighter-rouge">gitformat-index(5)</code>):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Section</th>
+      <th>Contents</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Header</strong></td>
+      <td>Signature <code class="language-plaintext highlighter-rouge">DIRC</code> (“dircache”), version (2, 3 or 4), entry count</td>
+    </tr>
+    <tr>
+      <td><strong>Entries</strong>, sorted by path</td>
+      <td>ctime and mtime (seconds and nanoseconds), dev, ino, mode, uid, gid, file size, object ID (20 or 32 bytes), 16-bit flags (including the merge stage and name length), and the path</td>
+    </tr>
+    <tr>
+      <td><strong>Extensions</strong></td>
+      <td>Optional, each tagged with a 4-byte signature and length (table below)</td>
+    </tr>
+    <tr>
+      <td><strong>Trailer</strong></td>
+      <td>Hash of everything above</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Versions differ only in entry encoding: version 3 adds extended flags (used for <code class="language-plaintext highlighter-rouge">skip-worktree</code> and <code class="language-plaintext highlighter-rouge">intent-to-add</code>), and version 4 prefix-compresses each path against the previous one, which substantially shrinks the index in repositories with deep directory trees.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Extension</th>
+      <th>Signature</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Cache tree</td>
+      <td><code class="language-plaintext highlighter-rouge">TREE</code></td>
+      <td>Tree OIDs for unchanged directories, so <code class="language-plaintext highlighter-rouge">write-tree</code> reuses them instead of rehashing</td>
+    </tr>
+    <tr>
+      <td>Resolve undo</td>
+      <td><code class="language-plaintext highlighter-rouge">REUC</code></td>
+      <td>Remembers conflicted stages after resolution so <code class="language-plaintext highlighter-rouge">git checkout -m</code> can recreate the conflict</td>
+    </tr>
+    <tr>
+      <td>Split index</td>
+      <td><code class="language-plaintext highlighter-rouge">link</code></td>
+      <td>Stores most entries in a shared base index and only changes in <code class="language-plaintext highlighter-rouge">.git/index</code>, making writes cheaper in huge repositories</td>
+    </tr>
+    <tr>
+      <td>Untracked cache</td>
+      <td><code class="language-plaintext highlighter-rouge">UNTR</code></td>
+      <td>Caches directory listings to speed up detection of untracked files</td>
+    </tr>
+    <tr>
+      <td>File system monitor</td>
+      <td><code class="language-plaintext highlighter-rouge">FSMN</code></td>
+      <td>Records the last token from a file-system watcher so only reported paths are re-checked</td>
+    </tr>
+    <tr>
+      <td>End of index entry / index entry offset table</td>
+      <td><code class="language-plaintext highlighter-rouge">EOIE</code>, <code class="language-plaintext highlighter-rouge">IEOT</code></td>
+      <td>Allow the index to be loaded with multiple threads</td>
+    </tr>
+    <tr>
+      <td>Sparse directory entries</td>
+      <td><code class="language-plaintext highlighter-rouge">sdir</code></td>
+      <td>Marks a <em>sparse index</em>, where whole directories outside a sparse-checkout cone are represented by a single tree entry</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>With the built-in file-system monitor (<code class="language-plaintext highlighter-rouge">core.fsmonitor=true</code>, available on macOS and Windows and, since Git 2.55, on Linux) and a sparse index, <code class="language-plaintext highlighter-rouge">git status</code> in a very large monorepo touches only the files that actually changed rather than every tracked path.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git ls-files <span class="nt">--stage</span>              <span class="c"># mode, OID, stage number, path</span>
+git ls-files <span class="nt">--debug</span> README.md    <span class="c"># cached stat fields for one entry</span>
+git update-index <span class="nt">--index-version</span> 4
+</code></pre></div></div>
+
+<h2 id="the-three-trees">The Three Trees</h2>
+
+<p>Most day-to-day commands move content between three snapshots of the project, conventionally called the “three trees”:</p>
 
 <table>
   <thead>
     <tr>
       <th>Tree</th>
-      <th>Lives in</th>
+      <th>Stored in</th>
       <th>Represents</th>
-      <th>Advanced by</th>
+      <th>Updated by</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>HEAD</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">.git</code> (the commit it points to)</td>
-      <td>Last commit — the snapshot you started from</td>
-      <td><code class="language-plaintext highlighter-rouge">git commit</code></td>
+      <td>The commit that <code class="language-plaintext highlighter-rouge">HEAD</code> resolves to</td>
+      <td>The last committed snapshot</td>
+      <td><code class="language-plaintext highlighter-rouge">git commit</code>, <code class="language-plaintext highlighter-rouge">git reset</code>, <code class="language-plaintext highlighter-rouge">git switch</code></td>
     </tr>
     <tr>
-      <td><strong>Index</strong> (staging area)</td>
+      <td><strong>Index</strong></td>
       <td><code class="language-plaintext highlighter-rouge">.git/index</code></td>
-      <td>The proposed <em>next</em> snapshot</td>
-      <td><code class="language-plaintext highlighter-rouge">git add</code></td>
+      <td>The proposed next snapshot</td>
+      <td><code class="language-plaintext highlighter-rouge">git add</code>, <code class="language-plaintext highlighter-rouge">git restore --staged</code>, <code class="language-plaintext highlighter-rouge">git reset</code></td>
     </tr>
     <tr>
       <td><strong>Working tree</strong></td>
       <td>Files on disk</td>
-      <td>Your actual edits, staged or not</td>
-      <td>Editing files</td>
+      <td>Your current edits</td>
+      <td>Your editor, <code class="language-plaintext highlighter-rouge">git restore</code>, <code class="language-plaintext highlighter-rouge">git switch</code></td>
     </tr>
   </tbody>
 </table>
 
 <pre><code class="language-mermaid">flowchart LR
-    WT["Working tree&lt;br/&gt;(files on disk)"] --&gt;|git add| IDX["Index&lt;br/&gt;(staged snapshot)"]
-    IDX --&gt;|git commit| HEAD["HEAD&lt;br/&gt;(committed snapshot)"]
-    HEAD --&gt;|git checkout / reset --hard| WT
-    HEAD --&gt;|git reset --mixed| IDX
+    WT["Working tree"] --&gt;|"git add"| IDX["Index"]
+    IDX --&gt;|"git commit"| HEAD["HEAD commit"]
+    HEAD --&gt;|"git restore --staged&lt;br/&gt;git reset --mixed"| IDX
+    IDX --&gt;|"git restore"| WT
+    HEAD --&gt;|"git reset --hard&lt;br/&gt;git switch"| WT
 </code></pre>
 
-<p>This is why the three <code class="language-plaintext highlighter-rouge">reset</code> modes differ only in <em>how far</em> they propagate a move of HEAD:</p>
+<p><code class="language-plaintext highlighter-rouge">git status</code> is a comparison of the three: “Changes to be committed” is HEAD versus the index, and “Changes not staged for commit” is the index versus the working tree. <code class="language-plaintext highlighter-rouge">git diff</code> shows index versus working tree; <code class="language-plaintext highlighter-rouge">git diff --staged</code> shows HEAD versus index.</p>
+
+<p><code class="language-plaintext highlighter-rouge">git reset &lt;commit&gt;</code> always moves the current branch (and so HEAD) to <code class="language-plaintext highlighter-rouge">&lt;commit&gt;</code>; its three modes differ only in how far the change propagates:</p>
 
 <table>
   <thead>
     <tr>
       <th>Command</th>
-      <th style="text-align: center">Moves HEAD</th>
-      <th style="text-align: center">Resets Index</th>
-      <th style="text-align: center">Resets Working tree</th>
+      <th style="text-align: center">Moves branch/HEAD</th>
+      <th style="text-align: center">Resets index</th>
+      <th style="text-align: center">Resets working tree</th>
     </tr>
   </thead>
   <tbody>
@@ -3326,188 +3667,207 @@ git clone <span class="nt">--filter</span><span class="o">=</span>blob:none &lt;
   </tbody>
 </table>
 
-<p>A <code class="language-plaintext highlighter-rouge">--soft</code> reset leaves your staged changes intact (useful for re-doing a commit message); a <code class="language-plaintext highlighter-rouge">--hard</code> reset discards everything back to the target commit (and is the one command capable of destroying uncommitted work).</p>
+<p><code class="language-plaintext highlighter-rouge">--soft</code> keeps the undone commits’ changes staged, which is the usual way to squash the last few commits. <code class="language-plaintext highlighter-rouge">--hard</code> discards uncommitted work in tracked files and is the only one of the three that can destroy data that was never committed. Commits that <code class="language-plaintext highlighter-rouge">reset</code> moves away from remain reachable through the reflog.</p>
 
-<h2 id="configuration-management">Configuration Management</h2>
+<h2 id="references">References</h2>
 
-<h3 id="configuration-hierarchy">Configuration Hierarchy</h3>
+<p>A reference (“ref”) is a human-readable name for an OID. Branches, tags and remote-tracking branches are all refs; they are the only mutable part of a repository, and the only way objects stay reachable.</p>
 
-<p>Git uses a three-level configuration system:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Kind</th>
+      <th>Namespace</th>
+      <th>Points to</th>
+      <th>Moved by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Branch</td>
+      <td><code class="language-plaintext highlighter-rouge">refs/heads/*</code></td>
+      <td>A commit</td>
+      <td><code class="language-plaintext highlighter-rouge">commit</code>, <code class="language-plaintext highlighter-rouge">merge</code>, <code class="language-plaintext highlighter-rouge">reset</code>, <code class="language-plaintext highlighter-rouge">rebase</code></td>
+    </tr>
+    <tr>
+      <td>Tag</td>
+      <td><code class="language-plaintext highlighter-rouge">refs/tags/*</code></td>
+      <td>A commit (lightweight) or a tag object (annotated)</td>
+      <td>Not moved by convention</td>
+    </tr>
+    <tr>
+      <td>Remote-tracking branch</td>
+      <td><code class="language-plaintext highlighter-rouge">refs/remotes/&lt;remote&gt;/*</code></td>
+      <td>The last known position of a remote branch</td>
+      <td><code class="language-plaintext highlighter-rouge">fetch</code></td>
+    </tr>
+    <tr>
+      <td>Notes, stash, others</td>
+      <td><code class="language-plaintext highlighter-rouge">refs/notes/*</code>, <code class="language-plaintext highlighter-rouge">refs/stash</code>, …</td>
+      <td>Commits used by those features</td>
+      <td>Their respective commands</td>
+    </tr>
+    <tr>
+      <td>Symbolic ref</td>
+      <td><code class="language-plaintext highlighter-rouge">HEAD</code> and others</td>
+      <td>Another ref, e.g. <code class="language-plaintext highlighter-rouge">ref: refs/heads/main</code></td>
+      <td><code class="language-plaintext highlighter-rouge">switch</code>, <code class="language-plaintext highlighter-rouge">checkout</code></td>
+    </tr>
+    <tr>
+      <td>Pseudo-refs</td>
+      <td><code class="language-plaintext highlighter-rouge">FETCH_HEAD</code>, <code class="language-plaintext highlighter-rouge">ORIG_HEAD</code>, <code class="language-plaintext highlighter-rouge">MERGE_HEAD</code>, <code class="language-plaintext highlighter-rouge">CHERRY_PICK_HEAD</code></td>
+      <td>OIDs recorded by an operation in progress</td>
+      <td>The operation itself</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>System Level</strong> (<code class="language-plaintext highlighter-rouge">/etc/gitconfig</code>)</p>
-<ul>
-  <li>Applies to all users on the system</li>
-  <li>Modified with <code class="language-plaintext highlighter-rouge">git config --system</code></li>
-</ul>
+<p>When <code class="language-plaintext highlighter-rouge">HEAD</code> holds an OID instead of a symbolic ref, the repository is in <em>detached HEAD</em> state: new commits are made, but no branch moves to include them.</p>
 
-<p><strong>Global Level</strong> (<code class="language-plaintext highlighter-rouge">~/.gitconfig</code>)</p>
-<ul>
-  <li>User-specific settings</li>
-  <li>Modified with <code class="language-plaintext highlighter-rouge">git config --global</code></li>
-</ul>
+<pre><code class="language-mermaid">flowchart LR
+    HEAD(["HEAD"]) --&gt;|symbolic| main(["refs/heads/main"])
+    main --&gt; C3["C3"]
+    feat(["refs/heads/feature"]) --&gt; C4["C4"]
+    tag(["refs/tags/v1.0"]) --&gt; T["tag object v1.0"]
+    T --&gt; C1["C1"]
+    origin(["refs/remotes/origin/main"]) --&gt; C2["C2"]
+    C3 --&gt; C2 --&gt; C1
+    C4 --&gt; C2
+</code></pre>
 
-<p><strong>Repository Level</strong> (<code class="language-plaintext highlighter-rouge">.git/config</code>)</p>
-<ul>
-  <li>Repository-specific settings</li>
-  <li>Modified with <code class="language-plaintext highlighter-rouge">git config --local</code></li>
-</ul>
+<h3 id="ref-storage-backends">Ref Storage Backends</h3>
 
-<h3 id="essential-configuration">Essential Configuration</h3>
+<p>Git has two ways to store refs. A repository uses one or the other, chosen at <code class="language-plaintext highlighter-rouge">git init</code> time or converted later.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Identity</span>
-git config <span class="nt">--global</span> user.name <span class="s2">"Your Name"</span>
-git config <span class="nt">--global</span> user.email <span class="s2">"your.email@example.com"</span>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th><code class="language-plaintext highlighter-rouge">files</code> backend (default in Git 2.x)</th>
+      <th><code class="language-plaintext highlighter-rouge">reftable</code> backend (Git 2.45+)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Layout</strong></td>
+      <td>One file per loose ref under <code class="language-plaintext highlighter-rouge">refs/</code>, plus a sorted <code class="language-plaintext highlighter-rouge">packed-refs</code> file</td>
+      <td>A stack of binary, block-based tables in <code class="language-plaintext highlighter-rouge">reftable/</code>, listed in <code class="language-plaintext highlighter-rouge">tables.list</code></td>
+    </tr>
+    <tr>
+      <td><strong>Reflogs</strong></td>
+      <td>Separate text files under <code class="language-plaintext highlighter-rouge">logs/</code></td>
+      <td>Stored in the same tables</td>
+    </tr>
+    <tr>
+      <td><strong>Atomic multi-ref updates</strong></td>
+      <td>Per-ref lock files; a crash mid-transaction can leave a partial update</td>
+      <td>One new table per transaction, so updates are atomic</td>
+    </tr>
+    <tr>
+      <td><strong>Deleting one ref from many</strong></td>
+      <td>Rewrites all of <code class="language-plaintext highlighter-rouge">packed-refs</code></td>
+      <td>Writes a small tombstone record</td>
+    </tr>
+    <tr>
+      <td><strong>Case-insensitive filesystems</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">refs/heads/Foo</code> and <code class="language-plaintext highlighter-rouge">refs/heads/foo</code> collide on macOS and Windows</td>
+      <td>No collisions; names are data, not filenames</td>
+    </tr>
+    <tr>
+      <td><strong>Scale</strong></td>
+      <td>Slows down with hundreds of thousands of refs</td>
+      <td>Prefix compression and binary search keep lookups fast; tables are compacted geometrically</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c"># Editor</span>
-git config <span class="nt">--global</span> core.editor <span class="s2">"vim"</span>
+<p>The reftable format originated in JGit and is used by large Git hosts. Git 2.51 declared it mature enough to become the default for new repositories in Git 3.0. Existing repositories can be converted in place:</p>
 
-<span class="c"># Line endings</span>
-git config <span class="nt">--global</span> core.autocrlf input  <span class="c"># Unix/Mac</span>
-git config <span class="nt">--global</span> core.autocrlf <span class="nb">true</span>   <span class="c"># Windows</span>
-
-<span class="c"># Default branch</span>
-git config <span class="nt">--global</span> init.defaultBranch main
-
-<span class="c"># Aliases</span>
-git config <span class="nt">--global</span> alias.lg <span class="s2">"log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)&lt;%an&gt;%Creset' --abbrev-commit"</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git refs migrate <span class="nt">--ref-format</span><span class="o">=</span>reftable      <span class="c"># Git 2.46+; not yet for repositories with worktrees</span>
+git rev-parse <span class="nt">--show-ref-format</span>             <span class="c"># "files" or "reftable"</span>
 </code></pre></div></div>
 
-<h2 id="mathematical-foundations">Mathematical Foundations</h2>
+<h3 id="updating-refs-safely">Updating Refs Safely</h3>
 
-<h3 id="content-addressable-storage-theory">Content-Addressable Storage Theory</h3>
+<p>Whatever the backend, ref updates go through a <em>ref transaction</em>. Each update can carry an expected old value, making it a compare-and-swap: if another process moved the ref first, the update fails instead of silently overwriting it. <code class="language-plaintext highlighter-rouge">git update-ref --stdin</code> exposes transactions to scripts, and <code class="language-plaintext highlighter-rouge">git push --atomic</code> asks the server to apply all ref updates of a push together or not at all.</p>
 
-<p>Git implements a content-addressable filesystem where objects are stored and retrieved by their cryptographic hash. This provides integrity guarantees and enables efficient storage through deduplication.</p>
+<p>Every change to a branch or to <code class="language-plaintext highlighter-rouge">HEAD</code> is also appended to its <em>reflog</em>, a local-only history of where the ref has pointed. Reflog entries keep otherwise-unreachable commits alive (90 days by default for reachable entries, 30 days for unreachable ones), which is the safety net behind <code class="language-plaintext highlighter-rouge">git reset</code>, <code class="language-plaintext highlighter-rouge">git rebase</code> and <code class="language-plaintext highlighter-rouge">git commit --amend</code>.</p>
 
-<p><strong>Key Components:</strong></p>
-<ul>
-  <li><strong>GitObject</strong>: Base class for all Git objects (blob, tree, commit, tag)</li>
-  <li><strong>SHA-1 / SHA-256 Hashing</strong>: Content addressing using cryptographic hashes
-    <ul>
-      <li><strong>Security Notice</strong>: SHA-1 is cryptographically broken as a general-purpose hash, so Git uses a hardened, collision-detecting SHA-1 by default. SHA-1 (with collision detection) remains the default; SHA-256 is an opt-in, still-experimental format selected with <code class="language-plaintext highlighter-rouge">git init --object-format=sha256</code> (incompatible with SHA-1 remotes like GitHub).</li>
-    </ul>
-  </li>
-  <li><strong>Compression</strong>: zlib compression for efficient storage</li>
-  <li><strong>Merkle Trees</strong>: Tree objects form a Merkle tree structure</li>
-  <li><strong>Commit DAG</strong>: Directed Acyclic Graph for version history</li>
-</ul>
-
-<p><strong>Object Model:</strong></p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Computing a Git object hash
-</span><span class="n">header</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">blob </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span><span class="si">}</span><span class="se">\0</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span>
-<span class="c1"># SHA-1 (with collision detection) is the default object format
-</span><span class="n">sha1</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
-<span class="c1"># SHA-256 for opt-in, still-experimental repositories
-</span><span class="n">sha256</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
-<span class="n">compressed</span> <span class="o">=</span> <span class="n">zlib</span><span class="p">.</span><span class="nf">compress</span><span class="p">(</span><span class="n">header</span> <span class="o">+</span> <span class="n">content</span><span class="p">)</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reflog show main                        <span class="c"># where main has pointed</span>
+git update-ref refs/heads/main NEW OLD      <span class="c"># only succeeds if main is currently OLD</span>
+git <span class="k">for</span><span class="nt">-each-ref</span> <span class="nt">--format</span><span class="o">=</span><span class="s1">'%(refname) %(objectname:short)'</span> refs/heads/
 </code></pre></div></div>
 
 <blockquote>
-  <p><strong>Code Reference</strong>: For complete implementation of Git’s object model, Merkle trees, and DAG operations, see <a href="../../../code-examples/technology/git/content_addressable_storage.py"><code class="language-plaintext highlighter-rouge">content_addressable_storage.py</code></a></p>
+  <p><strong>Code reference:</strong> <a href="../../../code-examples/technology/git/object_storage.py"><code class="language-plaintext highlighter-rouge">object_storage.py</code></a> models loose objects, packs and index structures, and <a href="../../../code-examples/technology/git/reference_management.py"><code class="language-plaintext highlighter-rouge">reference_management.py</code></a> implements atomic ref transactions.</p>
 </blockquote>
 
-<h2 id="git-internals">Git Internals</h2>
+<h2 id="repository-configuration">Repository Configuration</h2>
 
-<h3 id="object-storage-implementation">Object Storage Implementation</h3>
+<p>Configuration is read from several files, with later levels overriding earlier ones:</p>
 
-<p>Git uses a content-addressable storage system where objects are identified by their cryptographic hash (SHA-1 with collision detection by default; SHA-256 opt-in and experimental). The storage system includes:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>File</th>
+      <th>Option</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>System</td>
+      <td><code class="language-plaintext highlighter-rouge">/etc/gitconfig</code> (path varies by install)</td>
+      <td><code class="language-plaintext highlighter-rouge">git config --system</code></td>
+    </tr>
+    <tr>
+      <td>Global (user)</td>
+      <td><code class="language-plaintext highlighter-rouge">~/.gitconfig</code> or <code class="language-plaintext highlighter-rouge">~/.config/git/config</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git config --global</code></td>
+    </tr>
+    <tr>
+      <td>Repository</td>
+      <td><code class="language-plaintext highlighter-rouge">.git/config</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git config --local</code> (default when writing)</td>
+    </tr>
+    <tr>
+      <td>Worktree</td>
+      <td><code class="language-plaintext highlighter-rouge">.git/worktrees/&lt;name&gt;/config.worktree</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git config --worktree</code> (requires <code class="language-plaintext highlighter-rouge">extensions.worktreeConfig</code>)</td>
+    </tr>
+    <tr>
+      <td>Command line</td>
+      <td><code class="language-plaintext highlighter-rouge">git -c key=value ...</code></td>
+      <td>Applies to one invocation</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Key Components:</strong></p>
-<ul>
-  <li><strong>Loose Objects</strong>: Individual compressed files stored in <code class="language-plaintext highlighter-rouge">.git/objects/</code></li>
-  <li><strong>Pack Files</strong>: Compressed archives containing multiple objects with delta compression</li>
-  <li><strong>Pack Indexes</strong>: Binary indexes for fast object lookup within pack files</li>
-  <li><strong>Bitmap Indexes</strong>: Reachability bitmaps for optimized operations</li>
-</ul>
+<p><code class="language-plaintext highlighter-rouge">include.path</code> and <code class="language-plaintext highlighter-rouge">includeIf.&lt;condition&gt;.path</code> pull in other files, for example to use a work email address only for repositories under <code class="language-plaintext highlighter-rouge">~/work/</code>. <code class="language-plaintext highlighter-rouge">git config list --show-origin</code> shows each value together with the file it came from.</p>
 
-<p><strong>Storage Format:</strong></p>
-<ul>
-  <li>Objects are compressed using zlib</li>
-  <li>Directory structure uses first 2 characters of hash for sharding</li>
-  <li>Pack files use delta compression to reduce storage size</li>
-  <li>SHA-256 repositories use an extended object format</li>
-</ul>
+<p>Settings that relate to the object and ref model:</p>
 
-<blockquote>
-  <p><strong>Code Reference</strong>: For complete object storage implementation including loose objects, pack files, and index structures, see <a href="../../../code-examples/technology/git/object_storage.py"><code class="language-plaintext highlighter-rouge">object_storage.py</code></a></p>
-</blockquote>
-
-<h3 id="index-staging-area-structure">Index (Staging Area) Structure</h3>
-
-<p>The staging area lives in the single file <code class="language-plaintext highlighter-rouge">.git/index</code>. It is a flat, sorted list of entries — one per tracked path — each pairing a cached <code class="language-plaintext highlighter-rouge">stat()</code> of the file with the blob hash Git recorded for it. That cached <code class="language-plaintext highlighter-rouge">stat</code> is how <code class="language-plaintext highlighter-rouge">git status</code> can skip re-hashing unchanged files.</p>
-
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Git index format</span>
-<span class="k">struct</span> <span class="n">index_header</span> <span class="p">{</span>
-    <span class="kt">char</span> <span class="n">signature</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>      <span class="c1">// "DIRC"</span>
-    <span class="kt">uint32_t</span> <span class="n">version</span><span class="p">;</span>       <span class="c1">// 2, 3, or 4</span>
-    <span class="kt">uint32_t</span> <span class="n">entries</span><span class="p">;</span>       <span class="c1">// Number of entries</span>
-<span class="p">};</span>
-
-<span class="k">struct</span> <span class="n">index_entry</span> <span class="p">{</span>
-    <span class="k">struct</span> <span class="n">stat_data</span> <span class="p">{</span>
-        <span class="kt">uint32_t</span> <span class="n">ctime_sec</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">ctime_nsec</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">mtime_sec</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">mtime_nsec</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">dev</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">ino</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">mode</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">uid</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">gid</span><span class="p">;</span>
-        <span class="kt">uint32_t</span> <span class="n">size</span><span class="p">;</span>
-    <span class="p">}</span> <span class="n">stat</span><span class="p">;</span>
-    <span class="kt">uint8_t</span> <span class="n">sha1</span><span class="p">[</span><span class="mi">20</span><span class="p">];</span>
-    <span class="kt">uint16_t</span> <span class="n">flags</span><span class="p">;</span>
-    <span class="kt">char</span> <span class="n">path</span><span class="p">[];</span> <span class="c1">// Variable length, null-terminated</span>
-<span class="p">};</span>
-
-<span class="c1">// Optional extensions follow the entries (tree cache, resolve undo, split index)</span>
-<span class="k">struct</span> <span class="n">index_extension</span> <span class="p">{</span>
-    <span class="kt">char</span> <span class="n">signature</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>
-    <span class="kt">uint32_t</span> <span class="n">size</span><span class="p">;</span>
-    <span class="c1">// Extension-specific data</span>
-<span class="p">};</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> init.defaultBranch main          <span class="c"># Git 3.0 will default to "main"</span>
+git config <span class="nt">--global</span> init.defaultObjectFormat sha256  <span class="c"># hash for new repositories (Git 2.47+)</span>
+git config <span class="nt">--global</span> init.defaultRefFormat reftable   <span class="c"># ref backend for new repositories (Git 2.47+)</span>
+git config <span class="nt">--global</span> core.fsmonitor <span class="nb">true</span>              <span class="c"># built-in filesystem watcher</span>
+git config <span class="nt">--global</span> index.skipHash <span class="nb">true</span>              <span class="c"># skip the index trailer hash (faster writes on big indexes)</span>
+git config <span class="nt">--global</span> core.autocrlf input              <span class="c"># normalise CRLF to LF on commit (Linux/macOS)</span>
 </code></pre></div></div>
 
-<h3 id="reference-management">Reference Management</h3>
-
-<p>Git references are human-readable names that point to commit objects. The reference system provides:</p>
-
-<p><strong>Reference Types:</strong></p>
-<ul>
-  <li><strong>Branches</strong>: Mutable references to commits (<code class="language-plaintext highlighter-rouge">refs/heads/*</code>)</li>
-  <li><strong>Tags</strong>: Immutable references to objects (<code class="language-plaintext highlighter-rouge">refs/tags/*</code>)</li>
-  <li><strong>Remote refs</strong>: References to remote repository state (<code class="language-plaintext highlighter-rouge">refs/remotes/*</code>)</li>
-  <li><strong>Symbolic refs</strong>: References to other references (like HEAD)</li>
-</ul>
-
-<p><strong>Storage Mechanisms:</strong></p>
-<ul>
-  <li><strong>Loose refs</strong>: Individual files containing commit SHA</li>
-  <li><strong>Packed refs</strong>: Single file containing multiple references for efficiency</li>
-  <li><strong>Ref transactions</strong>: Atomic updates to multiple references</li>
-</ul>
-
-<p><strong>Atomic Updates:</strong></p>
-<ul>
-  <li>Lock files ensure concurrent safety</li>
-  <li>Compare-and-swap operations prevent race conditions</li>
-  <li>Reflogs track reference history</li>
-</ul>
-
-<blockquote>
-  <p><strong>Code Reference</strong>: For complete reference management implementation with atomic updates and transactions, see <a href="../../../code-examples/technology/git/reference_management.py"><code class="language-plaintext highlighter-rouge">reference_management.py</code></a></p>
-</blockquote>
+<p>For day-to-day command syntax, see the <a href="../git-reference.html">Git Command Reference</a>.</p>
 
 <hr />
 
-<p><strong>Next:</strong> <a href="protocols-and-performance.html">Protocols, Packs &amp; Performance →</a> — how the object store moves over the wire, the pack/index formats, and performance tuning. <strong>Up:</strong> <a href="./">Git Internals (Hub)</a>.</p>
+<p><strong>Next:</strong> <a href="protocols-and-performance.html">Protocols, Packs &amp; Performance →</a>: how objects are packed, transferred over the network, and kept fast in large repositories. <strong>Up:</strong> <a href="./">Git Internals</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a> — how these objects are packed and transferred.</li>
-  <li><a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a> — the merge, rebase, and bisect algorithms built on this object model.</li>
-  <li><a href="../git-reference.html">Git Command Reference</a> — the day-to-day commands that manipulate these objects.</li>
+  <li><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a>: packfiles, the wire protocol and repository maintenance</li>
+  <li><a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a>: merge, rebase and bisect, built on this object model</li>
+  <li><a href="conflict-and-recovery.html">Conflict Resolution &amp; Recovery</a>: using the reflog and <code class="language-plaintext highlighter-rouge">fsck</code> to recover lost commits</li>
+  <li><a href="../git-reference.html">Git Command Reference</a>: the day-to-day commands that manipulate these objects</li>
 </ul>
 
       </section>

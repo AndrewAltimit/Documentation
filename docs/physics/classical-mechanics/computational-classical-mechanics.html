@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Geometric numerical integration for classical mechanics: symplectic splitting and composition methods, backward error analysis, variational integrators, mole...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Classical Mechanics: Computational Methods">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Geometric numerical integration for classical mechanics: symplectic splitting and composition methods, backward error analysis, variational integrators, mole...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/classical-mechanics/computational-classical-mechanics.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Classical Mechanics: Computational Methods">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Geometric numerical integration for classical mechanics: symplectic splitting and composition methods, backward error analysis, variational integrators, mole...">
 
 <title>Classical Mechanics: Computational Methods | Andrews Notebook</title>
 
@@ -3133,562 +3133,738 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Classical Mechanics</a> » Computational Methods</p>
 
-<p>Symplectic and variational integrators, molecular dynamics, N-body methods, and the numerical analysis that keeps long simulations physical.</p>
+<p><strong>Geometric numerical integration</strong> is the design of time-stepping methods that keep the qualitative structure of the equations of motion: the symplectic form, time-reversibility, conservation laws, and constraints. This page covers symplectic splitting and composition methods and the backward error analysis that explains their long-time accuracy, variational integrators, and the two biggest users of these methods: molecular dynamics and gravitational N-body simulation. It closes with neural-network models that build Hamiltonian structure in. The underlying geometry is developed in <a href="geometric-mechanics.html">Geometric Formalism</a>. General-purpose numerical methods (ODE and PDE solvers, Monte Carlo) are covered in <a href="../computational-physics/">Computational Physics</a>.</p>
 
-<h2 id="why-numerics-need-the-physics">Why Numerics Need the Physics</h2>
+<h2 id="why-structure-matters">Why structure matters</h2>
 
-<p>Computers cannot solve differential equations exactly—they advance the state of a system in small discrete steps. A naive scheme such as forward Euler accumulates error every step, and for mechanical systems that error is not random: it systematically violates the conservation laws that define the dynamics. Energy drifts, orbits spiral in or out, and after enough steps the simulation describes a system that no longer resembles the one you started with.</p>
+<p>A numerical integrator advances the state by a discrete step $h$ and makes a small local error at each step. In a generic mechanical simulation these errors are not random. They consistently push the solution in one direction, violating the conservation laws that define the dynamics: energy drifts, orbits spiral inward or outward, and after enough steps the simulated system no longer resembles the physical one.</p>
 
-<p>The central lesson of computational classical mechanics is that the <em>structure</em> of the equations matters as much as their local accuracy. Hamilton’s equations are not arbitrary ODEs: their flow preserves a symplectic 2-form (and hence phase-space volume, by Liouville’s theorem). Integrators that preserve this structure—<strong>symplectic integrators</strong>—are often less accurate per step than a high-order Runge–Kutta method, yet vastly more faithful over millions of steps, because the errors they make are bounded rather than secular. This page develops those methods, the numerical-stability analysis that justifies them, and their use in molecular dynamics and gravitational N-body simulation.</p>
+<p>Hamilton’s equations are a special class of ODE. Their flow preserves the symplectic 2-form, and hence phase-space volume. Integrators that preserve the same structure, called <strong>symplectic integrators</strong>, are often <em>less</em> accurate per step than a high-order Runge–Kutta method. Over long runs they are far more faithful, because their energy error stays bounded instead of growing. The figure below shows the effect for a Kepler orbit.</p>
 
-<h2 id="symplectic-integrators-preserving-what-matters">Symplectic Integrators: Preserving What Matters</h2>
+<figure class="diagram">
+<svg viewBox="0 0 640 300" role="img" aria-labelledby="ee-title" style="max-width:680px;width:100%;height:auto">
+<title id="ee-title">Relative energy error versus number of orbits for an e = 0.5 Kepler orbit at 100 steps per orbit: RK4 grows linearly, leapfrog and fourth-order Yoshida stay flat</title>
+<line x1="66" y1="250" x2="610" y2="250" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="60" y="254" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">10<tspan dy="-5" font-size="8">-7</tspan></text>
+<line x1="66" y1="218.6" x2="610" y2="218.6" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="60" y="222.6" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">10<tspan dy="-5" font-size="8">-6</tspan></text>
+<line x1="66" y1="187.1" x2="610" y2="187.1" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="60" y="191.1" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">10<tspan dy="-5" font-size="8">-5</tspan></text>
+<line x1="66" y1="155.7" x2="610" y2="155.7" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="60" y="159.7" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">10<tspan dy="-5" font-size="8">-4</tspan></text>
+<line x1="66" y1="124.3" x2="610" y2="124.3" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="60" y="128.3" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">10<tspan dy="-5" font-size="8">-3</tspan></text>
+<line x1="66" y1="92.9" x2="610" y2="92.9" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="60" y="96.9" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">10<tspan dy="-5" font-size="8">-2</tspan></text>
+<line x1="66" y1="61.4" x2="610" y2="61.4" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="60" y="65.4" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">10<tspan dy="-5" font-size="8">-1</tspan></text>
+<line x1="66" y1="30" x2="610" y2="30" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="60" y="34" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">10<tspan dy="-5" font-size="8">0</tspan></text>
+<line x1="70" y1="30" x2="70" y2="254" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="70" y="268" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">1</text>
+<line x1="250" y1="30" x2="250" y2="254" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="250" y="268" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">10</text>
+<line x1="430" y1="30" x2="430" y2="254" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="430" y="268" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">100</text>
+<line x1="610" y1="30" x2="610" y2="254" stroke="currentColor" stroke-width="0.5" opacity="0.2" /><text x="610" y="268" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">1000</text>
+<line x1="70" y1="250" x2="610" y2="250" stroke="currentColor" stroke-width="1.2" />
+<line x1="70" y1="30" x2="70" y2="250" stroke="currentColor" stroke-width="1.2" />
+<text x="340" y="290" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle">orbits integrated (log scale)</text>
+<text x="18" y="140" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle" transform="rotate(-90 18 140)">max |&#916;E/E| per orbit</text>
+<path d="M70,170.6 L124,162.0 L178,153.0 L222,145.6 L250,140.8 L304,131.4 L350,123.2 L405,113.6 L430,109.0 L480,100.7 L535,91.1 L583,82.7 L610,77.9" fill="none" stroke="#d9622b" stroke-width="2.5" />
+<path d="M70,91.8 L610,91.8" fill="none" stroke="#3a86c8" stroke-width="2.5" stroke-dasharray="9 5" />
+<path d="M70,140.1 L610,140.1" fill="none" stroke="#2e9e6a" stroke-width="2.5" stroke-dasharray="3 4" />
+<text x="600" y="70" font-size="12" fill="#d9622b" text-anchor="end" font-weight="bold">RK4 (4 force evals/step): secular drift</text>
+<text x="80" y="84" font-size="12" fill="#3a86c8" font-weight="bold">Leapfrog (1 eval/step): bounded</text>
+<text x="80" y="156" font-size="12" fill="#2e9e6a" font-weight="bold">Yoshida-4 (3 evals/step): bounded</text>
+</svg>
+<figcaption>Kepler orbit with eccentricity 0.5, fixed step $h = T/100$. RK4 is more accurate at first but its energy error grows linearly and overtakes leapfrog after roughly 350 orbits; the symplectic methods oscillate in a fixed band forever. Forward Euler (not shown) exceeds 70% error within the first orbit.</figcaption>
+</figure>
 
-<h3 id="the-geometry-to-be-preserved">The geometry to be preserved</h3>
+<p>The choice of method follows from the problem’s structure:</p>
 
-<p>A Hamiltonian system with coordinates $q$ and conjugate momenta $p$ evolves under</p>
+<pre><code class="language-mermaid">flowchart TD
+    A["Mechanical system to simulate"] --&gt; B{"Conservative&lt;br/&gt;(Hamiltonian)?"}
+    B --&gt;|"no: dissipative, stiff,&lt;br/&gt;or short run"| RK["Adaptive RK / BDF / implicit solvers&lt;br/&gt;(e.g. SciPy solve_ivp, SUNDIALS)"]
+    B --&gt;|yes| C{"H = T(p) + V(q)&lt;br/&gt;separable?"}
+    C --&gt;|yes| D{"Dominant exactly&lt;br/&gt;solvable part?"}
+    D --&gt;|"no"| LF["Leapfrog / velocity Verlet&lt;br/&gt;or higher-order composition"]
+    D --&gt;|"yes, e.g. Kepler motion"| WH["Wisdom-Holman&lt;br/&gt;splitting (WHFast, SABA)"]
+    C --&gt;|no| IM["Implicit symplectic:&lt;br/&gt;implicit midpoint, Gauss-Legendre RK"]
+    LF --&gt; K{"Holonomic&lt;br/&gt;constraints?"}
+    K --&gt;|yes| RT["RATTLE / SHAKE, LINCS"]
+    B --&gt;|"yes, but close encounters&lt;br/&gt;need adaptive steps"| HY["Hybrid or adaptive high-order:&lt;br/&gt;IAS15, MERCURIUS, TRACE"]
+</code></pre>
 
-\[\dot{q} = \frac{\partial H}{\partial p}, \qquad \dot{p} = -\frac{\partial H}{\partial q}.\]
+<h2 id="symplectic-integrators">Symplectic integrators</h2>
 
-<p>The time-$t$ flow map $\phi_t$ is a <strong>canonical (symplectic) transformation</strong>: it preserves the 2-form $\omega = \sum_i dp_i \wedge dq_i$. A numerical one-step map $\Phi_h$ is called <em>symplectic</em> if it preserves the same form,</p>
+<h3 id="what-is-preserved">What is preserved</h3>
 
-\[\Phi_h^{*}\, \omega = \omega,\]
+<p>For a system with coordinates $q$ and conjugate momenta $p$,</p>
 
-<p>equivalently if its Jacobian $M = \partial \Phi_h / \partial(q,p)$ satisfies $M^{\top} J M = J$ with</p>
+\[\dot{q} = \frac{\partial H}{\partial p}, \qquad \dot{p} = -\frac{\partial H}{\partial q} .\]
 
-\[J = \begin{pmatrix} 0 &amp; I \\ -I &amp; 0 \end{pmatrix}.\]
+<p>The exact time-$t$ flow $\varphi_t$ is a <strong>symplectic map</strong>: it preserves the canonical 2-form $\omega = \sum_i dq^i \wedge dp_i$. A one-step numerical map $\Phi_h : (q_n, p_n) \mapsto (q_{n+1}, p_{n+1})$ is called symplectic if it does the same, $\Phi_h^{*}\omega = \omega$. Equivalently, its Jacobian $M = \partial(q_{n+1}, p_{n+1})/\partial(q_n, p_n)$ satisfies</p>
 
-<p>A symplectic map automatically preserves phase-space volume, so it cannot produce the artificial attractors or repellers that plague non-symplectic schemes.</p>
+\[M^{\top} J M = J, \qquad J = \begin{pmatrix} 0 &amp; I \\ -I &amp; 0 \end{pmatrix} .\]
 
-<h3 id="first-order-the-symplectic-euler-method">First-order: the symplectic Euler method</h3>
+<p>Symplectic maps preserve phase-space volume ($\det M = 1$), so they cannot create the spurious sinks and sources that non-symplectic schemes produce. For a single degree of freedom, symplectic and area-preserving are the same condition. In higher dimensions symplecticity is strictly stronger than volume preservation.</p>
 
-<p>The simplest symplectic scheme updates one variable before the other so that the composite map is canonical. For a separable Hamiltonian $H(q,p) = T(p) + V(q)$:</p>
+<h3 id="splitting-kick-and-drift">Splitting: kick and drift</h3>
 
-\[p_{n+1} = p_n - h\, \frac{\partial V}{\partial q}(q_n), \qquad
-q_{n+1} = q_n + h\, \frac{\partial T}{\partial p}(p_{n+1}).\]
+<p>Most practical symplectic methods come from <strong>splitting</strong>. For a separable Hamiltonian $H = T(p) + V(q)$, each piece on its own generates a flow that can be solved exactly:</p>
 
-<p>Note the asymmetry: $p$ is updated using the <em>old</em> position, then $q$ is updated using the <em>new</em> momentum. That ordering is exactly what makes the Jacobian symplectic.</p>
+<ul>
+  <li>the <strong>drift</strong> generated by $T$: $q \leftarrow q + h\, \nabla T(p)$, with $p$ fixed;</li>
+  <li>the <strong>kick</strong> generated by $V$: $p \leftarrow p - h\, \nabla V(q)$, with $q$ fixed.</li>
+</ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">symplectic_euler</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">First-order symplectic integrator</span><span class="sh">"""</span>
-    <span class="n">p_new</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">grad_q</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
-    <span class="n">q_new</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">grad_p</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">p_new</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">q_new</span><span class="p">,</span> <span class="n">p_new</span>
-</code></pre></div></div>
+<p>Each is the exact flow of a Hamiltonian, hence symplectic, and any composition of symplectic maps is symplectic. The approximation lies only in the order in which the pieces are applied, since $e^{h(A+B)} \neq e^{hA} e^{hB}$ when the flows do not commute. Composing one kick and one drift gives <strong>symplectic Euler</strong>:</p>
 
-<h3 id="second-order-the-störmerverlet--leapfrog-method">Second-order: the Störmer–Verlet / leapfrog method</h3>
+\[p_{n+1} = p_n - h\, \nabla V(q_n), \qquad q_{n+1} = q_n + h\, \nabla T(p_{n+1}) .\]
 
-<p>By symmetrizing the half-kick / drift / half-kick pattern we obtain a second-order, <em>time-reversible</em>, symplectic method:</p>
+<p>The symmetric <strong>Strang splitting</strong> (half kick, full drift, half kick) gives the second-order, time-reversible <strong>Störmer–Verlet</strong> or <strong>leapfrog</strong> method:</p>
 
-\[p_{n+1/2} = p_n - \tfrac{1}{2} h\, \frac{\partial V}{\partial q}(q_n),\]
+\[\begin{aligned}
+p_{n+1/2} &amp;= p_n - \tfrac{h}{2}\, \nabla V(q_n), \\
+q_{n+1} &amp;= q_n + h\, \nabla T(p_{n+1/2}), \\
+p_{n+1} &amp;= p_{n+1/2} - \tfrac{h}{2}\, \nabla V(q_{n+1}) .
+\end{aligned}\]
 
-\[q_{n+1} = q_n + h\, \frac{\partial T}{\partial p}(p_{n+1/2}),\]
-
-\[p_{n+1} = p_{n+1/2} - \tfrac{1}{2} h\, \frac{\partial V}{\partial q}(q_{n+1}).\]
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">stormer_verlet</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Second-order symplectic integrator</span><span class="sh">"""</span>
-    <span class="n">p_half</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span> <span class="o">*</span> <span class="nf">grad_q</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
-    <span class="n">q_new</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">grad_p</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">p_half</span><span class="p">)</span>
-    <span class="n">p_new</span> <span class="o">=</span> <span class="n">p_half</span> <span class="o">-</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span> <span class="o">*</span> <span class="nf">grad_q</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">q_new</span><span class="p">,</span> <span class="n">p_half</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">q_new</span><span class="p">,</span> <span class="n">p_new</span>
-</code></pre></div></div>
-
-<p>For the common case $T(p) = p^2/2m$ this reduces to the familiar <strong>velocity Verlet</strong> update used throughout molecular dynamics (below): a position step, a force evaluation, and a velocity step that splits the kick into two halves.</p>
-
-<h3 id="why-symplectic-methods-conserve-energy-so-well">Why symplectic methods conserve energy so well</h3>
-
-<p>A symplectic integrator does not conserve the true Hamiltonian $H$ exactly. Instead, <strong>backward error analysis</strong> shows that $\Phi_h$ is the <em>exact</em> time-$h$ flow of a nearby <strong>shadow Hamiltonian</strong></p>
-
-\[\tilde{H} = H + h^2 H_2 + h^4 H_4 + \cdots\]
-
-<p>The integrator conserves $\tilde{H}$ to all orders (the asymptotic series is not generally convergent, but is exponentially accurate up to a remainder $\sim e^{-c/h}$). Because $\tilde{H} = H + O(h^p)$, the measured energy $H$ oscillates within an $O(h^p)$ band but exhibits <strong>no secular drift</strong> over exponentially long times. This is the precise statement behind the empirical observation that leapfrog can integrate a Kepler orbit for billions of periods without losing it.</p>
-
-<p>By contrast, a non-symplectic method of the same order has no shadow Hamiltonian; its energy error grows linearly (or worse) with the number of steps.</p>
-
-<h3 id="higher-order-symplectic-schemes">Higher-order symplectic schemes</h3>
-
-<p>Higher order is obtained by <em>composition</em>. If $\Phi_h$ is a symmetric second-order method, the <strong>Yoshida</strong> composition</p>
-
-\[\Psi_h = \Phi_{w_1 h} \circ \Phi_{w_0 h} \circ \Phi_{w_1 h}, \qquad
-w_0 = -\frac{2^{1/3}}{2 - 2^{1/3}}, \quad
-w_1 = \frac{1}{2 - 2^{1/3}},\]
-
-<p>is symplectic and fourth-order. The negative central weight $w_0$ (a backward sub-step) is unavoidable: any symplectic method of order $&gt; 2$ built by composition must take some steps with negative time. Recursing the construction yields sixth-, eighth-, and higher-order symplectic integrators, all reusing the same elementary kick/drift maps.</p>
+<p>For $T = p^2/2m$ this is exactly <strong>velocity Verlet</strong>, the workhorse of molecular dynamics. It needs one force evaluation per step, because the closing half-kick’s force is reused for the next step’s opening half-kick.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<span class="c1"># Fourth-order Yoshida coefficients for kick-drift-kick base method
-</span><span class="n">cbrt2</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span>
-<span class="n">w1</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">cbrt2</span><span class="p">)</span>
-<span class="n">w0</span> <span class="o">=</span> <span class="o">-</span><span class="n">cbrt2</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">cbrt2</span><span class="p">)</span>
-<span class="n">weights</span> <span class="o">=</span> <span class="p">[</span><span class="n">w1</span><span class="p">,</span> <span class="n">w0</span><span class="p">,</span> <span class="n">w1</span><span class="p">]</span>
+<span class="k">def</span> <span class="nf">symplectic_euler</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">force</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>            <span class="c1"># kick with the old position
+</span>    <span class="n">q</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="n">p</span> <span class="o">/</span> <span class="n">mass</span>            <span class="c1"># drift with the new momentum
+</span>    <span class="k">return</span> <span class="n">q</span><span class="p">,</span> <span class="n">p</span>
 
-<span class="k">def</span> <span class="nf">yoshida4_step</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">force</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Fourth-order symplectic step by Yoshida composition of leapfrog.</span><span class="sh">"""</span>
-    <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">weights</span><span class="p">:</span>
-        <span class="n">h</span> <span class="o">=</span> <span class="n">w</span> <span class="o">*</span> <span class="n">dt</span>
-        <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>          <span class="c1"># half kick
-</span>        <span class="n">q</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="n">p</span> <span class="o">/</span> <span class="n">mass</span>                <span class="c1"># drift
-</span>        <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>          <span class="c1"># half kick
+<span class="k">def</span> <span class="nf">leapfrog</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">force</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Kick-drift-kick Stormer-Verlet: 2nd order, symplectic, time-reversible.</span><span class="sh">"""</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="n">p</span> <span class="o">/</span> <span class="n">mass</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>      <span class="c1"># in a loop, cache this force for the next step
 </span>    <span class="k">return</span> <span class="n">q</span><span class="p">,</span> <span class="n">p</span>
 </code></pre></div></div>
 
-<h2 id="variational-integrators-discrete-mechanics-done-right">Variational Integrators: Discrete Mechanics Done Right</h2>
+<h3 id="backward-error-analysis-the-shadow-hamiltonian">Backward error analysis: the shadow Hamiltonian</h3>
 
-<p>Recall that Lagrangian mechanics arises from extremizing the action. <strong>Variational integrators</strong> apply this principle <em>directly to discrete time</em>, rather than discretizing the resulting differential equations. The payoff is excellent long-term conservation of a discrete momentum and energy—exactly what lets us simulate the solar system for millions of years.</p>
+<p>A symplectic integrator does not conserve $H$ exactly. <strong>Backward error analysis</strong> shows that a symplectic method of order $r$ is, to all orders in $h$, the exact time-$h$ flow of a nearby <strong>modified (shadow) Hamiltonian</strong></p>
 
-<p>We replace the continuous action by a sum over a <strong>discrete Lagrangian</strong> $L_d(q_k, q_{k+1}, h)$, which approximates the action over one step:</p>
+\[\tilde{H} = H + h^{r} H_{r+1} + h^{r+1} H_{r+2} + \cdots\]
 
-\[L_d(q_k, q_{k+1}, h) \approx \int_{t_k}^{t_{k+1}} L\!\left(q(t), \dot q(t)\right)\, dt,\]
+<p>where the corrections $H_k$ are built from iterated Poisson brackets of $T$ and $V$. For the symmetric leapfrog only even powers of $h$ appear. The series generally diverges, but truncating it optimally leaves an error of order $e^{-c/h}$. The consequences, established rigorously by Benettin–Giorgilli and Hairer–Lubich, are:</p>
 
-<p>so that the discrete action is</p>
+<ul>
+  <li>$\tilde H$ is conserved to within exponentially small error for exponentially long times, $t \lesssim e^{c/h}$;</li>
+  <li>since $\tilde H - H = O(h^r)$, the true energy oscillates in a band of width $O(h^r)$ with <strong>no secular drift</strong>;</li>
+  <li>for integrable and near-integrable systems, errors in angles grow only linearly with time, compared with quadratically for a generic method.</li>
+</ul>
 
-\[S_d = \sum_k L_d(q_k, q_{k+1}, h).\]
+<p>This is why leapfrog, with modest step size, can follow a planetary system for billions of orbits without its energy wandering off. A non-symplectic method has no shadow Hamiltonian; its energy error typically grows linearly in time, as RK4 does in the figure above.</p>
 
-<p>Extremizing $S_d$ over the interior points $q_k$ gives the <strong>discrete Euler–Lagrange equations</strong>:</p>
+<p>Two caveats matter in practice. The guarantee holds only for a <strong>fixed</strong> step size, since a naively adaptive $h$ changes the shadow Hamiltonian at every step and destroys it. It also holds only in exact arithmetic; floating-point roundoff adds a separate random-walk error, discussed below.</p>
 
-\[D_2 L_d(q_{k-1}, q_k) + D_1 L_d(q_k, q_{k+1}) = 0,\]
+<h3 id="higher-order-composition">Higher-order composition</h3>
 
-<p>where $D_1$ and $D_2$ denote partial derivatives with respect to the first and second slot. This is a two-step recurrence: given $(q_{k-1}, q_k)$ it determines $q_{k+1}$ implicitly.</p>
+<p>Higher order comes from composing a symmetric second-order method $\Phi_h$ with carefully chosen sub-steps. The Forest–Ruth / <strong>Yoshida</strong> fourth-order triple jump is</p>
 
-<p>The discrete momenta defined by</p>
+\[\Psi_h = \Phi_{w_1 h} \circ \Phi_{w_0 h} \circ \Phi_{w_1 h}, \qquad
+w_1 = \frac{1}{2 - 2^{1/3}}, \quad w_0 = -\frac{2^{1/3}}{2 - 2^{1/3}} .\]
+
+<p>The middle step runs backward in time ($w_0 \approx -1.70$). This is unavoidable: splitting methods of order greater than two with real coefficients must include negative steps (Sheng 1989, Suzuki 1991). Applying the construction recursively gives orders 6, 8, and higher. The triple jump has relatively large error constants, and optimized schemes with more stages, such as those of Blanes and Moan (2002), are usually more efficient at the same order.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">CBRT2</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span>
+<span class="n">YOSHIDA4</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">CBRT2</span><span class="p">),</span> <span class="o">-</span><span class="n">CBRT2</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">CBRT2</span><span class="p">),</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">-</span> <span class="n">CBRT2</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">yoshida4</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">force</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">4th-order symplectic step: three leapfrog sub-steps with weights w1, w0, w1.</span><span class="sh">"""</span>
+    <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">YOSHIDA4</span><span class="p">:</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="nf">leapfrog</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">w</span> <span class="o">*</span> <span class="n">h</span><span class="p">,</span> <span class="n">force</span><span class="p">,</span> <span class="n">mass</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">q</span><span class="p">,</span> <span class="n">p</span>
+</code></pre></div></div>
+
+<h3 id="non-separable-hamiltonians-and-constraints">Non-separable Hamiltonians and constraints</h3>
+
+<p>When $H(q, p)$ does not split into solvable pieces, as in charged particles in magnetic fields or rigid bodies in some coordinates, explicit splitting may not be available. The options are:</p>
+
+<ul>
+  <li><strong>Implicit midpoint rule</strong>, $z_{n+1} = z_n + h\, J\nabla H\big((z_n + z_{n+1})/2\big)$ with $z = (q, p)$. It is symplectic, second-order, and preserves all quadratic invariants such as angular momentum.</li>
+  <li><strong>Gauss–Legendre Runge–Kutta</strong> methods, which are symplectic implicit RK methods of order $2s$ with $s$ stages.</li>
+  <li>For magnetized charged particles, the explicit, volume-preserving <strong>Boris pusher</strong> is the standard in plasma codes. It is not symplectic, but it has excellent long-time behavior.</li>
+</ul>
+
+<p>Holonomic constraints $g(q) = 0$, such as fixed bond lengths, are handled by adding Lagrange multipliers to leapfrog and solving for them each step. <strong>SHAKE</strong> enforces the position constraints. <strong>RATTLE</strong> also enforces the velocity constraints $\nabla g \cdot \dot q = 0$ and is symplectic on the constraint manifold. LINCS is a faster, parallel alternative used in GROMACS.</p>
+
+<h2 id="variational-integrators">Variational integrators</h2>
+
+<p>Instead of discretizing the equations of motion, <strong>variational integrators</strong> discretize the action principle itself (Marsden and West, 2001). The action over one step is replaced by a <strong>discrete Lagrangian</strong></p>
+
+\[L_d(q_k, q_{k+1}) \approx \int_{t_k}^{t_{k+1}} L\big(q(t), \dot q(t)\big)\, dt ,\]
+
+<p>and the discrete action $S_d = \sum_k L_d(q_k, q_{k+1})$ is made stationary with respect to the interior points. This gives the <strong>discrete Euler–Lagrange equations</strong></p>
+
+\[D_2 L_d(q_{k-1}, q_k) + D_1 L_d(q_k, q_{k+1}) = 0 ,\]
+
+<p>where $D_1$ and $D_2$ are derivatives with respect to the first and second arguments. Given $(q_{k-1}, q_k)$, this equation determines $q_{k+1}$. Defining discrete momenta</p>
 
 \[p_k = -D_1 L_d(q_k, q_{k+1}) = D_2 L_d(q_{k-1}, q_k)\]
 
-<p>turn this into the equivalent one-step <strong>position–momentum form</strong> $(q_k, p_k) \mapsto (q_{k+1}, p_{k+1})$. Two structural theorems make these methods attractive:</p>
+<p>turns it into a one-step map $(q_k, p_k) \mapsto (q_{k+1}, p_{k+1})$ with two structural guarantees:</p>
 
 <ul>
-  <li><strong>Symplecticity.</strong> The resulting map is automatically symplectic, regardless of the quadrature used to build $L_d$—the discrete variational structure guarantees it.</li>
-  <li><strong>Discrete Noether theorem.</strong> Every symmetry of $L_d$ produces an <em>exactly</em> conserved discrete momentum. A rotation-invariant $L_d$ conserves discrete angular momentum to machine precision for all time.</li>
+  <li><strong>Symplecticity.</strong> The map is symplectic for <em>any</em> choice of $L_d$, because it is generated by $L_d$ acting as a type-1 generating function.</li>
+  <li><strong>Discrete Noether theorem.</strong> Each symmetry of $L_d$ yields an exactly conserved discrete momentum. A rotation-invariant $L_d$ conserves discrete angular momentum to machine precision.</li>
 </ul>
 
-<p>A simple choice—the <strong>midpoint discrete Lagrangian</strong></p>
+<p>Different quadratures give familiar schemes:</p>
 
-\[L_d(q_k, q_{k+1}) = h\, L\!\left(\frac{q_k + q_{k+1}}{2},\; \frac{q_{k+1} - q_k}{h}\right)\]
+<table>
+  <thead>
+    <tr>
+      <th>Discrete Lagrangian</th>
+      <th>Resulting method</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$h\, L!\left(\frac{q_k + q_{k+1}}{2}, \frac{q_{k+1} - q_k}{h}\right)$ (midpoint)</td>
+      <td>Implicit midpoint rule</td>
+    </tr>
+    <tr>
+      <td>$\frac{h}{2}\left[L!\left(q_k, \frac{q_{k+1} - q_k}{h}\right) + L!\left(q_{k+1}, \frac{q_{k+1} - q_k}{h}\right)\right]$ (trapezoidal)</td>
+      <td>Störmer–Verlet, for $L = \tfrac12 \dot q^{\top} M \dot q - V(q)$</td>
+    </tr>
+    <tr>
+      <td>Gauss quadrature on polynomial trajectories</td>
+      <td>Symplectic partitioned Runge–Kutta methods of high order</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>—reproduces the implicit midpoint rule, while the trapezoidal choice reproduces Störmer–Verlet. Variational integrators thus unify many familiar symplectic schemes under one principle and extend naturally to constrained systems (via discrete Lagrange multipliers) and to systems with forcing or dissipation (via a discrete Lagrange–d’Alembert principle).</p>
+<p>The framework extends naturally to holonomic constraints (discrete Lagrange multipliers), forcing and dissipation (a discrete Lagrange–d’Alembert principle), and asynchronous time steps in different parts of a system (AVIs). It is widely used in robotics, structural dynamics, and computer graphics, where discrete Noether conservation keeps simulations stable at large step sizes.</p>
 
-<h2 id="molecular-dynamics">Molecular Dynamics</h2>
+<h2 id="molecular-dynamics">Molecular dynamics</h2>
 
-<p>Molecular dynamics (MD) integrates Newton’s equations for a collection of interacting particles, almost always with the <strong>velocity Verlet</strong> form of Störmer–Verlet because its symplecticity controls energy drift over the millions of steps a simulation requires.</p>
+<p><strong>Molecular dynamics (MD)</strong> integrates Newton’s equations for thousands to billions of interacting atoms and computes thermodynamic and transport properties from the trajectories. Almost every production code uses velocity Verlet or its equivalent leapfrog form. The reason is the backward-error argument above: symplecticity bounds energy drift over the $10^6$ to $10^{9}$ steps a simulation needs.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">verlet_integration</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">forces</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">mass</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Velocity Verlet algorithm for MD simulation</span><span class="sh">"""</span>
-    <span class="c1"># Update positions
-</span>    <span class="n">positions</span> <span class="o">+=</span> <span class="n">velocities</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">forces</span><span class="o">/</span><span class="n">mass</span> <span class="o">*</span> <span class="n">dt</span><span class="o">**</span><span class="mi">2</span>
+<pre><code class="language-mermaid">flowchart LR
+    F0["Forces F(t)"] --&gt; K1["Half kick&lt;br/&gt;v += (h/2) F/m"]
+    K1 --&gt; D["Drift&lt;br/&gt;x += h v&lt;br/&gt;(apply PBC)"]
+    D --&gt; NL{"Neighbor list&lt;br/&gt;stale?"}
+    NL --&gt;|yes| RB["Rebuild list"] --&gt; F1
+    NL --&gt;|no| F1["New forces F(t+h)&lt;br/&gt;short-range + PME"]
+    F1 --&gt; K2["Half kick&lt;br/&gt;v += (h/2) F/m"]
+    K2 --&gt; C["Constraints&lt;br/&gt;(RATTLE / LINCS)"]
+    C --&gt; TB["Thermostat /&lt;br/&gt;barostat step"]
+    TB --&gt; OUT["Output, analysis"] --&gt; K1
+</code></pre>
 
-    <span class="c1"># Calculate new forces
-</span>    <span class="n">forces_new</span> <span class="o">=</span> <span class="nf">calculate_forces</span><span class="p">(</span><span class="n">positions</span><span class="p">)</span>
+<h3 id="interaction-potentials">Interaction potentials</h3>
 
-    <span class="c1"># Update velocities
-</span>    <span class="n">velocities</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">forces</span> <span class="o">+</span> <span class="n">forces_new</span><span class="p">)</span><span class="o">/</span><span class="n">mass</span> <span class="o">*</span> <span class="n">dt</span>
-
-    <span class="k">return</span> <span class="n">positions</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">forces_new</span>
-</code></pre></div></div>
-
-<h3 id="the-interaction-potential">The interaction potential</h3>
-
-<p>The physics lives in <code class="language-plaintext highlighter-rouge">calculate_forces</code>. A canonical pairwise model is the <strong>Lennard-Jones</strong> potential, capturing short-range Pauli repulsion and long-range van der Waals attraction:</p>
+<p>The physics lives in the force calculation. The canonical pairwise model is the <strong>Lennard-Jones</strong> potential, with a steep repulsive core (Pauli exclusion) and an attractive dispersion tail:</p>
 
 \[U(r) = 4\varepsilon\left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right],
 \qquad
-\mathbf{F}_{ij} = -\nabla U = \frac{24\varepsilon}{r}\left[2\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right]\hat{\mathbf{r}}_{ij}.\]
+\mathbf{F}_{ij} = \frac{24\varepsilon}{r}\left[2\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6}\right]\hat{\mathbf{r}}_{ij} ,\]
+
+<p>where $\hat{\mathbf{r}}<em>{ij}$ points from $j$ to $i$ and $\mathbf{F}</em>{ij}$ is the force on $i$. Biomolecular <strong>force fields</strong> (AMBER, CHARMM, OPLS) add bonded terms for bonds, angles, and dihedrals, and partial-charge electrostatics. The long-range Coulomb sum is evaluated with <strong>particle-mesh Ewald (PME)</strong>, which splits it into a short-range real-space part and a smooth long-range part solved on a grid with FFTs.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<span class="k">def</span> <span class="nf">lennard_jones_forces</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">2.5</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Total LJ force on each particle, with a distance cutoff.</span><span class="sh">"""</span>
-    <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">positions</span><span class="p">)</span>
-    <span class="n">forces</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">positions</span><span class="p">)</span>
-    <span class="n">rc2</span> <span class="o">=</span> <span class="n">cutoff</span> <span class="o">*</span> <span class="n">cutoff</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
-            <span class="n">rij</span> <span class="o">=</span> <span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">positions</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
-            <span class="n">r2</span> <span class="o">=</span> <span class="n">rij</span> <span class="o">@</span> <span class="n">rij</span>
-            <span class="k">if</span> <span class="n">r2</span> <span class="o">&gt;=</span> <span class="n">rc2</span> <span class="ow">or</span> <span class="n">r2</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">inv_r2</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">r2</span>
-            <span class="n">sr2</span> <span class="o">=</span> <span class="n">sigma</span> <span class="o">*</span> <span class="n">sigma</span> <span class="o">*</span> <span class="n">inv_r2</span>
-            <span class="n">sr6</span> <span class="o">=</span> <span class="n">sr2</span> <span class="o">**</span> <span class="mi">3</span>
-            <span class="n">sr12</span> <span class="o">=</span> <span class="n">sr6</span> <span class="o">*</span> <span class="n">sr6</span>
-            <span class="c1"># magnitude/r so we can multiply by the vector rij directly
-</span>            <span class="n">fmag</span> <span class="o">=</span> <span class="mf">24.0</span> <span class="o">*</span> <span class="n">epsilon</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">sr12</span> <span class="o">-</span> <span class="n">sr6</span><span class="p">)</span> <span class="o">*</span> <span class="n">inv_r2</span>
-            <span class="n">fij</span> <span class="o">=</span> <span class="n">fmag</span> <span class="o">*</span> <span class="n">rij</span>
-            <span class="n">forces</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">fij</span>
-            <span class="n">forces</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">fij</span>
-    <span class="k">return</span> <span class="n">forces</span>
+<span class="k">def</span> <span class="nf">lj_forces</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">r_cut</span><span class="o">=</span><span class="mf">2.5</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Lennard-Jones forces with minimum-image periodic boundaries (O(N^2), vectorized).</span><span class="sh">"""</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>            <span class="c1"># d[i, j] = r_i - r_j
+</span>    <span class="n">d</span> <span class="o">-=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">d</span> <span class="o">/</span> <span class="n">box</span><span class="p">)</span>                     <span class="c1"># minimum-image convention
+</span>    <span class="n">r2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">d</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">np</span><span class="p">.</span><span class="nf">fill_diagonal</span><span class="p">(</span><span class="n">r2</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">r2</span> <span class="o">&lt;</span> <span class="n">r_cut</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">inv_r2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">r2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">sr6</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigma</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">inv_r2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>
+    <span class="n">f_over_r</span> <span class="o">=</span> <span class="mf">24.0</span> <span class="o">*</span> <span class="n">eps</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">sr6</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">sr6</span><span class="p">)</span> <span class="o">*</span> <span class="n">inv_r2</span>   <span class="c1"># |F| / r
+</span>    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">f_over_r</span><span class="p">[...,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="thermostats-sampling-the-right-ensemble">Thermostats: sampling the right ensemble</h3>
+<p><strong>Periodic boundary conditions</strong> with the <strong>minimum-image convention</strong> model bulk matter without surfaces. The all-pairs form above costs $O(N^2)$. Production codes reach $O(N)$ with <strong>cell lists</strong>, which bin atoms into cells of side at least $r_{\text{cut}}$, and <strong>Verlet neighbor lists</strong>, which cache all pairs within $r_{\text{cut}} + r_{\text{skin}}$ and rebuild when any atom has moved more than half the skin.</p>
 
-<p>Plain velocity Verlet samples the <strong>microcanonical (NVE)</strong> ensemble—constant energy. To model a system at fixed temperature $T$ (the <strong>canonical, NVT</strong> ensemble) we couple the particles to a heat bath via a <em>thermostat</em>. The instantaneous temperature follows from equipartition,</p>
+<h3 id="time-step-and-constraints">Time step and constraints</h3>
 
-\[\frac{3}{2} N k_B T_{\text{inst}} = \frac{1}{2}\sum_i m_i \lvert \mathbf{v}_i \rvert^2 ,\]
+<p>Leapfrog is stable only if $h\omega_{\max} &lt; 2$ (derived below), and accuracy needs a margin well inside that. The fastest motions in biomolecules are bond vibrations involving hydrogen, with periods near 10 fs, which sets the characteristic time steps:</p>
 
-<p>and a thermostat nudges $T_{\text{inst}}$ toward the target. The Berendsen scheme rescales velocities by a factor</p>
+<table>
+  <thead>
+    <tr>
+      <th>Setup</th>
+      <th>Typical $h$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>All-atom, fully flexible bonds</td>
+      <td>0.5 to 1 fs</td>
+    </tr>
+    <tr>
+      <td>Bonds to hydrogen constrained (SHAKE, RATTLE, LINCS)</td>
+      <td>2 fs</td>
+    </tr>
+    <tr>
+      <td>Constraints plus hydrogen mass repartitioning (heavy-atom mass shifted onto H)</td>
+      <td>4 fs</td>
+    </tr>
+    <tr>
+      <td>Coarse-grained models (e.g. Martini)</td>
+      <td>20 to 30 fs</td>
+    </tr>
+  </tbody>
+</table>
 
-\[\lambda = \sqrt{1 + \frac{\Delta t}{\tau}\left(\frac{T_{\text{target}}}{T_{\text{inst}}} - 1\right)},\]
+<p><strong>Multiple-time-stepping</strong> schemes such as r-RESPA go further: they evaluate cheap, fast-varying forces every small step and expensive, slowly varying forces (such as long-range electrostatics) every few steps, and remain symplectic because they are still splittings. Their step ratio is limited by resonance instabilities.</p>
 
-<p>which is simple but does not generate the exact canonical distribution; the <strong>Nosé–Hoover</strong> thermostat (an extended-Lagrangian method) and <strong>Langevin</strong> dynamics (adding friction and a fluctuating force consistent with the fluctuation–dissipation theorem) do. The choice of thermostat is itself a numerical-physics decision: a poorly tuned coupling time $\tau$ distorts dynamical quantities like diffusion coefficients even when it reproduces the correct average temperature.</p>
+<h3 id="thermostats-and-barostats">Thermostats and barostats</h3>
 
-<h3 id="periodic-boundaries-and-neighbor-lists">Periodic boundaries and neighbor lists</h3>
+<table>
+  <tbody>
+    <tr>
+      <td>Plain velocity Verlet samples the <strong>microcanonical (NVE)</strong> ensemble. Simulations at fixed temperature (NVT) or pressure (NPT) couple the system to a bath. The instantaneous temperature comes from equipartition, $\tfrac{1}{2} N_{\text{dof}} k_B T_{\text{inst}} = \sum_i \tfrac{1}{2} m_i</td>
+      <td>\mathbf{v}_i</td>
+      <td>^2$, where $N_{\text{dof}}$ is the number of unconstrained degrees of freedom.</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Bulk matter is modeled with <strong>periodic boundary conditions</strong> and the <strong>minimum-image convention</strong>, so each particle interacts with the nearest periodic image of every other. The naive double loop above is $O(N^2)$; production codes restore near-linear scaling with <strong>cell lists</strong> (bin particles into a grid of boxes of side $\geq r_{\text{cut}}$ and only check neighboring boxes) or <strong>Verlet neighbor lists</strong> (cache the neighbors within $r_{\text{cut}} + r_{\text{skin}}$ and rebuild only when a particle has moved more than half the skin distance).</p>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Ensemble</th>
+      <th>Remarks</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Berendsen weak coupling</td>
+      <td>Not canonical</td>
+      <td>Rescales velocities by $\lambda = \sqrt{1 + \frac{\Delta t}{\tau}\left(\frac{T_0}{T_{\text{inst}}} - 1\right)}$. Suppresses kinetic-energy fluctuations and can cause the “flying ice cube” artifact. The GROMACS manual strongly recommends against it for new simulations</td>
+    </tr>
+    <tr>
+      <td>Stochastic velocity rescaling (Bussi–Donadio–Parrinello, <code class="language-plaintext highlighter-rouge">v-rescale</code>)</td>
+      <td>Canonical</td>
+      <td>Berendsen plus a correctly chosen stochastic term; fast first-order relaxation. A good default</td>
+    </tr>
+    <tr>
+      <td>Nosé–Hoover (chains)</td>
+      <td>Canonical, if ergodic</td>
+      <td>Deterministic extended Lagrangian. A single thermostat is not ergodic for small or stiff systems; chains fix this. Oscillatory relaxation</td>
+    </tr>
+    <tr>
+      <td>Langevin (e.g. BAOAB splitting)</td>
+      <td>Canonical</td>
+      <td>Friction plus noise obeying fluctuation–dissipation. BAOAB (Leimkuhler–Matthews) gives very accurate configurational sampling. Strong friction slows diffusion</td>
+    </tr>
+    <tr>
+      <td>Barostats: Parrinello–Rahman, MTTK, stochastic cell rescaling (C-rescale)</td>
+      <td>NPT</td>
+      <td>Berendsen pressure coupling has the same ensemble defect as its thermostat; C-rescale is its correct stochastic counterpart</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="n-body-methods-celestial-mechanics">N-body Methods (Celestial Mechanics)</h2>
+<p>Thermostat choice affects results. A tightly coupled thermostat reproduces the average temperature but distorts dynamical properties such as diffusion coefficients and viscosities. Transport properties are best computed from NVE segments or with weak coupling.</p>
 
-<p>The gravitational <strong>N-body problem</strong> has no general closed-form solution for $N \geq 3$. Each body feels</p>
+<h3 id="machine-learned-interatomic-potentials">Machine-learned interatomic potentials</h3>
 
-\[\ddot{\mathbf{r}}_i = G \sum_{j \neq i} m_j \frac{\mathbf{r}_j - \mathbf{r}_i}{\lvert \mathbf{r}_j - \mathbf{r}_i \rvert^{3}}.\]
+<p>The largest recent change in MD is in how forces are computed, not how they are integrated. <strong>Machine-learned interatomic potentials (MLIPs)</strong> are trained on density-functional-theory energies and forces and reach near-DFT accuracy at a small fraction of the cost. Examples include Behler–Parrinello networks and equivariant message-passing models such as NequIP, Allegro, and MACE. Since 2023, <strong>universal</strong> or foundation MLIPs trained on large multi-element datasets cover most of the periodic table out of the box. Examples are MACE-MP-0 and Meta’s UMA family (2025), trained on its Open Molecules 2025 and Open Materials datasets. These models are usually fine-tuned for production work. They plug into the same velocity-Verlet loop through interfaces such as ASE, LAMMPS, and OpenMM. Their forces are gradients of a learned energy, so they remain conservative and the symplectic machinery applies unchanged. Models that predict forces directly, without an energy, lose this guarantee and can drift. See <a href="../computational-physics/monte-carlo-and-md.html">Computational Physics: Monte Carlo &amp; MD</a> and <a href="../computational-physics/ml-for-physics.html">Machine Learning for Physics</a> for more.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<h2 id="gravitational-n-body-methods">Gravitational N-body methods</h2>
 
-<span class="k">def</span> <span class="nf">gravitational_acceleration</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">G</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">softening</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Pairwise gravitational acceleration with Plummer softening.</span><span class="sh">"""</span>
-    <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">masses</span><span class="p">)</span>
-    <span class="n">acc</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">positions</span><span class="p">)</span>
-    <span class="n">eps2</span> <span class="o">=</span> <span class="n">softening</span> <span class="o">*</span> <span class="n">softening</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">j</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">positions</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">r2</span> <span class="o">=</span> <span class="n">d</span> <span class="o">@</span> <span class="n">d</span> <span class="o">+</span> <span class="n">eps2</span>          <span class="c1"># softening avoids singular close encounters
-</span>            <span class="n">inv_r3</span> <span class="o">=</span> <span class="n">r2</span> <span class="o">**</span> <span class="o">-</span><span class="mf">1.5</span>
-            <span class="n">acc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">G</span> <span class="o">*</span> <span class="n">masses</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span> <span class="o">*</span> <span class="n">inv_r3</span>
-    <span class="k">return</span> <span class="n">acc</span>
-</code></pre></div></div>
+<p>The gravitational N-body problem,</p>
 
-<h3 id="softening-and-adaptive-time-stepping">Softening and adaptive time-stepping</h3>
+\[\ddot{\mathbf{r}}_i = G \sum_{j \neq i} m_j \frac{\mathbf{r}_j - \mathbf{r}_i}{|\mathbf{r}_j - \mathbf{r}_i|^{3}} ,\]
 
-<p>Two close bodies produce a $1/r^2$ force that blows up numerically. <strong>Plummer softening</strong> replaces $r^2$ by $r^2 + \varepsilon^2$, bounding the force at small separation—appropriate for collisionless systems (galaxies) where you are not resolving genuine two-body encounters. For collisional systems (star clusters, planetary systems) one instead uses an <strong>individual / adaptive time-step</strong>, shrinking $h$ during close encounters so the fast pair is resolved while distant bodies coast. Symplectic integrators with fixed $h$ lose their structure-preserving guarantee under naive step-size changes, motivating <em>symplectic</em> adaptive schemes and regularization techniques (e.g. Kustaanheimo–Stiefel) that remove the singularity by a change of variables.</p>
+<p>has no general closed-form solution for $N \geq 3$. Numerical methods split into two regimes. <strong>Collisional</strong> systems (planetary systems, star clusters) need individual close encounters resolved accurately. <strong>Collisionless</strong> systems (galaxies, cosmological dark matter) treat the particles as samples of a smooth distribution.</p>
+
+<h3 id="wisdomholman-mapping">Wisdom–Holman mapping</h3>
+
+<p>In a planetary system the Sun dominates. Wisdom and Holman (1991) split the Hamiltonian as</p>
+
+\[H = H_{\text{Kepler}} + H_{\text{interaction}}, \qquad |H_{\text{interaction}}| \sim \varepsilon\, |H_{\text{Kepler}}|, \quad \varepsilon \sim 10^{-3} ,\]
+
+<p>using Jacobi or democratic heliocentric coordinates. The Kepler part is solved <em>exactly</em>, with a universal-variable Kepler solver, and the planet–planet interactions are applied as kicks. The energy error then scales as $\varepsilon h^2$ rather than $h^2$, allowing steps of about 1/20 of the shortest orbital period. This made gigayear integrations of the Solar System practical, and it underlies the Lyapunov-time results on the <a href="chaos-and-computational.html#consequences-in-physical-systems">chaos page</a>. Higher-order variants (SABA, symplectic correctors) push the error to $O(\varepsilon h^4 + \varepsilon^2 h^2)$ or better.</p>
+
+<h3 id="close-encounters">Close encounters</h3>
+
+<p>Fixed-step symplectic methods lose accuracy when two bodies approach closely and the relevant timescale collapses. The options are:</p>
+
+<ul>
+  <li><strong>Softening</strong> (collisionless systems): replace $r^2$ by $r^2 + \epsilon^2$ (Plummer softening), bounding the force at small separations. This is appropriate when the particles are samples of a smooth distribution and real two-body encounters are not physical.</li>
+  <li><strong>High-order adaptive integration</strong>: IAS15, a 15th-order Gauss–Radau integrator with adaptive step control, keeps the energy error at machine precision. Its roundoff error grows as a random walk ($\propto \sqrt{t}$, <strong>Brouwer’s law</strong>), which is the best achievable in floating point. It is not symplectic, but it is accurate enough that this does not matter.</li>
+  <li><strong>Hybrid integrators</strong>: MERCURIUS uses Wisdom–Holman far from encounters and switches smoothly to an adaptive integrator inside a critical radius. TRACE (2024) is a time-reversible hybrid that handles arbitrary close encounters.</li>
+  <li><strong>Regularization</strong>: the Kustaanheimo–Stiefel transformation and algorithmic regularization change variables and time to remove the $1/r$ singularity. They are standard in star-cluster codes.</li>
+</ul>
+
+<p>The open-source <a href="https://rebound.hanno-rein.de/">REBOUND</a> package implements all of these (WHFast, WHFast512 with AVX-512, SABA, IAS15, MERCURIUS, TRACE, Bulirsch–Stoer) behind a common Python interface and is a standard tool in planetary dynamics.</p>
 
 <h3 id="fast-force-evaluation">Fast force evaluation</h3>
 
-<p>The direct sum is $O(N^2)$ per step—prohibitive beyond $\sim 10^4$ bodies. Two approximations dominate large simulations:</p>
+<p>Direct summation costs $O(N^2)$ per step, which is practical up to roughly $10^5$ to $10^6$ bodies with GPU acceleration. Larger simulations approximate the far field:</p>
 
-<ul>
-  <li><strong>Barnes–Hut tree code</strong>, $O(N \log N)$: build an octree, and approximate the pull of a distant, sufficiently compact cell by its center of mass (controlled by an opening angle $\theta$).</li>
-  <li><strong>Fast Multipole Method (FMM)</strong>, $O(N)$: expand the potential of distant groups in multipoles <em>and</em> evaluate them efficiently for whole groups of targets, with rigorous error bounds.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Cost</th>
+      <th>Idea</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Direct summation</td>
+      <td>$O(N^2)$</td>
+      <td>Exact pairwise sum</td>
+      <td>Star clusters, planetary systems, GPU codes</td>
+    </tr>
+    <tr>
+      <td>Barnes–Hut tree</td>
+      <td>$O(N \log N)$</td>
+      <td>Octree; distant cells replaced by multipoles when their angular size is below $\theta$</td>
+      <td>Galaxy simulations</td>
+    </tr>
+    <tr>
+      <td>Fast multipole method (FMM)</td>
+      <td>$O(N)$</td>
+      <td>Multipole expansions plus local (Taylor) expansions for groups of targets; rigorous error bounds</td>
+      <td>Gravity and electrostatics</td>
+    </tr>
+    <tr>
+      <td>Particle–mesh (PM)</td>
+      <td>$O(N + N_g \log N_g)$</td>
+      <td>Deposit mass on a grid, solve Poisson’s equation with FFTs</td>
+      <td>Cosmology (long-range part)</td>
+    </tr>
+    <tr>
+      <td>TreePM, P³M</td>
+      <td>between</td>
+      <td>Mesh for long range plus tree or direct sum for short range</td>
+      <td>Cosmological codes (e.g. GADGET-4); PME is the MD analogue</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>For periodic gravitational or electrostatic systems, <strong>Particle–Mesh (PM)</strong> and <strong>Particle–Particle/Particle–Mesh (P³M)</strong> methods solve Poisson’s equation on a grid with an FFT, combining a fast long-range mesh force with a direct short-range correction; <strong>Ewald summation</strong> plays the analogous role for Coulomb interactions in MD.</p>
+<p>The following vectorized direct-summation code evolves a Sun–planet–moon system with leapfrog and checks energy conservation:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">accelerations</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">G</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Direct O(N^2) gravitational accelerations, vectorized; eps = Plummer softening.</span><span class="sh">"""</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">,</span> <span class="p">:]</span>            <span class="c1"># d[i, j] = r_j - r_i
+</span>    <span class="n">r2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">d</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">eps</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">np</span><span class="p">.</span><span class="nf">fill_diagonal</span><span class="p">(</span><span class="n">r2</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">)</span>                     <span class="c1"># no self-force
+</span>    <span class="k">return</span> <span class="n">G</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">masses</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span> <span class="o">/</span> <span class="n">r2</span><span class="p">[...,</span> <span class="bp">None</span><span class="p">]</span><span class="o">**</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">energy</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">G</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="n">ke</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">masses</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">vel</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">triu_indices</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">masses</span><span class="p">),</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">((</span><span class="n">pos</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[</span><span class="n">j</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">eps</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ke</span> <span class="o">-</span> <span class="n">G</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">masses</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">masses</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">r</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">leapfrog</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Kick-drift-kick leapfrog; returns final state and the energy history.</span><span class="sh">"""</span>
+    <span class="n">acc</span> <span class="o">=</span> <span class="nf">accelerations</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="p">[</span><span class="nf">energy</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+        <span class="n">vel</span> <span class="o">=</span> <span class="n">vel</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="n">acc</span>
+        <span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="n">vel</span>
+        <span class="n">acc</span> <span class="o">=</span> <span class="nf">accelerations</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+        <span class="n">vel</span> <span class="o">=</span> <span class="n">vel</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="n">acc</span>
+        <span class="n">E</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nf">energy</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
+
+<span class="c1"># Sun - planet - moon, G = 1. The moon orbits the planet at distance 0.01,
+# well inside the planet's Hill radius (1e-3/3)**(1/3) ~ 0.07.
+</span><span class="n">masses</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">])</span>
+<span class="n">pos</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.01</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]])</span>
+<span class="n">v_moon</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">1e-3</span> <span class="o">/</span> <span class="mf">0.01</span><span class="p">)</span>                        <span class="c1"># circular speed about the planet
+</span><span class="n">vel</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">v_moon</span><span class="p">]])</span>
+<span class="n">vel</span> <span class="o">-=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">masses</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">vel</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">masses</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span>   <span class="c1"># zero total momentum
+</span>
+<span class="n">h</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mf">0.01</span> <span class="o">/</span> <span class="n">v_moon</span> <span class="o">/</span> <span class="mi">200</span>                  <span class="c1"># 200 steps per lunar orbit
+</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="nf">leapfrog</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">40_000</span><span class="p">)</span>
+<span class="n">r_moon</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">pos</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="si">}</span><span class="s"> steps, max |dE/E| = </span><span class="si">{</span><span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">E</span> <span class="o">/</span> <span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="s">, </span><span class="sh">"</span>
+      <span class="sa">f</span><span class="sh">"</span><span class="s">final moon-planet distance = </span><span class="si">{</span><span class="n">r_moon</span><span class="si">:</span><span class="p">.</span><span class="mi">4</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>This prints <code class="language-plaintext highlighter-rouge">40000 steps, max |dE/E| = 6.8e-10, final moon-planet distance = 0.0100</code>. The step size is set by the fastest orbit (the moon’s), which is exactly the multi-scale problem that Wisdom–Holman splitting and hybrid integrators address.</p>
 
 <h3 id="the-restricted-three-body-problem">The restricted three-body problem</h3>
 
-<p>A tractable special case fixes two massive bodies (the <em>primaries</em>) in circular orbit and studies a massless test particle. In the co-rotating frame the dynamics admit a conserved <strong>Jacobi integral</strong>, and five equilibria—the <strong>Lagrange points</strong> $L_1$–$L_5$—appear. $L_1$–$L_3$ are saddle-unstable; $L_4$ and $L_5$ are stable for mass ratios below the Routh value $\approx 0.0385$, which is why the Sun–Jupiter $L_4/L_5$ points trap the Trojan asteroids and why spacecraft (e.g. JWST at Sun–Earth $L_2$) are stationed near these points with modest station-keeping.</p>
+<p>A tractable special case fixes two massive <em>primaries</em> on circular orbits and follows a massless test particle. In the co-rotating frame the <strong>Jacobi integral</strong> $C_J = 2\Phi_{\text{eff}} - v^2$ is conserved, and its zero-velocity surfaces bound the regions the particle can reach. There are five equilibria, the <strong>Lagrange points</strong>. $L_1$, $L_2$ and $L_3$ are collinear saddles. $L_4$ and $L_5$ form equilateral triangles with the primaries and are linearly stable when the mass ratio $\mu = m_2/(m_1 + m_2)$ is below the Routh value $\mu_c = \tfrac{1}{2}\left(1 - \sqrt{23/27}\right) \approx 0.0385$. Sun–Jupiter ($\mu \approx 10^{-3}$) therefore holds thousands of Trojan asteroids at $L_4$ and $L_5$. JWST, Gaia, and Euclid fly on halo or Lissajous orbits around the unstable Sun–Earth $L_2$ point, which need small periodic station-keeping burns.</p>
 
-<h2 id="numerical-stability-and-energy-drift">Numerical Stability and Energy Drift</h2>
+<h2 id="stability-and-error-analysis">Stability and error analysis</h2>
 
-<h3 id="local-vs-global-error-and-order">Local vs. global error, and order</h3>
+<h3 id="order-is-not-the-whole-story">Order is not the whole story</h3>
 
-<p>A one-step method of <strong>order $p$</strong> has local truncation error $O(h^{p+1})$ per step and global error $O(h^{p})$ over a fixed time interval. But for long mechanical integrations the relevant question is not the order—it is whether the error <em>accumulates</em>. The contrast between methods is sharpest here:</p>
+<p>A method of <strong>order $r$</strong> has local error $O(h^{r+1})$ and global error $O(h^{r})$ over a <em>fixed</em> time interval. Long mechanical runs raise a different question: how the error grows as the interval lengthens.</p>
 
 <table>
   <thead>
     <tr>
       <th>Method</th>
       <th style="text-align: center">Order</th>
+      <th style="text-align: center">Force evaluations per step</th>
       <th style="text-align: center">Symplectic</th>
       <th style="text-align: center">Time-reversible</th>
-      <th>Energy behavior over many steps</th>
+      <th>Long-run energy error</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Forward (explicit) Euler</td>
+      <td>Forward Euler</td>
+      <td style="text-align: center">1</td>
       <td style="text-align: center">1</td>
       <td style="text-align: center">No</td>
       <td style="text-align: center">No</td>
-      <td>Secular drift; energy grows, orbits spiral out</td>
+      <td>Grows without bound; orbits spiral outward</td>
     </tr>
     <tr>
       <td>Symplectic Euler</td>
       <td style="text-align: center">1</td>
+      <td style="text-align: center">1</td>
       <td style="text-align: center">Yes</td>
       <td style="text-align: center">No</td>
-      <td>Bounded oscillation, no drift</td>
+      <td>Bounded, $O(h)$</td>
     </tr>
     <tr>
-      <td>Störmer–Verlet / leapfrog</td>
+      <td>Leapfrog / velocity Verlet</td>
       <td style="text-align: center">2</td>
+      <td style="text-align: center">1</td>
       <td style="text-align: center">Yes</td>
       <td style="text-align: center">Yes</td>
-      <td>Bounded oscillation, no drift</td>
+      <td>Bounded, $O(h^2)$</td>
     </tr>
     <tr>
-      <td>RK4</td>
+      <td>Implicit midpoint</td>
+      <td style="text-align: center">2</td>
+      <td style="text-align: center">implicit solve</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+      <td>Bounded; quadratic invariants exact</td>
+    </tr>
+    <tr>
+      <td>Classical RK4</td>
+      <td style="text-align: center">4</td>
       <td style="text-align: center">4</td>
       <td style="text-align: center">No</td>
       <td style="text-align: center">No</td>
-      <td>Small per-step error but slow secular drift</td>
+      <td>Small at first, grows linearly</td>
     </tr>
     <tr>
-      <td>Yoshida (composed)</td>
-      <td style="text-align: center">4, 6, …</td>
+      <td>Yoshida composition</td>
+      <td style="text-align: center">4, 6, 8</td>
+      <td style="text-align: center">3, 7, 15</td>
       <td style="text-align: center">Yes</td>
       <td style="text-align: center">Yes</td>
-      <td>Bounded oscillation, no drift</td>
+      <td>Bounded, $O(h^{r})$</td>
+    </tr>
+    <tr>
+      <td>Wisdom–Holman</td>
+      <td style="text-align: center">2 (in $h$)</td>
+      <td style="text-align: center">1 + Kepler solve</td>
+      <td style="text-align: center">Yes</td>
+      <td style="text-align: center">Yes</td>
+      <td>Bounded, $O(\varepsilon h^2)$</td>
+    </tr>
+    <tr>
+      <td>IAS15</td>
+      <td style="text-align: center">15</td>
+      <td style="text-align: center">adaptive</td>
+      <td style="text-align: center">No</td>
+      <td style="text-align: center">No</td>
+      <td>Machine precision, then $\sqrt{t}$ roundoff</td>
     </tr>
   </tbody>
 </table>
 
-<p>The takeaway: a non-symplectic high-order method can beat a symplectic low-order one on a <em>short</em> run, but on a long run the symplectic method wins because its energy error never accumulates.</p>
+<h3 id="linear-stability-on-the-harmonic-oscillator">Linear stability on the harmonic oscillator</h3>
 
-<h3 id="linear-stability-and-the-harmonic-oscillator">Linear stability and the harmonic oscillator</h3>
+<p>Stability is analyzed on the harmonic oscillator $H = \tfrac12\left(p^2 + \omega^2 q^2\right)$, whose exact flow is a rotation in phase space. Every linear integrator becomes a matrix map $(q, p) \mapsto M (q, p)$. For kick–drift–kick leapfrog,</p>
 
-<p>Stability is analyzed on the harmonic oscillator $H = \tfrac{1}{2}(p^2 + \omega^2 q^2)$, whose exact flow is a rotation. Each integrator becomes a linear map $(q,p) \mapsto M (q,p)$, and stability requires the eigenvalues of $M$ to lie on the unit circle. For leapfrog one finds</p>
+\[M = \begin{pmatrix} 1 - \tfrac{1}{2}h^2\omega^2 &amp; h \\ -h\omega^2\left(1 - \tfrac{1}{4}h^2\omega^2\right) &amp; 1 - \tfrac{1}{2}h^2\omega^2 \end{pmatrix},
+\qquad \det M = 1, \qquad \operatorname{tr} M = 2 - h^2\omega^2 .\]
 
-\[\det M = 1 \quad\text{(symplectic, exactly)}, \qquad
-\text{stable} \iff h\omega &lt; 2 .\]
+<table>
+  <tbody>
+    <tr>
+      <td>Because $\det M = 1$, the eigenvalues are $e^{\pm i\theta}$ (stable, on the unit circle) when $</td>
+      <td>\operatorname{tr} M</td>
+      <td>&lt; 2$, and real and reciprocal (unstable) otherwise. Stability therefore requires</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>So leapfrog is <em>conditionally stable</em>: the step must resolve the fastest oscillation, $h &lt; 2/\omega_{\max}$. This is a genuine constraint in MD (stiff bond vibrations force $h \sim 1$ fs) and motivates <strong>multiple-time-step</strong> integrators such as <strong>r-RESPA</strong>, which evaluate cheap stiff forces often and expensive slow forces rarely while staying symplectic. Explicit Euler, by contrast, has $\det M = 1 + (h\omega)^2 &gt; 1$: its phase-space map is <em>expanding</em> for every $h$, the geometric origin of its energy growth.</p>
+\[h\,\omega &lt; 2 .\]
 
-<h3 id="roundoff-and-the-symmetry-of-the-update">Roundoff and the symmetry of the update</h3>
+<p>Leapfrog is <em>conditionally stable</em>: the step must resolve the fastest oscillation in the system. Within the stable range it rotates phase space at a slightly wrong frequency, a phase error that is the price of exact area preservation. Forward Euler, by contrast, has $\det M = 1 + h^2\omega^2 &gt; 1$ for every $h$. Its map expands phase space at every step, which is the geometric origin of its energy growth.</p>
 
-<p>Beyond truncation error, finite floating-point precision injects roundoff each step. For very long integrations this is mitigated by <strong>compensated (Kahan) summation</strong> of the position update and by writing the update in <em>increment</em> form so that small displacements are not lost in the low bits of large coordinates. Time-reversible methods like Verlet also benefit from the fact that their errors are even in $h$, leaving no first-order drift to accumulate.</p>
+<h3 id="roundoff">Roundoff</h3>
 
-<h3 id="demonstration-comparing-integrators">Demonstration: comparing integrators</h3>
+<p>Beyond truncation error, each floating-point operation adds a rounding error. With careful implementation these errors behave like a random walk, so the energy error grows as $\sqrt{t}$ (Brouwer’s law). Careless implementations show linear growth. Remedies include compensated (Kahan) summation of positions, writing updates in increment form so small displacements are not lost against large coordinates, and exploiting time-reversibility, which prevents first-order systematic drift.</p>
 
-<p>The following script integrates a pendulum with explicit Euler, symplectic Euler, and leapfrog, and plots the phase-space orbits, the energy error over time, and the long-run phase-space volume. It makes the table above concrete: Euler’s orbit spirals outward and its energy diverges on a log scale, while both symplectic methods trace closed curves with bounded energy error.</p>
+<h3 id="demonstration-area-and-energy">Demonstration: area and energy</h3>
+
+<p>The script below evolves a small loop of initial conditions for a pendulum under three methods and measures how the enclosed phase-space area and the energy change. The loop stretches into a filament, so its area is measured with many points.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
 
-<span class="k">def</span> <span class="nf">hamiltonian_pendulum</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">l</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">g</span><span class="o">=</span><span class="mf">9.81</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Hamiltonian for simple pendulum</span><span class="sh">"""</span>
-    <span class="k">return</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">m</span><span class="o">*</span><span class="n">l</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">m</span><span class="o">*</span><span class="n">g</span><span class="o">*</span><span class="n">l</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">q</span><span class="p">))</span>
+<span class="n">G_OVER_L</span> <span class="o">=</span> <span class="mf">9.81</span>          <span class="c1"># pendulum with m = l = 1: H = p^2/2 + g(1 - cos q)
+</span>
+<span class="k">def</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">):</span>            <span class="c1"># -dV/dq
+</span>    <span class="k">return</span> <span class="o">-</span><span class="n">G_OVER_L</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">euler_step</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Standard Euler method (not symplectic)</span><span class="sh">"""</span>
-    <span class="n">dH_dq</span> <span class="o">=</span> <span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="n">q</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="o">-</span> <span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span><span class="o">/</span><span class="mf">1e-8</span>
-    <span class="n">dH_dp</span> <span class="o">=</span> <span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">)</span> <span class="o">-</span> <span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span><span class="o">/</span><span class="mf">1e-8</span>
+<span class="k">def</span> <span class="nf">energy</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">p</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">G_OVER_L</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">q</span><span class="p">))</span>
 
-    <span class="n">q_new</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">dH_dp</span>
-    <span class="n">p_new</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">dH_dq</span>
-    <span class="k">return</span> <span class="n">q_new</span><span class="p">,</span> <span class="n">p_new</span>
+<span class="k">def</span> <span class="nf">explicit_euler</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">q</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="n">p</span><span class="p">,</span> <span class="n">p</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">symplectic_euler_step</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Symplectic Euler method</span><span class="sh">"""</span>
-    <span class="n">dH_dq</span> <span class="o">=</span> <span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="n">q</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="o">-</span> <span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span><span class="o">/</span><span class="mf">1e-8</span>
-    <span class="n">p_new</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">dH_dq</span>
+<span class="k">def</span> <span class="nf">symplectic_euler</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">q</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="n">p</span><span class="p">,</span> <span class="n">p</span>
 
-    <span class="n">dH_dp</span> <span class="o">=</span> <span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p_new</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">)</span> <span class="o">-</span> <span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p_new</span><span class="p">))</span><span class="o">/</span><span class="mf">1e-8</span>
-    <span class="n">q_new</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">dH_dp</span>
-    <span class="k">return</span> <span class="n">q_new</span><span class="p">,</span> <span class="n">p_new</span>
+<span class="k">def</span> <span class="nf">leapfrog</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="n">p</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">force</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">q</span><span class="p">,</span> <span class="n">p</span>
 
-<span class="k">def</span> <span class="nf">leapfrog_step</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Leapfrog/Störmer-Verlet method</span><span class="sh">"""</span>
-    <span class="n">dH_dq</span> <span class="o">=</span> <span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="n">q</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="o">-</span> <span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span><span class="o">/</span><span class="mf">1e-8</span>
-    <span class="n">p_half</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span> <span class="o">*</span> <span class="n">dH_dq</span>
+<span class="k">def</span> <span class="nf">polygon_area</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Shoelace formula for the area enclosed by an ordered loop of points.</span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">roll</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">roll</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)))</span>
 
-    <span class="n">dH_dp</span> <span class="o">=</span> <span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p_half</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">)</span> <span class="o">-</span> <span class="nc">H</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p_half</span><span class="p">))</span><span class="o">/</span><span class="mf">1e-8</span>
-    <span class="n">q_new</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">dH_dp</span>
+<span class="c1"># A small loop of initial conditions around (q, p) = (1, 0)
+</span><span class="n">phi</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">q0</span><span class="p">,</span> <span class="n">p0</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">),</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">phi</span><span class="p">)</span>
+<span class="n">h</span><span class="p">,</span> <span class="n">n_steps</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mi">2000</span>
 
-    <span class="n">dH_dq_new</span> <span class="o">=</span> <span class="p">(</span><span class="nc">H</span><span class="p">(</span><span class="n">q_new</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">,</span> <span class="n">p_half</span><span class="p">)</span> <span class="o">-</span> <span class="nc">H</span><span class="p">(</span><span class="n">q_new</span><span class="p">,</span> <span class="n">p_half</span><span class="p">))</span><span class="o">/</span><span class="mf">1e-8</span>
-    <span class="n">p_new</span> <span class="o">=</span> <span class="n">p_half</span> <span class="o">-</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">dt</span> <span class="o">*</span> <span class="n">dH_dq_new</span>
-    <span class="k">return</span> <span class="n">q_new</span><span class="p">,</span> <span class="n">p_new</span>
-
-<span class="c1"># Compare integrators
-</span><span class="n">q0</span><span class="p">,</span> <span class="n">p0</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">0.0</span>  <span class="c1"># Large amplitude
-</span><span class="n">dt</span> <span class="o">=</span> <span class="mf">0.1</span>
-<span class="n">n_steps</span> <span class="o">=</span> <span class="mi">10000</span>
-
-<span class="c1"># Storage for trajectories
-</span><span class="n">trajectories</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sh">'</span><span class="s">Euler</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">q</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="n">q0</span><span class="p">],</span> <span class="sh">'</span><span class="s">p</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="n">p0</span><span class="p">],</span> <span class="sh">'</span><span class="s">E</span><span class="sh">'</span><span class="p">:</span> <span class="p">[]},</span>
-    <span class="sh">'</span><span class="s">Symplectic Euler</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">q</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="n">q0</span><span class="p">],</span> <span class="sh">'</span><span class="s">p</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="n">p0</span><span class="p">],</span> <span class="sh">'</span><span class="s">E</span><span class="sh">'</span><span class="p">:</span> <span class="p">[]},</span>
-    <span class="sh">'</span><span class="s">Leapfrog</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">q</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="n">q0</span><span class="p">],</span> <span class="sh">'</span><span class="s">p</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="n">p0</span><span class="p">],</span> <span class="sh">'</span><span class="s">E</span><span class="sh">'</span><span class="p">:</span> <span class="p">[]}</span>
-<span class="p">}</span>
-
-<span class="c1"># Run simulations
-</span><span class="k">for</span> <span class="n">method</span><span class="p">,</span> <span class="n">integrator</span> <span class="ow">in</span> <span class="p">[(</span><span class="sh">'</span><span class="s">Euler</span><span class="sh">'</span><span class="p">,</span> <span class="n">euler_step</span><span class="p">),</span>
-                           <span class="p">(</span><span class="sh">'</span><span class="s">Symplectic Euler</span><span class="sh">'</span><span class="p">,</span> <span class="n">symplectic_euler_step</span><span class="p">),</span>
-                           <span class="p">(</span><span class="sh">'</span><span class="s">Leapfrog</span><span class="sh">'</span><span class="p">,</span> <span class="n">leapfrog_step</span><span class="p">)]:</span>
-    <span class="n">q</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">q0</span><span class="p">,</span> <span class="n">p0</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">step</span> <span class="ow">in</span> <span class="p">[(</span><span class="sh">"</span><span class="s">explicit Euler</span><span class="sh">"</span><span class="p">,</span> <span class="n">explicit_euler</span><span class="p">),</span>
+                   <span class="p">(</span><span class="sh">"</span><span class="s">symplectic Euler</span><span class="sh">"</span><span class="p">,</span> <span class="n">symplectic_euler</span><span class="p">),</span>
+                   <span class="p">(</span><span class="sh">"</span><span class="s">leapfrog</span><span class="sh">"</span><span class="p">,</span> <span class="n">leapfrog</span><span class="p">)]:</span>
+    <span class="n">q</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">q0</span><span class="p">.</span><span class="nf">copy</span><span class="p">(),</span> <span class="n">p0</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+    <span class="n">E_start</span> <span class="o">=</span> <span class="nf">energy</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
-        <span class="n">q</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="nf">integrator</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">hamiltonian_pendulum</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-        <span class="n">trajectories</span><span class="p">[</span><span class="n">method</span><span class="p">][</span><span class="sh">'</span><span class="s">q</span><span class="sh">'</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
-        <span class="n">trajectories</span><span class="p">[</span><span class="n">method</span><span class="p">][</span><span class="sh">'</span><span class="s">p</span><span class="sh">'</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-        <span class="n">trajectories</span><span class="p">[</span><span class="n">method</span><span class="p">][</span><span class="sh">'</span><span class="s">E</span><span class="sh">'</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="nf">hamiltonian_pendulum</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span>
-
-<span class="c1"># Plot results
-</span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
-
-<span class="c1"># Phase space
-</span><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="k">for</span> <span class="n">method</span><span class="p">,</span> <span class="n">style</span> <span class="ow">in</span> <span class="p">[(</span><span class="sh">'</span><span class="s">Euler</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">r-</span><span class="sh">'</span><span class="p">),</span> <span class="p">(</span><span class="sh">'</span><span class="s">Symplectic Euler</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">g-</span><span class="sh">'</span><span class="p">),</span>
-                     <span class="p">(</span><span class="sh">'</span><span class="s">Leapfrog</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">b-</span><span class="sh">'</span><span class="p">)]:</span>
-    <span class="n">traj</span> <span class="o">=</span> <span class="n">trajectories</span><span class="p">[</span><span class="n">method</span><span class="p">]</span>
-    <span class="n">ax</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="sh">'</span><span class="s">q</span><span class="sh">'</span><span class="p">],</span> <span class="n">traj</span><span class="p">[</span><span class="sh">'</span><span class="s">p</span><span class="sh">'</span><span class="p">],</span> <span class="n">style</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$\theta$</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$p_\theta$</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Phase Space Trajectories</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-
-<span class="c1"># Energy conservation
-</span><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-<span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">n_steps</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dt</span>
-<span class="n">E0</span> <span class="o">=</span> <span class="nf">hamiltonian_pendulum</span><span class="p">(</span><span class="n">q0</span><span class="p">,</span> <span class="n">p0</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">method</span><span class="p">,</span> <span class="n">style</span> <span class="ow">in</span> <span class="p">[(</span><span class="sh">'</span><span class="s">Euler</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">r-</span><span class="sh">'</span><span class="p">),</span> <span class="p">(</span><span class="sh">'</span><span class="s">Symplectic Euler</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">g-</span><span class="sh">'</span><span class="p">),</span>
-                     <span class="p">(</span><span class="sh">'</span><span class="s">Leapfrog</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">b-</span><span class="sh">'</span><span class="p">)]:</span>
-    <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">E0</span><span class="p">]</span> <span class="o">+</span> <span class="n">trajectories</span><span class="p">[</span><span class="n">method</span><span class="p">][</span><span class="sh">'</span><span class="s">E</span><span class="sh">'</span><span class="p">])</span>
-    <span class="n">ax</span><span class="p">.</span><span class="nf">semilogy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">E</span> <span class="o">-</span> <span class="n">E0</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-16</span><span class="p">,</span> <span class="n">style</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Time</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Energy Error</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Energy Conservation</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-
-<span class="c1"># Phase space area preservation
-</span><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
-<span class="k">for</span> <span class="n">method</span><span class="p">,</span> <span class="n">color</span> <span class="ow">in</span> <span class="p">[(</span><span class="sh">'</span><span class="s">Euler</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">red</span><span class="sh">'</span><span class="p">),</span> <span class="p">(</span><span class="sh">'</span><span class="s">Symplectic Euler</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">green</span><span class="sh">'</span><span class="p">),</span>
-                     <span class="p">(</span><span class="sh">'</span><span class="s">Leapfrog</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">blue</span><span class="sh">'</span><span class="p">)]:</span>
-    <span class="n">traj</span> <span class="o">=</span> <span class="n">trajectories</span><span class="p">[</span><span class="n">method</span><span class="p">]</span>
-    <span class="c1"># Sample points in phase space
-</span>    <span class="n">q_vals</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="sh">'</span><span class="s">q</span><span class="sh">'</span><span class="p">][::</span><span class="mi">100</span><span class="p">])</span>
-    <span class="n">p_vals</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">traj</span><span class="p">[</span><span class="sh">'</span><span class="s">p</span><span class="sh">'</span><span class="p">][::</span><span class="mi">100</span><span class="p">])</span>
-    <span class="n">ax</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">q_vals</span><span class="p">[:</span><span class="mi">50</span><span class="p">],</span> <span class="n">p_vals</span><span class="p">[:</span><span class="mi">50</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
-              <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="sh">'</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s"> (early)</span><span class="sh">'</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
-    <span class="n">ax</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">q_vals</span><span class="p">[</span><span class="o">-</span><span class="mi">50</span><span class="p">:],</span> <span class="n">p_vals</span><span class="p">[</span><span class="o">-</span><span class="mi">50</span><span class="p">:],</span> <span class="n">c</span><span class="o">=</span><span class="n">color</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
-              <span class="n">marker</span><span class="o">=</span><span class="sh">'</span><span class="s">x</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="sh">'</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s"> (late)</span><span class="sh">'</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$\theta$</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$p_\theta$</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Phase Space Volume Preservation</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">legend</span><span class="p">(</span><span class="n">bbox_to_anchor</span><span class="o">=</span><span class="p">(</span><span class="mf">1.05</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">loc</span><span class="o">=</span><span class="sh">'</span><span class="s">upper left</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-
-<span class="n">plt</span><span class="p">.</span><span class="nf">tight_layout</span><span class="p">()</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="nf">step</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
+    <span class="n">area_ratio</span> <span class="o">=</span> <span class="nf">polygon_area</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="o">/</span> <span class="nf">polygon_area</span><span class="p">(</span><span class="n">q0</span><span class="p">,</span> <span class="n">p0</span><span class="p">)</span>
+    <span class="n">rel_dE</span> <span class="o">=</span> <span class="p">(</span><span class="nf">energy</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="n">E_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">E_start</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="mi">17</span><span class="n">s</span><span class="si">}</span><span class="s"> area ratio = </span><span class="si">{</span><span class="n">area_ratio</span><span class="si">:</span><span class="mf">10.4</span><span class="n">g</span><span class="si">}</span><span class="s">   relative energy change = </span><span class="si">{</span><span class="n">rel_dE</span><span class="si">:</span><span class="o">+</span><span class="p">.</span><span class="mi">2</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
 <details>
-<summary><b>Expected Output</b></summary>
+<summary><b>Expected output</b></summary>
 <br />
-The figure has three panels:
-<ol>
-<li><b>Phase space</b> — the Euler orbit (red) spirals outward as energy is artificially injected, while symplectic Euler (green) and leapfrog (blue) trace nearly closed loops.</li>
-<li><b>Energy error (log scale)</b> — Euler's error climbs steadily; the symplectic methods oscillate within a fixed band with no upward trend.</li>
-<li><b>Phase-space volume</b> — early-vs-late sample points stay co-located for the symplectic methods (volume preserved) but disperse for Euler.</li>
-</ol>
+<pre>
+explicit Euler    area ratio =  1.242e+04   relative energy change = +4.21e+01
+symplectic Euler  area ratio =     0.9999   relative energy change = -6.80e-02
+leapfrog          area ratio =     0.9999   relative energy change = -2.39e-03
+</pre>
+After 2,000 steps, explicit Euler has inflated the phase-space area by four orders of magnitude and multiplied the energy by about 40. Both symplectic methods preserve the area; the remaining 0.01% is the error in measuring the area of a stretched polygon. Their energy errors are bounded, and leapfrog's is smaller because it is second-order.
 </details>
 
-<h3 id="a-complete-leapfrog-n-body-simulation">A complete leapfrog N-body simulation</h3>
+<h2 id="structure-preserving-machine-learning">Structure-preserving machine learning</h2>
 
-<p>Putting the pieces together, the following self-contained example evolves a small gravitational system with the kick–drift–kick leapfrog scheme and tracks the conserved total energy as a stability diagnostic.</p>
+<p>Neural networks trained to predict the next state of a mechanical system generally conserve nothing, and their rollouts drift. Building the mechanical structure into the architecture fixes this:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Learns</th>
+      <th>Guarantee</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Hamiltonian neural network (Greydanus et al., 2019)</td>
+      <td>Scalar $H_\theta(q, p)$; dynamics from Hamilton’s equations via automatic differentiation</td>
+      <td>The continuous-time model conserves $H_\theta$ exactly; integrate it with a symplectic method to keep that in discrete time</td>
+    </tr>
+    <tr>
+      <td>Lagrangian neural network (Cranmer et al., 2020)</td>
+      <td>Scalar $L_\theta(q, \dot q)$; accelerations from the Euler–Lagrange equations</td>
+      <td>Works in arbitrary coordinates, no canonical momenta needed</td>
+    </tr>
+    <tr>
+      <td>SympNets, symplectic recurrent networks</td>
+      <td>The one-step map itself, as a composition of symplectic layers</td>
+      <td>Each learned step is exactly symplectic</td>
+    </tr>
+    <tr>
+      <td>Equivariant graph networks</td>
+      <td>Forces or energies invariant under rotations and translations</td>
+      <td>Momentum and angular-momentum conservation; the basis of modern MLIPs</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="k">def</span> <span class="nf">total_energy</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">G</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">softening</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Kinetic plus (softened) gravitational potential energy.</span><span class="sh">"""</span>
-    <span class="n">ke</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">masses</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">velocities</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-    <span class="n">pe</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="n">eps2</span> <span class="o">=</span> <span class="n">softening</span> <span class="o">*</span> <span class="n">softening</span>
-    <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">masses</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
-            <span class="n">d</span> <span class="o">=</span> <span class="n">positions</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">d</span> <span class="o">@</span> <span class="n">d</span> <span class="o">+</span> <span class="n">eps2</span><span class="p">)</span>
-            <span class="n">pe</span> <span class="o">-=</span> <span class="n">G</span> <span class="o">*</span> <span class="n">masses</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">masses</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">/</span> <span class="n">r</span>
-    <span class="k">return</span> <span class="n">ke</span> <span class="o">+</span> <span class="n">pe</span>
+<p>For an LNN the accelerations follow from expanding $\frac{d}{dt}\nabla_{\dot q} L = \nabla_q L$:</p>
 
-<span class="k">def</span> <span class="nf">leapfrog_nbody</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span>
-                   <span class="n">G</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">softening</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Kick-drift-kick leapfrog (velocity Verlet) for an N-body system.</span><span class="sh">"""</span>
-    <span class="n">acc</span> <span class="o">=</span> <span class="nf">gravitational_acceleration</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">softening</span><span class="p">)</span>
-    <span class="n">energies</span> <span class="o">=</span> <span class="p">[</span><span class="nf">total_energy</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">softening</span><span class="p">)]</span>
-    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
-        <span class="n">velocities</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">acc</span>                 <span class="c1"># half kick
-</span>        <span class="n">positions</span> <span class="o">+=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">velocities</span>                 <span class="c1"># drift
-</span>        <span class="n">acc</span> <span class="o">=</span> <span class="nf">gravitational_acceleration</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">softening</span><span class="p">)</span>
-        <span class="n">velocities</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">acc</span>                 <span class="c1"># half kick
-</span>        <span class="n">energies</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span>
-            <span class="nf">total_energy</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">softening</span><span class="p">)</span>
-        <span class="p">)</span>
-    <span class="k">return</span> <span class="n">positions</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+\[\ddot q = \left(\nabla_{\dot q}\nabla_{\dot q}^{\top} L\right)^{-1}\left[\nabla_q L - \left(\nabla_{\dot q}\nabla_{q}^{\top} L\right)\dot q\right] ,\]
 
-<span class="c1"># A simple Sun-planet-moon hierarchy (units: G = 1)
-</span><span class="n">masses</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">])</span>
-<span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
-                      <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
-                      <span class="p">[</span><span class="mf">1.01</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]])</span>
-<span class="n">velocities</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
-                       <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
-                       <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.0316</span><span class="p">]])</span>   <span class="c1"># ~circular about the planet
-</span>
-<span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="nf">leapfrog_nbody</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">velocities</span><span class="p">,</span> <span class="n">masses</span><span class="p">,</span>
-                             <span class="n">dt</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">20000</span><span class="p">)</span>
-<span class="n">rel_drift</span> <span class="o">=</span> <span class="p">(</span><span class="n">E</span> <span class="o">-</span> <span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="nf">abs</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Max relative energy drift: </span><span class="si">{</span><span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">rel_drift</span><span class="p">))</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
-
-<p>The relative energy drift stays small and oscillatory rather than growing—the hallmark of a symplectic integrator and the reason this scheme, not RK4, underlies long-term solar-system integrations.</p>
-
-<h2 id="modern-directions-structure-preserving-machine-learning">Modern Directions: Structure-Preserving Machine Learning</h2>
-
-<p>The newest frontier learns dynamics from data, but naive neural networks ignore the geometry above and conserve nothing. The fix is to <em>bake the structure into the model</em>:</p>
-
-<ul>
-  <li><strong>Hamiltonian Neural Networks</strong> parameterize $H_\theta(q,p)$ with a network and obtain the dynamics from $\dot q = \partial H_\theta/\partial p$, $\dot p = -\partial H_\theta/\partial q$, so energy conservation is exact by construction.</li>
-  <li><strong>Lagrangian Neural Networks</strong> learn $L_\theta(q,\dot q)$ and recover accelerations through the Euler–Lagrange equations, extending to systems where the momenta are not known a priori.</li>
-  <li><strong>Symplectic / Neural ODE integrators</strong> wrap a symplectic step around the learned vector field so the <em>trained</em> model still preserves phase-space volume.</li>
-</ul>
+<p>where the second term’s matrix has entries $\partial^2 L / \partial \dot q_i\, \partial q_j$. It requires the learned Hessian with respect to velocity (the mass matrix) to be invertible. A minimal PyTorch implementation of both models using <code class="language-plaintext highlighter-rouge">torch.func</code>:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
 <span class="kn">import</span> <span class="n">torch.nn</span> <span class="k">as</span> <span class="n">nn</span>
+<span class="kn">from</span> <span class="n">torch.func</span> <span class="kn">import</span> <span class="n">grad</span><span class="p">,</span> <span class="n">hessian</span><span class="p">,</span> <span class="n">jacrev</span><span class="p">,</span> <span class="n">vmap</span>
 
-<span class="k">class</span> <span class="nc">LagrangianNN</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Neural network that learns the Lagrangian from data</span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q_dim</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">HamiltonianNN</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">H_theta(q, p); dynamics from Hamilton</span><span class="sh">'</span><span class="s">s equations, so H_theta is conserved exactly.</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">128</span><span class="p">):</span>
         <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">q_dim</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Softplus</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Softplus</span><span class="p">(),</span>
-            <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dim</span><span class="p">,</span> <span class="n">width</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Tanh</span><span class="p">(),</span>
+                                 <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">width</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Tanh</span><span class="p">(),</span>
+                                 <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">q_dot</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Returns learned Lagrangian L(q, q_dot)</span><span class="sh">"""</span>
-        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">net</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cat</span><span class="p">([</span><span class="n">q</span><span class="p">,</span> <span class="n">q_dot</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">H</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>                                   <span class="c1"># single sample -&gt; scalar
+</span>        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">net</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cat</span><span class="p">([</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)).</span><span class="nf">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_accelerations</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">q_dot</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Derive accelerations using Euler-Lagrange equations</span><span class="sh">"""</span>
-        <span class="n">L</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">forward</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">q_dot</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">vector_field</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>                        <span class="c1"># batched (B, dim) inputs
+</span>        <span class="n">dHdq</span><span class="p">,</span> <span class="n">dHdp</span> <span class="o">=</span> <span class="nf">vmap</span><span class="p">(</span><span class="nf">grad</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">H</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))(</span><span class="n">q</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dHdp</span><span class="p">,</span> <span class="o">-</span><span class="n">dHdq</span>                               <span class="c1"># (dq/dt, dp/dt)
+</span>
+<span class="k">class</span> <span class="nc">LagrangianNN</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">L_theta(q, qdot); accelerations from the Euler-Lagrange equations.</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">128</span><span class="p">):</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">net</span> <span class="o">=</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">dim</span><span class="p">,</span> <span class="n">width</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Softplus</span><span class="p">(),</span>
+                                 <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">width</span><span class="p">),</span> <span class="n">nn</span><span class="p">.</span><span class="nc">Softplus</span><span class="p">(),</span>
+                                 <span class="n">nn</span><span class="p">.</span><span class="nc">Linear</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 
-        <span class="c1"># Compute dL/dq and dL/dq_dot
-</span>        <span class="n">dL_dq</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">L</span><span class="p">.</span><span class="nf">sum</span><span class="p">(),</span> <span class="n">q</span><span class="p">,</span> <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">dL_dq_dot</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span><span class="n">L</span><span class="p">.</span><span class="nf">sum</span><span class="p">(),</span> <span class="n">q_dot</span><span class="p">,</span> <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">def</span> <span class="nf">L</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">qd</span><span class="p">):</span>                                  <span class="c1"># single sample -&gt; scalar
+</span>        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="nf">net</span><span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">cat</span><span class="p">([</span><span class="n">q</span><span class="p">,</span> <span class="n">qd</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)).</span><span class="nf">squeeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># Time derivative of dL/dq_dot
-</span>        <span class="n">d_dt_dL_dq_dot</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="n">autograd</span><span class="p">.</span><span class="nf">grad</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">dL_dq_dot</span> <span class="o">*</span> <span class="n">q_dot</span><span class="p">).</span><span class="nf">sum</span><span class="p">(),</span> <span class="n">q</span><span class="p">,</span> <span class="n">create_graph</span><span class="o">=</span><span class="bp">True</span>
-        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">def</span> <span class="nf">_accel</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">qd</span><span class="p">):</span>
+        <span class="c1"># d/dt (dL/dqd) = dL/dq  expands to  M qdd = dL/dq - (d2L/dqd dq) qd,
+</span>        <span class="c1"># with mass matrix M = d2L/dqd2 (must be invertible).
+</span>        <span class="n">M</span> <span class="o">=</span> <span class="nf">hessian</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">L</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">1</span><span class="p">)(</span><span class="n">q</span><span class="p">,</span> <span class="n">qd</span><span class="p">)</span>
+        <span class="n">dLdq</span> <span class="o">=</span> <span class="nf">grad</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">L</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">)(</span><span class="n">q</span><span class="p">,</span> <span class="n">qd</span><span class="p">)</span>
+        <span class="n">mixed</span> <span class="o">=</span> <span class="nf">jacrev</span><span class="p">(</span><span class="nf">grad</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">L</span><span class="p">,</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">)(</span><span class="n">q</span><span class="p">,</span> <span class="n">qd</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">solve</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">dLdq</span> <span class="o">-</span> <span class="n">mixed</span> <span class="o">@</span> <span class="n">qd</span><span class="p">)</span>
 
-        <span class="c1"># Euler-Lagrange: q'' = (dL/dq - d/dt(dL/dq_dot)) / (d^2 L / dq_dot^2)
-</span>        <span class="k">return</span> <span class="n">dL_dq</span> <span class="o">-</span> <span class="n">d_dt_dL_dq_dot</span>
+    <span class="k">def</span> <span class="nf">acceleration</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">qd</span><span class="p">):</span>                       <span class="c1"># batched (B, dim) inputs
+</span>        <span class="k">return</span> <span class="nf">vmap</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">_accel</span><span class="p">)(</span><span class="n">q</span><span class="p">,</span> <span class="n">qd</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h2 id="practical-guidance">Practical Guidance</h2>
+<p>Both are trained by regressing the predicted time derivatives (or short integrated rollouts) against observed trajectories. Replacing the network in <code class="language-plaintext highlighter-rouge">LagrangianNN.L</code> with the analytic $L = \tfrac12\dot q^2 - \tfrac12 q^2$ returns $\ddot q = -q$ exactly, which is a useful unit test.</p>
+
+<h2 id="practical-guidance">Practical guidance</h2>
 
 <ul>
-  <li><strong>Default to symplectic.</strong> For any conservative mechanical system simulated over many periods, prefer velocity Verlet (or a Yoshida composition for higher accuracy) over RK4. Reserve adaptive non-symplectic solvers for short, dissipative, or stiff non-Hamiltonian problems.</li>
-  <li><strong>Choose $h$ from the fastest mode.</strong> Stability needs $h \lesssim 2/\omega_{\max}$; accuracy usually wants several times smaller. Use multiple-time-step methods when one stiff mode would otherwise throttle the whole simulation.</li>
-  <li><strong>Monitor a conserved quantity.</strong> Track total energy (and angular momentum where applicable) as a running diagnostic. A bounded oscillation is healthy; a trend means the method, the step size, or the force evaluation is wrong.</li>
-  <li><strong>Match the force solver to the regime.</strong> Direct $O(N^2)$ sums are fine for small systems; switch to tree codes, FMM, or particle–mesh methods as $N$ grows, and use softening or regularization to tame close encounters.</li>
+  <li><strong>Default to symplectic for conservative dynamics.</strong> Use velocity Verlet for MD-like problems, a Wisdom–Holman variant for planetary systems, and higher-order compositions when you need accuracy at a fixed step. Reserve adaptive non-symplectic solvers for dissipative, stiff, or short runs, or use one accurate enough (IAS15) that structure preservation stops mattering.</li>
+  <li><strong>Keep the step fixed, or change it carefully.</strong> A symplectic method with a naively adaptive step loses its shadow Hamiltonian. Use time-transformation (Sundman) techniques or hybrid schemes instead.</li>
+  <li><strong>Set $h$ from the fastest mode.</strong> Stability requires $h\,\omega_{\max} &lt; 2$, and accuracy typically needs $h\,\omega_{\max} \lesssim 0.3$ or smaller. Remove or slow the fastest modes (constraints, mass repartitioning, multiple time stepping) rather than shrinking the step for the entire system.</li>
+  <li><strong>Monitor conserved quantities.</strong> Track energy, and momentum and angular momentum where applicable. A bounded oscillation is healthy. A steady trend means a bug, too large a step, non-conservative forces (cutoffs without smoothing, direct-force ML models), or a thermostat artifact.</li>
+  <li><strong>Match the force solver to the regime.</strong> Use direct sums for small collisional systems, tree or FMM for large ones, and PM, TreePM, or PME for periodic long-range forces. Soften only when particles represent a smooth distribution.</li>
 </ul>
 
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="lagrangian-hamiltonian.html">Lagrangian &amp; Hamiltonian Mechanics</a> — the action principle, phase space, and Poisson brackets that these integrators discretize.</li>
-  <li><a href="newtonian.html">Newtonian Mechanics</a> — the equations of motion being solved numerically.</li>
-  <li><a href="chaos-and-computational.html">Chaos, Modern Topics &amp; Computation</a> — nonlinear dynamics, KAM theory, and symplectic geometry.</li>
-  <li><a href="../computational-physics/">Computational Physics</a> — numerical methods across physics, including ODE/PDE solvers and Monte Carlo.</li>
-  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — the ensemble theory behind molecular-dynamics thermostats.</li>
-  <li><a href="./">Classical Mechanics Hub</a> — back to the overview.</li>
+  <li><a href="geometric-mechanics.html">Geometric Formalism</a>: symplectic forms, Liouville’s theorem, and generating functions, the structure these integrators preserve.</li>
+  <li><a href="lagrangian-hamiltonian.html">Lagrangian &amp; Hamiltonian Mechanics</a>: the action principle and Hamilton’s equations being discretized.</li>
+  <li><a href="chaos-and-computational.html">Chaos &amp; Nonlinear Dynamics</a>: the long-time behavior that makes structure preservation necessary.</li>
+  <li><a href="../computational-physics/">Computational Physics</a>: ODE and PDE solvers, Monte Carlo, and HPC across physics.</li>
+  <li><a href="../statistical-mechanics/">Statistical Mechanics</a>: the ensemble theory behind thermostats and barostats.</li>
+  <li><a href="./">Classical Mechanics Hub</a>: back to the overview.</li>
 </ul>
 
       </section>

@@ -3135,157 +3135,152 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Networking</a> » Modern Architecture &amp; Frontiers</p>
 
-<!-- Custom styles are now loaded via main.scss -->
+<p>This page covers two things that sit above the day-to-day mechanics of networking: how real traffic behaves, and where network design is heading. It first replaces the textbook assumption of smooth, independent traffic with the models that measurement actually supports (self-similar, heavy-tailed, and modulated processes), then looks at the data-centre fabrics that AI training clusters are forcing into existence, and finally surveys the main research directions: information-centric networking, network coding, quantum networking, and 6G.</p>
 
-<p>The fixed, hardware-defined networks of the past have given way to software, and the design of those software networks rests on two things this page covers: an honest model of how traffic actually behaves, and an eye on the research that will reshape the internet next. We start by replacing textbook traffic assumptions with realistic ones (Poisson, self-similar, heavy-tailed, and modulated processes), then survey the research frontier — content-centric networking, network coding, quantum networking and QKD, and 6G. The three pages that grew out of this section — programmable, cloud, and wireless networking — are linked from the hub below.</p>
+<p>The Python listings are compact, runnable models (NumPy only) meant to show the mechanism, not production code.</p>
 
-<p>The Python listings throughout this page are <em>illustrative</em> — compact models that show the logic of each idea rather than production code.</p>
+<h2 id="where-this-page-fits">Where This Page Fits</h2>
 
-<h2 id="the-modern-networking-map">The Modern-Networking Map</h2>
+<p>Three topics that began as sections of this page now have their own pages:</p>
 
-<p>This page sits at the apex of a small family of pages, each of which started life as a section here and has since grown into its own full treatment. Before diving into traffic and research, here is where each piece now lives:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Page</th>
+      <th>Covers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="programmable-networks.html">Programmable Networks</a></td>
+      <td>SDN, P4, eBPF/XDP, NFV, MPLS, Segment Routing and SRv6, the IPv6 transition</td>
+    </tr>
+    <tr>
+      <td><a href="cloud-networking.html">Cloud Networking</a></td>
+      <td>VPCs, route tables, load balancing, CDNs and anycast, NAT, shared responsibility</td>
+    </tr>
+    <tr>
+      <td><a href="wireless-and-mobile.html">Wireless &amp; Mobile</a></td>
+      <td>Wi-Fi, cellular evolution to 5G, the 5G core and slicing, mobility</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong><a href="programmable-networks.html">Programmable Networks</a></strong> — SDN and the control/data-plane split, NFV and service chaining, P4 and the programmable data plane, plus MPLS, Segment Routing, SRv6, and the IPv6 transition.</li>
-  <li><strong><a href="cloud-networking.html">Cloud Networking</a></strong> — VPCs, subnets and route tables, Layer-4/7 load balancing, CDNs and anycast, NAT and egress, private service networking, and the shared-responsibility model.</li>
-  <li><strong><a href="wireless-and-mobile.html">Wireless &amp; Mobile</a></strong> — Wi-Fi (802.11), cellular evolution to 5G, spectrum and modulation, the 5G core and network slicing, edge/IoT, and mobility management.</li>
-</ul>
+<p>The common thread is <strong>disaggregation</strong>: control planes, forwarding hardware, network functions, and even radio access are being separated into components with open interfaces and replaced by software. This page focuses on the load those networks carry and the research that will shape the next generation.</p>
 
-<p>The common thread linking all four is <strong>disaggregation and programmability</strong> — every layer of the network, from the control plane down to the radio, is becoming software you can change. This page is the part of that story that is less about <em>building</em> the network and more about <em>understanding the load it carries</em> and <em>where the research is heading</em>.</p>
+<h2 id="traffic-models">Traffic Models</h2>
 
-<h2 id="understanding-real-world-network-behavior">Understanding Real-World Network Behavior</h2>
+<p>Capacity planning, buffer sizing, and latency targets all rest on a model of the offered load. A model that underestimates burstiness produces networks that look adequately provisioned on average and still drop packets and blow latency budgets during the bursts that users actually notice.</p>
 
-<p>Textbook models assume nice, predictable traffic patterns. Real networks are messier — video streams create bursts, IoT devices chirp periodically, and users create flash crowds. Modeling realistic traffic is what lets capacity planning hold up under real load rather than idealized averages. Get the model wrong and you size buffers, links, and servers for an average that the network almost never experiences; get it right and you can predict tail latency, loss, and the buffer occupancy that actually drives user-visible delay.</p>
+<p>The history of traffic modelling is largely the story of one assumption being overturned. The telephone network’s <strong>Poisson</strong> model carried over to early data networks until Leland, Taqqu, Willinger, and Wilson (“On the Self-Similar Nature of Ethernet Traffic”, 1994) showed that measured LAN traffic is bursty across every timescale from milliseconds to hours. Later work (Paxson and Floyd, 1995) found the same for wide-area traffic and traced it to heavy-tailed file and flow sizes.</p>
 
-<p>The history of traffic modeling is essentially a story of one assumption being overturned. For decades the telephone network’s <strong>Poisson</strong> model was carried over to data networks. Then a landmark measurement study — Leland, Taqqu, Willinger &amp; Wilson, “On the Self-Similar Nature of Ethernet Traffic” (1994) — showed that real LAN traffic is <strong>self-similar</strong>: bursty across <em>every</em> timescale, not just the short one Poisson predicts. That single result reshaped how we provision and buffer networks.</p>
+<h3 id="poisson-arrivals">Poisson Arrivals</h3>
 
-<h3 id="poisson-arrivals-the-classical-baseline">Poisson Arrivals: The Classical Baseline</h3>
+<p>A Poisson process has independent arrivals at a constant rate $\lambda$. Inter-arrival gaps are exponential, $P(T &gt; t) = e^{-\lambda t}$, with mean $1/\lambda$, and the process is <strong>memoryless</strong>: the time already waited says nothing about the time remaining. Poisson arrivals underlie the Erlang formulas for telephone trunks and the M/M/1 results in <a href="performance-and-security.html#queueing-models">Performance, QoS &amp; Security</a>.</p>
 
-<p>The Poisson process is the natural starting point: arrivals are independent, and the number in any interval depends only on the interval’s length. Inter-arrival times are then exponentially distributed with rate $\lambda$, so $P(T &gt; t) = e^{-\lambda t}$ and the mean gap is $1/\lambda$. It is the model behind the classic Erlang and M/M/1 queueing results, and it is <em>memoryless</em> — knowing how long you have waited tells you nothing about how much longer you will wait.</p>
+<p>Poisson’s defining property for provisioning is <strong>smoothing under aggregation</strong>. The count of arrivals in an interval has variance equal to its mean, so the relative fluctuation shrinks as $1/\sqrt{\lambda}$ and a trunk carrying thousands of independent callers is very predictable. Packet traffic does not behave this way: a large transfer or a video stream produces correlated bursts that do not average out.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">TrafficGenerator</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Generate realistic network traffic patterns</span><span class="sh">"""</span>
+<h3 id="self-similarity-and-long-range-dependence">Self-Similarity and Long-Range Dependence</h3>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">models</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">poisson</span><span class="sh">'</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">poisson_traffic</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">self_similar</span><span class="sh">'</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">self_similar_traffic</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">mmpp</span><span class="sh">'</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">mmpp_traffic</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">heavy_tail</span><span class="sh">'</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">heavy_tail_traffic</span>
-        <span class="p">}</span>
-
-    <span class="k">def</span> <span class="nf">poisson_traffic</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">rate</span><span class="p">,</span> <span class="n">duration</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Generate Poisson traffic</span><span class="sh">"""</span>
-        <span class="n">timestamps</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">current_time</span> <span class="o">=</span> <span class="mi">0</span>
-
-        <span class="k">while</span> <span class="n">current_time</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
-            <span class="n">interval</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">rate</span><span class="p">)</span>
-            <span class="n">current_time</span> <span class="o">+=</span> <span class="n">interval</span>
-            <span class="k">if</span> <span class="n">current_time</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
-                <span class="n">timestamps</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">current_time</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">timestamps</span>
-</code></pre></div></div>
-
-<p>Poisson’s great virtue is <strong>aggregation smoothing</strong>: superpose many independent Poisson streams and you get a smoother Poisson stream, with relative variance shrinking as you add sources. That is exactly why it worked for telephone trunks — thousands of independent callers — and exactly why it <em>fails</em> for packet data, where a single video flow’s bursts do not average away no matter how many flows you aggregate.</p>
-
-<h3 id="self-similar-traffic-burstiness-at-every-scale">Self-Similar Traffic: Burstiness at Every Scale</h3>
-
-<p>Self-similar traffic looks statistically the same whether you plot it per millisecond, per second, or per minute — zoom out and the burstiness does not smooth away the way Poisson predicts. This <strong>long-range dependence</strong> is captured by a single number, the <strong>Hurst parameter</strong> $H \in (0.5, 1)$:</p>
+<p>A self-similar traffic trace looks statistically the same whether it is plotted per millisecond, per second, or per minute. Its degree of self-similarity is summarized by the <strong>Hurst parameter</strong> $H$:</p>
 
 <ul>
-  <li>$H = 0.5$ corresponds to ordinary (short-range-dependent) traffic — Poisson-like, burstiness averages out.</li>
-  <li>$0.5 &lt; H &lt; 1$ means long-range dependence: the closer $H$ is to 1, the burstier the traffic stays at large timescales.</li>
+  <li>$H = 0.5$: short-range dependence. Aggregating over longer windows smooths the traffic, as with Poisson.</li>
+  <li>$0.5 &lt; H &lt; 1$: <strong>long-range dependence</strong> (LRD). Bursts persist at large timescales; measured internet traffic typically shows $H$ between 0.7 and 0.9.</li>
 </ul>
 
-<p>The autocorrelation of a self-similar process decays only <strong>polynomially</strong> (like $k^{2H-2}$) rather than exponentially, so correlations persist across long lags — a busy period now makes a busy period much later more likely. The practical consequence is harsh: buffers fill far more often than Poisson predicts, queue lengths have heavy tails, and simply adding buffer space yields diminishing returns instead of the exponential payoff Poisson would promise.</p>
+<p>The standard model is <strong>fractional Gaussian noise</strong> (FGN), the increment process of fractional Brownian motion, whose autocovariance at lag $k$ is</p>
 
-<p>The listing below synthesizes self-similar traffic from <strong>Fractional Gaussian Noise (FGN)</strong> with a chosen Hurst parameter, using the exact-covariance (Cholesky) method:</p>
+\[\gamma(k) = \frac{1}{2}\left( |k+1|^{2H} + |k-1|^{2H} - 2|k|^{2H} \right) \sim H(2H-1)\, k^{2H-2} \quad (k \to \infty).\]
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="k">def</span> <span class="nf">self_similar_traffic</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">H</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="sh">'</span><span class="s">FGN</span><span class="sh">'</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Generate self-similar traffic using Fractional Gaussian Noise</span><span class="sh">"""</span>
-        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="sh">'</span><span class="s">FGN</span><span class="sh">'</span><span class="p">:</span>
-            <span class="c1"># Generate FGN with Hurst parameter H
-</span>            <span class="n">n</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">duration</span><span class="p">)</span>
+<p>For $H = 0.5$ this is zero at every nonzero lag (independent increments). For $H &gt; 0.5$ it decays as a power law rather than exponentially, and the sum of the autocorrelations diverges, which is the formal definition of long-range dependence. An equivalent and easily measured signature is the <strong>variance-time</strong> relationship: averaging the series over blocks of size $m$ reduces its variance only as</p>
 
-            <span class="c1"># Covariance matrix
-</span>            <span class="n">cov_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-                    <span class="n">cov_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="nf">abs</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">H</span><span class="p">)</span> <span class="o">+</span>
-                                              <span class="nf">abs</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="n">j</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">H</span><span class="p">)</span> <span class="o">-</span>
-                                              <span class="mi">2</span><span class="o">*</span><span class="nf">abs</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="n">j</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">H</span><span class="p">))</span>
+\[\operatorname{Var}\left(X^{(m)}\right) \propto m^{2H-2},\]
 
-            <span class="c1"># Generate using Cholesky decomposition
-</span>            <span class="n">L</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">cholesky</span><span class="p">(</span><span class="n">cov_matrix</span><span class="p">)</span>
-            <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
-            <span class="n">fgn</span> <span class="o">=</span> <span class="n">L</span> <span class="o">@</span> <span class="n">z</span>
+<p>instead of the $m^{-1}$ that independent samples would give. The practical consequences are that buffer overflow probabilities decay far more slowly with buffer size than Poisson predicts (adding buffer gives diminishing returns and adds latency) and that measurements over short windows systematically underestimate peak load.</p>
 
-            <span class="c1"># Convert to arrival process
-</span>            <span class="n">arrivals</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">cumsum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">fgn</span><span class="p">))</span>
-            <span class="k">return</span> <span class="n">arrivals</span>
-</code></pre></div></div>
+<h3 id="heavy-tails-the-source-of-self-similarity">Heavy Tails: The Source of Self-Similarity</h3>
 
-<p>The covariance entry above is exactly the increment covariance of <strong>fractional Brownian motion</strong>: the term</p>
+<p>Self-similarity at the aggregate level arises from <strong>heavy-tailed</strong> behaviour at the level of individual sources. The <strong>Pareto</strong> distribution is the canonical model:</p>
 
-\[\gamma(k) = \tfrac{1}{2}\left( |k+1|^{2H} + |k-1|^{2H} - 2|k|^{2H} \right)\]
+\[P(X &gt; x) = \left( \frac{x_m}{x} \right)^{\alpha}, \qquad x \ge x_m .\]
 
-<p>reduces to $0$ for all $k \neq 0$ only when $H = 0.5$ (independent increments); for $H &gt; 0.5$ it stays positive and decays slowly, which is the mathematical signature of long-range dependence. (The Cholesky method is exact but $O(n^2)$ in memory; production simulators use faster spectral or wavelet methods such as Davies–Harte for large $n$.)</p>
+<p>For $\alpha &lt; 2$ the variance is infinite, and for $\alpha \le 1$ the mean is infinite as well. Measured file sizes, web object sizes, and flow durations commonly fit $1 &lt; \alpha &lt; 2$: most flows are small “mice” while a small fraction of “elephants” carries most of the bytes.</p>
 
-<h3 id="heavy-tailed-distributions-where-self-similarity-comes-from">Heavy-Tailed Distributions: Where Self-Similarity Comes From</h3>
+<p>Willinger, Taqqu, Sherman, and Wilson (1997) made the link precise. Superposing many independent ON/OFF sources whose ON or OFF periods are heavy-tailed with index $1 &lt; \alpha &lt; 2$ produces aggregate traffic that is asymptotically self-similar with</p>
 
-<p>Self-similarity at the aggregate is not magic — it emerges from <strong>heavy tails</strong> at the level of individual sources. If flow or file sizes follow a heavy-tailed distribution, then superposing many ON/OFF sources with heavy-tailed ON periods provably produces self-similar aggregate traffic. The web is the canonical example: most files are tiny, but a few enormous ones (videos, downloads) dominate the bytes.</p>
+\[H = \frac{3 - \alpha}{2} .\]
 
-<p>The <strong>Pareto distribution</strong> is the standard heavy-tail model. Its tail falls off polynomially,</p>
+<p>So $\alpha = 1.4$ gives $H = 0.8$, matching measured traffic. The same mouse/elephant structure motivates practical designs: flow-aware scheduling that gives short flows priority, and load balancers and ECMP hashing that must cope with a few very large flows.</p>
 
-\[P(X &gt; x) = \left( \frac{x_m}{x} \right)^{\alpha}, \qquad x \ge x_m,\]
+<h3 id="markov-modulated-poisson-processes">Markov-Modulated Poisson Processes</h3>
 
-<p>with shape parameter $\alpha$. The key feature is <em>infinite variance</em> when $\alpha &lt; 2$ (and even infinite mean when $\alpha &lt; 1$): a vanishing fraction of flows carry a dominant fraction of the traffic. This is why “average flow size” is a misleading planning number — the variance, not the mean, drives buffer and link behavior.</p>
+<p>Many sources switch between regimes: a voice call alternates talk-spurts and silence, a sensor toggles between active and idle, a user session alternates bursts of page loads with think time. A <strong>Markov-modulated Poisson process</strong> (MMPP) models this with a hidden continuous-time Markov chain; while the chain is in state $s$, arrivals are Poisson with rate $\lambda_s$. The long-run rate is $\bar{\lambda} = \sum_s \pi_s \lambda_s$, where $\pi$ is the chain’s stationary distribution.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="k">def</span> <span class="nf">heavy_tail_traffic</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">x_min</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">num_flows</span><span class="o">=</span><span class="mi">10000</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Generate heavy-tailed (Pareto) flow sizes.
+<p>MMPP captures short-range burst correlation while remaining analytically tractable: it plugs into matrix-analytic queueing methods (MAP/M/1 and related queues) the way Poisson plugs into M/M/1. It does not reproduce correlation over many decades of timescale, but for voice, video, and IoT workloads that is often an acceptable trade.</p>
 
-        alpha &lt; 2  =&gt; infinite variance: a few flows dominate the bytes.
-        alpha &lt; 1  =&gt; infinite mean: </span><span class="sh">'</span><span class="s">average flow size</span><span class="sh">'</span><span class="s"> is meaningless.
-        </span><span class="sh">"""</span>
-        <span class="c1"># Inverse-transform sampling of a Pareto(alpha, x_min) tail
-</span>        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">num_flows</span><span class="p">)</span>
-        <span class="n">flow_sizes</span> <span class="o">=</span> <span class="n">x_min</span> <span class="o">/</span> <span class="p">(</span><span class="n">u</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">alpha</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">flow_sizes</span>
-</code></pre></div></div>
+<h3 id="generating-and-measuring-traffic">Generating and Measuring Traffic</h3>
 
-<h3 id="mmpp-modeling-correlated-bursts">MMPP: Modeling Correlated Bursts</h3>
+<p>The listing generates each kind of traffic and estimates $H$ with the variance-time method:</p>
 
-<p>Many real sources are neither purely random nor purely self-similar but <strong>modulated</strong> — they switch between regimes (a video call alternating talk-spurts and silence, a sensor toggling active and idle). The <strong>Markov-Modulated Poisson Process (MMPP)</strong> captures this: a hidden Markov chain moves between states, and the <em>Poisson arrival rate depends on the current state</em>. In a busy state arrivals come fast; in an idle state they trickle.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="k">def</span> <span class="nf">mmpp_traffic</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">rates</span><span class="p">,</span> <span class="n">transition_matrix</span><span class="p">,</span> <span class="n">duration</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Generate Markov-Modulated Poisson Process traffic.
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
 
-        rates[s]               : Poisson arrival rate while in state s
-        transition_matrix[s]   : state-transition probabilities out of s
-        The arrival rate is piecewise-constant, switching when the
-        underlying Markov chain changes state.
-        </span><span class="sh">"""</span>
-        <span class="n">timestamps</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">state</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">t</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="k">def</span> <span class="nf">poisson_arrivals</span><span class="p">(</span><span class="n">rate</span><span class="p">,</span> <span class="n">duration</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Arrival times of a Poisson process: i.i.d. exponential gaps.</span><span class="sh">"""</span>
+    <span class="n">gaps</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">rate</span><span class="p">,</span> <span class="nf">int</span><span class="p">(</span><span class="n">rate</span> <span class="o">*</span> <span class="n">duration</span> <span class="o">*</span> <span class="mf">1.2</span><span class="p">)</span> <span class="o">+</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">cumsum</span><span class="p">(</span><span class="n">gaps</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">t</span><span class="p">[</span><span class="n">t</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">]</span>
 
-        <span class="k">while</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
-            <span class="c1"># Arrivals are Poisson at the current state's rate
-</span>            <span class="n">interval</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">rates</span><span class="p">[</span><span class="n">state</span><span class="p">])</span>
-            <span class="n">t</span> <span class="o">+=</span> <span class="n">interval</span>
-            <span class="k">if</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
-                <span class="n">timestamps</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">))</span>
-            <span class="c1"># Possibly hop to a new modulating state
-</span>            <span class="n">state</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">choice</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">rates</span><span class="p">),</span> <span class="n">p</span><span class="o">=</span><span class="n">transition_matrix</span><span class="p">[</span><span class="n">state</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">fgn</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">H</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Fractional Gaussian noise by exact Cholesky factorization.
+    O(n^2) memory: fine for a few thousand samples (use Davies-Harte beyond).</span><span class="sh">"""</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">gamma</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">H</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">H</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="o">**</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">H</span><span class="p">))</span>
+    <span class="n">cov</span> <span class="o">=</span> <span class="n">gamma</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">k</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">k</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:])]</span>      <span class="c1"># Toeplitz covariance matrix
+</span>    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">cholesky</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span> <span class="o">@</span> <span class="n">rng</span><span class="p">.</span><span class="nf">standard_normal</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">timestamps</span>
-</code></pre></div></div>
+<span class="k">def</span> <span class="nf">self_similar_counts</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="mf">0.3</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Packets per time slot with long-range dependence (clipped at zero).</span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">mean</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">cv</span> <span class="o">*</span> <span class="nf">fgn</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">H</span><span class="p">)))</span>
 
-<p>MMPP is popular precisely because it is <strong>analytically tractable</strong> — it plugs into matrix-analytic queueing methods (MAP/M/1 queues) the way plain Poisson plugs into M/M/1 — yet it reproduces the short-range burst correlation that Poisson misses. It is a pragmatic middle ground: not as faithful as a full self-similar model over many decades of timescale, but far more workable for closed-form analysis, which is why it remains a staple in voice, video, and IoT-traffic modeling.</p>
+<span class="k">def</span> <span class="nf">pareto_sizes</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">x_min</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Heavy-tailed flow sizes by inverse-transform sampling.</span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">x_min</span> <span class="o">/</span> <span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">alpha</span><span class="p">)</span>
 
-<h3 id="which-model-to-use">Which Model to Use</h3>
+<span class="k">def</span> <span class="nf">mmpp_arrivals</span><span class="p">(</span><span class="n">rates</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">duration</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Markov-modulated Poisson process.
+    rates[s]: arrival rate in state s; Q: CTMC generator (rows sum to 0).</span><span class="sh">"""</span>
+    <span class="n">rates</span><span class="p">,</span> <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">rates</span><span class="p">,</span> <span class="nb">float</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">out</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">duration</span><span class="p">:</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">rng</span><span class="p">.</span><span class="nf">exponential</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="o">-</span><span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="n">s</span><span class="p">]),</span> <span class="n">duration</span><span class="p">)</span>  <span class="c1"># sojourn in s
+</span>        <span class="n">n</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">poisson</span><span class="p">(</span><span class="n">rates</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">t</span><span class="p">))</span>                   <span class="c1"># arrivals in [t, end)
+</span>        <span class="n">out</span><span class="p">.</span><span class="nf">extend</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sort</span><span class="p">(</span><span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">n</span><span class="p">)))</span>
+        <span class="n">jump</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="o">-</span><span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="n">s</span><span class="p">]</span>                   <span class="c1"># next-state probabilities
+</span>        <span class="n">t</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">end</span><span class="p">,</span> <span class="n">rng</span><span class="p">.</span><span class="nf">choice</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">rates</span><span class="p">),</span> <span class="n">p</span><span class="o">=</span><span class="n">jump</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">hurst_aggregated_variance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">scales</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">)):</span>
+    <span class="sh">"""</span><span class="s">Estimate H from the slope of log Var(X^(m)) against log m.</span><span class="sh">"""</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[:</span> <span class="nf">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">//</span> <span class="n">m</span> <span class="o">*</span> <span class="n">m</span><span class="p">].</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">m</span><span class="p">).</span><span class="nf">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">).</span><span class="nf">var</span><span class="p">()</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">scales</span><span class="p">]</span>
+    <span class="n">slope</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">polyfit</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">scales</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">slope</span> <span class="o">/</span> <span class="mi">2</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">H estimate, FGN(H=0.8):    </span><span class="si">{</span><span class="nf">hurst_aggregated_variance</span><span class="p">(</span><span class="nf">self_similar_counts</span><span class="p">(</span><span class="mi">4096</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">))</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">H estimate, Poisson slots: </span><span class="si">{</span><span class="nf">hurst_aggregated_variance</span><span class="p">(</span><span class="n">rng</span><span class="p">.</span><span class="nf">poisson</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">4096</span><span class="p">).</span><span class="nf">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">))</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">sizes</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sort</span><span class="p">(</span><span class="nf">pareto_sizes</span><span class="p">(</span><span class="mi">100_000</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.2</span><span class="p">))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Pareto(1.2): top 1% of flows carry </span><span class="si">{</span><span class="n">sizes</span><span class="p">[</span><span class="si">:</span><span class="mi">1000</span><span class="p">].</span><span class="nf">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">sizes</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span><span class="si">:</span><span class="p">.</span><span class="mi">0</span><span class="o">%</span><span class="si">}</span><span class="s"> of bytes</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="nf">mmpp_arrivals</span><span class="p">([</span><span class="mi">50</span><span class="p">,</span> <span class="mi">500</span><span class="p">],</span> <span class="p">[[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="o">-</span><span class="mi">4</span><span class="p">]],</span> <span class="mi">2000</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">MMPP mean rate </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2000</span><span class="si">:</span><span class="p">.</span><span class="mi">0</span><span class="n">f</span><span class="si">}</span><span class="s">/s (theory </span><span class="si">{</span><span class="mi">50</span> <span class="o">*</span> <span class="mf">0.8</span> <span class="o">+</span> <span class="mi">500</span> <span class="o">*</span> <span class="mf">0.2</span><span class="si">:</span><span class="p">.</span><span class="mi">0</span><span class="n">f</span><span class="si">}</span><span class="s">/s)</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># H estimate, FGN(H=0.8):    0.79
+# H estimate, Poisson slots: 0.48
+# Pareto(1.2): top 1% of flows carry 41% of bytes
+# MMPP mean rate 142/s (theory 140/s)
+</span></code></pre></div></div>
+
+<h3 id="choosing-a-model">Choosing a Model</h3>
 
 <table>
   <thead>
@@ -3298,370 +3293,453 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>Poisson</strong></td>
+      <td>Poisson</td>
       <td>Independent, memoryless arrivals</td>
-      <td>Highly aggregated, independent sources (call arrivals); analytic baselines</td>
-      <td>Burstiness, correlation — <em>too optimistic</em> for packet data</td>
+      <td>Aggregates of many independent sources (call or session arrivals); analytic baselines</td>
+      <td>Burstiness and correlation; too optimistic for packet traffic</td>
     </tr>
     <tr>
-      <td><strong>MMPP</strong></td>
-      <td>Correlated bursts via hidden states</td>
-      <td>Voice/video on-off behavior, tractable queueing analysis</td>
-      <td>Long-range dependence across many timescales</td>
+      <td>MMPP</td>
+      <td>Correlated bursts driven by hidden states</td>
+      <td>On/off voice and video, IoT duty cycles, tractable queueing analysis</td>
+      <td>Correlation spanning many timescales</td>
     </tr>
     <tr>
-      <td><strong>Self-similar (FGN)</strong></td>
-      <td>Long-range dependence, scale-invariant bursts</td>
-      <td>LAN/WAN aggregate traffic, buffer/tail-latency studies</td>
-      <td>Closed-form queueing results (mostly simulation-only)</td>
+      <td>Self-similar (FGN)</td>
+      <td>Long-range dependence, scale-invariant burstiness</td>
+      <td>Aggregate LAN/WAN traffic, buffer and tail-latency studies</td>
+      <td>Closed-form queueing results (mostly simulation)</td>
     </tr>
     <tr>
-      <td><strong>Heavy-tailed (Pareto)</strong></td>
-      <td>Dominant-flow / mouse-elephant structure</td>
-      <td>Flow- and file-size modeling, the <em>source</em> of self-similarity</td>
-      <td>The time-correlation structure (it models sizes, not arrivals)</td>
+      <td>Heavy-tailed (Pareto)</td>
+      <td>Mouse/elephant structure of sizes and durations</td>
+      <td>Flow and file sizes; the cause of self-similarity</td>
+      <td>Temporal correlation on its own (it models sizes, not arrivals)</td>
     </tr>
   </tbody>
 </table>
 
-<p>The headline lesson for capacity planning: <strong>provision for the tail, not the mean.</strong> Self-similar, heavy-tailed traffic means the network spends a meaningful fraction of time far above its average load, so buffers sized to a Poisson model will overflow and latency-sensitive traffic will suffer. The queueing foundations these models feed into — Little’s law, M/M/1, and buffer sizing — live in <a href="performance-and-security.html">Performance, QoS &amp; Security</a>.</p>
+<p>The practical rule is to <strong>provision for the tail, not the mean</strong>. With self-similar, heavy-tailed load, a network spends a meaningful fraction of time well above its average utilization, so capacity and buffers sized from a Poisson model overflow, and latency-sensitive traffic suffers unless it is isolated by scheduling or AQM (see <a href="performance-and-security.html#buffers-bufferbloat-and-active-queue-management">bufferbloat and AQM</a>).</p>
 
-<h2 id="the-cutting-edge-research-changing-networking">The Cutting Edge: Research Changing Networking</h2>
+<h2 id="data-centre-and-ai-cluster-fabrics">Data-Centre and AI-Cluster Fabrics</h2>
 
-<p>The internet was designed for connecting computers. Today’s challenges — content delivery, IoT, quantum computing, AI inference at the edge — require fundamentally new approaches. Recent developments include deterministic networking for industrial IoT, network digital twins, and AI-native protocols. The sections below cover four of the most consequential research directions, then the trends already crossing from lab to production.</p>
+<p>The most demanding networks being built in 2026 are not on the public internet but inside data centres, and increasingly inside clusters of tens of thousands of GPUs for model training.</p>
 
-<h3 id="information-centric-networking-content-over-connections">Information-Centric Networking: Content Over Connections</h3>
+<h3 id="leaf-spine-clos-topologies">Leaf-Spine (Clos) Topologies</h3>
 
-<p>Today’s internet cares about WHERE (which server), but users care about WHAT (which video). <strong>Information-Centric Networking (ICN)</strong> reimagines networking around content, not locations. Its most developed form is <strong>Named Data Networking (NDN)</strong> (and its predecessor CCN), which replaces the source/destination-address model with <em>named, signed content</em> that any node may cache and serve.</p>
+<p>Modern data centres replaced tree-shaped core/aggregation/access designs with <strong>leaf-spine</strong> fabrics, a folded <strong>Clos</strong> network. Every leaf (top-of-rack) switch connects to every spine switch, so any two servers are the same number of hops apart and traffic is spread across all spines with <strong>ECMP</strong> (equal-cost multipath) hashing. Adding spines adds bisection bandwidth; adding a third tier (super-spines) scales to very large sites.</p>
 
-<p>In NDN there are just two packet types and three tables. A consumer sends an <strong>Interest</strong> for a name (e.g. <code class="language-plaintext highlighter-rouge">/andrew/video/lecture3/seg7</code>); the network forwards it toward a producer, and a matching <strong>Data</strong> packet flows back along the reverse path, getting cached at every hop. The three per-router tables are:</p>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph Spine
+        S1[Spine 1]
+        S2[Spine 2]
+        S3[Spine 3]
+    end
+    subgraph Leaves
+        L1[Leaf 1]
+        L2[Leaf 2]
+        L3[Leaf 3]
+        L4[Leaf 4]
+    end
+    S1 --- L1 &amp; L2 &amp; L3 &amp; L4
+    S2 --- L1 &amp; L2 &amp; L3 &amp; L4
+    S3 --- L1 &amp; L2 &amp; L3 &amp; L4
+    L1 --- H1[Servers]
+    L2 --- H2[Servers]
+    L3 --- H3[Servers]
+    L4 --- H4[Servers]
+</code></pre>
 
-<ul>
-  <li><strong>Content Store (CS)</strong> — an in-network cache of Data packets seen recently.</li>
-  <li><strong>Pending Interest Table (PIT)</strong> — the breadcrumb trail of Interests still awaiting Data, recording which interface(s) each came from so the Data knows where to return.</li>
-  <li><strong>Forwarding Information Base (FIB)</strong> — name-prefix-based forwarding state, the NDN analogue of an IP routing table.</li>
-</ul>
+<p>The fabric is typically routed at layer 3 end to end, often with BGP as the only routing protocol (RFC 7938), and tenant networks are carried as VXLAN or Geneve overlays on top (see <a href="programmable-networks.html">Programmable Networks</a>).</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">NamedDataNetworking</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">NDN/CCN implementation</span><span class="sh">"""</span>
+<h3 id="what-ai-training-does-to-the-network">What AI Training Does to the Network</h3>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">content_store</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Cache
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">pit</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Pending Interest Table
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">fib</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Forwarding Information Base
+<p>Distributed training alternates computation with <strong>collective communication</strong>: all-reduce to average gradients in data-parallel training, all-to-all exchanges for mixture-of-experts layers, and point-to-point transfers between pipeline stages. That traffic is unlike the heavy-tailed mix described above:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Typical cloud traffic</th>
+      <th>AI training traffic</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Flow count and size</td>
+      <td>Many flows, mostly small</td>
+      <td>Few, very large, long-lived flows</td>
+    </tr>
+    <tr>
+      <td>Timing</td>
+      <td>Statistically multiplexed</td>
+      <td>Synchronized: every GPU sends at once, then waits</td>
+    </tr>
+    <tr>
+      <td>What matters</td>
+      <td>Median and p99 latency per request</td>
+      <td><strong>Job completion time</strong>, set by the slowest flow in each collective</td>
+    </tr>
+    <tr>
+      <td>ECMP behaviour</td>
+      <td>Many flows average out across paths</td>
+      <td>Low entropy; a few hash collisions leave some links idle and others congested</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Because a training step cannot finish until every participant’s data arrives, one congested link stalls thousands of GPUs. Clusters are therefore built as a <strong>scale-up</strong> domain (a small group of GPUs joined by a proprietary memory-semantic interconnect such as NVLink, with UALink as an open alternative) plus a <strong>scale-out</strong> network between groups. Scale-out networks are commonly <strong>rail-optimized</strong>: GPU <em>i</em> of every server connects to the same “rail” of leaf switches so that most collective traffic crosses a single switch hop.</p>
+
+<p>The scale-out transport has historically been InfiniBand or <strong>RoCEv2</strong> (RDMA over Converged Ethernet). RoCEv2 assumes a lossless fabric, provided by <strong>priority flow control</strong> (PFC), which pauses upstream senders when a buffer fills; at scale PFC causes head-of-line blocking, congestion spreading, and occasional deadlocks, and the transport’s go-back-N recovery reacts badly to any loss. The <strong>Ultra Ethernet Consortium</strong> (UEC), an industry group under the Linux Foundation, published its 1.0 specification in June 2025 with the goal of an open Ethernet stack for AI and HPC. Its Ultra Ethernet Transport (UET) sprays packets from one message across many paths, tolerates out-of-order arrival, uses selective retransmission instead of go-back-N, and builds in congestion control designed to work without depending on a lossless fabric.</p>
+
+<h2 id="research-frontiers">Research Frontiers</h2>
+
+<h3 id="information-centric-networking">Information-Centric Networking</h3>
+
+<p>IP names <em>locations</em>: a packet is addressed to a host. Users mostly want <em>content</em>, regardless of which host serves it. <strong>Information-centric networking</strong> (ICN) makes named data the primitive. Its most developed design is <strong>Named Data Networking</strong> (NDN), which grew out of Jacobson et al.’s Content-Centric Networking (“Networking Named Content”, 2009).</p>
+
+<p>NDN has two packet types. A consumer sends an <strong>Interest</strong> carrying a hierarchical name such as <code class="language-plaintext highlighter-rouge">/example/video/lecture3/seg7</code>; a matching <strong>Data</strong> packet, signed by its producer, returns along the reverse path. Each router keeps three tables:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Table</th>
+      <th>Role</th>
+      <th>IP analogue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Content Store (CS)</td>
+      <td>Cache of recently forwarded Data packets</td>
+      <td>None (a CDN or proxy cache, bolted on)</td>
+    </tr>
+    <tr>
+      <td>Pending Interest Table (PIT)</td>
+      <td>Interests forwarded but not yet satisfied, with the faces they arrived on</td>
+      <td>None: IP routers keep no per-packet state</td>
+    </tr>
+    <tr>
+      <td>Forwarding Information Base (FIB)</td>
+      <td>Name-prefix to next-hop mapping</td>
+      <td>Routing table</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C1 as Consumer 1
+    participant C2 as Consumer 2
+    participant R as NDN router
+    participant P as Producer
+    C1-&gt;&gt;R: Interest /example/video/seg7
+    Note over R: CS miss, new PIT entry, FIB lookup
+    R-&gt;&gt;P: Interest /example/video/seg7
+    C2-&gt;&gt;R: Interest /example/video/seg7
+    Note over R: PIT hit, add face (not forwarded again)
+    P--&gt;&gt;R: Data /example/video/seg7 (signed)
+    Note over R: Cache in CS, consume PIT entry
+    R--&gt;&gt;C1: Data
+    R--&gt;&gt;C2: Data
+</code></pre>
+
+<p>A minimal model of the router’s Interest and Data handling:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">NdnRouter</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">fib</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">cs</span> <span class="o">=</span> <span class="p">{}</span>      <span class="c1"># name -&gt; data (cache)
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">pit</span> <span class="o">=</span> <span class="p">{}</span>     <span class="c1"># name -&gt; set of faces awaiting the data
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">fib</span> <span class="o">=</span> <span class="n">fib</span>    <span class="c1"># name prefix -&gt; list of upstream faces
 </span>
-    <span class="k">def</span> <span class="nf">handle_interest</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">incoming_face</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Process Interest packet</span><span class="sh">"""</span>
-        <span class="c1"># Check content store
-</span>        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">content_store</span><span class="p">:</span>
-            <span class="c1"># Cache hit - return data
-</span>            <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">content_store</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+    <span class="k">def</span> <span class="nf">on_interest</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">face</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">cs</span><span class="p">:</span>                       <span class="c1"># cache hit: answer locally
+</span>            <span class="k">return</span> <span class="p">[(</span><span class="n">face</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">cs</span><span class="p">[</span><span class="n">name</span><span class="p">])]</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">pit</span><span class="p">:</span>                      <span class="c1"># already requested upstream:
+</span>            <span class="n">self</span><span class="p">.</span><span class="n">pit</span><span class="p">[</span><span class="n">name</span><span class="p">].</span><span class="nf">add</span><span class="p">(</span><span class="n">face</span><span class="p">)</span>              <span class="c1"># aggregate, do not re-forward
+</span>            <span class="k">return</span> <span class="p">[]</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">pit</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">face</span><span class="p">}</span>
+        <span class="c1"># longest-prefix match on whole name components, e.g. /example matches /example/video
+</span>        <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">fib</span> <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="n">p</span> <span class="ow">or</span> <span class="n">name</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="nf">rstrip</span><span class="p">(</span><span class="sh">"</span><span class="s">/</span><span class="sh">"</span><span class="p">)</span> <span class="o">+</span> <span class="sh">"</span><span class="s">/</span><span class="sh">"</span><span class="p">)]</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">matches</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="n">up</span><span class="p">,</span> <span class="p">(</span><span class="sh">"</span><span class="s">interest</span><span class="sh">"</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span> <span class="k">for</span> <span class="n">up</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">fib</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="p">[])</span> <span class="k">if</span> <span class="n">up</span> <span class="o">!=</span> <span class="n">face</span><span class="p">]</span>
 
-        <span class="c1"># Check PIT
-</span>        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">pit</span><span class="p">:</span>
-            <span class="c1"># Add incoming face to existing entry
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">pit</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="sh">'</span><span class="s">faces</span><span class="sh">'</span><span class="p">].</span><span class="nf">add</span><span class="p">(</span><span class="n">incoming_face</span><span class="p">)</span>
-            <span class="k">return</span> <span class="bp">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Create new PIT entry
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">pit</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="sh">'</span><span class="s">faces</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="n">incoming_face</span><span class="p">},</span>
-                <span class="sh">'</span><span class="s">timestamp</span><span class="sh">'</span><span class="p">:</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
-            <span class="p">}</span>
-
-        <span class="c1"># Forward based on FIB
-</span>        <span class="n">next_hops</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">fib_lookup</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">next_hop</span> <span class="ow">in</span> <span class="n">next_hops</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">next_hop</span> <span class="o">!=</span> <span class="n">incoming_face</span><span class="p">:</span>
-                <span class="n">self</span><span class="p">.</span><span class="nf">forward_interest</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">next_hop</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="bp">None</span>
+    <span class="k">def</span> <span class="nf">on_data</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="n">faces</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">pit</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nf">set</span><span class="p">())</span>         <span class="c1"># unsolicited data is dropped
+</span>        <span class="k">if</span> <span class="n">faces</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">cs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
+        <span class="k">return</span> <span class="p">[(</span><span class="n">f</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">faces</span><span class="p">]</span>
 </code></pre></div></div>
 
-<p>The payoffs are structural. <strong>Caching is native</strong> (any router can answer a repeated Interest), so popular content is served close to consumers without a bolt-on CDN. <strong>Multicast is automatic</strong> — the PIT naturally aggregates multiple Interests for the same name into one upstream request and fans the Data back to all of them. And because each Data packet is <strong>signed at the object level</strong>, trust attaches to the content itself rather than to the channel, so a cached copy is as trustworthy as the original. The open problems are equally structural: routing on an unbounded, application-defined namespace, PIT scalability at line rate, and cache-management and privacy concerns. NDN remains a leading research platform (and the intellectual root of why CDNs and edge caches dominate today’s web).</p>
+<p>The design yields in-network caching, native multicast (the PIT aggregates identical Interests), and object-level security (a signature travels with the data, so a cached copy is as trustworthy as the original), and it lets a consumer use several interfaces at once. The open problems are routing on an unbounded, application-defined namespace, PIT memory and lookup cost at line rate, cache privacy, and incremental deployment over IP. NDN remains a research architecture with a global testbed; its ideas are visible in production CDNs and in content-addressed storage systems.</p>
 
-<h3 id="network-coding-breaking-the-store-and-forward-paradigm">Network Coding: Breaking the Store-and-Forward Paradigm</h3>
+<h3 id="network-coding">Network Coding</h3>
 
-<p>Traditional routers just forward packets. What if they could combine packets mathematically, increasing throughput and reliability? <strong>Network coding</strong> — introduced by Ahlswede, Cai, Li &amp; Yeung, “Network Information Flow” (2000) — proved that allowing intermediate nodes to <em>mix</em> incoming packets (rather than only store-and-forward) can achieve the multicast capacity of a network, something pure routing provably cannot.</p>
+<p>Ordinary routers store and forward packets unchanged. <strong>Network coding</strong> lets intermediate nodes transmit functions of the packets they receive. Ahlswede, Cai, Li, and Yeung (“Network Information Flow”, 2000) proved that with coding, a multicast session can achieve the max-flow min-cut capacity to every receiver simultaneously, which routing alone cannot do in general.</p>
 
-<p>The canonical illustration is the <strong>butterfly network</strong>, where a single bottleneck link must carry two flows to two receivers. Routing forces the link to serialize the two packets; with coding, the bottleneck node sends one combined packet $a \oplus b$, and each receiver — already holding one of the originals from another path — recovers the other by XOR. Two packets’ worth of information crosses a one-packet link.</p>
+<p>The standard example is the <strong>butterfly network</strong>. Source S multicasts packets $a$ and $b$ to receivers R1 and R2 over unit-capacity links, and the middle link is a bottleneck.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">NetworkCoding</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Mix packets mathematically instead of just forwarding them.
+<pre><code class="language-mermaid">flowchart TB
+    S((S)) --&gt;|a| A((A))
+    S --&gt;|b| B((B))
+    A --&gt;|a| R1((R1))
+    B --&gt;|b| R2((R2))
+    A --&gt;|a| C((C))
+    B --&gt;|b| C
+    C --&gt;|"a XOR b"| D((D))
+    D --&gt;|"a XOR b"| R1
+    D --&gt;|"a XOR b"| R2
+</code></pre>
 
-    Benefits:
-    - Increased throughput in multicast
-    - Better reliability in wireless networks
-    - Reduced retransmissions
+<p>With routing, the C-D link can carry $a$ or $b$ but not both in one time slot, so one receiver gets only one packet. With coding, C sends $a \oplus b$; R1 recovers $b = a \oplus (a \oplus b)$ and R2 recovers $a$ the same way, so both receive two packets per slot.</p>
 
-    Think of it like this: Instead of carrying individual letters,
-    the postal service could carry mathematical combinations that
-    let recipients reconstruct any lost letters.
-    </span><span class="sh">"""</span>
+<p>The practical form is <strong>random linear network coding</strong> (RLNC; Ho, Médard, and colleagues, 2006). A <em>generation</em> of $n$ source packets $\mathbf{x}_1, \dots, \mathbf{x}_n$ is treated as vectors over a finite field $\mathrm{GF}(q)$, and each coded packet carries a random combination together with its coefficient vector:</p>
 
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">field_size</span><span class="o">=</span><span class="mi">256</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">field_size</span> <span class="o">=</span> <span class="n">field_size</span>
+\[\mathbf{y}_j = \sum_{i=1}^{n} c_{ji}\, \mathbf{x}_i \quad \text{over } \mathrm{GF}(q) .\]
 
-    <span class="k">def</span> <span class="nf">encode_generation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">packets</span><span class="p">,</span> <span class="n">num_coded</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Create coded packets from generation</span><span class="sh">"""</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">packets</span><span class="p">)</span>
-        <span class="n">coded_packets</span> <span class="o">=</span> <span class="p">[]</span>
+<p>A receiver can decode as soon as it holds any $n$ coded packets with linearly independent coefficient vectors, by Gaussian elimination. With $q = 2^8$ a random set of $n$ packets is independent with high probability, so it does not matter <em>which</em> packets were lost, only how many arrived. That property removes the need to retransmit specific packets, which is valuable on lossy wireless links, satellite and broadcast channels, and multipath transport. Intermediate nodes can also re-encode (recombine coded packets) without decoding first, which is what distinguishes network coding from end-to-end erasure codes such as RaptorQ (RFC 6330).</p>
 
-        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">num_coded</span><span class="p">):</span>
-            <span class="c1"># Random coefficients
-</span>            <span class="n">coeffs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">field_size</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-            <span class="c1"># Linear combination in finite field
-</span>            <span class="n">coded_data</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">packets</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">packet</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">packets</span><span class="p">):</span>
-                <span class="n">coded_data</span> <span class="o">=</span> <span class="p">(</span><span class="n">coded_data</span> <span class="o">+</span> <span class="n">coeffs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">packet</span><span class="p">)</span> <span class="o">%</span> <span class="n">self</span><span class="p">.</span><span class="n">field_size</span>
+<span class="n">P</span> <span class="o">=</span> <span class="mi">257</span>                      <span class="c1"># a prime, so integers mod P form the field GF(P)
+</span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-            <span class="n">coded_packets</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span>
-                <span class="sh">'</span><span class="s">coefficients</span><span class="sh">'</span><span class="p">:</span> <span class="n">coeffs</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">data</span><span class="sh">'</span><span class="p">:</span> <span class="n">coded_data</span>
-            <span class="p">})</span>
+<span class="k">def</span> <span class="nf">encode</span><span class="p">(</span><span class="n">packets</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">k coded packets, each a random linear combination of the generation.</span><span class="sh">"""</span>
+    <span class="n">C</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">packets</span><span class="p">)))</span>          <span class="c1"># coefficient vectors
+</span>    <span class="k">return</span> <span class="n">C</span><span class="p">,</span> <span class="p">(</span><span class="n">C</span> <span class="o">@</span> <span class="n">packets</span><span class="p">)</span> <span class="o">%</span> <span class="n">P</span>                             <span class="c1"># header, payload
+</span>
+<span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">Y</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Gauss-Jordan elimination over GF(P); needs rank(C) == generation size.</span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">C</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">concatenate</span><span class="p">([</span><span class="n">C</span><span class="p">,</span> <span class="n">Y</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">P</span>
+    <span class="n">row</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">pivot</span> <span class="o">=</span> <span class="nf">next</span><span class="p">((</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">A</span><span class="p">))</span> <span class="k">if</span> <span class="n">A</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">col</span><span class="p">]),</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pivot</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">not enough independent packets yet</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">A</span><span class="p">[[</span><span class="n">row</span><span class="p">,</span> <span class="n">pivot</span><span class="p">]]</span> <span class="o">=</span> <span class="n">A</span><span class="p">[[</span><span class="n">pivot</span><span class="p">,</span> <span class="n">row</span><span class="p">]]</span>
+        <span class="n">A</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">row</span><span class="p">]</span> <span class="o">*</span> <span class="nf">pow</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]),</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">P</span><span class="p">)</span> <span class="o">%</span> <span class="n">P</span>  <span class="c1"># scale pivot to 1
+</span>        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">A</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">r</span> <span class="o">!=</span> <span class="n">row</span> <span class="ow">and</span> <span class="n">A</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">col</span><span class="p">]:</span>
+                <span class="n">A</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="o">-</span> <span class="n">A</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="o">*</span> <span class="n">A</span><span class="p">[</span><span class="n">row</span><span class="p">])</span> <span class="o">%</span> <span class="n">P</span>
+        <span class="n">row</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">A</span><span class="p">[:</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">:]</span>
 
-        <span class="k">return</span> <span class="n">coded_packets</span>
-
-    <span class="k">def</span> <span class="nf">decode_generation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">coded_packets</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Decode using Gaussian elimination</span><span class="sh">"""</span>
-        <span class="c1"># Build coefficient matrix
-</span>        <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">coded_packets</span><span class="p">)</span>
-        <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">pkt</span><span class="p">[</span><span class="sh">'</span><span class="s">coefficients</span><span class="sh">'</span><span class="p">]</span> <span class="k">for</span> <span class="n">pkt</span> <span class="ow">in</span> <span class="n">coded_packets</span><span class="p">])</span>
-        <span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">pkt</span><span class="p">[</span><span class="sh">'</span><span class="s">data</span><span class="sh">'</span><span class="p">]</span> <span class="k">for</span> <span class="n">pkt</span> <span class="ow">in</span> <span class="n">coded_packets</span><span class="p">])</span>
-
-        <span class="c1"># Solve in finite field
-</span>        <span class="n">decoded</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">gaussian_elimination_gf</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">decoded</span>
+<span class="n">gen</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">256</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>       <span class="c1"># generation: 4 packets of 8 bytes
+</span><span class="n">C</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="nf">encode</span><span class="p">(</span><span class="n">gen</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>                          <span class="c1"># send 6 coded packets
+</span><span class="n">survivors</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>                       <span class="c1"># any 4 of the 6 arrive
+</span><span class="k">assert</span> <span class="n">np</span><span class="p">.</span><span class="nf">array_equal</span><span class="p">(</span><span class="nf">decode</span><span class="p">(</span><span class="n">C</span><span class="p">[</span><span class="n">survivors</span><span class="p">],</span> <span class="n">Y</span><span class="p">[</span><span class="n">survivors</span><span class="p">]),</span> <span class="n">gen</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>The practical workhorse is <strong>Random Linear Network Coding (RLNC)</strong>, shown above: a node combines a <em>generation</em> of $n$ packets with random coefficients drawn from a finite field $\mathrm{GF}(q)$, and a receiver decodes by Gaussian elimination as soon as it collects <em>any</em> $n$ linearly independent coded packets — it does not matter <em>which</em> ones. This is what makes coding shine on lossy and wireless links: there is no need to retransmit a <em>specific</em> lost packet, since any fresh coded packet is equally useful, which slashes feedback and retransmission overhead. The cost is the encode/decode computation and a small coefficient-vector header overhead, plus the decoding-delay penalty of waiting for a full generation. Coding ideas now appear in distributed storage (regenerating codes), multipath transport, and wireless mesh systems.</p>
+<p>A prime field keeps the arithmetic readable; deployed codecs use $\mathrm{GF}(2^8)$ with table-driven multiplication so symbols map exactly onto bytes. The costs are encoding and decoding computation, the coefficient header (one symbol per source packet), and decoding delay while a generation fills. Related ideas are used in distributed storage (regenerating codes) and have been explored for QUIC and multipath transport.</p>
 
-<h3 id="quantum-networking-unhackable-communications">Quantum Networking: Unhackable Communications</h3>
+<h3 id="quantum-networking-and-qkd">Quantum Networking and QKD</h3>
 
-<p>Quantum mechanics enables fundamentally secure communication. By encoding information in quantum states, we can detect any eavesdropping attempt — security that rests on <em>physics</em> (the no-cloning theorem and measurement disturbance) rather than on the computational hardness that classical cryptography assumes.</p>
+<p>Quantum networks carry quantum states (qubits, usually encoded in photons) rather than bits. Two properties drive the field: an unknown quantum state cannot be copied (the <strong>no-cloning theorem</strong>), and measuring a state in the wrong basis disturbs it. Together they make eavesdropping detectable. The physics is developed in <a href="../../physics/quantum-mechanics/">Quantum Mechanics</a> and <a href="../quantumcomputing.html">Quantum Computing</a>.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">QuantumNetwork</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Implement quantum communication protocols.
+<p><strong>Quantum key distribution</strong> (QKD) is the deployed application. In <strong>BB84</strong> (Bennett and Brassard, 1984):</p>
 
-    Revolutionary properties:
-    - Unconditional security (physics, not math)
-    - Detection of eavesdropping
-    - Quantum teleportation of states
-
-    Current challenges:
-    - Limited distance (~100km)
-    - Requires special hardware
-    - Very low data rates
-    </span><span class="sh">"""</span>
-
-    <span class="k">def</span> <span class="nf">quantum_teleportation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">alice_qubit</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Teleport quantum state</span><span class="sh">"""</span>
-        <span class="c1"># Create entangled pair
-</span>        <span class="n">bell_pair</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">create_bell_pair</span><span class="p">()</span>
-
-        <span class="c1"># Alice performs Bell measurement
-</span>        <span class="n">measurement</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">bell_measurement</span><span class="p">(</span><span class="n">alice_qubit</span><span class="p">,</span> <span class="n">bell_pair</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-
-        <span class="c1"># Send classical bits to Bob
-</span>        <span class="n">classical_bits</span> <span class="o">=</span> <span class="n">measurement</span>
-
-        <span class="c1"># Bob applies corrections
-</span>        <span class="n">bob_qubit</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">apply_corrections</span><span class="p">(</span><span class="n">bell_pair</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">classical_bits</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">bob_qubit</span>
-
-    <span class="k">def</span> <span class="nf">quantum_key_distribution</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">num_bits</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">BB84 QKD protocol</span><span class="sh">"""</span>
-        <span class="c1"># Alice prepares random bits in random bases
-</span>        <span class="n">alice_bits</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">num_bits</span><span class="p">)</span>
-        <span class="n">alice_bases</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">num_bits</span><span class="p">)</span>
-
-        <span class="c1"># Bob measures in random bases
-</span>        <span class="n">bob_bases</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">num_bits</span><span class="p">)</span>
-
-        <span class="c1"># Sift key
-</span>        <span class="n">matching_bases</span> <span class="o">=</span> <span class="n">alice_bases</span> <span class="o">==</span> <span class="n">bob_bases</span>
-        <span class="n">sifted_key</span> <span class="o">=</span> <span class="n">alice_bits</span><span class="p">[</span><span class="n">matching_bases</span><span class="p">]</span>
-
-        <span class="k">return</span> <span class="n">sifted_key</span>
-</code></pre></div></div>
-
-<p><strong>Quantum Key Distribution (QKD)</strong> is the one piece already deployed. In <strong>BB84</strong> (Bennett &amp; Brassard, 1984), Alice encodes random bits in randomly chosen bases (rectilinear or diagonal); Bob measures in his own random bases; they publicly compare <em>which bases</em> they used (never the bit values) and keep only the matching positions to form a shared <strong>sifted key</strong>. Because any eavesdropper must measure — and measuring in the wrong basis disturbs the state — listening in <em>introduces detectable errors</em>. Alice and Bob sacrifice a subset of the key to estimate the <strong>Quantum Bit Error Rate (QBER)</strong>; if it exceeds a threshold, they abort, otherwise they apply classical error correction and privacy amplification to distill a provably secret key.</p>
-
-<p><strong>Deployment reality (2024–2025):</strong> QKD has moved well past the lab but remains niche. Metropolitan fiber QKD networks operate in several cities, China’s Beijing–Shanghai backbone spans ~2,000 km using <strong>trusted relay</strong> nodes, and the <strong>Micius</strong> satellite demonstrated entanglement-based QKD over more than 1,000 km — sidestepping fiber loss by going through space. The hard limits keep it specialized: photon loss caps terrestrial fiber at roughly 100–200 km without repeaters, key rates are low, and trusted-relay nodes are a security weak point. The missing piece is the <strong>quantum repeater</strong> (entanglement swapping plus quantum memory), which would enable end-to-end entanglement over arbitrary distance and a true <strong>quantum internet</strong> carrying <em>entanglement</em> rather than just keys. Notably, many security agencies now favor <strong>post-quantum cryptography</strong> (classical algorithms resistant to quantum attack) over QKD for most use cases, because it needs no special hardware — making QKD’s near-term role a complement, not a replacement.</p>
-
-<blockquote>
-  <p>The physics behind these protocols — superposition, measurement, the no-cloning theorem, and entanglement — is developed in <a href="../../physics/quantum-mechanics/">Quantum Mechanics</a> and <a href="../quantumcomputing.html">Quantum Computing</a>.</p>
-</blockquote>
-
-<h2 id="current-networking-trends">Current Networking Trends</h2>
-
-<p>Several of the ideas above are already moving from research into production:</p>
-
-<h3 id="quic-and-http3-adoption">QUIC and HTTP/3 Adoption</h3>
-<ul>
-  <li>Major websites now use HTTP/3 by default</li>
-  <li>QUIC provides faster connections and better mobile performance</li>
-  <li>Built-in encryption and multiplexing</li>
-</ul>
-
-<blockquote>
-  <p>The transport mechanics of QUIC and HTTP/3 are covered in <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a>.</p>
-</blockquote>
-
-<h3 id="ebpf-revolution">eBPF Revolution</h3>
-<ul>
-  <li>Programmable kernel networking without modules</li>
-  <li>Used in load balancers, firewalls, observability tools</li>
-  <li>Projects: Cilium, Katran, Pixie</li>
-</ul>
-
-<h3 id="aiml-in-networking">AI/ML in Networking</h3>
-<ul>
-  <li>Predictive network maintenance</li>
-  <li>Automated troubleshooting</li>
-  <li>Traffic pattern analysis (directly atop the traffic models above)</li>
-  <li>DDoS detection and mitigation</li>
-</ul>
-
-<h3 id="6g-research-20242030">6G Research (2024–2030)</h3>
-
-<p>6G targets the early 2030s and is being shaped now. The headline research themes:</p>
-
-<ul>
-  <li><strong>Terahertz communications</strong> — 100+ Gbps wireless links using the sub-THz / THz bands above mmWave, trading enormous bandwidth for extreme path loss and line-of-sight-only reach.</li>
-  <li><strong>AI-native air interface</strong> — learned waveforms, coding, and protocols, where the radio’s physical layer is partly trained rather than hand-designed.</li>
-  <li><strong>Integrated Sensing and Communication (ISAC)</strong> — networks that <em>sense</em> their environment (radar-like imaging, positioning) while they communicate, reusing the same spectrum and hardware.</li>
-  <li><strong>Non-terrestrial networks (NTN)</strong> — tight integration of LEO satellite constellations, high-altitude platforms, and ground networks for truly ubiquitous coverage.</li>
-  <li><strong>Sustainability and energy efficiency</strong> as a first-class design goal rather than an afterthought.</li>
-</ul>
-
-<blockquote>
-  <p>The 5G foundations 6G builds on — massive MIMO, the cloud-native 5G core, network slicing, and mmWave — are covered in <a href="wireless-and-mobile.html">Wireless &amp; Mobile</a>.</p>
-</blockquote>
-
-<h3 id="what-else-is-active">What Else Is Active</h3>
-
-<p>Beyond the four deep dives above, several adjacent research areas are worth tracking:</p>
-
-<p><strong>Ultra-low latency:</strong></p>
-<ul>
-  <li><strong>Deterministic Networking (DetNet)</strong> — guaranteed bounded latency for industrial IoT.</li>
-  <li><strong>Time-Sensitive Networking (TSN)</strong> — IEEE 802.1 standards for real-time Ethernet.</li>
-</ul>
-
-<p><strong>Verification and security:</strong></p>
-<ul>
-  <li><strong>Network verification</strong> — automated correctness proofs using formal methods.</li>
-  <li><strong>Post-quantum network security</strong> — classical algorithms hardened against quantum attack, now the mainstream answer to the quantum threat.</li>
-</ul>
-
-<p><strong>New computing paradigms:</strong></p>
-<ul>
-  <li><strong>In-network computing</strong> — P4-programmable switches and computational storage (see <a href="programmable-networks.html">Programmable Networks</a>).</li>
-  <li><strong>Network digital twins</strong> — real-time simulation and prediction of a live network, fed by exactly the traffic models above.</li>
-</ul>
-
-<h2 id="continuing-your-networking-journey">Continuing Your Networking Journey</h2>
-
-<p>Networking is a vast field that continues to evolve rapidly. Here are resources to deepen your understanding.</p>
-
-<h3 id="foundational-textbooks">Foundational Textbooks</h3>
 <ol>
-  <li><strong>Peterson &amp; Davie</strong> — “Computer Networks: A Systems Approach” (6th Edition, 2022)</li>
-  <li><strong>Kurose &amp; Ross</strong> — “Computer Networking: A Top-Down Approach” (8th Edition, 2021)</li>
-  <li><strong>Bertsekas &amp; Gallager</strong> — “Data Networks” (2nd Edition)</li>
-  <li><strong>Kleinrock</strong> — “Queueing Systems” (Volumes 1 &amp; 2)</li>
-  <li><strong>Tanenbaum &amp; Wetherall</strong> — “Computer Networks” (6th Edition, 2021)</li>
+  <li>Alice sends each random bit as a photon polarized in a randomly chosen basis, rectilinear (+) or diagonal (×).</li>
+  <li>Bob measures each photon in his own randomly chosen basis. When the bases match he gets Alice’s bit; otherwise his result is random.</li>
+  <li>Over an authenticated classical channel they announce their bases (never the bit values) and keep only positions where the bases matched: the <strong>sifted key</strong>, about half the raw bits.</li>
+  <li>They reveal a random sample to estimate the <strong>quantum bit error rate</strong> (QBER). An intercept-resend eavesdropper who measures in random bases and re-sends what she saw introduces about 25% errors in the sifted key. Above a threshold (around 11% for BB84 with one-way post-processing) they abort.</li>
+  <li>Otherwise, error correction and <strong>privacy amplification</strong> (hashing to a shorter key) remove both errors and any partial information an eavesdropper could hold.</li>
 </ol>
 
-<h3 id="landmark-papers-that-shaped-networking">Landmark Papers That Shaped Networking</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<p><strong>The Problems That Started It All:</strong></p>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">bb84</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">eavesdrop</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">BB84 with ideal single photons; returns (sifted length, QBER).</span><span class="sh">"""</span>
+    <span class="n">bits</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>            <span class="c1"># Alice's raw key
+</span>    <span class="n">a_basis</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>         <span class="c1"># 0 = rectilinear (+), 1 = diagonal (x)
+</span>    <span class="n">photon_bit</span><span class="p">,</span> <span class="n">photon_basis</span> <span class="o">=</span> <span class="n">bits</span><span class="p">.</span><span class="nf">copy</span><span class="p">(),</span> <span class="n">a_basis</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">eavesdrop</span><span class="p">:</span>                           <span class="c1"># intercept-resend attack
+</span>        <span class="n">e_basis</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">wrong</span> <span class="o">=</span> <span class="n">e_basis</span> <span class="o">!=</span> <span class="n">photon_basis</span>
+        <span class="n">photon_bit</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">wrong</span><span class="p">,</span> <span class="n">rng</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="n">photon_bit</span><span class="p">)</span>
+        <span class="n">photon_basis</span> <span class="o">=</span> <span class="n">e_basis</span>              <span class="c1"># Eve re-sends in her own basis
+</span>
+    <span class="n">b_basis</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="c1"># Measuring in the photon's basis is deterministic; otherwise a coin flip
+</span>    <span class="n">b_bits</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">b_basis</span> <span class="o">==</span> <span class="n">photon_basis</span><span class="p">,</span> <span class="n">photon_bit</span><span class="p">,</span> <span class="n">rng</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">a_basis</span> <span class="o">==</span> <span class="n">b_basis</span>               <span class="c1"># sifting: bases compared publicly
+</span>    <span class="k">return</span> <span class="n">keep</span><span class="p">.</span><span class="nf">sum</span><span class="p">(),</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">bits</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span> <span class="o">!=</span> <span class="n">b_bits</span><span class="p">[</span><span class="n">keep</span><span class="p">])</span>
+
+<span class="k">for</span> <span class="n">eve</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="bp">True</span><span class="p">):</span>
+    <span class="n">kept</span><span class="p">,</span> <span class="n">qber</span> <span class="o">=</span> <span class="nf">bb84</span><span class="p">(</span><span class="mi">100_000</span><span class="p">,</span> <span class="n">eavesdrop</span><span class="o">=</span><span class="n">eve</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">eavesdropper=</span><span class="si">{</span><span class="n">eve</span><span class="si">!s:</span><span class="mi">5</span><span class="si">}</span><span class="s">  sifted=</span><span class="si">{</span><span class="n">kept</span><span class="si">}</span><span class="s">  QBER=</span><span class="si">{</span><span class="n">qber</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="o">%</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># eavesdropper=False  sifted=50050  QBER=0.0%
+# eavesdropper=True   sifted=50136  QBER=25.4%
+</span></code></pre></div></div>
+
+<p>QKD’s security rests on physics, but real systems have practical limits:</p>
+
 <ul>
-  <li>
-    <p><strong>Jacobson (1988)</strong> — “Congestion Avoidance and Control”
-<em>Why it matters:</em> Saved the internet from collapse in the 1980s.</p>
-  </li>
-  <li>
-    <p><strong>Cardwell et al. (2016)</strong> — “BBR: Congestion-Based Congestion Control”
-<em>Why it matters:</em> Made YouTube and Google services noticeably faster.</p>
-  </li>
+  <li><strong>Distance.</strong> Photons cannot be amplified without destroying their state, and fibre loss (about 0.2 dB/km) limits point-to-point QKD to roughly 100-200 km at useful key rates. Longer networks such as China’s Beijing-Shanghai backbone (about 2,000 km) chain <strong>trusted relay</strong> nodes, where keys exist in the clear and each node must be physically secured.</li>
+  <li><strong>Satellites.</strong> Free-space links avoid fibre loss. The Micius satellite demonstrated satellite-to-ground QKD over more than 1,200 km (2017) and entanglement-based QKD between ground stations 1,120 km apart (2020), and a 2025 experiment with the Jinan-1 microsatellite exchanged keys between ground stations in China and South Africa.</li>
+  <li><strong>Implementation attacks.</strong> Detector-blinding and similar attacks have broken commercial systems; measurement-device-independent QKD removes the detector from the trusted set at the cost of lower rates.</li>
+  <li><strong>Authentication.</strong> QKD still needs an authenticated classical channel, which in practice means pre-shared keys or classical signatures.</li>
 </ul>
 
-<p><strong>Measuring What Traffic Really Looks Like:</strong></p>
+<p>For these reasons the NSA, the UK NCSC, and several European agencies have advised against relying on QKD for general-purpose protection and recommend <strong>post-quantum cryptography</strong> (PQC) instead: classical algorithms believed secure against quantum computers that run on existing hardware and protocols. NIST published the first PQC standards in August 2024 (FIPS 203 ML-KEM for key establishment, FIPS 204 ML-DSA and FIPS 205 SLH-DSA for signatures). Hybrid key exchange combining X25519 with ML-KEM-768 is now the default in major browsers and CDNs, so a large share of TLS traffic is already protected against “harvest now, decrypt later” collection. See <a href="../cybersecurity/cryptography.html">Cryptography</a>.</p>
+
+<p>The longer-term goal is a <strong>quantum internet</strong> that distributes entanglement end to end, enabling not just key distribution but distributed quantum computing and quantum-enhanced sensing. That requires <strong>quantum repeaters</strong>, which combine quantum memories with entanglement swapping to extend entanglement across lossy links without measuring it. Repeater nodes remain experimental; in 2024 groups at Delft and Harvard/AWS demonstrated heralded entanglement between quantum-memory nodes across metropolitan deployed fibre, tens of kilometres long.</p>
+
+<h3 id="6g">6G</h3>
+
+<p>The ITU’s <strong>IMT-2030</strong> framework (Recommendation ITU-R M.2160, 2023) defines the 6G requirements; 3GPP turns them into specifications.</p>
+
+<pre><code class="language-mermaid">timeline
+    title 6G standardization (3GPP)
+    2023 : ITU-R IMT-2030 framework approved
+    2025 : Release 20 - 6G use-case and requirements studies
+    2027 : Release 21 Stage-1 freeze (March)
+    2028 : Release 21 Stage-3 freeze (December) - first normative 6G specs
+    2030 : Expected first commercial deployments
+</code></pre>
+
+<p>IMT-2030 extends 5G’s three usage scenarios to six, adding <strong>integrated sensing and communication</strong>, <strong>AI and communication</strong>, and <strong>ubiquitous connectivity</strong> to enhanced versions of the 5G trio. The main technical threads are:</p>
+
 <ul>
-  <li><strong>Leland, Taqqu, Willinger &amp; Wilson (1994)</strong> — “On the Self-Similar Nature of Ethernet Traffic”
-<em>Why it matters:</em> Overturned the Poisson assumption and reshaped how we buffer and provision networks.</li>
+  <li><strong>New spectrum.</strong> The upper mid-band (roughly 7-24 GHz) as the main new capacity layer, with sub-THz bands above 100 GHz for very short-range, very high-rate links.</li>
+  <li><strong>AI-native air interface.</strong> Parts of the physical layer (channel estimation, beam management, even waveforms) learned rather than hand-designed.</li>
+  <li><strong>Integrated sensing and communication (ISAC).</strong> The same spectrum and hardware used to sense the environment (radar-like detection and positioning) while communicating.</li>
+  <li><strong>Non-terrestrial networks.</strong> LEO satellites and high-altitude platforms integrated with the terrestrial network rather than bolted on; 3GPP began this in 5G Releases 17-19.</li>
+  <li><strong>Energy efficiency</strong> as a first-class requirement, with network elements able to sleep aggressively at low load.</li>
 </ul>
 
-<p><strong>Revolutionizing How We Build Networks:</strong></p>
+<p>The 5G foundations these build on, including massive MIMO, the service-based core, and network slicing, are covered in <a href="wireless-and-mobile.html">Wireless &amp; Mobile</a>.</p>
+
+<h3 id="other-active-areas">Other Active Areas</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>What it is</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Deterministic networking (IETF DetNet, IEEE 802.1 TSN)</td>
+      <td>Bounded latency and zero congestion loss for industrial control, automotive, and professional audio/video</td>
+      <td>Standardized; deployed in factories and in-vehicle networks</td>
+    </tr>
+    <tr>
+      <td>Network verification</td>
+      <td>Formally checking configurations and data-plane state (reachability, loop freedom, isolation) before and after changes</td>
+      <td>Used in production by large cloud providers; open tools such as Batfish</td>
+    </tr>
+    <tr>
+      <td>Network digital twins</td>
+      <td>A continuously updated model of a live network used to test changes and predict behaviour, driven by the traffic models above</td>
+      <td>Early production use by operators</td>
+    </tr>
+    <tr>
+      <td>AI for network operations</td>
+      <td>ML for anomaly detection and traffic prediction; LLM-based agents that read telemetry and propose or apply configuration changes under guard-rails</td>
+      <td>Rapidly growing; verification and safe-rollback are the limiting factors</td>
+    </tr>
+    <tr>
+      <td>In-network computing</td>
+      <td>Aggregation, caching, and consensus executed on programmable switches and SmartNICs</td>
+      <td>Research and niche production (see <a href="programmable-networks.html">Programmable Networks</a>)</td>
+    </tr>
+    <tr>
+      <td>LEO satellite broadband</td>
+      <td>Large constellations with inter-satellite laser links providing global low-latency access</td>
+      <td>Commercial at scale; the direct-to-device segment is now converging with 3GPP NTN</td>
+    </tr>
+    <tr>
+      <td>Post-quantum migration</td>
+      <td>Replacing RSA and elliptic-curve key exchange and signatures in TLS, SSH, IPsec, and DNSSEC</td>
+      <td>Key exchange largely migrating; signatures and PKI lag</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="further-reading">Further Reading</h2>
+
+<p><strong>Textbooks</strong></p>
+
 <ul>
-  <li><strong>McKeown et al. (2008)</strong> — “OpenFlow: Enabling Innovation in Campus Networks”
-<em>Why it matters:</em> Launched the SDN revolution, making networks programmable (see <a href="programmable-networks.html">Programmable Networks</a>).</li>
+  <li>Kurose and Ross, <em>Computer Networking: A Top-Down Approach</em></li>
+  <li>Peterson and Davie, <em>Computer Networks: A Systems Approach</em> (also freely available online as the <em>Systems Approach</em> book series)</li>
+  <li>Tanenbaum, Feamster, and Wetherall, <em>Computer Networks</em></li>
+  <li>Kleinrock, <em>Queueing Systems</em>, Volumes 1 and 2</li>
+  <li>Bertsekas and Gallager, <em>Data Networks</em></li>
 </ul>
 
-<p><strong>Breaking Theoretical Limits:</strong></p>
-<ul>
-  <li><strong>Ahlswede et al. (2000)</strong> — “Network Information Flow”
-<em>Why it matters:</em> Showed that mixing data beats store-and-forward.</li>
-</ul>
+<p><strong>Landmark papers</strong></p>
 
-<p><strong>Reimagining the Internet:</strong></p>
-<ul>
-  <li><strong>Jacobson et al. (2009)</strong> — “Networking Named Content”
-<em>Why it matters:</em> Proposed focusing on what we want, not where it is.</li>
-</ul>
-
-<h3 id="whats-next-active-research-areas">What’s Next: Active Research Areas</h3>
-
-<p><strong>Making Networks Smarter:</strong></p>
-<ul>
-  <li><strong>AI-Native Networks</strong> — self-optimizing networks using transformer models and reinforcement learning.</li>
-  <li><strong>Intent-Based Networking (IBN)</strong> — declarative networking with natural-language interfaces.</li>
-  <li><strong>Digital Twin Networks</strong> — real-time network simulation and prediction.</li>
-</ul>
-
-<p><strong>Ultra-Low Latency:</strong></p>
-<ul>
-  <li><strong>Deterministic Networking (DetNet)</strong> — guaranteed bounded latency for industrial IoT.</li>
-  <li><strong>Edge Computing</strong> — ETSI MEC standards, 5G edge integration.</li>
-  <li><strong>Time-Sensitive Networking (TSN)</strong> — IEEE 802.1 standards for real-time Ethernet.</li>
-</ul>
-
-<p><strong>Verification and Security:</strong></p>
-<ul>
-  <li><strong>Network Verification</strong> — automated correctness proofs using formal methods.</li>
-  <li><strong>Zero Trust Network Access (ZTNA)</strong> — modern perimeter-less security.</li>
-  <li><strong>SASE (Secure Access Service Edge)</strong> — converged network and security services.</li>
-  <li><strong>Post-Quantum Network Security</strong> — preparing for quantum computing threats.</li>
-</ul>
-
-<p><strong>New Computing Paradigms:</strong></p>
-<ul>
-  <li><strong>In-Network Computing</strong> — P4-programmable switches, computational storage.</li>
-  <li><strong>Quantum Internet</strong> — quantum-key-distribution networks operational in multiple countries.</li>
-  <li><strong>Blockchain-Based Networking</strong> — decentralized DNS, routing security.</li>
-  <li><strong>Neuromorphic Networking</strong> — brain-inspired packet processing.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Paper</th>
+      <th>Contribution</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Jacobson, “Congestion Avoidance and Control” (1988)</td>
+      <td>TCP congestion control; ended the internet’s congestion collapses</td>
+    </tr>
+    <tr>
+      <td>Leland, Taqqu, Willinger, Wilson, “On the Self-Similar Nature of Ethernet Traffic” (1994)</td>
+      <td>Overturned the Poisson assumption for data traffic</td>
+    </tr>
+    <tr>
+      <td>Willinger, Taqqu, Sherman, Wilson, “Self-Similarity Through High-Variability” (1997)</td>
+      <td>Explained self-similarity as the result of heavy-tailed ON/OFF sources</td>
+    </tr>
+    <tr>
+      <td>Ahlswede, Cai, Li, Yeung, “Network Information Flow” (2000)</td>
+      <td>Founded network coding</td>
+    </tr>
+    <tr>
+      <td>McKeown et al., “OpenFlow: Enabling Innovation in Campus Networks” (2008)</td>
+      <td>Launched software-defined networking</td>
+    </tr>
+    <tr>
+      <td>Jacobson et al., “Networking Named Content” (2009)</td>
+      <td>Content-centric networking, the basis of NDN</td>
+    </tr>
+    <tr>
+      <td>Bosshart et al., “P4: Programming Protocol-Independent Packet Processors” (2014)</td>
+      <td>Programmable data planes</td>
+    </tr>
+    <tr>
+      <td>Cardwell et al., “BBR: Congestion-Based Congestion Control” (2016)</td>
+      <td>Model-based congestion control</td>
+    </tr>
+    <tr>
+      <td>Langley et al., “The QUIC Transport Protocol” (2017)</td>
+      <td>Design and deployment experience of QUIC</td>
+    </tr>
+  </tbody>
+</table>
 
 <hr />
 
 <h2 id="continue">Continue</h2>
 
-<p><strong>Previous:</strong> <a href="performance-and-security.html">Performance, QoS &amp; Security</a> — the queueing theory these traffic models feed.  <strong>Up:</strong> <a href="./">Networking</a> — overview and navigation hub.</p>
+<p><strong>Previous:</strong> <a href="performance-and-security.html">Performance, QoS &amp; Security</a> — the queueing theory these traffic models feed.  <strong>Up:</strong> <a href="./">Networking</a> — overview and navigation.</p>
 
 <h3 id="see-also">See Also</h3>
 
 <ul>
-  <li><a href="programmable-networks.html">Programmable Networks</a> — SDN, NFV, P4, MPLS, and SRv6.</li>
-  <li><a href="cloud-networking.html">Cloud Networking</a> — VPCs, load balancing, CDNs, and the shared-responsibility model.</li>
-  <li><a href="wireless-and-mobile.html">Wireless &amp; Mobile</a> — Wi-Fi, 5G, the 5G core, and the wireless foundations 6G builds on.</li>
-  <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — queueing models, Little’s law, and buffer sizing.</li>
-  <li><a href="../aws/">AWS</a> — VPC, load balancing, and CloudFront in a real cloud.</li>
-  <li><a href="../../physics/quantum-mechanics/">Quantum Mechanics</a> — the physics behind QKD and quantum networking.</li>
+  <li><a href="programmable-networks.html">Programmable Networks</a> — SDN, P4, eBPF, NFV, and SRv6</li>
+  <li><a href="cloud-networking.html">Cloud Networking</a> — VPCs, load balancing, CDNs, and the shared-responsibility model</li>
+  <li><a href="wireless-and-mobile.html">Wireless &amp; Mobile</a> — Wi-Fi, 5G, and the foundations 6G builds on</li>
+  <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — QUIC, HTTP/3, and congestion control</li>
+  <li><a href="../../advanced/information-coding-theory/">Information &amp; Coding Theory</a> — the theory behind capacity, erasure codes, and network coding</li>
+  <li><a href="../../physics/quantum-mechanics/">Quantum Mechanics</a> — the physics behind QKD and entanglement distribution</li>
 </ul>
 
       </section>

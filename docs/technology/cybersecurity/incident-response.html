@@ -3135,226 +3135,497 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="incident-response--forensics">Incident Response &amp; Forensics</h1>
 
-<p>No matter how good your defenses are, some attacks will succeed. Incident response (IR) is the discipline of detecting, containing, and recovering from those breaches in a structured, repeatable way — and digital forensics is the practice of reconstructing what happened without destroying the evidence. This page walks the full IR lifecycle, the first critical minutes after detection, the fundamentals of forensic evidence handling and chain of custody, and the metrics and post-incident reviews that turn every breach into a permanent improvement.</p>
+<p><strong>Incident response (IR)</strong> is the structured process of detecting, containing, eradicating, and recovering from security incidents; <strong>digital forensics</strong> is the discipline of reconstructing what happened from evidence without altering it. This page covers the IR lifecycle as defined by NIST SP 800-61 and SANS, the first hour after detection, regulatory notification deadlines, forensic acquisition and analysis (including cloud environments), chain of custody, post-incident review, and the metrics used to measure response. Detection engineering and the SOC that feeds IR are covered in <a href="security-operations.html">Security Operations</a>.</p>
 
 <h2 id="the-incident-response-lifecycle">The Incident Response Lifecycle</h2>
 
-<p>Mature incident response is not improvised. It follows a defined lifecycle so that, under the pressure of a live breach, responders execute a plan rather than guess. The two dominant references are the <strong>NIST SP 800-61</strong> four-phase model and the <strong>SANS PICERL</strong> six-phase model; they describe the same work at different granularities.</p>
+<p>Under the pressure of a live breach, responders should execute a rehearsed plan rather than improvise. Two reference models dominate, and they describe the same work at different granularities:</p>
+
+<ul>
+  <li><strong>SANS PICERL</strong> — six phases: Preparation, Identification, Containment, Eradication, Recovery, Lessons learned.</li>
+  <li><strong>NIST SP 800-61</strong> — Revision 2 (2012) used four phases: Preparation; Detection &amp; Analysis; Containment, Eradication &amp; Recovery; Post-Incident Activity. <strong>Revision 3 (April 2025)</strong> retires that standalone lifecycle and instead maps incident response onto the six functions of the NIST Cybersecurity Framework 2.0, treating IR as part of ongoing risk management rather than a separate process.</li>
+</ul>
 
 <pre><code class="language-mermaid">flowchart LR
-    P["1. Preparation"] --&gt; D["2. Detection &amp;amp; Analysis"]
-    D --&gt; C["3. Containment"]
-    C --&gt; E["4. Eradication"]
-    E --&gt; R["5. Recovery"]
-    R --&gt; L["6. Lessons Learned"]
-    L -. feeds back into .-&gt; P
+    subgraph Before["Preparation (continuous)"]
+        GV["Govern"]
+        ID["Identify"]
+        PR["Protect"]
+    end
+    subgraph During["Incident response"]
+        DE["Detect"]
+        RS["Respond"]
+        RC["Recover"]
+    end
+    Before --&gt; DE --&gt; RS --&gt; RC
+    RC --&gt;|"lessons learned (Identify: Improvement)"| Before
 </code></pre>
+
+<p>The SP 800-61r3 view: Govern, Identify, and Protect are the preparation that happens continuously; Detect, Respond, and Recover are the incident itself; and lessons learned flow back into every function through the CSF’s <em>Improvement</em> category.</p>
 
 <table>
   <thead>
     <tr>
-      <th>SANS (PICERL)</th>
-      <th>NIST SP 800-61</th>
+      <th>SANS PICERL</th>
+      <th>NIST SP 800-61r2</th>
+      <th>CSF 2.0 function (SP 800-61r3)</th>
       <th>Core question</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>P</strong>reparation</td>
       <td>Preparation</td>
+      <td>Preparation</td>
+      <td>Govern, Identify, Protect</td>
       <td>Are we ready before anything happens?</td>
     </tr>
     <tr>
-      <td><strong>I</strong>dentification</td>
+      <td>Identification</td>
       <td>Detection &amp; Analysis</td>
-      <td>Is this actually an incident, and how bad?</td>
+      <td>Detect</td>
+      <td>Is this an incident, and how bad?</td>
     </tr>
     <tr>
-      <td><strong>C</strong>ontainment</td>
+      <td>Containment</td>
       <td>Containment, Eradication &amp; Recovery</td>
+      <td>Respond</td>
       <td>How do we stop it spreading?</td>
     </tr>
     <tr>
-      <td><strong>E</strong>radication</td>
+      <td>Eradication</td>
       <td>Containment, Eradication &amp; Recovery</td>
+      <td>Respond</td>
       <td>How do we remove the attacker?</td>
     </tr>
     <tr>
-      <td><strong>R</strong>ecovery</td>
+      <td>Recovery</td>
       <td>Containment, Eradication &amp; Recovery</td>
-      <td>How do we get back to normal safely?</td>
+      <td>Recover</td>
+      <td>How do we return to normal safely?</td>
     </tr>
     <tr>
-      <td><strong>L</strong>essons learned</td>
+      <td>Lessons learned</td>
       <td>Post-Incident Activity</td>
-      <td>How do we make sure it never happens again?</td>
+      <td>Identify (Improvement)</td>
+      <td>How do we prevent a repeat?</td>
     </tr>
   </tbody>
 </table>
 
-<p>The cycle is a loop, not a line: lessons learned feed directly back into preparation, hardening the organization against the next event.</p>
+<h3 id="preparation">Preparation</h3>
 
-<h3 id="1-preparation">1. Preparation</h3>
-
-<p>Everything you do <em>before</em> an incident determines how well the response goes. Preparation is unglamorous but is the single highest-leverage phase.</p>
+<p>Preparation determines how well every later phase goes and is the highest-leverage investment.</p>
 
 <ul>
-  <li><strong>An incident response plan (IRP)</strong> — written, approved, and rehearsed. It defines roles (incident commander, communications lead, forensic lead, legal/PR liaison), escalation thresholds, and decision authority.</li>
-  <li><strong>A contact tree</strong> — who to call at 3 a.m., including external parties: legal counsel, cyber-insurance carrier, an IR retainer firm, and law enforcement.</li>
-  <li><strong>Tooling and access</strong> — EDR/SIEM deployed, log retention configured, forensic imaging tools staged, and a clean out-of-band communication channel (an attacker in your email should not be able to read your incident-response email).</li>
-  <li><strong>Runbooks</strong> — step-by-step playbooks for common scenarios (ransomware, business email compromise, credential theft, data exfiltration).</li>
-  <li><strong>Tabletop exercises</strong> — practicing the plan on a simulated incident so that the first time the team uses it is not during a real breach.</li>
+  <li><strong>Incident response plan</strong> — written, approved by leadership, and rehearsed. It defines roles (incident commander, technical lead, communications lead, legal and privacy counsel, executive sponsor), severity levels, escalation thresholds, and who may authorize disruptive actions such as taking production offline or engaging law enforcement.</li>
+  <li><strong>Contacts and retainers</strong> — an out-of-hours call tree including outside counsel, the cyber-insurance carrier (many policies require using approved IR firms and notifying the carrier promptly), an IR retainer firm, and law enforcement contacts.</li>
+  <li><strong>Telemetry</strong> — EDR on endpoints and servers, centralized logs with enough retention to cover typical dwell time (90 days hot and a year or more archived is common), cloud audit logs (AWS CloudTrail, Azure Activity Log, Google Cloud Audit Logs) enabled in every account and region.</li>
+  <li><strong>Out-of-band communication</strong> — a channel the attacker cannot read. If email or the corporate chat tenant is compromised, responders discussing the incident there tip off the attacker.</li>
+  <li><strong>Playbooks</strong> — scenario-specific runbooks (ransomware, business email compromise, cloud credential leak, data exfiltration, insider).</li>
+  <li><strong>Resilience</strong> — offline or immutable backups that have been test-restored, and “break-glass” administrator accounts that do not depend on the identity provider being healthy.</li>
+  <li><strong>Tabletop exercises</strong> — walking the team through a simulated incident, including executives and legal, so the first use of the plan is not during a real breach. CISA publishes free tabletop exercise packages.</li>
 </ul>
 
-<h3 id="2-detection--analysis">2. Detection &amp; Analysis</h3>
+<h3 id="detection-and-analysis">Detection and Analysis</h3>
 
-<p>Detection is where an <em>event</em> (any observable occurrence) is triaged into an <em>incident</em> (an event that violates security policy or threatens assets). Sources include SIEM alerts, EDR detections, IDS/IPS signatures, user reports, threat-intel matches, and anomalies surfaced by threat hunting. The analyst’s job is to answer:</p>
+<p>Detection turns an <strong>event</strong> (any observable occurrence) into an <strong>incident</strong> (an event that violates policy or threatens assets). Sources include SIEM and EDR alerts, user reports, threat-intelligence matches, threat hunting, and — worryingly often — external parties such as law enforcement, a customer, or the attacker’s ransom note. Analysis answers four questions:</p>
 
 <ul>
-  <li><strong>Is this real?</strong> (true positive vs. false positive)</li>
-  <li><strong>What is the scope?</strong> (one host or the whole domain?)</li>
-  <li><strong>What is the severity?</strong> (informational, low, high, critical)</li>
-  <li><strong>What is the likely attacker objective?</strong> (ransomware, espionage, fraud)</li>
+  <li><strong>Is it real?</strong> True positive or false positive.</li>
+  <li><strong>What is the scope?</strong> One host, one account, or the whole identity plane.</li>
+  <li><strong>How severe is it?</strong> Driven by data sensitivity, business impact, and attacker capability.</li>
+  <li><strong>What is the attacker’s objective?</strong> Ransomware, espionage, fraud, or disruption — mapped where possible to MITRE ATT&amp;CK techniques.</li>
 </ul>
 
-<p>Accurate, fast analysis here drives every later decision and is directly measured by <a href="#mttd-and-mttr-measuring-response-performance">MTTD</a>.</p>
-
-<h3 id="3-containment">3. Containment</h3>
-
-<p>Containment stops the bleeding. It is usually split into:</p>
-
-<ul>
-  <li><strong>Short-term containment</strong> — immediate, often crude actions to halt spread: isolating a host from the network, disabling a compromised account, blocking a malicious IP at the firewall.</li>
-  <li><strong>Long-term containment</strong> — temporary hardening that lets the business keep running while you prepare to eradicate: applying a patch, rotating credentials, tightening firewall rules around the affected segment.</li>
-</ul>
-
-<p>The critical tension: <strong>isolate the attacker without destroying the evidence</strong>. Pulling the power cable stops the malware but also wipes RAM-resident encryption keys and process state you may need. Network-isolating the host (rather than powering it off) usually preserves volatile evidence while cutting the attacker’s control channel.</p>
-
-<h3 id="4-eradication">4. Eradication</h3>
-
-<p>Once contained, the attacker and their footholds must be completely removed: deleting malware, closing backdoors, removing attacker-created accounts, and patching the vulnerability that enabled entry. The guiding principle is <strong>assume thoroughness</strong>: if you found one webshell, hunt for the others. Re-imaging from known-good media is often safer than cleaning in place, because a partially-cleaned host can re-infect the environment.</p>
-
-<h3 id="5-recovery">5. Recovery</h3>
-
-<p>Recovery restores systems to normal operation and confirms they are clean. This means restoring from trusted backups, rebuilding hosts, validating that the vulnerability is closed, and <strong>monitoring closely</strong> for signs the attacker returns. Recovery is staged and verified — bringing systems back one tier at a time with heightened logging — rather than flipping everything on at once.</p>
-
-<h3 id="6-lessons-learned">6. Lessons Learned</h3>
-
-<p>Within a couple of weeks of closing the incident, the team conducts a <a href="#post-incident-review-and-lessons-learned">post-incident review</a> to capture what happened, what worked, what didn’t, and concrete improvements. This is where the loop closes.</p>
-
-<h2 id="the-golden-hour-first-steps-matter">The Golden Hour: First Steps Matter</h2>
-
-<p>When you discover a breach, the first decisions are the most consequential — and the most common mistake is to react instinctively (reboot the box, delete the malware, yank the power) in a way that destroys the evidence you will later need. The disciplined opening moves:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Incident Response Checklist
-</span><span class="k">def</span> <span class="nf">initial_response</span><span class="p">():</span>
-    <span class="c1"># 1. Don't panic, don't turn anything off yet!
-</span>    <span class="nf">log</span><span class="p">(</span><span class="sh">"</span><span class="s">Incident detected at</span><span class="sh">"</span><span class="p">,</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">())</span>
-
-    <span class="c1"># 2. Preserve evidence
-</span>    <span class="nf">capture_memory_dump</span><span class="p">()</span>  <span class="c1"># RAM contains encryption keys, passwords
-</span>    <span class="nf">capture_network_connections</span><span class="p">()</span>  <span class="c1"># See what's communicating
-</span>
-    <span class="c1"># 3. Contain the threat
-</span>    <span class="nf">isolate_affected_systems</span><span class="p">()</span>  <span class="c1"># Prevent lateral movement
-</span>
-    <span class="c1"># 4. Start documentation
-</span>    <span class="nf">create_incident_timeline</span><span class="p">()</span>
-
-    <span class="c1"># 5. Notify response team
-</span>    <span class="nf">alert_security_team</span><span class="p">()</span>
-</code></pre></div></div>
-
-<p>Why each step matters:</p>
-
-<ul>
-  <li><strong>Don’t power off.</strong> RAM holds decryption keys, injected code, network sockets, and unsaved attacker state. A graceful shutdown or hard power-off discards all of it. Capture volatile memory <em>first</em>.</li>
-  <li><strong>Isolate, don’t destroy.</strong> Network-isolate the host (disable the switch port, move it to a quarantine VLAN, or pull the cable) to sever the command-and-control channel while keeping the machine running for forensics.</li>
-  <li><strong>Document from the first minute.</strong> A timeline of “who did what, when” is both an operational aid and a legal record. Note timestamps in a consistent timezone (UTC is conventional) and record who took each action.</li>
-  <li><strong>Activate the team, not a hero.</strong> Incident response is a team sport with defined roles. The incident commander coordinates; analysts investigate; a communications lead handles internal and external messaging.</li>
-</ul>
-
-<p>A useful mental model is the <strong>order of volatility</strong>: collect evidence from the most ephemeral source to the most durable — CPU registers and cache, then RAM, then network state and running processes, then disk, then archived logs and backups. Anything you touch on a higher-volatility tier may change a lower one, so capture in that order.</p>
-
-<h2 id="digital-forensics-csi-for-computers">Digital Forensics: CSI for Computers</h2>
-
-<p>Forensics is about finding out what happened <em>without destroying the evidence</em> — reconstructing the attacker’s actions in a way that is both technically accurate and, if needed, defensible in court. The cardinal rule is to work on <strong>copies</strong>, never originals.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Memory forensics example: Finding malware in RAM
-</span><span class="k">def</span> <span class="nf">analyze_memory_dump</span><span class="p">(</span><span class="n">dump_file</span><span class="p">):</span>
-    <span class="c1"># Look for suspicious processes
-</span>    <span class="n">processes</span> <span class="o">=</span> <span class="nf">extract_process_list</span><span class="p">(</span><span class="n">dump_file</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">proc</span><span class="p">.</span><span class="n">parent</span> <span class="o">==</span> <span class="sh">"</span><span class="s">svchost.exe</span><span class="sh">"</span> <span class="ow">and</span> <span class="n">proc</span><span class="p">.</span><span class="n">name</span> <span class="o">==</span> <span class="sh">"</span><span class="s">cmd.exe</span><span class="sh">"</span><span class="p">:</span>
-            <span class="c1"># svchost shouldn't spawn command prompts!
-</span>            <span class="nf">flag_suspicious</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
-
-    <span class="c1"># Extract network connections
-</span>    <span class="n">connections</span> <span class="o">=</span> <span class="nf">extract_network_connections</span><span class="p">(</span><span class="n">dump_file</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">conn</span> <span class="ow">in</span> <span class="n">connections</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">conn</span><span class="p">.</span><span class="n">destination_port</span> <span class="o">==</span> <span class="mi">4444</span><span class="p">:</span>  <span class="c1"># Common backdoor port
-</span>            <span class="nf">flag_suspicious</span><span class="p">(</span><span class="n">conn</span><span class="p">)</span>
-
-    <span class="c1"># Look for injection techniques
-</span>    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
-        <span class="k">if</span> <span class="nf">has_injected_code</span><span class="p">(</span><span class="n">proc</span><span class="p">):</span>
-            <span class="nf">extract_injected_code</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
-</code></pre></div></div>
-
-<h3 id="the-forensic-disciplines">The Forensic Disciplines</h3>
-
-<p>Forensic analysis spans several evidence sources, each with its own tooling:</p>
-
-<ul>
-  <li><strong>Memory forensics</strong> — analyzing a RAM dump for running processes, injected code, network connections, and encryption keys. Tools: Volatility, Rekall. This is where fileless malware that never touches disk is caught.</li>
-  <li><strong>Disk forensics</strong> — examining a bit-for-bit image of storage for deleted files, file-system timestamps, registry artifacts, and slack space. Tools: Autopsy/The Sleuth Kit, FTK, EnCase.</li>
-  <li><strong>Network forensics</strong> — reconstructing sessions from packet captures and flow logs to trace lateral movement and exfiltration. Tools: Wireshark, Zeek, NetworkMiner.</li>
-  <li><strong>Log and timeline analysis</strong> — correlating events across hosts into a single ordered narrative (“super timeline”). Tools: Plaso/log2timeline, SIEM.</li>
-</ul>
-
-<h3 id="acquiring-evidence-soundly">Acquiring Evidence Soundly</h3>
-
-<p>A forensically sound acquisition has two properties: it is a <strong>complete, exact copy</strong>, and its <strong>integrity is provable</strong>.</p>
-
-<ul>
-  <li><strong>Write-blockers</strong> — hardware or software that lets you read a drive without writing a single byte to it, so the act of imaging cannot alter the original.</li>
-  <li><strong>Bit-for-bit imaging</strong> — capture the entire device (including unallocated space), not just the visible files. <code class="language-plaintext highlighter-rouge">dd</code> and <code class="language-plaintext highlighter-rouge">ewfacquire</code> are standard.</li>
-  <li><strong>Cryptographic hashing</strong> — compute a hash of the source and the image at acquisition time. If they match, the copy is verified identical; recomputing the hash later proves the evidence has not been altered.</li>
-</ul>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Acquire a forensic image and prove its integrity</span>
-<span class="c"># 1. Hash the source device first (read-only, behind a write-blocker)</span>
-<span class="nb">sha256sum</span> /dev/sdb <span class="o">&gt;</span> source.sha256
-
-<span class="c"># 2. Create a bit-for-bit image</span>
-<span class="nb">dd </span><span class="k">if</span><span class="o">=</span>/dev/sdb <span class="nv">of</span><span class="o">=</span>evidence.img <span class="nv">bs</span><span class="o">=</span>4M <span class="nv">conv</span><span class="o">=</span>noerror,sync <span class="nv">status</span><span class="o">=</span>progress
-
-<span class="c"># 3. Hash the image and confirm it matches the source</span>
-<span class="nb">sha256sum </span>evidence.img | <span class="nb">tee </span>image.sha256
-
-<span class="c"># 4. From now on, work ONLY on copies of evidence.img.</span>
-<span class="c">#    Re-hashing later must still match image.sha256 — otherwise</span>
-<span class="c">#    the evidence is considered tampered and inadmissible.</span>
-</code></pre></div></div>
-
-<h2 id="chain-of-custody">Chain of Custody</h2>
-
-<p>Technical accuracy is not enough if the evidence cannot be trusted. <strong>Chain of custody</strong> is the documented, unbroken record of who handled a piece of evidence, when, why, and how it was stored — from collection through analysis to final disposition. If there is a gap, the evidence can be challenged as having been altered, and in a legal proceeding it may be thrown out entirely.</p>
-
-<p>A chain-of-custody record answers, for every transfer:</p>
-
-<ul>
-  <li><strong>What</strong> the evidence is (device, serial number, description, the acquisition hash).</li>
-  <li><strong>Who</strong> collected it and who currently holds it.</li>
-  <li><strong>When</strong> each transfer occurred (date and time).</li>
-  <li><strong>Where</strong> it was stored between transfers (e.g., a sealed evidence bag in a locked safe).</li>
-  <li><strong>Why</strong> it changed hands (analysis, transport, storage).</li>
-</ul>
+<p>A simple severity scale keeps escalation consistent:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Date / Time (UTC)</th>
+      <th>Severity</th>
+      <th>Typical definition</th>
+      <th>Response</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SEV-1 (critical)</td>
+      <td>Confirmed breach of sensitive data, active ransomware, or outage of critical services</td>
+      <td>Incident commander, executives, and counsel engaged immediately; 24/7 response</td>
+    </tr>
+    <tr>
+      <td>SEV-2 (high)</td>
+      <td>Confirmed compromise, contained scope, no confirmed data loss</td>
+      <td>Dedicated response team during extended hours</td>
+    </tr>
+    <tr>
+      <td>SEV-3 (medium)</td>
+      <td>Suspicious activity or single compromised low-value asset</td>
+      <td>Handled by on-shift SOC analysts</td>
+    </tr>
+    <tr>
+      <td>SEV-4 (low)</td>
+      <td>Policy violation or blocked attempt</td>
+      <td>Ticketed and trended</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Speed and accuracy here are measured by <a href="#mttd-and-mttr-measuring-response-performance">MTTD</a>.</p>
+
+<h3 id="containment">Containment</h3>
+
+<p>Containment stops the damage from growing.</p>
+
+<ul>
+  <li><strong>Short-term containment</strong> — immediate actions: network-isolate hosts through EDR, disable or reset compromised accounts, <strong>revoke sessions and tokens</strong> (resetting a password does not invalidate existing OAuth refresh tokens or session cookies), block attacker infrastructure.</li>
+  <li><strong>Long-term containment</strong> — temporary controls that let the business operate while eradication is prepared: emergency patches, tightened segmentation, conditional-access policies, additional monitoring on the affected segment.</li>
+</ul>
+
+<p>Two tensions govern containment decisions:</p>
+
+<ul>
+  <li><strong>Evidence versus speed.</strong> Powering a host off destroys memory-resident evidence (encryption keys, injected code, network connections). Network isolation severs attacker control while keeping the machine running for acquisition.</li>
+  <li><strong>Tipping off the attacker.</strong> Containing one foothold while others remain can prompt the attacker to accelerate — deploying ransomware early or destroying logs. For a sophisticated intrusion, responders often scope fully first and then contain all known footholds simultaneously.</li>
+</ul>
+
+<h3 id="eradication">Eradication</h3>
+
+<p>Eradication removes every attacker foothold: malware, web shells, persistence mechanisms (scheduled tasks, services, startup items, cloud IAM users and access keys, OAuth app grants, mailbox forwarding rules), and attacker-created accounts — and closes the initial access vector. <strong>Assume there is more than one</strong>: finding one web shell means hunting for the others. Rebuilding hosts from known-good images is usually safer than cleaning in place. After an Active Directory compromise, eradication includes resetting the <code class="language-plaintext highlighter-rouge">krbtgt</code> account password twice (to invalidate forged Kerberos “golden tickets”) and rotating service-account credentials.</p>
+
+<h3 id="recovery">Recovery</h3>
+
+<p>Recovery restores operations and verifies that systems are clean: restore from backups taken <strong>before</strong> the compromise (and scan them — attackers target backups and sometimes plant persistence in them), rebuild, validate that the entry vector is closed, and bring systems back in tiers with heightened monitoring for the attacker’s return. Recovery objectives (RTO and RPO) set in advance by the business-continuity plan decide which systems come back first.</p>
+
+<h3 id="lessons-learned">Lessons Learned</h3>
+
+<p>Within about two weeks of closure, the team holds a <a href="#post-incident-review-and-lessons-learned">post-incident review</a> that captures what happened, what worked, and concrete, owned improvements. This is where the loop closes.</p>
+
+<h2 id="playbooks-for-common-incident-types">Playbooks for Common Incident Types</h2>
+
+<p>Scenario-specific playbooks turn the generic lifecycle into concrete first actions.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Incident type</th>
+      <th>Key first actions</th>
+      <th>Common pitfalls</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Ransomware</strong></td>
+      <td>Isolate affected segments; disable compromised admin accounts; protect and verify backups; identify the strain and check for a public decryptor (No More Ransom); determine whether data was exfiltrated (double extortion)</td>
+      <td>Rebooting encrypted hosts; restoring into an environment the attacker still controls; paying without legal review (sanctions risk)</td>
+    </tr>
+    <tr>
+      <td><strong>Business email compromise</strong></td>
+      <td>Revoke sessions and reset credentials; remove malicious inbox rules and OAuth grants; contact the bank immediately to recall fraudulent transfers; review mailbox audit logs for accessed data</td>
+      <td>Resetting the password but leaving session tokens and forwarding rules in place</td>
+    </tr>
+    <tr>
+      <td><strong>Cloud credential leak</strong></td>
+      <td>Deactivate the key; review the audit log for everything the key did; check for new IAM users, keys, roles, and compute (crypto-mining); rotate secrets the key could read</td>
+      <td>Deleting the key before recording its activity; checking only one region</td>
+    </tr>
+    <tr>
+      <td><strong>Data exfiltration</strong></td>
+      <td>Identify what data left, from where, and when; preserve network and proxy logs; engage counsel early to assess notification duties</td>
+      <td>Under-scoping; assuming encrypted data is safe without checking key exposure</td>
+    </tr>
+    <tr>
+      <td><strong>Insider threat</strong></td>
+      <td>Coordinate with HR and legal before acting; preserve evidence quietly; restrict access proportionately</td>
+      <td>Alerting the subject; evidence handling that is not defensible in employment or criminal proceedings</td>
+    </tr>
+    <tr>
+      <td><strong>Supply-chain compromise</strong></td>
+      <td>Identify affected versions and where they run; block known indicators; follow the vendor’s advisory; hunt for post-exploitation activity</td>
+      <td>Treating the vendor patch as the end of the incident</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="the-golden-hour-first-steps-matter">The Golden Hour: First Steps Matter</h2>
+
+<p>The first decisions after detection are the most consequential, and the most common mistakes are instinctive: rebooting the machine, deleting the malware, or wiping the host before anyone has captured evidence or scoped the intrusion.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    A["Alert or report received"] --&gt; B{"Validated as a real incident?"}
+    B -- No --&gt; Z["Close as false positive, tune the detection"]
+    B -- Yes --&gt; C["Declare incident, assign incident commander, open timeline (UTC)"]
+    C --&gt; D["Move coordination to out-of-band channel"]
+    D --&gt; E["Capture volatile evidence: memory, connections, processes"]
+    E --&gt; F["Contain: isolate hosts, revoke sessions, disable accounts"]
+    F --&gt; G["Scope: hunt for related hosts, accounts, and persistence"]
+    G --&gt; H["Assess notification duties with counsel (regulators, insurer, customers)"]
+</code></pre>
+
+<ul>
+  <li><strong>Declare early.</strong> Formally declaring an incident activates roles and authority; it is cheap to downgrade later.</li>
+  <li><strong>Document from the first minute.</strong> Maintain a single timeline of who did what and when, in UTC. It is both an operational tool and, potentially, a legal record.</li>
+  <li><strong>Don’t power off.</strong> Capture memory first, then isolate the host on the network.</li>
+  <li><strong>Preserve logs.</strong> Attackers clear logs, and default retention can silently age evidence out; export relevant logs immediately.</li>
+  <li><strong>Start the regulatory clock check.</strong> Several regimes run from the moment of <em>awareness</em>, not from the end of the investigation (see <a href="#regulatory-notification-deadlines">notification deadlines</a>).</li>
+</ul>
+
+<h3 id="order-of-volatility">Order of Volatility</h3>
+
+<p>RFC 3227 (<em>Guidelines for Evidence Collection and Archiving</em>) orders evidence from most to least volatile. Collect in this order, because touching a volatile tier can change the ones below it.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Order</th>
+      <th>Evidence</th>
+      <th>Typical lifetime</th>
+      <th>Collection</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>CPU registers, cache</td>
+      <td>Nanoseconds</td>
+      <td>Rarely collected directly</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Routing and ARP tables, process table, kernel statistics, <strong>memory</strong></td>
+      <td>Seconds to minutes</td>
+      <td>Memory image (WinPmem, AVML, LiME); EDR live response</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Temporary file systems</td>
+      <td>Minutes to hours</td>
+      <td>Live collection (Velociraptor, KAPE)</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Disk</td>
+      <td>Days to years</td>
+      <td>Forensic image</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Remote logging and monitoring data</td>
+      <td>Retention-dependent</td>
+      <td>SIEM export, cloud audit logs</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Physical configuration, network topology</td>
+      <td>Long-lived</td>
+      <td>Documentation, photographs</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Archival media and backups</td>
+      <td>Years</td>
+      <td>Preserve copies</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Linux memory acquisition with Microsoft AVML (static binary, no kernel module)</span>
+<span class="nb">sudo</span> ./avml /mnt/evidence/host01-mem.lime
+<span class="nb">sha256sum</span> /mnt/evidence/host01-mem.lime <span class="o">&gt;</span> /mnt/evidence/host01-mem.lime.sha256
+
+<span class="c"># Write evidence to external or network storage, never to the suspect disk,</span>
+<span class="c"># which would overwrite unallocated space that may hold deleted artifacts.</span>
+</code></pre></div></div>
+
+<h2 id="regulatory-notification-deadlines">Regulatory Notification Deadlines</h2>
+
+<p>A breach often starts one or more legal clocks. Deadlines typically run from when the organization becomes <em>aware</em> of (or determines the materiality of) an incident, so counsel should be engaged during the golden hour, not after recovery.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Regime</th>
+      <th>Scope</th>
+      <th>Deadline</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>GDPR</strong> (EU/UK)</td>
+      <td>Personal-data breaches</td>
+      <td>Supervisory authority within <strong>72 hours</strong> of awareness; affected individuals “without undue delay” if high risk</td>
+    </tr>
+    <tr>
+      <td><strong>NIS2</strong> (EU)</td>
+      <td>Significant incidents at essential and important entities</td>
+      <td>Early warning within <strong>24 hours</strong>; notification within <strong>72 hours</strong>; final report within <strong>one month</strong></td>
+    </tr>
+    <tr>
+      <td><strong>DORA</strong> (EU financial sector, applies from January 2025)</td>
+      <td>Major ICT-related incidents</td>
+      <td>Initial notification within 4 hours of classification (no later than 24 hours after detection); intermediate report within 72 hours; final report within one month</td>
+    </tr>
+    <tr>
+      <td><strong>EU Cyber Resilience Act</strong> (reporting applies from 11 September 2026)</td>
+      <td>Manufacturers of products with digital elements</td>
+      <td>Actively exploited vulnerabilities and severe incidents: early warning within <strong>24 hours</strong>, notification within 72 hours, via ENISA’s single reporting platform</td>
+    </tr>
+    <tr>
+      <td><strong>SEC Form 8-K Item 1.05</strong> (US public companies)</td>
+      <td>Material cybersecurity incidents</td>
+      <td>Within <strong>four business days</strong> of determining the incident is material</td>
+    </tr>
+    <tr>
+      <td><strong>HIPAA</strong> (US health)</td>
+      <td>Breaches of unsecured protected health information</td>
+      <td>Individuals without unreasonable delay and within <strong>60 days</strong>; HHS and, above 500 individuals, the media</td>
+    </tr>
+    <tr>
+      <td><strong>US state breach laws</strong></td>
+      <td>Personal information of state residents</td>
+      <td>All 50 states have laws; deadlines range from “without unreasonable delay” to fixed windows (commonly 30–60 days)</td>
+    </tr>
+    <tr>
+      <td><strong>CIRCIA</strong> (US critical infrastructure)</td>
+      <td>Covered cyber incidents and ransom payments</td>
+      <td>Proposed 72 hours for incidents and 24 hours for ransom payments; final rule pending</td>
+    </tr>
+    <tr>
+      <td><strong>PCI DSS</strong></td>
+      <td>Compromise of cardholder data</td>
+      <td>Per card-brand and acquirer rules; typically immediate notification of the acquiring bank</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Contracts add further obligations: cloud customers, B2B clients, and cyber-insurance policies commonly require notice within 24–72 hours.</p>
+
+<h2 id="digital-forensics">Digital Forensics</h2>
+
+<p>Forensics reconstructs what happened in a way that is technically accurate and, if needed, defensible in court or arbitration. The cardinal rule is to <strong>work on verified copies, never originals</strong>.</p>
+
+<h3 id="the-forensic-disciplines">The Forensic Disciplines</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Discipline</th>
+      <th>Evidence</th>
+      <th>Answers</th>
+      <th>Common tools</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Memory</strong></td>
+      <td>RAM image</td>
+      <td>Running and hidden processes, injected code, network connections, decrypted keys; catches fileless malware</td>
+      <td>Volatility 3, MemProcFS</td>
+    </tr>
+    <tr>
+      <td><strong>Disk</strong></td>
+      <td>Bit-for-bit image</td>
+      <td>Deleted files, file-system timestamps, registry, browser history, execution artifacts (Prefetch, Amcache, ShimCache)</td>
+      <td>Autopsy / The Sleuth Kit, X-Ways, FTK, EnCase</td>
+    </tr>
+    <tr>
+      <td><strong>Endpoint triage</strong></td>
+      <td>Targeted artifact collection at scale</td>
+      <td>Which of thousands of hosts show the indicator</td>
+      <td>Velociraptor, KAPE, EDR live response</td>
+    </tr>
+    <tr>
+      <td><strong>Network</strong></td>
+      <td>Packet captures, flow logs, proxy and DNS logs</td>
+      <td>Command-and-control, lateral movement, exfiltration volumes</td>
+      <td>Wireshark, Zeek, Arkime</td>
+    </tr>
+    <tr>
+      <td><strong>Log and timeline</strong></td>
+      <td>Logs from many sources</td>
+      <td>A single ordered narrative (a “super timeline”)</td>
+      <td>Plaso (log2timeline), Timesketch, SIEM</td>
+    </tr>
+    <tr>
+      <td><strong>Cloud</strong></td>
+      <td>Control-plane audit logs, snapshots, identity-provider logs</td>
+      <td>Which identity did what, from where, via which API</td>
+      <td>CloudTrail Lake, Microsoft Sentinel/Defender, Google Security Operations</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="memory-analysis">Memory Analysis</h3>
+
+<p>Memory analysis looks for anomalies against known-good behavior: processes with the wrong parent (a Word process spawning PowerShell), executables running from temporary directories, unbacked executable memory regions (a sign of injection), and connections to unfamiliar infrastructure. Volatility 3 is the current framework (Volatility 2 and Rekall are no longer developed):</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pip <span class="nb">install </span>volatility3                      <span class="c"># installs the `vol` command</span>
+
+vol <span class="nt">-f</span> host01.mem windows.info               <span class="c"># OS build, capture time</span>
+vol <span class="nt">-f</span> host01.mem windows.pstree             <span class="c"># process tree: look for odd parent/child pairs</span>
+vol <span class="nt">-f</span> host01.mem windows.cmdline            <span class="c"># full command lines (encoded PowerShell, LOLBins)</span>
+vol <span class="nt">-f</span> host01.mem windows.netscan            <span class="c"># sockets and connections with owning PIDs</span>
+vol <span class="nt">-f</span> host01.mem windows.malfind            <span class="c"># executable memory not backed by a file on disk</span>
+vol <span class="nt">-f</span> host01.mem <span class="nt">-o</span> dump/ windows.dumpfiles <span class="nt">--pid</span> 4242   <span class="c"># extract files mapped by a process</span>
+</code></pre></div></div>
+
+<h3 id="acquiring-evidence-soundly">Acquiring Evidence Soundly</h3>
+
+<p>A forensically sound acquisition is <strong>complete</strong> (every sector, including unallocated space and slack) and <strong>verifiable</strong> (its integrity can be proven later).</p>
+
+<ul>
+  <li><strong>Write-blockers</strong> — hardware or software that makes the source device read-only during imaging.</li>
+  <li><strong>Bit-for-bit imaging</strong> — raw (<code class="language-plaintext highlighter-rouge">dd</code>, <code class="language-plaintext highlighter-rouge">dc3dd</code>) or the Expert Witness format (E01, via <code class="language-plaintext highlighter-rouge">ewfacquire</code> or FTK Imager), which stores case metadata and embedded hashes. For failing drives, <code class="language-plaintext highlighter-rouge">ddrescue</code> recovers readable sectors first and logs the unreadable ones.</li>
+  <li><strong>Cryptographic hashing</strong> — hash the source and the image at acquisition; matching hashes prove the copy is identical, and re-hashing at every later step proves it has not changed. SHA-256 is standard; MD5 and SHA-1 still appear alongside it for tool compatibility but should not be relied on alone.</li>
+</ul>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Hash the source through a write-blocker</span>
+<span class="nb">sha256sum</span> /dev/sdb | <span class="nb">tee </span>source.sha256
+
+<span class="c"># 2. Image it (dc3dd hashes while imaging and logs errors)</span>
+dc3dd <span class="k">if</span><span class="o">=</span>/dev/sdb <span class="nv">of</span><span class="o">=</span>evidence.img <span class="nb">hash</span><span class="o">=</span>sha256 <span class="nv">log</span><span class="o">=</span>acquisition.log
+
+<span class="c"># 3. Verify the image matches the source</span>
+<span class="nb">sha256sum </span>evidence.img | <span class="nb">tee </span>image.sha256
+
+<span class="c"># 4. Analyze only working copies; the original image stays sealed.</span>
+<span class="c">#    A later re-hash that differs from image.sha256 means the evidence</span>
+<span class="c">#    can no longer be shown to be unaltered.</span>
+</code></pre></div></div>
+
+<h3 id="cloud-and-ephemeral-environments">Cloud and Ephemeral Environments</h3>
+
+<p>In cloud and container environments there is often no disk to pull and the “host” may already be gone. The evidence shifts to the control plane:</p>
+
+<ul>
+  <li><strong>Audit logs are primary evidence.</strong> CloudTrail, Azure Activity and Entra ID sign-in logs, and Google Cloud Audit Logs record which identity called which API, from which IP, with which credentials. Many data-plane events (such as S3 object reads) are not logged unless enabled beforehand — a preparation item.</li>
+  <li><strong>Snapshot before you touch.</strong> Snapshot volumes and capture memory before terminating or rebuilding a compromised instance; move it to an isolation security group rather than stopping it.</li>
+  <li><strong>Containers are short-lived.</strong> Runtime telemetry (EDR or eBPF sensors such as Falco and Tetragon) and centrally shipped logs are often the only record of what happened inside a pod.</li>
+  <li><strong>Identity is the perimeter.</strong> Cloud intrusions typically start with stolen credentials or tokens, so identity-provider and SaaS audit logs matter as much as host artifacts.</li>
+</ul>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># AWS: preserve, then isolate, a suspect EC2 instance</span>
+aws ec2 create-snapshot <span class="nt">--volume-id</span> vol-0abc1234 <span class="se">\</span>
+  <span class="nt">--description</span> <span class="s2">"IR-2026-042 host01 root volume"</span> <span class="se">\</span>
+  <span class="nt">--tag-specifications</span> <span class="s1">'ResourceType=snapshot,Tags=[{Key=case,Value=IR-2026-042}]'</span>
+aws ec2 modify-instance-attribute <span class="nt">--instance-id</span> i-0def5678 <span class="nt">--groups</span> sg-0isolation
+aws ec2 create-tags <span class="nt">--resources</span> i-0def5678 <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span><span class="k">case</span>,Value<span class="o">=</span>IR-2026-042
+
+<span class="c"># Deactivate (not delete) a leaked access key so its history stays attributable</span>
+aws iam update-access-key <span class="nt">--user-name</span> ci-deploy <span class="se">\</span>
+  <span class="nt">--access-key-id</span> AKIAEXAMPLEKEYID <span class="nt">--status</span> Inactive
+</code></pre></div></div>
+
+<h2 id="chain-of-custody">Chain of Custody</h2>
+
+<p>Technically accurate evidence is worthless if its integrity can be challenged. <strong>Chain of custody</strong> is the documented, unbroken record of who handled each item of evidence, when, why, and how it was stored, from collection to final disposition. A gap invites the argument that the evidence was altered, and in legal proceedings it may be excluded.</p>
+
+<p>Each entry records <strong>what</strong> the item is (description, serial number, acquisition hash), <strong>who</strong> handed it over and who received it, <strong>when</strong> (date and time, UTC), <strong>where</strong> it was stored between transfers, and <strong>why</strong> it moved.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Date / time (UTC)</th>
       <th>Item</th>
       <th>Action</th>
       <th>From → To</th>
@@ -3365,100 +3636,125 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td>2026-06-06 02:14</td>
       <td>HDD, S/N WD-1234</td>
-      <td>Collected, imaged</td>
+      <td>Collected and imaged</td>
       <td>Host → Forensic lead</td>
-      <td><code class="language-plaintext highlighter-rouge">a1b2…</code></td>
+      <td><code class="language-plaintext highlighter-rouge">a1b2…</code> recorded</td>
     </tr>
     <tr>
       <td>2026-06-06 03:40</td>
       <td>evidence.img</td>
-      <td>Copied for analysis</td>
+      <td>Working copy made</td>
       <td>Forensic lead → Analyst</td>
-      <td><code class="language-plaintext highlighter-rouge">a1b2…</code> ✓</td>
+      <td><code class="language-plaintext highlighter-rouge">a1b2…</code> match</td>
     </tr>
     <tr>
       <td>2026-06-08 09:00</td>
       <td>HDD, S/N WD-1234</td>
       <td>Sealed for storage</td>
       <td>Forensic lead → Evidence safe</td>
-      <td><code class="language-plaintext highlighter-rouge">a1b2…</code> ✓</td>
+      <td><code class="language-plaintext highlighter-rouge">a1b2…</code> match</td>
     </tr>
   </tbody>
 </table>
 
-<p>Practical safeguards that keep the chain intact: tamper-evident evidence bags, restricted physical access, hash re-verification at every transfer, and a single authoritative log. The hash that was recorded at acquisition is the anchor — verifying it at each step is what makes the chain provable rather than merely asserted.</p>
+<p>Safeguards that keep the chain intact: tamper-evident bags and seals, restricted and logged access to evidence storage, hash re-verification at every transfer, and a single authoritative custody log. For digital-only evidence, write-once (object-lock) storage with access logging plays the role of the evidence safe. The acquisition hash is the anchor that makes the chain provable rather than merely asserted.</p>
 
 <h2 id="post-incident-review-and-lessons-learned">Post-Incident Review and Lessons Learned</h2>
 
-<p>The incident is not truly closed until the organization has learned from it. The <strong>post-incident review</strong> (also called a retrospective, after-action review, or “post-mortem”) is held shortly after recovery, while memories are fresh, and produces a written report plus a tracked list of improvements.</p>
+<p>An incident is not closed until the organization has learned from it. The <strong>post-incident review</strong> (retrospective, after-action review, or post-mortem) is held soon after recovery while memories are fresh, and produces a written report and a tracked list of improvements.</p>
 
 <h3 id="run-it-blameless">Run It Blameless</h3>
 
-<p>The most important cultural rule is that the review is <strong>blameless</strong>. The goal is to understand <em>why</em> the system allowed a mistake, not to punish the person who made it. A blame culture drives incidents underground — people hide problems, detection slows, and the next breach is worse. As the source operations material puts it, organizations should favor “blameless post-mortems for incidents” and reward, rather than punish, those who report.</p>
+<p>The review asks <em>why the system allowed</em> an error, not who made it. Blame drives incidents underground: people hide mistakes, reporting slows, and the next breach is detected later. Reward early reporting — including of one’s own mistakes — because fast reporting shortens dwell time more than any tool.</p>
 
 <h3 id="the-questions-to-answer">The Questions to Answer</h3>
 
-<p>Every incident is a learning opportunity. The review walks the kill chain backward:</p>
+<p>Walk the attack backward along the kill chain:</p>
 
-<ol>
-  <li><strong>What was the initial entry point?</strong> (Patch that vulnerability.)</li>
-  <li><strong>How did they move laterally?</strong> (Improve segmentation.)</li>
-  <li><strong>What data was accessed?</strong> (Enhance monitoring.)</li>
-  <li><strong>How long were they in?</strong> (Improve detection.)</li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Typical improvement</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>What was the initial access vector?</td>
+      <td>Patch, harden, or add MFA to that entry point</td>
+    </tr>
+    <tr>
+      <td>How did the attacker escalate and move laterally?</td>
+      <td>Tiered administration, segmentation, credential hygiene</td>
+    </tr>
+    <tr>
+      <td>What data or systems were accessed?</td>
+      <td>Data-access logging, DLP, encryption</td>
+    </tr>
+    <tr>
+      <td>How long were they present before detection?</td>
+      <td>New detections for each observed technique</td>
+    </tr>
+    <tr>
+      <td>Where did the response lose time?</td>
+      <td>Pre-approved actions, access for responders, clearer ownership</td>
+    </tr>
+    <tr>
+      <td>What was missing?</td>
+      <td>Runbook, log source, tool, contact</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Beyond the technical timeline, a good review also asks:</p>
-
-<ul>
-  <li><strong>What worked well?</strong> Preserve and reinforce it.</li>
-  <li><strong>Where did we lose time?</strong> Detection lag, slow approvals, missing access, unclear ownership.</li>
-  <li><strong>What was missing?</strong> A runbook, a log source, a tool, a contact.</li>
-  <li><strong>What are the action items?</strong> Each must have an owner and a due date, and must be tracked to completion — an action item that is written down but never done is the same vulnerability waiting to be re-exploited.</li>
-</ul>
-
-<p>A simple, durable format is “<strong>what happened / what went well / what went wrong / action items</strong>”, with the action items linked to tickets so progress is visible.</p>
+<p>A durable report format is <strong>summary / timeline / root cause and contributing factors / what went well / what went wrong / action items</strong>. Every action item needs an owner and a due date and should be tracked in the normal ticketing system; an improvement that is written down but never implemented is a vulnerability waiting to be re-exploited.</p>
 
 <h2 id="mttd-and-mttr-measuring-response-performance">MTTD and MTTR: Measuring Response Performance</h2>
 
-<p>You cannot improve what you do not measure. Two metrics dominate incident-response performance, and they map directly onto the lifecycle phases.</p>
+<p>Two metrics dominate incident-response performance and map directly onto the lifecycle:</p>
 
 <ul>
-  <li><strong>MTTD — Mean Time To Detect.</strong> The average elapsed time from when an attacker first compromises the environment to when defenders detect it. This measures the quality of the <em>detection</em> phase (and the <em>preparation</em> that fed it). Industry “dwell times” are often measured in weeks; driving MTTD down to hours or minutes is a primary objective of a security operations program.</li>
-  <li><strong>MTTR — Mean Time To Respond</strong> (or <strong>Recover/Remediate</strong>). The average time from detection to the incident being fully contained and resolved. This measures the <em>containment</em>, <em>eradication</em>, and <em>recovery</em> phases.</li>
+  <li><strong>MTTD — mean time to detect</strong>: from initial compromise to detection. It measures detection engineering and the telemetry prepared for it. The equivalent industry measure is <strong>dwell time</strong>; Mandiant’s M-Trends 2025 reported a global median of 11 days for intrusions investigated in 2024 — 10 days when the victim detected the intrusion itself and 26 days when an external party notified it.</li>
+  <li><strong>MTTR — mean time to respond</strong> (or recover/remediate): from detection to resolution. It measures containment, eradication, and recovery.</li>
 </ul>
 
-\[\text{MTTD} = \frac{\sum_i (t^{\text{detect}}_i - t^{\text{compromise}}_i)}{N}
+\[\text{MTTD} = \frac{1}{N} \sum_{i=1}^{N} \left( t^{\text{detect}}_i - t^{\text{compromise}}_i \right)
 \qquad
-\text{MTTR} = \frac{\sum_i (t^{\text{resolved}}_i - t^{\text{detect}}_i)}{N}\]
+\text{MTTR} = \frac{1}{N} \sum_{i=1}^{N} \left( t^{\text{resolved}}_i - t^{\text{detect}}_i \right)\]
 
-<p>where the sums run over the $N$ incidents in the measurement window.</p>
-
-<p>Two related metrics often round out the picture:</p>
+<p>where the sums run over the $N$ incidents in the measurement window. Supporting metrics:</p>
 
 <ul>
-  <li><strong>MTTA — Mean Time To Acknowledge</strong>: detection to a human picking up the alert. A long MTTA usually signals alert fatigue or understaffing.</li>
-  <li><strong>MTTC — Mean Time To Contain</strong>: detection to short-term containment, a useful sub-component of MTTR because containment is what actually stops the damage.</li>
+  <li><strong>MTTA — mean time to acknowledge</strong>: detection to a human picking up the alert. A long MTTA usually signals alert fatigue or understaffing.</li>
+  <li><strong>MTTC — mean time to contain</strong>: detection to effective containment — the point at which damage stops growing.</li>
 </ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">mttd_mttr</span><span class="p">(</span><span class="n">incidents</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">incidents: list of dicts with epoch timestamps.</span><span class="sh">"""</span>
-    <span class="n">detect_deltas</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="sh">"</span><span class="s">detected</span><span class="sh">"</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span><span class="p">[</span><span class="sh">"</span><span class="s">compromised</span><span class="sh">"</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">incidents</span><span class="p">]</span>
-    <span class="n">resolve_deltas</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="sh">"</span><span class="s">resolved</span><span class="sh">"</span><span class="p">]</span> <span class="o">-</span> <span class="n">i</span><span class="p">[</span><span class="sh">"</span><span class="s">detected</span><span class="sh">"</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">incidents</span><span class="p">]</span>
-    <span class="n">mttd</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">detect_deltas</span><span class="p">)</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">detect_deltas</span><span class="p">)</span>
-    <span class="n">mttr</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">resolve_deltas</span><span class="p">)</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">resolve_deltas</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">MTTD_seconds</span><span class="sh">"</span><span class="p">:</span> <span class="n">mttd</span><span class="p">,</span> <span class="sh">"</span><span class="s">MTTR_seconds</span><span class="sh">"</span><span class="p">:</span> <span class="n">mttr</span><span class="p">}</span>
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    T0["Compromise"] --&gt;|"MTTD (dwell time)"| T1["Detection"]
+    T1 --&gt;|MTTA| T2["Acknowledged"]
+    T2 --&gt;|"rest of MTTC"| T3["Contained"]
+    T3 --&gt; T4["Resolved"]
+    T1 -.-&gt;|MTTR| T4
+</code></pre>
 
-<p>Trend these metrics over time rather than fixating on a single number. A falling MTTD shows detection engineering is paying off; a falling MTTR shows the response process and runbooks are maturing. Tracking them per incident type also reveals where to invest — if ransomware MTTR is high but phishing MTTR is low, the ransomware runbook needs work.</p>
+<p>Incident timing data is heavy-tailed — a handful of long-running intrusions dominate the mean — so report the <strong>median</strong> and a high percentile alongside the mean, trend them over time, and break them down by incident type. If ransomware MTTR is high while phishing MTTR is low, the ransomware playbook is where to invest.</p>
+
+<hr />
+
+<div class="page-nav">
+  <span class="page-nav-prev"><a href="operations-and-response.html">← Foundations, Operations &amp; Research</a></span>
+  <span class="page-nav-next"><a href="security-operations.html">Security Operations →</a></span>
+</div>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="./">Cybersecurity Hub</a> — the full security map</li>
-  <li><a href="operations-and-response.html">Operations &amp; Compliance</a> — SIEM, threat hunting, pentesting, and the compliance frameworks (GDPR’s 72-hour breach notice) that constrain how you respond</li>
-  <li><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> — the attacks that trigger these incidents</li>
-  <li><a href="cryptography.html">Cryptography</a> — the hashing that underpins forensic integrity and chain of custody</li>
-  <li><a href="application-and-cloud-security.html">Web, Cloud &amp; Container Security</a> — securing the systems you recover</li>
+  <li><a href="./">Cybersecurity Hub</a> — the full map of security topics</li>
+  <li><a href="security-operations.html">Security Operations</a> — SIEM, detection engineering, and threat hunting that feed incident response</li>
+  <li><a href="compliance-and-governance.html">Compliance &amp; Governance</a> — the regulations and frameworks that shape response obligations</li>
+  <li><a href="privacy-engineering.html">Privacy Engineering</a> — personal-data breach handling and DPIAs</li>
+  <li><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> — ransomware, social engineering, and the attacks that trigger incidents</li>
+  <li><a href="cloud-and-container-security.html">Cloud &amp; Container Security</a> — cloud logging and runtime detection</li>
+  <li><a href="cryptography.html">Cryptography</a> — the hashing behind forensic integrity</li>
 </ul>
 
       </section>

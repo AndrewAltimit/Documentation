@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Memory profiling, custom allocators (arenas, pools, std::pmr), fragmentation, cache-aware data layout, huge pages and NUMA, and asset compression and streaming.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Optimization: Memory Optimization">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Memory profiling, custom allocators (arenas, pools, std::pmr), fragmentation, cache-aware data layout, huge pages and NUMA, and asset compression and streaming.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/optimization/memory-optimization.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Optimization: Memory Optimization">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Memory profiling, custom allocators (arenas, pools, std::pmr), fragmentation, cache-aware data layout, huge pages and NUMA, and asset compression and streaming.">
 
 <title>Optimization: Memory Optimization | Andrews Notebook</title>
 
@@ -3135,28 +3135,124 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Performance Optimization</a> » Memory Optimization</p>
 
-<p>On modern hardware, memory — not raw compute — is the dominant cost. A single L1-cache hit costs ~4 cycles; a miss to main memory costs ~200. That two-orders-of-magnitude cliff means how you <em>arrange</em> and <em>allocate</em> data often matters more than the arithmetic you run on it. Memory optimization is two disciplines woven together: keeping the working set small and contiguous so the cache hierarchy serves it cheaply, and managing allocation lifetimes to avoid heap overhead, fragmentation, and the unpredictable stalls of <code class="language-plaintext highlighter-rouge">malloc</code>/<code class="language-plaintext highlighter-rouge">free</code> on a hot path. The core levers:</p>
+<p>On current hardware, memory access, not arithmetic, is usually the dominant cost. An L1 hit costs about 4-5 cycles; a load that goes all the way to DRAM costs 80-120 ns, which is <strong>several hundred cycles</strong> on a 4 GHz core. Because of that gap, how data is <em>arranged</em> and <em>allocated</em> often matters more than the instructions that operate on it.</p>
 
-<ul>
-  <li><strong>A cache miss costs ~200 cycles.</strong> The memory hierarchy spans two orders of magnitude; contiguous, predictable access patterns are the single biggest lever.</li>
-  <li><strong>The heap is a hot-path liability.</strong> General-purpose <code class="language-plaintext highlighter-rouge">malloc</code> takes locks, walks free-lists, and fragments. Pools and arenas replace it with pointer bumps.</li>
-  <li><strong>Fragmentation kills long-running processes.</strong> You can have gigabytes free and still fail a 1 MB allocation; size-segregated and relocating allocators defend against it.</li>
-  <li><strong>Stream within a budget.</strong> You can’t hold every asset in RAM. Prioritized, async streaming keeps the visible set resident and evicts the rest.</li>
-</ul>
+<p>Memory optimization combines two disciplines:</p>
 
-<p>This page covers memory profiling, allocation strategies (pools, arenas, free-lists), fragmentation, asset streaming and compression, and cache locality.</p>
+<ol>
+  <li><strong>Data layout.</strong> Keep the working set small, contiguous, and predictable so caches, prefetchers, and the TLB serve it cheaply.</li>
+  <li><strong>Allocation and lifetime management.</strong> Keep general-purpose <code class="language-plaintext highlighter-rouge">malloc</code>/<code class="language-plaintext highlighter-rouge">free</code> off hot paths, bound fragmentation in long-running processes, and keep the resident set within a budget.</li>
+</ol>
+
+<p>This page covers profiling, allocator design (arenas, pools, <code class="language-plaintext highlighter-rouge">std::pmr</code>, general-purpose allocators), fragmentation, cache and TLB locality, NUMA, and asset compression and streaming. CPU-side topics like SIMD and false sharing between threads are covered in <a href="cpu-optimization.html">CPU Optimization</a>.</p>
+
+<h2 id="the-memory-hierarchy">The Memory Hierarchy</h2>
+
+<p>Data moves between levels in <strong>cache lines</strong>, 64 bytes on x86 and most Arm cores (Apple M-series reports 128 bytes). Touching one byte loads the whole line, so every line fetched should be as full of useful data as possible.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Typical size (2025-26 desktop/server cores)</th>
+      <th>Approx. latency</th>
+      <th>Scope</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Registers</td>
+      <td>~200+ physical registers</td>
+      <td>0 cycles</td>
+      <td>Core</td>
+    </tr>
+    <tr>
+      <td>L1 data cache</td>
+      <td>32-48 KB</td>
+      <td>4-5 cycles (~1 ns)</td>
+      <td>Per core</td>
+    </tr>
+    <tr>
+      <td>L2 cache</td>
+      <td>1-3 MB</td>
+      <td>12-16 cycles (~3-4 ns)</td>
+      <td>Per core (or core cluster)</td>
+    </tr>
+    <tr>
+      <td>L3 / last-level cache</td>
+      <td>16-128 MB (larger with stacked cache)</td>
+      <td>40-70 cycles (~10-20 ns)</td>
+      <td>Shared by a core complex</td>
+    </tr>
+    <tr>
+      <td>DRAM (local NUMA node)</td>
+      <td>GBs to TBs</td>
+      <td>80-120 ns (hundreds of cycles)</td>
+      <td>Socket</td>
+    </tr>
+    <tr>
+      <td>DRAM (remote NUMA node)</td>
+      <td> </td>
+      <td>1.3-2x local</td>
+      <td>Other socket</td>
+    </tr>
+    <tr>
+      <td>NVMe SSD</td>
+      <td>TBs</td>
+      <td>10-100 µs</td>
+      <td>Device</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These figures vary by microarchitecture; treat them as orders of magnitude and measure on the target with a tool such as Intel MLC or <code class="language-plaintext highlighter-rouge">lmbench</code>. The ratios are stable across generations: every step outward costs roughly 3-10x more than the step before.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    C["Core&lt;br/&gt;load/store units"] --&gt; L1["L1d&lt;br/&gt;~1 ns"]
+    L1 --&gt;|miss| L2["L2&lt;br/&gt;~3-4 ns"]
+    L2 --&gt;|miss| L3["L3 / LLC&lt;br/&gt;~10-20 ns"]
+    L3 --&gt;|miss| D["Local DRAM&lt;br/&gt;~80-120 ns"]
+    D -.-&gt;|NUMA remote| R["Remote DRAM&lt;br/&gt;~1.5x local"]
+    C --&gt; T["TLB&lt;br/&gt;virtual to physical"]
+    T --&gt;|miss| W["Page-table walk&lt;br/&gt;more memory loads"]
+</code></pre>
+
+<p>Address translation is a second hierarchy layered on top: every access needs its virtual page translated by the TLB, and a TLB miss triggers a page-table walk that itself touches memory. Large working sets spread over many 4 KB pages can be TLB-bound even when the data would fit in cache (see <a href="#huge-pages-and-the-tlb">Huge Pages</a>).</p>
 
 <h2 id="memory-profiling">Memory Profiling</h2>
 
-<p>You cannot optimize what you have not measured. Before changing a single allocation, profile to answer five concrete questions:</p>
+<p>Measure before changing a single allocation. A profiling pass should answer five questions:</p>
 
-<ul>
-  <li><strong>How much</strong> memory is allocated (peak and steady-state)?</li>
-  <li><strong>What types</strong> of allocations dominate (which subsystem, which object type, which size class)?</li>
-  <li><strong>Where</strong> are allocations happening (call stacks, frequency, transient vs persistent)?</li>
-  <li><strong>Are there leaks</strong> — allocations whose live count grows monotonically over time?</li>
-  <li><strong>What is the fragmentation level</strong> — how much address space is reserved versus actually live?</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>What to look at</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>How much memory is used?</td>
+      <td>Peak and steady-state <strong>RSS</strong> (resident set size), not virtual size</td>
+    </tr>
+    <tr>
+      <td>What dominates?</td>
+      <td>Allocations grouped by subsystem, type, and size class</td>
+    </tr>
+    <tr>
+      <td>Where do allocations come from?</td>
+      <td>Call stacks, allocation rate, transient vs. long-lived</td>
+    </tr>
+    <tr>
+      <td>Is anything leaking?</td>
+      <td>Live bytes or live count growing monotonically with repeated work</td>
+    </tr>
+    <tr>
+      <td>How fragmented is the heap?</td>
+      <td>Committed/mapped memory vs. live bytes; largest free block</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="tools">Tools</h3>
 
@@ -3170,195 +3266,350 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>Valgrind (Massif/Memcheck)</td>
+      <td><code class="language-plaintext highlighter-rouge">heaptrack</code></td>
       <td>Linux</td>
-      <td>Heap profiling, leak detection, use-after-free</td>
+      <td>Low-overhead allocation tracing, flame graphs of allocation sites, leak and temporary-allocation reports</td>
     </tr>
     <tr>
-      <td>AddressSanitizer (ASan)</td>
-      <td>Cross-platform</td>
-      <td>Fast leak/overflow detection in CI</td>
+      <td>Valgrind Massif / DHAT</td>
+      <td>Linux</td>
+      <td>Heap-over-time snapshots (Massif); per-allocation access and lifetime analysis (DHAT); slow (tens of x)</td>
     </tr>
     <tr>
-      <td>Visual Studio Memory Profiler</td>
+      <td>AddressSanitizer / LeakSanitizer</td>
+      <td>Clang, GCC, MSVC</td>
+      <td>Compiler instrumentation for leaks, overflows, use-after-free; about 2x slowdown, suitable for CI</td>
+    </tr>
+    <tr>
+      <td>Allocator statistics</td>
+      <td>jemalloc <code class="language-plaintext highlighter-rouge">malloc_stats_print</code>, mimalloc <code class="language-plaintext highlighter-rouge">mi_stats_print</code>, tcmalloc <code class="language-plaintext highlighter-rouge">MallocExtension</code></td>
+      <td>Fragmentation, per-size-class usage, cached vs. returned memory</td>
+    </tr>
+    <tr>
+      <td>Visual Studio diagnostic tools</td>
       <td>Windows</td>
-      <td>Snapshots, diff between snapshots, allocation call stacks</td>
+      <td>Heap snapshots with diffing and allocation call stacks</td>
     </tr>
     <tr>
-      <td>Instruments (Allocations/Leaks)</td>
-      <td>macOS/iOS</td>
-      <td>Live allocation graph, generation analysis</td>
+      <td>Instruments (Allocations, Leaks)</td>
+      <td>macOS / iOS</td>
+      <td>Generation analysis, live allocation graph</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">heaptrack</code> / <code class="language-plaintext highlighter-rouge">jemalloc</code> stats</td>
+      <td>Android Studio Memory Profiler, Perfetto heapprofd</td>
+      <td>Android</td>
+      <td>Java/Kotlin and native heap sampling</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">perf mem</code>, <code class="language-plaintext highlighter-rouge">perf c2c</code></td>
       <td>Linux</td>
-      <td>Low-overhead allocation tracing and fragmentation metrics</td>
+      <td>Sampled load latency, cache-line contention between cores</td>
     </tr>
     <tr>
-      <td>Platform memory APIs</td>
-      <td>Console/mobile</td>
-      <td>Authoritative budgets, residency, OS-level pressure events</td>
+      <td>Engine and console tools</td>
+      <td>Unreal Insights / <code class="language-plaintext highlighter-rouge">memreport</code>, Unity Memory Profiler, platform SDK tools</td>
+      <td>Asset-level attribution and authoritative platform budgets</td>
     </tr>
   </tbody>
 </table>
 
 <h3 id="snapshot-diffing">Snapshot Diffing</h3>
 
-<p>The most reliable way to find a leak is the <strong>three-snapshot pattern</strong>: take a baseline, perform a repeatable operation (open a level, run a request), return to the baseline state, and take a second snapshot. Anything live in the diff that should have been freed is a leak. Repeat the operation N times — a leak grows linearly with N, while a one-time allocation stays flat.</p>
+<p>The most reliable way to find a leak is <strong>snapshot diffing</strong>: take a snapshot at a baseline state, perform a repeatable operation (load and unload a level, serve a batch of requests), return to the baseline state, and snapshot again. Anything still live that should have been freed is a candidate leak. Repeat the operation N times: a true leak grows linearly with N, while a one-time cache or lazy initialization stays flat.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// A minimal tracking allocator to attribute allocations by tag.</span>
-<span class="c1">// Wrap your real allocator; in profiling builds, record call sites.</span>
+<h3 id="tagged-allocation-tracking">Tagged Allocation Tracking</h3>
+
+<p>Profilers identify call sites; production code often also needs cheap, always-on attribution by subsystem (“textures: 1.2 GB, audio: 180 MB”). A minimal tracking wrapper stores a small header in front of each block. The header must be padded to the maximum fundamental alignment, or the returned pointer will be misaligned for types such as <code class="language-plaintext highlighter-rouge">double</code> or SIMD vectors.</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;atomic&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;cstddef&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;new&gt;</span><span class="cp">
+</span>
+<span class="k">enum</span> <span class="n">Tag</span> <span class="o">:</span> <span class="kt">unsigned</span> <span class="p">{</span> <span class="n">Tag_Render</span><span class="p">,</span> <span class="n">Tag_Audio</span><span class="p">,</span> <span class="n">Tag_Gameplay</span><span class="p">,</span> <span class="n">NUM_TAGS</span> <span class="p">};</span>
+
 <span class="k">struct</span> <span class="nc">AllocStats</span> <span class="p">{</span>
     <span class="n">std</span><span class="o">::</span><span class="n">atomic</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span> <span class="n">live_bytes</span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
     <span class="n">std</span><span class="o">::</span><span class="n">atomic</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span> <span class="n">live_count</span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
     <span class="n">std</span><span class="o">::</span><span class="n">atomic</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span> <span class="n">peak_bytes</span><span class="p">{</span><span class="mi">0</span><span class="p">};</span>
 <span class="p">};</span>
+<span class="kr">inline</span> <span class="n">AllocStats</span> <span class="n">g_stats</span><span class="p">[</span><span class="n">NUM_TAGS</span><span class="p">];</span>
 
-<span class="n">AllocStats</span> <span class="n">g_stats</span><span class="p">[</span><span class="n">NUM_TAGS</span><span class="p">];</span>
+<span class="k">struct</span> <span class="nc">alignas</span><span class="p">(</span><span class="k">alignof</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">max_align_t</span><span class="p">))</span> <span class="n">Header</span> <span class="p">{</span>
+    <span class="kt">size_t</span> <span class="n">size</span><span class="p">;</span>
+    <span class="n">Tag</span>    <span class="n">tag</span><span class="p">;</span>
+<span class="p">};</span>
 
 <span class="kt">void</span><span class="o">*</span> <span class="nf">tracked_alloc</span><span class="p">(</span><span class="kt">size_t</span> <span class="n">n</span><span class="p">,</span> <span class="n">Tag</span> <span class="n">tag</span><span class="p">)</span> <span class="p">{</span>
-    <span class="kt">void</span><span class="o">*</span> <span class="n">p</span> <span class="o">=</span> <span class="o">::</span><span class="k">operator</span> <span class="k">new</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">size_t</span><span class="p">)</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">Tag</span><span class="p">));</span>
-    <span class="o">*</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">=</span> <span class="n">n</span><span class="p">;</span>
-    <span class="o">*</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">Tag</span><span class="o">*&gt;</span><span class="p">((</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="n">p</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">size_t</span><span class="p">))</span> <span class="o">=</span> <span class="n">tag</span><span class="p">;</span>
+    <span class="k">auto</span><span class="o">*</span> <span class="n">h</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">Header</span><span class="o">*&gt;</span><span class="p">(</span><span class="o">::</span><span class="k">operator</span> <span class="k">new</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">Header</span><span class="p">)</span> <span class="o">+</span> <span class="n">n</span><span class="p">));</span>
+    <span class="n">h</span><span class="o">-&gt;</span><span class="n">size</span> <span class="o">=</span> <span class="n">n</span><span class="p">;</span>
+    <span class="n">h</span><span class="o">-&gt;</span><span class="n">tag</span>  <span class="o">=</span> <span class="n">tag</span><span class="p">;</span>
 
-    <span class="kt">size_t</span> <span class="n">live</span> <span class="o">=</span> <span class="n">g_stats</span><span class="p">[</span><span class="n">tag</span><span class="p">].</span><span class="n">live_bytes</span><span class="p">.</span><span class="n">fetch_add</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">+</span> <span class="n">n</span><span class="p">;</span>
-    <span class="n">g_stats</span><span class="p">[</span><span class="n">tag</span><span class="p">].</span><span class="n">live_count</span><span class="p">.</span><span class="n">fetch_add</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-    <span class="c1">// Track high-water mark.</span>
-    <span class="kt">size_t</span> <span class="n">prev_peak</span> <span class="o">=</span> <span class="n">g_stats</span><span class="p">[</span><span class="n">tag</span><span class="p">].</span><span class="n">peak_bytes</span><span class="p">.</span><span class="n">load</span><span class="p">();</span>
-    <span class="k">while</span> <span class="p">(</span><span class="n">live</span> <span class="o">&gt;</span> <span class="n">prev_peak</span> <span class="o">&amp;&amp;</span>
-           <span class="o">!</span><span class="n">g_stats</span><span class="p">[</span><span class="n">tag</span><span class="p">].</span><span class="n">peak_bytes</span><span class="p">.</span><span class="n">compare_exchange_weak</span><span class="p">(</span><span class="n">prev_peak</span><span class="p">,</span> <span class="n">live</span><span class="p">))</span> <span class="p">{}</span>
+    <span class="n">AllocStats</span><span class="o">&amp;</span> <span class="n">s</span> <span class="o">=</span> <span class="n">g_stats</span><span class="p">[</span><span class="n">tag</span><span class="p">];</span>
+    <span class="kt">size_t</span> <span class="n">live</span> <span class="o">=</span> <span class="n">s</span><span class="p">.</span><span class="n">live_bytes</span><span class="p">.</span><span class="n">fetch_add</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">memory_order_relaxed</span><span class="p">)</span> <span class="o">+</span> <span class="n">n</span><span class="p">;</span>
+    <span class="n">s</span><span class="p">.</span><span class="n">live_count</span><span class="p">.</span><span class="n">fetch_add</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">memory_order_relaxed</span><span class="p">);</span>
+    <span class="kt">size_t</span> <span class="n">peak</span> <span class="o">=</span> <span class="n">s</span><span class="p">.</span><span class="n">peak_bytes</span><span class="p">.</span><span class="n">load</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">memory_order_relaxed</span><span class="p">);</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">live</span> <span class="o">&gt;</span> <span class="n">peak</span> <span class="o">&amp;&amp;</span>
+           <span class="o">!</span><span class="n">s</span><span class="p">.</span><span class="n">peak_bytes</span><span class="p">.</span><span class="n">compare_exchange_weak</span><span class="p">(</span><span class="n">peak</span><span class="p">,</span> <span class="n">live</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">memory_order_relaxed</span><span class="p">))</span> <span class="p">{}</span>
+    <span class="k">return</span> <span class="n">h</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>                       <span class="c1">// user block starts after the header</span>
+<span class="p">}</span>
 
-    <span class="k">return</span> <span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="n">p</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">size_t</span><span class="p">)</span> <span class="o">+</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">Tag</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">tracked_free</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span> <span class="n">p</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">p</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+    <span class="n">Header</span><span class="o">*</span> <span class="n">h</span> <span class="o">=</span> <span class="k">static_cast</span><span class="o">&lt;</span><span class="n">Header</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="n">AllocStats</span><span class="o">&amp;</span> <span class="n">s</span> <span class="o">=</span> <span class="n">g_stats</span><span class="p">[</span><span class="n">h</span><span class="o">-&gt;</span><span class="n">tag</span><span class="p">];</span>
+    <span class="n">s</span><span class="p">.</span><span class="n">live_bytes</span><span class="p">.</span><span class="n">fetch_sub</span><span class="p">(</span><span class="n">h</span><span class="o">-&gt;</span><span class="n">size</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">memory_order_relaxed</span><span class="p">);</span>
+    <span class="n">s</span><span class="p">.</span><span class="n">live_count</span><span class="p">.</span><span class="n">fetch_sub</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">memory_order_relaxed</span><span class="p">);</span>
+    <span class="o">::</span><span class="k">operator</span> <span class="k">delete</span><span class="p">(</span><span class="n">h</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="pitfalls">Pitfalls</h3>
+<h3 id="measurement-pitfalls">Measurement Pitfalls</h3>
 
 <ul>
-  <li><strong>Debug allocators lie about size.</strong> Debug heaps add guard bytes and fill patterns; measure peak memory in a release configuration.</li>
-  <li><strong>The profiler perturbs the workload.</strong> Allocation tracing adds per-call overhead; use sampling profilers for steady-state characterization and full tracing only for leak hunts.</li>
-  <li><strong>Reserved is not resident.</strong> A large <code class="language-plaintext highlighter-rouge">reserve()</code> or memory-mapped region inflates virtual address space without touching physical pages. Track RSS (resident set size), not just VSZ.</li>
+  <li><strong>Debug heaps distort sizes.</strong> Debug CRTs add guard bytes and fill patterns. Measure peak memory in an optimized build.</li>
+  <li><strong>Tracing perturbs the workload.</strong> Full allocation tracing adds per-call overhead and can change timing-dependent behavior. Use sampling (heapprofd, tcmalloc sampling, <code class="language-plaintext highlighter-rouge">heaptrack</code> in its lighter modes) for steady-state characterization and full tracing for leak hunts.</li>
+  <li><strong>Reserved is not resident.</strong> A large <code class="language-plaintext highlighter-rouge">reserve()</code>, a sparse <code class="language-plaintext highlighter-rouge">mmap</code>, or an allocator’s retained arenas inflate virtual size (VSZ) without consuming physical pages. Track RSS, and on Linux the <code class="language-plaintext highlighter-rouge">Pss</code>/<code class="language-plaintext highlighter-rouge">Rss</code> breakdown in <code class="language-plaintext highlighter-rouge">/proc/&lt;pid&gt;/smaps_rollup</code>.</li>
+  <li><strong>Freed is not returned.</strong> General-purpose allocators keep freed pages cached for reuse. RSS that stays high after a spike may be allocator retention (tunable via decay or purge settings), not a leak.</li>
 </ul>
 
 <h2 id="allocation-strategies">Allocation Strategies</h2>
 
-<p>The general-purpose allocator (<code class="language-plaintext highlighter-rouge">malloc</code>/<code class="language-plaintext highlighter-rouge">new</code>) is a marvel of generality, and generality is exactly why it is slow on a hot path: it must handle any size, be thread-safe (locks or per-thread arenas), search free-lists, split and coalesce blocks, and return memory to the OS. Specialized allocators win by exploiting what you know about your allocation pattern.</p>
+<p>The general-purpose allocator handles any size, from any thread, in any order. It must be thread-safe, search size classes and free lists, split and coalesce blocks, and occasionally return memory to the OS. Modern allocators make the common case fast (tens of nanoseconds through per-thread caches), but a hot loop that allocates per item still pays for bookkeeping, cache pollution, and occasional slow paths such as page faults or OS calls. Specialized allocators win by exploiting what is known about lifetimes and sizes.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    A["Need to allocate?"] --&gt; B{Lifetime pattern?}
-    B --&gt;|"All freed at once&lt;br/&gt;(per-frame, per-request)"| C["Arena / Linear allocator&lt;br/&gt;O(1) alloc, bulk reset"]
-    B --&gt;|"Many same-size objects&lt;br/&gt;(entities, particles)"| D["Object pool / Free-list&lt;br/&gt;O(1) alloc &amp; free"]
-    B --&gt;|"Nested scopes&lt;br/&gt;(LIFO)"| E["Stack allocator&lt;br/&gt;alloc + rewind to marker"]
-    B --&gt;|"General / unknown"| F["Size-segregated allocator&lt;br/&gt;(jemalloc/tcmalloc/mimalloc)"]
+    A["Allocation on a hot path?"] --&gt;|no| G["Default allocator&lt;br/&gt;(optionally mimalloc / jemalloc / tcmalloc)"]
+    A --&gt;|yes| B{"Lifetime pattern"}
+    B --&gt;|"All freed together&lt;br/&gt;(per frame, per request, per parse)"| C["Arena / bump allocator&lt;br/&gt;pointer bump, O(1) bulk reset"]
+    B --&gt;|"Nested scopes (LIFO)"| E["Stack allocator&lt;br/&gt;allocate, rewind to marker"]
+    B --&gt;|"Many objects of one size,&lt;br/&gt;freed individually"| D["Pool / free list&lt;br/&gt;O(1) alloc and free"]
+    B --&gt;|"Mixed sizes, long-lived"| F["Size-segregated allocator&lt;br/&gt;or per-subsystem heap"]
 </code></pre>
 
 <h3 id="arena-linear--bump-allocator">Arena (Linear / Bump) Allocator</h3>
 
-<p>The simplest fast allocator: hold a pointer into a fixed buffer, advance it on each allocation, and free everything at once by resetting the pointer. Allocation is a pointer add (and an alignment round-up); there is no per-object free, so there is <strong>zero fragmentation</strong> and the access pattern is perfectly sequential.</p>
+<p>An arena holds a pointer into a buffer and advances it on each allocation. Allocation is an alignment round-up and an add; freeing is a single reset of the offset. There is no per-object free, so there is no fragmentation within the arena, and consecutive allocations are adjacent in memory.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ArenaAllocator</span> <span class="p">{</span>
-    <span class="kt">char</span><span class="o">*</span>  <span class="n">base_</span><span class="p">;</span>
-    <span class="kt">size_t</span> <span class="n">capacity_</span><span class="p">;</span>
-    <span class="kt">size_t</span> <span class="n">offset_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;cstddef&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;cstdint&gt;</span><span class="cp">
+</span>
+<span class="k">class</span> <span class="nc">Arena</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">byte</span><span class="o">*</span> <span class="n">base_</span><span class="p">;</span>
+    <span class="kt">size_t</span>     <span class="n">capacity_</span><span class="p">;</span>
+    <span class="kt">size_t</span>     <span class="n">offset_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
 
 <span class="nl">public:</span>
-    <span class="n">ArenaAllocator</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span> <span class="n">buffer</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">capacity</span><span class="p">)</span>
-        <span class="o">:</span> <span class="n">base_</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="kt">char</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">buffer</span><span class="p">)),</span> <span class="n">capacity_</span><span class="p">(</span><span class="n">capacity</span><span class="p">)</span> <span class="p">{}</span>
+    <span class="n">Arena</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span> <span class="n">buffer</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">capacity</span><span class="p">)</span>
+        <span class="o">:</span> <span class="n">base_</span><span class="p">(</span><span class="k">static_cast</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">byte</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">buffer</span><span class="p">)),</span> <span class="n">capacity_</span><span class="p">(</span><span class="n">capacity</span><span class="p">)</span> <span class="p">{}</span>
 
+    <span class="c1">// align must be a power of two.</span>
     <span class="kt">void</span><span class="o">*</span> <span class="nf">allocate</span><span class="p">(</span><span class="kt">size_t</span> <span class="n">size</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">align</span> <span class="o">=</span> <span class="k">alignof</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">max_align_t</span><span class="p">))</span> <span class="p">{</span>
         <span class="kt">size_t</span> <span class="n">aligned</span> <span class="o">=</span> <span class="p">(</span><span class="n">offset_</span> <span class="o">+</span> <span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="p">(</span><span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">aligned</span> <span class="o">+</span> <span class="n">size</span> <span class="o">&gt;</span> <span class="n">capacity_</span><span class="p">)</span> <span class="k">return</span> <span class="nb">nullptr</span><span class="p">;</span>   <span class="c1">// arena exhausted</span>
-        <span class="kt">void</span><span class="o">*</span> <span class="n">p</span> <span class="o">=</span> <span class="n">base_</span> <span class="o">+</span> <span class="n">aligned</span><span class="p">;</span>
-        <span class="n">offset_</span> <span class="o">=</span> <span class="n">aligned</span> <span class="o">+</span> <span class="n">size</span><span class="p">;</span>
-        <span class="k">return</span> <span class="n">p</span><span class="p">;</span>
-    <span class="p">}</span>
-
-    <span class="c1">// Free EVERYTHING in O(1). Caller guarantees no live pointers remain.</span>
-    <span class="kt">void</span> <span class="nf">reset</span><span class="p">()</span> <span class="p">{</span> <span class="n">offset_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="p">}</span>
-<span class="p">};</span>
-</code></pre></div></div>
-
-<p>This is the canonical <strong>frame allocator</strong>: allocate all scratch data for a frame from the arena, then <code class="language-plaintext highlighter-rouge">reset()</code> at frame end. It is also ideal for parsing, request handling, and any “allocate a burst, drop it all together” pattern. The cost — you cannot free a single object — is exactly what makes it fast.</p>
-
-<h3 id="stack-allocator">Stack Allocator</h3>
-
-<p>A variant that supports LIFO frees via markers, giving you nested scopes without the all-or-nothing reset:</p>
-
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">StackAllocator</span> <span class="p">{</span>
-    <span class="kt">char</span><span class="o">*</span> <span class="n">base_</span><span class="p">;</span> <span class="kt">size_t</span> <span class="n">capacity_</span><span class="p">;</span> <span class="kt">size_t</span> <span class="n">offset_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
-<span class="nl">public:</span>
-    <span class="k">using</span> <span class="n">Marker</span> <span class="o">=</span> <span class="kt">size_t</span><span class="p">;</span>
-    <span class="n">Marker</span> <span class="n">mark</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span> <span class="k">return</span> <span class="n">offset_</span><span class="p">;</span> <span class="p">}</span>
-    <span class="kt">void</span>   <span class="nf">rewind</span><span class="p">(</span><span class="n">Marker</span> <span class="n">m</span><span class="p">)</span> <span class="p">{</span> <span class="n">offset_</span> <span class="o">=</span> <span class="n">m</span><span class="p">;</span> <span class="p">}</span>   <span class="c1">// free everything above the marker</span>
-
-    <span class="kt">void</span><span class="o">*</span> <span class="nf">allocate</span><span class="p">(</span><span class="kt">size_t</span> <span class="n">size</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">align</span><span class="p">)</span> <span class="p">{</span>
-        <span class="kt">size_t</span> <span class="n">aligned</span> <span class="o">=</span> <span class="p">(</span><span class="n">offset_</span> <span class="o">+</span> <span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="p">(</span><span class="n">align</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">aligned</span> <span class="o">+</span> <span class="n">size</span> <span class="o">&gt;</span> <span class="n">capacity_</span><span class="p">)</span> <span class="k">return</span> <span class="nb">nullptr</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">aligned</span> <span class="o">+</span> <span class="n">size</span> <span class="o">&gt;</span> <span class="n">capacity_</span><span class="p">)</span> <span class="k">return</span> <span class="nb">nullptr</span><span class="p">;</span>   <span class="c1">// exhausted: caller decides</span>
         <span class="n">offset_</span> <span class="o">=</span> <span class="n">aligned</span> <span class="o">+</span> <span class="n">size</span><span class="p">;</span>
         <span class="k">return</span> <span class="n">base_</span> <span class="o">+</span> <span class="n">aligned</span><span class="p">;</span>
     <span class="p">}</span>
+
+    <span class="c1">// Release everything in O(1). No destructors run: use only for</span>
+    <span class="c1">// trivially destructible data or objects whose destructors you call yourself.</span>
+    <span class="kt">void</span> <span class="nf">reset</span><span class="p">()</span> <span class="p">{</span> <span class="n">offset_</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="p">}</span>
+
+    <span class="c1">// Stack-style scopes: save a marker, rewind to it later (LIFO frees).</span>
+    <span class="kt">size_t</span> <span class="n">mark</span><span class="p">()</span> <span class="k">const</span> <span class="p">{</span> <span class="k">return</span> <span class="n">offset_</span><span class="p">;</span> <span class="p">}</span>
+    <span class="kt">void</span>   <span class="nf">rewind</span><span class="p">(</span><span class="kt">size_t</span> <span class="n">marker</span><span class="p">)</span> <span class="p">{</span> <span class="n">offset_</span> <span class="o">=</span> <span class="n">marker</span><span class="p">;</span> <span class="p">}</span>
 <span class="p">};</span>
 </code></pre></div></div>
 
-<h3 id="object-pool-free-list">Object Pool (Free-List)</h3>
+<p>This is the canonical <strong>frame allocator</strong> in games: all per-frame scratch data comes from the arena, which is reset at the end of the frame. The same pattern fits request handling in servers, compilers (AST nodes that live until the compilation unit ends), and parsers. The <code class="language-plaintext highlighter-rouge">mark</code>/<code class="language-plaintext highlighter-rouge">rewind</code> pair turns the arena into a <strong>stack allocator</strong> for nested scopes. Production arenas typically chain additional blocks when full instead of returning <code class="language-plaintext highlighter-rouge">nullptr</code>.</p>
 
-<p>When you repeatedly allocate and free many objects of the <strong>same type</strong>, a pool pre-allocates a fixed block and threads a free-list through the unused slots. Both <code class="language-plaintext highlighter-rouge">allocate</code> and <code class="language-plaintext highlighter-rouge">deallocate</code> are O(1), there is no fragmentation (all slots are identical size), and the storage is contiguous and cache-friendly.</p>
+<h3 id="pool-free-list-allocator">Pool (Free-List) Allocator</h3>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span> <span class="nc">T</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">PoolSize</span><span class="p">&gt;</span>
-<span class="k">class</span> <span class="nc">ObjectPool</span> <span class="p">{</span>
-    <span class="k">alignas</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="kt">char</span> <span class="n">storage_</span><span class="p">[</span><span class="n">PoolSize</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">T</span><span class="p">)];</span>
-    <span class="n">T</span><span class="o">*</span> <span class="n">free_list_</span><span class="p">;</span>
+<p>When many objects of the same size are allocated and freed individually (entities, particles, network messages, tree nodes), a pool preallocates a block of fixed-size slots and threads a free list through the unused ones. Allocate and free are both O(1), there is no fragmentation because every slot is interchangeable, and live objects stay densely packed.</p>
 
-<span class="nl">public:</span>
-    <span class="n">ObjectPool</span><span class="p">()</span> <span class="p">{</span>
-        <span class="c1">// Thread a singly-linked free-list through the raw slots.</span>
-        <span class="n">free_list_</span> <span class="o">=</span> <span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">storage_</span><span class="p">);</span>
-        <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">PoolSize</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
-            <span class="n">T</span><span class="o">*</span> <span class="n">slot</span> <span class="o">=</span> <span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">storage_</span><span class="p">)</span> <span class="o">+</span> <span class="n">i</span><span class="p">;</span>
-            <span class="o">*</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">**&gt;</span><span class="p">(</span><span class="n">slot</span><span class="p">)</span> <span class="o">=</span> <span class="n">slot</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;cstddef&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;new&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;utility&gt;</span><span class="cp">
+</span>
+<span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="nc">T</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">N</span><span class="p">&gt;</span>
+<span class="k">class</span> <span class="nc">Pool</span> <span class="p">{</span>
+    <span class="k">union</span> <span class="n">Slot</span> <span class="p">{</span>
+        <span class="n">Slot</span><span class="o">*</span> <span class="n">next</span><span class="p">;</span>                           <span class="c1">// valid while the slot is free</span>
+        <span class="k">alignas</span><span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="n">std</span><span class="o">::</span><span class="n">byte</span> <span class="n">storage</span><span class="p">[</span><span class="k">sizeof</span><span class="p">(</span><span class="n">T</span><span class="p">)];</span>
+    <span class="p">};</span>
+    <span class="n">Slot</span>  <span class="n">slots_</span><span class="p">[</span><span class="n">N</span><span class="p">];</span>
+    <span class="n">Slot</span><span class="o">*</span> <span class="n">free_</span> <span class="o">=</span> <span class="nb">nullptr</span><span class="p">;</span>
+
+<span class="k">public</span><span class="o">:</span>
+    <span class="n">Pool</span><span class="p">()</span> <span class="p">{</span>
+        <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">N</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>      <span class="c1">// build the intrusive free list</span>
+            <span class="n">slots_</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">next</span> <span class="o">=</span> <span class="n">free_</span><span class="p">;</span>
+            <span class="n">free_</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">slots_</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
         <span class="p">}</span>
-        <span class="o">*</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">**&gt;</span><span class="p">(</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">storage_</span><span class="p">)</span> <span class="o">+</span> <span class="n">PoolSize</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="nb">nullptr</span><span class="p">;</span>
     <span class="p">}</span>
 
-    <span class="n">T</span><span class="o">*</span> <span class="nf">allocate</span><span class="p">()</span> <span class="p">{</span>
-        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">free_list_</span><span class="p">)</span> <span class="k">return</span> <span class="nb">nullptr</span><span class="p">;</span>            <span class="c1">// pool exhausted</span>
-        <span class="n">T</span><span class="o">*</span> <span class="n">obj</span> <span class="o">=</span> <span class="n">free_list_</span><span class="p">;</span>
-        <span class="n">free_list_</span> <span class="o">=</span> <span class="o">*</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">**&gt;</span><span class="p">(</span><span class="n">free_list_</span><span class="p">);</span>
-        <span class="k">return</span> <span class="n">obj</span><span class="p">;</span>                                 <span class="c1">// caller placement-news into it</span>
+    <span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span><span class="o">...</span> <span class="nc">Args</span><span class="p">&gt;</span>
+    <span class="n">T</span><span class="o">*</span> <span class="nf">create</span><span class="p">(</span><span class="n">Args</span><span class="o">&amp;&amp;</span><span class="p">...</span> <span class="n">args</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">free_</span><span class="p">)</span> <span class="k">return</span> <span class="nb">nullptr</span><span class="p">;</span>           <span class="c1">// pool exhausted</span>
+        <span class="n">Slot</span><span class="o">*</span> <span class="n">s</span> <span class="o">=</span> <span class="n">free_</span><span class="p">;</span>
+        <span class="n">free_</span> <span class="o">=</span> <span class="n">s</span><span class="o">-&gt;</span><span class="n">next</span><span class="p">;</span>
+        <span class="k">return</span> <span class="o">::</span><span class="k">new</span> <span class="p">(</span><span class="n">s</span><span class="o">-&gt;</span><span class="n">storage</span><span class="p">)</span> <span class="n">T</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">forward</span><span class="o">&lt;</span><span class="n">Args</span><span class="o">&gt;</span><span class="p">(</span><span class="n">args</span><span class="p">)...);</span>
     <span class="p">}</span>
 
-    <span class="kt">void</span> <span class="nf">deallocate</span><span class="p">(</span><span class="n">T</span><span class="o">*</span> <span class="n">obj</span><span class="p">)</span> <span class="p">{</span>
-        <span class="o">*</span><span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">T</span><span class="o">**&gt;</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span> <span class="o">=</span> <span class="n">free_list_</span><span class="p">;</span>   <span class="c1">// push back onto the free-list</span>
-        <span class="n">free_list_</span> <span class="o">=</span> <span class="n">obj</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="nf">destroy</span><span class="p">(</span><span class="n">T</span><span class="o">*</span> <span class="n">obj</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">obj</span><span class="o">-&gt;~</span><span class="n">T</span><span class="p">();</span>
+        <span class="n">Slot</span><span class="o">*</span> <span class="n">s</span> <span class="o">=</span> <span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">Slot</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">obj</span><span class="p">);</span>
+        <span class="n">s</span><span class="o">-&gt;</span><span class="n">next</span> <span class="o">=</span> <span class="n">free_</span><span class="p">;</span>
+        <span class="n">free_</span> <span class="o">=</span> <span class="n">s</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">};</span>
 </code></pre></div></div>
 
-<p>The free-list pointer is stored <em>inside</em> the freed slot (an intrusive list), so the pool needs no extra metadata. The pattern generalizes to a <strong>block-pool</strong> that grows by chaining additional fixed-size blocks when the first is exhausted, trading strict capacity for amortized O(1) growth.</p>
+<p>The free-list pointer lives inside each free slot (an <em>intrusive</em> list), so the pool needs no side metadata; the <code class="language-plaintext highlighter-rouge">union</code> also guarantees each slot is large enough to hold a pointer. Variants grow by chaining additional blocks, and <strong>generational handles</strong> (an index plus a generation counter) let callers detect use of a slot that has since been recycled, which raw pointers cannot.</p>
+
+<h3 id="polymorphic-allocators-stdpmr">Polymorphic Allocators (<code class="language-plaintext highlighter-rouge">std::pmr</code>)</h3>
+
+<p>Since C++17, the standard library provides allocator plumbing that lets standard containers use arenas and pools without custom allocator template parameters. A <code class="language-plaintext highlighter-rouge">std::pmr::vector&lt;T&gt;</code> is the same type regardless of which memory resource backs it.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Resource</th>
+      <th>Behavior</th>
+      <th>Use for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">std::pmr::monotonic_buffer_resource</code></td>
+      <td>Bump allocation; <code class="language-plaintext highlighter-rouge">deallocate</code> is a no-op; memory released when the resource is destroyed or <code class="language-plaintext highlighter-rouge">release()</code>d</td>
+      <td>Per-frame / per-request scratch (an arena)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">std::pmr::unsynchronized_pool_resource</code></td>
+      <td>Pools per size class, single-threaded</td>
+      <td>Many small, individually freed objects on one thread</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">std::pmr::synchronized_pool_resource</code></td>
+      <td>Same, thread-safe</td>
+      <td>Shared pools</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">std::pmr::new_delete_resource()</code></td>
+      <td>Forwards to <code class="language-plaintext highlighter-rouge">operator new</code>/<code class="language-plaintext highlighter-rouge">delete</code></td>
+      <td>Default upstream</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">std::pmr::null_memory_resource()</code></td>
+      <td>Throws on any allocation</td>
+      <td>Upstream that proves a buffer never overflows</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;array&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;memory_resource&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;string&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;vector&gt;</span><span class="cp">
+</span>
+<span class="kt">void</span> <span class="nf">handle_request</span><span class="p">(</span><span class="k">const</span> <span class="n">Request</span><span class="o">&amp;</span> <span class="n">req</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">byte</span><span class="p">,</span> <span class="mi">64</span> <span class="o">*</span> <span class="mi">1024</span><span class="o">&gt;</span> <span class="n">stack_buf</span><span class="p">;</span>              <span class="c1">// scratch on the stack</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">pmr</span><span class="o">::</span><span class="n">monotonic_buffer_resource</span> <span class="n">arena</span><span class="p">{</span>
+        <span class="n">stack_buf</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span> <span class="n">stack_buf</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span>
+        <span class="n">std</span><span class="o">::</span><span class="n">pmr</span><span class="o">::</span><span class="n">new_delete_resource</span><span class="p">()};</span>                    <span class="c1">// spill to the heap if exceeded</span>
+
+    <span class="n">std</span><span class="o">::</span><span class="n">pmr</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">pmr</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">tokens</span><span class="p">{</span><span class="o">&amp;</span><span class="n">arena</span><span class="p">};</span>       <span class="c1">// strings share the arena</span>
+    <span class="n">tokenize</span><span class="p">(</span><span class="n">req</span><span class="p">.</span><span class="n">body</span><span class="p">,</span> <span class="n">tokens</span><span class="p">);</span>
+    <span class="c1">// ... all memory is released at scope exit, with no per-element frees.</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Rust and other languages offer equivalents: <code class="language-plaintext highlighter-rouge">bumpalo</code> is a widely used Rust arena crate, and Zig passes allocators explicitly throughout its standard library.</p>
+
+<h3 id="general-purpose-allocators">General-Purpose Allocators</h3>
+
+<p>Replacing the platform <code class="language-plaintext highlighter-rouge">malloc</code> is often the cheapest memory win for a server or tool: no code changes, frequently a double-digit percentage improvement in throughput or RSS for allocation-heavy workloads. All three leading options use per-thread caches and size-segregated slabs.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Allocator</th>
+      <th>Maintainer</th>
+      <th>Notes (as of late 2026)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>mimalloc</strong></td>
+      <td>Microsoft</td>
+      <td>Compact and fast; v3 (the current recommended line, 3.5.x) reworked cross-thread sharing, added first-class heaps usable from any thread, and can use substantially less memory on large workloads. v1 and v2 remain maintained. Used by CPython’s free-threaded build.</td>
+    </tr>
+    <tr>
+      <td><strong>jemalloc</strong></td>
+      <td>Originally Jason Evans; Meta</td>
+      <td>Strong fragmentation control and extensive introspection (<code class="language-plaintext highlighter-rouge">mallctl</code>, decay-based purging). Latest release 5.4.0 (2024); development continues on the <code class="language-plaintext highlighter-rouge">dev</code> branch. Default in FreeBSD.</td>
+    </tr>
+    <tr>
+      <td><strong>tcmalloc</strong></td>
+      <td>Google</td>
+      <td>Per-CPU caches (using Linux restartable sequences), huge-page-aware backend (Temeraire). The modern version lives at <code class="language-plaintext highlighter-rouge">github.com/google/tcmalloc</code>; the older gperftools version is a separate project.</td>
+    </tr>
+    <tr>
+      <td>glibc <code class="language-plaintext highlighter-rouge">malloc</code> (ptmalloc2)</td>
+      <td>GNU</td>
+      <td>Per-thread arenas; can fragment badly with many threads. <code class="language-plaintext highlighter-rouge">MALLOC_ARENA_MAX</code> limits arena count.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Swap them in at link time or with <code class="language-plaintext highlighter-rouge">LD_PRELOAD</code>, then compare peak RSS, p99 latency, and throughput on a realistic workload. Results are workload-dependent; measure rather than assume.</p>
 
 <h3 id="sizing-and-alignment">Sizing and Alignment</h3>
 
 <ul>
-  <li><strong>Over-allocate, don’t grow on the hot path.</strong> Size pools and arenas for the worst case so the hot path never falls back to <code class="language-plaintext highlighter-rouge">malloc</code>.</li>
-  <li><strong>Align to cache lines (64 bytes)</strong> for hot objects to avoid false sharing between threads writing adjacent objects.</li>
-  <li><strong>Page-align large arenas</strong> so the OS can map them efficiently and you can use huge pages where available.</li>
+  <li><strong>Size for the worst case.</strong> Pools and arenas should be large enough that the hot path never falls back to the general heap. Track high-water marks in development builds and fail loudly when a budget is exceeded.</li>
+  <li><strong>Align shared, frequently written objects to cache lines</strong> (<code class="language-plaintext highlighter-rouge">alignas(std::hardware_destructive_interference_size)</code> or 64/128 bytes) so threads writing neighboring objects do not falsely share a line.</li>
+  <li><strong>Page-align large arenas</strong> so they can be backed by huge pages and so their memory can be returned to the OS precisely (<code class="language-plaintext highlighter-rouge">madvise(MADV_DONTNEED)</code> / <code class="language-plaintext highlighter-rouge">VirtualFree</code>).</li>
 </ul>
 
 <h2 id="fragmentation">Fragmentation</h2>
 
-<p>Fragmentation is the silent killer of long-running processes (servers, game sessions, editors). You can have far more total free memory than a request needs and still fail it, because no single free region is contiguous enough.</p>
+<p>Fragmentation is the gradual failure mode of long-running processes: servers, editors, and multi-hour game sessions. A process can have far more free memory in total than a request needs and still be unable to satisfy it, or hold far more RSS than its live data justifies.</p>
 
 <ul>
-  <li><strong>External fragmentation</strong>: free memory is split into many small, non-adjacent holes. A 1 MB request fails even with 2 GB free, because the largest hole is 512 KB.</li>
-  <li><strong>Internal fragmentation</strong>: an allocator rounds requests up to a size class (e.g. a 33-byte request consumes a 48-byte slot), wasting the slack inside each block.</li>
+  <li><strong>External fragmentation</strong>: free memory is split into many non-adjacent holes. A 1 MB request fails, or forces the allocator to map new memory, even though several megabytes are free in total.</li>
+  <li><strong>Internal fragmentation</strong>: requests are rounded up to a size class (a 33-byte request consuming a 48-byte slot), wasting space inside each block.</li>
+  <li><strong>Page-level fragmentation</strong>: in size-segregated allocators, a page cannot be returned to the OS while even one object on it is live, so a few survivors pin whole pages. This is the most common form in practice with modern allocators.</li>
 </ul>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>External fragmentation: lots free, none usable for a big request
-┌──────┬──────┬──────┬──────┬──────┬──────┬──────┐
-│ USED │ free │ USED │ free │ USED │ free │ USED │
-└──────┴──────┴──────┴──────┴──────┴──────┴──────┘
-   request for ────────────────────► no contiguous hole fits it
-</code></pre></div></div>
+<svg viewBox="0 0 640 150" role="img" aria-labelledby="frag-title" style="max-width:100%;height:auto;font-family:inherit">
+  <title id="frag-title">External fragmentation: several free holes that together exceed a request, none of which is large enough alone</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <rect x="10" y="30" width="620" height="44" />
+  </g>
+  <g fill="currentColor" fill-opacity="0.35">
+    <rect x="10" y="30" width="90" height="44" />
+    <rect x="160" y="30" width="110" height="44" />
+    <rect x="320" y="30" width="80" height="44" />
+    <rect x="470" y="30" width="100" height="44" />
+  </g>
+  <g stroke="currentColor" stroke-width="1.5">
+    <line x1="100" y1="30" x2="100" y2="74" /><line x1="160" y1="30" x2="160" y2="74" />
+    <line x1="270" y1="30" x2="270" y2="74" /><line x1="320" y1="30" x2="320" y2="74" />
+    <line x1="400" y1="30" x2="400" y2="74" /><line x1="470" y1="30" x2="470" y2="74" />
+    <line x1="570" y1="30" x2="570" y2="74" />
+  </g>
+  <g fill="currentColor" font-size="13" text-anchor="middle">
+    <text x="55" y="57">used</text><text x="130" y="57">free</text>
+    <text x="215" y="57">used</text><text x="295" y="57">free</text>
+    <text x="360" y="57">used</text><text x="435" y="57">free</text>
+    <text x="520" y="57">used</text><text x="600" y="57">free</text>
+    <text x="320" y="20">heap address range</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="5 4">
+    <rect x="130" y="100" width="380" height="30" />
+  </g>
+  <text x="320" y="120" fill="currentColor" font-size="13" text-anchor="middle">new request: larger than any single free hole</text>
+</svg>
 
 <h3 id="mitigations">Mitigations</h3>
 
@@ -3372,264 +3623,400 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>Pools / arenas</strong></td>
-      <td>Uniform sizes mean every free block is reusable</td>
-      <td>Wasted slack if sizes vary</td>
+      <td>Arenas for transient data</td>
+      <td>Transient allocations never interleave with long-lived ones</td>
+      <td>Must know lifetimes</td>
     </tr>
     <tr>
-      <td><strong>Size-segregated allocators</strong> (jemalloc, tcmalloc, mimalloc)</td>
-      <td>Separate free-lists per size class confine fragmentation</td>
+      <td>Pools per object type</td>
+      <td>Every free slot fits every future request of that type</td>
+      <td>Slack if pools are oversized</td>
+    </tr>
+    <tr>
+      <td>Size-segregated allocator (mimalloc, jemalloc, tcmalloc)</td>
+      <td>Separate slabs per size class confine fragmentation</td>
       <td>Some internal fragmentation per class</td>
     </tr>
     <tr>
-      <td><strong>Slab allocation</strong></td>
-      <td>Caches of fully-constructed fixed-size objects</td>
-      <td>Per-type setup</td>
+      <td>Separate heaps per subsystem</td>
+      <td>Long-lived and short-lived data do not share pages</td>
+      <td>More heaps to tune</td>
     </tr>
     <tr>
-      <td><strong>Compacting / relocating GC</strong></td>
-      <td>Moves live objects to coalesce free space</td>
-      <td>Requires indirection (handles), pause time</td>
+      <td>Handle indirection plus compaction</td>
+      <td>Objects can be moved to coalesce free space</td>
+      <td>Extra indirection, compaction work</td>
     </tr>
     <tr>
-      <td><strong>Handle indirection</strong></td>
-      <td>Refer to objects by handle, not pointer, so they can be relocated</td>
-      <td>Extra dereference</td>
+      <td>Periodic purge / decay tuning</td>
+      <td>Returns empty pages to the OS</td>
+      <td>Refaulting if memory is needed again</td>
     </tr>
   </tbody>
 </table>
 
-<p>A <strong>relocating allocator</strong> sidesteps external fragmentation entirely: hold objects behind handles (an index into a table of current addresses) rather than raw pointers, and periodically slide live objects toward the start of the heap, updating the table. This is how many garbage collectors and asset heaps keep a long-lived process from fragmenting — at the price of one extra indirection per access and occasional compaction work.</p>
+<p>The most effective structural fix is <strong>segregating by lifetime</strong>: never let a long-lived object land between two short-lived ones. Arenas for transients and dedicated pools for long-lived objects achieve this without any cleverness in the general allocator.</p>
+
+<p>A <strong>relocating allocator</strong> removes external fragmentation entirely. Callers hold handles (indices into a table of current addresses) rather than raw pointers, and the allocator periodically slides live objects together and updates the table. Compacting garbage collectors (JVM G1/ZGC, .NET) and many console asset heaps work this way.</p>
 
 <h3 id="measuring-fragmentation">Measuring Fragmentation</h3>
 
-<p>A simple, useful metric is <code class="language-plaintext highlighter-rouge">1 - (largest_free_block / total_free)</code>. Near 0 means free memory is essentially one contiguous block; near 1 means it is shattered into many small holes. Track it over time; a rising trend predicts an out-of-memory failure long before it happens.</p>
+<p>Two simple metrics are useful:</p>
 
-<h2 id="cache-locality">Cache Locality</h2>
+\[F_{\text{external}} = 1 - \frac{\text{largest free block}}{\text{total free memory}}\]
 
-<p>Allocation strategy controls <em>when</em> memory is touched; data layout controls <em>how expensively</em> each touch resolves through the cache hierarchy.</p>
+\[\text{overhead} = \frac{\text{RSS}}{\text{live allocated bytes}}\]
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>CPU Core
-├── L1 Cache: 32-64 KB,  ~4 cycles
-├── L2 Cache: 256-512 KB, ~12 cycles
-├── L3 Cache: 8-32 MB,    ~40 cycles
-└── Main Memory: GBs,     ~200 cycles
+<p>$F_{\text{external}}$ near 0 means free memory is essentially contiguous; near 1 means it is shattered. An RSS-to-live ratio well above about 1.2-1.3 in a steady state suggests page-level fragmentation or allocator retention. Track both over hours of runtime; a rising trend predicts an out-of-memory failure long before it happens.</p>
 
-Cache Line: 64 bytes (typical)
-</code></pre></div></div>
+<h2 id="cache-locality-and-data-layout">Cache Locality and Data Layout</h2>
 
-<p>Memory moves between levels in <strong>cache lines</strong> of 64 bytes. Touch one byte and the whole 64-byte line is loaded. The optimization goal is therefore to make every loaded line <em>useful</em>: pack the data you actually read together, and walk it in order so the hardware prefetcher can stay ahead of you.</p>
+<p>Allocation strategy decides <em>where</em> data lives; layout and access order decide <em>how expensively</em> each access resolves.</p>
 
-<h3 id="data-oriented-design-aos-vs-soa">Data-Oriented Design: AoS vs SoA</h3>
+<h3 id="aos-vs-soa">AoS vs. SoA</h3>
 
-<p>The classic transformation is <strong>Array of Structures (AoS) to Structure of Arrays (SoA)</strong>. When a loop only touches a few fields of a large object, AoS drags the cold fields into cache on every line load; SoA stores each field contiguously so the loop reads only hot data.</p>
+<p>The classic data-oriented transformation is from <strong>Array of Structures (AoS)</strong> to <strong>Structure of Arrays (SoA)</strong>. When a loop touches only a few fields of a large object, AoS pulls the unused fields into cache on every line load. SoA stores each field contiguously, so the loop streams only the data it uses, and the layout is also what SIMD code wants.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Cache-unfriendly (Array of Structures)</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// AoS: each 64-byte line holds hot and cold fields together.</span>
 <span class="k">struct</span> <span class="nc">Entity</span> <span class="p">{</span>
-    <span class="n">Vector3</span> <span class="n">position</span><span class="p">;</span>    <span class="c1">// Used every frame</span>
-    <span class="n">Vector3</span> <span class="n">velocity</span><span class="p">;</span>    <span class="c1">// Used every frame</span>
-    <span class="n">String</span>  <span class="n">name</span><span class="p">;</span>        <span class="c1">// Rarely used</span>
-    <span class="n">Texture</span><span class="o">*</span> <span class="n">icon</span><span class="p">;</span>       <span class="c1">// Rarely used</span>
-    <span class="kt">float</span>   <span class="n">health</span><span class="p">;</span>      <span class="c1">// Used every frame</span>
-    <span class="c1">// ... more fields</span>
+    <span class="n">Vec3</span>        <span class="n">position</span><span class="p">;</span>   <span class="c1">// hot: read every frame</span>
+    <span class="n">Vec3</span>        <span class="n">velocity</span><span class="p">;</span>   <span class="c1">// hot</span>
+    <span class="kt">float</span>       <span class="n">health</span><span class="p">;</span>     <span class="c1">// hot</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">name</span><span class="p">;</span>       <span class="c1">// cold: 32 bytes on common ABIs</span>
+    <span class="n">Texture</span><span class="o">*</span>    <span class="n">icon</span><span class="p">;</span>       <span class="c1">// cold</span>
 <span class="p">};</span>
-<span class="n">Entity</span> <span class="n">entities</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>   <span class="c1">// each iteration loads name/icon it never reads</span>
+<span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Entity</span><span class="o">&gt;</span> <span class="n">entities</span><span class="p">;</span>
 
-<span class="c1">// Cache-friendly (Structure of Arrays)</span>
-<span class="k">struct</span> <span class="nc">EntityData</span> <span class="p">{</span>
-    <span class="n">Vector3</span> <span class="n">positions</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>   <span class="c1">// Contiguous hot data</span>
-    <span class="n">Vector3</span> <span class="n">velocities</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>  <span class="c1">// Contiguous hot data</span>
-    <span class="kt">float</span>   <span class="n">healths</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>     <span class="c1">// Contiguous hot data</span>
+<span class="c1">// SoA: hot fields contiguous, cold fields elsewhere.</span>
+<span class="k">struct</span> <span class="nc">EntityHot</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Vec3</span><span class="o">&gt;</span>  <span class="n">position</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Vec3</span><span class="o">&gt;</span>  <span class="n">velocity</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span> <span class="n">health</span><span class="p">;</span>
 <span class="p">};</span>
-<span class="k">struct</span> <span class="nc">EntityMetadata</span> <span class="p">{</span>
-    <span class="n">String</span>   <span class="n">names</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>      <span class="c1">// Separate cold data</span>
-    <span class="n">Texture</span><span class="o">*</span> <span class="n">icons</span><span class="p">[</span><span class="mi">1000</span><span class="p">];</span>
+<span class="k">struct</span> <span class="nc">EntityCold</span> <span class="p">{</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">name</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Texture</span><span class="o">*&gt;</span>    <span class="n">icon</span><span class="p">;</span>
 <span class="p">};</span>
+
+<span class="kt">void</span> <span class="nf">integrate</span><span class="p">(</span><span class="n">EntityHot</span><span class="o">&amp;</span> <span class="n">e</span><span class="p">,</span> <span class="kt">float</span> <span class="n">dt</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">e</span><span class="p">.</span><span class="n">position</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">e</span><span class="p">.</span><span class="n">position</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">e</span><span class="p">.</span><span class="n">velocity</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">dt</span><span class="p">;</span>   <span class="c1">// two dense, linear streams</span>
+<span class="p">}</span>
 </code></pre></div></div>
 
-<p>With SoA, an integration loop over <code class="language-plaintext highlighter-rouge">positions</code> and <code class="language-plaintext highlighter-rouge">velocities</code> reads two tightly packed streams; the prefetcher sees the linear pattern and hides the latency entirely, turning a memory-bound loop into a compute-bound one.</p>
+<p>With SoA, the integration loop reads two dense streams that the hardware prefetcher recognizes, and every byte fetched is used. Entity-component systems (EnTT, Flecs, Unity DOTS, Unreal Mass) are built around this layout. A hybrid, <strong>AoSoA</strong> (small fixed-width blocks of SoA, e.g. 8 or 16 entities per block), keeps SIMD-friendly lanes while localizing all fields of a group to a few lines.</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    subgraph AoS["AoS: cache lines loaded for a position/velocity update"]
+        direction LR
+        a1["pos, vel, hp, name, icon"] --- a2["pos, vel, hp, name, icon"] --- a3["..."]
+    end
+    subgraph SoA["SoA: only hot arrays are touched"]
+        direction LR
+        s1["pos pos pos pos pos ..."]
+        s2["vel vel vel vel vel ..."]
+    end
+</code></pre>
 
 <h3 id="locality-principles">Locality Principles</h3>
-
-<ul>
-  <li><strong>Spatial locality</strong>: lay out data you read together, together. Prefer contiguous arrays over node-based structures (a linked list scatters nodes across the heap; each <code class="language-plaintext highlighter-rouge">-&gt;next</code> is a likely miss).</li>
-  <li><strong>Temporal locality</strong>: reuse data while it is still hot. Tile and block your loops so a working set fits in L1/L2 before moving on.</li>
-  <li><strong>Avoid pointer chasing</strong>: indices into a flat array beat pointers — they are smaller (cache-denser) and relocatable.</li>
-  <li><strong>Mind false sharing</strong>: two threads writing different variables on the <em>same</em> cache line ping-pong the line between cores. Pad per-thread data to a cache line.</li>
-  <li><strong>Hot/cold splitting</strong>: move rarely-touched fields out of the hot struct (as in the <code class="language-plaintext highlighter-rouge">EntityMetadata</code> split above) so hot lines carry only frequently-used data.</li>
-</ul>
-
-<h3 id="access-pattern-wins">Access-Pattern Wins</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Pattern</th>
-      <th>Why it is fast</th>
+      <th>Principle</th>
+      <th>Practice</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Sequential array scan</td>
-      <td>Perfect prefetch, every line fully used</td>
+      <td>Spatial locality</td>
+      <td>Store data that is read together, together. Prefer contiguous arrays (<code class="language-plaintext highlighter-rouge">std::vector</code>, flat hash maps) over node-based containers (<code class="language-plaintext highlighter-rouge">std::list</code>, <code class="language-plaintext highlighter-rouge">std::map</code>), where each hop is a likely miss.</td>
     </tr>
     <tr>
-      <td>SoA over hot fields</td>
-      <td>No cold data pollutes the cache</td>
+      <td>Temporal locality</td>
+      <td>Reuse data while it is still cached. Tile or block loops so the working set fits in L1/L2 before moving on (see matrix blocking in <a href="cpu-optimization.html">CPU Optimization</a>).</td>
     </tr>
     <tr>
-      <td>Index-based references</td>
-      <td>Denser than pointers, relocatable</td>
+      <td>Avoid pointer chasing</td>
+      <td>32-bit indices into a flat array are half the size of pointers, relocatable, and serializable.</td>
     </tr>
     <tr>
-      <td>Cache-line-padded thread data</td>
-      <td>No false sharing</td>
+      <td>Hot/cold splitting</td>
+      <td>Move rarely used fields out of the hot struct so hot lines carry only hot data.</td>
     </tr>
     <tr>
-      <td>Sorted/grouped processing</td>
-      <td>Batches similar work, reuses warm state</td>
+      <td>Shrink the data</td>
+      <td>Smaller types (<code class="language-plaintext highlighter-rouge">uint16_t</code> indices, quantized floats, bitsets) put more elements in each line; <code class="language-plaintext highlighter-rouge">-Wpadded</code> and <code class="language-plaintext highlighter-rouge">pahole</code> reveal padding holes.</td>
+    </tr>
+    <tr>
+      <td>Predictable access</td>
+      <td>Sequential and constant-stride access lets the prefetcher hide latency; random access through a large table cannot be prefetched.</td>
+    </tr>
+    <tr>
+      <td>Sort before processing</td>
+      <td>Sorting work by the data it touches (material, spatial cell, key) turns random access into near-sequential access.</td>
     </tr>
   </tbody>
 </table>
 
+<h3 id="huge-pages-and-the-tlb">Huge Pages and the TLB</h3>
+
+<p>A TLB caches a few thousand virtual-to-physical translations. With 4 KB pages, a second-level TLB with about 2,000-3,000 entries covers only roughly 8-12 MB, so random access across a multi-gigabyte heap misses the TLB constantly and pays for page-table walks. <strong>Huge pages</strong> (2 MB on x86-64, with 1 GB also available; Arm64 supports 64 KB base pages and 2 MB/32 MB/512 MB block sizes depending on configuration) extend TLB reach by orders of magnitude.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism</th>
+      <th>How to use</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Transparent Huge Pages (Linux)</td>
+      <td><code class="language-plaintext highlighter-rouge">madvise(ptr, len, MADV_HUGEPAGE)</code> with THP in <code class="language-plaintext highlighter-rouge">madvise</code> mode</td>
+      <td>Kernel promotes aligned 2 MB regions; <code class="language-plaintext highlighter-rouge">khugepaged</code> collapses in the background. <code class="language-plaintext highlighter-rouge">enabled=always</code> can add latency spikes and memory bloat, so many databases recommend <code class="language-plaintext highlighter-rouge">madvise</code> or <code class="language-plaintext highlighter-rouge">never</code>.</td>
+    </tr>
+    <tr>
+      <td>Explicit huge pages</td>
+      <td><code class="language-plaintext highlighter-rouge">mmap(..., MAP_HUGETLB)</code> from a preallocated <code class="language-plaintext highlighter-rouge">hugetlbfs</code> pool</td>
+      <td>Deterministic; memory is reserved up front</td>
+    </tr>
+    <tr>
+      <td>Allocator support</td>
+      <td>tcmalloc Temeraire, jemalloc/mimalloc options</td>
+      <td>Huge-page-aware packing reduces fragmentation of huge pages</td>
+    </tr>
+    <tr>
+      <td>Windows large pages</td>
+      <td><code class="language-plaintext highlighter-rouge">VirtualAlloc(MEM_LARGE_PAGES)</code></td>
+      <td>Requires the “Lock pages in memory” privilege</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Huge pages help most for large, randomly accessed structures: hash tables, graph data, in-memory databases, JIT code heaps. They do little for small or sequentially streamed data, which the TLB and prefetcher already handle well.</p>
+
+<h3 id="numa">NUMA</h3>
+
+<p>On multi-socket servers (and on single-socket parts with multiple memory domains), memory is attached to specific nodes, and remote accesses cost substantially more than local ones. Linux allocates physical pages on the node of the thread that <strong>first touches</strong> them, so a single-threaded initialization loop can place an entire dataset on one node and leave every other socket accessing it remotely.</p>
+
+<ul>
+  <li>Initialize data on the threads (or nodes) that will use it, or use <code class="language-plaintext highlighter-rouge">numactl --interleave=all</code> for data shared by everyone.</li>
+  <li>Pin worker threads and their memory together (<code class="language-plaintext highlighter-rouge">numactl --cpunodebind=N --membind=N</code>, <code class="language-plaintext highlighter-rouge">libnuma</code>, or thread-pool affinity).</li>
+  <li>Watch <code class="language-plaintext highlighter-rouge">numastat</code> and hardware counters for remote-access ratios.</li>
+</ul>
+
+<h2 id="managed-runtimes">Managed Runtimes</h2>
+
+<p>In garbage-collected languages (Java, C#, Go, JavaScript, Python), the same principles apply, but the dominant cost is usually <strong>allocation rate</strong>, because every allocated byte eventually costs collector work.</p>
+
+<ul>
+  <li>Reduce allocations on hot paths: reuse buffers, use value types (<code class="language-plaintext highlighter-rouge">struct</code>, <code class="language-plaintext highlighter-rouge">Span&lt;T&gt;</code>/<code class="language-plaintext highlighter-rouge">stackalloc</code> in .NET; escape analysis in Go and the JVM keeps non-escaping objects on the stack).</li>
+  <li>Pool large or expensive objects (<code class="language-plaintext highlighter-rouge">ArrayPool&lt;T&gt;</code> in .NET, <code class="language-plaintext highlighter-rouge">sync.Pool</code> in Go), but not small ones, which modern generational collectors handle cheaply.</li>
+  <li>Choose the collector for the latency target: low-pause collectors such as ZGC (generational by default since JDK 23) and Shenandoah on the JVM trade some throughput and memory for sub-millisecond pauses.</li>
+  <li>Prefer primitive arrays and flat layouts over graphs of boxed objects, for the same cache reasons as native code.</li>
+</ul>
+
 <h2 id="asset-memory-and-compression">Asset Memory and Compression</h2>
 
-<p>For games and media applications, the bulk of memory is <em>content</em> — textures, meshes, audio — not program state. The biggest wins come from storing that content in compressed, GPU- or codec-native formats rather than naive uncompressed buffers.</p>
+<p>In games and media applications most memory is content (textures, meshes, audio), not program state. The largest wins come from keeping that content in GPU- or hardware-native compressed formats.</p>
 
 <h3 id="texture-compression">Texture Compression</h3>
 
-<p>Block-compressed formats are decoded <em>by the GPU’s texture units on the fly</em>, so they save both memory and bandwidth with no decode step on the CPU:</p>
+<p>Block-compressed formats are decoded by the GPU’s texture units on every sample, so they reduce both resident memory and sampling bandwidth with no CPU decode step.</p>
 
 <table>
   <thead>
     <tr>
       <th>Format</th>
-      <th>Bits/Pixel</th>
-      <th>Use Case</th>
+      <th>Bits per pixel</th>
+      <th>Use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>RGBA8</td>
+      <td>RGBA8 (uncompressed)</td>
       <td>32</td>
-      <td>Uncompressed, high quality reference</td>
+      <td>Reference; render targets</td>
     </tr>
     <tr>
-      <td>BC1/DXT1</td>
+      <td>BC1</td>
       <td>4</td>
-      <td>Opaque textures (8:1 vs RGBA8)</td>
+      <td>Opaque color, 1-bit alpha</td>
     </tr>
     <tr>
-      <td>BC3/DXT5</td>
+      <td>BC3</td>
       <td>8</td>
-      <td>Textures with alpha</td>
+      <td>Color with smooth alpha (largely superseded by BC7)</td>
+    </tr>
+    <tr>
+      <td>BC4 / BC5</td>
+      <td>4 / 8</td>
+      <td>One / two channels (masks, tangent-space normal maps)</td>
+    </tr>
+    <tr>
+      <td>BC6H</td>
+      <td>8</td>
+      <td>HDR color (half-float)</td>
     </tr>
     <tr>
       <td>BC7</td>
       <td>8</td>
-      <td>High quality, modern desktop GPUs</td>
+      <td>High-quality color and alpha on desktop and console</td>
     </tr>
     <tr>
       <td>ASTC</td>
-      <td>1-8</td>
-      <td>Mobile, variable block size/quality</td>
+      <td>0.89-8 (block size 12x12 to 4x4)</td>
+      <td>Mobile and Apple GPUs; LDR and HDR; tunable quality</td>
     </tr>
     <tr>
-      <td>ETC2</td>
+      <td>ETC2 / EAC</td>
       <td>4-8</td>
-      <td>Mobile baseline (OpenGL ES)</td>
+      <td>OpenGL ES 3.0 baseline on older Android devices</td>
     </tr>
   </tbody>
 </table>
 
-<p>A 4096x4096 RGBA8 texture is 64 MB; the same texture in BC1 is 8 MB — an 8:1 reduction that also cuts the memory bandwidth needed to sample it. <strong>Mipmaps</strong> add another lever: pre-filtered downscales not only improve sampling quality but ensure the GPU reads only the resolution it needs for a given screen size, reducing the resident bandwidth for distant objects.</p>
+<p>A 4096 x 4096 RGBA8 texture is 64 MB before mipmaps; in BC1 it is 8 MB, and in BC7 16 MB. A full <strong>mip chain</strong> adds one third (a factor of 4/3) but lets the GPU sample only the resolution appropriate to the object’s screen size, which reduces bandwidth and enables mip streaming. Transcodable intermediate formats (Basis Universal / KTX2) let one asset ship for both BCn and ASTC hardware.</p>
 
-<h3 id="mesh-optimization">Mesh Optimization</h3>
-
-<ul>
-  <li>Remove unused/duplicate vertices and degenerate triangles.</li>
-  <li><strong>Optimize index order for the vertex cache</strong> (e.g. Forsyth/Tom Forsyth’s algorithm) so the GPU’s post-transform cache reuses recently transformed vertices.</li>
-  <li>Use <strong>16-bit indices</strong> when a mesh has fewer than 65,536 vertices (halves index buffer size).</li>
-  <li><strong>Quantize and compress vertex attributes</strong>: 16-bit or 8-bit normalized values for normals, tangents, and UVs are usually indistinguishable from float32 and halve the vertex stream.</li>
-  <li>Strip LODs appropriately so distant objects use cheaper meshes.</li>
-</ul>
-
-<h3 id="disk-vs-runtime-compression">Disk vs Runtime Compression</h3>
-
-<p>Distinguish two compression regimes:</p>
+<h3 id="mesh-data">Mesh Data</h3>
 
 <ul>
-  <li><strong>Disk compression</strong> (zlib, LZ4, Zstandard, Oodle) shrinks the <em>download and install footprint</em> and is decompressed during loading. Favor a fast decompressor (LZ4/Zstd) so decode does not bottleneck loading.</li>
-  <li><strong>Runtime compression</strong> (BCn/ASTC textures, ADPCM/Opus audio) keeps the asset compressed <em>in RAM/VRAM</em> and is decoded by hardware on use. This is what saves resident memory.</li>
+  <li>Deduplicate vertices and remove degenerate triangles.</li>
+  <li>Reorder indices for the post-transform vertex cache and vertices for fetch locality; the open-source <strong>meshoptimizer</strong> library implements these passes and mesh simplification, and is used by many engines.</li>
+  <li>Use 16-bit indices for meshes under 65,536 vertices.</li>
+  <li>Quantize attributes: octahedral-encoded normals and tangents, 16-bit UVs and positions (with a per-mesh scale and offset). This commonly halves vertex memory with no visible difference.</li>
+  <li>Provide LODs, or use cluster-based virtualized geometry (Unreal Nanite, mesh shaders), so distant objects cost less memory and bandwidth.</li>
 </ul>
 
-<p>The ideal pipeline ships assets that are <em>both</em>: a GPU-native runtime format (BC7) further wrapped in a fast disk codec (Zstd) for transport, decompressed once at load into the BC7 buffer that lives in VRAM.</p>
+<h3 id="disk-vs-runtime-compression">Disk vs. Runtime Compression</h3>
 
-<h2 id="streaming-and-loading">Streaming and Loading</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Regime</th>
+      <th>Examples</th>
+      <th>Saves</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Runtime (in-memory)</strong></td>
+      <td>BCn/ASTC textures, quantized vertices, ADPCM/Opus/Vorbis audio</td>
+      <td>Resident RAM/VRAM and bandwidth; decoded by hardware or on demand</td>
+    </tr>
+    <tr>
+      <td><strong>Disk / transport</strong></td>
+      <td>LZ4, Zstandard, Oodle Kraken/Leviathan, GDeflate</td>
+      <td>Install size and I/O time; decoded once at load</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>You cannot hold every asset in memory at once, so the resident set must be managed dynamically: load what is (or is about to be) needed, and evict what is not — all without stalling the main thread.</p>
+<p>The typical pipeline uses both: a GPU-native format (BC7), optionally rate-distortion-optimized so it compresses better (Oodle Texture, Basis RDO), wrapped in a fast lossless codec for storage. With DirectStorage on Windows (GDeflate decoded on the GPU) and the dedicated decompression hardware in current consoles, the final decode can bypass the CPU entirely.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Priority Queue:
-1. Currently visible assets         (must be resident now)
-2. Predicted soon-visible           (based on camera movement / proximity)
-3. Recently visible                 (might return; evict last)
-4. Background / low-priority         (load opportunistically)
+<h2 id="streaming-and-budgets">Streaming and Budgets</h2>
 
-Budget Management:
-- Total memory limit
-- Per-category limits  (textures / meshes / audio)
-- Emergency unloading thresholds  (evict aggressively under pressure)
-</code></pre></div></div>
+<p>When the full content set cannot be resident, the resident set must be managed dynamically: load what is visible or about to be, evict what is not, and never block the main thread.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    V["Visibility and&lt;br/&gt;prediction"] --&gt; Q["Priority queue&lt;br/&gt;1. visible now&lt;br/&gt;2. predicted soon&lt;br/&gt;3. recently visible&lt;br/&gt;4. background"]
+    Q --&gt; IO["Async I/O&lt;br/&gt;(io_uring, IOCP,&lt;br/&gt;DirectStorage)"]
+    IO --&gt; DC["Decompress&lt;br/&gt;(CPU or GPU)"]
+    DC --&gt; R["Resident set"]
+    R --&gt; B{"Over budget?"}
+    B --&gt;|"yes"| E["Evict lowest priority&lt;br/&gt;LRU, drop mips"]
+    E --&gt; R
+    P["OS memory-pressure&lt;br/&gt;signal"] --&gt; E
+</code></pre>
 
 <h3 id="loading-strategies">Loading Strategies</h3>
 
 <ul>
-  <li><strong>Async loading.</strong> Never block the main/render thread on disk I/O. Issue reads on worker threads or via async file APIs and integrate the result when ready.</li>
-  <li><strong>Prioritized queues.</strong> Order pending loads by visibility and proximity so the most-needed assets resolve first; cancel stale requests (an asset that left the view before it loaded).</li>
-  <li><strong>Compressed on disk, decompress on load.</strong> Trade a little CPU for far less I/O time — disk is usually the bottleneck, so a fast decompressor net-wins.</li>
-  <li><strong>Memory-mapped files</strong> for very large, randomly-accessed assets let the OS page data in on demand and share it across processes, at the cost of page-fault latency on first touch.</li>
-  <li><strong>Mip streaming.</strong> Keep only the mip levels a texture currently needs resident; stream in higher-resolution mips as an object approaches and evict them as it recedes. This is one of the highest-leverage memory techniques in open-world rendering.</li>
+  <li><strong>Asynchronous I/O.</strong> Never block the main or render thread on storage. Issue reads from worker threads or asynchronous APIs and integrate results when ready.</li>
+  <li><strong>Prioritized, cancellable queues.</strong> Order pending loads by visibility and distance; cancel requests for assets that left view before they arrived.</li>
+  <li><strong>Compressed on disk.</strong> A fast decompressor is almost always cheaper than the extra I/O time of uncompressed data.</li>
+  <li><strong>Memory-mapped files.</strong> For very large, randomly accessed, read-mostly data, <code class="language-plaintext highlighter-rouge">mmap</code> lets the OS page data in on demand and share it between processes, at the cost of page-fault latency on first touch and less control over eviction.</li>
+  <li><strong>Mip and texture streaming.</strong> Keep only the mip levels currently needed resident; stream finer mips in as objects approach. Hardware sampler feedback and virtual (tiled/sparse) textures refine this to the individual texture tile.</li>
 </ul>
 
 <h3 id="budgeting-and-eviction">Budgeting and Eviction</h3>
 
-<p>Set a hard total budget and per-category sub-budgets, then drive eviction with a priority policy — typically LRU (least-recently-used) weighted by visibility. When usage approaches the limit, evict from the lowest priority tier first; when an OS memory-pressure warning fires, cross the <strong>emergency threshold</strong> and evict aggressively, dropping to lower-resolution mips and unloading off-screen content rather than risking a hard out-of-memory termination.</p>
+<p>Set a hard total budget with per-category sub-budgets (textures, meshes, audio, gameplay), then drive eviction with a priority policy: typically LRU weighted by visibility and distance. When usage approaches the budget, evict from the lowest-priority tier first. When the OS signals memory pressure (<code class="language-plaintext highlighter-rouge">onTrimMemory</code> on Android, <code class="language-plaintext highlighter-rouge">didReceiveMemoryWarning</code> on iOS, a pressure notification on consoles), cross an <strong>emergency threshold</strong>: drop to lower mips and unload off-screen content rather than risk termination.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Sketch: budget-driven eviction on a priority/LRU policy.</span>
-<span class="kt">void</span> <span class="nf">enforce_budget</span><span class="p">(</span><span class="n">AssetCache</span><span class="o">&amp;</span> <span class="n">cache</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">budget</span><span class="p">)</span> <span class="p">{</span>
-    <span class="k">while</span> <span class="p">(</span><span class="n">cache</span><span class="p">.</span><span class="n">resident_bytes</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">budget</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">Asset</span><span class="o">*</span> <span class="n">victim</span> <span class="o">=</span> <span class="n">cache</span><span class="p">.</span><span class="n">lowest_priority_lru</span><span class="p">();</span>   <span class="c1">// off-screen, oldest</span>
-        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">victim</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>                            <span class="c1">// nothing evictable</span>
-        <span class="n">cache</span><span class="p">.</span><span class="n">evict</span><span class="p">(</span><span class="n">victim</span><span class="p">);</span>                           <span class="c1">// drop bytes / lower mip</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Budget-driven eviction: called after each batch of completed loads.</span>
+<span class="kt">void</span> <span class="nf">enforce_budget</span><span class="p">(</span><span class="n">AssetCache</span><span class="o">&amp;</span> <span class="n">cache</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">budget_bytes</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">cache</span><span class="p">.</span><span class="n">resident_bytes</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">budget_bytes</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">Asset</span><span class="o">*</span> <span class="n">victim</span> <span class="o">=</span> <span class="n">cache</span><span class="p">.</span><span class="n">lowest_priority_lru</span><span class="p">();</span>   <span class="c1">// off-screen, least recently used</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">victim</span><span class="p">)</span> <span class="k">break</span><span class="p">;</span>                            <span class="c1">// everything left is required</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">victim</span><span class="o">-&gt;</span><span class="n">can_drop_mip</span><span class="p">())</span> <span class="n">victim</span><span class="o">-&gt;</span><span class="n">drop_top_mip</span><span class="p">();</span>
+        <span class="k">else</span>                        <span class="n">cache</span><span class="p">.</span><span class="n">evict</span><span class="p">(</span><span class="n">victim</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="summary">Summary</h2>
 
-<ul>
-  <li><strong>Profile before you allocate-tune.</strong> Use snapshot diffing to find leaks and attribute allocations by subsystem; measure peak RSS in a release build, not reserved virtual size in debug.</li>
-  <li><strong>Match the allocator to the lifetime.</strong> Arenas for “free it all at once”, pools for many same-size objects, stack allocators for nested scopes — each turns allocation into an O(1) pointer move.</li>
-  <li><strong>Fragmentation is a real failure mode.</strong> Track largest-free-block ratio; defend long-running processes with size-segregated or relocating (handle-based) allocators.</li>
-  <li><strong>Lay out for the cache.</strong> SoA over hot fields, contiguous arrays over pointer-chasing, cache-line padding against false sharing — a miss costs ~200 cycles.</li>
-  <li><strong>Keep assets compressed in RAM.</strong> BCn/ASTC textures and quantized vertex streams cut resident memory and bandwidth with hardware decode; wrap them in a fast disk codec for transport.</li>
-  <li><strong>Stream within a budget.</strong> Async, prioritized loading with per-category budgets and emergency eviction keeps the visible set resident without stalling the main thread.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Problem</th>
+      <th>First tool</th>
+      <th>Typical fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>High peak memory</td>
+      <td>Heap snapshot grouped by subsystem</td>
+      <td>Compress assets, stream, shrink data types</td>
+    </tr>
+    <tr>
+      <td>Growing memory</td>
+      <td>Snapshot diffing over N iterations</td>
+      <td>Fix ownership leak, bound caches</td>
+    </tr>
+    <tr>
+      <td>Allocation-heavy hot path</td>
+      <td>Allocation profiler (<code class="language-plaintext highlighter-rouge">heaptrack</code>, Instruments)</td>
+      <td>Arena, pool, <code class="language-plaintext highlighter-rouge">std::pmr</code>, buffer reuse</td>
+    </tr>
+    <tr>
+      <td>RSS far above live data</td>
+      <td>Allocator stats</td>
+      <td>Lifetime segregation, allocator swap, purge tuning</td>
+    </tr>
+    <tr>
+      <td>Memory-bound loop</td>
+      <td><code class="language-plaintext highlighter-rouge">perf stat</code> cache-miss counters, <code class="language-plaintext highlighter-rouge">perf mem</code></td>
+      <td>SoA, hot/cold split, sequential access</td>
+    </tr>
+    <tr>
+      <td>Random access over large heap</td>
+      <td>TLB-miss counters</td>
+      <td>Huge pages</td>
+    </tr>
+    <tr>
+      <td>Poor multi-socket scaling</td>
+      <td><code class="language-plaintext highlighter-rouge">numastat</code>, remote-access counters</td>
+      <td>First-touch placement, pinning</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">Performance Optimization Hub</a></strong> — section overview: the profile-fix-verify loop, CPU/GPU bottleneck classes, and where memory fits in the optimization process</li>
-  <li><strong><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a></strong> — texture, mesh, and GPU-resource management that consume most of the asset memory budget</li>
-  <li><strong><a href="../gamedev/">Game Development</a></strong> — streaming and asset pipelines in a game-engine context</li>
-  <li><strong><a href="../technology/unreal.html">Unreal Engine</a></strong> — engine-level memory profiling tools and asset streaming</li>
-  <li><strong><a href="../vr-ar/">VR/AR Development</a></strong> — tight memory and bandwidth budgets on mobile/standalone headsets</li>
-  <li><strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — foundations for memory and consistency in distributed services</li>
+  <li><a href="./">Performance Optimization</a> - section hub and the profile-fix-verify loop</li>
+  <li><a href="cpu-optimization.html">CPU Optimization</a> - cache-aware loops, SIMD, false sharing, and multithreading</li>
+  <li><a href="gpu-optimization.html">GPU Optimization</a> - VRAM bandwidth, render-target formats, and GPU-side memory</li>
+  <li><a href="network-io-optimization.html">Network &amp; I/O Optimization</a> - page cache, <code class="language-plaintext highlighter-rouge">mmap</code>, and asynchronous storage I/O</li>
+  <li><a href="platform-tuning.html">Platform-Specific Tuning</a> - mobile memory limits and console unified memory</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a> - textures, meshes, and GPU resources that dominate asset budgets</li>
+  <li><a href="../gamedev/">Game Development</a> - asset pipelines and streaming in an engine context</li>
+  <li><a href="../technology/unreal.html">Unreal Engine</a> - engine memory profiling and streaming tools</li>
 </ul>
-
-<hr />
-
-<p><em>This page is part of the Performance Optimization guide. For suggestions or contributions, visit our <a href="https://github.com/AndrewAltimit/Documentation">GitHub repository</a>.</em></p>
 
       </section>
     </div>

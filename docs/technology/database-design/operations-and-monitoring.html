@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Operating a production database: backup strategy and RPO/RTO, PITR and incremental backups, disaster recovery, VACUUM and autovacuum tuning, connection pooli...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Database Design: Operations & Monitoring">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Operating a production database: backup strategy and RPO/RTO, PITR and incremental backups, disaster recovery, VACUUM and autovacuum tuning, connection pooli...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/database-design/operations-and-monitoring.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Database Design: Operations & Monitoring">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Operating a production database: backup strategy and RPO/RTO, PITR and incremental backups, disaster recovery, VACUUM and autovacuum tuning, connection pooli...">
 
 <title>Database Design: Operations & Monitoring | Andrews Notebook</title>
 
@@ -3135,684 +3135,700 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="operations--monitoring">Operations &amp; Monitoring</h1>
 
-<h2 id="running-a-database-in-production">Running a Database in Production</h2>
+<p><strong>Database operations</strong> is the discipline of keeping a database recoverable, healthy, and fast after it has been designed and deployed: backups and restores, disaster recovery, routine maintenance, connection management, monitoring, capacity planning, upgrades, and incident response. The database is usually the one component of a system that cannot be rebuilt from source — the data is the value — so these practices matter more for it than for any stateless service.</p>
 
-<p>Designing a correct schema and choosing the right indexes gets you a database
-that <em>works</em>. Keeping it fast, available, and recoverable at 3 a.m. on a holiday
-weekend is a different discipline: <strong>operations</strong>. A database is the one
-component of most systems that genuinely cannot be rebuilt from source — the data
-<em>is</em> the value — so the operational practices around it (backups, recovery
-drills, capacity planning, and monitoring) matter more than for any stateless
-service.</p>
-
-<p>This page is the practical, runbook-oriented companion to
-<a href="storage-internals.html">Storage Engines &amp; Recovery</a>. Where that page explains
-<em>how</em> the write-ahead log and buffer pool work, this one explains how to operate
-them: how to take and verify backups, restore to an exact point in time, keep
-autovacuum healthy, pool connections, read the <code class="language-plaintext highlighter-rouge">pg_stat_*</code> views, plan capacity,
-and work through an incident calmly. Examples are PostgreSQL-centric because its
-tooling is mature and open, but the <em>principles</em> — RPO/RTO, log shipping,
-saturation metrics, pool sizing — apply to MySQL, SQL Server, and the managed
-cloud equivalents alike.</p>
+<p>This page is the operational companion to <a href="storage-internals.html">Storage Engines &amp; Recovery</a>, which explains how the write-ahead log (WAL), buffer pool, and checkpoints work. Examples use PostgreSQL (current major version 18; version-specific features are marked), but the principles — RPO and RTO, log shipping, saturation metrics, pool sizing — apply equally to MySQL, SQL Server, and managed cloud services.</p>
 
 <p>Three principles run through everything below:</p>
 
 <ul>
-  <li><strong>Recoverability</strong> — a backup you have never restored is a hypothesis, not a backup.</li>
-  <li><strong>Maintenance</strong> — MVCC produces garbage; autovacuum is what keeps tables from bloating.</li>
-  <li><strong>Observability</strong> — you cannot tune what you cannot see, so instrument before you optimize.</li>
+  <li><strong>Recoverability.</strong> A backup that has never been restored is a hypothesis, not a backup.</li>
+  <li><strong>Maintenance.</strong> MVCC creates garbage continuously; autovacuum is what keeps tables from bloating and transaction IDs from wrapping around.</li>
+  <li><strong>Observability.</strong> Instrument before optimizing: the statistics views show where time goes.</li>
 </ul>
 
 <h2 id="backup-and-restore">Backup and Restore</h2>
 
-<p>Everything in operations ultimately serves one goal: when something goes wrong,
-get the correct data back, quickly. Two numbers frame every backup decision.</p>
+<h3 id="rpo-and-rto">RPO and RTO</h3>
+
+<p>Two business requirements frame every backup decision:</p>
 
 <ul>
-  <li><strong>RPO — Recovery Point Objective</strong>: how much data, measured in <em>time</em>, you can
-afford to lose. A nightly dump gives an RPO of up to 24 hours; continuous WAL
-archiving gives an RPO of seconds.</li>
-  <li><strong>RTO — Recovery Time Objective</strong>: how long you can afford to be <em>down</em> while
-restoring. A 2 TB logical dump might take hours to reload; a pre-warmed replica
-promotes in seconds.</li>
+  <li><strong>Recovery point objective (RPO)</strong> — how much data, measured in time, may be lost.</li>
+  <li><strong>Recovery time objective (RTO)</strong> — how long the service may be down while recovering.</li>
 </ul>
 
 \[\text{RPO} = t_{\text{failure}} - t_{\text{last recoverable state}},
 \qquad
 \text{RTO} = t_{\text{service restored}} - t_{\text{failure}}\]
 
-<p>You design the backup strategy backwards from the RPO/RTO the business actually
-requires — over-engineering recovery is as wasteful as under-engineering it is
-dangerous.</p>
+<p>Design the strategy backwards from the RPO and RTO the business actually requires. Typical options:</p>
 
-<h3 id="logical-vs-physical-backups">Logical vs Physical Backups</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Strategy</th>
+      <th>Typical RPO</th>
+      <th>Typical RTO</th>
+      <th>Protects against</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Nightly logical dump</td>
+      <td>Up to 24 h</td>
+      <td>Hours (reload + index builds)</td>
+      <td>Loss of the whole server; single-table mistakes</td>
+    </tr>
+    <tr>
+      <td>Base backup + continuous WAL archiving (PITR)</td>
+      <td>Seconds to minutes</td>
+      <td>Restore time + WAL replay</td>
+      <td>Hardware loss <em>and</em> human error (bad <code class="language-plaintext highlighter-rouge">DELETE</code>, bad migration)</td>
+    </tr>
+    <tr>
+      <td>Asynchronous streaming replica</td>
+      <td>Seconds (replication lag)</td>
+      <td>Seconds to minutes (promotion)</td>
+      <td>Server or zone failure — <strong>not</strong> human error, which replicates instantly</td>
+    </tr>
+    <tr>
+      <td>Synchronous replica</td>
+      <td>Zero for committed transactions</td>
+      <td>Seconds to minutes</td>
+      <td>Server or zone failure, with a commit-latency cost</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Replication is not a backup: a <code class="language-plaintext highlighter-rouge">DROP TABLE</code> reaches every replica within milliseconds. A credible design combines a replica (for RTO) with PITR-capable backups (for RPO against mistakes).</p>
+
+<h3 id="logical-vs-physical-backups">Logical vs. physical backups</h3>
 
 <table>
   <thead>
     <tr>
       <th>Aspect</th>
       <th>Logical (<code class="language-plaintext highlighter-rouge">pg_dump</code>)</th>
-      <th>Physical (<code class="language-plaintext highlighter-rouge">pg_basebackup</code>)</th>
+      <th>Physical (<code class="language-plaintext highlighter-rouge">pg_basebackup</code>, pgBackRest, …)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Format</td>
-      <td>SQL/<code class="language-plaintext highlighter-rouge">COPY</code> statements</td>
-      <td>Byte-for-byte copy of data files</td>
+      <td>Content</td>
+      <td>SQL / <code class="language-plaintext highlighter-rouge">COPY</code> data plus DDL</td>
+      <td>Copy of the cluster’s data files</td>
     </tr>
     <tr>
       <td>Granularity</td>
-      <td>Single table → whole DB</td>
-      <td>Whole cluster only</td>
+      <td>Table, schema, or database</td>
+      <td>Whole cluster</td>
     </tr>
     <tr>
       <td>Portability</td>
-      <td>Cross-version, cross-arch</td>
-      <td>Same major version/arch</td>
+      <td>Across major versions and architectures</td>
+      <td>Same major version and platform</td>
     </tr>
     <tr>
       <td>Restore speed</td>
-      <td>Slow (replays SQL, rebuilds indexes)</td>
-      <td>Fast (copy files, replay WAL)</td>
+      <td>Slow: reloads rows, rebuilds indexes</td>
+      <td>Fast: copy files, replay WAL</td>
     </tr>
     <tr>
-      <td>Enables PITR</td>
+      <td>Point-in-time recovery</td>
       <td>No</td>
-      <td>Yes (with WAL archiving)</td>
+      <td>Yes, with WAL archiving</td>
     </tr>
     <tr>
       <td>Best for</td>
-      <td>Small DBs, migrations, single-table recovery</td>
-      <td>Large DBs, full-cluster DR, PITR</td>
+      <td>Small databases, migrations, extracting one table</td>
+      <td>Production disaster recovery and PITR</td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Logical: portable, schema-aware, slow to restore.</span>
-<span class="c"># Use the custom format (-Fc) so you can restore selectively and in parallel.</span>
-pg_dump <span class="nt">-Fc</span> <span class="nt">-d</span> mydb <span class="nt">-f</span> mydb.dump
-pg_restore <span class="nt">-d</span> mydb_new <span class="nt">-j</span> 4 mydb.dump        <span class="c"># 4 parallel workers</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Logical: use the custom (-Fc) or directory (-Fd) format so restores can be</span>
+<span class="c"># selective and parallel. Directory format also allows parallel dumps (-j).</span>
+pg_dump <span class="nt">-Fd</span> <span class="nt">-j</span> 4 <span class="nt">-d</span> mydb <span class="nt">-f</span> /backups/mydb.dir
+pg_restore <span class="nt">-d</span> mydb_new <span class="nt">-j</span> 4 /backups/mydb.dir
+pg_restore <span class="nt">-d</span> mydb_new <span class="nt">-t</span> orders /backups/mydb.dir     <span class="c"># one table only</span>
 
-<span class="c"># Restore a single table out of a full dump:</span>
-pg_restore <span class="nt">-d</span> mydb_new <span class="nt">-t</span> orders mydb.dump
-
-<span class="c"># Physical: a consistent on-disk snapshot of the whole cluster.</span>
-pg_basebackup <span class="nt">-D</span> /backups/base <span class="nt">-Ft</span> <span class="nt">-z</span> <span class="nt">-X</span> stream <span class="nt">-P</span>
+<span class="c"># Physical: a consistent copy of the whole cluster, with the WAL needed to</span>
+<span class="c"># make it consistent (-X stream) and a backup manifest for verification.</span>
+pg_basebackup <span class="nt">-D</span> /backups/base_full <span class="nt">-X</span> stream <span class="nt">-c</span> fast <span class="nt">-P</span>
+pg_verifybackup /backups/base_full
 </code></pre></div></div>
 
-<div class="notice--warning">
-  <p><strong>The cardinal rule of backups:</strong> an untested backup does not
-  exist. Schedule a periodic restore into a scratch instance and run a checksum or
-  row-count smoke test. Most "we had backups" outages are really "we had backup
-  <em>files</em> that turned out to be empty, truncated, or unrestorable."</p>
-</div>
+<p><strong>Incremental backups (PostgreSQL 17+).</strong> With <code class="language-plaintext highlighter-rouge">summarize_wal = on</code>, the server tracks which blocks changed, and <code class="language-plaintext highlighter-rouge">pg_basebackup --incremental</code> copies only those relative to an earlier backup’s manifest. An incremental backup is not restorable by itself; <code class="language-plaintext highlighter-rouge">pg_combinebackup</code> reconstructs a full data directory from the chain:</p>
 
-<h3 id="point-in-time-recovery-pitr">Point-in-Time Recovery (PITR)</h3>
-
-<p>A nightly base backup alone can only restore you to last midnight. <strong>Point-in-Time
-Recovery</strong> combines a base backup with the stream of WAL segments written since, so
-you can replay forward to <em>any</em> moment — crucially, to the instant <em>before</em> a bad
-<code class="language-plaintext highlighter-rouge">DELETE</code> or a deployment that corrupted data.</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  Base backup            WAL archive (continuous)         Recovery target
-       |======================================================|
-   Sun 02:00          ... segment 0A 0B 0C 0D 0E ...      Mon 14:32:07
-       |                                                      |
-       +---- restore data files ----+---- replay WAL up to here, then stop
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pg_basebackup <span class="nt">-D</span> /backups/incr_mon <span class="nt">-X</span> stream <span class="se">\</span>
+    <span class="nt">--incremental</span><span class="o">=</span>/backups/base_full/backup_manifest
+pg_combinebackup /backups/base_full /backups/incr_mon <span class="nt">-o</span> /restore/pgdata
 </code></pre></div></div>
 
-<p>The mechanism is just the crash-recovery replay from
-<a href="storage-internals.html#write-ahead-logging-surviving-crashes">Storage Engines &amp; Recovery</a>,
-extended: instead of replaying the WAL to its end, you stop at a chosen LSN, time,
-named restore point, or transaction ID.</p>
+<p>For production, most teams use a dedicated backup tool rather than scripting these primitives. <strong>pgBackRest</strong>, <strong>Barman</strong>, and <strong>WAL-G</strong> handle parallel and incremental backups, compression, encryption, object-storage targets, retention, WAL archiving, and verified restores. Managed services (Amazon RDS/Aurora, Cloud SQL, Azure Database for PostgreSQL) provide automated backups with PITR inside a retention window; check that window against your RPO, and remember that snapshots in the same account share its blast radius.</p>
 
-<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># postgresql.conf — turn on continuous archiving
+<p><strong>Test restores.</strong> Most “we had backups” outages are really “we had backup files that turned out to be empty, truncated, or unrestorable.” Automate a periodic restore into a scratch instance, run <code class="language-plaintext highlighter-rouge">pg_verifybackup</code> or the tool’s verify command, and run a smoke test (row counts, checksums on critical tables, a representative query). The measured duration is your real RTO.</p>
+
+<h3 id="point-in-time-recovery-pitr">Point-in-time recovery (PITR)</h3>
+
+<p>A base backup alone restores the cluster to the moment the backup finished. <strong>Point-in-time recovery</strong> restores a base backup and then replays archived WAL forward to a chosen target — typically the instant before a destructive statement or a bad deployment.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    B["Base backup&lt;br/&gt;Sun 02:00"] --&gt; W1["WAL segments&lt;br/&gt;Sun 02:00 to Mon 14:31"]
+    W1 --&gt; T(["Recovery target&lt;br/&gt;Mon 14:31:59"])
+    T -. "not replayed" .-&gt; X["DROP TABLE orders&lt;br/&gt;Mon 14:32:07"]
+</code></pre>
+
+<p>The mechanism is the same WAL replay used for <a href="storage-internals.html#write-ahead-logging-surviving-crashes">crash recovery</a>, stopped early at a time, LSN, transaction ID, or named restore point.</p>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># postgresql.conf on the primary - continuous archiving
 </span><span class="py">wal_level</span> <span class="p">=</span> <span class="s">replica</span>
 <span class="py">archive_mode</span> <span class="p">=</span> <span class="s">on</span>
-<span class="py">archive_command</span> <span class="p">=</span> <span class="s">'test ! -f /archive/%f &amp;&amp; cp %p /archive/%f'</span>
-</code></pre></div></div>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Take the periodic base backup (this is your starting point)</span>
-pg_basebackup <span class="nt">-D</span> /backups/base <span class="nt">-X</span> stream
-
-<span class="c"># 2. WAL segments accumulate in /archive via archive_command</span>
-
-<span class="c"># 3. To recover to a point in time: restore the base, then set the target.</span>
-<span class="c">#    PostgreSQL replays archived WAL and pauses at the target.</span>
-</code></pre></div></div>
-
-<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># postgresql.conf on the recovery instance
-</span><span class="py">restore_command</span> <span class="p">=</span> <span class="s">'cp /archive/%f %p'</span>
-<span class="py">recovery_target_time</span> <span class="p">=</span> <span class="s">'2026-06-06 14:32:00+00'</span>
-<span class="py">recovery_target_action</span> <span class="p">=</span> <span class="s">'promote'</span>   <span class="c"># become primary once target reached
+<span class="c"># Prefer a backup tool's archive command, e.g.:
+</span><span class="py">archive_command</span> <span class="p">=</span> <span class="s">'pgbackrest --stanza=main archive-push %p'</span>
+<span class="c"># The documentation's "test ! -f dest &amp;&amp; cp %p dest" example is for
+# illustration: plain cp does not fsync, so a crash can lose archived WAL.
 </span></code></pre></div></div>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Signal that this is an archive recovery, then start.</span>
-<span class="nb">touch</span> /var/lib/postgresql/data/recovery.signal
-pg_ctl start
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># postgresql.conf (or postgresql.auto.conf) on the recovery instance
+</span><span class="py">restore_command</span> <span class="p">=</span> <span class="s">'pgbackrest --stanza=main archive-get %f "%p"'</span>
+<span class="py">recovery_target_time</span> <span class="p">=</span> <span class="s">'2026-09-21 14:31:59+00'</span>
+<span class="py">recovery_target_action</span> <span class="p">=</span> <span class="s">'promote'</span>    <span class="c"># default is 'pause', to inspect first
+</span></code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Restore the base backup into the data directory, then request</span>
+<span class="c"># archive recovery by creating recovery.signal (PostgreSQL 12+).</span>
+<span class="nb">touch</span> <span class="s2">"</span><span class="nv">$PGDATA</span><span class="s2">/recovery.signal"</span>
+pg_ctl <span class="nt">-D</span> <span class="s2">"</span><span class="nv">$PGDATA</span><span class="s2">"</span> start
 </code></pre></div></div>
 
-<div class="notice--info">
-  <p>Recovery targets compose. You can stop at a <code>recovery_target_time</code>,
-  a <code>recovery_target_lsn</code>, a <code>recovery_target_xid</code>, or a
-  named <code>recovery_target_name</code> (created with
-  <code>pg_create_restore_point('before-migration')</code>). Wrapping a risky
-  migration in a named restore point gives you a precise, labeled rollback line.</p>
-</div>
+<p>Targets can be <code class="language-plaintext highlighter-rouge">recovery_target_time</code>, <code class="language-plaintext highlighter-rouge">recovery_target_lsn</code>, <code class="language-plaintext highlighter-rouge">recovery_target_xid</code>, or <code class="language-plaintext highlighter-rouge">recovery_target_name</code>. Creating a named restore point before risky work gives a labeled rollback line:</p>
 
-<h3 id="disaster-recovery">Disaster Recovery</h3>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="n">pg_create_restore_point</span><span class="p">(</span><span class="s1">'before-orders-migration'</span><span class="p">);</span>
+</code></pre></div></div>
 
-<p>Backups protect against data loss; <strong>disaster recovery (DR)</strong> protects against the
-loss of a whole site — a region outage, a ransomware event, an accidental
-<code class="language-plaintext highlighter-rouge">DROP DATABASE</code> in production. A credible DR posture has three legs:</p>
+<p>Recovering to a point in time creates a new <strong>timeline</strong>; the old history remains in the archive, so a second attempt with a different target is possible if the first was wrong. Restore into a separate instance when the goal is to recover a few rows, and copy them back, rather than rewinding the whole production cluster.</p>
+
+<h3 id="disaster-recovery">Disaster recovery</h3>
+
+<p>Backups protect against data loss; <strong>disaster recovery (DR)</strong> protects against losing a whole site, account, or region — including to ransomware or a compromised administrator.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph RegionA["Region A"]
+        P[(Primary)]
+        R1[(Sync or async&lt;br/&gt;standby, other AZ)]
+    end
+    subgraph RegionB["Region B"]
+        R2[(Async standby)]
+    end
+    subgraph Vault["Separate account / provider"]
+        O[("Object storage&lt;br/&gt;versioned + object lock")]
+    end
+    P -- streaming replication --&gt; R1
+    P -- streaming replication --&gt; R2
+    P -- "WAL archive + base backups" --&gt; O
+</code></pre>
 
 <ol>
-  <li><strong>Geographic redundancy.</strong> Ship WAL or stream replication to a standby in a
-<em>different</em> region/availability zone. If the primary’s data center disappears,
-the standby is promoted.</li>
-  <li><strong>Immutable / offsite copies.</strong> Backups on the same host (or same cloud account)
-as the database are not DR — a compromised account can delete both. Push copies
-to object storage with versioning and an object-lock retention policy so even an
-attacker with credentials cannot erase history.</li>
-  <li><strong>The 3-2-1 rule.</strong> Keep <strong>3</strong> copies of the data, on <strong>2</strong> different media/types,
-with <strong>1</strong> copy offsite. It is decades old and still the cheapest insurance you
-can buy.</li>
+  <li><strong>Geographic redundancy.</strong> A standby in another availability zone covers hardware and zone failures; one in another region covers regional outages. Promotion and failover mechanics are covered in <a href="replication-and-consensus.html">Replication &amp; Consensus</a>.</li>
+  <li><strong>Immutable, isolated copies.</strong> Backups in the same cloud account as the database can be deleted by the same stolen credentials. Write them to object storage with versioning and object lock (WORM retention) in a separate account.</li>
+  <li><strong>The 3-2-1 rule.</strong> Three copies of the data, on two different kinds of storage, one of them offsite. Many teams extend it to 3-2-1-1-0: one copy immutable or offline, and zero errors in verified restores.</li>
 </ol>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   Primary (us-east)                    Standby (us-west)
-   +-------------+   streaming repl     +-------------+
-   |  PostgreSQL | ===================&gt; |  PostgreSQL |  (hot standby)
-   +------+------+   (async or sync)    +-------------+
-          | archive_command
-          v
-   +---------------------------+
-   |  Object storage (versioned,|  &lt;-- offsite, immutable, the "1" in 3-2-1
-   |  object-lock, cross-region)|
-   +---------------------------+
-</code></pre></div></div>
-
-<div class="notice--warning">
-  <p><strong>Run game-days.</strong> A DR plan that has never been exercised will
-  fail in novel ways under real pressure. Schedule a regular failover drill:
-  promote the standby, point a copy of the app at it, verify, and document how long
-  the whole thing actually took. That measured number is your real RTO.</p>
-</div>
+<p>Exercise the plan with regular <strong>failover drills</strong>: promote the standby, point a copy of the application at it, verify, and record how long it took and what broke.</p>
 
 <h2 id="maintenance-vacuum-analyze-and-autovacuum">Maintenance: VACUUM, ANALYZE, and Autovacuum</h2>
 
-<p>PostgreSQL’s MVCC (see
-<a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a>) never updates
-a row in place — an <code class="language-plaintext highlighter-rouge">UPDATE</code> writes a new row version and marks the old one dead, and
-a <code class="language-plaintext highlighter-rouge">DELETE</code> just marks the row dead. Those dead tuples linger until something reclaims
-them. That something is <strong>VACUUM</strong>.</p>
+<p>PostgreSQL’s MVCC (see <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a>) never overwrites a row in place. An <code class="language-plaintext highlighter-rouge">UPDATE</code> writes a new row version and marks the old one dead; a <code class="language-plaintext highlighter-rouge">DELETE</code> only marks the row dead. Dead versions must remain until no running transaction can still see them.</p>
 
-<h3 id="why-dead-tuples-accumulate">Why Dead Tuples Accumulate</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Step</th>
+      <th>Heap page contents</th>
+      <th>Visible to new transactions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Before <code class="language-plaintext highlighter-rouge">UPDATE accounts SET balance = 90 WHERE id = 7</code></td>
+      <td><code class="language-plaintext highlighter-rouge">(id=7, balance=100)</code></td>
+      <td><code class="language-plaintext highlighter-rouge">balance=100</code></td>
+    </tr>
+    <tr>
+      <td>After the update commits</td>
+      <td><code class="language-plaintext highlighter-rouge">(id=7, balance=100)</code> dead, <code class="language-plaintext highlighter-rouge">(id=7, balance=90)</code> live</td>
+      <td><code class="language-plaintext highlighter-rouge">balance=90</code></td>
+    </tr>
+    <tr>
+      <td>After VACUUM</td>
+      <td><code class="language-plaintext highlighter-rouge">(id=7, balance=90)</code> live, freed slot reusable</td>
+      <td><code class="language-plaintext highlighter-rouge">balance=90</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>UPDATE accounts SET balance = 90 WHERE id = 7;
+<p>Once no snapshot needs them (they are older than the <strong>xmin horizon</strong>, the oldest transaction any session or replication slot still depends on), dead tuples are <strong>bloat</strong>: they waste space, slow sequential scans, and inflate indexes.</p>
 
-  Heap page before        Heap page after
-  +----------------+      +----------------+
-  | id=7 bal=100   |      | id=7 bal=100   |  &lt;- dead (old version)
-  |                |      | id=7 bal=90    |  &lt;- live (new version)
-  +----------------+      +----------------+
+<h3 id="what-vacuum-and-analyze-do">What VACUUM and ANALYZE do</h3>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">VACUUM</span> <span class="p">(</span><span class="k">VERBOSE</span><span class="p">)</span> <span class="n">orders</span><span class="p">;</span>   <span class="c1">-- reclaim dead tuples for reuse; update the visibility map</span>
+<span class="k">ANALYZE</span> <span class="n">orders</span><span class="p">;</span>            <span class="c1">-- refresh planner statistics (row counts, distributions)</span>
+<span class="k">VACUUM</span> <span class="p">(</span><span class="k">ANALYZE</span><span class="p">)</span> <span class="n">orders</span><span class="p">;</span>   <span class="c1">-- both</span>
+
+<span class="c1">-- VACUUM FULL rewrites the table compactly and returns space to the OS,</span>
+<span class="c1">-- but holds an ACCESS EXCLUSIVE lock for the duration (no reads or writes).</span>
+<span class="c1">-- On busy tables use pg_repack or pg_squeeze for an online rewrite instead.</span>
+<span class="k">VACUUM</span> <span class="k">FULL</span> <span class="n">orders</span><span class="p">;</span>
 </code></pre></div></div>
 
-<p>Old versions must remain visible to transactions that started before the update.
-Once no running transaction can see them (they fall below the oldest active
-snapshot’s <em>xid horizon</em>), they are <strong>bloat</strong> — wasted space that slows scans and
-inflates the table on disk.</p>
+<p>Ordinary <code class="language-plaintext highlighter-rouge">VACUUM</code> does not shrink files (except for empty pages at the end), but freed space is reused by later inserts and updates. Stale statistics are a leading cause of sudden plan changes, so <code class="language-plaintext highlighter-rouge">ANALYZE</code> matters as much as the space reclamation. After a major-version upgrade, run <code class="language-plaintext highlighter-rouge">vacuumdb --all --analyze-in-stages</code> unless the upgrade carried statistics over (PostgreSQL 18’s <code class="language-plaintext highlighter-rouge">pg_upgrade</code> does, except for extended statistics).</p>
 
-<h3 id="vacuum-and-analyze">VACUUM and ANALYZE</h3>
+<h3 id="freezing-and-transaction-id-wraparound">Freezing and transaction-ID wraparound</h3>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- VACUUM reclaims dead tuples and makes the space reusable (does not</span>
-<span class="c1">-- shrink the file, but the freed space is reused by future inserts).</span>
-<span class="k">VACUUM</span> <span class="p">(</span><span class="k">VERBOSE</span><span class="p">)</span> <span class="n">orders</span><span class="p">;</span>
+<p>PostgreSQL transaction IDs are 32-bit and compared modulo $2^{32}$, so each transaction can only distinguish about two billion older IDs from newer ones. VACUUM <strong>freezes</strong> old rows — marks them as visible to everyone — so they remain valid as the counter wraps. If freezing falls far enough behind, PostgreSQL first runs an emergency “failsafe” vacuum (<code class="language-plaintext highlighter-rouge">vacuum_failsafe_age</code>, default 1.6 billion) and, as a last resort, stops assigning new transaction IDs, which takes the database effectively read-only until a manual VACUUM completes. This is entirely preventable with monitoring:</p>
 
-<span class="c1">-- ANALYZE refreshes the planner's statistics (row counts, value</span>
-<span class="c1">-- distributions) so EXPLAIN chooses good plans. Stale stats are a</span>
-<span class="c1">-- top cause of "the query was fast yesterday".</span>
-<span class="k">ANALYZE</span> <span class="n">orders</span><span class="p">;</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Databases and tables closest to wraparound (alert well before ~1 billion)</span>
+<span class="k">SELECT</span> <span class="n">datname</span><span class="p">,</span> <span class="n">age</span><span class="p">(</span><span class="n">datfrozenxid</span><span class="p">)</span> <span class="k">AS</span> <span class="n">xid_age</span>
+<span class="k">FROM</span> <span class="n">pg_database</span> <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">xid_age</span> <span class="k">DESC</span><span class="p">;</span>
 
-<span class="c1">-- Routine combined maintenance:</span>
-<span class="k">VACUUM</span> <span class="k">ANALYZE</span> <span class="n">orders</span><span class="p">;</span>
-
-<span class="c1">-- VACUUM FULL rewrites the table compactly and DOES return disk to the</span>
-<span class="c1">-- OS -- but takes an ACCESS EXCLUSIVE lock (blocks all reads/writes).</span>
-<span class="c1">-- Use pg_repack instead for an online rewrite on busy tables.</span>
-<span class="k">VACUUM</span> <span class="k">FULL</span> <span class="n">orders</span><span class="p">;</span>   <span class="c1">-- locks the table; schedule a maintenance window</span>
+<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">oid</span><span class="p">::</span><span class="n">regclass</span> <span class="k">AS</span> <span class="k">table</span><span class="p">,</span> <span class="n">age</span><span class="p">(</span><span class="k">c</span><span class="p">.</span><span class="n">relfrozenxid</span><span class="p">)</span> <span class="k">AS</span> <span class="n">xid_age</span>
+<span class="k">FROM</span> <span class="n">pg_class</span> <span class="k">c</span>
+<span class="k">WHERE</span> <span class="k">c</span><span class="p">.</span><span class="n">relkind</span> <span class="k">IN</span> <span class="p">(</span><span class="s1">'r'</span><span class="p">,</span> <span class="s1">'m'</span><span class="p">,</span> <span class="s1">'t'</span><span class="p">)</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">xid_age</span> <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
 </code></pre></div></div>
 
-<p>There is a second, non-negotiable job VACUUM performs: <strong>freezing</strong> old rows to
-prevent transaction-ID wraparound. PostgreSQL’s xids are 32-bit and cycle; VACUUM
-“freezes” sufficiently old rows so they stay visible across the wraparound. Let this
-fall too far behind and the database will, as a last resort, refuse new writes to
-protect itself — a notorious and entirely preventable production outage.</p>
+<p>PostgreSQL 18 adds <strong>eager freezing</strong>: regular vacuums opportunistically freeze all-visible pages (tuned by <code class="language-plaintext highlighter-rouge">vacuum_max_eager_freeze_failure_rate</code>), spreading out the work that previously arrived as a large anti-wraparound vacuum on big, insert-mostly tables.</p>
 
 <h3 id="autovacuum">Autovacuum</h3>
 
-<p>You should almost never run VACUUM by hand on a schedule — the <strong>autovacuum</strong>
-daemon does it automatically, triggering per-table when enough rows have changed.</p>
+<p>The <strong>autovacuum</strong> launcher starts workers that vacuum and analyze each table when enough of it has changed. For dead tuples, a table qualifies when</p>
 
-\[\text{vacuum threshold} = \text{base} + \text{scale factor} \times n_{\text{live tuples}}\]
+\[n_{\text{dead}} &gt; \min\left(\theta_{\text{base}} + s \cdot n_{\text{tuples}},\ \theta_{\max}\right)\]
 
-<p>With the defaults (<code class="language-plaintext highlighter-rouge">base = 50</code>, <code class="language-plaintext highlighter-rouge">scale factor = 0.2</code>), a table is vacuumed after
-roughly 20% of its rows change. That percentage is fine for small tables and far
-too lazy for large, hot ones: 20% of a billion-row table is 200 million dead
-tuples of bloat before autovacuum even starts. Tune the scale factor down per table:</p>
+<p>where $\theta_{\text{base}}$ is <code class="language-plaintext highlighter-rouge">autovacuum_vacuum_threshold</code> (default 50), $s$ is <code class="language-plaintext highlighter-rouge">autovacuum_vacuum_scale_factor</code> (default 0.2), and $\theta_{\max}$ is <code class="language-plaintext highlighter-rouge">autovacuum_vacuum_max_threshold</code> (PostgreSQL 18+, default 100 million). Inserts have a parallel trigger (<code class="language-plaintext highlighter-rouge">autovacuum_vacuum_insert_threshold</code> and <code class="language-plaintext highlighter-rouge">..._insert_scale_factor</code>, PostgreSQL 13+) so append-only tables still get vacuumed and frozen.</p>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- A large, frequently-updated table: vacuum after ~1% churn, analyze after ~0.5%.</span>
+<p>A 20% scale factor suits small tables and is far too lazy for large, hot ones: before PostgreSQL 18, a billion-row table accumulated 200 million dead tuples before autovacuum started. Tune large tables individually:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Vacuum after ~1% churn and analyze after ~0.5% on a large, hot table</span>
 <span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="k">SET</span> <span class="p">(</span>
     <span class="n">autovacuum_vacuum_scale_factor</span>  <span class="o">=</span> <span class="mi">0</span><span class="p">.</span><span class="mi">01</span><span class="p">,</span>
     <span class="n">autovacuum_analyze_scale_factor</span> <span class="o">=</span> <span class="mi">0</span><span class="p">.</span><span class="mi">005</span>
 <span class="p">);</span>
 
-<span class="c1">-- Watch the daemon's progress and per-table health:</span>
+<span class="c1">-- Tables with the most dead tuples, and when they were last vacuumed</span>
 <span class="k">SELECT</span> <span class="n">relname</span><span class="p">,</span>
        <span class="n">n_live_tup</span><span class="p">,</span>
        <span class="n">n_dead_tup</span><span class="p">,</span>
-       <span class="n">round</span><span class="p">(</span><span class="mi">100</span><span class="p">.</span><span class="mi">0</span> <span class="o">*</span> <span class="n">n_dead_tup</span> <span class="o">/</span> <span class="k">nullif</span><span class="p">(</span><span class="n">n_live_tup</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dead_pct</span><span class="p">,</span>
+       <span class="n">round</span><span class="p">(</span><span class="mi">100</span><span class="p">.</span><span class="mi">0</span> <span class="o">*</span> <span class="n">n_dead_tup</span> <span class="o">/</span> <span class="k">nullif</span><span class="p">(</span><span class="n">n_live_tup</span> <span class="o">+</span> <span class="n">n_dead_tup</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">dead_pct</span><span class="p">,</span>
        <span class="n">last_autovacuum</span><span class="p">,</span>
        <span class="n">autovacuum_count</span>
 <span class="k">FROM</span> <span class="n">pg_stat_user_tables</span>
 <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">n_dead_tup</span> <span class="k">DESC</span>
 <span class="k">LIMIT</span> <span class="mi">20</span><span class="p">;</span>
 
-<span class="c1">-- Find tables creeping toward xid wraparound (act well before 2^31 ~= 2.1B):</span>
-<span class="k">SELECT</span> <span class="n">relname</span><span class="p">,</span> <span class="n">age</span><span class="p">(</span><span class="n">relfrozenxid</span><span class="p">)</span> <span class="k">AS</span> <span class="n">xid_age</span>
-<span class="k">FROM</span> <span class="n">pg_class</span>
-<span class="k">WHERE</span> <span class="n">relkind</span> <span class="o">=</span> <span class="s1">'r'</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">xid_age</span> <span class="k">DESC</span>
-<span class="k">LIMIT</span> <span class="mi">10</span><span class="p">;</span>
+<span class="c1">-- What autovacuum is doing right now</span>
+<span class="k">SELECT</span> <span class="n">p</span><span class="p">.</span><span class="n">pid</span><span class="p">,</span> <span class="n">p</span><span class="p">.</span><span class="n">relid</span><span class="p">::</span><span class="n">regclass</span> <span class="k">AS</span> <span class="k">table</span><span class="p">,</span> <span class="n">p</span><span class="p">.</span><span class="n">phase</span><span class="p">,</span>
+       <span class="n">p</span><span class="p">.</span><span class="n">heap_blks_scanned</span><span class="p">,</span> <span class="n">p</span><span class="p">.</span><span class="n">heap_blks_total</span>
+<span class="k">FROM</span> <span class="n">pg_stat_progress_vacuum</span> <span class="n">p</span><span class="p">;</span>
 </code></pre></div></div>
 
-<div class="notice--info">
-  <p>If autovacuum "can't keep up," the usual culprits are: a long-running
-  transaction or abandoned replication slot pinning the xid horizon (so VACUUM
-  cannot remove any tuples newer than it), too few <code>autovacuum_max_workers</code>,
-  or an over-conservative <code>autovacuum_vacuum_cost_delay</code> throttling it.
-  Check <code>pg_stat_activity</code> for ancient transactions and
-  <code>pg_replication_slots</code> for stale slots first.</p>
-</div>
+<p>When autovacuum cannot keep up, check in this order:</p>
+
+<ol>
+  <li><strong>Something is pinning the xmin horizon</strong>, so VACUUM runs but cannot remove anything: a long-running or <code class="language-plaintext highlighter-rouge">idle in transaction</code> session (<code class="language-plaintext highlighter-rouge">pg_stat_activity.backend_xmin</code>), an inactive replication slot (<code class="language-plaintext highlighter-rouge">pg_replication_slots</code>), a forgotten prepared transaction (<code class="language-plaintext highlighter-rouge">pg_prepared_xacts</code>), or a standby with <code class="language-plaintext highlighter-rouge">hot_standby_feedback = on</code> running long queries. PostgreSQL 18’s <code class="language-plaintext highlighter-rouge">idle_replication_slot_timeout</code> can invalidate abandoned slots automatically.</li>
+  <li><strong>Too few workers.</strong> <code class="language-plaintext highlighter-rouge">autovacuum_max_workers</code> defaults to 3; in PostgreSQL 18 it can be raised at runtime up to <code class="language-plaintext highlighter-rouge">autovacuum_worker_slots</code>.</li>
+  <li><strong>Too much throttling.</strong> Cost-based delay (<code class="language-plaintext highlighter-rouge">autovacuum_vacuum_cost_delay</code>, default 2 ms, and <code class="language-plaintext highlighter-rouge">autovacuum_vacuum_cost_limit</code>) limits I/O; on fast SSDs the limit can usually be raised substantially.</li>
+  <li><strong>Memory.</strong> <code class="language-plaintext highlighter-rouge">maintenance_work_mem</code> / <code class="language-plaintext highlighter-rouge">autovacuum_work_mem</code> bound how many dead tuple IDs one pass can track. PostgreSQL 17’s new dead-tuple storage uses far less memory and removed the previous 1 GB cap, so each pass does more work.</li>
+</ol>
 
 <h2 id="connection-pooling">Connection Pooling</h2>
 
-<p>Each PostgreSQL connection is a separate OS process with its own memory. A few
-hundred is fine; a few thousand idle connections waste gigabytes of RAM and
-schedule poorly. Yet web apps and serverless functions love to open a connection
-per request. A <strong>connection pooler</strong> sits between them and the database, multiplexing
-many short-lived client connections onto a small, stable set of server connections.</p>
+<p>Each PostgreSQL connection is a separate server process with its own memory. A few hundred connections are fine; thousands, most of them idle, waste memory, raise contention on shared structures, and slow snapshot acquisition. Web applications, autoscaled services, and serverless functions routinely try to open that many. A <strong>connection pooler</strong> multiplexes many client connections onto a small, stable set of server connections.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  Thousands of app                       Small fixed set
-  connections (cheap)                    of DB backends (expensive)
-   app  ----\                             /---- backend
-   app  -----\      +-------------+      /----- backend
-   app  ------+---&gt; |  PgBouncer  | ----&gt;+----- backend
-   app  -----/      +-------------+      \----- backend
-   app  ----/                             \---- (e.g. 20 total)
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Clients["Thousands of client connections"]
+        A1[app instance]
+        A2[app instance]
+        A3[app instance]
+        A4[serverless fn]
+    end
+    PB["PgBouncer&lt;br/&gt;pool_mode = transaction"]
+    subgraph Server["PostgreSQL: ~20 backends"]
+        S1[backend]
+        S2[backend]
+        S3[backend]
+    end
+    A1 --&gt; PB
+    A2 --&gt; PB
+    A3 --&gt; PB
+    A4 --&gt; PB
+    PB --&gt; S1
+    PB --&gt; S2
+    PB --&gt; S3
+</code></pre>
 
-<p><strong>PgBouncer</strong> is the de-facto lightweight pooler. Its key knob is the pool <em>mode</em>:</p>
+<p><strong>PgBouncer</strong> is the standard lightweight pooler (current release line 1.25). Its central setting is the pool mode:</p>
 
 <table>
   <thead>
     <tr>
       <th>Mode</th>
-      <th>A server connection is returned to the pool…</th>
+      <th>Server connection returns to the pool</th>
       <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">session</code></td>
-      <td>when the client disconnects</td>
-      <td>Safe for everything; least multiplexing</td>
+      <td>When the client disconnects</td>
+      <td>Full compatibility; little multiplexing</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">transaction</code></td>
-      <td>at the end of each transaction</td>
-      <td>The sweet spot for web apps</td>
+      <td>At the end of each transaction</td>
+      <td>The usual choice for web and service workloads</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">statement</code></td>
-      <td>after each statement</td>
-      <td>Maximum reuse; forbids multi-statement txns</td>
+      <td>After each statement</td>
+      <td>Multi-statement transactions are forbidden</td>
     </tr>
   </tbody>
 </table>
 
 <div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">; pgbouncer.ini
 </span><span class="nn">[databases]</span>
-<span class="py">mydb</span> <span class="p">=</span> <span class="s">host=127.0.0.1 port=5432 dbname=mydb</span>
+<span class="py">mydb</span> <span class="p">=</span> <span class="s">host=10.0.0.5 port=5432 dbname=mydb</span>
 
 <span class="nn">[pgbouncer]</span>
+<span class="py">listen_port</span> <span class="p">=</span> <span class="s">6432</span>
 <span class="py">pool_mode</span> <span class="p">=</span> <span class="s">transaction</span>
-<span class="py">max_client_conn</span> <span class="p">=</span> <span class="s">5000      ; clients PgBouncer will accept</span>
-<span class="py">default_pool_size</span> <span class="p">=</span> <span class="s">20      ; server connections per (user, db)</span>
-<span class="py">reserve_pool_size</span> <span class="p">=</span> <span class="s">5       ; extra connections for bursts</span>
+<span class="py">max_client_conn</span> <span class="p">=</span> <span class="s">5000          ; client connections accepted</span>
+<span class="py">default_pool_size</span> <span class="p">=</span> <span class="s">20          ; server connections per (user, database)</span>
+<span class="py">reserve_pool_size</span> <span class="p">=</span> <span class="s">5           ; extra connections when clients wait too long</span>
+<span class="py">max_prepared_statements</span> <span class="p">=</span> <span class="s">200   ; protocol-level prepared statements in transaction mode (1.21+)</span>
+<span class="py">server_idle_timeout</span> <span class="p">=</span> <span class="s">600</span>
 </code></pre></div></div>
 
-<div class="notice--warning">
-  <p><strong>Transaction mode breaks session-scoped state.</strong> Because a
-  backend is shared across transactions, anything that lives at the session level —
-  <code>SET</code> session variables, <code>LISTEN/NOTIFY</code>, advisory
-  session locks, server-side prepared statements, <code>WITH HOLD</code> cursors —
-  may land on a different backend than you expect. Keep state inside the transaction,
-  or use <code>session</code> mode for those clients.</p>
-</div>
+<p>In transaction mode a client may get a different backend for each transaction, so <strong>session-scoped state does not carry over</strong>: session-level <code class="language-plaintext highlighter-rouge">SET</code>, <code class="language-plaintext highlighter-rouge">LISTEN</code>, session advisory locks, temporary tables, and <code class="language-plaintext highlighter-rouge">WITH HOLD</code> cursors. Use <code class="language-plaintext highlighter-rouge">SET LOCAL</code> inside the transaction, or route those clients through a session-mode pool. Protocol-level prepared statements — what most drivers use — work in transaction mode since PgBouncer 1.21 when <code class="language-plaintext highlighter-rouge">max_prepared_statements</code> is non-zero; SQL-level <code class="language-plaintext highlighter-rouge">PREPARE</code> still does not.</p>
 
-<h3 id="sizing-the-pool">Sizing the Pool</h3>
+<p>Alternatives include <strong>PgCat</strong> and <strong>Odyssey</strong> (multi-threaded poolers with load balancing and sharding features), <strong>Supavisor</strong>, and managed proxies such as <strong>Amazon RDS Proxy</strong>. Applications also keep a client-side pool; with PgBouncer in front it should be small.</p>
 
-<p>More connections is not faster. Once every CPU and disk spindle is busy, extra
-concurrent queries just add context-switching and lock contention, so throughput
-falls. A widely cited starting point for an OLTP pool is:</p>
+<h3 id="sizing-the-pool">Sizing the pool</h3>
 
-\[\text{pool size} \approx (\text{cores} \times 2) + \text{effective spindle count}\]
+<p>More connections do not mean more throughput. Once CPUs and storage are saturated, extra concurrent queries add context switching and lock contention, and latency rises for everyone. A widely used starting point for the number of <em>active</em> server connections, from the PostgreSQL community via the HikariCP project, is:</p>
 
-<p>On a 4-core box backed by SSD, that suggests roughly 8–12 server connections — far
-smaller than most people guess. Measure under load and adjust: watch query latency
-and the count of sessions waiting on locks, not just raw QPS.</p>
+\[\text{connections} \approx 2 \times n_{\text{cores}} + n_{\text{effective spindles}}\]
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Application-side pooling complements PgBouncer (e.g. SQLAlchemy / psycopg).
-# Keep the app pool modest; let PgBouncer absorb the spikes.
-</span><span class="n">engine</span> <span class="o">=</span> <span class="nf">create_engine</span><span class="p">(</span>
-    <span class="sh">"</span><span class="s">postgresql+psycopg://user@pgbouncer-host:6432/mydb</span><span class="sh">"</span><span class="p">,</span>
-    <span class="n">pool_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>        <span class="c1"># steady-state connections this process holds
-</span>    <span class="n">max_overflow</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>      <span class="c1"># temporary extra under burst
-</span>    <span class="n">pool_pre_ping</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>  <span class="c1"># detect dead connections before using them
-</span>    <span class="n">pool_recycle</span><span class="o">=</span><span class="mi">1800</span><span class="p">,</span>   <span class="c1"># recycle to avoid stale/expired connections
+<p>On an 8-core server with SSD storage that suggests roughly 16–20 active connections — far fewer than most people guess. The spindle term is loosely defined for SSDs, so treat the formula as a starting point: load-test, watch latency percentiles and wait events, and adjust. The total across all pools and application instances must stay below <code class="language-plaintext highlighter-rouge">max_connections</code> minus superuser and replication reserves.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Application-side pool (SQLAlchemy 2.x + psycopg 3) pointed at PgBouncer
+</span><span class="kn">from</span> <span class="n">sqlalchemy</span> <span class="kn">import</span> <span class="n">create_engine</span>
+
+<span class="n">engine</span> <span class="o">=</span> <span class="nf">create_engine</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">postgresql+psycopg://app@pgbouncer:6432/mydb</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">pool_size</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>          <span class="c1"># steady-state connections per process
+</span>    <span class="n">max_overflow</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>       <span class="c1"># temporary extra under bursts
+</span>    <span class="n">pool_timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>       <span class="c1"># fail fast instead of queueing forever
+</span>    <span class="n">pool_pre_ping</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>   <span class="c1"># detect dead connections before use
+</span>    <span class="n">pool_recycle</span><span class="o">=</span><span class="mi">1800</span><span class="p">,</span>    <span class="c1"># replace connections periodically
 </span><span class="p">)</span>
 </code></pre></div></div>
 
-<h2 id="monitoring-with-the-pg_stat_-views">Monitoring with the <code class="language-plaintext highlighter-rouge">pg_stat_*</code> Views</h2>
+<h2 id="monitoring">Monitoring</h2>
 
-<p>PostgreSQL exposes its internal counters through a family of <code class="language-plaintext highlighter-rouge">pg_stat_*</code> and
-<code class="language-plaintext highlighter-rouge">pg_statio_*</code> system views. They are the source of truth that dashboards
-(Prometheus <code class="language-plaintext highlighter-rouge">postgres_exporter</code>, Datadog, CloudWatch) ultimately scrape. Knowing
-the raw views lets you investigate when a dashboard does not have the panel you need.</p>
+<p>PostgreSQL exposes its internal counters through the cumulative statistics system — the <code class="language-plaintext highlighter-rouge">pg_stat_*</code> and <code class="language-plaintext highlighter-rouge">pg_statio_*</code> views — which dashboards (Prometheus <code class="language-plaintext highlighter-rouge">postgres_exporter</code>, Datadog, Grafana, CloudWatch Database Insights) ultimately scrape. Knowing the raw views lets you investigate when a dashboard lacks the panel you need.</p>
 
-<p>A useful mental model is the <strong>USE</strong> method — for each resource, watch
-<strong>U</strong>tilization, <strong>S</strong>aturation, and <strong>E</strong>rrors — alongside golden signals of
-latency and throughput.</p>
+<p>Two frameworks help decide what to watch: the <strong>USE method</strong> (for each resource: utilization, saturation, errors) and the <strong>golden signals</strong> (latency, traffic, errors, saturation). For a database, “resources” include CPU, memory, disk I/O, WAL volume, connection slots, locks, and the xmin horizon.</p>
 
-<h3 id="live-activity-pg_stat_activity">Live Activity: <code class="language-plaintext highlighter-rouge">pg_stat_activity</code></h3>
+<h3 id="live-activity-pg_stat_activity">Live activity: <code class="language-plaintext highlighter-rouge">pg_stat_activity</code></h3>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- What is every backend doing right now? The first stop in any incident.</span>
-<span class="k">SELECT</span> <span class="n">pid</span><span class="p">,</span>
-       <span class="n">usename</span><span class="p">,</span>
-       <span class="n">application_name</span><span class="p">,</span>
-       <span class="k">state</span><span class="p">,</span>
-       <span class="n">wait_event_type</span><span class="p">,</span>
-       <span class="n">wait_event</span><span class="p">,</span>
-       <span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">query_start</span> <span class="k">AS</span> <span class="n">runtime</span><span class="p">,</span>
-       <span class="k">left</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="mi">80</span><span class="p">)</span>      <span class="k">AS</span> <span class="n">query</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- What is every non-idle backend doing? The first query in any incident.</span>
+<span class="k">SELECT</span> <span class="n">pid</span><span class="p">,</span> <span class="n">usename</span><span class="p">,</span> <span class="n">application_name</span><span class="p">,</span> <span class="k">state</span><span class="p">,</span>
+       <span class="n">wait_event_type</span><span class="p">,</span> <span class="n">wait_event</span><span class="p">,</span>
+       <span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">xact_start</span>  <span class="k">AS</span> <span class="n">xact_age</span><span class="p">,</span>
+       <span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">query_start</span> <span class="k">AS</span> <span class="n">query_age</span><span class="p">,</span>
+       <span class="k">left</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="mi">80</span><span class="p">)</span>     <span class="k">AS</span> <span class="n">query</span>
 <span class="k">FROM</span> <span class="n">pg_stat_activity</span>
-<span class="k">WHERE</span> <span class="k">state</span> <span class="o">&lt;&gt;</span> <span class="s1">'idle'</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">runtime</span> <span class="k">DESC</span><span class="p">;</span>
+<span class="k">WHERE</span> <span class="k">state</span> <span class="o">&lt;&gt;</span> <span class="s1">'idle'</span> <span class="k">AND</span> <span class="n">backend_type</span> <span class="o">=</span> <span class="s1">'client backend'</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">xact_age</span> <span class="k">DESC</span> <span class="n">NULLS</span> <span class="k">LAST</span><span class="p">;</span>
 
-<span class="c1">-- Find who is blocking whom (the classic "everything is stuck" query):</span>
-<span class="k">SELECT</span> <span class="n">blocked</span><span class="p">.</span><span class="n">pid</span>          <span class="k">AS</span> <span class="n">blocked_pid</span><span class="p">,</span>
-       <span class="n">blocked</span><span class="p">.</span><span class="n">query</span>        <span class="k">AS</span> <span class="n">blocked_query</span><span class="p">,</span>
-       <span class="n">blocking</span><span class="p">.</span><span class="n">pid</span>         <span class="k">AS</span> <span class="n">blocking_pid</span><span class="p">,</span>
-       <span class="n">blocking</span><span class="p">.</span><span class="n">query</span>       <span class="k">AS</span> <span class="n">blocking_query</span>
+<span class="c1">-- Who is blocking whom</span>
+<span class="k">SELECT</span> <span class="n">blocked</span><span class="p">.</span><span class="n">pid</span>        <span class="k">AS</span> <span class="n">blocked_pid</span><span class="p">,</span>
+       <span class="k">left</span><span class="p">(</span><span class="n">blocked</span><span class="p">.</span><span class="n">query</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>  <span class="k">AS</span> <span class="n">blocked_query</span><span class="p">,</span>
+       <span class="n">blocking</span><span class="p">.</span><span class="n">pid</span>       <span class="k">AS</span> <span class="n">blocking_pid</span><span class="p">,</span>
+       <span class="k">left</span><span class="p">(</span><span class="n">blocking</span><span class="p">.</span><span class="n">query</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span> <span class="k">AS</span> <span class="n">blocking_query</span><span class="p">,</span>
+       <span class="n">blocking</span><span class="p">.</span><span class="k">state</span>     <span class="k">AS</span> <span class="n">blocking_state</span>
 <span class="k">FROM</span> <span class="n">pg_stat_activity</span> <span class="n">blocked</span>
 <span class="k">JOIN</span> <span class="n">pg_stat_activity</span> <span class="n">blocking</span>
-  <span class="k">ON</span> <span class="n">blocking</span><span class="p">.</span><span class="n">pid</span> <span class="o">=</span> <span class="k">ANY</span><span class="p">(</span><span class="n">pg_blocking_pids</span><span class="p">(</span><span class="n">blocked</span><span class="p">.</span><span class="n">pid</span><span class="p">));</span>
+  <span class="k">ON</span> <span class="n">blocking</span><span class="p">.</span><span class="n">pid</span> <span class="o">=</span> <span class="k">ANY</span> <span class="p">(</span><span class="n">pg_blocking_pids</span><span class="p">(</span><span class="n">blocked</span><span class="p">.</span><span class="n">pid</span><span class="p">));</span>
 </code></pre></div></div>
 
-<h3 id="query-hotspots-pg_stat_statements">Query Hotspots: <code class="language-plaintext highlighter-rouge">pg_stat_statements</code></h3>
+<p><code class="language-plaintext highlighter-rouge">wait_event_type</code> and <code class="language-plaintext highlighter-rouge">wait_event</code> say what a backend is waiting for (<code class="language-plaintext highlighter-rouge">Lock</code>, <code class="language-plaintext highlighter-rouge">LWLock</code>, <code class="language-plaintext highlighter-rouge">IO</code>, <code class="language-plaintext highlighter-rouge">Client</code>, …); PostgreSQL 17 added the <code class="language-plaintext highlighter-rouge">pg_wait_events</code> view describing each event. Sampling these columns every second or so gives a poor man’s “active session history” that shows where time goes during an incident.</p>
 
-<p>The single most valuable extension for performance work. It aggregates execution
-statistics per normalized query, so you can rank by <em>total</em> time spent — the
-queries actually worth optimizing are the ones that are slow <strong>times</strong> frequent.</p>
+<h3 id="query-hotspots-pg_stat_statements">Query hotspots: <code class="language-plaintext highlighter-rouge">pg_stat_statements</code></h3>
+
+<p>The most valuable extension for performance work. It aggregates statistics per normalized query (constants replaced by placeholders). It must be loaded at server start:</p>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="py">shared_preload_libraries</span> <span class="p">=</span> <span class="s">'pg_stat_statements,auto_explain'</span>
+<span class="py">compute_query_id</span> <span class="p">=</span> <span class="s">on</span>
+<span class="py">track_io_timing</span> <span class="p">=</span> <span class="s">on</span>
+</code></pre></div></div>
 
 <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="n">EXTENSION</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">pg_stat_statements</span><span class="p">;</span>
 
-<span class="c1">-- Where is the server's time actually going?</span>
 <span class="k">SELECT</span> <span class="n">calls</span><span class="p">,</span>
-       <span class="n">round</span><span class="p">(</span><span class="n">mean_exec_time</span><span class="p">::</span><span class="nb">numeric</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="k">AS</span> <span class="n">avg_ms</span><span class="p">,</span>
-       <span class="n">round</span><span class="p">(</span><span class="n">total_exec_time</span><span class="p">::</span><span class="nb">numeric</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">AS</span> <span class="n">total_ms</span><span class="p">,</span>
-       <span class="n">round</span><span class="p">(</span><span class="mi">100</span><span class="p">.</span><span class="mi">0</span> <span class="o">*</span> <span class="n">shared_blks_hit</span> <span class="o">/</span>
-             <span class="k">nullif</span><span class="p">(</span><span class="n">shared_blks_hit</span> <span class="o">+</span> <span class="n">shared_blks_read</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">cache_hit_pct</span><span class="p">,</span>
+       <span class="n">round</span><span class="p">(</span><span class="n">total_exec_time</span><span class="p">::</span><span class="nb">numeric</span><span class="p">)</span>    <span class="k">AS</span> <span class="n">total_ms</span><span class="p">,</span>
+       <span class="n">round</span><span class="p">(</span><span class="n">mean_exec_time</span><span class="p">::</span><span class="nb">numeric</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>  <span class="k">AS</span> <span class="n">mean_ms</span><span class="p">,</span>
+       <span class="k">rows</span><span class="p">,</span>
+       <span class="n">round</span><span class="p">(</span><span class="mi">100</span><span class="p">.</span><span class="mi">0</span> <span class="o">*</span> <span class="n">shared_blks_hit</span>
+             <span class="o">/</span> <span class="k">nullif</span><span class="p">(</span><span class="n">shared_blks_hit</span> <span class="o">+</span> <span class="n">shared_blks_read</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span> <span class="k">AS</span> <span class="n">hit_pct</span><span class="p">,</span>
        <span class="k">left</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="mi">80</span><span class="p">)</span> <span class="k">AS</span> <span class="n">query</span>
 <span class="k">FROM</span> <span class="n">pg_stat_statements</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">total_exec_time</span> <span class="k">DESC</span>      <span class="c1">-- total, not mean: optimize the big rocks</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">total_exec_time</span> <span class="k">DESC</span>
 <span class="k">LIMIT</span> <span class="mi">15</span><span class="p">;</span>
 </code></pre></div></div>
 
-<div class="notice--info">
-  <p>Optimize by <em>total</em> time, not average. A 5 ms query called a million
-  times an hour costs the server far more than a 2-second report run once a day.
-  Rank by <code>total_exec_time</code>, fix the top of the list, then re-measure.</p>
-</div>
+<p>Rank by <strong>total</strong> time, not mean. A 5 ms query called a million times an hour costs the server far more than a 2-second report run once a day. Fix the top of the list, reset (<code class="language-plaintext highlighter-rouge">pg_stat_statements_reset()</code>), and re-measure.</p>
 
-<h3 id="table-and-io-health">Table and I/O Health</h3>
+<h3 id="tables-indexes-and-io">Tables, indexes, and I/O</h3>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Per-table access patterns: seq scans vs index scans, dead tuples, last vacuum.</span>
-<span class="k">SELECT</span> <span class="n">relname</span><span class="p">,</span>
-       <span class="n">seq_scan</span><span class="p">,</span>
-       <span class="n">idx_scan</span><span class="p">,</span>
-       <span class="n">n_live_tup</span><span class="p">,</span>
-       <span class="n">n_dead_tup</span><span class="p">,</span>
-       <span class="n">last_autovacuum</span><span class="p">,</span>
-       <span class="n">last_autoanalyze</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Large tables read mostly by sequential scan may be missing an index</span>
+<span class="k">SELECT</span> <span class="n">relname</span><span class="p">,</span> <span class="n">seq_scan</span><span class="p">,</span> <span class="n">seq_tup_read</span><span class="p">,</span> <span class="n">idx_scan</span><span class="p">,</span> <span class="n">n_live_tup</span>
 <span class="k">FROM</span> <span class="n">pg_stat_user_tables</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">seq_scan</span> <span class="k">DESC</span><span class="p">;</span>       <span class="c1">-- big tables with high seq_scan want an index</span>
+<span class="k">WHERE</span> <span class="n">n_live_tup</span> <span class="o">&gt;</span> <span class="mi">100000</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">seq_tup_read</span> <span class="k">DESC</span>
+<span class="k">LIMIT</span> <span class="mi">20</span><span class="p">;</span>
 
-<span class="c1">-- Cache hit ratio per table (want &gt; 0.99 for hot tables):</span>
-<span class="k">SELECT</span> <span class="n">relname</span><span class="p">,</span>
-       <span class="n">heap_blks_hit</span><span class="p">,</span>
-       <span class="n">heap_blks_read</span><span class="p">,</span>
-       <span class="n">round</span><span class="p">(</span><span class="n">heap_blks_hit</span><span class="p">::</span><span class="nb">numeric</span> <span class="o">/</span>
-             <span class="k">nullif</span><span class="p">(</span><span class="n">heap_blks_hit</span> <span class="o">+</span> <span class="n">heap_blks_read</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">4</span><span class="p">)</span> <span class="k">AS</span> <span class="n">hit_ratio</span>
-<span class="k">FROM</span> <span class="n">pg_statio_user_tables</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">heap_blks_read</span> <span class="k">DESC</span><span class="p">;</span>
+<span class="c1">-- Unused indexes: pure write and storage overhead.</span>
+<span class="c1">-- Check replicas too - an index unused on the primary may serve replica reads.</span>
+<span class="k">SELECT</span> <span class="n">s</span><span class="p">.</span><span class="n">relname</span> <span class="k">AS</span> <span class="k">table</span><span class="p">,</span> <span class="n">s</span><span class="p">.</span><span class="n">indexrelname</span> <span class="k">AS</span> <span class="k">index</span><span class="p">,</span> <span class="n">s</span><span class="p">.</span><span class="n">idx_scan</span><span class="p">,</span>
+       <span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_relation_size</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">indexrelid</span><span class="p">))</span> <span class="k">AS</span> <span class="k">size</span>
+<span class="k">FROM</span> <span class="n">pg_stat_user_indexes</span> <span class="n">s</span>
+<span class="k">JOIN</span> <span class="n">pg_index</span> <span class="n">i</span> <span class="k">USING</span> <span class="p">(</span><span class="n">indexrelid</span><span class="p">)</span>
+<span class="k">WHERE</span> <span class="n">s</span><span class="p">.</span><span class="n">idx_scan</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">AND</span> <span class="k">NOT</span> <span class="n">i</span><span class="p">.</span><span class="n">indisunique</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">pg_relation_size</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">indexrelid</span><span class="p">)</span> <span class="k">DESC</span><span class="p">;</span>
 
-<span class="c1">-- Unused indexes (idx_scan = 0): pure write overhead, candidates to drop.</span>
-<span class="k">SELECT</span> <span class="n">relname</span> <span class="k">AS</span> <span class="k">table</span><span class="p">,</span> <span class="n">indexrelname</span> <span class="k">AS</span> <span class="k">index</span><span class="p">,</span> <span class="n">idx_scan</span><span class="p">,</span>
-       <span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_relation_size</span><span class="p">(</span><span class="n">indexrelid</span><span class="p">))</span> <span class="k">AS</span> <span class="k">size</span>
-<span class="k">FROM</span> <span class="n">pg_stat_user_indexes</span>
-<span class="k">WHERE</span> <span class="n">idx_scan</span> <span class="o">=</span> <span class="mi">0</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">pg_relation_size</span><span class="p">(</span><span class="n">indexrelid</span><span class="p">)</span> <span class="k">DESC</span><span class="p">;</span>
+<span class="c1">-- Cluster-wide I/O by backend type and context (PostgreSQL 16+;</span>
+<span class="c1">-- byte columns and WAL rows added in 18)</span>
+<span class="k">SELECT</span> <span class="n">backend_type</span><span class="p">,</span> <span class="k">object</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="k">reads</span><span class="p">,</span> <span class="n">writes</span><span class="p">,</span> <span class="n">extends</span><span class="p">,</span> <span class="n">fsyncs</span>
+<span class="k">FROM</span> <span class="n">pg_stat_io</span>
+<span class="k">WHERE</span> <span class="k">reads</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">OR</span> <span class="n">writes</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">writes</span> <span class="k">DESC</span><span class="p">;</span>
 </code></pre></div></div>
 
-<h3 id="the-slow-query-log">The Slow Query Log</h3>
+<p>A buffer-cache hit ratio (<code class="language-plaintext highlighter-rouge">blks_hit / (blks_hit + blks_read)</code> in <code class="language-plaintext highlighter-rouge">pg_stat_database</code>) is worth trending, but it is a weak alert: a “read” may still be served from the operating system’s page cache, and a healthy analytical workload can legitimately have a low ratio. Alert on latency and saturation; use the ratio to explain them.</p>
 
-<p>Aggregated counters tell you <em>what</em> is slow on average; the slow query log captures
-the <em>individual</em> offenders with their exact parameters and timing, which is what you
-need to reproduce and <code class="language-plaintext highlighter-rouge">EXPLAIN</code> them.</p>
+<h3 id="the-slow-query-log-and-auto_explain">The slow-query log and <code class="language-plaintext highlighter-rouge">auto_explain</code></h3>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Log any statement slower than 500 ms, with the plan for slow ones.</span>
-<span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">log_min_duration_statement</span> <span class="o">=</span> <span class="mi">500</span><span class="p">;</span>     <span class="c1">-- milliseconds</span>
-<span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">auto_explain</span><span class="p">.</span><span class="n">log_min_duration</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">;</span> <span class="c1">-- needs auto_explain</span>
-<span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">log_lock_waits</span> <span class="o">=</span> <span class="k">on</span><span class="p">;</span>                  <span class="c1">-- log lock-wait stalls</span>
+<p>Aggregates show <em>which</em> queries are expensive on average; the log captures individual slow executions with their parameters, which you need to reproduce and <code class="language-plaintext highlighter-rouge">EXPLAIN</code> them.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">log_min_duration_statement</span> <span class="o">=</span> <span class="s1">'500ms'</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">log_lock_waits</span> <span class="o">=</span> <span class="k">on</span><span class="p">;</span>                   <span class="c1">-- waits longer than deadlock_timeout</span>
+<span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">log_autovacuum_min_duration</span> <span class="o">=</span> <span class="s1">'10s'</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">auto_explain</span><span class="p">.</span><span class="n">log_min_duration</span> <span class="o">=</span> <span class="s1">'1s'</span><span class="p">;</span>  <span class="c1">-- requires auto_explain loaded</span>
+<span class="k">ALTER</span> <span class="k">SYSTEM</span> <span class="k">SET</span> <span class="n">auto_explain</span><span class="p">.</span><span class="n">log_analyze</span> <span class="o">=</span> <span class="k">on</span><span class="p">;</span>         <span class="c1">-- actual rows/timing (adds overhead)</span>
 <span class="k">SELECT</span> <span class="n">pg_reload_conf</span><span class="p">();</span>
 </code></pre></div></div>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Always capture the actual plan when investigating a specific slow query:</span>
-<span class="k">EXPLAIN</span> <span class="p">(</span><span class="k">ANALYZE</span><span class="p">,</span> <span class="n">BUFFERS</span><span class="p">,</span> <span class="n">FORMAT</span> <span class="nb">TEXT</span><span class="p">)</span>
-<span class="k">SELECT</span> <span class="p">...;</span>
-<span class="c1">-- Red flags: Seq Scan on a large table, a Sort/Hash spilling to "Disk:",</span>
-<span class="c1">-- a row-estimate that is orders of magnitude off the actual (stale stats),</span>
-<span class="c1">-- or a Nested Loop driving millions of inner iterations.</span>
-</code></pre></div></div>
+<p>To investigate one query, run <code class="language-plaintext highlighter-rouge">EXPLAIN (ANALYZE, BUFFERS)</code> — in PostgreSQL 18 <code class="language-plaintext highlighter-rouge">BUFFERS</code> is included automatically with <code class="language-plaintext highlighter-rouge">ANALYZE</code>. Red flags: sequential scans on large tables, sorts or hashes spilling to disk, row estimates off by orders of magnitude (stale statistics or correlated columns), and nested loops driving millions of inner iterations. Plan-reading is covered in <a href="indexing-and-queries.html">Indexing &amp; Query Execution</a>.</p>
 
-<p>The per-query plan-reading workflow — what <code class="language-plaintext highlighter-rouge">EXPLAIN</code> output means and how to fix the
-common pathologies — lives in
-<a href="indexing-and-queries.html">Indexing &amp; Query Execution</a>; this page is about
-<em>surfacing</em> the queries worth analyzing.</p>
-
-<h3 id="key-metrics-to-alert-on">Key Metrics to Alert On</h3>
+<h3 id="what-to-alert-on">What to alert on</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Metric</th>
+      <th>Signal</th>
       <th>Source</th>
-      <th>Why it matters</th>
+      <th>Why</th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <td>Query latency (p95/p99) per workload</td>
+      <td><code class="language-plaintext highlighter-rouge">pg_stat_statements</code> deltas, application metrics</td>
+      <td>The symptom users feel</td>
+    </tr>
+    <tr>
       <td>Replication lag</td>
-      <td><code class="language-plaintext highlighter-rouge">pg_stat_replication</code> (<code class="language-plaintext highlighter-rouge">replay_lag</code>)</td>
-      <td>A lagging standby = data loss on failover</td>
+      <td><code class="language-plaintext highlighter-rouge">pg_stat_replication</code> (<code class="language-plaintext highlighter-rouge">replay_lag</code>), replica <code class="language-plaintext highlighter-rouge">pg_last_xact_replay_timestamp()</code></td>
+      <td>Data loss on failover; stale reads</td>
     </tr>
     <tr>
-      <td>Cache hit ratio</td>
-      <td><code class="language-plaintext highlighter-rouge">pg_stat_database</code></td>
-      <td>A sudden drop signals working set &gt; RAM</td>
-    </tr>
-    <tr>
-      <td>Connections vs <code class="language-plaintext highlighter-rouge">max_connections</code></td>
+      <td>Connections vs. <code class="language-plaintext highlighter-rouge">max_connections</code></td>
       <td><code class="language-plaintext highlighter-rouge">pg_stat_activity</code></td>
-      <td>Nearing the limit means refused logins</td>
+      <td>New logins refused at the limit</td>
     </tr>
     <tr>
-      <td>Longest transaction age</td>
+      <td>Oldest transaction / <code class="language-plaintext highlighter-rouge">backend_xmin</code> age</td>
       <td><code class="language-plaintext highlighter-rouge">pg_stat_activity</code></td>
-      <td>Long txns block VACUUM and bloat tables</td>
+      <td>Blocks VACUUM; causes bloat</td>
     </tr>
     <tr>
-      <td>Deadlocks / rollbacks</td>
-      <td><code class="language-plaintext highlighter-rouge">pg_stat_database</code></td>
-      <td>Rising counts hint at a contention bug</td>
+      <td>Inactive replication slots, retained WAL</td>
+      <td><code class="language-plaintext highlighter-rouge">pg_replication_slots</code></td>
+      <td>Can fill the WAL volume</td>
     </tr>
     <tr>
-      <td>Disk free on the data volume</td>
+      <td>Transaction-ID age</td>
+      <td><code class="language-plaintext highlighter-rouge">age(datfrozenxid)</code></td>
+      <td>Wraparound protection stops writes</td>
+    </tr>
+    <tr>
+      <td>WAL archiving failures</td>
+      <td><code class="language-plaintext highlighter-rouge">pg_stat_archiver</code> (<code class="language-plaintext highlighter-rouge">failed_count</code>, <code class="language-plaintext highlighter-rouge">last_failed_time</code>)</td>
+      <td>PITR silently stops working; WAL piles up</td>
+    </tr>
+    <tr>
+      <td>Disk free (data and WAL volumes)</td>
       <td>OS / cloud metric</td>
-      <td>A full WAL volume can halt the database</td>
+      <td>A full disk halts writes</td>
     </tr>
     <tr>
-      <td>xid age</td>
-      <td><code class="language-plaintext highlighter-rouge">pg_class.relfrozenxid</code></td>
-      <td>Wraparound protection will stop writes</td>
+      <td>Deadlocks, rollbacks, temp-file bytes</td>
+      <td><code class="language-plaintext highlighter-rouge">pg_stat_database</code></td>
+      <td>Contention bugs; <code class="language-plaintext highlighter-rouge">work_mem</code> too small</td>
+    </tr>
+    <tr>
+      <td>Checkpoint frequency</td>
+      <td><code class="language-plaintext highlighter-rouge">pg_stat_checkpointer</code> (PostgreSQL 17+)</td>
+      <td>Requested (not timed) checkpoints mean <code class="language-plaintext highlighter-rouge">max_wal_size</code> is too small</td>
     </tr>
   </tbody>
 </table>
 
 <h2 id="capacity-planning">Capacity Planning</h2>
 
-<p>Capacity planning is forecasting <em>when</em> you will run out of headroom on each
-resource — CPU, memory, disk, IOPS, connections — so you can scale <strong>before</strong> users
-feel it, not during the incident. The method is the same regardless of which
-resource you are projecting:</p>
+<p>Capacity planning forecasts when each resource — CPU, memory, storage, IOPS, connections, WAL throughput — will run out, so capacity is added before users notice.</p>
 
 <ol>
-  <li><strong>Establish a baseline</strong> from the monitoring views above (current QPS, dataset
-size, peak connections, daily growth).</li>
-  <li><strong>Project growth</strong> with a simple model. Linear growth is the common case; viral
-or seasonal growth needs an exponential or seasonal model.</li>
-  <li><strong>Find the saturation point</strong> — the utilization at which latency starts climbing
-(queueing theory says this knee is well before 100%).</li>
-  <li><strong>Subtract a safety margin</strong> and translate the remaining runway into a date.</li>
+  <li><strong>Baseline</strong> current usage from the monitoring views and host metrics.</li>
+  <li><strong>Project growth</strong> with a model that fits the data: linear for steady growth, exponential or seasonal where appropriate.</li>
+  <li><strong>Find the knee.</strong> Latency rises long before a resource reaches 100%. In the simplest queueing model (M/M/1), mean response time is $R = S / (1 - U)$ for service time $S$ and utilization $U$: at 50% utilization requests take twice their service time, at 80% five times, at 90% ten times.</li>
+  <li><strong>Subtract a safety margin</strong> and convert the remaining headroom into a date.</li>
 </ol>
 
-<p>For a resource growing at a steady rate, the runway to a target threshold is:</p>
+<p>For a resource consumed at a steady rate:</p>
 
 \[t_{\text{runway}} = \frac{C_{\text{threshold}} - C_{\text{now}}}{r_{\text{growth}}}\]
 
-<p>where $C$ is capacity used and $r_{\text{growth}}$ is consumption per unit time.</p>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_database_size</span><span class="p">(</span><span class="n">current_database</span><span class="p">()))</span> <span class="k">AS</span> <span class="n">db_size</span><span class="p">;</span>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Disk growth: total size of the database now (track this over time).</span>
-<span class="k">SELECT</span> <span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_database_size</span><span class="p">(</span><span class="n">current_database</span><span class="p">()))</span> <span class="k">AS</span> <span class="n">db_size</span><span class="p">;</span>
-
-<span class="c1">-- Per-table footprint, biggest first -- where growth and bloat concentrate.</span>
+<span class="c1">-- Largest relations: where growth and bloat concentrate</span>
 <span class="k">SELECT</span> <span class="n">relname</span><span class="p">,</span>
        <span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_total_relation_size</span><span class="p">(</span><span class="n">relid</span><span class="p">))</span> <span class="k">AS</span> <span class="n">total</span><span class="p">,</span>
        <span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_relation_size</span><span class="p">(</span><span class="n">relid</span><span class="p">))</span>       <span class="k">AS</span> <span class="n">heap</span><span class="p">,</span>
        <span class="n">pg_size_pretty</span><span class="p">(</span><span class="n">pg_indexes_size</span><span class="p">(</span><span class="n">relid</span><span class="p">))</span>        <span class="k">AS</span> <span class="n">indexes</span>
-<span class="k">FROM</span> <span class="n">pg_catalog</span><span class="p">.</span><span class="n">pg_statio_user_tables</span>
+<span class="k">FROM</span> <span class="n">pg_statio_user_tables</span>
 <span class="k">ORDER</span> <span class="k">BY</span> <span class="n">pg_total_relation_size</span><span class="p">(</span><span class="n">relid</span><span class="p">)</span> <span class="k">DESC</span>
 <span class="k">LIMIT</span> <span class="mi">20</span><span class="p">;</span>
 </code></pre></div></div>
 
-<p><strong>Worked example: disk runway.</strong> A 400 GB database is growing 12 GB/week. The data volume is 1 TB, and you do not want to exceed 80% (820 GB) before adding capacity. Remaining runway:</p>
+<p><strong>Worked example.</strong> A 400 GB database grows 12 GB per week on a 1 TB volume, and the team wants to stay below 80% (about 820 GB):</p>
 
-\[t_{\text{runway}} = \frac{820\,\text{GB} - 400\,\text{GB}}{12\,\text{GB/week}}
-= 35\ \text{weeks}\]
+\[t_{\text{runway}} = \frac{820\ \text{GB} - 400\ \text{GB}}{12\ \text{GB/week}} = 35\ \text{weeks}\]
 
-<p>Roughly eight months of headroom — comfortable, but note that adding a WAL archive, more indexes, or a busier write workload all steepen the slope, so re-run the projection whenever the growth rate changes.</p>
+<p>About eight months of headroom. New indexes, retained WAL (from lagging replicas or slots), and bloat all steepen the slope, so re-run the projection when growth changes. Plan for whichever resource runs out first — a database can have ample disk and still be short of IOPS, memory for its working set, or connection slots.</p>
 
-<div class="notice--info">
-  <p>Plan for the resource that runs out <em>first</em>. A database can have ample
-  disk but be starved on IOPS, memory, or connection slots. Track every dimension
-  and let the nearest ceiling drive the upgrade timeline.</p>
-</div>
+<h2 id="upgrades">Upgrades</h2>
 
-<h2 id="handling-a-production-incident">Handling a Production Incident</h2>
+<p>PostgreSQL releases a major version each year and supports each for five years; minor releases (security and bug fixes only) come quarterly and should be applied promptly. PostgreSQL 14 reaches end of life in November 2026.</p>
 
-<p>When a database incident hits — queries timing out, replication broken, disk
-nearly full — a calm, repeatable procedure beats improvisation. The same loop
-applies whether you are an SRE or the lone maintainer.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Downtime</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Minor upgrade (e.g. 18.5 to 18.6)</td>
+      <td>A restart</td>
+      <td>Binary replacement; read the release notes for occasional post-upgrade steps such as reindexing</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pg_upgrade --link</code> or <code class="language-plaintext highlighter-rouge">--swap</code> (18+)</td>
+      <td>Minutes, independent of data size</td>
+      <td>Rewrites the catalog only; take a backup first. Version 18 preserves planner statistics</td>
+    </tr>
+    <tr>
+      <td>Logical replication to a new cluster</td>
+      <td>Seconds at cutover</td>
+      <td>Replicate into the new version, verify, then switch traffic; sequences and DDL need separate handling</td>
+    </tr>
+    <tr>
+      <td>Dump and restore</td>
+      <td>Hours for large databases</td>
+      <td>Simplest; also changes platform or encoding</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Test the application against the new version first; planner changes occasionally alter important plans, which <code class="language-plaintext highlighter-rouge">pg_stat_statements</code> comparisons before and after will reveal.</p>
+
+<h2 id="incident-response">Incident Response</h2>
+
+<p>When a database incident hits — timeouts, broken replication, a nearly full disk — a calm, repeatable loop beats improvisation.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A[Assess] --&gt; M[Mitigate]
+    M --&gt; D[Diagnose]
+    D --&gt; R[Recover]
+    R --&gt; L[Learn]
+    L -. "alerts, runbooks,&lt;br/&gt;guardrails" .-&gt; A
+</code></pre>
 
 <ol>
   <li>
-    <p><strong>Assess and stabilize.</strong> Is the database up? Accepting connections? Read the
-golden signals: connection count, longest-running query, replication lag, disk
-free. The first goal is to stop the bleeding, not to find root cause.</p>
+    <p><strong>Assess.</strong> Is the database up and accepting connections? Check connection counts, the oldest transaction, lock waits, replication lag, and disk space.</p>
 
-    <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- One screen of triage:</span>
-<span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="n">FILTER</span> <span class="p">(</span><span class="k">WHERE</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">'active'</span><span class="p">)</span>  <span class="k">AS</span> <span class="n">active</span><span class="p">,</span>
+    <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="n">FILTER</span> <span class="p">(</span><span class="k">WHERE</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">'active'</span><span class="p">)</span>              <span class="k">AS</span> <span class="n">active</span><span class="p">,</span>
        <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="n">FILTER</span> <span class="p">(</span><span class="k">WHERE</span> <span class="k">state</span> <span class="o">=</span> <span class="s1">'idle in transaction'</span><span class="p">)</span> <span class="k">AS</span> <span class="n">idle_in_txn</span><span class="p">,</span>
-       <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>                                   <span class="k">AS</span> <span class="n">total</span><span class="p">,</span>
-       <span class="k">max</span><span class="p">(</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">xact_start</span><span class="p">)</span>                    <span class="k">AS</span> <span class="n">longest_txn</span>
-<span class="k">FROM</span> <span class="n">pg_stat_activity</span><span class="p">;</span>
+       <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="n">FILTER</span> <span class="p">(</span><span class="k">WHERE</span> <span class="n">wait_event_type</span> <span class="o">=</span> <span class="s1">'Lock'</span><span class="p">)</span>      <span class="k">AS</span> <span class="n">waiting_on_locks</span><span class="p">,</span>
+       <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span>                                              <span class="k">AS</span> <span class="n">total</span><span class="p">,</span>
+       <span class="k">max</span><span class="p">(</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">xact_start</span><span class="p">)</span>                               <span class="k">AS</span> <span class="n">oldest_txn</span>
+<span class="k">FROM</span> <span class="n">pg_stat_activity</span>
+<span class="k">WHERE</span> <span class="n">backend_type</span> <span class="o">=</span> <span class="s1">'client backend'</span><span class="p">;</span>
 </code></pre></div>    </div>
   </li>
   <li>
-    <p><strong>Mitigate the immediate harm.</strong> This is reversible first aid, not the fix:
-cancel or terminate a runaway query, kill a stuck <code class="language-plaintext highlighter-rouge">idle in transaction</code> session
-that is blocking VACUUM, or free disk by archiving WAL that has been backed up.</p>
+    <p><strong>Mitigate.</strong> Apply reversible first aid: cancel a runaway query, terminate a session that holds locks or pins the xmin horizon, shed load at the pooler, or add disk.</p>
 
-    <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="n">pg_cancel_backend</span><span class="p">(</span><span class="n">pid</span><span class="p">);</span>     <span class="c1">-- ask the query to stop (gentle)</span>
-<span class="k">SELECT</span> <span class="n">pg_terminate_backend</span><span class="p">(</span><span class="n">pid</span><span class="p">);</span>  <span class="c1">-- kill the whole backend (forceful)</span>
+    <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">SELECT</span> <span class="n">pg_cancel_backend</span><span class="p">(</span><span class="mi">12345</span><span class="p">);</span>     <span class="c1">-- cancel the current query (gentle)</span>
+<span class="k">SELECT</span> <span class="n">pg_terminate_backend</span><span class="p">(</span><span class="mi">12345</span><span class="p">);</span>  <span class="c1">-- end the session (rolls back its transaction)</span>
 </code></pre></div>    </div>
+
+    <p>Never delete files from <code class="language-plaintext highlighter-rouge">pg_wal</code> by hand to free space; find what is retaining WAL (a failing <code class="language-plaintext highlighter-rouge">archive_command</code>, an inactive replication slot) and fix that instead.</p>
   </li>
-  <li>
-    <p><strong>Diagnose root cause</strong> once the fire is out — using <code class="language-plaintext highlighter-rouge">pg_stat_statements</code>, the
-slow-query log, and <code class="language-plaintext highlighter-rouge">EXPLAIN</code>. Resist the urge to skip this step: an
-un-diagnosed incident <em>will</em> recur.</p>
-  </li>
-  <li>
-    <p><strong>Recover or fail over.</strong> If the primary is unrecoverable, promote a standby; if
-data was corrupted or wrongly deleted, this is where PITR earns its keep —
-restore to the moment before the bad change.</p>
-  </li>
-  <li>
-    <p><strong>Write the postmortem.</strong> Blameless, focused on the <em>system</em> gap that let it
-happen. The output is concrete: an alert that would have caught it sooner, an
-autovacuum setting changed, a runbook step added, a capacity threshold lowered.</p>
-  </li>
+  <li><strong>Diagnose</strong> root cause once the system is stable, using <code class="language-plaintext highlighter-rouge">pg_stat_statements</code>, the logs, wait events, and <code class="language-plaintext highlighter-rouge">EXPLAIN</code>.</li>
+  <li><strong>Recover.</strong> Fail over to a standby if the primary is lost; use PITR (into a separate instance where possible) if data was damaged.</li>
+  <li><strong>Learn.</strong> Write a blameless postmortem whose output is concrete: a new alert, a changed setting, a runbook step, a guardrail.</li>
 </ol>
 
-<div class="notice--warning">
-  <p><strong>Slow down to speed up.</strong> Most catastrophic database incidents
-  are made worse by a panicked second action — a <code>VACUUM FULL</code> that locks
-  the table mid-outage, a restore over the only good copy, a failover with a lagging
-  standby that loses committed data. State the change, confirm it is reversible, then
-  act.</p>
-</div>
+<p>Server-side timeouts are the most effective guardrails against repeat incidents. Set them per role or per application rather than globally:</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">ALTER</span> <span class="k">ROLE</span> <span class="n">app</span> <span class="k">SET</span> <span class="n">statement_timeout</span> <span class="o">=</span> <span class="s1">'30s'</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">ROLE</span> <span class="n">app</span> <span class="k">SET</span> <span class="n">idle_in_transaction_session_timeout</span> <span class="o">=</span> <span class="s1">'60s'</span><span class="p">;</span>
+<span class="k">ALTER</span> <span class="k">ROLE</span> <span class="n">app</span> <span class="k">SET</span> <span class="n">lock_timeout</span> <span class="o">=</span> <span class="s1">'5s'</span><span class="p">;</span>           <span class="c1">-- especially for migrations</span>
+<span class="k">ALTER</span> <span class="k">ROLE</span> <span class="n">app</span> <span class="k">SET</span> <span class="n">transaction_timeout</span> <span class="o">=</span> <span class="s1">'5min'</span><span class="p">;</span>  <span class="c1">-- PostgreSQL 17+</span>
+</code></pre></div></div>
 
-<ul>
-  <li><strong>Test your restores.</strong> An unrestored backup is a guess. Automate periodic test restores and a smoke check so you discover broken backups in a drill, not in a disaster.</li>
-  <li><strong>PITR gives you a time machine.</strong> A base backup plus continuous WAL archiving lets you rewind to the instant before a bad change — your defense against human error, not just hardware failure.</li>
-  <li><strong>Keep autovacuum healthy.</strong> MVCC generates dead tuples; tune <code class="language-plaintext highlighter-rouge">autovacuum_*_scale_factor</code> down on large hot tables, and never let xid age drift toward wraparound.</li>
-  <li><strong>Pool connections, modestly.</strong> PgBouncer in transaction mode multiplexes thousands of clients onto a small backend pool. Smaller pools often mean lower latency.</li>
-  <li><strong>Instrument before you tune.</strong> The <code class="language-plaintext highlighter-rouge">pg_stat_*</code> views and <code class="language-plaintext highlighter-rouge">pg_stat_statements</code> show where time goes. Optimize by total time, alert on saturation.</li>
-  <li><strong>Have a calm incident loop.</strong> Stabilize, mitigate, diagnose, recover, learn. Slowing down to confirm reversibility prevents the second mistake that turns an incident into an outage.</li>
-</ul>
+<p>Most severe database incidents are made worse by a hurried second action: a <code class="language-plaintext highlighter-rouge">VACUUM FULL</code> that locks a critical table mid-outage, a restore over the only good copy, a failover to a lagging standby that discards committed transactions. State the intended change, confirm it is reversible, then act.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the WAL, buffer pool, and checkpoints these operations rest on.</li>
-  <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — reading <code class="language-plaintext highlighter-rouge">EXPLAIN</code> to fix the slow queries you surface here.</li>
-  <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — why MVCC produces the dead tuples VACUUM reclaims.</li>
-  <li><a href="distributed-and-nosql.html">Distributed Databases &amp; NoSQL</a> — replication and failover at scale.</li>
-  <li><a href="./">Database Design hub</a> — the rest of the deep dive.</li>
+  <li><a href="storage-internals.html">Storage Engines &amp; Recovery</a> — the WAL, buffer pool, and checkpoints these operations rest on</li>
+  <li><a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — reading <code class="language-plaintext highlighter-rouge">EXPLAIN</code> to fix the queries surfaced here</li>
+  <li><a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a> — why MVCC produces the dead tuples VACUUM reclaims</li>
+  <li><a href="replication-and-consensus.html">Replication &amp; Consensus</a> — streaming replication, failover, and quorums</li>
+  <li><a href="schema-evolution-and-migrations.html">Schema Evolution &amp; Migrations</a> — running DDL safely on a live database</li>
+  <li><a href="./">Database Design hub</a></li>
 </ul>
 
       </section>

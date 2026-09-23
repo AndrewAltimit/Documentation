@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Task-organized Git command reference — configuration, staging, history, branching, merging and rebasing, remotes, undoing changes, large repositories, signin...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Git Command Reference">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Task-organized Git command reference — configuration, staging, history, branching, merging and rebasing, remotes, undoing changes, large repositories, signin...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git-reference.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Git Command Reference">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Task-organized Git command reference — configuration, staging, history, branching, merging and rebasing, remotes, undoing changes, large repositories, signin...">
 
 <title>Git Command Reference | Andrews Notebook</title>
 
@@ -832,7 +832,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     /* ---- Build the "On This Page" TOC when page front matter sets toc:true ---- */
-    var wantsToc = false;
+    var wantsToc = true;
     var tocHeadings = Array.prototype.filter.call(
       content.querySelectorAll('h2, h3'),
       function (h) { return (h.textContent || '').trim().length > 0; }
@@ -3133,181 +3133,385 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>This is the <strong>lookup page</strong> — a command cheat sheet organized by task (initialize, stage, branch, sync, undo, recover). Scan it or use your browser’s find (Ctrl/Cmd-F) for the syntax you need. If you are <em>learning</em> Git, start with the <a href="git-crash-course.html">Git Crash Course</a>; for <em>how Git works internally</em>, see <a href="git/">Git Version Control</a>; for <em>team workflows</em>, <a href="branching.html">Branching Strategies</a>.</p>
+        <p>This page is a Git command reference organized by task. Scan the section you need or search the page for a command. Syntax reflects Git 2.55 (June 2026); commands added in the last few releases are marked with the version that introduced them. To <em>learn</em> Git, start with the <a href="git-crash-course.html">Git Crash Course</a>; for <em>how Git works internally</em>, see <a href="git/">Git Version Control</a>; for <em>team workflows</em>, see <a href="branching.html">Branching Strategies</a>.</p>
 
-<p>Two habits prevent most lost work. Before any history-rewriting command (<code class="language-plaintext highlighter-rouge">reset --hard</code>, <code class="language-plaintext highlighter-rouge">rebase</code>, <code class="language-plaintext highlighter-rouge">commit --amend</code> on shared work): (1) <code class="language-plaintext highlighter-rouge">git reflog</code> records where <code class="language-plaintext highlighter-rouge">HEAD</code> has been, so almost nothing is truly gone — you can usually <code class="language-plaintext highlighter-rouge">git reset --hard HEAD@{n}</code> back to safety; (2) when collaborating, prefer <code class="language-plaintext highlighter-rouge">git push --force-with-lease</code> over <code class="language-plaintext highlighter-rouge">--force</code>, so you never silently clobber a teammate’s pushed commits.</p>
+<p>Placeholders: <code class="language-plaintext highlighter-rouge">&lt;commit&gt;</code> accepts anything that names a commit — a hash, branch, tag, <code class="language-plaintext highlighter-rouge">HEAD~2</code> (two commits before <code class="language-plaintext highlighter-rouge">HEAD</code>), <code class="language-plaintext highlighter-rouge">HEAD^2</code> (second parent of a merge), <code class="language-plaintext highlighter-rouge">main@{yesterday}</code> or <code class="language-plaintext highlighter-rouge">@{u}</code> (the current branch’s upstream).</p>
 
-<h2 id="repository-initialization">Repository Initialization</h2>
-
-<h3 id="creating-a-new-repository">Creating a New Repository</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git init
-</code></pre></div></div>
-<p>Initializes a new Git repository in the current directory, creating a <code class="language-plaintext highlighter-rouge">.git</code> subdirectory containing all repository metadata.</p>
-
-<h3 id="cloning-an-existing-repository">Cloning an Existing Repository</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone &lt;repository-url&gt;
-git clone &lt;repository-url&gt; &lt;directory-name&gt;
-</code></pre></div></div>
-<p>Creates a local copy of a remote repository. The second form allows specifying a custom directory name.</p>
+<p><strong>Two habits prevent almost all lost work.</strong> Before rewriting history, remember that <code class="language-plaintext highlighter-rouge">git reflog</code> records every position <code class="language-plaintext highlighter-rouge">HEAD</code> has held, so a bad <code class="language-plaintext highlighter-rouge">reset</code> or <code class="language-plaintext highlighter-rouge">rebase</code> can be undone with <code class="language-plaintext highlighter-rouge">git reset --hard HEAD@{n}</code>. When updating a shared branch you have rewritten, use <code class="language-plaintext highlighter-rouge">git push --force-with-lease</code> instead of <code class="language-plaintext highlighter-rouge">--force</code>, so you cannot overwrite commits you have not seen.</p>
 
 <h2 id="configuration">Configuration</h2>
 
-<h3 id="user-configuration">User Configuration</h3>
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> user.name <span class="s2">"Your Name"</span>
-git config <span class="nt">--global</span> user.email <span class="s2">"your.email@example.com"</span>
+git config <span class="nt">--global</span> user.email <span class="s2">"you@example.com"</span>
+git config list <span class="nt">--show-origin</span>          <span class="c"># all settings and where each comes from (2.46+; older: --list)</span>
+git config get user.email              <span class="c"># read one value (2.46+; older: git config user.email)</span>
+git config <span class="nt">--global</span> <span class="nt">--edit</span>             <span class="c"># open ~/.gitconfig in the editor</span>
+git config <span class="nt">--global</span> alias.lg <span class="s2">"log --oneline --graph --decorate --all"</span>
 </code></pre></div></div>
 
-<h3 id="view-configuration">View Configuration</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--list</span>
-git config user.name
+<p>Settings are read from <code class="language-plaintext highlighter-rouge">/etc/gitconfig</code> (<code class="language-plaintext highlighter-rouge">--system</code>), <code class="language-plaintext highlighter-rouge">~/.gitconfig</code> or <code class="language-plaintext highlighter-rouge">~/.config/git/config</code> (<code class="language-plaintext highlighter-rouge">--global</code>), and <code class="language-plaintext highlighter-rouge">.git/config</code> (<code class="language-plaintext highlighter-rouge">--local</code>, the default when writing); later scopes override earlier ones. <code class="language-plaintext highlighter-rouge">includeIf</code> lets you switch identity per directory, for example a work email for everything under <code class="language-plaintext highlighter-rouge">~/work/</code>:</p>
+
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># ~/.gitconfig
+</span><span class="nn">[includeIf "gitdir:~/work/"]</span>
+    <span class="py">path</span> <span class="p">=</span> <span class="s">~/.gitconfig-work</span>
 </code></pre></div></div>
 
-<h2 id="basic-workflow-commands">Basic Workflow Commands</h2>
+<p>Widely recommended settings:</p>
 
-<h3 id="status-and-differences">Status and Differences</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git status              <span class="c"># Show working tree status</span>
-git diff                <span class="c"># Show unstaged changes</span>
-git diff <span class="nt">--staged</span>       <span class="c"># Show staged changes</span>
-git diff HEAD           <span class="c"># Show all changes since last commit</span>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">init.defaultBranch main</code></td>
+      <td>Name of the first branch in new repositories</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pull.rebase true</code> (or <code class="language-plaintext highlighter-rouge">pull.ff only</code>)</td>
+      <td>How <code class="language-plaintext highlighter-rouge">git pull</code> reconciles diverged branches</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rebase.autoStash true</code></td>
+      <td>Stash and restore uncommitted changes around a rebase</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rebase.updateRefs true</code></td>
+      <td>Move dependent branches along when rebasing a stack (2.38+)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">merge.conflictStyle zdiff3</code></td>
+      <td>Show the common ancestor in conflict markers (2.35+)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rerere.enabled true</code></td>
+      <td>Record conflict resolutions and replay them automatically</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">push.autoSetupRemote true</code></td>
+      <td>First <code class="language-plaintext highlighter-rouge">git push</code> of a new branch sets its upstream (2.37+)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fetch.prune true</code></td>
+      <td>Delete remote-tracking branches that were deleted on the remote</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">diff.algorithm histogram</code></td>
+      <td>Usually produces more readable diffs than the default Myers</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">help.autocorrect prompt</code></td>
+      <td>Offer to run the intended command after a typo</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="creating-and-cloning-repositories">Creating and cloning repositories</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git init                                   <span class="c"># new repository in the current directory</span>
+git init <span class="nt">--object-format</span><span class="o">=</span>sha256 &lt;<span class="nb">dir</span><span class="o">&gt;</span>      <span class="c"># SHA-256 object IDs (not interoperable with SHA-1 remotes)</span>
+git clone &lt;url&gt;                            <span class="c"># full clone into ./&lt;repo-name&gt;</span>
+git clone &lt;url&gt; &lt;<span class="nb">dir</span><span class="o">&gt;</span>                      <span class="c"># into a chosen directory</span>
+git clone <span class="nt">--branch</span> &lt;branch&gt; &lt;url&gt;          <span class="c"># check out a specific branch or tag</span>
+git clone <span class="nt">--recurse-submodules</span> &lt;url&gt;       <span class="c"># include submodules</span>
 </code></pre></div></div>
 
-<h3 id="staging-changes">Staging Changes</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git add &lt;file&gt;          <span class="c"># Stage specific file</span>
-git add <span class="nb">.</span>               <span class="c"># Stage all changes in current directory</span>
-git add <span class="nt">-A</span>              <span class="c"># Stage all changes in repository</span>
-git add <span class="nt">-p</span>              <span class="c"># Interactive staging</span>
+<p>For large repositories, clone less (see <a href="#large-repositories">Large repositories</a>):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Clone type</th>
+      <th>Command</th>
+      <th>Downloads</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Full</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone &lt;url&gt;</code></td>
+      <td>All commits, trees and file contents</td>
+      <td>Largest, fully offline</td>
+    </tr>
+    <tr>
+      <td>Blobless (partial)</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone --filter=blob:none &lt;url&gt;</code></td>
+      <td>All commits and trees; file contents on demand</td>
+      <td>Best default for developers on big repos</td>
+    </tr>
+    <tr>
+      <td>Treeless (partial)</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone --filter=tree:0 &lt;url&gt;</code></td>
+      <td>All commits; trees and contents on demand</td>
+      <td>Good for CI builds; history commands are slow</td>
+    </tr>
+    <tr>
+      <td>Shallow</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone --depth 1 &lt;url&gt;</code></td>
+      <td>Only the most recent commit(s)</td>
+      <td>Smallest; history is truncated and some operations fail</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="staging-and-committing">Staging and committing</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git status                     <span class="c"># working tree and index status</span>
+git status <span class="nt">-s</span>                  <span class="c"># short format</span>
+git add &lt;path&gt;                 <span class="c"># stage a file or directory</span>
+git add <span class="nt">-A</span>                     <span class="c"># stage everything, including deletions, in the whole tree</span>
+git add <span class="nt">-p</span>                     <span class="c"># choose hunks interactively</span>
+git add <span class="nt">-u</span>                     <span class="c"># stage modifications and deletions of tracked files only</span>
+git <span class="nb">rm</span> &lt;file&gt;                  <span class="c"># delete and stage the deletion</span>
+git <span class="nb">rm</span> <span class="nt">--cached</span> &lt;file&gt;         <span class="c"># stop tracking but keep the file on disk</span>
+git <span class="nb">mv</span> &lt;old&gt; &lt;new&gt;             <span class="c"># rename and stage</span>
+
+git commit <span class="nt">-m</span> <span class="s2">"Message"</span>        <span class="c"># commit the index</span>
+git commit                     <span class="c"># write the message in the editor</span>
+git commit <span class="nt">-am</span> <span class="s2">"Message"</span>       <span class="c"># stage all tracked modifications, then commit (skips untracked files)</span>
+git commit <span class="nt">--amend</span>             <span class="c"># replace the last commit with index + new message</span>
+git commit <span class="nt">--amend</span> <span class="nt">--no-edit</span>   <span class="c"># add staged changes to the last commit, keep its message</span>
+git commit <span class="nt">--fixup</span><span class="o">=</span>&lt;commit&gt;    <span class="c"># record a fix to be squashed into &lt;commit&gt; by rebase --autosquash</span>
+git commit <span class="nt">-S</span> <span class="nt">-m</span> <span class="s2">"Message"</span>     <span class="c"># sign the commit</span>
 </code></pre></div></div>
 
-<h3 id="committing-changes">Committing Changes</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git commit <span class="nt">-m</span> <span class="s2">"Commit message"</span>       <span class="c"># Commit with inline message</span>
-git commit                           <span class="c"># Opens editor for message</span>
-git commit <span class="nt">-am</span> <span class="s2">"Message"</span>             <span class="c"># Stage and commit tracked files</span>
-git commit <span class="nt">--amend</span>                   <span class="c"># Modify last commit</span>
+<h2 id="inspecting-changes-and-history">Inspecting changes and history</h2>
+
+<h3 id="diffs">Diffs</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git diff                       <span class="c"># working tree vs index (unstaged changes)</span>
+git diff <span class="nt">--staged</span>              <span class="c"># index vs HEAD (what will be committed)</span>
+git diff HEAD                  <span class="c"># working tree vs HEAD (everything uncommitted)</span>
+git diff main...feature        <span class="c"># changes on feature since it diverged from main</span>
+git diff <span class="nt">--stat</span>                <span class="c"># per-file summary</span>
+git diff <span class="nt">--name-status</span>         <span class="c"># file names with A/M/D status</span>
+git diff <span class="nt">--word-diff</span>           <span class="c"># word-level changes (prose, long lines)</span>
+git diff <span class="nt">--check</span>               <span class="c"># whitespace errors and leftover conflict markers</span>
+git range-diff main old-feature new-feature   <span class="c"># compare two versions of a rebased branch</span>
 </code></pre></div></div>
 
-<h2 id="history-and-inspection">History and Inspection</h2>
+<h3 id="log">Log</h3>
 
-<h3 id="viewing-history">Viewing History</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log                              <span class="c"># Show commit history</span>
-git log <span class="nt">--oneline</span>                    <span class="c"># Compact format</span>
-git log <span class="nt">--graph</span>                      <span class="c"># ASCII graph of branches</span>
-git log <span class="nt">--stat</span>                       <span class="c"># Include file changes</span>
-git log <span class="nt">-p</span>                           <span class="c"># Show patches</span>
-git log <span class="nt">--author</span><span class="o">=</span><span class="s2">"Name"</span>              <span class="c"># Filter by author</span>
-git log <span class="nt">--since</span><span class="o">=</span><span class="s2">"2 weeks ago"</span>        <span class="c"># Time-based filtering</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log <span class="nt">--oneline</span> <span class="nt">--graph</span> <span class="nt">--decorate</span> <span class="nt">--all</span>
+git log <span class="nt">-p</span> &lt;path&gt;                         <span class="c"># patches touching a path</span>
+git log <span class="nt">--follow</span> <span class="nt">-p</span> &lt;file&gt;                <span class="c"># continue across renames</span>
+git log <span class="nt">--stat</span> <span class="nt">-5</span>                         <span class="c"># last five commits with file statistics</span>
+git log <span class="nt">--author</span><span class="o">=</span><span class="s2">"Ada"</span> <span class="nt">--since</span><span class="o">=</span><span class="s2">"2 weeks ago"</span>
+git log <span class="nt">--grep</span><span class="o">=</span><span class="s2">"timeout"</span> <span class="nt">-i</span>               <span class="c"># search commit messages</span>
+git log <span class="nt">-S</span> <span class="s2">"parse_config"</span>                 <span class="c"># commits that add or remove this string ("pickaxe")</span>
+git log <span class="nt">-G</span> <span class="s2">"retr(y|ies)"</span>                  <span class="c"># commits whose diff matches a regex</span>
+git log <span class="nt">-L</span> :parse_config:src/config.py    <span class="c"># history of one function</span>
+git log main..feature                     <span class="c"># commits on feature not yet on main</span>
+git log <span class="nt">--format</span><span class="o">=</span><span class="s2">"%h %an %ar %s"</span>          <span class="c"># custom format</span>
 </code></pre></div></div>
 
-<h3 id="examining-commits">Examining Commits</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git show                             <span class="c"># Show last commit</span>
-git show &lt;commit-hash&gt;               <span class="c"># Show specific commit</span>
-git show &lt;commit-hash&gt;:&lt;file&gt;        <span class="c"># Show file at specific commit</span>
+<h3 id="commits-files-and-authorship">Commits, files and authorship</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git show &lt;commit&gt;                  <span class="c"># message and diff</span>
+git show &lt;commit&gt;:&lt;path&gt;           <span class="c"># file contents at that commit</span>
+git blame &lt;file&gt;                   <span class="c"># last commit to touch each line</span>
+git blame <span class="nt">-w</span> <span class="nt">-C</span> &lt;file&gt;             <span class="c"># ignore whitespace; detect lines moved from other files</span>
+git shortlog <span class="nt">-sn</span>                   <span class="c"># commit counts per author</span>
+git describe <span class="nt">--tags</span>                <span class="c"># nearest tag, e.g. v2.3.0-14-g1a2b3c4</span>
+git <span class="nb">grep</span> <span class="nt">-n</span> <span class="s2">"TODO"</span>                 <span class="c"># search tracked files (fast, respects .gitignore)</span>
+git last-modified                  <span class="c"># last commit to touch each path (2.52+)</span>
+git repo info                      <span class="c"># repository properties such as object format (2.52+)</span>
 </code></pre></div></div>
 
-<h2 id="branching-and-merging">Branching and Merging</h2>
+<p>To keep bulk reformatting commits out of <code class="language-plaintext highlighter-rouge">git blame</code>, list their hashes in <code class="language-plaintext highlighter-rouge">.git-blame-ignore-revs</code> and set <code class="language-plaintext highlighter-rouge">git config blame.ignoreRevsFile .git-blame-ignore-revs</code> (GitHub’s blame view honours the file automatically).</p>
 
-<h3 id="branch-management">Branch Management</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git branch                           <span class="c"># List local branches</span>
-git branch <span class="nt">-a</span>                        <span class="c"># List all branches</span>
-git branch &lt;branch-name&gt;             <span class="c"># Create new branch</span>
-git branch <span class="nt">-d</span> &lt;branch-name&gt;          <span class="c"># Delete branch (safe)</span>
-git branch <span class="nt">-D</span> &lt;branch-name&gt;          <span class="c"># Force delete branch</span>
+<h2 id="branches">Branches</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git branch                         <span class="c"># local branches (* marks the current one)</span>
+git branch <span class="nt">-a</span>                      <span class="c"># include remote-tracking branches</span>
+git branch <span class="nt">-vv</span>                     <span class="c"># with upstream and ahead/behind counts</span>
+git branch <span class="nt">--merged</span> main           <span class="c"># branches already merged into main</span>
+git branch &lt;name&gt; <span class="o">[</span>&lt;start&gt;]        <span class="c"># create without switching</span>
+git branch <span class="nt">-m</span> &lt;old&gt; &lt;new&gt;          <span class="c"># rename</span>
+git branch <span class="nt">-d</span> &lt;name&gt;               <span class="c"># delete if merged</span>
+git branch <span class="nt">-D</span> &lt;name&gt;               <span class="c"># delete regardless</span>
+
+git switch &lt;branch&gt;                <span class="c"># change branch</span>
+git switch <span class="nt">-c</span> &lt;branch&gt; <span class="o">[</span>&lt;start&gt;]   <span class="c"># create and switch</span>
+git switch -                       <span class="c"># previous branch</span>
+git switch <span class="nt">--detach</span> &lt;commit&gt;       <span class="c"># inspect an arbitrary commit</span>
+git checkout &lt;branch&gt;              <span class="c"># pre-2.23 equivalent of switch</span>
+git checkout <span class="nt">-b</span> &lt;branch&gt;           <span class="c"># pre-2.23 equivalent of switch -c</span>
 </code></pre></div></div>
 
-<h3 id="switching-branches">Switching Branches</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git checkout &lt;branch-name&gt;           <span class="c"># Switch to branch</span>
-git checkout <span class="nt">-b</span> &lt;branch-name&gt;        <span class="c"># Create and switch to branch</span>
-git switch &lt;branch-name&gt;             <span class="c"># Modern alternative to checkout (Git 2.23+)</span>
-git switch <span class="nt">-c</span> &lt;branch-name&gt;          <span class="c"># Create and switch (modern)</span>
-git switch -                         <span class="c"># Switch to previous branch</span>
-</code></pre></div></div>
+<h2 id="merging-and-rebasing">Merging and rebasing</h2>
 
-<h3 id="merging">Merging</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge &lt;branch-name&gt;              <span class="c"># Merge branch into current</span>
-git merge <span class="nt">--no-ff</span> &lt;branch-name&gt;      <span class="c"># Force merge commit</span>
-git merge <span class="nt">--squash</span> &lt;branch-name&gt;     <span class="c"># Combine all branch work into one staged change</span>
-git merge <span class="nt">--abort</span>                    <span class="c"># Abort conflicted merge</span>
+<h3 id="merge">Merge</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git merge &lt;branch&gt;                 <span class="c"># merge into the current branch</span>
+git merge <span class="nt">--no-ff</span> &lt;branch&gt;         <span class="c"># always create a merge commit</span>
+git merge <span class="nt">--ff-only</span> &lt;branch&gt;       <span class="c"># succeed only if no merge commit is needed</span>
+git merge <span class="nt">--squash</span> &lt;branch&gt;        <span class="c"># stage the branch's combined changes; you then commit</span>
+git merge <span class="nt">--abort</span>                  <span class="c"># abandon a conflicted merge</span>
+git mergetool                      <span class="c"># open the configured merge tool on conflicts</span>
 </code></pre></div></div>
 
 <table>
   <thead>
     <tr>
       <th>Style</th>
-      <th>Result</th>
-      <th>Good for</th>
+      <th>Resulting history</th>
+      <th>Suits</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Fast-forward (default when possible)</td>
-      <td>No merge commit; branch pointer just advances</td>
-      <td>Tidy linear history</td>
+      <td>Fast-forward</td>
+      <td>No merge commit; the branch pointer simply advances</td>
+      <td>Linear history when the target has not moved</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">--no-ff</code></td>
-      <td>Always records a merge commit</td>
-      <td>Preserving that a feature was a discrete unit</td>
+      <td>A merge commit joins the two lines</td>
+      <td>Recording that a feature was a unit of work</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">--squash</code></td>
-      <td>Flattens the branch into one new commit you commit yourself</td>
-      <td>A single clean commit per feature on <code class="language-plaintext highlighter-rouge">main</code></td>
+      <td>One new ordinary commit; the branch’s individual commits are not kept</td>
+      <td>One tidy commit per feature on <code class="language-plaintext highlighter-rouge">main</code></td>
+    </tr>
+    <tr>
+      <td>Rebase then fast-forward</td>
+      <td>Branch commits replayed onto the target, then advanced</td>
+      <td>Linear history that keeps individual commits</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="remote-operations">Remote Operations</h2>
+<h3 id="rebase">Rebase</h3>
 
-<h3 id="remote-management">Remote Management</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git remote                           <span class="c"># List remotes</span>
-git remote <span class="nt">-v</span>                        <span class="c"># Show remote URLs</span>
-git remote add &lt;name&gt; &lt;url&gt;          <span class="c"># Add new remote</span>
-git remote remove &lt;name&gt;             <span class="c"># Remove remote</span>
-git remote rename &lt;old&gt; &lt;new&gt;        <span class="c"># Rename remote</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git rebase &lt;upstream&gt;              <span class="c"># replay current branch's commits onto &lt;upstream&gt;</span>
+git rebase <span class="nt">--onto</span> &lt;new&gt; &lt;old&gt; &lt;b&gt;  <span class="c"># move commits after &lt;old&gt; on &lt;b&gt; onto &lt;new&gt;</span>
+git rebase <span class="nt">-i</span> HEAD~5               <span class="c"># edit the last five commits interactively</span>
+git rebase <span class="nt">-i</span> <span class="nt">--autosquash</span> main    <span class="c"># apply --fixup commits automatically</span>
+git rebase <span class="nt">--update-refs</span> main      <span class="c"># also move branches stacked on this one (2.38+)</span>
+git rebase <span class="nt">--rebase-merges</span> main    <span class="c"># preserve merge commits in the rebased range</span>
+git rebase <span class="nt">--continue</span>              <span class="c"># after resolving a conflict</span>
+git rebase <span class="nt">--skip</span>                  <span class="c"># drop the conflicting commit</span>
+git rebase <span class="nt">--abort</span>                 <span class="c"># return to the pre-rebase state</span>
 </code></pre></div></div>
 
-<h3 id="synchronization">Synchronization</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fetch                            <span class="c"># Download remote changes</span>
-git fetch &lt;remote&gt;                   <span class="c"># Fetch from specific remote</span>
-git pull                             <span class="c"># Fetch and merge</span>
-git pull <span class="nt">--rebase</span>                    <span class="c"># Fetch and rebase</span>
-git push                             <span class="c"># Upload local changes</span>
-git push &lt;remote&gt; &lt;branch&gt;           <span class="c"># Push specific branch</span>
-git push <span class="nt">-u</span> origin &lt;branch&gt;          <span class="c"># Set upstream and push</span>
+<p>Interactive rebase opens a to-do list, one line per commit, oldest first. Change the verb to rewrite history:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Verb</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pick</code></td>
+      <td>Keep the commit as is</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reword</code></td>
+      <td>Keep the changes, edit the message</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">edit</code></td>
+      <td>Stop after applying, to amend or split the commit</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">squash</code></td>
+      <td>Meld into the previous commit and combine messages</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fixup</code></td>
+      <td>Meld into the previous commit and discard this message</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">drop</code></td>
+      <td>Remove the commit (or delete the line)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">exec &lt;cmd&gt;</code></td>
+      <td>Run a shell command, for example tests, at that point</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Rebasing creates new commits with new IDs. Do not rebase commits that others have based work on unless the team has agreed to it. Git 2.54 also ships an experimental <code class="language-plaintext highlighter-rouge">git history</code> command for common rewrites (such as splitting a commit) without a full interactive rebase.</p>
+
+<h3 id="cherry-pick-and-revert">Cherry-pick and revert</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick &lt;commit&gt;           <span class="c"># apply one commit's changes onto the current branch</span>
+git cherry-pick A^..B              <span class="c"># a range, A through B inclusive</span>
+git cherry-pick <span class="nt">-x</span> &lt;commit&gt;        <span class="c"># append "(cherry picked from ...)" to the message</span>
+git cherry-pick <span class="nt">--continue</span>        <span class="c"># after resolving a conflict (or --abort)</span>
+git revert &lt;commit&gt;                <span class="c"># new commit that undoes &lt;commit&gt;</span>
+git revert <span class="nt">-m</span> 1 &lt;merge-commit&gt;     <span class="c"># undo a merge, keeping parent 1 (the branch merged into)</span>
+git revert <span class="nt">--no-commit</span> A..B        <span class="c"># revert a range as a single commit</span>
 </code></pre></div></div>
 
-<p><strong><code class="language-plaintext highlighter-rouge">fetch</code> vs <code class="language-plaintext highlighter-rouge">pull</code>:</strong> <code class="language-plaintext highlighter-rouge">git fetch</code> downloads remote changes but leaves your working branch untouched — you inspect, then merge or rebase deliberately. <code class="language-plaintext highlighter-rouge">git pull</code> is just <code class="language-plaintext highlighter-rouge">fetch</code> + <code class="language-plaintext highlighter-rouge">merge</code> (or <code class="language-plaintext highlighter-rouge">fetch</code> + <code class="language-plaintext highlighter-rouge">rebase</code> with <code class="language-plaintext highlighter-rouge">--rebase</code>) in one step. When in doubt, <code class="language-plaintext highlighter-rouge">fetch</code> first and look before you integrate.</p>
+<h2 id="remotes-and-synchronization">Remotes and synchronization</h2>
 
-<h2 id="undoing-changes">Undoing Changes</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git remote <span class="nt">-v</span>                      <span class="c"># list remotes with URLs</span>
+git remote add &lt;name&gt; &lt;url&gt;
+git remote set-url origin &lt;url&gt;    <span class="c"># e.g. switch from HTTPS to SSH</span>
+git remote rename &lt;old&gt; &lt;new&gt;
+git remote remove &lt;name&gt;
 
-<h3 id="working-directory">Working Directory</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git restore &lt;file&gt;                   <span class="c"># Discard changes (Git 2.23+)</span>
-git checkout <span class="nt">--</span> &lt;file&gt;               <span class="c"># Discard changes (legacy)</span>
-git clean <span class="nt">-fd</span>                        <span class="c"># Remove untracked files</span>
+git fetch                          <span class="c"># update remote-tracking branches from the upstream remote</span>
+git fetch <span class="nt">--all</span> <span class="nt">--prune</span>            <span class="c"># every remote; drop branches deleted upstream</span>
+git pull                           <span class="c"># fetch, then merge or rebase (see pull.rebase)</span>
+git pull <span class="nt">--rebase</span>                  <span class="c"># fetch, then rebase</span>
+git push                           <span class="c"># push the current branch to its upstream</span>
+git push <span class="nt">-u</span> origin &lt;branch&gt;        <span class="c"># first push; set upstream</span>
+git push origin <span class="nt">--delete</span> &lt;branch&gt;  <span class="c"># delete a remote branch</span>
+git push <span class="nt">--force-with-lease</span>        <span class="c"># overwrite only if the remote is where you last saw it</span>
+git push <span class="nt">--force-with-lease</span> <span class="nt">--force-if-includes</span>   <span class="c"># also require that you have integrated it (2.30+)</span>
 </code></pre></div></div>
 
-<h3 id="staging-area">Staging Area</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git restore <span class="nt">--staged</span> &lt;file&gt;          <span class="c"># Unstage file (Git 2.23+)</span>
-git reset HEAD &lt;file&gt;                <span class="c"># Unstage file (legacy)</span>
+<p><code class="language-plaintext highlighter-rouge">git fetch</code> only updates remote-tracking branches (<code class="language-plaintext highlighter-rouge">origin/main</code>) and never touches your own branches or files, so it is always safe; inspect with <code class="language-plaintext highlighter-rouge">git log HEAD..origin/main</code>, then merge or rebase deliberately. <code class="language-plaintext highlighter-rouge">git pull</code> combines both steps.</p>
+
+<p><code class="language-plaintext highlighter-rouge">--force-with-lease</code> alone can be defeated by a background fetch in an IDE, which silently updates what “last seen” means; <code class="language-plaintext highlighter-rouge">--force-if-includes</code> closes that gap by also checking that the remote tip appears in your branch’s reflog.</p>
+
+<h2 id="undoing-changes">Undoing changes</h2>
+
+<p>Choose the command by where the change currently is:</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    Q1{"Is the change committed?"} --&gt;|No| Q2{"Is it staged?"}
+    Q2 --&gt;|Yes| U1["git restore --staged file&lt;br/&gt;(unstage, keep edits)"]
+    Q2 --&gt;|No| U2["git restore file&lt;br/&gt;(discard edits)"]
+    Q1 --&gt;|Yes| Q3{"Pushed to a shared branch?"}
+    Q3 --&gt;|Yes| U3["git revert commit&lt;br/&gt;(new undo commit)"]
+    Q3 --&gt;|No| Q4{"Keep the changes?"}
+    Q4 --&gt;|Yes| U4["git reset --soft or --mixed"]
+    Q4 --&gt;|No| U5["git reset --hard"]
+</code></pre>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git restore &lt;file&gt;                     <span class="c"># discard working-tree changes (2.23+; older: git checkout -- &lt;file&gt;)</span>
+git restore <span class="nt">--staged</span> &lt;file&gt;            <span class="c"># unstage (2.23+; older: git reset HEAD &lt;file&gt;)</span>
+git restore <span class="nt">--source</span><span class="o">=</span>&lt;commit&gt; &lt;file&gt;   <span class="c"># restore a file's content from another commit</span>
+git clean <span class="nt">-n</span>                           <span class="c"># preview untracked files that would be deleted</span>
+git clean <span class="nt">-fd</span>                          <span class="c"># delete untracked files and directories</span>
+git reset <span class="nt">--soft</span> HEAD~1                <span class="c"># undo the last commit, keep changes staged</span>
+git reset HEAD~1                       <span class="c"># undo the last commit, keep changes unstaged (--mixed)</span>
+git reset <span class="nt">--hard</span> HEAD~1                <span class="c"># undo the last commit and discard its changes</span>
+git reset <span class="nt">--hard</span> @<span class="o">{</span>u<span class="o">}</span>                  <span class="c"># make the branch match its upstream exactly</span>
 </code></pre></div></div>
 
-<h3 id="commits">Commits</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git reset <span class="nt">--soft</span> HEAD~1              <span class="c"># Undo commit, keep changes staged</span>
-git reset <span class="nt">--mixed</span> HEAD~1             <span class="c"># Undo commit, unstage changes (default)</span>
-git reset <span class="nt">--hard</span> HEAD~1              <span class="c"># Undo commit, discard changes</span>
-git revert &lt;commit&gt;                  <span class="c"># Create new commit undoing changes</span>
-git revert <span class="nt">--no-commit</span> &lt;commit&gt;      <span class="c"># Revert without committing</span>
-git revert <span class="nt">-m</span> 1 &lt;merge-commit&gt;       <span class="c"># Revert a merge commit</span>
-</code></pre></div></div>
-
-<p>The three <code class="language-plaintext highlighter-rouge">reset</code> modes differ only in how far back they roll the changes — choose by what you want to keep:</p>
+<p><code class="language-plaintext highlighter-rouge">git reset</code> moves the current branch to another commit; the mode determines what else is overwritten:</p>
 
 <table>
   <thead>
     <tr>
       <th>Mode</th>
-      <th style="text-align: center">Moves branch</th>
-      <th style="text-align: center">Staging area</th>
-      <th style="text-align: center">Working files</th>
+      <th style="text-align: center">Moves the branch</th>
+      <th style="text-align: center">Index</th>
+      <th style="text-align: center">Working tree</th>
       <th>Use when</th>
     </tr>
   </thead>
@@ -3317,7 +3521,7 @@ git revert <span class="nt">-m</span> 1 &lt;merge-commit&gt;       <span class="
       <td style="text-align: center">yes</td>
       <td style="text-align: center">kept</td>
       <td style="text-align: center">kept</td>
-      <td>Re-commit differently (e.g. squash, reword)</td>
+      <td>Recommit differently (squash, reword)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">--mixed</code> (default)</td>
@@ -3330,308 +3534,321 @@ git revert <span class="nt">-m</span> 1 &lt;merge-commit&gt;       <span class="
       <td><code class="language-plaintext highlighter-rouge">--hard</code></td>
       <td style="text-align: center">yes</td>
       <td style="text-align: center">reset</td>
-      <td style="text-align: center"><strong>discarded</strong></td>
-      <td>Throw the work away entirely</td>
+      <td style="text-align: center"><strong>overwritten</strong></td>
+      <td>Discard the work entirely</td>
     </tr>
   </tbody>
 </table>
 
-<div class="notice--warning">
-  <p><strong><code>reset</code> vs <code>revert</code>.</strong> <code>reset</code> rewrites history by moving the branch pointer — safe on local, unpushed commits only. To undo something already pushed and shared, use <code>git revert</code>, which records a <em>new</em> commit that cancels the old one and leaves history intact.</p>
-</div>
+<p><code class="language-plaintext highlighter-rouge">reset</code> rewrites history and is safe only for commits that exist nowhere else. For commits already pushed to a shared branch, use <code class="language-plaintext highlighter-rouge">git revert</code>, which adds a new commit and leaves existing history intact.</p>
 
 <h2 id="stashing">Stashing</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git stash                            <span class="c"># Save changes temporarily</span>
-git stash push <span class="nt">-m</span> <span class="s2">"Description"</span>      <span class="c"># Stash with message</span>
-git stash list                       <span class="c"># List stashes</span>
-git stash apply                      <span class="c"># Apply most recent stash</span>
-git stash apply stash@<span class="o">{</span>n<span class="o">}</span>            <span class="c"># Apply specific stash</span>
-git stash pop                        <span class="c"># Apply and remove stash</span>
-git stash drop stash@<span class="o">{</span>n<span class="o">}</span>             <span class="c"># Remove specific stash</span>
-git stash clear                      <span class="c"># Remove all stashes</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git stash                          <span class="c"># stash tracked changes (staged and unstaged)</span>
+git stash <span class="nt">-u</span>                       <span class="c"># include untracked files</span>
+git stash push <span class="nt">-m</span> <span class="s2">"wip: parser"</span> <span class="nt">--</span> src/parser.py   <span class="c"># stash specific paths with a message</span>
+git stash list
+git stash show <span class="nt">-p</span> stash@<span class="o">{</span>1<span class="o">}</span>        <span class="c"># view a stash's diff</span>
+git stash pop                      <span class="c"># apply the most recent stash and drop it</span>
+git stash apply stash@<span class="o">{</span>1<span class="o">}</span>          <span class="c"># apply without dropping</span>
+git stash branch &lt;name&gt; stash@<span class="o">{</span>1<span class="o">}</span>  <span class="c"># new branch from the stash's base, with the stash applied</span>
+git stash drop stash@<span class="o">{</span>1<span class="o">}</span>
+git stash clear                    <span class="c"># delete all stashes</span>
 </code></pre></div></div>
 
 <h2 id="tags">Tags</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git tag                              <span class="c"># List tags</span>
-git tag &lt;tag-name&gt;                   <span class="c"># Create lightweight tag</span>
-git tag <span class="nt">-a</span> &lt;tag-name&gt; <span class="nt">-m</span> <span class="s2">"Message"</span>   <span class="c"># Create annotated tag</span>
-git tag <span class="nt">-d</span> &lt;tag-name&gt;                <span class="c"># Delete local tag</span>
-git push origin &lt;tag-name&gt;           <span class="c"># Push tag to remote</span>
-git push origin <span class="nt">--tags</span>               <span class="c"># Push all tags</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git tag                            <span class="c"># list</span>
+git tag <span class="nt">-l</span> <span class="s2">"v2.*"</span>                  <span class="c"># list matching a pattern</span>
+git tag v2.3.0                     <span class="c"># lightweight tag (a bare pointer)</span>
+git tag <span class="nt">-a</span> v2.3.0 <span class="nt">-m</span> <span class="s2">"Release 2.3.0"</span>   <span class="c"># annotated tag (tagger, date, message)</span>
+git tag <span class="nt">-s</span> v2.3.0 <span class="nt">-m</span> <span class="s2">"Release 2.3.0"</span>   <span class="c"># signed annotated tag</span>
+git push origin v2.3.0             <span class="c"># push one tag</span>
+git push <span class="nt">--follow-tags</span>             <span class="c"># push annotated tags reachable from pushed commits</span>
+git tag <span class="nt">-d</span> v2.3.0                  <span class="c"># delete locally</span>
+git push origin <span class="nt">--delete</span> v2.3.0    <span class="c"># delete on the remote</span>
 </code></pre></div></div>
 
-<h2 id="advanced-operations">Advanced Operations</h2>
+<p>Use annotated tags for releases; <code class="language-plaintext highlighter-rouge">git describe</code> and <code class="language-plaintext highlighter-rouge">--follow-tags</code> ignore lightweight tags by default.</p>
 
-<h3 id="rebasing">Rebasing</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git rebase &lt;branch&gt;                  <span class="c"># Rebase current branch</span>
-git rebase <span class="nt">-i</span> HEAD~n                 <span class="c"># Interactive rebase last n commits</span>
-git rebase <span class="nt">--continue</span>                <span class="c"># Continue after resolving conflicts</span>
-git rebase <span class="nt">--abort</span>                   <span class="c"># Cancel rebase</span>
+<h2 id="finding-bugs-with-bisect">Finding bugs with bisect</h2>
+
+<p><code class="language-plaintext highlighter-rouge">git bisect</code> binary-searches history for the commit that introduced a regression, needing only about log2(n) tests for n candidate commits (roughly 10 tests for 1,000 commits).</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git bisect start
+git bisect bad                     <span class="c"># the current commit is broken</span>
+git bisect good v2.2.0             <span class="c"># this one worked</span>
+<span class="c"># Git checks out a midpoint; test it, then mark it:</span>
+git bisect good                    <span class="c"># or: git bisect bad, or git bisect skip if untestable</span>
+git bisect reset                   <span class="c"># finish and return to the original branch</span>
+
+git bisect run ./test.sh           <span class="c"># automate: exit 0 = good, 125 = skip, other non-zero = bad</span>
 </code></pre></div></div>
 
-<h3 id="cherry-picking">Cherry-picking</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick &lt;commit&gt;             <span class="c"># Apply specific commit</span>
-git cherry-pick <span class="nt">--continue</span>           <span class="c"># Continue after resolving conflicts</span>
-git cherry-pick <span class="nt">--abort</span>              <span class="c"># Cancel cherry-pick</span>
+<h2 id="worktrees">Worktrees</h2>
+
+<p>A worktree is an additional checkout of the same repository in another directory, so you can work on two branches at once without stashing or cloning again.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git worktree add ../hotfix hotfix/login     <span class="c"># check out an existing branch in ../hotfix</span>
+git worktree add <span class="nt">-b</span> review ../review main   <span class="c"># create a new branch there</span>
+git worktree list
+git worktree remove ../hotfix
+git worktree prune                          <span class="c"># clean up records of deleted directories</span>
 </code></pre></div></div>
 
-<h3 id="searching">Searching</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git <span class="nb">grep</span> &lt;pattern&gt;                   <span class="c"># Search in working directory</span>
-git log <span class="nt">-S</span> &lt;string&gt;                  <span class="c"># Find commits that add/remove string</span>
-git log <span class="nt">--grep</span><span class="o">=</span>&lt;pattern&gt;             <span class="c"># Search commit messages</span>
+<p>A branch can be checked out in only one worktree at a time.</p>
+
+<h2 id="large-repositories">Large repositories</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Command</th>
+      <th>Helps with</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Partial clone</td>
+      <td><code class="language-plaintext highlighter-rouge">git clone --filter=blob:none &lt;url&gt;</code></td>
+      <td>Clone size and time</td>
+    </tr>
+    <tr>
+      <td>Sparse checkout</td>
+      <td><code class="language-plaintext highlighter-rouge">git sparse-checkout set &lt;dir&gt;...</code></td>
+      <td>Number of files in the working tree</td>
+    </tr>
+    <tr>
+      <td>Background maintenance</td>
+      <td><code class="language-plaintext highlighter-rouge">git maintenance start</code></td>
+      <td>Keeping commit-graph, packs and prefetch fresh</td>
+    </tr>
+    <tr>
+      <td>Filesystem monitor</td>
+      <td><code class="language-plaintext highlighter-rouge">git config core.fsmonitor true</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git status</code> speed (built-in daemon on Windows and macOS)</td>
+    </tr>
+    <tr>
+      <td>Untracked cache</td>
+      <td><code class="language-plaintext highlighter-rouge">git config core.untrackedCache true</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git status</code> speed</td>
+    </tr>
+    <tr>
+      <td>Many-files preset</td>
+      <td><code class="language-plaintext highlighter-rouge">git config feature.manyFiles true</code></td>
+      <td>Enables index and untracked-file optimizations together</td>
+    </tr>
+    <tr>
+      <td>Scalar</td>
+      <td><code class="language-plaintext highlighter-rouge">scalar clone &lt;url&gt;</code></td>
+      <td>Applies all of the above in one step (bundled since 2.38)</td>
+    </tr>
+    <tr>
+      <td>Git LFS</td>
+      <td><code class="language-plaintext highlighter-rouge">git lfs track "*.psd"</code></td>
+      <td>Large binary assets</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Monorepo: blobless clone limited to two directories</span>
+git clone <span class="nt">--filter</span><span class="o">=</span>blob:none <span class="nt">--sparse</span> &lt;url&gt;
+<span class="nb">cd </span>repo
+git sparse-checkout <span class="nb">set </span>services/api libs/common
+git sparse-checkout list
+git sparse-checkout add docs
+git sparse-checkout disable        <span class="c"># back to a full working tree</span>
+
+<span class="c"># Manual maintenance</span>
+git maintenance run                <span class="c"># run the scheduled tasks now</span>
+git gc                             <span class="c"># repack and remove unreachable objects past expiry</span>
+git fsck                           <span class="c"># verify object integrity</span>
 </code></pre></div></div>
 
-<h2 id="performance-and-maintenance">Performance and Maintenance</h2>
+<p><code class="language-plaintext highlighter-rouge">git sparse-checkout set</code> uses cone mode (whole directories) by default; the older <code class="language-plaintext highlighter-rouge">git sparse-checkout init</code> step is deprecated. Git LFS stores large files on a separate server and keeps small pointer files in the repository; run <code class="language-plaintext highlighter-rouge">git lfs install</code> once per machine and commit <code class="language-plaintext highlighter-rouge">.gitattributes</code> along with the tracking rules. See <a href="git/protocols-and-performance.html">Protocols and Performance</a> for how packfiles and partial clone work.</p>
 
-<h3 id="optimization">Optimization</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git gc                               <span class="c"># Garbage collection</span>
-git prune                            <span class="c"># Remove unreachable objects</span>
-git fsck                             <span class="c"># Check repository integrity</span>
+<h2 id="signing-commits-and-tags">Signing commits and tags</h2>
+
+<p>Signing lets hosts mark commits as <em>verified</em>. SSH keys (Git 2.34+) are the simplest option because most developers already have one.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># SSH signing</span>
+git config <span class="nt">--global</span> gpg.format ssh
+git config <span class="nt">--global</span> user.signingkey ~/.ssh/id_ed25519.pub
+git config <span class="nt">--global</span> commit.gpgsign <span class="nb">true
+</span>git config <span class="nt">--global</span> tag.gpgsign <span class="nb">true</span>
+
+<span class="c"># Local verification needs a list of trusted signers</span>
+git config <span class="nt">--global</span> gpg.ssh.allowedSignersFile ~/.config/git/allowed_signers
+<span class="nb">echo</span> <span class="s2">"you@example.com </span><span class="si">$(</span><span class="nb">cat</span> ~/.ssh/id_ed25519.pub<span class="si">)</span><span class="s2">"</span> <span class="o">&gt;&gt;</span> ~/.config/git/allowed_signers
+
+git log <span class="nt">--show-signature</span> <span class="nt">-1</span>
+git verify-commit &lt;commit&gt;
+git verify-tag v2.3.0
 </code></pre></div></div>
 
-<h3 id="large-files">Large Files</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git lfs track <span class="s2">"*.psd"</span>                <span class="c"># Track file type with Git LFS</span>
-git lfs ls-files                     <span class="c"># List LFS tracked files</span>
+<p>For OpenPGP signing, leave <code class="language-plaintext highlighter-rouge">gpg.format</code> at its default (<code class="language-plaintext highlighter-rouge">openpgp</code>) and set <code class="language-plaintext highlighter-rouge">user.signingkey</code> to the GPG key ID. Upload the public key (SSH signing key or GPG key) to your hosting account so the host can verify signatures.</p>
+
+<h2 id="removing-sensitive-data">Removing sensitive data</h2>
+
+<p>Once a secret has been pushed, assume it is compromised: <strong>rotate the credential first</strong>, then clean history. Removing it from the latest commit is not enough; it remains in every earlier commit.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># git-filter-repo is the tool recommended by the Git project (install via pip or a package manager)</span>
+git filter-repo <span class="nt">--invert-paths</span> <span class="nt">--path</span> config/secrets.yml   <span class="c"># drop a file from all history</span>
+git filter-repo <span class="nt">--replace-text</span> expressions.txt             <span class="c"># replace strings, e.g. "SECRET==&gt;***"</span>
+git push <span class="nt">--force</span> <span class="nt">--all</span> <span class="o">&amp;&amp;</span> git push <span class="nt">--force</span> <span class="nt">--tags</span>
 </code></pre></div></div>
 
-<h2 id="common-workflows">Common Workflows</h2>
+<p><code class="language-plaintext highlighter-rouge">git filter-branch</code> is deprecated in favour of <code class="language-plaintext highlighter-rouge">git filter-repo</code>; it is slow and easy to misuse. Rewriting changes every subsequent commit ID, so all collaborators must re-clone or hard-reset, and hosting services may retain the old commits in pull-request refs and caches (GitHub requires contacting support to purge them).</p>
 
-<h3 id="feature-branch-workflow">Feature Branch Workflow</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git checkout <span class="nt">-b</span> feature/new-feature  <span class="c"># Create feature branch</span>
-<span class="c"># Make changes</span>
-git add <span class="nb">.</span>
-git commit <span class="nt">-m</span> <span class="s2">"Add new feature"</span>
-git push <span class="nt">-u</span> origin feature/new-feature
-<span class="c"># Create pull request</span>
+<p>Prevent leaks rather than cleaning them up: enable the host’s push protection (GitHub secret scanning blocks pushes containing recognised credential formats) and run a scanner in pre-commit hooks and CI, for example <code class="language-plaintext highlighter-rouge">gitleaks git</code> (gitleaks 8.19+) or TruffleHog.</p>
+
+<h2 id="hooks-and-tool-integration">Hooks and tool integration</h2>
+
+<p>Hooks are scripts in <code class="language-plaintext highlighter-rouge">.git/hooks/</code> that Git runs at points such as <code class="language-plaintext highlighter-rouge">pre-commit</code>, <code class="language-plaintext highlighter-rouge">commit-msg</code> and <code class="language-plaintext highlighter-rouge">pre-push</code>; a non-zero exit aborts the operation. They are not cloned, so teams share them with a framework or a tracked directory:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config core.hooksPath .githooks          <span class="c"># use hooks committed to the repository</span>
+
+pip <span class="nb">install </span>pre-commit                       <span class="c"># or: pipx install pre-commit</span>
+pre-commit <span class="nb">install</span>                           <span class="c"># install hooks from .pre-commit-config.yaml</span>
+pre-commit run <span class="nt">--all-files</span>
 </code></pre></div></div>
 
-<h3 id="hotfix-workflow">Hotfix Workflow</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git checkout main
-git checkout <span class="nt">-b</span> hotfix/critical-fix
-<span class="c"># Make fix</span>
-git add <span class="nb">.</span>
-git commit <span class="nt">-m</span> <span class="s2">"Fix critical issue"</span>
-git checkout main
-git merge hotfix/critical-fix
-git push
-</code></pre></div></div>
+<p>Git 2.54 also allows hooks to be defined in configuration files, including several commands for the same event; see <code class="language-plaintext highlighter-rouge">git help githooks</code>.</p>
 
-<h2 id="best-practices">Best Practices</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># VS Code as editor and diff tool</span>
+git config <span class="nt">--global</span> core.editor <span class="s2">"code --wait"</span>
+git config <span class="nt">--global</span> diff.tool vscode
+git config <span class="nt">--global</span> difftool.vscode.cmd <span class="s1">'code --wait --diff $LOCAL $REMOTE'</span>
 
-<ul>
-  <li><strong>Write messages in the imperative mood</strong> (“Add”, “Fix”, “Remove”) with a concise first line under ~50 characters.</li>
-  <li><strong>Keep commits atomic</strong> — one logical change each, so they can be reviewed, reverted, or cherry-picked independently.</li>
-  <li><strong>Name branches descriptively</strong> with a type prefix (<code class="language-plaintext highlighter-rouge">feature/</code>, <code class="language-plaintext highlighter-rouge">bugfix/</code>, <code class="language-plaintext highlighter-rouge">hotfix/</code>).</li>
-  <li><strong>Sync before you push</strong> — <code class="language-plaintext highlighter-rouge">git pull --rebase</code> keeps history linear and avoids surprise conflicts.</li>
-  <li><strong>Review before you commit</strong> with <code class="language-plaintext highlighter-rouge">git diff --staged</code>, and stage selectively with <code class="language-plaintext highlighter-rouge">git add -p</code>.</li>
-  <li><strong>Prefer <code class="language-plaintext highlighter-rouge">--force-with-lease</code> over <code class="language-plaintext highlighter-rouge">--force</code></strong> so you never clobber a teammate’s pushed work.</li>
-</ul>
-
-<h2 id="advanced-features-2023-2024">Advanced Features (2023-2024)</h2>
-
-<h3 id="worktrees">Worktrees</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git worktree add &lt;path&gt; &lt;branch&gt;     <span class="c"># Create new worktree</span>
-git worktree list                    <span class="c"># List all worktrees</span>
-git worktree remove &lt;path&gt;           <span class="c"># Remove worktree</span>
-git worktree prune                   <span class="c"># Clean up stale worktrees</span>
-</code></pre></div></div>
-
-<h3 id="sparse-checkout">Sparse Checkout</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git sparse-checkout init             <span class="c"># Initialize sparse checkout</span>
-git sparse-checkout <span class="nb">set</span> &lt;dir1&gt; &lt;dir2&gt; <span class="c"># Set directories to include</span>
-git sparse-checkout list             <span class="c"># Show current sparse patterns</span>
-git sparse-checkout disable          <span class="c"># Disable sparse checkout</span>
-</code></pre></div></div>
-
-<h3 id="maintenance-and-performance">Maintenance and Performance</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git maintenance start                <span class="c"># Enable automatic maintenance</span>
-git maintenance run                  <span class="c"># Run maintenance tasks</span>
-git maintenance stop                 <span class="c"># Disable automatic maintenance</span>
-git commit-graph write               <span class="c"># Generate commit graph</span>
-git multi-pack-index write           <span class="c"># Optimize pack files</span>
-</code></pre></div></div>
-
-<h3 id="advanced-diff-and-merge">Advanced Diff and Merge</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git diff <span class="nt">--color-words</span>               <span class="c"># Show word-level differences</span>
-git diff <span class="nt">--word-diff</span>                 <span class="c"># Alternative word diff format</span>
-git diff <span class="nt">--name-status</span>               <span class="c"># Show only file names and status</span>
-git diff <span class="nt">--check</span>                     <span class="c"># Check for whitespace errors</span>
-git merge <span class="nt">--no-ff</span>                    <span class="c"># Force merge commit</span>
-git merge <span class="nt">--squash</span>                   <span class="c"># Squash branch into single commit</span>
-git rerere                           <span class="c"># Reuse recorded resolution</span>
-</code></pre></div></div>
-
-<h3 id="bundle-operations">Bundle Operations</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git bundle create &lt;file&gt; &lt;refs&gt;      <span class="c"># Create bundle file</span>
-git bundle verify &lt;file&gt;             <span class="c"># Verify bundle</span>
-git bundle list-heads &lt;file&gt;         <span class="c"># List references in bundle</span>
-git clone &lt;bundle-file&gt; &lt;<span class="nb">dir</span><span class="o">&gt;</span>        <span class="c"># Clone from bundle</span>
-</code></pre></div></div>
-
-<h3 id="bisect-for-bug-finding">Bisect for Bug Finding</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git bisect start                     <span class="c"># Start bisect session</span>
-git bisect bad                       <span class="c"># Mark current commit as bad</span>
-git bisect good &lt;commit&gt;             <span class="c"># Mark known good commit</span>
-git bisect skip                      <span class="c"># Skip current commit</span>
-git bisect reset                     <span class="c"># End bisect session</span>
-git bisect run &lt;script&gt;              <span class="c"># Automate bisect with script</span>
-</code></pre></div></div>
-
-<h3 id="signing-and-verification">Signing and Verification</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> user.signingkey &lt;key-id&gt;  <span class="c"># Set GPG key</span>
-git config <span class="nt">--global</span> commit.gpgsign <span class="nb">true</span>        <span class="c"># Auto-sign commits</span>
-git config <span class="nt">--global</span> tag.gpgsign <span class="nb">true</span>           <span class="c"># Auto-sign tags</span>
-git commit <span class="nt">-S</span> <span class="nt">-m</span> <span class="s2">"Signed commit"</span>               <span class="c"># Sign specific commit</span>
-git tag <span class="nt">-s</span> &lt;tag-name&gt; <span class="nt">-m</span> <span class="s2">"Signed tag"</span>          <span class="c"># Create signed tag</span>
-git verify-commit &lt;commit&gt;                      <span class="c"># Verify commit signature</span>
-git verify-tag &lt;tag&gt;                            <span class="c"># Verify tag signature</span>
-</code></pre></div></div>
-
-<h3 id="ssh-signing-git-234">SSH Signing (Git 2.34+)</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config gpg.format ssh                       <span class="c"># Use SSH for signing</span>
-git config user.signingkey ~/.ssh/id_ed25519   <span class="c"># Set SSH key</span>
-git config gpg.ssh.allowedSignersFile ~/.config/git/allowed_signers
+<span class="c"># GitHub CLI</span>
+gh repo clone &lt;owner&gt;/&lt;repo&gt;
+gh <span class="nb">pr </span>create <span class="nt">--fill</span>
+gh <span class="nb">pr </span>checkout &lt;number&gt;
+gh <span class="nb">pr </span>view <span class="nt">--web</span>
 </code></pre></div></div>
 
 <h2 id="troubleshooting">Troubleshooting</h2>
 
-<h3 id="common-issues">Common Issues</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Problem</th>
+      <th>Fix</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Detached HEAD</strong> (“You are in ‘detached HEAD’ state”)</td>
+      <td>You checked out a commit, not a branch. To keep work done there: <code class="language-plaintext highlighter-rouge">git switch -c &lt;new-branch&gt;</code>. To leave: <code class="language-plaintext highlighter-rouge">git switch &lt;branch&gt;</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Committed to the wrong branch</strong> (not pushed)</td>
+      <td><code class="language-plaintext highlighter-rouge">git switch correct-branch</code>, <code class="language-plaintext highlighter-rouge">git cherry-pick &lt;commit&gt;</code>, then <code class="language-plaintext highlighter-rouge">git switch wrong-branch</code> and <code class="language-plaintext highlighter-rouge">git reset --hard HEAD~1</code></td>
+    </tr>
+    <tr>
+      <td><strong>Last <em>n</em> commits belong on a new branch</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">git branch &lt;new&gt;</code>, <code class="language-plaintext highlighter-rouge">git reset --hard HEAD~n</code>, <code class="language-plaintext highlighter-rouge">git switch &lt;new&gt;</code></td>
+    </tr>
+    <tr>
+      <td><strong>Push rejected (non-fast-forward)</strong></td>
+      <td>The remote has commits you lack: <code class="language-plaintext highlighter-rouge">git pull --rebase</code>, resolve, push again</td>
+    </tr>
+    <tr>
+      <td><strong>Lost commits after reset or rebase</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">git reflog</code>, find the entry, <code class="language-plaintext highlighter-rouge">git branch rescue &lt;hash&gt;</code></td>
+    </tr>
+    <tr>
+      <td><strong>Deleted a branch</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">git reflog</code> (or the hash printed by <code class="language-plaintext highlighter-rouge">git branch -D</code>), then <code class="language-plaintext highlighter-rouge">git branch &lt;name&gt; &lt;hash&gt;</code></td>
+    </tr>
+    <tr>
+      <td><strong>Merge conflict</strong></td>
+      <td>Edit files, remove markers, <code class="language-plaintext highlighter-rouge">git add</code>, then <code class="language-plaintext highlighter-rouge">git commit</code> or <code class="language-plaintext highlighter-rouge">git rebase --continue</code>; or <code class="language-plaintext highlighter-rouge">--abort</code></td>
+    </tr>
+    <tr>
+      <td><strong>Line-ending noise on Windows</strong></td>
+      <td>Commit a <code class="language-plaintext highlighter-rouge">.gitattributes</code> with <code class="language-plaintext highlighter-rouge">* text=auto</code>, then <code class="language-plaintext highlighter-rouge">git add --renormalize .</code></td>
+    </tr>
+    <tr>
+      <td><strong>Corrupted object errors</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">git fsck --full</code> to identify the damage; fetch the missing objects from a remote or re-clone and copy over uncommitted work</td>
+    </tr>
+    <tr>
+      <td><strong>Slow <code class="language-plaintext highlighter-rouge">git status</code></strong></td>
+      <td>Enable <code class="language-plaintext highlighter-rouge">core.fsmonitor</code> and <code class="language-plaintext highlighter-rouge">core.untrackedCache</code>, or run <code class="language-plaintext highlighter-rouge">scalar register</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>Detached HEAD State</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git checkout &lt;branch-name&gt;           <span class="c"># Return to branch</span>
-git checkout <span class="nt">-b</span> &lt;new-branch&gt;         <span class="c"># Create branch from current state</span>
-git switch <span class="nt">-c</span> &lt;new-branch&gt;           <span class="c"># Modern way to create branch</span>
-</code></pre></div></div>
+<p>Avoid <code class="language-plaintext highlighter-rouge">git reflog expire --expire=now --all</code> followed by <code class="language-plaintext highlighter-rouge">git gc --prune=now</code> unless you intend to destroy unreachable history: it deletes exactly the objects the reflog would let you recover.</p>
 
-<p><strong>Merge Conflicts</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Edit conflicted files manually</span>
-git add &lt;resolved-files&gt;
-git commit                           <span class="c"># Complete merge</span>
-<span class="c"># Or use merge tool</span>
-git mergetool                        <span class="c"># Launch configured merge tool</span>
-</code></pre></div></div>
+<h2 id="toward-git-30">Toward Git 3.0</h2>
 
-<p><strong>Wrong Branch Commits</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git cherry-pick &lt;commit&gt;             <span class="c"># Copy commit to correct branch</span>
-git reset <span class="nt">--hard</span> HEAD~1              <span class="c"># Remove from wrong branch</span>
-<span class="c"># Or move last n commits to new branch</span>
-git branch &lt;new-branch&gt;
-git reset <span class="nt">--hard</span> HEAD~n
-git checkout &lt;new-branch&gt;
-</code></pre></div></div>
+<p>The Git project maintains a list of breaking changes planned for Git 3.0, which has no release date yet. Most can already be opted into:</p>
 
-<p><strong>Large File Issues</strong> (purge a big/sensitive file from all history)</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Preferred: git-filter-repo (fast, safe; install via pip/package manager)</span>
-git filter-repo <span class="nt">--path</span> &lt;large-file&gt; <span class="nt">--invert-paths</span>
+<table>
+  <thead>
+    <tr>
+      <th>Change</th>
+      <th>Git 2.x today</th>
+      <th>Planned for 3.0</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Default branch name</td>
+      <td><code class="language-plaintext highlighter-rouge">master</code> (with a hint to configure it)</td>
+      <td><code class="language-plaintext highlighter-rouge">main</code></td>
+    </tr>
+    <tr>
+      <td>Object hash for new repositories</td>
+      <td>SHA-1; opt in with <code class="language-plaintext highlighter-rouge">git init --object-format=sha256</code></td>
+      <td>SHA-256</td>
+    </tr>
+    <tr>
+      <td>Reference storage for new repositories</td>
+      <td>Loose files plus <code class="language-plaintext highlighter-rouge">packed-refs</code>; opt in with <code class="language-plaintext highlighter-rouge">git init --ref-format=reftable</code></td>
+      <td>Reftable</td>
+    </tr>
+    <tr>
+      <td>Discovery of bare repositories</td>
+      <td>Allowed anywhere (<code class="language-plaintext highlighter-rouge">safe.bareRepository=all</code>)</td>
+      <td>Only when explicitly requested</td>
+    </tr>
+    <tr>
+      <td>Legacy commands and features</td>
+      <td><code class="language-plaintext highlighter-rouge">git whatchanged</code>, <code class="language-plaintext highlighter-rouge">git pack-redundant</code>, grafts</td>
+      <td>Removed</td>
+    </tr>
+    <tr>
+      <td>Building Git from source</td>
+      <td>Rust optional</td>
+      <td>Rust required</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c"># Legacy fallback only — git filter-branch is deprecated and error-prone</span>
-git filter-branch <span class="nt">--tree-filter</span> <span class="s1">'rm -f &lt;large-file&gt;'</span> HEAD
-</code></pre></div></div>
-<blockquote>
-  <p>Rewriting history changes every downstream commit hash. Coordinate with collaborators and force-push afterward; everyone else must re-clone or hard-reset.</p>
-</blockquote>
+<p>SHA-256 repositories cannot yet exchange objects with SHA-1 repositories, and support on hosting services is still limited, so opt in only where every participant supports it.</p>
 
-<p><strong>Corrupted Repository</strong></p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git fsck <span class="nt">--full</span>                      <span class="c"># Check repository integrity</span>
-git gc <span class="nt">--prune</span><span class="o">=</span>now                   <span class="c"># Clean up repository</span>
-git reflog expire <span class="nt">--expire</span><span class="o">=</span>now <span class="nt">--all</span> <span class="c"># Expire all reflog entries</span>
-</code></pre></div></div>
-
-<h2 id="performance-optimization">Performance Optimization</h2>
-
-<h3 id="config-optimizations">Config Optimizations</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config core.preloadindex <span class="nb">true</span>    <span class="c"># Speed up git status</span>
-git config core.fscache <span class="nb">true</span>         <span class="c"># Enable file system cache (Windows)</span>
-git config core.untrackedCache <span class="nb">true</span>  <span class="c"># Cache untracked files</span>
-git config feature.manyFiles <span class="nb">true</span>    <span class="c"># Optimize for many files</span>
-</code></pre></div></div>
-
-<h3 id="large-repository-handling">Large Repository Handling</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Shallow clone</span>
-git clone <span class="nt">--depth</span> 1 &lt;url&gt;            <span class="c"># Clone only latest commit</span>
-git clone <span class="nt">--shallow-since</span><span class="o">=</span>&lt;<span class="nb">date</span><span class="o">&gt;</span>     <span class="c"># Clone from specific date</span>
-git clone <span class="nt">--shallow-exclude</span><span class="o">=</span>&lt;rev&gt;    <span class="c"># Exclude specific revision</span>
-
-<span class="c"># Partial clone</span>
-git clone <span class="nt">--filter</span><span class="o">=</span>blob:none &lt;url&gt;   <span class="c"># Clone without file contents</span>
-git clone <span class="nt">--filter</span><span class="o">=</span>tree:0 &lt;url&gt;      <span class="c"># Clone without trees</span>
-</code></pre></div></div>
-
-<h2 id="integration-with-development-tools">Integration with Development Tools</h2>
-
-<h3 id="vs-code-integration">VS Code Integration</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> core.editor <span class="s2">"code --wait"</span>
-git config <span class="nt">--global</span> diff.tool vscode
-git config <span class="nt">--global</span> difftool.vscode.cmd <span class="s1">'code --wait --diff $LOCAL $REMOTE'</span>
-</code></pre></div></div>
-
-<h3 id="github-cli-integration">GitHub CLI Integration</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gh repo clone &lt;owner&gt;/&lt;repo&gt;         <span class="c"># Clone with GitHub CLI</span>
-gh <span class="nb">pr </span>create                         <span class="c"># Create pull request</span>
-gh <span class="nb">pr </span>checkout &lt;number&gt;              <span class="c"># Checkout PR locally</span>
-gh issue create                      <span class="c"># Create issue</span>
-</code></pre></div></div>
-
-<h3 id="pre-commit-hooks">Pre-commit Hooks</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install pre-commit framework</span>
-pip <span class="nb">install </span>pre-commit
-pre-commit <span class="nb">install</span>                   <span class="c"># Install git hooks</span>
-pre-commit run <span class="nt">--all-files</span>          <span class="c"># Run on all files</span>
-</code></pre></div></div>
-
-<h2 id="security-best-practices">Security Best Practices</h2>
-
-<h3 id="removing-sensitive-data">Removing Sensitive Data</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Preferred: git-filter-repo (the tool Git itself now recommends)</span>
-git filter-repo <span class="nt">--path</span> &lt;sensitive-file&gt; <span class="nt">--invert-paths</span>
-
-<span class="c"># Legacy fallback (filter-branch is deprecated):</span>
-git filter-branch <span class="nt">--force</span> <span class="nt">--index-filter</span> <span class="se">\</span>
-  <span class="s1">'git rm --cached --ignore-unmatch &lt;file&gt;'</span> <span class="se">\</span>
-  <span class="nt">--prune-empty</span> <span class="nt">--tag-name-filter</span> <span class="nb">cat</span> <span class="nt">--</span> <span class="nt">--all</span>
-</code></pre></div></div>
-<blockquote>
-  <p>A leaked secret in history must be treated as compromised even after removal — rotate the credential, then purge it from history.</p>
-</blockquote>
-
-<h3 id="secret-scanning">Secret Scanning</h3>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Use tools like git-secrets</span>
-git secrets <span class="nt">--install</span>
-git secrets <span class="nt">--register-aws</span>          <span class="c"># Register AWS patterns</span>
-git secrets <span class="nt">--scan</span>                  <span class="c"># Scan for secrets</span>
-</code></pre></div></div>
-
-<h2 id="related-git-documentation">Related Git Documentation</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="git/">Git Version Control</a> - Deep dive into Git internals and architecture</li>
-  <li><a href="git-crash-course.html">Git Crash Course</a> - Beginner-friendly introduction</li>
-  <li><a href="branching.html">Branching Strategies</a> - Git Flow, GitHub Flow, and team workflows</li>
-  <li><a href="ci-cd/">CI/CD Pipelines</a> - Continuous integration with Git</li>
+  <li><a href="git-crash-course.html">Git Crash Course</a> — guided introduction for newcomers</li>
+  <li><a href="git/">Git Version Control</a> — object model, the commit graph and internals</li>
+  <li><a href="git/conflict-and-recovery.html">Conflict and Recovery</a> — how merges, conflicts and the reflog work</li>
+  <li><a href="branching.html">Branching Strategies</a> — GitHub Flow, trunk-based development and Git Flow</li>
+  <li><a href="ci-cd/">CI/CD</a> — automating checks on every push</li>
 </ul>
 
-<h2 id="additional-resources">Additional Resources</h2>
+<h2 id="references">References</h2>
 
 <ul>
-  <li><a href="https://git-scm.com/book">Pro Git Book</a> - Comprehensive Git guide</li>
-  <li><a href="https://git-scm.com/docs">Git Documentation</a> - Official reference</li>
-  <li><a href="https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain">Git Internals</a> - Deep dive</li>
-  <li><a href="https://skills.github.com/">GitHub Skills</a> - Interactive tutorials</li>
-  <li><a href="https://www.atlassian.com/git">Atlassian Git Tutorial</a> - Visual guides</li>
-  <li><a href="https://github.com/k88hudson/git-flight-rules">Git Flight Rules</a> - What to do when things go wrong</li>
-</ul>
-
-<hr />
-
-<h2 id="see-also">See Also</h2>
-
-<ul>
-  <li><a href="git-crash-course.html">Git Crash Course</a> — the guided first walkthrough for newcomers</li>
-  <li><a href="git/">Git Version Control</a> — architecture, internals, and distributed VCS theory</li>
-  <li><a href="branching.html">Branching Strategies</a> — Git Flow, GitHub Flow, and trunk-based development</li>
-  <li><a href="ci-cd/">CI/CD</a> — automating Git workflows with continuous integration pipelines</li>
+  <li><a href="https://git-scm.com/docs">Git reference manual</a></li>
+  <li><a href="https://git-scm.com/book">Pro Git</a></li>
+  <li><a href="https://git-scm.com/docs/BreakingChanges">Git BreakingChanges</a> — the Git 3.0 plan</li>
+  <li><a href="https://github.com/newren/git-filter-repo">git-filter-repo</a></li>
+  <li><a href="https://github.com/k88hudson/git-flight-rules">Git Flight Rules</a> — what to do when things go wrong</li>
 </ul>
 
       </section>

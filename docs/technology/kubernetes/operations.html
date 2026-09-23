@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Day-two Kubernetes operations: kubectl techniques, Helm 4, sidecar and init-container patterns, in-cluster observability, systematic troubleshooting, cluster...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Kubernetes: Operations">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Day-two Kubernetes operations: kubectl techniques, Helm 4, sidecar and init-container patterns, in-cluster observability, systematic troubleshooting, cluster...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/kubernetes/operations.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Kubernetes: Operations">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Day-two Kubernetes operations: kubectl techniques, Helm 4, sidecar and init-container patterns, in-cluster observability, systematic troubleshooting, cluster...">
 
 <title>Kubernetes: Operations | Andrews Notebook</title>
 
@@ -3133,354 +3133,454 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Kubernetes</a> » Operations</p>
 
-<p>Day-to-day cluster management: kubectl, Helm package management, observability wiring, troubleshooting techniques, and production best practices.</p>
+<p>This page covers running workloads on a cluster once the fundamentals are in place: using <strong>kubectl</strong> effectively, packaging applications with <strong>Helm</strong>, the standard <strong>multi-container pod patterns</strong>, wiring up <strong>observability</strong> inside the cluster, <strong>troubleshooting</strong> by symptom, <strong>upgrading</strong> clusters safely, and a <strong>production readiness checklist</strong>. Commands and APIs are current for Kubernetes v1.35–v1.37 and Helm 4.</p>
 
-<h2 id="kubectl-mastery-command-line-kubernetes">kubectl Mastery: Command-Line Kubernetes</h2>
+<h2 id="kubectl">kubectl</h2>
 
-<p>kubectl is your primary interface for managing Kubernetes clusters. This section covers the commands you will use most often, organized by task.</p>
+<p><code class="language-plaintext highlighter-rouge">kubectl</code> is a client for the Kubernetes API. Every command ultimately issues REST calls to the API server, so anything it can do can also be done by CI systems, GitOps controllers or your own code.</p>
 
-<p><strong>Before you begin</strong>: kubectl needs to know which cluster to talk to. This is configured through contexts, which combine a cluster, user, and namespace.</p>
+<h3 id="contexts-and-kubeconfig">Contexts and kubeconfig</h3>
 
-<h3 id="essential-kubectl-commands">Essential kubectl Commands</h3>
+<p>kubectl reads its configuration from <code class="language-plaintext highlighter-rouge">~/.kube/config</code>, or from the files listed in the <code class="language-plaintext highlighter-rouge">KUBECONFIG</code> environment variable (colon-separated; they are merged). A kubeconfig holds <strong>clusters</strong> (API endpoint and CA), <strong>users</strong> (credentials, often an exec plugin that fetches short-lived cloud tokens), and <strong>contexts</strong> that pair a cluster, a user and a default namespace.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl config get-contexts                               <span class="c"># list; * marks the current one</span>
+kubectl config use-context prod-eu                        <span class="c"># switch cluster</span>
+kubectl config set-context <span class="nt">--current</span> <span class="nt">--namespace</span><span class="o">=</span>shop     <span class="c"># change the default namespace</span>
+kubectl <span class="nt">--context</span> staging <span class="nt">-n</span> shop get pods                <span class="c"># one-off override</span>
+kubectl auth <span class="nb">whoami</span>                                       <span class="c"># which identity the API server sees</span>
+kubectl auth can-i create deployments <span class="nt">-n</span> shop             <span class="c"># check an RBAC permission</span>
+</code></pre></div></div>
+
+<p>Accidentally running a command against the wrong cluster is a classic incident. Mitigations: show the context in your shell prompt, give production contexts distinctive names, and use read-only credentials by default.</p>
+
+<h3 id="reading-state">Reading State</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl get pods <span class="nt">-o</span> wide                          <span class="c"># node and IP columns</span>
+kubectl get deploy,sts,ds,svc <span class="nt">-n</span> shop             <span class="c"># several kinds at once</span>
+kubectl get pods <span class="nt">-w</span>                               <span class="c"># stream changes</span>
+kubectl get pod web-0 <span class="nt">-o</span> yaml                     <span class="c"># full object, including status</span>
+kubectl describe pod web-0                        <span class="c"># human summary plus recent events</span>
+kubectl events <span class="nt">-n</span> shop <span class="nt">--for</span> pod/web-0            <span class="c"># events for one object, oldest first</span>
+kubectl explain deployment.spec.strategy          <span class="c"># built-in API reference</span>
+kubectl api-resources                             <span class="c"># every kind the cluster serves</span>
+</code></pre></div></div>
+
+<p>Output can be shaped for scripts and quick reports:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Names only</span>
+kubectl get pods <span class="nt">-o</span> name
+
+<span class="c"># JSONPath: pod name and node, one per line</span>
+kubectl get pods <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{.metadata.name}{"\t"}{.spec.nodeName}{"\n"}{end}'</span>
+
+<span class="c"># Custom columns: image of the first container</span>
+kubectl get pods <span class="nt">-o</span> custom-columns<span class="o">=</span>NAME:.metadata.name,IMAGE:.spec.containers[0].image
+
+<span class="c"># Server-side filtering on fields and labels</span>
+kubectl get pods <span class="nt">-A</span> <span class="nt">--field-selector</span><span class="o">=</span>status.phase<span class="o">=</span>Pending
+kubectl get pods <span class="nt">-l</span> <span class="s1">'app.kubernetes.io/name in (web,api)'</span> <span class="nt">--sort-by</span><span class="o">=</span>.status.startTime
+</code></pre></div></div>
+
+<h3 id="changing-state">Changing State</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Task</th>
-      <th>Command</th>
+      <th>Style</th>
+      <th>Commands</th>
+      <th>Use for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>See what is running</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl get pods</code></td>
+      <td><strong>Declarative</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">apply -f</code>, <code class="language-plaintext highlighter-rouge">apply -k</code>, <code class="language-plaintext highlighter-rouge">diff</code>, <code class="language-plaintext highlighter-rouge">delete -f</code></td>
+      <td>Anything that should be reproducible; the normal path</td>
     </tr>
     <tr>
-      <td>Get more details</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl describe pod &lt;name&gt;</code></td>
+      <td><strong>Imperative with a manifest</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">create -f</code>, <code class="language-plaintext highlighter-rouge">replace -f</code></td>
+      <td>One-off objects; <code class="language-plaintext highlighter-rouge">replace</code> when you need a full overwrite</td>
     </tr>
     <tr>
-      <td>View logs</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl logs &lt;pod-name&gt;</code></td>
-    </tr>
-    <tr>
-      <td>Execute in container</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl exec -it &lt;pod&gt; -- /bin/sh</code></td>
-    </tr>
-    <tr>
-      <td>Apply configuration</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl apply -f manifest.yaml</code></td>
-    </tr>
-    <tr>
-      <td>Delete resources</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl delete -f manifest.yaml</code></td>
+      <td><strong>Imperative</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">scale</code>, <code class="language-plaintext highlighter-rouge">set image</code>, <code class="language-plaintext highlighter-rouge">patch</code>, <code class="language-plaintext highlighter-rouge">edit</code>, <code class="language-plaintext highlighter-rouge">label</code>, <code class="language-plaintext highlighter-rouge">annotate</code>, <code class="language-plaintext highlighter-rouge">rollout</code></td>
+      <td>Emergencies and experiments; the change is not in version control</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="working-with-multiple-clusters">Working with Multiple Clusters</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># List available contexts</span>
-kubectl config get-contexts
-
-<span class="c"># Switch to a different cluster</span>
-kubectl config use-context production-cluster
-
-<span class="c"># Set default namespace for current context</span>
-kubectl config set-context <span class="nt">--current</span> <span class="nt">--namespace</span><span class="o">=</span>production
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl diff <span class="nt">-f</span> manifests/                        <span class="c"># preview changes against the live cluster</span>
+kubectl apply <span class="nt">--server-side</span> <span class="nt">-f</span> manifests/         <span class="c"># field-ownership-aware apply</span>
+kubectl apply <span class="nt">-k</span> overlays/prod                    <span class="c"># Kustomize, built into kubectl</span>
+kubectl patch deployment web <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec":{"replicas":5}}'</span>
+kubectl rollout restart deployment/web            <span class="c"># re-create pods (e.g. to pick up a new Secret)</span>
 </code></pre></div></div>
 
-<h3 id="viewing-resources">Viewing Resources</h3>
+<p>Generate manifests instead of writing them from scratch with <code class="language-plaintext highlighter-rouge">--dry-run=client -o yaml</code>:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># List resources with extra info</span>
-kubectl get pods <span class="nt">-o</span> wide
-kubectl get all <span class="nt">-n</span> production
-
-<span class="c"># Watch for changes in real-time</span>
-kubectl get pods <span class="nt">-w</span>
-
-<span class="c"># Filter by labels</span>
-kubectl get pods <span class="nt">-l</span> <span class="nv">environment</span><span class="o">=</span>production
-kubectl get pods <span class="nt">-l</span> <span class="s1">'tier in (frontend, backend)'</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl create deployment web <span class="nt">--image</span><span class="o">=</span>nginx:1.29 <span class="nt">--dry-run</span><span class="o">=</span>client <span class="nt">-o</span> yaml <span class="o">&gt;</span> web.yaml
+kubectl create secret generic db <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">password</span><span class="o">=</span><span class="s1">'s3cret'</span> <span class="nt">--dry-run</span><span class="o">=</span>client <span class="nt">-o</span> yaml
+kubectl create configmap app-config <span class="nt">--from-file</span><span class="o">=</span>config.yaml <span class="nt">--dry-run</span><span class="o">=</span>client <span class="nt">-o</span> yaml
+kubectl get secret db <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.password}'</span> | <span class="nb">base64</span> <span class="nt">-d</span>     <span class="c"># read a Secret value</span>
 </code></pre></div></div>
 
-<h3 id="creating-and-updating-resources">Creating and Updating Resources</h3>
+<p>If a GitOps controller (Argo CD, Flux) manages the cluster, imperative changes are reverted at the next sync; change Git instead.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Apply configuration (create or update)</span>
-kubectl apply <span class="nt">-f</span> deployment.yaml
+<h3 id="debugging-commands">Debugging Commands</h3>
 
-<span class="c"># Quick edits via patch</span>
-kubectl patch deployment nginx <span class="nt">-p</span> <span class="s1">'{"spec":{"replicas":5}}'</span>
-
-<span class="c"># Edit in your default editor</span>
-kubectl edit deployment nginx
-</code></pre></div></div>
-
-<h3 id="debugging-and-troubleshooting">Debugging and Troubleshooting</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># View pod logs</span>
-kubectl logs mypod
-kubectl logs mypod <span class="nt">--previous</span>  <span class="c"># crashed container</span>
-kubectl logs <span class="nt">-f</span> <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>nginx   <span class="c"># follow all matching pods</span>
-
-<span class="c"># Execute commands in container</span>
-kubectl <span class="nb">exec</span> <span class="nt">-it</span> mypod <span class="nt">--</span> /bin/sh
-
-<span class="c"># Port forward for local testing</span>
-kubectl port-forward svc/myservice 8080:80
-
-<span class="c"># Check resource usage</span>
-kubectl top pods <span class="nt">--sort-by</span><span class="o">=</span>memory
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl logs web-0                          <span class="c"># current container</span>
+kubectl logs web-0 <span class="nt">--previous</span>               <span class="c"># the container instance that just crashed</span>
+kubectl logs <span class="nt">-f</span> <span class="nt">-l</span> app.kubernetes.io/name<span class="o">=</span>web <span class="nt">--all-containers</span> <span class="nt">--since</span><span class="o">=</span>10m <span class="nt">--prefix</span>
+kubectl <span class="nb">exec</span> <span class="nt">-it</span> web-0 <span class="nt">-c</span> app <span class="nt">--</span> sh         <span class="c"># shell in a running container</span>
+kubectl port-forward svc/web 8080:80        <span class="c"># local access to a Service or pod</span>
+kubectl <span class="nb">cp </span>web-0:/tmp/heap.hprof ./heap.hprof
+kubectl top pods <span class="nt">--sort-by</span><span class="o">=</span>memory           <span class="c"># live usage (needs metrics-server)</span>
 kubectl top nodes
 </code></pre></div></div>
 
-<h3 id="secrets-and-configmaps">Secrets and ConfigMaps</h3>
+<p>Many production images are <strong>distroless</strong> and contain no shell, so <code class="language-plaintext highlighter-rouge">exec</code> is useless. <code class="language-plaintext highlighter-rouge">kubectl debug</code> solves this by adding an <strong>ephemeral container</strong> — with whatever tools you choose — to the running pod, optionally sharing the process namespace of a target container:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create secret from literal value</span>
-kubectl create secret generic db-creds <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">password</span><span class="o">=</span>mypass
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Attach a toolbox to a running pod, sharing the 'app' container's process namespace</span>
+kubectl debug <span class="nt">-it</span> web-0 <span class="nt">--image</span><span class="o">=</span>busybox:1.37 <span class="nt">--target</span><span class="o">=</span>app
 
-<span class="c"># Decode a secret value</span>
-kubectl get secret db-creds <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{.data.password}"</span> | <span class="nb">base64</span> <span class="nt">-d</span>
+<span class="c"># Copy a crashing pod with a different command so you can inspect it</span>
+kubectl debug web-0 <span class="nt">-it</span> <span class="nt">--copy-to</span><span class="o">=</span>web-0-debug <span class="nt">--container</span><span class="o">=</span>app <span class="nt">--</span> sh
 
-<span class="c"># Create configmap from file</span>
-kubectl create configmap app-config <span class="nt">--from-file</span><span class="o">=</span>config.yaml
+<span class="c"># Shell on a node: the node's root filesystem is mounted at /host</span>
+kubectl debug node/worker-3 <span class="nt">-it</span> <span class="nt">--image</span><span class="o">=</span>ubuntu:24.04 <span class="nt">--profile</span><span class="o">=</span>sysadmin
 </code></pre></div></div>
 
-<h3 id="power-user-tips">Power User Tips</h3>
+<h3 id="node-maintenance">Node Maintenance</h3>
 
-<p><strong>Useful aliases</strong> (add to your shell config):</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">alias </span><span class="nv">k</span><span class="o">=</span><span class="s1">'kubectl'</span>
-<span class="nb">alias </span><span class="nv">kgp</span><span class="o">=</span><span class="s1">'kubectl get pods'</span>
-<span class="nb">alias </span><span class="nv">kaf</span><span class="o">=</span><span class="s1">'kubectl apply -f'</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl cordon worker-3                     <span class="c"># stop scheduling new pods here</span>
+kubectl drain worker-3 <span class="nt">--ignore-daemonsets</span> <span class="nt">--delete-emptydir-data</span> <span class="nt">--timeout</span><span class="o">=</span>10m
+<span class="c"># ... patch, reboot, replace ...</span>
+kubectl uncordon worker-3
 </code></pre></div></div>
 
-<p><strong>JSONPath for extracting data</strong>:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Get all pod names</span>
-kubectl get pods <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[*].metadata.name}'</span>
-</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">drain</code> cordons the node and then <strong>evicts</strong> its pods through the Eviction API, which honours PodDisruptionBudgets: if evicting a pod would violate its PDB, drain waits and retries. DaemonSet pods are left in place (they would be recreated immediately), and <code class="language-plaintext highlighter-rouge">--delete-emptydir-data</code> acknowledges that <code class="language-plaintext highlighter-rouge">emptyDir</code> contents will be lost.</p>
 
-<p><strong>Node management</strong>:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Prepare node for maintenance</span>
-kubectl drain node1 <span class="nt">--ignore-daemonsets</span> <span class="nt">--delete-emptydir-data</span>
-kubectl uncordon node1  <span class="c"># make schedulable again</span>
-
-<span class="c"># Mark node unschedulable (no drain)</span>
-kubectl cordon node1
-</code></pre></div></div>
-
-<h3 id="kubectl-plugins-with-krew">kubectl Plugins with Krew</h3>
-
-<p>Krew is a plugin manager for kubectl. Popular plugins:</p>
+<h3 id="productivity-tooling">Productivity Tooling</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Plugin</th>
+      <th>Tool</th>
       <th>Purpose</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ctx</code></td>
-      <td>Quickly switch contexts</td>
+      <td>Shell completion (<code class="language-plaintext highlighter-rouge">kubectl completion bash</code>, or <code class="language-plaintext highlighter-rouge">zsh</code>, <code class="language-plaintext highlighter-rouge">fish</code>)</td>
+      <td>Completes resource names, not just subcommands</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ns</code></td>
-      <td>Quickly switch namespaces</td>
+      <td><a href="https://krew.sigs.k8s.io/">Krew</a></td>
+      <td>kubectl plugin manager (<code class="language-plaintext highlighter-rouge">kubectl krew install &lt;plugin&gt;</code>)</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">tree</code></td>
-      <td>Show resource hierarchy</td>
+      <td><code class="language-plaintext highlighter-rouge">ctx</code> / <code class="language-plaintext highlighter-rouge">ns</code> plugins (kubectx, kubens)</td>
+      <td>Fast context and namespace switching</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">neat</code></td>
-      <td>Clean up YAML output</td>
+      <td><code class="language-plaintext highlighter-rouge">tree</code>, <code class="language-plaintext highlighter-rouge">neat</code>, <code class="language-plaintext highlighter-rouge">who-can</code> plugins</td>
+      <td>Ownership hierarchies, clean YAML output, reverse RBAC lookup</td>
+    </tr>
+    <tr>
+      <td><strong>k9s</strong></td>
+      <td>Terminal UI for browsing and operating a cluster</td>
+    </tr>
+    <tr>
+      <td><strong>stern</strong></td>
+      <td>Tail logs from many pods and containers at once, with colour per pod</td>
     </tr>
   </tbody>
 </table>
 
-<p>Install krew and a plugin:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl krew <span class="nb">install </span>ctx
-kubectl ctx production  <span class="c"># switch context</span>
+<h2 id="helm">Helm</h2>
+
+<p><strong>Helm</strong> packages a set of Kubernetes manifests as a versioned, parameterised <strong>chart</strong>. Installing a chart with a set of <strong>values</strong> produces a <strong>release</strong>; Helm records each release revision (as a Secret in the release’s namespace) so it can upgrade, diff and roll back as a unit.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    C["Chart&lt;br/&gt;templates/ + values.yaml"] --&gt; R["Render&lt;br/&gt;Go templates"]
+    V["Your values&lt;br/&gt;-f prod.yaml, --set"] --&gt; R
+    R --&gt; M["Kubernetes manifests"]
+    M --&gt;|"apply (server-side in Helm 4)"| API["kube-apiserver"]
+    M --&gt; S[("Release record&lt;br/&gt;Secret sh.helm.release.v1.*")]
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Chart</strong></td>
+      <td>A directory or archive of templates, default values and metadata (<code class="language-plaintext highlighter-rouge">Chart.yaml</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>Values</strong></td>
+      <td>Configuration merged over the chart’s <code class="language-plaintext highlighter-rouge">values.yaml</code>; later <code class="language-plaintext highlighter-rouge">-f</code> files and <code class="language-plaintext highlighter-rouge">--set</code> flags win</td>
+    </tr>
+    <tr>
+      <td><strong>Release</strong></td>
+      <td>One installed instance of a chart in a namespace, with numbered revisions</td>
+    </tr>
+    <tr>
+      <td><strong>Repository</strong></td>
+      <td>Where charts are published: an HTTP index or, increasingly, an <strong>OCI registry</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="helm-4">Helm 4</h3>
+
+<p>Helm 4.0 was released in November 2025, the first major version in six years. Most Helm 3 charts and releases work unchanged. Notable differences:</p>
+
+<ul>
+  <li><strong>Server-side apply</strong> is the default for new releases, so Helm participates in field ownership alongside controllers and other tools (releases created by Helm 3 keep client-side apply on upgrade).</li>
+  <li>Resource readiness for <code class="language-plaintext highlighter-rouge">--wait</code> uses <strong>kstatus</strong>, the same status logic used by other tooling, giving more accurate “is it ready” answers for complex resources.</li>
+  <li>Plugins — including post-renderers and getters — run through a new plugin system with an optional <strong>WebAssembly</strong> runtime.</li>
+  <li>Charts can be installed <strong>by OCI digest</strong> (<code class="language-plaintext highlighter-rouge">oci://registry.example.com/charts/app@sha256:...</code>) for supply-chain pinning.</li>
+  <li>Flag renames: <code class="language-plaintext highlighter-rouge">--atomic</code> becomes <code class="language-plaintext highlighter-rouge">--rollback-on-failure</code>, <code class="language-plaintext highlighter-rouge">--force</code> becomes <code class="language-plaintext highlighter-rouge">--force-replace</code> (the old names still work with a deprecation warning).</li>
+</ul>
+
+<p>Helm 3 received its final feature release in September 2026 and gets security fixes only until February 2027, so new work should target Helm 4.</p>
+
+<h3 id="everyday-commands">Everyday Commands</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install or upgrade in one idempotent command (the usual CI form)</span>
+helm upgrade <span class="nt">--install</span> web ./charts/web <span class="nt">-n</span> shop <span class="nt">--create-namespace</span> <span class="se">\</span>
+  <span class="nt">-f</span> values/prod.yaml <span class="nt">--set</span> image.tag<span class="o">=</span>1.8.2 <span class="nt">--wait</span> <span class="nt">--rollback-on-failure</span>
+
+helm template web ./charts/web <span class="nt">-f</span> values/prod.yaml   <span class="c"># render locally, apply nothing</span>
+helm lint ./charts/web
+helm list <span class="nt">-A</span>                                          <span class="c"># releases in all namespaces</span>
+helm <span class="nb">history </span>web <span class="nt">-n</span> shop                              <span class="c"># revisions</span>
+helm rollback web 3 <span class="nt">-n</span> shop                           <span class="c"># back to revision 3</span>
+helm get values web <span class="nt">-n</span> shop                           <span class="c"># values in effect</span>
+helm uninstall web <span class="nt">-n</span> shop
+
+<span class="c"># Charts from an OCI registry — no 'helm repo add' needed</span>
+helm <span class="nb">install </span>cache oci://registry.example.com/charts/redis <span class="nt">--version</span> 20.1.0
+
+<span class="c"># Charts from a classic HTTP repository</span>
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm search repo prometheus-community/kube-prometheus-stack <span class="nt">--versions</span>
 </code></pre></div></div>
 
-<h2 id="best-practices-production-checklist">Best Practices: Production Checklist</h2>
+<p>Always pin <code class="language-plaintext highlighter-rouge">--version</code> for third-party charts; an unpinned install silently picks up a new major version the next time CI runs. Chart sources also change hands — for example, in August 2025 Bitnami moved most of its free container images to an unmaintained “legacy” repository, leaving many widely used charts pointing at images that no longer receive updates — so keep an internal mirror of charts and images you depend on.</p>
 
-<p>Before going to production, verify your setup against these categories:</p>
+<h3 id="chart-layout-and-templates">Chart Layout and Templates</h3>
 
-<h3 id="resource-management">Resource Management</h3>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>charts/web/
+├── Chart.yaml          # name, version (chart), appVersion (application), dependencies
+├── values.yaml         # defaults, documented
+├── values.schema.json  # optional JSON Schema; validates user values
+├── templates/
+│   ├── _helpers.tpl    # named templates (labels, names)
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── NOTES.txt       # printed after install
+└── charts/             # vendored dependencies
+</code></pre></div></div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Practice</th>
-      <th>Why It Matters</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Set resource requests/limits</td>
-      <td>Prevents resource starvation and runaway costs</td>
-    </tr>
-    <tr>
-      <td>Use namespaces</td>
-      <td>Isolate environments and teams</td>
-    </tr>
-    <tr>
-      <td>Label everything consistently</td>
-      <td>Enables filtering, monitoring, and cost allocation</td>
-    </tr>
-    <tr>
-      <td>Implement ResourceQuotas</td>
-      <td>Prevents one team from consuming all resources</td>
-    </tr>
-  </tbody>
-</table>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># templates/deployment.yaml (excerpt)</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="pi">{{</span> <span class="nv">include "web.fullname" .</span> <span class="pi">}}</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="pi">{{</span><span class="nv">- include "web.labels" . | nindent 4</span> <span class="pi">}}</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="pi">{{</span><span class="nv">- if not .Values.autoscaling.enabled</span> <span class="pi">}}</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="pi">{{</span> <span class="nv">.Values.replicaCount</span> <span class="pi">}}</span>
+  <span class="pi">{{</span><span class="nv">- end</span> <span class="pi">}}</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">{{</span><span class="nv"> </span><span class="s">.Values.image.repository</span><span class="nv"> </span><span class="s">}}:{{</span><span class="nv"> </span><span class="s">.Values.image.tag</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">default</span><span class="nv"> </span><span class="s">.Chart.AppVersion</span><span class="nv"> </span><span class="s">}}"</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="pi">{{</span><span class="nv">- toYaml .Values.resources | nindent 10</span> <span class="pi">}}</span>
+</code></pre></div></div>
 
-<h3 id="high-availability">High Availability</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Practice</th>
-      <th>Why It Matters</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Run 3+ replicas</td>
-      <td>Survives node failures</td>
-    </tr>
-    <tr>
-      <td>Use pod anti-affinity</td>
-      <td>Spreads pods across nodes/zones</td>
-    </tr>
-    <tr>
-      <td>Define PodDisruptionBudgets</td>
-      <td>Controls how many pods can be down during updates</td>
-    </tr>
-    <tr>
-      <td>Implement health probes</td>
-      <td>Ensures traffic only goes to healthy pods</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="security">Security</h3>
+<h3 id="helm-practices">Helm Practices</h3>
 
 <table>
   <thead>
     <tr>
       <th>Practice</th>
-      <th>Why It Matters</th>
+      <th>Why</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Enable RBAC with least privilege</td>
-      <td>Limits blast radius of compromised accounts</td>
+      <td>Keep one values file per environment in version control</td>
+      <td>Reviewable, reproducible configuration</td>
     </tr>
     <tr>
-      <td>Use NetworkPolicies</td>
-      <td>Prevents lateral movement between services</td>
+      <td>Add a <code class="language-plaintext highlighter-rouge">values.schema.json</code></td>
+      <td>Typos in values fail fast instead of rendering silently wrong manifests</td>
     </tr>
     <tr>
-      <td>Run as non-root</td>
-      <td>Reduces container escape impact</td>
+      <td>Render and diff before upgrading (<code class="language-plaintext highlighter-rouge">helm template</code>, the <code class="language-plaintext highlighter-rouge">helm-diff</code> plugin)</td>
+      <td>See exactly what will change</td>
     </tr>
     <tr>
-      <td>Scan images for vulnerabilities</td>
-      <td>Catches known issues before deployment</td>
+      <td>Pin chart versions and image tags (or digests)</td>
+      <td>Reproducible installs</td>
+    </tr>
+    <tr>
+      <td>Do not store secrets in values files</td>
+      <td>Use External Secrets, Sealed Secrets or SOPS instead</td>
+    </tr>
+    <tr>
+      <td>Let a GitOps controller run Helm in production</td>
+      <td>Continuous drift correction and an audit trail</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="observability">Observability</h3>
+<p><strong>Helm or Kustomize?</strong> Helm templates and versions whole applications and is the standard way to distribute third-party software. <strong>Kustomize</strong> (built into <code class="language-plaintext highlighter-rouge">kubectl apply -k</code>) patches plain YAML with overlays and has no templating language or release state. Many teams use both: Helm for vendor charts, Kustomize overlays for their own services — and Argo CD and Flux support each natively.</p>
+
+<h2 id="multi-container-pod-patterns">Multi-Container Pod Patterns</h2>
+
+<p>A pod can hold several containers that share its network namespace and volumes. The patterns below are the standard reasons to use more than one.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Practice</th>
-      <th>Why It Matters</th>
+      <th>Pattern</th>
+      <th>Implemented as</th>
+      <th>Purpose</th>
+      <th>Examples</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Centralize logs</td>
-      <td>Enables debugging after pod deletion</td>
+      <td><strong>Init container</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">initContainers</code> entry (runs to completion, in order)</td>
+      <td>Setup that must finish before the app starts</td>
+      <td>Schema migration, fetching config, waiting for a dependency</td>
     </tr>
     <tr>
-      <td>Expose metrics</td>
-      <td>Enables alerting and capacity planning</td>
+      <td><strong>Sidecar</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">initContainers</code> entry with <code class="language-plaintext highlighter-rouge">restartPolicy: Always</code></td>
+      <td>Helper that runs for the pod’s whole life</td>
+      <td>Log shipper, service-mesh proxy, secrets refresher</td>
     </tr>
     <tr>
-      <td>Implement distributed tracing</td>
-      <td>Debugs latency across services</td>
+      <td><strong>Ambassador</strong></td>
+      <td>Sidecar that proxies outbound traffic</td>
+      <td>Hide connection details from the app</td>
+      <td>Cloud SQL proxy, local API gateway</td>
     </tr>
     <tr>
-      <td>Set up alerts</td>
-      <td>Catches issues before users notice</td>
+      <td><strong>Adapter</strong></td>
+      <td>Sidecar that translates output</td>
+      <td>Normalise interfaces</td>
+      <td>Exporting app stats as Prometheus metrics</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="observability-seeing-inside-the-cluster">Observability: Seeing Inside the Cluster</h2>
+<h3 id="native-sidecars">Native Sidecars</h3>
 
-<p>Health probes tell Kubernetes whether to <em>restart</em> or <em>route to</em> a pod (covered in <a href="workloads.html#observability-understanding-application-health">Workloads &amp; Storage</a>), but they answer a binary question. Operating a cluster means answering <em>why</em> — why is latency up, which release introduced the error, what was this pod logging the moment before it was evicted. That requires the <strong>three pillars of observability</strong>: metrics, logs, and traces.</p>
+<p>Before v1.28, sidecars were ordinary entries in <code class="language-plaintext highlighter-rouge">containers</code>, which caused two long-standing problems: there was no guarantee the sidecar started before the app (so a mesh proxy might not be ready for the app’s first request), and a sidecar kept a Job’s pod running forever after the main container finished. <strong>Native sidecars</strong> — init containers with <code class="language-plaintext highlighter-rouge">restartPolicy: Always</code>, stable since v1.33 — fix both.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant I as init: migrate
+    participant S as sidecar: log-shipper
+    participant A as container: app
+    Note over I,A: Pod start
+    I-&gt;&gt;I: run to completion
+    S-&gt;&gt;S: start (startupProbe passes)
+    A-&gt;&gt;A: start
+    Note over S,A: both run, the sidecar restarts independently if it crashes
+    Note over I,A: Pod termination
+    A-&gt;&gt;A: SIGTERM, exit
+    S-&gt;&gt;S: SIGTERM after app has stopped
+</code></pre>
+
+<p>Init containers and sidecars start in the order listed; a sidecar counts as started once it is running and its <code class="language-plaintext highlighter-rouge">startupProbe</code> (if any) passes, and only then does the next entry start. On shutdown, sidecars are stopped after the main containers, in reverse order. In a Job, sidecars do not block completion.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">initContainers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">migrate</span>                      <span class="c1"># classic init container: runs once, must succeed</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/app:1.8.2</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">./migrate"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">--up"</span><span class="pi">]</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">log-shipper</span>                  <span class="c1"># native sidecar</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">fluent/fluent-bit:4.0</span>
+    <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+    <span class="na">volumeMounts</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">name</span><span class="pi">:</span> <span class="nv">logs</span><span class="pi">,</span> <span class="nv">mountPath</span><span class="pi">:</span> <span class="nv">/var/log/app</span><span class="pi">}</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.example.com/app:1.8.2</span>
+    <span class="na">volumeMounts</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">name</span><span class="pi">:</span> <span class="nv">logs</span><span class="pi">,</span> <span class="nv">mountPath</span><span class="pi">:</span> <span class="nv">/var/log/app</span><span class="pi">}</span>
+  <span class="na">volumes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">logs</span>
+    <span class="na">emptyDir</span><span class="pi">:</span> <span class="pi">{}</span>
+</code></pre></div></div>
+
+<p>Where possible, prefer writing logs to stdout and letting a node-level agent collect them (below) over a per-pod log sidecar; sidecars cost CPU and memory in every replica.</p>
+
+<h2 id="observability">Observability</h2>
+
+<p>Probes answer a binary question — restart or not, route or not (see <a href="fundamentals-resources.html#probes">Health &amp; Resource Management</a>). Operating a system means answering <em>why</em>: why latency rose, which release introduced errors, what a pod logged before it was evicted. That needs the three telemetry signals, correlated.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Pillar</th>
+      <th>Signal</th>
       <th>Answers</th>
-      <th>Cardinality</th>
-      <th>Typical retention</th>
+      <th>Cost profile</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Metrics</strong></td>
-      <td>“What is happening, and how much?” (rates, percentiles, saturation)</td>
-      <td>Low — aggregated numbers</td>
-      <td>Weeks to months (cheap)</td>
+      <td>How much, how fast, how full? Rates, percentiles, saturation</td>
+      <td>Cheap per series; cost grows with label cardinality</td>
     </tr>
     <tr>
       <td><strong>Logs</strong></td>
-      <td>“What exactly happened in this request/pod?”</td>
-      <td>High — one entry per event</td>
-      <td>Days to weeks (expensive)</td>
+      <td>What exactly happened in this request or pod?</td>
+      <td>Expensive at volume; one record per event</td>
     </tr>
     <tr>
       <td><strong>Traces</strong></td>
-      <td>“Where did the time go across services?”</td>
-      <td>High — sampled</td>
-      <td>Days</td>
+      <td>Where did the time go across services?</td>
+      <td>Sampled; high detail per request</td>
     </tr>
   </tbody>
 </table>
 
-<p>The pillars are complementary, not redundant. A metric tells you the p99 latency spiked; a trace shows you which downstream call caused it; the logs from that span’s service tell you the underlying error. Modern tooling (OpenTelemetry, exemplars, Grafana) is increasingly about <em>correlating</em> the three so you can pivot between them with one click.</p>
+<p>The platform-neutral concepts — metric types and PromQL, logging architectures, OpenTelemetry and SLOs — are covered in the <a href="../../observability/">Observability</a> section. This section is the Kubernetes-specific wiring.</p>
 
-<blockquote>
-  <p><strong>Where this fits:</strong> Kubernetes is one source of telemetry, not the whole story. The platform-level concepts — metric types and PromQL, the ELK/Loki logging stacks, OpenTelemetry and sampling — are covered in depth in the <a href="../../observability/">Observability hub</a>. This section is the <em>Kubernetes-specific</em> wiring: what to deploy in-cluster and how the pieces connect.</p>
-</blockquote>
+<h3 id="metrics">Metrics</h3>
 
-<h3 id="the-metrics-pipeline">The Metrics Pipeline</h3>
-
-<p>Two distinct things both get called “metrics” in Kubernetes, and conflating them is a common source of confusion:</p>
+<p>Two different things are called “metrics” in Kubernetes:</p>
 
 <pre><code class="language-mermaid">flowchart LR
     subgraph cluster["In-cluster"]
-        K[kubelet / cAdvisor] --&gt;|node &amp; container&lt;br/&gt;CPU, mem| MS[metrics-server]
-        MS --&gt;|resource metrics API| HPA[HPA / kubectl top]
-        Pods[App /metrics endpoints] --&gt;|scrape| Prom[Prometheus]
-        KSM[kube-state-metrics] --&gt;|object state:&lt;br/&gt;deploys, pods, jobs| Prom
-        NE[node-exporter] --&gt;|host-level metrics| Prom
+        K["kubelet / cAdvisor"] --&gt;|"container CPU &amp; memory"| MS["metrics-server"]
+        MS --&gt;|"metrics.k8s.io"| HPA["HPA, kubectl top"]
+        App["App /metrics"] --&gt;|scrape| Prom["Prometheus"]
+        KSM["kube-state-metrics"] --&gt;|"object state"| Prom
+        NE["node-exporter"] --&gt;|"host metrics"| Prom
+        K --&gt;|"cAdvisor, kubelet"| Prom
     end
-    Prom --&gt;|remote_write| LTS[(Long-term store&lt;br/&gt;Thanos / Mimir / Cortex)]
-    Prom --&gt; Graf[Grafana]
-    Prom --&gt; AM[Alertmanager]
-    AM --&gt; Pager[PagerDuty / Slack]
+    Prom --&gt;|remote_write| LTS[("Long-term store&lt;br/&gt;Thanos / Mimir")]
+    Prom --&gt; Graf["Grafana"]
+    Prom --&gt; AM["Alertmanager"] --&gt; Pager["PagerDuty / Slack"]
 </code></pre>
 
 <table>
@@ -3488,124 +3588,109 @@ kubectl ctx production  <span class="c"># switch context</span>
     <tr>
       <th>Component</th>
       <th>Role</th>
-      <th>Used by</th>
+      <th>Consumed by</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>metrics-server</strong></td>
-      <td>Lightweight, <em>in-memory</em> current CPU/memory only</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl top</code>, the Horizontal Pod Autoscaler</td>
+      <td>In-memory, latest-value CPU and memory per pod and node; no history</td>
+      <td>HPA, VPA, <code class="language-plaintext highlighter-rouge">kubectl top</code></td>
     </tr>
     <tr>
       <td><strong>kube-state-metrics</strong></td>
-      <td>Exports the <em>state</em> of API objects (desired vs ready replicas, pod phase, job status)</td>
-      <td>Prometheus / alerting</td>
+      <td>Converts API object state into series (desired vs available replicas, pod phase, restarts, Job status)</td>
+      <td>Prometheus alerts and dashboards</td>
     </tr>
     <tr>
       <td><strong>node-exporter</strong></td>
-      <td>Host-level metrics (disk, filesystem, network, load)</td>
+      <td>Host metrics: disk, filesystem, network, load, pressure stall information</td>
       <td>Prometheus</td>
     </tr>
     <tr>
       <td><strong>Prometheus</strong></td>
-      <td>Scrapes and stores the time series; evaluates alert rules</td>
+      <td>Scrapes, stores and evaluates alert rules</td>
       <td>Grafana, Alertmanager</td>
     </tr>
   </tbody>
 </table>
 
-<p><code class="language-plaintext highlighter-rouge">metrics-server</code> is <strong>not</strong> a monitoring system — it keeps no history and is only there to feed the autoscaler and <code class="language-plaintext highlighter-rouge">kubectl top</code>. Real monitoring is Prometheus (or a hosted equivalent). The conventional way to install the whole Prometheus + Grafana + Alertmanager bundle is the <code class="language-plaintext highlighter-rouge">kube-prometheus-stack</code> Helm chart:</p>
+<p>metrics-server is not a monitoring system. The usual way to install real monitoring is the <code class="language-plaintext highlighter-rouge">kube-prometheus-stack</code> chart, which bundles the <strong>Prometheus Operator</strong>, Prometheus, Alertmanager, Grafana, node-exporter, kube-state-metrics and a set of default dashboards and alerts:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm <span class="nb">install </span>monitoring prometheus-community/kube-prometheus-stack <span class="se">\</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>helm upgrade <span class="nt">--install</span> monitoring prometheus-community/kube-prometheus-stack <span class="se">\</span>
   <span class="nt">-n</span> monitoring <span class="nt">--create-namespace</span>
 </code></pre></div></div>
 
-<p>That chart ships the <strong>Prometheus Operator</strong>, which lets you describe scrape targets declaratively with <code class="language-plaintext highlighter-rouge">ServiceMonitor</code>/<code class="language-plaintext highlighter-rouge">PodMonitor</code> custom resources instead of editing a central Prometheus config:</p>
+<p>The operator adds CRDs so scrape targets are declared next to the application rather than in a central config file:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.coreos.com/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceMonitor</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-metrics</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
   <span class="na">labels</span><span class="pi">:</span>
-    <span class="na">release</span><span class="pi">:</span> <span class="s">monitoring</span>        <span class="c1"># must match the Prometheus' serviceMonitorSelector</span>
+    <span class="na">release</span><span class="pi">:</span> <span class="s">monitoring</span>          <span class="c1"># must match the Prometheus serviceMonitorSelector</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">selector</span><span class="pi">:</span>
     <span class="na">matchLabels</span><span class="pi">:</span>
-      <span class="na">app</span><span class="pi">:</span> <span class="s">myapp</span>               <span class="c1"># selects Services labelled app=myapp</span>
+      <span class="na">app.kubernetes.io/name</span><span class="pi">:</span> <span class="s">web</span>
   <span class="na">endpoints</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="s">metrics</span>              <span class="c1"># the named Service port exposing /metrics</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="s">metrics</span>                <span class="c1"># named Service port serving /metrics</span>
     <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
 </code></pre></div></div>
 
-<p><strong>What to measure.</strong> Two complementary mental models cover most needs:</p>
+<p>Two checklists cover most instrumentation: <strong>RED</strong> for request-driven services (Rate, Errors, Duration) and <strong>USE</strong> for resources (Utilization, Saturation, Errors). Keep label values bounded — status code, route template, method — and never put user IDs, request IDs or raw URLs in metric labels; each unique label combination is a separate time series.</p>
 
-<ul>
-  <li><strong>RED</strong> (for request-driven services): <strong>R</strong>ate, <strong>E</strong>rrors, <strong>D</strong>uration. Good for “is my API healthy?”</li>
-  <li><strong>USE</strong> (for resources): <strong>U</strong>tilization, <strong>S</strong>aturation, <strong>E</strong>rrors. Good for “is this node/disk/queue a bottleneck?”</li>
-</ul>
+<h3 id="logs">Logs</h3>
 
-<p>Beware <strong>cardinality</strong>: every unique combination of label values is a separate time series. Putting a user ID, request ID, or full URL in a Prometheus label can explode memory and bring the server down. Keep labels bounded (status code, route template, method) and push high-cardinality detail into logs or traces instead.</p>
-
-<h3 id="log-aggregation">Log Aggregation</h3>
-
-<p>A pod’s logs live on the node only while the pod exists. The moment a pod is deleted, rescheduled, or its node is replaced, <code class="language-plaintext highlighter-rouge">kubectl logs</code> returns nothing — exactly when you most need the post-mortem. <strong>Centralized log aggregation</strong> ships every container’s stdout/stderr off-node into a queryable store before that happens.</p>
-
-<p>The architecture is consistent across stacks: a lightweight <strong>collector</strong> runs as a DaemonSet (one per node), tails <code class="language-plaintext highlighter-rouge">/var/log/containers/*.log</code>, enriches each line with Kubernetes metadata (namespace, pod, labels), and forwards it to a backend.</p>
+<p>Container stdout and stderr are written by the runtime to files under <code class="language-plaintext highlighter-rouge">/var/log/pods/</code> on the node and are rotated there. They disappear when the pod is deleted or the node is replaced — precisely when a post-mortem needs them. A node agent, run as a <strong>DaemonSet</strong>, tails those files, enriches each line with pod metadata and ships it off the node.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    subgraph node["Each node (DaemonSet)"]
-        Logs[/var/log/containers/*.log] --&gt; Agent[Fluent Bit / Vector]
+    subgraph node["Every node (DaemonSet)"]
+        F["/var/log/pods/*"] --&gt; Ag["Fluent Bit / Grafana Alloy /&lt;br/&gt;Vector / OTel Collector"]
     end
-    Agent --&gt;|enrich + parse| Backend{Backend}
-    Backend --&gt; Loki[(Loki)]
-    Backend --&gt; ES[(Elasticsearch)]
-    Loki --&gt; Graf[Grafana]
-    ES --&gt; Kib[Kibana]
+    Ag --&gt;|"+ namespace, pod, labels"| B{"Backend"}
+    B --&gt; L[("Loki")]
+    B --&gt; ES[("Elasticsearch /&lt;br/&gt;OpenSearch")]
+    B --&gt; V[("Managed: CloudWatch,&lt;br/&gt;Cloud Logging, ...")]
 </code></pre>
 
 <table>
   <thead>
     <tr>
       <th>Stack</th>
-      <th>Collector</th>
+      <th>Agent</th>
       <th>Store</th>
-      <th>UI</th>
       <th>Trade-off</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>EFK / ELK</strong></td>
-      <td>Fluentd or Fluent Bit</td>
-      <td>Elasticsearch</td>
-      <td>Kibana</td>
-      <td>Full-text indexing, powerful queries, but storage- and memory-hungry</td>
+      <td><strong>Loki</strong></td>
+      <td>Grafana Alloy, Fluent Bit or OTel Collector</td>
+      <td>Loki on object storage</td>
+      <td>Indexes only labels, so storage is cheap; queries scan log content</td>
     </tr>
     <tr>
-      <td><strong>Loki</strong></td>
-      <td>Promtail / Fluent Bit</td>
-      <td>Loki</td>
-      <td>Grafana</td>
-      <td>Indexes only labels (not the log body) — far cheaper, “like Prometheus for logs”</td>
+      <td><strong>EFK / OpenSearch</strong></td>
+      <td>Fluent Bit (Fluentd for heavy transformation)</td>
+      <td>Elasticsearch or OpenSearch</td>
+      <td>Full-text index; powerful queries, but storage- and memory-hungry</td>
     </tr>
     <tr>
       <td><strong>Vector</strong></td>
-      <td>Vector (agent + aggregator)</td>
-      <td>any of the above</td>
-      <td>depends on sink</td>
-      <td>High-throughput, vendor-neutral routing/transform layer</td>
+      <td>Vector agent and aggregator</td>
+      <td>Any</td>
+      <td>High-throughput, vendor-neutral routing and transformation layer</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Fluent Bit</strong> has largely displaced the heavier Fluentd as the node agent: it is written in C, uses a few MB of RAM, and is the default collector in most managed offerings. A minimal Fluent Bit pipeline that tails container logs, attaches Kubernetes metadata, and ships to Loki:</p>
+<p>Grafana’s <strong>Promtail</strong> reached end of life on 2 March 2026; <strong>Grafana Alloy</strong> is its replacement. Fluent Bit remains the most common lightweight agent. A minimal Fluent Bit pipeline to Loki:</p>
 
 <div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[INPUT]</span>
     <span class="err">Name</span>              <span class="err">tail</span>
     <span class="err">Path</span>              <span class="err">/var/log/containers/*.log</span>
-    <span class="err">Parser</span>            <span class="err">cri</span>
+    <span class="err">multiline.parser</span>  <span class="err">cri</span>
     <span class="err">Tag</span>               <span class="err">kube.*</span>
 
 <span class="nn">[FILTER]</span>
@@ -3616,498 +3701,465 @@ helm <span class="nb">install </span>monitoring prometheus-community/kube-promet
 
 <span class="nn">[OUTPUT]</span>
     <span class="err">Name</span>              <span class="err">loki</span>
-    <span class="err">Match</span>             <span class="err">*</span>
-    <span class="err">Host</span>              <span class="err">loki.monitoring.svc</span>
-    <span class="err">Labels</span>            <span class="py">job</span><span class="p">=</span><span class="s">fluentbit, $kubernetes['namespace_name']</span>
+    <span class="err">Match</span>             <span class="err">kube.*</span>
+    <span class="err">Host</span>              <span class="err">loki-gateway.monitoring.svc</span>
+    <span class="err">Labels</span>            <span class="py">job</span><span class="p">=</span><span class="s">fluent-bit, $kubernetes['namespace_name']</span>
 </code></pre></div></div>
 
-<p><strong>Operational practices that matter more than the stack choice:</strong></p>
+<p>Practices matter more than the choice of stack:</p>
 
 <ul>
-  <li><strong>Log structured JSON</strong>, not free-form text. <code class="language-plaintext highlighter-rouge">{"level":"error","msg":"...","order_id":123}</code> is filterable; <code class="language-plaintext highlighter-rouge">ERROR something broke (order 123)</code> is not.</li>
-  <li><strong>Propagate a correlation/request ID</strong> through every service so a single user request can be reassembled from logs across pods.</li>
-  <li><strong>Set retention and sampling.</strong> Logs are the most expensive pillar. Keep verbose <code class="language-plaintext highlighter-rouge">debug</code> logs for hours, <code class="language-plaintext highlighter-rouge">error</code> logs for weeks, and drop or sample the highest-volume noise at the collector.</li>
-  <li><strong>Strip PII at the edge.</strong> Use a collector filter to redact emails, tokens, and card numbers <em>before</em> they land in long-term storage.</li>
+  <li><strong>Log structured JSON</strong> (<code class="language-plaintext highlighter-rouge">{"level":"error","msg":"payment failed","order_id":123}</code>), not free text.</li>
+  <li><strong>Propagate a trace or request ID</strong> and log it, so one request can be followed across services — and linked to its trace.</li>
+  <li><strong>Set retention per level</strong> and drop or sample high-volume noise at the agent; logs are usually the most expensive signal.</li>
+  <li><strong>Redact secrets and personal data at the agent</strong>, before anything reaches long-term storage.</li>
 </ul>
 
-<h3 id="distributed-tracing">Distributed Tracing</h3>
+<h3 id="traces">Traces</h3>
 
-<p>Metrics say latency is high; logs say each service looks fine in isolation. A <strong>distributed trace</strong> stitches together the single user request as it fans out across services, so you can see <em>where</em> the time actually went.</p>
+<p>A <strong>trace</strong> follows one request across services; each unit of work is a <strong>span</strong> with a start, duration and parent. <strong>Context propagation</strong>, normally the W3C <code class="language-plaintext highlighter-rouge">traceparent</code> header, carries the trace ID from hop to hop.</p>
 
-<p>The vocabulary:</p>
+<p><strong>OpenTelemetry (OTel)</strong> is the standard for instrumentation and transport. Applications emit spans (and increasingly metrics and logs) over OTLP to an <strong>OpenTelemetry Collector</strong>, typically deployed as a gateway Deployment plus an optional per-node DaemonSet. The OpenTelemetry Operator can also inject auto-instrumentation into pods by annotation. Because the collector decouples instrumentation from storage, backends — Jaeger, Grafana Tempo, or a commercial service — can be changed without touching application code.</p>
 
-<ul>
-  <li>A <strong>trace</strong> is one end-to-end request, identified by a <code class="language-plaintext highlighter-rouge">trace_id</code>.</li>
-  <li>A <strong>span</strong> is one unit of work within it (an HTTP handler, a DB query), with a start time, duration, and parent span.</li>
-  <li><strong>Context propagation</strong> carries the <code class="language-plaintext highlighter-rouge">trace_id</code>/<code class="language-plaintext highlighter-rouge">span_id</code> between services, conventionally in the W3C <code class="language-plaintext highlighter-rouge">traceparent</code> HTTP header, so the next hop knows it is part of the same trace.</li>
-</ul>
-
-<pre><code class="language-mermaid">flowchart LR
-    A[api-gateway&lt;br/&gt;span] --&gt; B[orders-svc&lt;br/&gt;span]
-    B --&gt; C[postgres&lt;br/&gt;span]
-    B --&gt; D[payments-svc&lt;br/&gt;span]
-    D --&gt; E[stripe call&lt;br/&gt;span]
-</code></pre>
-
-<p><strong>OpenTelemetry (OTel)</strong> is the vendor-neutral standard that now underpins this space. Applications are instrumented once with the OTel SDK (or auto-instrumentation agents), emit spans over OTLP, and an <strong>OpenTelemetry Collector</strong> — typically a Deployment, plus an optional per-node DaemonSet — receives, batches, samples, and <em>exports</em> to whichever backend you choose. Because OTel decouples instrumentation from the backend, you can swap Jaeger for Tempo without touching application code.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>Backend</th>
-      <th>Notes</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Jaeger</strong></td>
-      <td>The CNCF reference tracing backend; rich UI, mature</td>
-    </tr>
-    <tr>
-      <td><strong>Grafana Tempo</strong></td>
-      <td>Cheap object-storage backend, integrates trace→log→metric pivots in Grafana</td>
-    </tr>
-    <tr>
-      <td><strong>Zipkin</strong></td>
-      <td>Older, lightweight, still widely supported</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>A trimmed OTel Collector config showing the receive → process → export pipeline:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">receivers</span><span class="pi">:</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># OpenTelemetry Collector (contrib distribution): keep errors and slow traces, sample the rest</span>
+<span class="na">receivers</span><span class="pi">:</span>
   <span class="na">otlp</span><span class="pi">:</span>
     <span class="na">protocols</span><span class="pi">:</span>
-      <span class="na">grpc</span><span class="pi">:</span>                       <span class="c1"># apps push spans here on :4317</span>
+      <span class="na">grpc</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">endpoint</span><span class="pi">:</span> <span class="nv">0.0.0.0</span><span class="pi">:</span><span class="nv">4317</span><span class="pi">}</span>
+      <span class="na">http</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">endpoint</span><span class="pi">:</span> <span class="nv">0.0.0.0</span><span class="pi">:</span><span class="nv">4318</span><span class="pi">}</span>
 <span class="na">processors</span><span class="pi">:</span>
-  <span class="na">batch</span><span class="pi">:</span> <span class="pi">{}</span>
-  <span class="na">tail_sampling</span><span class="pi">:</span>                  <span class="c1"># keep all errors + slow traces, sample the rest</span>
+  <span class="na">tail_sampling</span><span class="pi">:</span>
+    <span class="na">decision_wait</span><span class="pi">:</span> <span class="s">10s</span>
     <span class="na">policies</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">errors</span>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">status_code</span>
-      <span class="na">status_code</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">status_codes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ERROR</span><span class="pi">]</span> <span class="pi">}</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">name</span><span class="pi">:</span> <span class="nv">errors</span><span class="pi">,</span> <span class="nv">type</span><span class="pi">:</span> <span class="nv">status_code</span><span class="pi">,</span> <span class="nv">status_code</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">status_codes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ERROR</span><span class="pi">]}}</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">name</span><span class="pi">:</span> <span class="nv">slow</span><span class="pi">,</span>   <span class="nv">type</span><span class="pi">:</span> <span class="nv">latency</span><span class="pi">,</span>     <span class="nv">latency</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">threshold_ms</span><span class="pi">:</span> <span class="nv">500</span><span class="pi">}}</span>
+    <span class="pi">-</span> <span class="pi">{</span><span class="nv">name</span><span class="pi">:</span> <span class="nv">sample</span><span class="pi">,</span> <span class="nv">type</span><span class="pi">:</span> <span class="nv">probabilistic</span><span class="pi">,</span> <span class="nv">probabilistic</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">sampling_percentage</span><span class="pi">:</span> <span class="nv">5</span><span class="pi">}}</span>
+  <span class="na">batch</span><span class="pi">:</span> <span class="pi">{}</span>
 <span class="na">exporters</span><span class="pi">:</span>
-  <span class="na">otlp/jaeger</span><span class="pi">:</span>
-    <span class="na">endpoint</span><span class="pi">:</span> <span class="s">jaeger-collector.monitoring.svc:4317</span>
+  <span class="na">otlp/tempo</span><span class="pi">:</span>
+    <span class="na">endpoint</span><span class="pi">:</span> <span class="s">tempo.monitoring.svc:4317</span>
+    <span class="na">tls</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">insecure</span><span class="pi">:</span> <span class="nv">true</span><span class="pi">}</span>
 <span class="na">service</span><span class="pi">:</span>
   <span class="na">pipelines</span><span class="pi">:</span>
     <span class="na">traces</span><span class="pi">:</span>
-      <span class="na">receivers</span><span class="pi">:</span>  <span class="pi">[</span><span class="nv">otlp</span><span class="pi">]</span>
+      <span class="na">receivers</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">otlp</span><span class="pi">]</span>
       <span class="na">processors</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">tail_sampling</span><span class="pi">,</span> <span class="nv">batch</span><span class="pi">]</span>
-      <span class="na">exporters</span><span class="pi">:</span>  <span class="pi">[</span><span class="nv">otlp/jaeger</span><span class="pi">]</span>
+      <span class="na">exporters</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">otlp/tempo</span><span class="pi">]</span>
 </code></pre></div></div>
 
-<p><strong>Sampling</strong> is the key operational lever: tracing every request at scale is prohibitively expensive, so you sample. <em>Head sampling</em> decides at the start (simple, but may discard the rare failing request); <em>tail sampling</em> (above) buffers the whole trace and keeps it only if it errored or was slow — far more useful for debugging, at the cost of collector memory.</p>
+<p><strong>Head sampling</strong> decides at the first span and is cheap but can discard the rare failing request; <strong>tail sampling</strong> (above) buffers whole traces and keeps the interesting ones, at the cost of collector memory and the requirement that all spans of a trace reach the same collector instance.</p>
 
-<h3 id="dashboards-and-alerting">Dashboards and Alerting</h3>
+<h3 id="alerting">Alerting</h3>
 
-<p>Collecting telemetry is worthless if no one looks at it. The last mile is <strong>dashboards</strong> (for humans investigating) and <strong>alerts</strong> (for machines waking humans up).</p>
-
-<p><strong>Grafana</strong> is the de-facto dashboarding layer; it queries Prometheus (metrics), Loki (logs), and Tempo/Jaeger (traces) as data sources in one pane, enabling the trace→log→metric pivots described above. Define dashboards as code (JSON or the Grafana Operator’s <code class="language-plaintext highlighter-rouge">GrafanaDashboard</code> CRD) so they live in version control alongside the app.</p>
-
-<p><strong>Alerting</strong> in the Prometheus world is a two-stage split:</p>
-
-<ol>
-  <li><strong>Prometheus</strong> evaluates <code class="language-plaintext highlighter-rouge">PrometheusRule</code> expressions and <em>fires</em> an alert when a condition holds for a duration.</li>
-  <li><strong>Alertmanager</strong> <em>routes</em> firing alerts — deduplicating, grouping, silencing, and dispatching to PagerDuty, Slack, email, etc.</li>
-</ol>
+<p>Prometheus evaluates rules and fires alerts; <strong>Alertmanager</strong> deduplicates, groups, silences and routes them. With the operator, rules are <code class="language-plaintext highlighter-rouge">PrometheusRule</code> objects:</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.coreos.com/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">PrometheusRule</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">app-slo-rules</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web-slo</span>
   <span class="na">labels</span><span class="pi">:</span>
     <span class="na">release</span><span class="pi">:</span> <span class="s">monitoring</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">groups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">availability</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web.availability</span>
     <span class="na">rules</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">alert</span><span class="pi">:</span> <span class="s">HighErrorRate</span>
+    <span class="pi">-</span> <span class="na">alert</span><span class="pi">:</span> <span class="s">WebHighErrorRate</span>
       <span class="na">expr</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">sum(rate(http_requests_total{status=~"5.."}[5m]))</span>
-          <span class="s">/ sum(rate(http_requests_total[5m])) &gt; 0.05</span>
-      <span class="na">for</span><span class="pi">:</span> <span class="s">10m</span>                    <span class="c1"># must hold 10 min to avoid flapping</span>
+        <span class="s">sum(rate(http_requests_total{job="web",code=~"5.."}[5m]))</span>
+          <span class="s">/ sum(rate(http_requests_total{job="web"}[5m])) &gt; 0.05</span>
+      <span class="na">for</span><span class="pi">:</span> <span class="s">10m</span>
       <span class="na">labels</span><span class="pi">:</span>
         <span class="na">severity</span><span class="pi">:</span> <span class="s">page</span>
       <span class="na">annotations</span><span class="pi">:</span>
-        <span class="na">summary</span><span class="pi">:</span> <span class="s2">"</span><span class="s">5xx</span><span class="nv"> </span><span class="s">error</span><span class="nv"> </span><span class="s">rate</span><span class="nv"> </span><span class="s">above</span><span class="nv"> </span><span class="s">5%</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">{{</span><span class="nv"> </span><span class="s">$labels.service</span><span class="nv"> </span><span class="s">}}"</span>
+        <span class="na">summary</span><span class="pi">:</span> <span class="s2">"</span><span class="s">web</span><span class="nv"> </span><span class="s">5xx</span><span class="nv"> </span><span class="s">ratio</span><span class="nv"> </span><span class="s">above</span><span class="nv"> </span><span class="s">5%</span><span class="nv"> </span><span class="s">({{</span><span class="nv"> </span><span class="s">$value</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">humanizePercentage</span><span class="nv"> </span><span class="s">}})"</span>
+    <span class="pi">-</span> <span class="na">alert</span><span class="pi">:</span> <span class="s">PodCrashLooping</span>
+      <span class="na">expr</span><span class="pi">:</span> <span class="s">increase(kube_pod_container_status_restarts_total[15m]) &gt; </span><span class="m">3</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">severity</span><span class="pi">:</span> <span class="s">ticket</span>
 </code></pre></div></div>
 
-<p><strong>Alert on symptoms, not causes.</strong> Page on what users feel — error rate, latency SLO burn, request failures — not on every transient CPU spike. The most effective approach ties alerts to <strong>SLOs</strong>: define a target (e.g. 99.9% of requests succeed), then alert on the <em>error budget burn rate</em>, which fires fast for catastrophic outages and slowly for gradual degradation while suppressing the noise that causes alert fatigue. (SLO theory is developed further in the <a href="../../observability/">Observability hub</a>.)</p>
+<p>Page on <strong>symptoms users feel</strong> — error rate, latency, SLO error-budget burn — and send cause-level signals (CPU, restarts, disk) to tickets or dashboards. Burn-rate alerting against an SLO is described in <a href="../../observability/">Observability</a>.</p>
 
-<h2 id="helm-kubernetes-package-manager">Helm: Kubernetes Package Manager</h2>
+<h2 id="troubleshooting">Troubleshooting</h2>
 
-<p>Managing dozens of YAML files for a single application becomes unwieldy. Helm solves this by packaging related resources into <strong>charts</strong> that can be versioned, shared, and customized.</p>
+<p>Work from the outside in: find what is unhealthy, read what Kubernetes already knows about it (status, conditions, events), then look inside the container.</p>
 
-<p><strong>When to use Helm</strong>:</p>
-<ul>
-  <li>Deploying complex applications with many resources</li>
-  <li>Sharing application configurations across teams</li>
-  <li>Managing different configurations for different environments</li>
-  <li>Installing third-party applications (databases, monitoring tools)</li>
-</ul>
-
-<h3 id="core-concepts">Core Concepts</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Concept</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Chart</strong></td>
-      <td>Package of Kubernetes resources</td>
-    </tr>
-    <tr>
-      <td><strong>Release</strong></td>
-      <td>An installed instance of a chart</td>
-    </tr>
-    <tr>
-      <td><strong>Values</strong></td>
-      <td>Configuration that customizes a chart</td>
-    </tr>
-    <tr>
-      <td><strong>Repository</strong></td>
-      <td>Collection of charts</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="chart-structure">Chart Structure</h3>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mychart/
-├── Chart.yaml      # Metadata (name, version)
-├── values.yaml     # Default configuration
-├── templates/      # Kubernetes manifests with templating
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   └── _helpers.tpl
-└── charts/         # Dependencies
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl get pods <span class="nt">-A</span> | <span class="nb">grep</span> <span class="nt">-Ev</span> <span class="s1">'Running|Completed'</span>      <span class="c"># anything not obviously fine</span>
+kubectl get pods <span class="nt">-A</span> <span class="nt">--field-selector</span><span class="o">=</span>status.phase<span class="o">=</span>Pending
+kubectl events <span class="nt">-A</span> <span class="nt">--types</span><span class="o">=</span>Warning                       <span class="c"># recent warnings, cluster-wide</span>
+kubectl describe pod &lt;pod&gt;                              <span class="c"># conditions, last state, events</span>
+kubectl logs &lt;pod&gt; <span class="nt">--previous</span>                           <span class="c"># output of the crashed instance</span>
 </code></pre></div></div>
-
-<h3 id="common-helm-commands">Common Helm Commands</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install a chart</span>
-helm <span class="nb">install </span>myrelease ./mychart
-
-<span class="c"># Install with custom values</span>
-helm <span class="nb">install </span>myrelease ./mychart <span class="nt">-f</span> production-values.yaml
-
-<span class="c"># Preview what would be installed</span>
-helm <span class="nb">install </span>myrelease ./mychart <span class="nt">--dry-run</span>
-
-<span class="c"># Upgrade an existing release</span>
-helm upgrade myrelease ./mychart
-
-<span class="c"># Rollback to previous version</span>
-helm rollback myrelease 1
-
-<span class="c"># List installed releases</span>
-helm list
-
-<span class="c"># Uninstall a release</span>
-helm uninstall myrelease
-</code></pre></div></div>
-
-<h3 id="using-public-charts">Using Public Charts</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Add a chart repository</span>
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-
-<span class="c"># Search for charts</span>
-helm search repo postgresql
-
-<span class="c"># Install from repository</span>
-helm <span class="nb">install </span>mydb bitnami/postgresql <span class="nt">-f</span> values.yaml
-</code></pre></div></div>
-
-<h3 id="helm-best-practices">Helm Best Practices</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Practice</th>
-      <th>Benefit</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Use <code class="language-plaintext highlighter-rouge">--dry-run</code> before install</td>
-      <td>Catch errors early</td>
-    </tr>
-    <tr>
-      <td>Keep values in version control</td>
-      <td>Track configuration changes</td>
-    </tr>
-    <tr>
-      <td>Use separate values files per environment</td>
-      <td>Clean separation of concerns</td>
-    </tr>
-    <tr>
-      <td>Run <code class="language-plaintext highlighter-rouge">helm lint</code> before commits</td>
-      <td>Validate chart syntax</td>
-    </tr>
-  </tbody>
-</table>
-
-<h2 id="common-patterns-proven-architectural-approaches">Common Patterns: Proven Architectural Approaches</h2>
-
-<p>These patterns appear repeatedly in successful Kubernetes deployments. Understanding when to use each helps you design better systems.</p>
-
-<h3 id="multi-container-pod-patterns">Multi-Container Pod Patterns</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Pattern</th>
-      <th>Purpose</th>
-      <th>Example Use Case</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Sidecar</strong></td>
-      <td>Extend/enhance main container</td>
-      <td>Log forwarding, service mesh proxy</td>
-    </tr>
-    <tr>
-      <td><strong>Ambassador</strong></td>
-      <td>Proxy outbound connections</td>
-      <td>Database proxy, API gateway</td>
-    </tr>
-    <tr>
-      <td><strong>Adapter</strong></td>
-      <td>Standardize output format</td>
-      <td>Convert logs to Prometheus metrics</td>
-    </tr>
-    <tr>
-      <td><strong>Init Container</strong></td>
-      <td>Run setup before main container</td>
-      <td>Database migrations, wait for dependencies</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="sidecar-pattern">Sidecar Pattern</h3>
-
-<p>A helper container runs alongside your application, sharing storage or network:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
-  <span class="na">containers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
-    <span class="na">volumeMounts</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">logs</span>
-      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">log-forwarder</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">fluentbit:latest</span>
-    <span class="na">volumeMounts</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">logs</span>
-      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
-  <span class="na">volumes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">logs</span>
-    <span class="na">emptyDir</span><span class="pi">:</span> <span class="pi">{}</span>
-</code></pre></div></div>
-
-<p><strong>Common sidecars</strong>: Logging agents, service mesh proxies (Envoy), security agents.</p>
-
-<h3 id="init-containers">Init Containers</h3>
-
-<p>Init containers run to completion before the main container starts:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">spec</span><span class="pi">:</span>
-  <span class="na">initContainers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">wait-for-db</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">busybox</span>
-    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">sh'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">-c'</span><span class="pi">,</span> <span class="s1">'</span><span class="s">until</span><span class="nv"> </span><span class="s">nc</span><span class="nv"> </span><span class="s">-z</span><span class="nv"> </span><span class="s">db</span><span class="nv"> </span><span class="s">5432;</span><span class="nv"> </span><span class="s">do</span><span class="nv"> </span><span class="s">sleep</span><span class="nv"> </span><span class="s">2;</span><span class="nv"> </span><span class="s">done'</span><span class="pi">]</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">migrate</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
-    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s1">'</span><span class="s">./migrate.sh'</span><span class="pi">]</span>
-  <span class="na">containers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">myapp:latest</span>
-</code></pre></div></div>
-
-<p><strong>Common uses</strong>: Database migrations, waiting for dependencies, fetching configuration.</p>
-
-<h2 id="troubleshooting-when-things-go-wrong">Troubleshooting: When Things Go Wrong</h2>
-
-<p>When something breaks, a systematic approach saves time. Start broad, then narrow down. The flowchart below maps a pod’s reported status to the command that explains it and the most likely root cause:</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    Start([Pod not healthy]) --&gt; Status{Pod status?}
-    Status --&gt;|ImagePullBackOff| IP["describe pod →&lt;br/&gt;wrong image / missing&lt;br/&gt;registry credentials"]
-    Status --&gt;|CrashLoopBackOff| CL["logs --previous →&lt;br/&gt;app crash, OOM,&lt;br/&gt;or bad config"]
-    Status --&gt;|Pending| PD["describe pod →&lt;br/&gt;no resources or&lt;br/&gt;PVC unbound"]
-    Status --&gt;|Running but no traffic| SVC["get endpoints →&lt;br/&gt;selector does not&lt;br/&gt;match pod labels"]
+    Start(["Pod not working"]) --&gt; Ph{"STATUS column"}
+    Ph --&gt;|"Pending"| P1{"Scheduled?&lt;br/&gt;(describe: events)"}
+    P1 --&gt;|"FailedScheduling"| P2["Insufficient resources,&lt;br/&gt;taints, affinity, spread,&lt;br/&gt;unbound PVC"]
+    P1 --&gt;|"scheduled"| P3["Pulling images or&lt;br/&gt;running init containers"]
+    Ph --&gt;|"ImagePullBackOff /&lt;br/&gt;ErrImagePull"| I1["Wrong name or tag,&lt;br/&gt;private registry without&lt;br/&gt;imagePullSecrets, rate limit"]
+    Ph --&gt;|"CreateContainerConfigError"| C1["Missing ConfigMap / Secret&lt;br/&gt;or key"]
+    Ph --&gt;|"CrashLoopBackOff"| CL{"Last state&lt;br/&gt;(describe)"}
+    CL --&gt;|"OOMKilled, 137"| O1["Memory limit too low&lt;br/&gt;or leak"]
+    CL --&gt;|"Error, exit 1"| O2["App error: logs --previous"]
+    CL --&gt;|"killed by liveness"| O3["Probe too aggressive&lt;br/&gt;or app wedged"]
+    Ph --&gt;|"Running, not Ready"| R1["Readiness probe failing:&lt;br/&gt;describe events, app logs"]
+    Ph --&gt;|"Running + Ready,&lt;br/&gt;no traffic"| S1["Service selector, ports,&lt;br/&gt;NetworkPolicy, DNS"]
+    Ph --&gt;|"Terminating forever"| T1["Finalizer or&lt;br/&gt;unreachable node"]
 </code></pre>
 
-<h3 id="quick-diagnostic-commands">Quick Diagnostic Commands</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># What is unhealthy?</span>
-kubectl get pods <span class="nt">--all-namespaces</span> | <span class="nb">grep</span> <span class="nt">-v</span> Running
-kubectl get events <span class="nt">--sort-by</span><span class="o">=</span><span class="s1">'.lastTimestamp'</span> <span class="nt">-A</span>
-
-<span class="c"># Why is this pod unhealthy?</span>
-kubectl describe pod &lt;pod-name&gt;
-kubectl logs &lt;pod-name&gt; <span class="nt">--previous</span>
-</code></pre></div></div>
-
-<h3 id="common-issues-quick-reference">Common Issues Quick Reference</h3>
+<h3 id="symptom-reference">Symptom Reference</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Issue</th>
-      <th>Symptom</th>
-      <th>First Command</th>
-      <th>Likely Cause</th>
+      <th>Status / symptom</th>
+      <th>First look</th>
+      <th>Usual causes</th>
+      <th>Fix</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>ImagePullBackOff</strong></td>
-      <td>Pod stuck pulling image</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl describe pod &lt;name&gt;</code></td>
-      <td>Wrong image name, missing credentials</td>
+      <td><code class="language-plaintext highlighter-rouge">Pending</code> + <code class="language-plaintext highlighter-rouge">FailedScheduling</code></td>
+      <td><code class="language-plaintext highlighter-rouge">describe pod</code> events</td>
+      <td>Requests exceed free allocatable; untolerated taint; unsatisfiable affinity or spread; PVC unbound or in the wrong zone</td>
+      <td>Adjust requests or constraints; add nodes; fix StorageClass (<code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code>)</td>
     </tr>
     <tr>
-      <td><strong>CrashLoopBackOff</strong></td>
-      <td>Pod keeps restarting</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl logs &lt;pod&gt; --previous</code></td>
-      <td>App crash, OOM, bad config</td>
+      <td><code class="language-plaintext highlighter-rouge">ImagePullBackOff</code> / <code class="language-plaintext highlighter-rouge">ErrImagePull</code></td>
+      <td><code class="language-plaintext highlighter-rouge">describe pod</code> events</td>
+      <td>Typo in image or tag; missing <code class="language-plaintext highlighter-rouge">imagePullSecrets</code>; registry rate limit; architecture mismatch (<code class="language-plaintext highlighter-rouge">exec format error</code> appears later, as a crash)</td>
+      <td>Correct reference; create pull secret; mirror images</td>
     </tr>
     <tr>
-      <td><strong>Pending</strong></td>
-      <td>Pod not scheduling</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl describe pod &lt;name&gt;</code></td>
-      <td>Insufficient resources, no matching nodes</td>
+      <td><code class="language-plaintext highlighter-rouge">CreateContainerConfigError</code></td>
+      <td><code class="language-plaintext highlighter-rouge">describe pod</code></td>
+      <td>Referenced ConfigMap, Secret or key does not exist</td>
+      <td>Create it or mark the reference <code class="language-plaintext highlighter-rouge">optional: true</code></td>
     </tr>
     <tr>
-      <td><strong>OOMKilled</strong></td>
-      <td>Container killed</td>
-      <td><code class="language-plaintext highlighter-rouge">kubectl describe pod &lt;name&gt;</code></td>
-      <td>Memory limit too low</td>
+      <td><code class="language-plaintext highlighter-rouge">CrashLoopBackOff</code></td>
+      <td><code class="language-plaintext highlighter-rouge">logs --previous</code>, last state and exit code</td>
+      <td>Application error, bad config, OOM, failing liveness probe</td>
+      <td>Depends on exit code (below)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Running</code> but <code class="language-plaintext highlighter-rouge">0/1</code> Ready</td>
+      <td><code class="language-plaintext highlighter-rouge">describe pod</code> (readiness failures)</td>
+      <td>App not listening on the probed port or path; dependency down</td>
+      <td>Fix probe or app; confirm with <code class="language-plaintext highlighter-rouge">port-forward</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Evicted</code></td>
+      <td><code class="language-plaintext highlighter-rouge">describe pod</code>, node conditions</td>
+      <td>Node memory or disk pressure</td>
+      <td>Set accurate requests; clean up node disk; see <a href="fundamentals-resources.html#node-pressure-eviction">eviction</a></td>
+    </tr>
+    <tr>
+      <td>Stuck <code class="language-plaintext highlighter-rouge">Terminating</code></td>
+      <td><code class="language-plaintext highlighter-rouge">get pod -o yaml</code> (finalizers, node)</td>
+      <td>Finalizer whose controller is gone; node unreachable</td>
+      <td>Fix the controller; as a last resort remove the finalizer or <code class="language-plaintext highlighter-rouge">delete --force --grace-period=0</code></td>
+    </tr>
+    <tr>
+      <td>Node <code class="language-plaintext highlighter-rouge">NotReady</code></td>
+      <td><code class="language-plaintext highlighter-rouge">describe node</code>, kubelet logs (<code class="language-plaintext highlighter-rouge">journalctl -u kubelet</code>)</td>
+      <td>kubelet or runtime down, disk full, network partition, expired certificates</td>
+      <td>Repair or replace the node</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="imagepullbackoff">ImagePullBackOff</h3>
+<h3 id="container-exit-codes">Container Exit Codes</h3>
 
-<p>The image cannot be pulled. Check:</p>
-<ol>
-  <li>Is the image name correct?</li>
-  <li>Does the registry require authentication?</li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th>Exit code</th>
+      <th>Meaning</th>
+      <th>Typical cause</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>Success</td>
+      <td>A long-running container that exits 0 still gets restarted under <code class="language-plaintext highlighter-rouge">restartPolicy: Always</code></td>
+    </tr>
+    <tr>
+      <td>1, 2</td>
+      <td>Application error</td>
+      <td>Check logs</td>
+    </tr>
+    <tr>
+      <td>126 / 127</td>
+      <td>Command not executable / not found</td>
+      <td>Wrong <code class="language-plaintext highlighter-rouge">command</code>, missing binary in a slim image</td>
+    </tr>
+    <tr>
+      <td>137</td>
+      <td>Killed by SIGKILL (128 + 9)</td>
+      <td><code class="language-plaintext highlighter-rouge">OOMKilled</code>, or liveness failure after the grace period</td>
+    </tr>
+    <tr>
+      <td>139</td>
+      <td>Segmentation fault (128 + 11)</td>
+      <td>Native crash; architecture or library mismatch</td>
+    </tr>
+    <tr>
+      <td>143</td>
+      <td>Terminated by SIGTERM (128 + 15)</td>
+      <td>Normal shutdown, or liveness restart handled gracefully</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create registry credentials</span>
-kubectl create secret docker-registry regcred <span class="se">\</span>
-  <span class="nt">--docker-server</span><span class="o">=</span>&lt;registry&gt; <span class="se">\</span>
-  <span class="nt">--docker-username</span><span class="o">=</span>&lt;user&gt; <span class="se">\</span>
-  <span class="nt">--docker-password</span><span class="o">=</span>&lt;pass&gt;
+<h3 id="service-connectivity">Service Connectivity</h3>
+
+<p>When pods are healthy but a Service does not answer, test each hop:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Does the Service select any Ready pods?</span>
+kubectl get endpointslices <span class="nt">-l</span> kubernetes.io/service-name<span class="o">=</span>web <span class="nt">-o</span> wide
+kubectl get pods <span class="nt">-l</span> app.kubernetes.io/name<span class="o">=</span>web <span class="nt">--show-labels</span>
+
+<span class="c"># 2. Does targetPort match the container's listening port?</span>
+kubectl get svc web <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.ports}'</span>
+
+<span class="c"># 3. Does DNS resolve and the port answer from inside the cluster?</span>
+kubectl run nettest <span class="nt">--rm</span> <span class="nt">-it</span> <span class="nt">--restart</span><span class="o">=</span>Never <span class="nt">--image</span><span class="o">=</span>busybox:1.37 <span class="nt">--</span> <span class="se">\</span>
+  sh <span class="nt">-c</span> <span class="s1">'nslookup web.shop.svc.cluster.local &amp;&amp; wget -qO- -T 3 http://web.shop:80/'</span>
+
+<span class="c"># 4. Is a NetworkPolicy blocking it?</span>
+kubectl get networkpolicy <span class="nt">-n</span> shop
 </code></pre></div></div>
 
-<h3 id="crashloopbackoff">CrashLoopBackOff</h3>
+<p>Empty EndpointSlices mean the selector matches nothing or no matching pod is Ready. DNS failures point to CoreDNS (<code class="language-plaintext highlighter-rouge">kubectl -n kube-system logs -l k8s-app=kube-dns</code>). Timeouts with correct endpoints usually mean a NetworkPolicy or a pod listening on <code class="language-plaintext highlighter-rouge">127.0.0.1</code> instead of <code class="language-plaintext highlighter-rouge">0.0.0.0</code>.</p>
 
-<p>The container starts but crashes. Debug with:</p>
+<h2 id="cluster-upgrades">Cluster Upgrades</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl logs &lt;pod-name&gt; <span class="nt">--previous</span>
-kubectl describe pod &lt;pod-name&gt;
-</code></pre></div></div>
+<p>Kubernetes ships three minor releases a year, and each is supported with patches for about a year (v1.35, v1.36 and v1.37 as of September 2026). Clusters therefore need a minor upgrade roughly every four months to stay supported; managed services add “extended support” at extra cost for those that fall behind.</p>
 
-<p>Common fixes:</p>
+<p>The <strong>version skew policy</strong> constrains the order:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Allowed relative to kube-apiserver</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>kube-apiserver instances (HA)</td>
+      <td>Within one minor version of each other during an upgrade</td>
+    </tr>
+    <tr>
+      <td>kube-controller-manager, kube-scheduler</td>
+      <td>Same minor or one older</td>
+    </tr>
+    <tr>
+      <td>kubelet, kube-proxy</td>
+      <td>Same minor or up to three older; never newer</td>
+    </tr>
+    <tr>
+      <td>kubectl</td>
+      <td>One minor older, same, or one newer</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Check release notes and&lt;br/&gt;deprecated API usage"] --&gt; B["Upgrade control plane&lt;br/&gt;one minor at a time"]
+    B --&gt; C["Upgrade add-ons&lt;br/&gt;(CNI, CSI, CoreDNS, ingress)"]
+    C --&gt; D["Roll node pools:&lt;br/&gt;surge new nodes, drain old"]
+    D --&gt; E["Verify workloads,&lt;br/&gt;then repeat for next minor"]
+</code></pre>
+
 <ul>
-  <li>Increase memory limits if OOMKilled</li>
-  <li>Extend <code class="language-plaintext highlighter-rouge">initialDelaySeconds</code> on probes if app needs time to start</li>
-  <li>Check environment variables and config</li>
+  <li><strong>Find removed APIs before they bite.</strong> Each release may stop serving deprecated API versions. The API server exposes <code class="language-plaintext highlighter-rouge">apiserver_requested_deprecated_apis</code> metrics and returns warnings to clients; tools such as <code class="language-plaintext highlighter-rouge">pluto</code> and <code class="language-plaintext highlighter-rouge">kubent</code> scan manifests and Helm releases.</li>
+  <li><strong>Upgrade one minor version at a time</strong> for the control plane; nodes may lag, within the skew limits above.</li>
+  <li><strong>Replace rather than patch nodes</strong> where possible: create nodes on the new version and drain the old ones.</li>
+  <li><strong>Protect availability with PodDisruptionBudgets</strong>, which <code class="language-plaintext highlighter-rouge">drain</code> and node autoscalers respect:</li>
 </ul>
 
-<h3 id="pending-pods">Pending Pods</h3>
-
-<p>Pod cannot be scheduled. Check events in:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl describe pod &lt;pod-name&gt;
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">policy/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PodDisruptionBudget</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">minAvailable</span><span class="pi">:</span> <span class="m">2</span>                <span class="c1"># or maxUnavailable: 1</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app.kubernetes.io/name</span><span class="pi">:</span> <span class="s">web</span>
+  <span class="na">unhealthyPodEvictionPolicy</span><span class="pi">:</span> <span class="s">AlwaysAllow</span>   <span class="c1"># don't let already-broken pods block drains</span>
 </code></pre></div></div>
 
-<p>Common causes:</p>
-<ul>
-  <li><strong>Insufficient resources</strong>: Scale down other workloads or add nodes</li>
-  <li><strong>Node selector/affinity</strong>: No matching nodes exist</li>
-  <li><strong>PVC pending</strong>: Storage class or capacity issue</li>
-</ul>
+<p>A PDB that can never be satisfied — <code class="language-plaintext highlighter-rouge">minAvailable</code> equal to the replica count, or a single-replica Deployment with <code class="language-plaintext highlighter-rouge">maxUnavailable: 0</code> — blocks every drain and stalls upgrades.</p>
 
-<h3 id="service-not-reachable">Service Not Reachable</h3>
+<p>Notable changes to check when upgrading into the current releases include: the <code class="language-plaintext highlighter-rouge">Endpoints</code> API deprecation (v1.33) in favour of EndpointSlices; the retirement of the community <strong>ingress-nginx</strong> controller, which received no further releases or security fixes after March 2026 (migrate to a Gateway API implementation or another controller; <code class="language-plaintext highlighter-rouge">ingress2gateway</code> converts manifests); and the deprecation of cgroup v1 in v1.35, from which release the kubelet refuses to start on a cgroup v1 host unless <code class="language-plaintext highlighter-rouge">failCgroupV1: false</code> is set — node images must use cgroup v2.</p>
 
-<p>Debug network issues:</p>
+<h2 id="production-readiness-checklist">Production Readiness Checklist</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Check if service has endpoints</span>
-kubectl get endpoints &lt;service-name&gt;
+<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Practice</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Resources</strong></td>
+      <td>Requests on every container; memory limits; LimitRange defaults and ResourceQuotas per namespace</td>
+      <td>Predictable scheduling and eviction; no noisy neighbours</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Right-size from real usage (VPA in recommendation mode, dashboards)</td>
+      <td>Over-requesting wastes money; under-requesting causes evictions</td>
+    </tr>
+    <tr>
+      <td><strong>Availability</strong></td>
+      <td>≥ 2–3 replicas, spread across zones with topology spread constraints</td>
+      <td>Survive node and zone loss</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>PodDisruptionBudgets on every replicated service</td>
+      <td>Safe drains and upgrades</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Readiness probes on everything that takes traffic; startup probes for slow starters</td>
+      <td>Zero-downtime rollouts</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Graceful shutdown: handle <code class="language-plaintext highlighter-rouge">SIGTERM</code>, <code class="language-plaintext highlighter-rouge">preStop</code> delay where needed</td>
+      <td>No dropped requests during rollouts</td>
+    </tr>
+    <tr>
+      <td><strong>Delivery</strong></td>
+      <td>Images pinned by tag and digest; manifests in Git, applied by GitOps or CI</td>
+      <td>Reproducible, auditable changes</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Progressive delivery (canary or blue/green) for critical services</td>
+      <td>Limit blast radius of bad releases</td>
+    </tr>
+    <tr>
+      <td><strong>Security</strong></td>
+      <td>RBAC least privilege; no cluster-admin for workloads; short-lived credentials</td>
+      <td>Contain compromise</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Pod Security Standards <code class="language-plaintext highlighter-rouge">restricted</code> where possible; non-root; read-only root filesystem; drop capabilities</td>
+      <td>Reduce container-escape impact</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Default-deny NetworkPolicies per namespace</td>
+      <td>Prevent lateral movement</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Image scanning and signature verification (e.g. Sigstore cosign with an admission policy)</td>
+      <td>Supply-chain integrity</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Secrets from an external manager; encryption at rest for etcd</td>
+      <td>Limit secret exposure</td>
+    </tr>
+    <tr>
+      <td><strong>Observability</strong></td>
+      <td>Metrics, centralized logs and traces; dashboards per service</td>
+      <td>Diagnose after the fact</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>SLO-based alerts routed to an on-call rotation</td>
+      <td>Actionable paging</td>
+    </tr>
+    <tr>
+      <td><strong>Recovery</strong></td>
+      <td>etcd snapshots (self-managed) and application-level backups (e.g. Velero); tested restores</td>
+      <td>A backup that has never been restored is a hope</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>Documented upgrade cadence within the supported window</td>
+      <td>Stay on patched versions</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c"># Test from inside cluster</span>
-kubectl run debug <span class="nt">--rm</span> <span class="nt">-it</span> <span class="nt">--image</span><span class="o">=</span>busybox <span class="nt">--</span> wget <span class="nt">-O-</span> &lt;service&gt;:&lt;port&gt;
-</code></pre></div></div>
+<p>Security controls are expanded in <a href="workloads.html#workload-security">Workloads &amp; Storage</a> and backups in <a href="persistence.html#snapshots-backup-and-disaster-recovery">Stateful Workloads &amp; Persistence</a>.</p>
 
-<p>If endpoints are empty, the service selector does not match any pod labels.</p>
+<h2 id="certifications">Certifications</h2>
 
-<h2 id="certification-path">Certification Path</h2>
-
-<p>If you want to validate your Kubernetes skills, consider these certifications:</p>
+<p>The CNCF and Linux Foundation offer five Kubernetes certifications, all taken online with a remote proctor:</p>
 
 <table>
   <thead>
     <tr>
       <th>Certification</th>
+      <th>Format</th>
       <th>Focus</th>
-      <th>Prerequisites</th>
+      <th>Prerequisite</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>CKA</strong></td>
-      <td>Cluster administration, troubleshooting</td>
+      <td><strong>KCNA</strong> — Kubernetes and Cloud Native Associate</td>
+      <td>Multiple choice</td>
+      <td>Concepts and the cloud-native ecosystem</td>
       <td>None</td>
     </tr>
     <tr>
-      <td><strong>CKAD</strong></td>
-      <td>Application development, configuration</td>
+      <td><strong>KCSA</strong> — Kubernetes and Cloud Native Security Associate</td>
+      <td>Multiple choice</td>
+      <td>Security concepts and threat model</td>
       <td>None</td>
     </tr>
     <tr>
-      <td><strong>CKS</strong></td>
-      <td>Security hardening, runtime security</td>
-      <td>CKA required</td>
+      <td><strong>CKAD</strong> — Certified Kubernetes Application Developer</td>
+      <td>Hands-on, live clusters</td>
+      <td>Building, configuring and exposing applications</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td><strong>CKA</strong> — Certified Kubernetes Administrator</td>
+      <td>Hands-on, live clusters</td>
+      <td>Installing, operating and troubleshooting clusters</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td><strong>CKS</strong> — Certified Kubernetes Security Specialist</td>
+      <td>Hands-on, live clusters</td>
+      <td>Hardening clusters, supply chain, runtime security</td>
+      <td>An active CKA</td>
     </tr>
   </tbody>
 </table>
 
-<p>All exams are hands-on, performance-based tests where you solve real Kubernetes problems in a live environment.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>kubectl is the workhorse.</strong> Master <code class="language-plaintext highlighter-rouge">get</code>, <code class="language-plaintext highlighter-rouge">describe</code>, <code class="language-plaintext highlighter-rouge">logs</code>, and <code class="language-plaintext highlighter-rouge">exec</code> — they answer most “what is happening?” questions. Contexts and namespaces keep you pointed at the right cluster.</li>
-  <li><strong>Helm packages complexity.</strong> Charts turn dozens of manifests into one versioned, parameterized unit; use <code class="language-plaintext highlighter-rouge">--dry-run</code> and per-environment values files.</li>
-  <li><strong>Diagnose systematically.</strong> Start broad (<code class="language-plaintext highlighter-rouge">get pods</code>, <code class="language-plaintext highlighter-rouge">get events</code>), then narrow with <code class="language-plaintext highlighter-rouge">describe</code> and <code class="language-plaintext highlighter-rouge">logs --previous</code>. The pod status (ImagePullBackOff, CrashLoopBackOff, Pending) tells you where to look first.</li>
-  <li><strong>Production is a checklist.</strong> Resource limits, 3+ replicas with anti-affinity, RBAC, health probes, and centralized logs are non-negotiable before going live.</li>
-</ul>
-
-<p>The key to Kubernetes mastery is practice. Start with simple deployments, gradually add complexity, and always follow the principle of declarative configuration: describe what you want, and let Kubernetes make it happen.</p>
+<p>Holding all five at once earns the “Kubestronaut” title. The performance-based exams reward speed with kubectl: imperative generators (<code class="language-plaintext highlighter-rouge">--dry-run=client -o yaml</code>), <code class="language-plaintext highlighter-rouge">kubectl explain</code>, and the official documentation (which is available during the exam).</p>
 
 <hr />
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="fundamentals.html">Fundamentals</a> - Pods, Deployments, Services, and cluster architecture</li>
-  <li><a href="workloads.html">Workloads &amp; Storage</a> - StatefulSets, persistent volumes, RBAC, and autoscaling</li>
-  <li><a href="advanced.html">Advanced Topics</a> - CRDs, Operators, service mesh, GitOps, and certifications</li>
-  <li><a href="../../observability/">Observability</a> - The three pillars in depth: metrics &amp; PromQL, logging stacks, OpenTelemetry tracing, and SLOs</li>
-  <li><a href="../docker-essentials.html">Docker Essentials</a> - Quick container command reference</li>
-  <li><a href="../ci-cd/">CI/CD</a> - Automating deployments into your cluster</li>
+  <li><a href="fundamentals.html">Fundamentals</a> — architecture, Pods, Deployments, Services</li>
+  <li><a href="fundamentals-resources.html">Health &amp; Resource Management</a> — probes, requests and limits, eviction, autoscaling</li>
+  <li><a href="workloads.html">Workloads &amp; Storage</a> — StatefulSets, DaemonSets, Jobs, RBAC and Pod Security</li>
+  <li><a href="advanced.html">Advanced Topics</a> — CRDs and Operators, service mesh, GitOps</li>
+  <li><a href="../../observability/">Observability</a> — metrics, logging and tracing in depth; SLOs</li>
+  <li><a href="../docker-essentials.html">Docker Essentials</a> — container command reference</li>
+  <li><a href="../ci-cd/">CI/CD</a> — automating delivery into the cluster</li>
 </ul>
 
       </section>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="CAP, PACELC and FLP; consistency models; quorum arithmetic; Paxos, Raft and Byzantine consensus; and how production systems use them.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Distributed Systems: Consensus & Coordination">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="CAP, PACELC and FLP; consistency models; quorum arithmetic; Paxos, Raft and Byzantine consensus; and how production systems use them.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/distributed-systems/consensus-and-coordination.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Distributed Systems: Consensus & Coordination">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="CAP, PACELC and FLP; consistency models; quorum arithmetic; Paxos, Raft and Byzantine consensus; and how production systems use them.">
 
 <title>Distributed Systems: Consensus & Coordination | Andrews Notebook</title>
 
@@ -3133,7 +3133,7 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Distributed Systems Hub</a> » Consensus &amp; Coordination</p>
 
-<p>Consensus is the beating heart of every replicated database, lock service, and orchestrator. This page builds from the limits that make agreement <em>hard</em> (CAP, PACELC, FLP), through the consistency guarantees a system can offer, into the algorithms that actually deliver them (Paxos, Raft, PBFT), and the quorum arithmetic that ties them together. For the formal proofs behind the impossibility results, see <a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a>.</p>
+<p><strong>Consensus</strong> is the problem of getting a group of unreliable machines to agree on a value, or on a sequence of values, even though some of them crash and messages are delayed or lost. It underlies every replicated database, lock service, and cluster orchestrator. This page starts with the limits that make agreement hard (CAP, PACELC, FLP). It then covers the consistency guarantees a system can offer, the quorum arithmetic that makes agreement safe, the main algorithms (Paxos, Raft, and Byzantine protocols from PBFT to HotStuff), and how production systems use them in 2026. Formal proofs are on the <a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> page.</p>
 
 <h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
@@ -3156,24 +3156,27 @@ document.addEventListener('DOMContentLoaded', function () {
   <li><a href="#paxos" id="markdown-toc-paxos">Paxos</a>    <ol>
       <li><a href="#roles" id="markdown-toc-roles">Roles</a></li>
       <li><a href="#the-two-phases" id="markdown-toc-the-two-phases">The Two Phases</a></li>
-      <li><a href="#why-bare-paxos-isnt-enough-and-multi-paxos" id="markdown-toc-why-bare-paxos-isnt-enough-and-multi-paxos">Why Bare Paxos Isn’t Enough, and Multi-Paxos</a></li>
+      <li><a href="#multi-paxos" id="markdown-toc-multi-paxos">Multi-Paxos</a></li>
     </ol>
   </li>
   <li><a href="#raft" id="markdown-toc-raft">Raft</a>    <ol>
       <li><a href="#leader-election" id="markdown-toc-leader-election">Leader Election</a></li>
       <li><a href="#log-replication" id="markdown-toc-log-replication">Log Replication</a></li>
       <li><a href="#safety" id="markdown-toc-safety">Safety</a></li>
-      <li><a href="#membership-changes-and-snapshots" id="markdown-toc-membership-changes-and-snapshots">Membership Changes and Snapshots</a></li>
+      <li><a href="#linearizable-reads" id="markdown-toc-linearizable-reads">Linearizable Reads</a></li>
+      <li><a href="#operational-refinements" id="markdown-toc-operational-refinements">Operational Refinements</a></li>
     </ol>
   </li>
-  <li><a href="#byzantine-fault-tolerance-and-pbft" id="markdown-toc-byzantine-fault-tolerance-and-pbft">Byzantine Fault Tolerance and PBFT</a>    <ol>
-      <li><a href="#the-byzantine-generals-bound" id="markdown-toc-the-byzantine-generals-bound">The Byzantine Generals Bound</a></li>
+  <li><a href="#beyond-a-single-leader" id="markdown-toc-beyond-a-single-leader">Beyond a Single Leader</a></li>
+  <li><a href="#byzantine-fault-tolerance" id="markdown-toc-byzantine-fault-tolerance">Byzantine Fault Tolerance</a>    <ol>
+      <li><a href="#the-3f--1-bound" id="markdown-toc-the-3f--1-bound">The 3f + 1 Bound</a></li>
       <li><a href="#pbft" id="markdown-toc-pbft">PBFT</a></li>
+      <li><a href="#modern-bft" id="markdown-toc-modern-bft">Modern BFT</a></li>
       <li><a href="#when-to-pay-for-bft" id="markdown-toc-when-to-pay-for-bft">When to Pay for BFT</a></li>
     </ol>
   </li>
+  <li><a href="#consensus-in-production-2026" id="markdown-toc-consensus-in-production-2026">Consensus in Production (2026)</a></li>
   <li><a href="#choosing-the-right-tool" id="markdown-toc-choosing-the-right-tool">Choosing the Right Tool</a></li>
-  <li><a href="#key-takeaways" id="markdown-toc-key-takeaways">Key Takeaways</a></li>
   <li><a href="#see-also" id="markdown-toc-see-also">See Also</a>    <ol>
       <li><a href="#foundational-references" id="markdown-toc-foundational-references">Foundational References</a></li>
     </ol>
@@ -3184,211 +3187,224 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h2 id="why-coordination-is-hard">Why Coordination Is Hard</h2>
 
-<p>A single machine has one clock, one memory, and one failure mode: it either works or it stops. A distributed system has none of those luxuries. Messages are delayed, reordered, duplicated, or lost; nodes crash and recover with stale state; and there is no shared “now” to order events against. Coordination is the discipline of getting several such nodes to behave <em>as if</em> they were one reliable machine.</p>
-
-<p>Three physical realities drive everything that follows:</p>
+<p>A single machine has one clock, one memory, and a simple failure mode: it either works or it stops. A distributed system has none of these properties. Coordination is the work of making several such nodes behave as though they were one reliable machine. Three facts shape everything on this page:</p>
 
 <ol>
-  <li><strong>The network is asynchronous and unreliable.</strong> You cannot distinguish “the remote node is slow” from “the remote node is dead” by waiting — any finite timeout can be wrong.</li>
-  <li><strong>Failures are partial.</strong> Some nodes keep running while others crash, so the system must make progress with an incomplete and possibly contradictory view of the world.</li>
-  <li><strong>There is no global clock.</strong> Ordering events across nodes requires explicit machinery (logical clocks, leaders, or consensus), not wall-clock timestamps.</li>
+  <li><strong>The network is asynchronous and unreliable.</strong> Messages can be delayed, reordered, duplicated, or lost. You cannot tell “the remote node is slow” from “the remote node is dead” by waiting, because any finite timeout can be wrong (see <a href="failure-detection.html">Failure Detection</a>).</li>
+  <li><strong>Failures are partial.</strong> Some nodes keep running while others crash, so the system has to make progress with an incomplete and possibly contradictory view of the world.</li>
+  <li><strong>There is no global clock.</strong> Ordering events across nodes needs explicit machinery such as logical clocks, leaders, or consensus. Wall-clock timestamps are not enough.</li>
 </ol>
 
-<p>The classic illustration is the <strong>Two Generals Problem</strong>: two armies must attack simultaneously, communicating only by messengers who may be captured. No finite exchange of messages can guarantee both generals commit to attacking, because the last message sent is never known to have arrived. This is the seed of the impossibility results below, and it is why every real system substitutes <em>probabilistic</em> or <em>eventual</em> certainty for the absolute kind. The formal statement lives in <a href="../advanced/distributed-systems-theory/#two-generals-problem">Distributed Systems Theory</a>.</p>
+<p>The <strong>Two Generals Problem</strong> shows the core difficulty. Two armies must attack at the same time, and they can communicate only through messengers who may be captured. No finite exchange of messages can guarantee that both generals commit, because the sender of the last message never knows whether it arrived. Real systems therefore settle for <em>eventual</em> or <em>probabilistic</em> certainty rather than the absolute kind (see the <a href="../advanced/distributed-systems-theory/#two-generals-problem">formal statement</a>).</p>
 
 <pre><code class="language-mermaid">flowchart LR
     Reality["Physical reality&lt;br/&gt;async network, partial failure, no global clock"] --&gt; Limits["Limits&lt;br/&gt;CAP / PACELC, FLP"]
-    Limits --&gt; Models["Consistency models&lt;br/&gt;linearizable → eventual"]
-    Models --&gt; Algos["Consensus algorithms&lt;br/&gt;Paxos, Raft, PBFT"]
-    Algos --&gt; Quorum["Quorums&lt;br/&gt;the arithmetic underneath"]
+    Limits --&gt; Models["Consistency models&lt;br/&gt;linearizable ... eventual"]
+    Models --&gt; Quorum["Quorums&lt;br/&gt;the arithmetic of overlap"]
+    Quorum --&gt; Algos["Algorithms&lt;br/&gt;Paxos, Raft, BFT"]
 </code></pre>
 
 <h2 id="cap-and-pacelc">CAP and PACELC</h2>
 
 <h3 id="cap-theorem">CAP Theorem</h3>
 
-<p>Every distributed system that replicates data must, when a network partition splits its nodes, choose between two of three properties:</p>
+<p>The CAP theorem (conjectured by Brewer in 2000, proved by Gilbert and Lynch in 2002) involves three properties of a replicated data store:</p>
 
 <ul>
-  <li><strong>Consistency (C):</strong> every read returns the most recent write (here, <em>linearizable</em> consistency — a single, real-time-ordered view).</li>
-  <li><strong>Availability (A):</strong> every request to a non-failing node receives a (non-error) response.</li>
-  <li><strong>Partition tolerance (P):</strong> the system keeps operating despite arbitrary message loss between node groups.</li>
+  <li><strong>Consistency (C):</strong> every read returns the most recent write. Here this specifically means <em>linearizability</em>.</li>
+  <li><strong>Availability (A):</strong> every request to a non-failing node eventually gets a non-error response.</li>
+  <li><strong>Partition tolerance (P):</strong> the system keeps operating even when messages between groups of nodes are lost.</li>
 </ul>
 
-<p>Because real networks <em>do</em> partition, P is not optional. The theorem therefore reduces to a binary choice <em>during a partition</em>:</p>
+<p>Real networks do partition, so P is not optional. The theorem therefore comes down to one choice, which only applies <em>while a partition is in progress</em>:</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    P{"Network partition&lt;br/&gt;occurs"} --&gt; Q{"During the partition,&lt;br/&gt;what do you sacrifice?"}
-    Q -- "reject requests&lt;br/&gt;to stay consistent" --&gt; CP["CP system&lt;br/&gt;e.g. etcd, ZooKeeper, HBase, Spanner"]
-    Q -- "answer requests,&lt;br/&gt;reconcile later" --&gt; AP["AP system&lt;br/&gt;e.g. Cassandra, DynamoDB, Riak"]
+    P{"Network partition&lt;br/&gt;occurs"} --&gt; Q{"During the partition,&lt;br/&gt;what do you give up?"}
+    Q -- "reject requests on the minority side&lt;br/&gt;to stay consistent" --&gt; CP["CP&lt;br/&gt;etcd, ZooKeeper, Spanner, CockroachDB"]
+    Q -- "keep answering on both sides,&lt;br/&gt;reconcile later" --&gt; AP["AP&lt;br/&gt;Cassandra, Riak, DynamoDB (eventual reads)"]
 </code></pre>
 
-<p>A <strong>CP</strong> system (etcd, ZooKeeper, consensus-backed databases) refuses to serve requests it cannot prove are consistent — the minority side of a partition stops accepting writes. An <strong>AP</strong> system (Cassandra, Dynamo-style stores) keeps answering on both sides and reconciles divergent writes afterward, accepting that some reads will be stale.</p>
+<p>A <strong>CP</strong> system refuses requests it cannot prove are consistent, so the minority side of a partition stops accepting writes and often stops serving linearizable reads too. An <strong>AP</strong> system keeps answering on both sides and reconciles divergent writes afterwards, so some reads will be stale.</p>
 
-<p>The common misreading is “pick two of three at all times.” CAP only forces a choice <em>while a partition is in progress</em>. When the network is healthy, a well-designed system can be both consistent and available — which is exactly what PACELC captures.</p>
+<p>“Pick two of three” is a common misreading. CAP forces a choice only during a partition, and only for the two narrow definitions of C and A above. Most real systems are neither fully CP nor fully AP. Many offer per-operation choices, and many satisfy neither definition exactly (Kleppmann, <em>A Critique of the CAP Theorem</em>, 2015). PACELC is the more useful way to describe them.</p>
 
 <h3 id="pacelc">PACELC</h3>
 
-<p>PACELC (Abadi, 2012) extends CAP to the common case where there is no partition:</p>
+<p>PACELC (Abadi, 2012) adds the normal case, when there is no partition, to CAP:</p>
 
 <blockquote>
-  <p><strong>If</strong> there is a <strong>P</strong>artition, trade between <strong>A</strong>vailability and <strong>C</strong>onsistency; <strong>E</strong>lse (normal operation), trade between <strong>L</strong>atency and <strong>C</strong>onsistency.</p>
+  <p><strong>If</strong> there is a <strong>P</strong>artition, trade <strong>A</strong>vailability against <strong>C</strong>onsistency; <strong>E</strong>lse, trade <strong>L</strong>atency against <strong>C</strong>onsistency.</p>
 </blockquote>
 
-<p>The “else” half is the part CAP ignores and the part you actually live with day to day: stronger consistency requires coordinating more replicas per operation, which costs latency. A linearizable read may need to contact a quorum; an eventually consistent read can be served by the nearest replica.</p>
+<p>The “else” half matters more day to day. Stronger consistency means coordinating with more replicas on each operation, which adds latency. A linearizable read may have to contact a quorum or confirm leadership, while an eventually consistent read can be served by the nearest replica.</p>
 
 <table>
   <thead>
     <tr>
       <th>System</th>
-      <th>Partition behavior</th>
-      <th>Normal-operation behavior</th>
-      <th>PACELC class</th>
+      <th>During a partition</th>
+      <th>Normal operation</th>
+      <th>PACELC</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Spanner</td>
-      <td>PC (consistent, may stall)</td>
-      <td>EC (consistent, higher latency)</td>
+      <td>Spanner, CockroachDB</td>
+      <td>Consistent; minority stalls</td>
+      <td>Consistent; pays quorum and commit-wait latency</td>
       <td>PC/EC</td>
     </tr>
     <tr>
-      <td>etcd / ZooKeeper</td>
+      <td>etcd, ZooKeeper, Consul</td>
       <td>PC</td>
       <td>EC</td>
       <td>PC/EC</td>
     </tr>
     <tr>
-      <td>Cassandra (tunable)</td>
-      <td>PA (available, may diverge)</td>
-      <td>EL (low latency, weaker consistency)</td>
-      <td>PA/EL</td>
+      <td>MongoDB (majority write/read concerns)</td>
+      <td>PC</td>
+      <td>EC</td>
+      <td>PC/EC; weaker concerns move it toward PA/EL</td>
     </tr>
     <tr>
-      <td>DynamoDB (eventual)</td>
+      <td>Cassandra, ScyllaDB (<code class="language-plaintext highlighter-rouge">ONE</code>/<code class="language-plaintext highlighter-rouge">LOCAL_ONE</code>)</td>
       <td>PA</td>
       <td>EL</td>
-      <td>PA/EL</td>
+      <td>PA/EL; <code class="language-plaintext highlighter-rouge">QUORUM</code> moves it toward EC</td>
     </tr>
     <tr>
-      <td>MongoDB (default)</td>
-      <td>PC</td>
-      <td>EC</td>
-      <td>PC/EC</td>
+      <td>DynamoDB (default eventually consistent reads)</td>
+      <td>PA</td>
+      <td>EL</td>
+      <td>PA/EL; strongly consistent reads are opt-in</td>
     </tr>
   </tbody>
 </table>
 
-<p>The takeaway: characterize a datastore by <em>both</em> halves. “It’s AP” tells you what happens during the rare partition; “it’s EL” tells you the latency/consistency tradeoff you pay on every single request.</p>
+<p>Describe a data store by both halves. “It’s AP” tells you what happens during a rare partition. “It’s EL” tells you the trade-off you pay on every request.</p>
 
 <h2 id="the-flp-impossibility-result">The FLP Impossibility Result</h2>
 
-<p>The <strong>Fischer–Lynch–Paterson</strong> theorem (1985) is the formal bedrock under all of consensus:</p>
+<p>The <strong>Fischer–Lynch–Paterson</strong> theorem (1985) is the formal foundation of consensus:</p>
 
 <blockquote>
-  <p>In an asynchronous system where even <strong>one</strong> process may crash, <strong>no</strong> deterministic algorithm can guarantee that all non-faulty processes reach agreement (consensus) in bounded time.</p>
+  <p>In an asynchronous system in which even <strong>one</strong> process may crash, <strong>no</strong> deterministic algorithm can guarantee that all non-faulty processes reach agreement.</p>
 </blockquote>
 
-<p>“Asynchronous” here means messages can be delayed arbitrarily and there is no upper bound on processing time — so you cannot use a timeout to reliably detect a crash. The proof constructs an infinite execution that stays forever “bivalent” (a state from which both decision values are still reachable): an adversarial scheduler can always delay the one message that would force a decision, keeping the system undecided indefinitely. The full argument is on the <a href="../advanced/distributed-systems-theory/#flp-impossibility-theorem">theory page</a>.</p>
+<p>“Asynchronous” means there is no bound on message delay or processing time, so a timeout cannot reliably detect a crash. The proof constructs an execution that stays forever <em>bivalent</em>, meaning both decision values remain reachable. An adversarial scheduler can always delay the one message that would force a decision (see the <a href="../advanced/distributed-systems-theory/#flp-impossibility-theorem">full argument</a>).</p>
 
-<p>FLP is an impossibility about <em>guaranteed termination</em>, not about safety. It does <strong>not</strong> say consensus is impossible in practice — it says no algorithm can be simultaneously <strong>safe</strong> (never decides wrong), <strong>live</strong> (always eventually decides), and <strong>fully asynchronous</strong>. Real systems escape FLP by relaxing one assumption:</p>
+<p>FLP limits <em>guaranteed termination</em>, not safety. It does not say consensus is impossible in practice. It says no algorithm can be <strong>safe</strong> (never decides wrongly), <strong>live</strong> (always eventually decides), and <strong>fully asynchronous</strong> at the same time. Real systems get around it by relaxing one assumption:</p>
 
-<ul>
-  <li><strong>Partial synchrony / timeouts (Raft, Paxos, Multi-Paxos).</strong> Assume that <em>eventually</em> the network behaves well enough (messages arrive within some unknown bound). Algorithms stay safe always and become live once that synchrony holds. This is the route nearly all production systems take — failure detectors built on timeouts are the practical embodiment.</li>
-  <li><strong>Randomization (Ben-Or, modern BFT).</strong> Flip coins so the adversary cannot deterministically schedule the system into eternal indecision; termination becomes probabilistic (probability 1 in the limit).</li>
-  <li><strong>Stronger failure detectors.</strong> Chandra–Toueg showed the <em>weakest</em> failure detector that makes consensus solvable is ◇W (“eventually weak”) — one that eventually stops suspecting some correct process. This is, in effect, a leader that eventually stays up.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Escape route</th>
+      <th>Idea</th>
+      <th>Used by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Partial synchrony</strong></td>
+      <td>Assume the network <em>eventually</em> delivers messages within some unknown bound (Dwork, Lynch, Stockmeyer, 1988). The protocol is always safe, and becomes live once that bound holds.</td>
+      <td>Paxos, Raft, PBFT, HotStuff: almost everything in production</td>
+    </tr>
+    <tr>
+      <td><strong>Randomization</strong></td>
+      <td>Random coin flips stop the adversary from scheduling the system into permanent indecision. Termination happens with probability 1.</td>
+      <td>Ben-Or (1983), asynchronous BFT (HoneyBadgerBFT and descendants)</td>
+    </tr>
+    <tr>
+      <td><strong>Failure detectors</strong></td>
+      <td>Add an unreliable oracle that suspects crashed processes. Chandra, Hadzilacos and Toueg (1996) showed that the weakest detector sufficient for consensus is $\Omega$, which eventually names the same correct leader at every process. $\Omega$ is equivalent to $\Diamond W$.</td>
+      <td>The theoretical model behind leader election</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The practical lesson encoded in every algorithm below: <strong>prioritize safety, accept that liveness is conditional.</strong> A consensus system that occasionally stalls (and resumes when the network heals) is correct; one that occasionally decides two different values is catastrophically broken.</p>
+<p>The practical lesson is to <strong>keep safety unconditional and accept that liveness is conditional</strong>. A consensus system that sometimes stalls and resumes when the network heals is correct. One that sometimes decides two different values is broken.</p>
 
 <h2 id="consistency-models">Consistency Models</h2>
 
-<p>Consistency is a spectrum, not a switch. The stronger the guarantee, the more coordination (and latency) it costs — so the rule of thumb is to pick the <em>weakest</em> model your application can tolerate. The models below are ordered from strongest to weakest:</p>
+<p>Consistency is a spectrum. Stronger guarantees need more coordination and cost more latency, so pick the <em>weakest</em> model your application can tolerate. The single-object models, strongest first:</p>
 
 <table>
   <thead>
     <tr>
       <th>Model</th>
       <th>Guarantee</th>
-      <th>Cost</th>
+      <th>Available under partition?</th>
       <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Linearizable</strong></td>
-      <td>Operations appear atomic and instantaneous, in real-time order</td>
-      <td>Highest (cross-node coordination per op)</td>
-      <td>Locks, leader election, financial ledgers</td>
+      <td>Each operation appears to happen atomically at one instant between its call and its return, in real-time order</td>
+      <td>No</td>
+      <td>Locks, leader election, config stores, uniqueness</td>
     </tr>
     <tr>
       <td><strong>Sequential</strong></td>
-      <td>A single global order consistent with each process’s program order</td>
-      <td>High</td>
-      <td>Replicated state machines</td>
+      <td>One global order consistent with each process’s program order, not necessarily with real time</td>
+      <td>No</td>
+      <td>Replicated state machines without real-time reads</td>
     </tr>
     <tr>
       <td><strong>Causal</strong></td>
-      <td>Causally related operations seen in the same order everywhere</td>
-      <td>Moderate</td>
-      <td>Collaborative editing, comment threads</td>
+      <td>Operations related by happens-before are seen in that order everywhere; concurrent operations may appear in different orders</td>
+      <td>Yes (the strongest model that is)</td>
+      <td>Comment threads, collaborative editing</td>
     </tr>
     <tr>
       <td><strong>Eventual</strong></td>
-      <td>Replicas converge if updates stop; readers may see stale data</td>
-      <td>Lowest (no coordination on the write path)</td>
-      <td>Shopping carts, DNS, social feeds</td>
+      <td>If writes stop, replicas converge; intermediate reads may be stale</td>
+      <td>Yes</td>
+      <td>Caches, DNS, shopping carts, feeds</td>
     </tr>
   </tbody>
 </table>
 
+<p>Consistency models describe <strong>single operations on single objects</strong>. Isolation levels (serializable, snapshot isolation, and so on) describe <strong>multi-object transactions</strong>. The two meet in <strong>strict serializability</strong>: transactions that are serializable <em>and</em> respect real-time order. Spanner, CockroachDB, FoundationDB, and Cassandra 6’s Accord transactions aim for this. For how these claims are tested, see <a href="testing-distributed-systems.html">Testing Distributed Systems</a>.</p>
+
 <h3 id="linearizability">Linearizability</h3>
 
-<p>The gold standard. Every operation appears to take effect atomically at some single instant between its invocation and its response, and that instant respects real-time order: if operation A completes before operation B begins (in wall-clock time), then A is ordered before B. A linearizable register behaves exactly like a single, non-replicated variable. Consensus protocols exist precisely to provide linearizable replicated state — etcd’s <code class="language-plaintext highlighter-rouge">Get</code>/<code class="language-plaintext highlighter-rouge">Put</code> and a Raft-backed key are linearizable.</p>
+<p>A linearizable register behaves exactly like a single, non-replicated variable. If operation A completes before operation B starts in wall-clock time, then A is ordered before B. Linearizability is also <em>composable</em>: a system made of linearizable objects is linearizable as a whole. Consensus protocols exist to provide linearizable replicated state. For example, etcd’s default reads and writes are linearizable, and its <code class="language-plaintext highlighter-rouge">serializable</code> read option trades that for lower latency.</p>
 
 <h3 id="sequential-consistency">Sequential Consistency</h3>
 
-<p>Weaker than linearizable: there exists <em>some</em> total order of all operations consistent with each process’s program order, but that order need not respect real time across processes. Two clients can each see a self-consistent history, yet a later write by one may be ordered before an earlier write by another. Sequential consistency is what a naive “all replicas apply ops in the same order” replicated state machine gives you when you do not also tie ordering to a global clock.</p>
+<p>There is <em>some</em> total order of all operations that respects each process’s program order, but it does not have to match real time across processes. A client can write a value, tell a friend by phone, and the friend’s read can still legally return the old value. A replicated state machine that serves reads from any follower’s local copy gives roughly this model.</p>
 
 <h3 id="causal-consistency">Causal Consistency</h3>
 
-<p>Operations that are <em>causally related</em> (one happens-before another, via the Lamport happens-before relation) are seen in that order by every node; concurrent operations may be seen in different orders on different nodes. This is the strongest model achievable <strong>without</strong> sacrificing availability under partition — you can serve reads and writes on both sides of a split and still preserve cause-and-effect. It is the natural fit for comment threads (a reply must never appear before the comment it answers) and collaborative editors.</p>
+<p>If one operation happens-before another (Lamport’s relation), every node sees them in that order. Concurrent operations may be seen in different orders on different nodes. This is the strongest model that can stay available on both sides of a partition, so it fits well where cause and effect must be preserved but global agreement is too expensive. A reply must never appear before the comment it answers.</p>
 
 <h3 id="eventual-consistency">Eventual Consistency</h3>
 
-<p>The weakest useful guarantee: if writes stop, all replicas eventually converge to the same value. Nothing is promised about <em>when</em>, or about what intermediate reads return. To make this tolerable for users, systems layer on <strong>session guarantees</strong>:</p>
+<p>If writes stop, all replicas eventually converge. Nothing is promised about <em>when</em>, or about what reads return in the meantime. Systems make this tolerable with <strong>session guarantees</strong> (read-your-writes, monotonic reads, monotonic writes, writes-follow-reads), which are described on <a href="client-side-consistency.html#session-guarantees">Client-Side Consistency</a>. Convergence comes from conflict resolution: last-writer-wins timestamps, version vectors with application-level merges, or <a href="client-side-consistency.html#crdts-conflict-free-replicated-data-types">CRDTs</a>.</p>
 
-<ul>
-  <li><strong>Read-your-writes:</strong> a process always sees its own prior writes.</li>
-  <li><strong>Monotonic reads:</strong> once a process has seen a value, it never sees an older one.</li>
-  <li><strong>Monotonic writes / writes-follow-reads:</strong> a process’s writes are applied in order, and respect the values it read.</li>
-</ul>
-
-<p>Convergence is usually achieved with conflict resolution — last-writer-wins (LWW) timestamps, version vectors, or <strong>CRDTs</strong> (conflict-free replicated data types) whose merge operation is commutative, associative, and idempotent so replicas converge regardless of message order or duplication.</p>
-
-<p>For the formal definitions and the happens-before relation that underpins causal ordering, see <a href="../advanced/distributed-systems-theory/#consistency-models">Distributed Systems Theory</a>.</p>
+<p>Formal definitions are in <a href="../advanced/distributed-systems-theory/#consistency-models">Distributed Systems Theory</a>.</p>
 
 <h2 id="quorums-the-arithmetic-underneath">Quorums: The Arithmetic Underneath</h2>
 
-<p>Before the named algorithms, it pays to understand the counting argument that makes all of them safe. A <strong>quorum</strong> is any subset of nodes large enough that <em>any two quorums overlap in at least one node</em>. That overlap is the entire trick: if every committed decision is witnessed by a quorum, and every later quorum shares a node with every earlier one, then no two contradictory decisions can both commit — the shared node would have to remember both, which it refuses to do.</p>
+<p>Every algorithm below rests on one counting argument. A <strong>quorum</strong> is a set of nodes chosen so that <em>any two quorums that must not conflict share at least one node</em>. If every committed decision is recorded by a quorum, any later quorum includes at least one node that knows about it. That shared node prevents a contradictory decision from committing.</p>
 
-<p>For a cluster of $N$ replicas using a read quorum $R$ and write quorum $W$, the safety condition is:</p>
+<p>For $N$ replicas with read quorum $R$ and write quorum $W$:</p>
 
-\[W + R &gt; N \quad \text{and} \quad W &gt; N/2\]
+\[W + R &gt; N \qquad \text{and} \qquad 2W &gt; N\]
 
 <ul>
-  <li>$W + R &gt; N$ guarantees every read quorum overlaps every write quorum, so a read sees at least one replica holding the latest write.</li>
-  <li>$W &gt; N/2$ guarantees any two write quorums overlap, preventing two conflicting writes from both committing (this is the <strong>majority</strong> quorum used by consensus protocols).</li>
+  <li>$W + R &gt; N$: every read quorum overlaps every write quorum, so a read reaches at least one replica holding the latest write.</li>
+  <li>$2W &gt; N$: any two write quorums overlap, so two conflicting writes cannot both commit.</li>
 </ul>
 
-<p>The simplest and most common choice is the <strong>strict majority</strong>: $W = R = \lfloor N/2 \rfloor + 1$. With $N = 5$, a majority is $3$; the system tolerates the loss of $2$ nodes and still forms a quorum. This is why consensus clusters are sized at odd numbers (3, 5, 7): an even cluster gets no extra fault tolerance but needs more nodes for a majority.</p>
+<p>The usual choice is a <strong>strict majority</strong>, $W = R = \lfloor N/2 \rfloor + 1$:</p>
 
 <table>
   <thead>
     <tr>
       <th style="text-align: center">Cluster size $N$</th>
-      <th style="text-align: center">Majority quorum</th>
+      <th style="text-align: center">Majority</th>
       <th style="text-align: center">Crash failures tolerated</th>
     </tr>
   </thead>
@@ -3396,6 +3412,11 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td style="text-align: center">3</td>
       <td style="text-align: center">2</td>
+      <td style="text-align: center">1</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">4</td>
+      <td style="text-align: center">3</td>
       <td style="text-align: center">1</td>
     </tr>
     <tr>
@@ -3409,41 +3430,47 @@ document.addEventListener('DOMContentLoaded', function () {
       <td style="text-align: center">3</td>
     </tr>
     <tr>
-      <td style="text-align: center">2f+1</td>
-      <td style="text-align: center">f+1</td>
-      <td style="text-align: center">f</td>
+      <td style="text-align: center">$2f+1$</td>
+      <td style="text-align: center">$f+1$</td>
+      <td style="text-align: center">$f$</td>
     </tr>
   </tbody>
 </table>
 
-<p>Dynamo-style AP stores expose $N$, $R$, and $W$ as tunable knobs so you can slide along the consistency/latency curve per request: $R=W=1$ is fast but offers no overlap guarantee (eventual); $W=N, R=1$ makes writes expensive but reads cheap and strongly consistent. CP consensus systems fix $W=R=$ majority and never relax it.</p>
+<p>The $N=4$ row shows why consensus clusters use odd sizes: a fourth node adds no fault tolerance and makes the quorum larger. Clusters larger than 5 or 7 voters are rare because each write waits for more acknowledgements. Systems scale reads with <strong>non-voting members</strong> instead (etcd learners, ZooKeeper observers).</p>
+
+<p>Dynamo-style stores expose $N$, $R$ and $W$ as per-request settings. $R = W = 1$ is fast but gives no overlap. $R + W &gt; N$ gives overlap but not linearizability, because concurrent writes and read repair still allow anomalies without extra machinery. Consensus systems fix both quorums at a majority.</p>
+
+<p><strong>Flexible Paxos</strong> (Howard, Malkhi and Spiegelman, 2016) showed that majority-for-everything is stronger than necessary. Leader election (Paxos phase 1) and replication (phase 2) must intersect <em>each other</em>, but two replication quorums do not need to intersect. The condition is $Q_1 + Q_2 &gt; N$. For example, with $N = 10$ a system can replicate to 3 nodes and elect with 8, which trades slower, rarer elections for faster commits.</p>
 
 <h2 id="paxos">Paxos</h2>
 
-<p>Paxos (Lamport, 1998) is the original proven-correct consensus algorithm and the conceptual ancestor of nearly everything else. It lets a set of nodes agree on a single value even though nodes may crash and messages may be lost, delayed, or reordered. Its reputation for being hard to understand is deserved; the payoff is that its <em>safety</em> is airtight regardless of timing — it never violates agreement, and FLP only costs it liveness.</p>
+<p>Paxos (Lamport; written in 1989, published in 1998 as <em>The Part-Time Parliament</em>, and re-explained in <em>Paxos Made Simple</em>, 2001) was the first practical consensus algorithm proven correct, and almost every later protocol derives from it. It lets a set of nodes agree on one value despite crashes and lost, delayed, or reordered messages. Its safety does not depend on timing at all. FLP costs it only liveness.</p>
 
 <h3 id="roles">Roles</h3>
 
 <ul>
-  <li><strong>Proposers</strong> suggest values to be chosen.</li>
-  <li><strong>Acceptors</strong> vote on proposals; a value is chosen when a majority of acceptors accept it.</li>
-  <li><strong>Learners</strong> discover the chosen value.</li>
+  <li><strong>Proposers</strong> suggest values.</li>
+  <li><strong>Acceptors</strong> vote. A value is <em>chosen</em> once a majority of acceptors accept it.</li>
+  <li><strong>Learners</strong> find out which value was chosen.</li>
 </ul>
 
-<p>In practice a single process plays all three roles. The protocol proceeds in numbered <strong>rounds</strong> (ballots), each identified by a globally unique, monotonically increasing proposal number.</p>
+<p>In practice each process plays all three roles. The protocol proceeds in <strong>ballots</strong>, each with a unique, increasing proposal number (typically a counter paired with the node ID).</p>
 
 <h3 id="the-two-phases">The Two Phases</h3>
 
-<p><strong>Phase 1 — Prepare / Promise.</strong></p>
+<p><strong>Phase 1: Prepare and Promise.</strong></p>
+
 <ol>
-  <li>A proposer picks a proposal number <code class="language-plaintext highlighter-rouge">n</code> (higher than any it has used) and sends <code class="language-plaintext highlighter-rouge">Prepare(n)</code> to a majority of acceptors.</li>
-  <li>An acceptor receiving <code class="language-plaintext highlighter-rouge">Prepare(n)</code>: if <code class="language-plaintext highlighter-rouge">n</code> is greater than any proposal it has already promised, it replies <code class="language-plaintext highlighter-rouge">Promise(n)</code> and includes the highest-numbered proposal <code class="language-plaintext highlighter-rouge">(n', v')</code> it has <em>already accepted</em>, if any. From then on it refuses any proposal numbered below <code class="language-plaintext highlighter-rouge">n</code>.</li>
+  <li>A proposer picks a number <code class="language-plaintext highlighter-rouge">n</code> and sends <code class="language-plaintext highlighter-rouge">Prepare(n)</code> to the acceptors.</li>
+  <li>An acceptor that has not promised anything higher replies <code class="language-plaintext highlighter-rouge">Promise(n)</code>, including the highest-numbered proposal <code class="language-plaintext highlighter-rouge">(n', v')</code> it has already accepted, if any. It then ignores any proposal numbered below <code class="language-plaintext highlighter-rouge">n</code>.</li>
 </ol>
 
-<p><strong>Phase 2 — Accept / Accepted.</strong></p>
+<p><strong>Phase 2: Accept and Accepted.</strong></p>
+
 <ol>
-  <li>If the proposer gets <code class="language-plaintext highlighter-rouge">Promise</code> from a majority, it picks the value <code class="language-plaintext highlighter-rouge">v</code>: if any acceptor returned an already-accepted <code class="language-plaintext highlighter-rouge">(n', v')</code>, it <strong>must</strong> reuse the value with the highest <code class="language-plaintext highlighter-rouge">n'</code> (this is what preserves agreement); otherwise it is free to choose its own value. It sends <code class="language-plaintext highlighter-rouge">Accept(n, v)</code>.</li>
-  <li>An acceptor receiving <code class="language-plaintext highlighter-rouge">Accept(n, v)</code> accepts it <em>unless</em> it has already promised a higher number. Once a majority accept <code class="language-plaintext highlighter-rouge">(n, v)</code>, <code class="language-plaintext highlighter-rouge">v</code> is <strong>chosen</strong> — permanently.</li>
+  <li>Once a proposer has promises from a majority, it chooses a value. If any promise reported an accepted <code class="language-plaintext highlighter-rouge">(n', v')</code>, it <strong>must</strong> use the value with the highest <code class="language-plaintext highlighter-rouge">n'</code>, and this rule is what preserves agreement. Otherwise it may propose its own value. It sends <code class="language-plaintext highlighter-rouge">Accept(n, v)</code>.</li>
+  <li>An acceptor accepts <code class="language-plaintext highlighter-rouge">(n, v)</code> unless it has since promised a higher number. Once a majority accept, <code class="language-plaintext highlighter-rouge">v</code> is <strong>chosen</strong> permanently.</li>
 </ol>
 
 <pre><code class="language-mermaid">sequenceDiagram
@@ -3455,89 +3482,81 @@ document.addEventListener('DOMContentLoaded', function () {
     Pr-&gt;&gt;A1: Prepare(n)
     Pr-&gt;&gt;A2: Prepare(n)
     Pr-&gt;&gt;A3: Prepare(n)
-    A1--&gt;&gt;Pr: Promise(n, prev?)
-    A2--&gt;&gt;Pr: Promise(n, prev?)
-    Note over Pr,A3: Majority promised → Phase 2
+    A1--&gt;&gt;Pr: Promise(n, last accepted?)
+    A2--&gt;&gt;Pr: Promise(n, last accepted?)
+    Note over Pr,A3: Majority promised: Phase 2
     Pr-&gt;&gt;A1: Accept(n, v)
     Pr-&gt;&gt;A2: Accept(n, v)
     A1--&gt;&gt;Pr: Accepted(n, v)
     A2--&gt;&gt;Pr: Accepted(n, v)
-    Note over Pr,A3: Majority accepted → v is chosen
+    Note over Pr,A3: Majority accepted: v is chosen
 </code></pre>
 
-<p>The crucial safety invariant: <strong>once a value is chosen, every higher-numbered proposal that completes will choose the same value</strong>, because Phase 1 forces a new proposer to adopt the highest already-accepted value it discovers from a majority. Two majorities always overlap (the quorum argument above), so the new proposer is guaranteed to learn about any chosen value.</p>
+<p>The safety invariant: <strong>once a value is chosen, every higher-numbered proposal that completes carries the same value.</strong> Phase 1 makes a new proposer adopt the highest accepted value reported by a majority, and that majority overlaps the majority that chose the value.</p>
 
-<h3 id="why-bare-paxos-isnt-enough-and-multi-paxos">Why Bare Paxos Isn’t Enough, and Multi-Paxos</h3>
+<h3 id="multi-paxos">Multi-Paxos</h3>
 
-<p>“Basic” Paxos agrees on <em>one</em> value. A replicated state machine needs to agree on an unbounded <em>log</em> of commands. Running independent Paxos instances per log slot works but pays the two-phase cost every time, and competing proposers can livelock — two proposers leapfrogging each other’s proposal numbers so neither ever completes Phase 2 (FLP’s liveness gap made concrete).</p>
+<p>Basic Paxos agrees on <em>one</em> value. A replicated state machine needs agreement on an unbounded <em>log</em> of commands. Running a separate two-phase instance for each log slot is slow. Competing proposers can also <strong>livelock</strong>: each keeps raising its proposal number above the other’s, so neither ever finishes phase 2. This is the liveness gap FLP predicts, showing up in practice.</p>
 
-<p><strong>Multi-Paxos</strong> fixes both: elect a stable <strong>leader</strong> (a distinguished proposer) and let it skip Phase 1 for subsequent log entries. Once the leader has run Phase 1 once and become established, it streams <code class="language-plaintext highlighter-rouge">Accept</code> messages for each new command with a single round-trip. This is the dominant production form (used inside Google Chubby and Spanner) — and it is essentially the structure Raft formalizes more legibly.</p>
+<p><strong>Multi-Paxos</strong> addresses both problems. It elects a stable <strong>leader</strong> (a distinguished proposer), which runs phase 1 once for all future slots and then commits each new command with a single phase-2 round trip. Google’s Chubby and Spanner use this form. Raft has the same structure, described more concretely.</p>
 
 <h2 id="raft">Raft</h2>
 
-<p>Raft (Ongaro &amp; Ousterhout, 2014) was explicitly designed to be <em>understandable</em> while providing exactly the same guarantees as Multi-Paxos. It decomposes consensus into three subproblems — <strong>leader election</strong>, <strong>log replication</strong>, and <strong>safety</strong> — and most production coordination systems (etcd, Consul, TiKV, CockroachDB’s range consensus) are built on it.</p>
+<p>Raft (Ongaro and Ousterhout, 2014) was designed to be <em>understandable</em> while giving the same guarantees as Multi-Paxos. It splits consensus into <strong>leader election</strong>, <strong>log replication</strong>, and <strong>safety</strong>. etcd (and therefore Kubernetes), Consul, CockroachDB, TiKV, YugabyteDB, and Kafka’s KRaft metadata quorum all use Raft or a close variant.</p>
 
-<p>Each node is in one of three states and time is divided into <strong>terms</strong>, monotonically increasing integers that act as a logical clock. Each term begins with an election and has at most one leader.</p>
+<p>Every node is a follower, a candidate, or the leader. Time is divided into <strong>terms</strong>, increasing integers that act as a logical clock. Each term starts with an election and has at most one leader. A node that sees a higher term immediately adopts it and becomes a follower.</p>
 
 <pre><code class="language-mermaid">stateDiagram-v2
     [*] --&gt; Follower
-    Follower --&gt; Candidate: election timeout,&lt;br/&gt;no heartbeat from leader
-    Candidate --&gt; Leader: wins majority of votes
-    Candidate --&gt; Follower: discovers current leader&lt;br/&gt;or higher term
-    Candidate --&gt; Candidate: split vote → timeout,&lt;br/&gt;new election
-    Leader --&gt; Follower: discovers higher term
+    Follower --&gt; Candidate: election timeout,&lt;br/&gt;no heartbeat
+    Candidate --&gt; Leader: votes from a majority
+    Candidate --&gt; Follower: sees current leader&lt;br/&gt;or higher term
+    Candidate --&gt; Candidate: split vote,&lt;br/&gt;timeout, new term
+    Leader --&gt; Follower: sees higher term
 </code></pre>
 
 <h3 id="leader-election">Leader Election</h3>
 
 <ul>
-  <li>Every follower runs a randomized <strong>election timeout</strong> (e.g. 150–300 ms). The leader sends periodic empty <code class="language-plaintext highlighter-rouge">AppendEntries</code> (heartbeats) to reset these timers.</li>
-  <li>If a follower’s timer fires without a heartbeat, it increments its term, becomes a <strong>candidate</strong>, votes for itself, and sends <code class="language-plaintext highlighter-rouge">RequestVote</code> RPCs to all peers.</li>
-  <li>A node grants its vote at most once per term, and only if the candidate’s log is <em>at least as up-to-date</em> as its own (see safety). A candidate that collects votes from a majority becomes <strong>leader</strong> and immediately sends heartbeats to assert authority.</li>
-  <li><strong>Split votes</strong> (two candidates start simultaneously and neither wins a majority) are resolved by the <em>randomized</em> timeouts: the next round, one node almost certainly times out first and wins uncontested. Randomization is Raft’s escape from the FLP liveness trap.</li>
+  <li>Each follower has a randomized <strong>election timeout</strong>. The paper suggests 150–300 ms; etcd defaults to a 100 ms heartbeat and a 1000 ms election timeout. The leader’s periodic <code class="language-plaintext highlighter-rouge">AppendEntries</code> heartbeats reset the timeout.</li>
+  <li>When the timeout fires, the follower increments its term, becomes a <strong>candidate</strong>, votes for itself, and sends <code class="language-plaintext highlighter-rouge">RequestVote</code> to every peer.</li>
+  <li>A node grants at most one vote per term. It votes only for a candidate whose log is <strong>at least as up-to-date</strong> as its own: a higher last term, or the same last term and an equal or longer log. A candidate with votes from a majority becomes leader.</li>
+  <li><strong>Split votes</strong> are resolved by the randomized timeouts: in the next round one node almost always times out first.</li>
 </ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Simple Raft-like leader election
-</span><span class="kn">import</span> <span class="n">asyncio</span>
-<span class="kn">import</span> <span class="n">random</span>
+<p>The receiving side of <code class="language-plaintext highlighter-rouge">RequestVote</code> is where the safety rules are enforced:</p>
 
-<span class="k">class</span> <span class="nc">Node</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">node_id</span><span class="p">,</span> <span class="n">peers</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="nb">id</span> <span class="o">=</span> <span class="n">node_id</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">peers</span> <span class="o">=</span> <span class="n">peers</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">"</span><span class="s">follower</span><span class="sh">"</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">term</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">voted_for</span> <span class="o">=</span> <span class="bp">None</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">leader</span> <span class="o">=</span> <span class="bp">None</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">handle_request_vote</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">term</span><span class="p">,</span> <span class="n">candidate_id</span><span class="p">,</span> <span class="n">last_log_index</span><span class="p">,</span> <span class="n">last_log_term</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">term</span> <span class="o">&gt;</span> <span class="n">self</span><span class="p">.</span><span class="n">current_term</span><span class="p">:</span>              <span class="c1"># newer term: step down, forget old vote
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">current_term</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">voted_for</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">term</span><span class="p">,</span> <span class="bp">None</span><span class="p">,</span> <span class="sh">"</span><span class="s">follower</span><span class="sh">"</span>
+    <span class="k">if</span> <span class="n">term</span> <span class="o">&lt;</span> <span class="n">self</span><span class="p">.</span><span class="n">current_term</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">current_term</span><span class="p">,</span> <span class="bp">False</span>       <span class="c1"># stale candidate
+</span>
+    <span class="n">my_last_term</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">log</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">term</span> <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">log</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="n">my_last_index</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">log</span><span class="p">)</span>
+    <span class="n">log_ok</span> <span class="o">=</span> <span class="p">(</span><span class="n">last_log_term</span> <span class="o">&gt;</span> <span class="n">my_last_term</span> <span class="ow">or</span>
+              <span class="p">(</span><span class="n">last_log_term</span> <span class="o">==</span> <span class="n">my_last_term</span> <span class="ow">and</span> <span class="n">last_log_index</span> <span class="o">&gt;=</span> <span class="n">my_last_index</span><span class="p">))</span>
 
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">start_election</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">"</span><span class="s">candidate</span><span class="sh">"</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">term</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">voted_for</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nb">id</span>
+    <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">voted_for</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="n">candidate_id</span><span class="p">)</span> <span class="ow">and</span> <span class="n">log_ok</span><span class="p">:</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">voted_for</span> <span class="o">=</span> <span class="n">candidate_id</span>
+        <span class="n">self</span><span class="p">.</span><span class="nf">persist</span><span class="p">()</span>                        <span class="c1"># term + vote must hit disk before replying
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">reset_election_timer</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">current_term</span><span class="p">,</span> <span class="bp">True</span>
+    <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">current_term</span><span class="p">,</span> <span class="bp">False</span>
 
-        <span class="n">votes</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Vote for self
-</span>        <span class="k">for</span> <span class="n">peer</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">peers</span><span class="p">:</span>
-            <span class="k">if</span> <span class="k">await</span> <span class="n">self</span><span class="p">.</span><span class="nf">request_vote</span><span class="p">(</span><span class="n">peer</span><span class="p">):</span>
-                <span class="n">votes</span> <span class="o">+=</span> <span class="mi">1</span>
-
-        <span class="k">if</span> <span class="n">votes</span> <span class="o">&gt;</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">peers</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="n">self</span><span class="p">.</span><span class="nf">become_leader</span><span class="p">()</span>
-
-    <span class="k">def</span> <span class="nf">become_leader</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="sh">"</span><span class="s">leader</span><span class="sh">"</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">leader</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nb">id</span>
-        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Node </span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="s"> became leader for term </span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">term</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
+<span class="k">def</span> <span class="nf">is_majority</span><span class="p">(</span><span class="n">votes</span><span class="p">,</span> <span class="n">cluster_size</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">votes</span> <span class="o">&gt;=</span> <span class="n">cluster_size</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>     <span class="c1"># cluster_size counts the candidate itself
+</span></code></pre></div></div>
 
 <h3 id="log-replication">Log Replication</h3>
 
-<p>Once elected, the leader is the sole entry point for client commands:</p>
+<p>The leader is the only entry point for commands:</p>
 
 <ol>
-  <li>The leader appends the command to its own log as a new entry tagged with the current term and its index.</li>
-  <li>It sends <code class="language-plaintext highlighter-rouge">AppendEntries(term, prevLogIndex, prevLogTerm, entries, leaderCommit)</code> to all followers.</li>
-  <li>A follower accepts the entries only if its log matches the leader’s at <code class="language-plaintext highlighter-rouge">prevLogIndex</code>/<code class="language-plaintext highlighter-rouge">prevLogTerm</code> — the <strong>Log Matching Property</strong>. If not, it rejects, and the leader walks <code class="language-plaintext highlighter-rouge">prevLogIndex</code> backward until it finds the last point of agreement, then overwrites the follower’s divergent tail.</li>
-  <li>When the entry is stored on a <strong>majority</strong> of nodes, the leader marks it <strong>committed</strong>, applies it to its state machine, and returns success to the client. Followers learn the commit index from the next <code class="language-plaintext highlighter-rouge">AppendEntries</code> and apply the entry in turn.</li>
+  <li>The leader appends the command to its log with the current term and the next index.</li>
+  <li>It sends <code class="language-plaintext highlighter-rouge">AppendEntries(term, prevLogIndex, prevLogTerm, entries, leaderCommit)</code> to each follower.</li>
+  <li>A follower accepts only if its log contains an entry at <code class="language-plaintext highlighter-rouge">prevLogIndex</code> with term <code class="language-plaintext highlighter-rouge">prevLogTerm</code>. This consistency check enforces the <strong>Log Matching Property</strong>. If the check fails, the leader moves <code class="language-plaintext highlighter-rouge">prevLogIndex</code> back until the logs agree, then overwrites the follower’s divergent tail.</li>
+  <li>When the entry is stored on a <strong>majority</strong>, it is <strong>committed</strong>. The leader applies it and replies to the client. Followers learn the new commit index from later <code class="language-plaintext highlighter-rouge">AppendEntries</code> messages.</li>
 </ol>
 
 <pre><code class="language-mermaid">sequenceDiagram
@@ -3546,174 +3565,318 @@ document.addEventListener('DOMContentLoaded', function () {
     participant F1 as Follower 1
     participant F2 as Follower 2
     C-&gt;&gt;L: command x=3
-    L-&gt;&gt;L: append (term, x=3) to log
-    L-&gt;&gt;F1: AppendEntries(x=3)
-    L-&gt;&gt;F2: AppendEntries(x=3)
-    F1--&gt;&gt;L: ok
-    F2--&gt;&gt;L: ok
-    Note over L: majority stored → committed
-    L-&gt;&gt;L: apply x=3 to state machine
+    L-&gt;&gt;L: append (term, x=3), fsync
+    par replicate
+        L-&gt;&gt;F1: AppendEntries(x=3)
+        L-&gt;&gt;F2: AppendEntries(x=3)
+    end
+    F1--&gt;&gt;L: ok (fsynced)
+    Note over L: 2 of 3 stored: committed
+    L-&gt;&gt;L: apply x=3
     L--&gt;&gt;C: success
-    L-&gt;&gt;F1: AppendEntries(commitIndex++)
-    L-&gt;&gt;F2: AppendEntries(commitIndex++)
+    F2--&gt;&gt;L: ok (late, still fine)
+    L-&gt;&gt;F1: next AppendEntries carries leaderCommit
+    L-&gt;&gt;F2: next AppendEntries carries leaderCommit
 </code></pre>
 
-<p>The Log Matching Property gives a powerful inductive guarantee: if two logs contain an entry with the same index <em>and</em> term, then the logs are identical in all entries up to that index. This is what lets a follower trust a single matching <code class="language-plaintext highlighter-rouge">(index, term)</code> pair instead of comparing whole logs.</p>
+<p>Log Matching gives an inductive guarantee: if two logs have an entry with the same index and term, they are identical up to that index. A follower therefore only needs to check a single <code class="language-plaintext highlighter-rouge">(index, term)</code> pair.</p>
 
 <h3 id="safety">Safety</h3>
-
-<p>Three rules make Raft’s log a true replicated state machine, never diverging:</p>
-
-<ul>
-  <li><strong>Election restriction.</strong> A candidate cannot win unless its log is at least as up-to-date as a majority of voters’ logs (“up-to-date” = higher last term, or same last term and longer log). This guarantees the new leader already contains every committed entry — committed entries are on a majority, the leader was elected by a majority, the two majorities overlap.</li>
-  <li><strong>Leader append-only.</strong> A leader never overwrites or deletes entries in its own log; it only appends. Divergence is repaired by overwriting <em>followers</em>, never the leader.</li>
-  <li><strong>Commitment rule (the subtle one).</strong> A leader may only mark an entry committed by counting replicas <em>for an entry from its own current term</em>. An entry from a previous term, even if replicated to a majority, is committed only indirectly — once a current-term entry above it commits. This closes a corner case where a leader could otherwise believe an old, majority-replicated entry was safe and then have it overwritten by a future leader.</li>
-</ul>
-
-<p>Together these yield the <strong>State Machine Safety Property</strong>: if any node has applied a log entry at a given index to its state machine, no other node will ever apply a <em>different</em> entry at that index. That is exactly the linearizable replicated log every consensus-backed datastore is built on.</p>
-
-<h3 id="membership-changes-and-snapshots">Membership Changes and Snapshots</h3>
-
-<p>Two operational details round out a real Raft deployment:</p>
-
-<ul>
-  <li><strong>Joint consensus</strong> changes cluster membership safely. Rather than switching from old to new configuration directly (which can momentarily allow two disjoint majorities), Raft transitions through a joint configuration that requires majorities of <em>both</em> old and new sets, eliminating the split.</li>
-  <li><strong>Log compaction / snapshots</strong> prevent the log from growing forever. Each node periodically snapshots its state machine and discards the prefix of the log the snapshot covers; a lagging follower that has fallen behind the snapshot is caught up via an <code class="language-plaintext highlighter-rouge">InstallSnapshot</code> RPC.</li>
-</ul>
-
-<h2 id="byzantine-fault-tolerance-and-pbft">Byzantine Fault Tolerance and PBFT</h2>
-
-<p>Paxos and Raft assume <strong>crash-stop</strong> (or fail-recover) faults: a node may stop or lag, but it never lies. <strong>Byzantine</strong> faults are the general case — a node may behave <em>arbitrarily</em>: send conflicting messages to different peers, forge values, or actively collude to subvert agreement (whether from a bug, corruption, or a malicious attacker). This is the model for open/adversarial settings like blockchains and high-assurance avionics.</p>
-
-<h3 id="the-byzantine-generals-bound">The Byzantine Generals Bound</h3>
-
-<p>Lamport, Shostak, and Pease (1982) proved the fundamental limit:</p>
-
-<blockquote>
-  <p>To tolerate $f$ Byzantine (arbitrarily faulty) nodes, you need at least $3f + 1$ total nodes.</p>
-</blockquote>
-
-\[N \ge 3f + 1\]
-
-<p>The intuition: with $N = 3f + 1$, any quorum of $N - f = 2f + 1$ honest-enough responses still overlaps any other such quorum in at least $f + 1$ nodes, of which at least one is honest. That one guaranteed-honest overlapping node is what prevents two conflicting decisions from both gathering “support.” Crash tolerance needed only $2f + 1$ (one honest overlap); Byzantine tolerance needs the extra $f$ because faulty nodes can <em>actively</em> vote on both sides. The proof is on the <a href="../advanced/distributed-systems-theory/#byzantine-fault-tolerance">theory page</a>.</p>
-
-<h3 id="pbft">PBFT</h3>
-
-<p><strong>Practical Byzantine Fault Tolerance</strong> (Castro &amp; Liskov, 1999) was the first BFT protocol efficient enough for real use, achieving consensus with cryptographic authentication and $N = 3f + 1$ replicas in a partially synchronous network. One replica is the <strong>primary</strong> (leader); the rest are <strong>backups</strong>. A request runs a three-phase agreement:</p>
-
-<pre><code class="language-mermaid">sequenceDiagram
-    participant C as Client
-    participant P as Primary (0)
-    participant B1 as Backup 1
-    participant B2 as Backup 2
-    participant B3 as Backup 3 (faulty)
-    C-&gt;&gt;P: request
-    Note over P,B3: PRE-PREPARE
-    P-&gt;&gt;B1: pre-prepare(seq, request)
-    P-&gt;&gt;B2: pre-prepare(seq, request)
-    P-&gt;&gt;B3: pre-prepare(seq, request)
-    Note over P,B3: PREPARE (all-to-all)
-    B1-&gt;&gt;B2: prepare
-    B1-&gt;&gt;P: prepare
-    B2-&gt;&gt;B1: prepare
-    B2-&gt;&gt;P: prepare
-    Note over P,B3: COMMIT (all-to-all, after 2f prepares)
-    B1-&gt;&gt;B2: commit
-    B2-&gt;&gt;B1: commit
-    P-&gt;&gt;B1: commit
-    Note over P,B3: Each replica replies after 2f+1 commits
-    B1--&gt;&gt;C: reply
-    B2--&gt;&gt;C: reply
-    P--&gt;&gt;C: reply
-</code></pre>
-
-<ol>
-  <li><strong>Pre-prepare.</strong> The primary assigns the client request a sequence number and broadcasts a signed <code class="language-plaintext highlighter-rouge">pre-prepare</code> to all backups, fixing the order.</li>
-  <li><strong>Prepare.</strong> Each backup that accepts the pre-prepare broadcasts <code class="language-plaintext highlighter-rouge">prepare</code>. When a replica has collected $2f$ matching <code class="language-plaintext highlighter-rouge">prepare</code> messages (plus the pre-prepare), it is <em>prepared</em> — it has proof that a majority of honest replicas agree on this order for this view.</li>
-  <li><strong>Commit.</strong> Each prepared replica broadcasts <code class="language-plaintext highlighter-rouge">commit</code>. When a replica collects $2f + 1$ matching <code class="language-plaintext highlighter-rouge">commit</code> messages, it executes the request and replies to the client.</li>
-</ol>
-
-<p>The client waits for <strong>$f + 1$ matching replies</strong> before trusting the result — since at most $f$ replicas are faulty, $f + 1$ agreeing replies guarantees at least one came from an honest node, and the protocol ensures honest replicas agree.</p>
-
-<p>If the primary is faulty (e.g. it sends conflicting orderings, or stalls), backups that time out trigger a <strong>view change</strong> to rotate to a new primary, carrying forward proof of any request that reached the prepared state so committed history is never lost.</p>
-
-<p>PBFT’s cost is its message complexity: the all-to-all prepare and commit phases are $O(N^2)$ messages per request, which limits classic PBFT to small clusters (tens of nodes). Modern descendants — HotStuff (used in Diem/Aptos), Tendermint (Cosmos), and the partially-synchronous BFT used in many blockchains — reduce this toward $O(N)$ with leader-aggregated threshold signatures and pipelining, and add economic incentives, but the $3f+1$ bound and three-phase skeleton remain.</p>
-
-<h3 id="when-to-pay-for-bft">When to Pay for BFT</h3>
-
-<p>Byzantine tolerance is expensive (more nodes, more messages, cryptographic signing). Use it only when a node genuinely cannot be trusted to fail cleanly: permissionless blockchains, cross-organizational consortia, and safety-critical systems where a corrupted component must not be able to drive the others to a wrong decision. Inside a single trusted datacenter, crash-tolerant Raft/Paxos is almost always the right (and far cheaper) choice.</p>
-
-<h2 id="choosing-the-right-tool">Choosing the Right Tool</h2>
 
 <table>
   <thead>
     <tr>
-      <th>Need</th>
-      <th>Use</th>
-      <th>Why</th>
+      <th>Rule</th>
+      <th>Statement</th>
+      <th>Why it matters</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Linearizable config / locks in one trusted datacenter</td>
-      <td>Raft (etcd, Consul, ZooKeeper-ZAB)</td>
-      <td>Crash-tolerant, understandable, battle-tested</td>
+      <td><strong>Election restriction</strong></td>
+      <td>Only a candidate whose log is at least as up-to-date as a majority’s can win</td>
+      <td>Committed entries are on a majority, the voters are a majority, and the two overlap, so a new leader already has every committed entry</td>
     </tr>
     <tr>
-      <td>Replicated SQL across regions</td>
-      <td>Multi-Paxos / Raft per shard (Spanner, CockroachDB)</td>
-      <td>Strong consistency with per-range consensus groups</td>
+      <td><strong>Leader append-only</strong></td>
+      <td>A leader never overwrites or deletes its own entries</td>
+      <td>Divergence is always repaired on followers, never on the leader</td>
     </tr>
     <tr>
-      <td>High availability, low latency, can tolerate staleness</td>
-      <td>Quorum-tunable AP store (Cassandra, Dynamo)</td>
-      <td>$R+W&gt;N$ knobs trade consistency for latency</td>
-    </tr>
-    <tr>
-      <td>Agreement among mutually distrustful parties</td>
-      <td>BFT (PBFT, HotStuff, Tendermint)</td>
-      <td>Survives arbitrary/malicious nodes at $N \ge 3f+1$</td>
-    </tr>
-    <tr>
-      <td>Collaborative state with offline edits</td>
-      <td>CRDTs (eventual + causal)</td>
-      <td>Conflict-free merge, available under partition</td>
+      <td><strong>Current-term commit rule</strong></td>
+      <td>A leader counts replicas only for entries <strong>from its own term</strong>. Earlier entries commit indirectly when a current-term entry above them commits.</td>
+      <td>Closes the case (Figure 8 in the paper) where an old entry stored on a majority could still be overwritten by a later leader. New leaders therefore commit a no-op entry at once.</td>
     </tr>
   </tbody>
 </table>
 
-<p>The decision cascade in one sentence: if nodes can lie, you need <strong>BFT</strong>; otherwise if you need a single real-time-ordered truth, you need <strong>consensus (Raft/Paxos)</strong>; otherwise tune <strong>quorums / CRDTs</strong> for the weakest consistency your application tolerates and reap the latency and availability.</p>
+<p>Together these rules give <strong>State Machine Safety</strong>: if any node has applied an entry at some index, no node will ever apply a different entry at that index.</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h3 id="linearizable-reads">Linearizable Reads</h3>
+
+<p>A leader cannot simply answer reads from local state, because it may have been deposed without knowing it. Serving local reads could return stale data. The options:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>How</th>
+      <th>Cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Log read</strong></td>
+      <td>Append the read to the log like a write</td>
+      <td>A full replication round and a disk write</td>
+    </tr>
+    <tr>
+      <td><strong>ReadIndex</strong></td>
+      <td>Record the commit index, confirm leadership with one heartbeat round to a majority, wait until that index is applied, then read locally</td>
+      <td>One network round trip, no disk write. etcd’s default.</td>
+    </tr>
+    <tr>
+      <td><strong>Lease read</strong></td>
+      <td>The leader assumes that no rival can be elected until its lease expires, so it reads locally with no network round</td>
+      <td>No extra round, but <strong>depends on bounded clock drift</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Follower read</strong></td>
+      <td>A follower asks the leader for the current ReadIndex, waits to catch up, then serves the read</td>
+      <td>Spreads read load across followers</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="operational-refinements">Operational Refinements</h3>
 
 <ul>
-  <li><strong>Safety over liveness.</strong> FLP forbids an algorithm that is safe, live, and fully asynchronous. Every real protocol keeps safety absolute and makes liveness conditional on timeouts or randomness.</li>
-  <li><strong>Characterize with PACELC, not just CAP.</strong> CAP describes the rare partition; the “else latency-vs-consistency” half is the tradeoff you pay on every request.</li>
-  <li><strong>Quorum overlap is the whole trick.</strong> W + R &gt; N and W &gt; N/2 guarantee any two quorums share a node — the counting argument under Paxos, Raft, and Dynamo alike.</li>
-  <li><strong>Raft is understandable Multi-Paxos.</strong> Same guarantees, decomposed into leader election, log replication, and safety. It backs etcd, Consul, CockroachDB, and more.</li>
-  <li><strong>Pick the weakest consistency you can.</strong> Linearizable costs the most coordination; causal is the strongest you get while staying available; eventual + session guarantees often suffice.</li>
-  <li><strong>Pay for BFT only when nodes can lie.</strong> N &gt;= 3f+1 and O(N^2) messaging are worth it for blockchains and adversarial settings — not for a trusted datacenter.</li>
+  <li><strong>PreVote.</strong> Before incrementing its term, a would-be candidate asks whether it <em>could</em> win. This stops a node that has been partitioned away, and has been raising its term in isolation, from disrupting a healthy leader when it rejoins.</li>
+  <li><strong>CheckQuorum.</strong> A leader that has not heard from a majority within an election timeout steps down, so a leader on the minority side of a partition stops acting as leader.</li>
+  <li><strong>Membership changes.</strong> The paper’s <strong>joint consensus</strong> moves through a configuration that requires majorities of <em>both</em> the old and new member sets, so two disjoint majorities cannot exist during the change. Ongaro’s dissertation adds a simpler method: change <strong>one server at a time</strong>, since any two majorities of configurations that differ by one node overlap. etcd adds <strong>learners</strong>, non-voting members that catch up before being promoted.</li>
+  <li><strong>Snapshots.</strong> Nodes periodically snapshot the state machine and discard the log prefix it covers. A follower that falls behind the snapshot is caught up with <code class="language-plaintext highlighter-rouge">InstallSnapshot</code>.</li>
 </ul>
+
+<h2 id="beyond-a-single-leader">Beyond a Single Leader</h2>
+
+<p>A single stable leader is simple, but the leader is a throughput bottleneck, and in a geo-distributed cluster clients far from it pay extra round trips.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>Idea</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Sharded consensus</strong></td>
+      <td>Split the keyspace into ranges, each with its own Raft or Paxos group and its own leader, spread across nodes</td>
+      <td>Spanner, CockroachDB, TiKV, YugabyteDB</td>
+    </tr>
+    <tr>
+      <td><strong>Leaderless / multi-leader Paxos</strong></td>
+      <td>Any replica can lead a command. Commands that don’t conflict commit in one round trip.</td>
+      <td>EPaxos (2013), Accord (Cassandra 6, pre-GA in 2026)</td>
+    </tr>
+    <tr>
+      <td><strong>Flexible quorums</strong></td>
+      <td>Smaller replication quorums, larger election quorums</td>
+      <td>Flexible Paxos</td>
+    </tr>
+    <tr>
+      <td><strong>Consensus for metadata only</strong></td>
+      <td>Replicate data with a simpler primary-backup protocol, and use consensus only to choose the primary and configuration</td>
+      <td>Kafka (KRaft controller quorum), FoundationDB, many storage systems</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="byzantine-fault-tolerance">Byzantine Fault Tolerance</h2>
+
+<p>Paxos and Raft assume <strong>crash faults</strong>: a node may stop or fall behind, but it never lies. <strong>Byzantine</strong> faults cover everything else. A node may send conflicting messages to different peers, forge values, or collude with others, whether because of a bug, corrupted hardware, or an attacker. This is the fault model for permissionless blockchains, multi-organization consortia, and some safety-critical avionics.</p>
+
+<h3 id="the-3f--1-bound">The 3f + 1 Bound</h3>
+
+<p>Lamport, Shostak and Pease (1982) showed that with unauthenticated (“oral”) messages, tolerating $f$ Byzantine nodes requires</p>
+
+\[N \ge 3f + 1\]
+
+<p>The same bound applies to any consensus protocol under <strong>partial synchrony</strong>, even when messages are signed (Dwork, Lynch and Stockmeyer, 1988). Only in fully synchronous models can signatures do better: the Dolev–Strong protocol tolerates any $f &lt; N$, at the cost of $f + 1$ rounds.</p>
+
+<p>The reason is quorum overlap again. With $N = 3f + 1$, the protocol can wait for only $N - f = 2f + 1$ replies, because $f$ nodes may never answer. Two quorums of size $2f + 1$ overlap in at least</p>
+
+\[2(2f + 1) - (3f + 1) = f + 1\]
+
+<p>nodes, so at least one node in the overlap is honest. Crash tolerance needs only one overlapping node. Byzantine tolerance needs $f$ more, because faulty nodes can vote on both sides. The <a href="../advanced/distributed-systems-theory/#byzantine-fault-tolerance">proof is on the theory page</a>.</p>
+
+<h3 id="pbft">PBFT</h3>
+
+<p><strong>Practical Byzantine Fault Tolerance</strong> (Castro and Liskov, 1999) was the first BFT protocol fast enough for real use. It runs with $N = 3f + 1$ replicas under partial synchrony and uses MACs or signatures to authenticate messages. One replica is the <strong>primary</strong> and the others are <strong>backups</strong>. Each request goes through three phases:</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant P as Primary
+    participant B1 as Backup 1
+    participant B2 as Backup 2
+    participant B3 as Backup 3 (faulty)
+    C-&gt;&gt;P: request
+    Note over P,B3: PRE-PREPARE: primary fixes the order
+    P-&gt;&gt;B1: pre-prepare(v, seq, d)
+    P-&gt;&gt;B2: pre-prepare(v, seq, d)
+    P-&gt;&gt;B3: pre-prepare(v, seq, d)
+    Note over P,B3: PREPARE: all-to-all (B3 silent)
+    B1-&gt;&gt;B2: prepare
+    B2-&gt;&gt;B1: prepare
+    B1-&gt;&gt;P: prepare
+    B2-&gt;&gt;P: prepare
+    Note over P,B3: COMMIT: all-to-all once prepared
+    P-&gt;&gt;B1: commit
+    B1-&gt;&gt;B2: commit
+    B2-&gt;&gt;P: commit
+    Note over P,B3: execute after 2f+1 commits
+    P--&gt;&gt;C: reply
+    B1--&gt;&gt;C: reply
+    B2--&gt;&gt;C: reply
+</code></pre>
+
+<ol>
+  <li><strong>Pre-prepare.</strong> The primary assigns the request a sequence number in the current view <code class="language-plaintext highlighter-rouge">v</code> and broadcasts <code class="language-plaintext highlighter-rouge">pre-prepare</code> with the request digest <code class="language-plaintext highlighter-rouge">d</code>.</li>
+  <li><strong>Prepare.</strong> Each backup that accepts the pre-prepare broadcasts <code class="language-plaintext highlighter-rouge">prepare</code>. A replica with the pre-prepare and $2f$ matching prepares from other replicas is <strong>prepared</strong>. A quorum of $2f + 1$ replicas has endorsed this order in this view, so no conflicting order can be prepared.</li>
+  <li><strong>Commit.</strong> Each prepared replica broadcasts <code class="language-plaintext highlighter-rouge">commit</code>. With $2f + 1$ matching commits, a replica executes the request and replies.</li>
+</ol>
+
+<p>The client waits for <strong>$f + 1$ matching replies</strong>. At most $f$ replicas are faulty, so at least one of those replies is from an honest replica.</p>
+
+<p>If the primary is faulty (it equivocates or stalls), backups time out and start a <strong>view change</strong> to the next primary. The view change carries proof of every prepared request, so committed history survives.</p>
+
+<h3 id="modern-bft">Modern BFT</h3>
+
+<p>PBFT’s all-to-all phases cost $O(N^2)$ messages per decision, and its view change is more expensive still. That limits it to a few dozen replicas. Later protocols keep the $3f + 1$ bound and the quorum logic but change how messages flow:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Protocol</th>
+      <th>Key idea</th>
+      <th>Deployed in</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Tendermint / CometBFT</strong></td>
+      <td>Round-based BFT with a rotating proposer and gossip dissemination</td>
+      <td>Cosmos-ecosystem chains</td>
+    </tr>
+    <tr>
+      <td><strong>HotStuff</strong> (Yin et al., 2019)</td>
+      <td>Leader gathers votes into threshold or aggregated signatures. Linear communication, including view change. Pipelined phases.</td>
+      <td>Diem (discontinued), and descendants in Aptos and others</td>
+    </tr>
+    <tr>
+      <td><strong>DAG-based BFT</strong> (Narwhal/Bullshark, Mysticeti)</td>
+      <td>Separate data dissemination (a DAG of certified or uncertified blocks) from ordering. The order is read off the DAG with no extra messages.</td>
+      <td>Sui (Mysticeti on mainnet since 2024)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="when-to-pay-for-bft">When to Pay for BFT</h3>
+
+<p>Byzantine tolerance is expensive: more replicas, more messages, and cryptographic signing on the critical path. Use it only when a node really cannot be trusted to fail cleanly, as in permissionless blockchains, consortia of mutually distrustful organizations, or systems where one corrupted component must not be able to drive the others to a wrong decision. Within a single operator’s data center, crash-tolerant Raft or Paxos plus end-to-end checksums is almost always the better choice.</p>
+
+<h2 id="consensus-in-production-2026">Consensus in Production (2026)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>System</th>
+      <th>Protocol</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>etcd</strong> (Kubernetes control plane)</td>
+      <td>Raft</td>
+      <td>v3.6 (May 2025) removed the v2 store and added <code class="language-plaintext highlighter-rouge">/livez</code> and <code class="language-plaintext highlighter-rouge">/readyz</code> endpoints. Linearizable reads use ReadIndex.</td>
+    </tr>
+    <tr>
+      <td><strong>Apache Kafka</strong></td>
+      <td>KRaft (Raft variant)</td>
+      <td>ZooKeeper mode was removed in Kafka 4.0 (March 2025). Metadata lives in a Raft-replicated log on controller nodes.</td>
+    </tr>
+    <tr>
+      <td><strong>ZooKeeper</strong></td>
+      <td>ZAB (atomic broadcast, Paxos-like)</td>
+      <td>Still widely used (HBase, older Hadoop stacks, Solr).</td>
+    </tr>
+    <tr>
+      <td><strong>Consul, Nomad, Vault</strong></td>
+      <td>Raft (<code class="language-plaintext highlighter-rouge">hashicorp/raft</code>)</td>
+      <td>Consul and Nomad also use SWIM gossip (Serf/memberlist) for membership (see <a href="failure-detection.html#swim">Failure Detection</a>).</td>
+    </tr>
+    <tr>
+      <td><strong>Spanner</strong></td>
+      <td>Multi-Paxos per split</td>
+      <td>TrueTime commit-wait gives external consistency.</td>
+    </tr>
+    <tr>
+      <td><strong>CockroachDB, TiKV, YugabyteDB</strong></td>
+      <td>Raft per range or tablet</td>
+      <td>Thousands of Raft groups per node, with batched heartbeats.</td>
+    </tr>
+    <tr>
+      <td><strong>Apache Cassandra</strong></td>
+      <td>Paxos (LWT); Accord and Transactional Cluster Metadata in 6.0</td>
+      <td>Cassandra 6.0 was still pre-GA as of September 2026. It moves cluster metadata from gossip to a linearized log.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="choosing-the-right-tool">Choosing the Right Tool</h2>
+
+<pre><code class="language-mermaid">flowchart TD
+    Q1{"Can nodes lie&lt;br/&gt;(untrusted operators)?"} --&gt;|yes| BFT["BFT: CometBFT, HotStuff family,&lt;br/&gt;DAG-based; N &gt;= 3f+1"]
+    Q1 --&gt;|no| Q2{"Need one real-time-ordered truth&lt;br/&gt;(locks, leader, uniqueness, SQL)?"}
+    Q2 --&gt;|yes| Q3{"Data size / write rate"}
+    Q3 --&gt;|"small metadata"| Coord["Coordination store&lt;br/&gt;etcd, ZooKeeper, Consul"]
+    Q3 --&gt;|"large, sharded"| Sharded["Raft/Paxos per shard&lt;br/&gt;Spanner, CockroachDB, TiKV"]
+    Q2 --&gt;|no| Q4{"Concurrent offline or&lt;br/&gt;multi-region writes?"}
+    Q4 --&gt;|yes| CRDT["CRDTs, causal consistency"]
+    Q4 --&gt;|no| Tunable["Tunable quorums&lt;br/&gt;Cassandra, DynamoDB"]
+</code></pre>
+
+<p>In short: if nodes can lie, you need <strong>BFT</strong>. Otherwise, if you need a single real-time-ordered truth, you need <strong>consensus</strong> (Raft or Paxos). Otherwise, use <strong>quorums or CRDTs</strong> at the weakest consistency your application tolerates, and take the latency and availability gains.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">Distributed Systems Hub</a></strong> — architecture patterns, technologies, and the full section index</li>
-  <li><strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — the FLP, CAP, and Byzantine <em>proofs</em>, TLA+ specifications, and formal consistency definitions behind this page</li>
-  <li><strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — etcd (Raft) as the cluster’s consistent control-plane store</li>
-  <li><strong><a href="../technology/database-design/">Database Design</a></strong> — replication, sharding, and consistency in distributed databases</li>
-  <li><strong><a href="../quantum-computing/">Quantum Computing</a></strong> — quantum networking and distributed quantum protocols</li>
+  <li><strong><a href="./">Distributed Systems Hub</a></strong>: section index</li>
+  <li><strong><a href="failure-detection.html">Failure Detection &amp; Gossip</a></strong>: the timeouts and membership views that consensus relies on for liveness</li>
+  <li><strong><a href="replication-strategies.html">Replication Strategies</a></strong>: leader, multi-leader and leaderless replication built on these primitives</li>
+  <li><strong><a href="client-side-consistency.html">Client-Side Consistency &amp; Sync</a></strong>: CRDTs, session guarantees, offline-first sync</li>
+  <li><strong><a href="testing-distributed-systems.html">Testing Distributed Systems</a></strong>: Jepsen-style checking of consistency claims</li>
+  <li><strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong>: proofs of FLP, CAP and the Byzantine bound, plus TLA+ specifications</li>
+  <li><strong><a href="../technology/kubernetes/">Kubernetes</a></strong>: etcd as the cluster’s consistent control-plane store</li>
+  <li><strong><a href="../technology/database-design/">Database Design</a></strong>: replication, sharding and consistency in databases</li>
 </ul>
 
 <h3 id="foundational-references">Foundational References</h3>
 
 <ul>
-  <li>Fischer, Lynch, Paterson, <em>Impossibility of Distributed Consensus with One Faulty Process</em> (1985)</li>
-  <li>Lamport, <em>The Part-Time Parliament</em> / <em>Paxos Made Simple</em> (1998/2001)</li>
-  <li>Ongaro &amp; Ousterhout, <em>In Search of an Understandable Consensus Algorithm (Raft)</em> (2014)</li>
-  <li>Castro &amp; Liskov, <em>Practical Byzantine Fault Tolerance</em> (1999)</li>
   <li>Lamport, Shostak, Pease, <em>The Byzantine Generals Problem</em> (1982)</li>
-  <li>Gilbert &amp; Lynch, <em>Brewer’s Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services</em> (2002)</li>
+  <li>Fischer, Lynch, Paterson, <em>Impossibility of Distributed Consensus with One Faulty Process</em> (1985)</li>
+  <li>Dwork, Lynch, Stockmeyer, <em>Consensus in the Presence of Partial Synchrony</em> (1988)</li>
+  <li>Chandra, Hadzilacos, Toueg, <em>The Weakest Failure Detector for Solving Consensus</em> (1996)</li>
+  <li>Lamport, <em>The Part-Time Parliament</em> (1998) and <em>Paxos Made Simple</em> (2001)</li>
+  <li>Castro, Liskov, <em>Practical Byzantine Fault Tolerance</em> (1999)</li>
+  <li>Gilbert, Lynch, <em>Brewer’s Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services</em> (2002)</li>
+  <li>Abadi, <em>Consistency Tradeoffs in Modern Distributed Database System Design</em> (2012)</li>
+  <li>Ongaro, Ousterhout, <em>In Search of an Understandable Consensus Algorithm</em> (2014); Ongaro, <em>Consensus: Bridging Theory and Practice</em> (PhD thesis, 2014)</li>
+  <li>Howard, Malkhi, Spiegelman, <em>Flexible Paxos: Quorum Intersection Revisited</em> (2016)</li>
+  <li>Yin et al., <em>HotStuff: BFT Consensus with Linearity and Responsiveness</em> (2019)</li>
 </ul>
 
       </section>

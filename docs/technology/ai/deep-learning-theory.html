@@ -3135,296 +3135,522 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI &amp; Machine Learning</a> › Deep Learning Theory</p>
 
-<p>Deep learning works astonishingly well, yet for years it lacked the theoretical scaffolding that explains <em>why</em>. This page collects the core results that now form that scaffolding: the <strong>universal approximation</strong> theorems that bound what networks can represent, the <strong>backpropagation</strong> algorithm that makes training tractable, the <strong>optimization landscape</strong> that gradient descent actually traverses, the <strong>initialization and normalization</strong> theory that keeps signals alive across hundreds of layers, the <strong>neural tangent kernel</strong> that linearizes wide networks, the <strong>double-descent</strong> phenomenon that overturned classical wisdom, and the <strong>generalization</strong> puzzle that ties it all together.</p>
+<p>This page covers the main theoretical results about deep neural networks: what they can represent (<strong>universal approximation</strong> and <strong>depth separation</strong>), how they are trained (<strong>backpropagation</strong> and the <strong>optimization landscape</strong>), how signals are kept stable through many layers (<strong>initialization, normalization, and parameterization</strong>), the two tractable limits of training dynamics (the <strong>neural tangent kernel</strong> and the <strong>feature-learning</strong> regime), and why heavily overparameterized networks still generalize (<strong>double descent</strong>, <strong>implicit regularization</strong>, and modern generalization bounds). It ends with the empirical <strong>scaling laws</strong> that now guide how large models are built.</p>
 
-<p>It is the rigorous companion to the high-level overview on the <a href="architectures.html">Neural Network Architectures</a> page—read that first if you want the intuition and the menu of architectures; read this when you want to know what guarantees (and what mysteries) sit underneath them.</p>
+<p>Read <a href="deep-learning-architectures.html">Deep Learning Architectures</a> for the models these results apply to. The <a href="ml-foundations.html">Machine Learning Foundations</a> page covers the classical learning theory and kernel methods referred to here.</p>
 
-<h2 id="universal-approximation-what-networks-can-represent">Universal Approximation: What Networks Can Represent</h2>
+<h2 id="how-the-results-fit-together">How the Results Fit Together</h2>
 
-<p>The foundational question of deep learning is <em>expressivity</em>: which functions can a neural network represent at all? The answer is reassuringly broad.</p>
+<p>Deep learning theory has to answer three separate questions. Can a network represent the target function (approximation)? Can gradient descent find good weights (optimization)? Will those weights work on new data (generalization)? The results on this page each address one of these questions, and some address more than one.</p>
 
-<h3 id="cybenkos-theorem-single-hidden-layer">Cybenko’s Theorem (Single Hidden Layer)</h3>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph A["Approximation"]
+      UAT["Universal approximation"]
+      DEP["Depth separation"]
+    end
+    subgraph O["Optimization"]
+      BP["Backpropagation"]
+      SIG["Initialization and&lt;br/&gt;normalization"]
+      LAND["Landscape: saddles,&lt;br/&gt;flat minima"]
+      NTK["NTK / lazy regime"]
+      MUP["Feature learning / muP"]
+    end
+    subgraph G["Generalization"]
+      IMP["Implicit bias of&lt;br/&gt;gradient descent"]
+      DD["Double descent,&lt;br/&gt;benign overfitting"]
+      PB["Norm-based and&lt;br/&gt;PAC-Bayes bounds"]
+    end
+    UAT --&gt; DEP
+    BP --&gt; SIG --&gt; LAND
+    LAND --&gt; NTK
+    LAND --&gt; MUP
+    NTK --&gt; IMP
+    LAND --&gt;|"flatness"| PB
+    IMP --&gt; DD
+    G --&gt; SL["Empirical scaling laws"]
+</code></pre>
 
-<p><strong>Cybenko (1989)</strong> proved that a feedforward network with a single hidden layer and a sigmoidal activation is a <strong>universal approximator</strong>. Concretely, let $\sigma$ be any continuous <em>discriminatory</em> (sigmoidal) function. Then finite sums of the form</p>
+<p>The status of each area differs sharply. Approximation is well understood. Optimization is understood in idealized limits (infinite width, small learning rate) and partially in practice. Generalization of practical networks is the least settled of the three.</p>
+
+<h2 id="universal-approximation">Universal Approximation</h2>
+
+<h3 id="single-hidden-layer">Single hidden layer</h3>
+
+<p><strong>Cybenko (1989)</strong> proved that a network with one hidden layer of sigmoidal units is a <em>universal approximator</em>. Finite sums</p>
 
 \[f(x) = \sum_{j=1}^{N} \alpha_j\, \sigma\!\left(w_j^\top x + b_j\right)\]
 
-<p>are dense in $C(I_n)$, the continuous functions on the unit cube $I_n = [0,1]^n$. That is, for any continuous target $g$ and any tolerance $\varepsilon &gt; 0$, there exist a width $N$ and parameters ${\alpha_j, w_j, b_j}$ such that</p>
+<p>are dense in $C(I_n)$, the continuous functions on the unit cube $I_n = [0,1]^n$. For any continuous $g$ and any $\varepsilon &gt; 0$ there exist a width $N$ and parameters such that</p>
 
 \[\sup_{x \in I_n}\left| f(x) - g(x) \right| &lt; \varepsilon.\]
 
-<p><strong>Hornik (1991)</strong> generalized this: it is the <em>architecture</em> (a single hidden layer of enough units), not the specific choice of squashing function, that confers universality—any non-polynomial activation will do.</p>
+<p><strong>Hornik (1991)</strong> showed that the property comes from the architecture rather than the particular squashing function: any bounded, non-constant activation works. <strong>Leshno, Lin, Pinkus &amp; Schocken (1993)</strong> gave the sharp condition. A continuous activation yields a universal approximator if and only if it is <strong>not a polynomial</strong>, so ReLU qualifies.</p>
 
-<p><strong>The catch is width.</strong> Cybenko’s theorem is purely existential and says nothing about <em>how many</em> units $N$ are needed. For many functions, a shallow network needs a width that grows exponentially with the input dimension or the desired accuracy. This is exactly the gap that depth fills.</p>
+<p>These theorems only state that suitable weights exist. They do not bound the width $N$ required, which for generic functions can grow exponentially in the input dimension. They also do not say whether gradient descent can find those weights.</p>
 
-<h3 id="barrons-theorem-dimension-independent-rates">Barron’s Theorem (Dimension-Independent Rates)</h3>
+<h3 id="dimension-independent-rates-barrons-theorem">Dimension-independent rates: Barron’s theorem</h3>
 
-<p><strong>Barron (1993)</strong> sharpened the picture for a useful class of functions. If a function $g$ has a Fourier transform $\hat{g}$ with bounded first moment,</p>
+<p><strong>Barron (1993)</strong> identified a function class that shallow networks approximate efficiently. Suppose $g$ has a Fourier transform $\hat{g}$ with a finite first moment:</p>
 
-\[C_g = \int_{\mathbb{R}^n} \lVert \omega \rVert \, |\hat{g}(\omega)| \, d\omega &lt; \infty,\]
+\[C_g = \int_{\mathbb{R}^n} \lVert \omega \rVert \, |\hat{g}(\omega)| \, d\omega &lt; \infty.\]
 
-<p>then a one-hidden-layer network with $N$ units achieves squared $L^2$ approximation error</p>
+<p>Then for any probability measure $\mu$ on a ball $B_r$ of radius $r$, a one-hidden-layer sigmoidal network $f_N$ with $N$ units achieves</p>
 
-\[\int_{B} \left( f_N(x) - g(x) \right)^2 \mu(dx) \;\le\; \frac{(2 C_g r)^2}{N},\]
+\[\int_{B_r} \left( f_N(x) - g(x) \right)^2 \mu(dx) \;\le\; \frac{(2 C_g r)^2}{N}.\]
 
-<p>on a ball $B$ of radius $r$. Strikingly, the rate $O(1/N)$ is <strong>independent of the input dimension</strong> $n$—a network sidesteps the curse of dimensionality for functions of bounded Barron norm, whereas classical linear approximation of a Lipschitz function in $n$ dimensions needs $O(N^{-2/n})$ basis terms.</p>
+<p>The $O(1/N)$ rate does not depend on the dimension $n$. By contrast, any linear combination of $N$ <em>fixed</em> basis functions has worst-case error of order $N^{-2/n}$ over the same class, which is the curse of dimensionality. The advantage comes from the network choosing its basis functions (the hidden units) to fit the target.</p>
 
-<h3 id="depth-efficiency">Depth Efficiency</h3>
+<h3 id="depth-separation">Depth separation</h3>
 
-<p>Depth provides an <em>exponential</em> representational advantage for structured functions. <strong>Telgarsky (2016)</strong> exhibited functions computable by a deep ReLU network of $O(k)$ layers and constant width that any network of depth $O(k^{1/3})$ requires width exponential in $k$ to approximate. The intuition: composing ReLU layers folds the input space repeatedly, so the number of linear regions a deep ReLU network carves can grow like</p>
+<p>Depth can be exponentially more efficient than width for some functions.</p>
 
-\[\#\text{regions} \;=\; \Omega\!\left(\left(\frac{m}{n}\right)^{(L-1)n} m^n\right)\]
+<table>
+  <thead>
+    <tr>
+      <th>Result</th>
+      <th>Statement</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Montúfar et al. (2014)</strong></td>
+      <td>A ReLU network of depth $L$ and width $m \ge n$ on $n$ inputs can divide input space into at least $\Omega!\left((m/n)^{(L-1)n}\, m^n\right)$ linear regions: exponential in depth, polynomial in width.</td>
+    </tr>
+    <tr>
+      <td><strong>Telgarsky (2016)</strong></td>
+      <td>For every $k$ there is a function computed by a ReLU network with $\Theta(k^3)$ layers and $\Theta(1)$ units per layer that any network with $O(k)$ layers cannot approximate unless it has $\Omega(2^k)$ units.</td>
+    </tr>
+    <tr>
+      <td><strong>Eldan &amp; Shamir (2016)</strong></td>
+      <td>A radial function on $\mathbb{R}^n$ is expressible by a 3-layer network of polynomial width but needs width exponential in $n$ with 2 layers.</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>for a network of depth $L$ and width $m$ on $n$ inputs—exponential in depth, only polynomial in width. This is the formal sense in which “deep beats wide”: depth buys hierarchical, compositional structure that width alone cannot cheaply replicate.</p>
+<p>The mechanism behind Telgarsky’s result is folding. A two-unit ReLU layer can compute a “tent” map on $[0,1]$, and composing it $k$ times gives a sawtooth with $2^{k-1}$ teeth. A shallow network needs roughly one unit per linear piece to match it. Depth therefore suits compositional, hierarchical targets, which is the usual justification for deep rather than wide networks.</p>
 
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Want the formal machinery?</strong> See the <a href="/docs/advanced/ai-mathematics/#statistical-learning-theory">Advanced AI Mathematics</a> page for PAC learning, VC dimension, and the measure-theoretic statements behind these bounds.</p>
-</div>
+<h2 id="backpropagation">Backpropagation</h2>
 
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/deep_learning_foundations.py#L14">deep_learning_foundations.py#UniversalApproximation</a>
-</div>
+<p>Universal approximation shows that good weights exist. <strong>Backpropagation</strong> is how gradient methods find them: it computes the gradient of a scalar loss with respect to every parameter in one backward pass.</p>
 
-<h2 id="backpropagation-computing-gradients-efficiently">Backpropagation: Computing Gradients Efficiently</h2>
+<h3 id="the-four-equations">The four equations</h3>
 
-<p>Universal approximation says a good set of weights <em>exists</em>. Backpropagation is the algorithm that lets us <em>find</em> one, by computing the gradient of the loss with respect to every parameter in a single backward sweep.</p>
+<p>For an $L$-layer network with</p>
 
-<h3 id="the-chain-rule-on-a-computational-graph">The Chain Rule on a Computational Graph</h3>
+\[z^{(l)} = W^{(l)} a^{(l-1)} + b^{(l)}, \qquad a^{(l)} = \sigma\!\left(z^{(l)}\right), \qquad a^{(0)} = x,\]
 
-<p>Consider an $L$-layer feedforward network. Each layer applies an affine map followed by a nonlinearity:</p>
+<p>and loss $\mathcal{L} = \ell!\left(a^{(L)}, y\right)$, define the error signal $\delta^{(l)} = \partial \mathcal{L} / \partial z^{(l)}$. Then</p>
 
-\[z^{(l)} = W^{(l)} a^{(l-1)} + b^{(l)}, \qquad a^{(l)} = \sigma\!\left(z^{(l)}\right),\]
+\[\delta^{(L)} = \nabla_{a^{(L)}} \mathcal{L} \odot \sigma'\!\left(z^{(L)}\right), \qquad \delta^{(l)} = \left( W^{(l+1)\top} \delta^{(l+1)} \right) \odot \sigma'\!\left(z^{(l)}\right),\]
 
-<p>with $a^{(0)} = x$ the input and a scalar loss $\mathcal{L} = \ell!\left(a^{(L)}, y\right)$. Backpropagation is just the chain rule applied to this graph, organized to reuse intermediate results. Define the <strong>error signal</strong> at layer $l$:</p>
+\[\frac{\partial \mathcal{L}}{\partial W^{(l)}} = \delta^{(l)} \, a^{(l-1)\top}, \qquad \frac{\partial \mathcal{L}}{\partial b^{(l)}} = \delta^{(l)}.\]
 
-\[\delta^{(l)} = \frac{\partial \mathcal{L}}{\partial z^{(l)}}.\]
+<p>The first equation starts the recursion at the output. The second passes the error backward through the transpose of each weight matrix. The last two read the parameter gradients off the activations cached during the forward pass.</p>
 
-<p>The four backprop equations are:</p>
+<pre><code class="language-mermaid">flowchart LR
+    X["x = a0"] --&gt;|"W1"| Z1["z1, a1"]
+    Z1 --&gt;|"W2"| Z2["z2, a2"]
+    Z2 --&gt;|"W3"| Z3["z3, a3"]
+    Z3 --&gt; L["loss"]
+    L -.-&gt;|"delta3"| Z3
+    Z3 -.-&gt;|"W3 transpose"| Z2
+    Z2 -.-&gt;|"W2 transpose"| Z1
+</code></pre>
 
-\[\delta^{(L)} = \nabla_{a^{(L)}} \mathcal{L} \odot \sigma'\!\left(z^{(L)}\right),\]
+<p>Solid arrows show the forward pass, which caches every $z^{(l)}$ and $a^{(l)}$. Dashed arrows show the backward pass, which reuses the cached values.</p>
 
-\[\delta^{(l)} = \left( W^{(l+1)\top} \delta^{(l+1)} \right) \odot \sigma'\!\left(z^{(l)}\right),\]
+<h3 id="cost">Cost</h3>
 
-\[\frac{\partial \mathcal{L}}{\partial W^{(l)}} = \delta^{(l)} \, a^{(l-1)\top}, \qquad \frac{\partial \mathcal{L}}{\partial b^{(l)}} = \delta^{(l)},\]
+<p>Backpropagation is <strong>reverse-mode automatic differentiation</strong>. For a function from $p$ parameters to one scalar, reverse mode computes the full gradient at a small constant multiple (typically 2 to 3 times) of the cost of one forward evaluation, independent of $p$. Forward-mode differentiation would need $p$ passes. The price is memory: every intermediate activation has to be stored until the backward pass reaches it. <strong>Activation checkpointing</strong> trades this back by storing only some activations and recomputing the rest.</p>
 
-<p>where $\odot$ is the elementwise (Hadamard) product. The first equation seeds the recursion at the output; the second propagates the error <em>backward</em> through the transpose of each weight matrix; the last two read off parameter gradients from the cached activations.</p>
+<p>PyTorch, JAX, and TensorFlow all implement reverse mode by recording the operations of the forward pass and replaying them in reverse:</p>
 
-<h3 id="why-it-is-efficient">Why It Is Efficient</h3>
-
-<p>The key economy is that the <strong>forward pass</strong> caches every $z^{(l)}$ and $a^{(l)}$, and the <strong>backward pass</strong> reuses them, so the entire gradient costs only a constant factor more than one forward evaluation:</p>
-
-\[\text{cost}(\nabla \mathcal{L}) = O\!\left(\text{cost}(\mathcal{L})\right).\]
-
-<p>This is <strong>reverse-mode automatic differentiation</strong>: when the output is a scalar (a loss) and the inputs are many (millions of weights), evaluating the gradient backward is dramatically cheaper than the forward-mode alternative, which would cost one forward pass <em>per parameter</em>. Modern frameworks (PyTorch, JAX, TensorFlow) implement exactly this by recording the computational graph during the forward pass and replaying it in reverse.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Reverse-mode autodiff in PyTorch is backprop under the hood
-</span><span class="kn">import</span> <span class="n">torch</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
 
 <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span>
 <span class="n">W1</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
 <span class="n">W2</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
 
-<span class="n">a1</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">relu</span><span class="p">(</span><span class="n">x</span> <span class="o">@</span> <span class="n">W1</span><span class="p">)</span>        <span class="c1"># forward: cache activations
-</span><span class="n">out</span> <span class="o">=</span> <span class="n">a1</span> <span class="o">@</span> <span class="n">W2</span>
-<span class="n">loss</span> <span class="o">=</span> <span class="p">(</span><span class="n">out</span><span class="o">**</span><span class="mi">2</span><span class="p">).</span><span class="nf">mean</span><span class="p">()</span>
-
-<span class="n">loss</span><span class="p">.</span><span class="nf">backward</span><span class="p">()</span>                <span class="c1"># one backward sweep fills W1.grad, W2.grad
-# W1.grad and W2.grad now hold dL/dW1 and dL/dW2
+<span class="n">loss</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="p">.</span><span class="nf">relu</span><span class="p">(</span><span class="n">x</span> <span class="o">@</span> <span class="n">W1</span><span class="p">)</span> <span class="o">@</span> <span class="n">W2</span><span class="p">).</span><span class="nf">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">).</span><span class="nf">mean</span><span class="p">()</span>   <span class="c1"># forward pass records the graph
+</span><span class="n">loss</span><span class="p">.</span><span class="nf">backward</span><span class="p">()</span>                                  <span class="c1"># one reverse sweep
+</span><span class="nf">print</span><span class="p">(</span><span class="n">W1</span><span class="p">.</span><span class="n">grad</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">W2</span><span class="p">.</span><span class="n">grad</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>              <span class="c1"># dL/dW1, dL/dW2
 </span></code></pre></div></div>
 
-<h3 id="vanishing-and-exploding-gradients">Vanishing and Exploding Gradients</h3>
+<h3 id="vanishing-and-exploding-gradients">Vanishing and exploding gradients</h3>
 
-<p>The recursion $\delta^{(l)} = \left(W^{(l+1)\top}\delta^{(l+1)}\right)\odot\sigma’(z^{(l)})$ multiplies error signals through every layer. Propagated across $L$ layers, the gradient magnitude scales roughly like the product of per-layer Jacobian norms:</p>
+<p>Unrolling the recursion for $\delta^{(l)}$ gives the bound</p>
 
-\[\left\lVert \delta^{(1)} \right\rVert \;\sim\; \prod_{l=2}^{L} \left\lVert W^{(l)} \right\rVert \, \left\lVert \sigma' \right\rVert.\]
+\[\left\lVert \delta^{(1)} \right\rVert \;\le\; \left\lVert \delta^{(L)} \right\rVert \prod_{l=2}^{L} \left\lVert W^{(l)} \right\rVert \, \max_z \left| \sigma'(z) \right|.\]
 
-<p>If those factors are persistently below 1, the gradient <strong>vanishes</strong> exponentially in depth and early layers stop learning; if above 1, it <strong>explodes</strong>. Saturating activations like the sigmoid make this worse, since $\sigma’(z) \le 1/4$ everywhere. The cures—careful initialization, normalization layers, residual connections, and non-saturating activations like ReLU—are the subject of the next two sections.</p>
+<p>When the per-layer factors are consistently below 1 the gradient shrinks exponentially with depth and early layers barely learn (<strong>vanishing</strong> gradients). When they are above 1 it grows (<strong>exploding</strong> gradients). The sigmoid makes vanishing likely, because $\sigma’(z) \le 1/4$ everywhere. The standard fixes are non-saturating activations such as ReLU, variance-preserving initialization, normalization layers, and residual connections. The next section covers them.</p>
 
-<h2 id="the-optimization-landscape">The Optimization Landscape</h2>
+<h2 id="signal-propagation-initialization-normalization-and-residuals">Signal Propagation: Initialization, Normalization, and Residuals</h2>
 
-<p>Training minimizes a non-convex loss $\mathcal{L}(\theta)$ over millions of parameters. Classical intuition warns of bad local minima everywhere—yet gradient descent reliably finds excellent solutions. The resolution lies in the <em>geometry</em> of the high-dimensional landscape.</p>
+<p>A deep network trains well only if the scale of activations in the forward pass and of gradients in the backward pass stays roughly constant across layers.</p>
 
-<h3 id="saddle-points-not-local-minima">Saddle Points, Not Local Minima</h3>
+<h3 id="variance-preserving-initialization">Variance-preserving initialization</h3>
 
-<p>In high dimensions, the <strong>critical points</strong> of a random non-convex loss are overwhelmingly <strong>saddle points</strong>, not local minima. At a critical point $\nabla\mathcal{L}(\theta)=0$, the local geometry is governed by the eigenvalues of the Hessian $H = \nabla^2 \mathcal{L}(\theta)$. A point is a minimum only if <em>all</em> eigenvalues are positive. Treating the eigenvalues as random with some chance of being negative, the probability that all $d$ of them are positive shrinks exponentially in $d$. <strong>Dauphin et al. (2014)</strong> and the spin-glass analysis of <strong>Choromanska et al. (2015)</strong> make this precise: high-error critical points are saddles with many escape directions, and the local minima that do exist are clustered at low loss, close in value to the global minimum. Gradient descent’s real adversary is therefore <em>slow escape from saddle plateaus</em>, not entrapment in bad minima—and stochastic gradient noise helps it escape.</p>
+<p>For a layer with $n_{\text{in}}$ inputs and independent zero-mean weights, a linear activation gives</p>
 
-<h3 id="flat-versus-sharp-minima">Flat versus Sharp Minima</h3>
+\[\mathrm{Var}\!\left(z^{(l)}\right) = n_{\text{in}}\, \mathrm{Var}\!\left(W^{(l)}\right) \mathrm{Var}\!\left(a^{(l-1)}\right),\]
 
-<p>Not all minima are equal. <strong>Flat minima</strong>—where the loss stays low over a wide neighborhood—tend to generalize better than <strong>sharp minima</strong>, a connection formalized through PAC-Bayes bounds. Sharpness is measured by the top eigenvalues of the Hessian; a flat minimum has a small spectral radius $\lambda_{\max}(H)$. The PAC-Bayes intuition is that a flat minimum can be described with fewer bits (it is robust to parameter perturbation), and lower description length implies a tighter generalization bound. This motivates <strong>Sharpness-Aware Minimization (SAM)</strong>, which explicitly minimizes the worst-case loss in a neighborhood:</p>
+<p>so the forward variance is preserved when $\mathrm{Var}(W) = 1/n_{\text{in}}$. The backward pass requires $1/n_{\text{out}}$ instead.</p>
 
-\[\min_{\theta} \; \max_{\lVert \epsilon \rVert \le \rho} \; \mathcal{L}(\theta + \epsilon).\]
+<table>
+  <thead>
+    <tr>
+      <th>Scheme</th>
+      <th>$\mathrm{Var}(W)$</th>
+      <th>Intended activation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LeCun (1998)</td>
+      <td>$1/n_{\text{in}}$</td>
+      <td>SELU, linear</td>
+    </tr>
+    <tr>
+      <td>Xavier / Glorot (2010)</td>
+      <td>$2/(n_{\text{in}} + n_{\text{out}})$, a compromise between the forward and backward conditions</td>
+      <td>tanh, sigmoid</td>
+    </tr>
+    <tr>
+      <td>He / Kaiming (2015)</td>
+      <td>$2/n_{\text{in}}$; the factor 2 compensates for ReLU zeroing half of its inputs</td>
+      <td>ReLU family</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="overparameterization-smooths-the-landscape">Overparameterization Smooths the Landscape</h3>
+<p>Matching variances only controls the <em>average</em> gain. <strong>Dynamical isometry</strong> (Saxe et al. 2014; Pennington et al. 2017) requires the whole input–output Jacobian to have singular values concentrated near 1. Orthogonal initialization achieves this and allows networks thousands of layers deep to train without normalization or residual connections.</p>
 
-<p>Counterintuitively, adding parameters makes optimization <em>easier</em>. When a network is wide enough to interpolate the training data, the set of global minima forms a high-dimensional connected manifold rather than isolated points, and almost every initialization can flow downhill to it. This is the empirical basis for <strong>mode connectivity</strong>: independently trained solutions, which appear to live in separate “valleys,” are in fact joined by simple low-loss curves (often piecewise-linear) in weight space. Overparameterization converts a treacherous landscape into a benign, nearly-convex-looking basin around the interpolating manifold.</p>
+<h3 id="residual-connections">Residual connections</h3>
 
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/deep_learning_foundations.py#L92">deep_learning_foundations.py#NeuralNetOptimization</a>
-</div>
+<p>A residual block $x \mapsto x + \mathcal{F}(x)$ has Jacobian $I + \partial \mathcal{F}/\partial x$, so the backward signal always has an identity path. A deep residual network behaves like an ensemble of many shallower paths. Very deep stacks also need the residual branches kept small. Common techniques are initializing the last layer of each branch to zero or near zero, and scaling branch outputs by a factor that shrinks with depth (for example $1/\sqrt{2L}$ in GPT-2’s initialization).</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Probe the local geometry: top Hessian eigenvalues ≈ sharpness
-</span><span class="kn">from</span> <span class="n">deep_learning_foundations</span> <span class="kn">import</span> <span class="n">NeuralNetOptimization</span>
+<h3 id="normalization-layers">Normalization layers</h3>
 
-<span class="n">eigenvalues</span> <span class="o">=</span> <span class="n">NeuralNetOptimization</span><span class="p">.</span><span class="nf">compute_hessian_eigenvalues</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">10</span>
-<span class="p">)</span>
-<span class="c1"># Large leading eigenvalues -&gt; sharp minimum -&gt; typically worse generalization
-</span>
-<span class="c1"># Visualize the loss along random directions in weight space
-</span><span class="n">directions</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="p">.</span><span class="nf">randn_like</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="p">.</span><span class="nf">parameters</span><span class="p">()]</span>
-<span class="n">landscape</span> <span class="o">=</span> <span class="n">NeuralNetOptimization</span><span class="p">.</span><span class="nf">loss_landscape_analysis</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">directions</span>
-<span class="p">)</span>
-</code></pre></div></div>
+<p>Normalization layers rescale activations explicitly during training. They differ in which axes the statistics are computed over:</p>
 
-<h2 id="initialization-and-normalization-theory">Initialization and Normalization Theory</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Statistics over</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>BatchNorm</strong> (Ioffe &amp; Szegedy, 2015)</td>
+      <td>The batch (and spatial positions), per channel</td>
+      <td>Standard in CNNs. Uses running averages at test time, and degrades with small or non-i.i.d. batches</td>
+    </tr>
+    <tr>
+      <td><strong>LayerNorm</strong> (Ba et al., 2016)</td>
+      <td>The features of one example</td>
+      <td>Independent of batch size. The standard in Transformers and RNNs</td>
+    </tr>
+    <tr>
+      <td><strong>RMSNorm</strong> (Zhang &amp; Sennrich, 2019)</td>
+      <td>The features of one example, without mean subtraction</td>
+      <td>Cheaper than LayerNorm with no loss of quality. Used in most current LLMs</td>
+    </tr>
+    <tr>
+      <td><strong>GroupNorm / InstanceNorm</strong></td>
+      <td>Groups of channels / one channel of one example</td>
+      <td>Detection and segmentation with small batches; style transfer</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The vanishing/exploding-gradient problem is, at heart, a problem of <em>signal propagation</em>: variances must neither shrink nor blow up as activations and gradients pass through layers. Initialization and normalization are the two principal levers.</p>
+<p>BatchNorm normalizes each feature with the batch mean and variance and then applies a learned scale $\gamma$ and shift $\beta$:</p>
 
-<h3 id="variance-preserving-initialization">Variance-Preserving Initialization</h3>
+\[\hat{x}_i = \frac{x_i - \mu_{\mathcal{B}}}{\sqrt{\sigma_{\mathcal{B}}^2 + \epsilon}}, \qquad y_i = \gamma\, \hat{x}_i + \beta.\]
 
-<p>The goal is to choose initial weight variances so that the variance of activations (forward) and gradients (backward) is preserved layer to layer. Consider a layer with $n_{\text{in}}$ inputs and i.i.d. zero-mean weights of variance $\mathrm{Var}(W)$. With a linear activation, the output variance is</p>
+<p>RMSNorm divides each example’s feature vector by its root mean square:</p>
 
-\[\mathrm{Var}\!\left(z^{(l)}\right) = n_{\text{in}}\, \mathrm{Var}\!\left(W^{(l)}\right)\, \mathrm{Var}\!\left(a^{(l-1)}\right).\]
+\[y = \frac{x}{\sqrt{\frac{1}{d}\sum_{i=1}^{d} x_i^2 + \epsilon}} \odot \gamma.\]
 
-<p>To keep $\mathrm{Var}(z^{(l)}) = \mathrm{Var}(a^{(l-1)})$, set $\mathrm{Var}(W) = 1/n_{\text{in}}$.</p>
+<p>BatchNorm was introduced to reduce “internal covariate shift”. <strong>Santurkar et al. (2018)</strong> found that its benefit is better explained by a smoother loss landscape, meaning smaller Lipschitz constants for the loss and its gradient. That smoothness allows larger learning rates. Normalization also makes a layer’s output invariant to the scale of the weights feeding it. Combined with weight decay, this gives an <em>effective</em> learning rate that depends on the weight norm, which interacts with learning-rate schedules in ways that are still being studied.</p>
 
-<p><strong>Xavier/Glorot initialization (2010)</strong> balances forward and backward variance with the harmonic compromise</p>
+<h2 id="training-dynamics-lazy-and-feature-learning-regimes">Training Dynamics: Lazy and Feature-Learning Regimes</h2>
 
-\[\mathrm{Var}\!\left(W\right) = \frac{2}{n_{\text{in}} + n_{\text{out}}},\]
+<p>As a network is made wider, its training dynamics approach one of two limits, depending on how initialization and learning rate scale with width. The difference matters both for theory and for the practical question of how to tune hyperparameters for very large models.</p>
 
-<p>appropriate for symmetric activations like $\tanh$.</p>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Lazy / NTK regime</th>
+      <th>Feature-learning / mean-field / muP regime</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Parameterization</td>
+      <td>Standard or NTK scaling, width $\to \infty$</td>
+      <td>Maximal-update parameterization (muP) or mean-field scaling</td>
+    </tr>
+    <tr>
+      <td>Weight movement</td>
+      <td>Vanishingly small relative to initialization</td>
+      <td>Order one in each layer’s features</td>
+    </tr>
+    <tr>
+      <td>Internal representations</td>
+      <td>Fixed at initialization</td>
+      <td>Learned, task-specific</td>
+    </tr>
+    <tr>
+      <td>Model behaviour</td>
+      <td>Linear in the parameters; equivalent to kernel regression</td>
+      <td>Genuinely nonlinear</td>
+    </tr>
+    <tr>
+      <td>Tractability</td>
+      <td>Closed-form dynamics</td>
+      <td>Described by limiting equations that are usually solved numerically</td>
+    </tr>
+    <tr>
+      <td>Describes practical networks?</td>
+      <td>Partially: small learning rates, very wide networks</td>
+      <td>Closer to practice, especially pretraining</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><strong>He/Kaiming initialization (2015)</strong> corrects for ReLU, which zeros out half its inputs and so halves the propagated variance. Compensating by a factor of 2:</p>
+<h3 id="the-neural-tangent-kernel">The neural tangent kernel</h3>
 
-\[\mathrm{Var}\!\left(W\right) = \frac{2}{n_{\text{in}}}.\]
-
-<p>He initialization is what makes very deep ReLU networks trainable from scratch. The deeper theory of <strong>dynamical isometry</strong> (Pennington et al.) shows that choosing the <em>entire</em> input–output Jacobian to have singular values concentrated near 1—achievable with orthogonal initialization—lets signals propagate cleanly through thousands of layers.</p>
-
-<h3 id="batch-normalization">Batch Normalization</h3>
-
-<p><strong>Batch Normalization (Ioffe &amp; Szegedy, 2015)</strong> normalizes each feature across the mini-batch, then rescales with learned parameters $\gamma, \beta$:</p>
-
-\[\hat{x}_i = \frac{x_i - \mu_{\mathcal{B}}}{\sqrt{\sigma_{\mathcal{B}}^2 + \epsilon}}, \qquad y_i = \gamma\, \hat{x}_i + \beta,\]
-
-<p>where $\mu_{\mathcal{B}}$ and $\sigma_{\mathcal{B}}^2$ are the batch mean and variance. The original motivation was reducing <em>internal covariate shift</em>—the drift in each layer’s input distribution as upstream weights change. The modern understanding (<strong>Santurkar et al., 2018</strong>) is that BatchNorm’s real benefit is that it <strong>smooths the loss landscape</strong>: it reduces the Lipschitz constant of the loss and its gradient, allowing larger learning rates and faster, more stable convergence. A practical wrinkle is the train/test mismatch—at test time BatchNorm uses running-average statistics instead of batch statistics—which motivated alternatives.</p>
-
-<h3 id="layer-normalization-and-variants">Layer Normalization and Variants</h3>
-
-<p><strong>Layer Normalization (Ba et al., 2016)</strong> normalizes across the <em>features</em> of a single example rather than across the batch:</p>
-
-\[\mu = \frac{1}{d}\sum_{i=1}^{d} x_i, \qquad \sigma^2 = \frac{1}{d}\sum_{i=1}^{d}\left(x_i - \mu\right)^2, \qquad y_i = \gamma\, \frac{x_i - \mu}{\sqrt{\sigma^2 + \epsilon}} + \beta.\]
-
-<p>Because it is independent of batch size and of other examples, LayerNorm is the normalization of choice in <strong>Transformers</strong> and RNNs, where sequence lengths vary and batch statistics are unreliable. Related schemes—GroupNorm, InstanceNorm, RMSNorm—trade off which axes are normalized; RMSNorm in particular drops the mean-centering and is now common in large language models for its efficiency.</p>
-
-<h2 id="the-neural-tangent-kernel">The Neural Tangent Kernel</h2>
-
-<p>The NTK is the bridge that turns an <em>infinitely wide</em> neural network into a <em>linear</em> model, making training dynamics exactly solvable and connecting deep learning to the classical kernel methods discussed on the <a href="ml-foundations.html#the-kernel-trick-making-linear-methods-powerful">ML Foundations</a> page.</p>
-
-<h3 id="definition">Definition</h3>
-
-<p>For a network $f(x;\theta)$ with parameters $\theta$, the <strong>neural tangent kernel</strong> is the inner product of parameter gradients at two inputs:</p>
+<p>For a network $f(x;\theta)$, the <strong>neural tangent kernel (NTK)</strong> is the inner product of the parameter gradients at two inputs:</p>
 
 \[\Theta(x, x') = \nabla_\theta f(x;\theta)^\top \, \nabla_\theta f(x';\theta) = \sum_{p} \frac{\partial f(x)}{\partial \theta_p}\, \frac{\partial f(x')}{\partial \theta_p}.\]
 
-<h3 id="the-infinite-width-limit">The Infinite-Width Limit</h3>
+<p>Under gradient flow on a squared loss, the network’s outputs on the training inputs $X$ evolve as $\dot{f}_t(X) = -\eta\, \Theta_t(X, X)\,(f_t(X) - y)$.</p>
 
-<p><strong>Jacot, Gabriel &amp; Hongler (2018)</strong> proved that under appropriate (NTK) parameterization, as the width tends to infinity two things happen. First, at initialization the kernel $\Theta$ converges to a <strong>deterministic</strong> limit $\Theta_\infty$ that depends only on the architecture, not on the random draw of weights. Second—and more remarkably—$\Theta$ stays <strong>constant throughout training</strong>: the parameters move so little (relative to the width) that the network behaves like its first-order Taylor expansion around initialization,</p>
+<p><strong>Jacot, Gabriel &amp; Hongler (2018)</strong> proved that under NTK parameterization, as width goes to infinity, $\Theta$ converges at initialization to a deterministic kernel $\Theta_\infty$ that depends only on the architecture, and stays constant during training. Each weight moves by an amount that vanishes as width grows, so the network remains equal to its first-order Taylor expansion around initialization:</p>
 
 \[f(x;\theta_t) \approx f(x;\theta_0) + \nabla_\theta f(x;\theta_0)^\top (\theta_t - \theta_0).\]
 
-<p>This is the <em>lazy training</em> regime. The network is linear in its parameters, so gradient descent on a squared loss has a closed-form trajectory. Under gradient flow, the residual on the training set decays as</p>
+<p>The dynamics are then linear and can be solved exactly. The training residual decays as</p>
 
-\[f_t(X) - y = e^{-\eta \Theta_\infty t}\,\big(f_0(X) - y\big),\]
+\[f_t(X) - y = e^{-\eta\, \Theta_\infty t}\,\big(f_0(X) - y\big),\]
 
-<p>and the infinite-width predictor on a test point $x$ equals <strong>kernel regression</strong> with kernel $\Theta_\infty$:</p>
+<p>and after training the prediction at a test point is kernel regression with $\Theta_\infty$, offset by the network’s output at initialization:</p>
 
-\[f_\infty(x) = \Theta_\infty(x, X)\, \Theta_\infty(X, X)^{-1}\, y.\]
+\[f_\infty(x) = f_0(x) + \Theta_\infty(x, X)\, \Theta_\infty(X, X)^{-1} \big(y - f_0(X)\big).\]
 
-<p>Equivalently, a randomly initialized infinite-width network is a <strong>Gaussian process</strong>, and training it with gradient descent is GP/kernel inference. The convolutional analogue is the <strong>CNTK</strong>, which gives competitive kernels for image tasks.</p>
+<p>Each eigen-direction of $\Theta_\infty$ is fitted at a rate proportional to its eigenvalue. Because smooth, low-frequency functions have the largest eigenvalues, they are learned first (<strong>spectral bias</strong>).</p>
 
-<h3 id="what-the-ntk-explains-and-what-it-misses">What the NTK Explains and What It Misses</h3>
+<p>A related but distinct kernel describes the network at initialization. A randomly initialized infinitely wide network is a <strong>Gaussian process</strong> whose covariance is the NNGP kernel (Neal 1996; Lee et al. 2018). Training only the last layer gives the GP posterior mean under that kernel. Training all layers in the NTK limit gives kernel regression with $\Theta_\infty$ instead. Convolutional versions (CNTK) give competitive, though not state-of-the-art, image-classification kernels.</p>
 
-<p>The NTK rigorously explains why wide overparameterized networks (i) converge to zero training loss despite non-convexity—the linearized problem is convex—and (ii) generalize, via the spectral bias of the kernel toward smooth functions. Its limitation is that real, finite-width networks operate in the <strong>feature-learning</strong> regime, where the kernel <em>does</em> change during training and the network learns task-specific representations the static NTK cannot capture. The NTK is therefore the right model for the laziest networks and a baseline against which feature learning is measured—not the whole story.</p>
+<p><strong>Scope.</strong> The NTK explains why gradient descent reaches zero training loss in wide networks despite non-convexity: the linearized problem is convex. It cannot explain representation learning, because in the NTK limit the features never change. Finite networks trained with realistic learning rates consistently outperform their NTK kernels. That gap is the evidence that feature learning matters.</p>
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/deep_learning_foundations.py#L238">deep_learning_foundations.py#NeuralTangentKernel</a>
+<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/deep_learning_foundations.py#L246">deep_learning_foundations.py#NeuralTangentKernel</a>
 </div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example usage:
-</span><span class="kn">from</span> <span class="n">deep_learning_foundations</span> <span class="kn">import</span> <span class="n">NeuralTangentKernel</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">deep_learning_foundations</span> <span class="kn">import</span> <span class="n">NeuralTangentKernel</span>
 
-<span class="c1"># Empirical NTK between two inputs: &lt;grad f(x1), grad f(x2)&gt;
-</span><span class="n">ntk_value</span> <span class="o">=</span> <span class="n">NeuralTangentKernel</span><span class="p">.</span><span class="nf">compute_ntk</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
+<span class="c1"># Empirical NTK entry: inner product of parameter gradients at two inputs
+</span><span class="n">theta_12</span> <span class="o">=</span> <span class="n">NeuralTangentKernel</span><span class="p">.</span><span class="nf">compute_ntk</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">)</span>
 
-<span class="c1"># Infinite-width predictions == kernel regression with the NTK
-</span><span class="n">predictions</span> <span class="o">=</span> <span class="n">NeuralTangentKernel</span><span class="p">.</span><span class="nf">infinite_width_prediction</span><span class="p">(</span>
-    <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">kernel_func</span>
-<span class="p">)</span>
+<span class="c1"># Kernel-regression prediction, equivalent to training an infinitely wide network
+</span><span class="n">preds</span> <span class="o">=</span> <span class="n">NeuralTangentKernel</span><span class="p">.</span><span class="nf">infinite_width_prediction</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">X_test</span><span class="p">,</span> <span class="n">kernel_func</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h2 id="double-descent">Double Descent</h2>
+<h3 id="maximal-update-parameterization-and-hyperparameter-transfer">Maximal update parameterization and hyperparameter transfer</h3>
 
-<p>Classical statistics says test error follows a <strong>U-shaped</strong> curve in model complexity: too simple underfits, too complex overfits, and the sweet spot is somewhere in the middle. Deep learning systematically violates this—and <strong>double descent</strong> explains why.</p>
+<p><strong>Yang &amp; Hu (2021)</strong> classified how initialization variances and per-layer learning rates can scale with width. They identified a unique scaling, the <strong>maximal update parameterization (muP)</strong>, under which every layer’s features change by an order-one amount in the infinite-width limit. Under standard parameterization, the optimal learning rate shifts as width grows. Under muP it stays approximately constant. <strong>Tensor Programs V (Yang et al., 2022)</strong> used this for <strong>muTransfer</strong>: tune hyperparameters on a small proxy model and reuse them at full width. Variants of the idea, extended to depth scaling, are used to set hyperparameters in large-model pretraining without searching at full scale.</p>
 
-<h3 id="the-phenomenon">The Phenomenon</h3>
+<h2 id="the-optimization-landscape">The Optimization Landscape</h2>
 
-<p>As model capacity grows, test error first follows the classical U: it drops, then rises toward a peak at the <strong>interpolation threshold</strong>, where the model has just enough parameters to fit the training set exactly (training error hits zero). Classical theory predicts disaster here. Instead, pushing <em>past</em> the threshold into the overparameterized regime makes test error <strong>decrease again</strong>, often falling below the classical sweet spot. <strong>Belkin et al. (2019)</strong> named this the <em>double descent</em> risk curve. The same shape appears along other capacity axes: <strong>model-wise</strong> (more parameters), <strong>epoch-wise</strong> (more training time), and <strong>sample-wise</strong> (more data can paradoxically hurt right at the threshold).</p>
+<p>Training minimizes a highly non-convex loss over billions of parameters, yet gradient descent reliably reaches low training loss. The explanation lies in the geometry of high-dimensional landscapes and in how gradient descent moves through them.</p>
 
-<h3 id="why-it-happens">Why It Happens</h3>
+<h3 id="saddle-points-rather-than-bad-local-minima">Saddle points rather than bad local minima</h3>
 
-<p>At the interpolation threshold, the model is forced to fit the data with essentially a unique solution—the fit is brittle, the parameter norm blows up, and variance spikes. With <em>more</em> capacity, there are infinitely many interpolating solutions, and gradient descent’s <strong>implicit bias</strong> selects among them the one of smallest norm (the minimum-$\ell_2$-norm interpolant). That low-complexity solution is smooth and generalizes well. In the NTK/kernel picture, this is the minimum-norm interpolant of kernel regression; for linear models it is the pseudoinverse solution. The lesson that overturned a generation of intuition: <strong>interpolating the training data perfectly is not the same as overfitting</strong>, provided the inductive bias of the optimizer steers toward simple interpolants.</p>
+<p>At a critical point ($\nabla \mathcal{L} = 0$) the Hessian $H = \nabla^2 \mathcal{L}$ determines the local shape, and a local minimum requires all $d$ eigenvalues to be positive. In random high-dimensional models the fraction of critical points that are minima falls exponentially with $d$, and most high-loss critical points are saddles with many descending directions. <strong>Dauphin et al. (2014)</strong> and the spin-glass analysis of <strong>Choromanska et al. (2015)</strong> argue that the local minima that do exist lie in a narrow band near the global minimum. What slows training is plateaus near saddles rather than trapping in poor minima, and gradient noise from minibatches helps escape them.</p>
+
+<h3 id="overparameterization-and-mode-connectivity">Overparameterization and mode connectivity</h3>
+
+<p>When a network has enough parameters to interpolate its training data, the global minima form high-dimensional connected sets rather than isolated points. <strong>Garipov et al. (2018)</strong> and <strong>Draxler et al. (2018)</strong> found that independently trained solutions are joined by simple low-loss curves. Later work found that, once the permutation symmetry of hidden units is accounted for, many are even joined by straight lines (<em>linear mode connectivity</em>). This underlies <strong>model merging</strong>: averaging the weights of models fine-tuned from the same pretrained checkpoint, as in model soups and task arithmetic, often produces a working model.</p>
+
+<h3 id="flat-and-sharp-minima">Flat and sharp minima</h3>
+
+<p>Minima where the loss stays low over a wide neighbourhood (<strong>flat</strong>) tend to generalize better than <strong>sharp</strong> ones. Sharpness is usually measured by the largest Hessian eigenvalue $\lambda_{\max}(H)$. The PAC-Bayes explanation (see <a href="#norm-based-and-pac-bayes-bounds">below</a>) is that a flat minimum tolerates perturbation of the weights and so needs fewer bits to specify. <strong>Sharpness-Aware Minimization (SAM)</strong> optimizes for flatness directly:</p>
+
+\[\min_{\theta} \; \max_{\lVert \epsilon \rVert_2 \le \rho} \; \mathcal{L}(\theta + \epsilon).\]
+
+<p>The link is not absolute: rescaling the weights of a ReLU network can make a minimum arbitrarily sharp without changing the function it computes (Dinh et al., 2017). Sharpness measures that are invariant to such rescaling are an active research topic.</p>
+
+<h3 id="the-edge-of-stability">The edge of stability</h3>
+
+<p>Classical analysis says gradient descent with step size $\eta$ is stable on a quadratic only if $\lambda_{\max}(H) &lt; 2/\eta$. <strong>Cohen et al. (2021)</strong> observed that full-batch training of neural networks behaves differently. Sharpness rises during training (<em>progressive sharpening</em>) until it reaches $2/\eta$ and then oscillates around that value (the <strong>edge of stability</strong>), while the loss keeps decreasing over the long run, though not monotonically. Gradient descent therefore partly <em>chooses</em> the curvature of the region it ends up in, and a larger learning rate implicitly selects flatter regions. Adaptive optimizers show an analogous effect on the preconditioned sharpness.</p>
+
+<h3 id="optimizers-in-practice">Optimizers in practice</h3>
+
+<p><strong>AdamW</strong> (Adam with decoupled weight decay) remains the default for Transformers. The <strong>Muon</strong> optimizer (2024) replaces each weight matrix’s momentum update with an approximately orthogonalized version, computed by a few Newton–Schulz iterations. It has been adopted in some large-scale LLM pretraining, for example Moonshot AI’s Kimi K2, which used a variant with an added stability mechanism. It is a recent example of optimizer design driven by the geometry of matrix-shaped parameters rather than by treating every parameter as an independent scalar.</p>
+
+<div class="code-reference">
+<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/deep_learning_foundations.py#L95">deep_learning_foundations.py#NeuralNetOptimization</a>
+</div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">from</span> <span class="n">deep_learning_foundations</span> <span class="kn">import</span> <span class="n">NeuralNetOptimization</span>
+
+<span class="c1"># Largest Hessian eigenvalues measure sharpness at the current weights
+</span><span class="n">top_eigs</span> <span class="o">=</span> <span class="n">NeuralNetOptimization</span><span class="p">.</span><span class="nf">compute_hessian_eigenvalues</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span> <span class="n">loss_fn</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">10</span>
+<span class="p">)</span>
+
+<span class="c1"># 2-D loss surface along two random directions (Li et al., 2018)
+</span><span class="n">dir1</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="p">.</span><span class="nf">randn_like</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="p">.</span><span class="nf">parameters</span><span class="p">()]</span>
+<span class="n">dir2</span> <span class="o">=</span> <span class="p">[</span><span class="n">torch</span><span class="p">.</span><span class="nf">randn_like</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="p">.</span><span class="nf">parameters</span><span class="p">()]</span>
+<span class="n">surface</span> <span class="o">=</span> <span class="n">NeuralNetOptimization</span><span class="p">.</span><span class="nf">loss_landscape_analysis</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">dataloader</span><span class="p">,</span> <span class="p">[</span><span class="n">dir1</span><span class="p">,</span> <span class="n">dir2</span><span class="p">])</span>
+</code></pre></div></div>
+
+<h2 id="double-descent-benign-overfitting-and-grokking">Double Descent, Benign Overfitting, and Grokking</h2>
+
+<h3 id="double-descent">Double descent</h3>
+
+<p>Classical statistics predicts a <strong>U-shaped</strong> test-error curve as model capacity increases: error falls while the model underfits and rises once it overfits. <strong>Belkin et al. (2019)</strong> documented a second descent. Test error peaks at the <strong>interpolation threshold</strong>, where the model has just enough capacity to fit the training set exactly. Past that point, adding capacity <em>reduces</em> test error again, often below the best value in the classical regime.</p>
+
+<figure style="margin: 1.5rem 0;">
+<svg viewBox="0 0 480 230" role="img" aria-labelledby="dd-title dd-desc" style="width: 100%; max-width: 560px; height: auto; display: block; margin: 0 auto; color: inherit;">
+  <title id="dd-title">Double descent risk curve</title>
+  <desc id="dd-desc">Test error falls, rises to a peak at the interpolation threshold where training error reaches zero, then falls again in the overparameterized regime.</desc>
+  <g fill="none" stroke="currentColor">
+    <line x1="50" y1="190" x2="465" y2="190" stroke-width="1.5" />
+    <line x1="50" y1="190" x2="50" y2="15" stroke-width="1.5" />
+    <line x1="230" y1="20" x2="230" y2="190" stroke-width="1" stroke-dasharray="4 4" opacity="0.6" />
+    <path d="M60,70 C90,110 110,122 130,122 C160,122 200,60 230,32 C255,70 280,120 320,136 C370,150 420,154 460,156" stroke-width="2.5" />
+    <path d="M60,110 C120,150 180,176 230,186 L460,186" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.8" />
+  </g>
+  <g fill="currentColor" font-size="12" font-family="inherit">
+    <text x="258" y="210" text-anchor="middle">model capacity (parameters, epochs)</text>
+    <text x="20" y="105" text-anchor="middle" transform="rotate(-90 20 105)">error</text>
+    <text x="230" y="14" text-anchor="middle" font-size="11">interpolation threshold</text>
+    <text x="140" y="45" text-anchor="middle" font-size="11">classical regime</text>
+    <text x="360" y="45" text-anchor="middle" font-size="11">overparameterized regime</text>
+    <text x="400" y="148" text-anchor="middle" font-size="11">test error</text>
+    <text x="400" y="180" text-anchor="middle" font-size="11">training error</text>
+  </g>
+</svg>
+</figure>
+
+<p><strong>Nakkiran et al. (2019)</strong> showed the same shape along other axes. It appears <strong>model-wise</strong> (more parameters), <strong>epoch-wise</strong> (longer training), and <strong>sample-wise</strong>: near the threshold, adding training data can temporarily <em>raise</em> test error. The peak is most pronounced with label noise and no regularization, and tuned regularization can remove it.</p>
+
+<p><strong>Why it happens.</strong> At the threshold only about one set of parameters fits the data exactly. That fit is fragile: the parameter norm becomes very large and the model amplifies noise, so variance spikes. Beyond the threshold many interpolating solutions exist, and gradient descent started near zero selects the one with the <strong>minimum norm</strong>. For linear models this is the pseudoinverse solution; for wide networks in the NTK limit it is the minimum-RKHS-norm kernel interpolant. That solution is smooth and generalizes well.</p>
+
+<h3 id="benign-overfitting">Benign overfitting</h3>
+
+<p><strong>Bartlett, Long, Lugosi &amp; Tsigler (2020)</strong> characterized when interpolating noisy training data does no harm in linear regression. It is benign when the data covariance has many small directions in which the noise can be absorbed without affecting predictions. A model that fits its training data exactly is therefore not necessarily overfitting in the harmful sense. The outcome depends on how the fitted solution is spread across directions of the data.</p>
+
+<h3 id="grokking">Grokking</h3>
+
+<p><strong>Power et al. (2022)</strong> trained small Transformers on algorithmic tasks such as modular arithmetic. The networks reached perfect training accuracy early, while test accuracy stayed near chance for thousands more steps and then rose suddenly to near perfect. This delayed generalization is called <strong>grokking</strong>. It depends strongly on weight decay. Mechanistic analyses (for example Nanda et al., 2023) found that the network first memorizes, then gradually forms a compact generalizing circuit (for modular addition, one based on discrete Fourier features), and finally removes the memorized component. Grokking is one of the clearest demonstrations that the implicit and explicit regularization of the optimizer, not only the training loss, decides which solution a network settles on.</p>
 
 <h2 id="generalization">Generalization</h2>
 
-<p>The deepest puzzle is generalization itself. A modern network has far more parameters than training examples and can fit pure random labels to zero error (<strong>Zhang et al., 2017</strong>)—so classical uniform-convergence bounds, which depend on raw parameter count, are vacuous. Why does the <em>same</em> network generalize on real data?</p>
+<p>A modern network has far more parameters than training examples and can fit completely random labels to zero training error (<strong>Zhang et al., 2017</strong>). Any explanation of why it generalizes on real data must therefore involve the data and the training algorithm, not only the hypothesis class.</p>
 
-<h3 id="why-classical-bounds-fail">Why Classical Bounds Fail</h3>
+<h3 id="why-classical-bounds-fail">Why classical bounds fail</h3>
 
-<p>A VC-dimension or Rademacher bound of the form</p>
+<p>Uniform-convergence bounds based on VC dimension or Rademacher complexity take the form</p>
 
-\[\text{test error} \;\le\; \text{train error} + O\!\left(\sqrt{\frac{\text{capacity}}{n}}\right)\]
+\[\text{test error} \;\le\; \text{train error} + O\!\left(\sqrt{\frac{\text{capacity}}{n}}\right).\]
 
-<p>becomes meaningless when “capacity” (parameter count or VC dimension) dwarfs the sample size $n$. The Zhang et al. experiment is the smoking gun: the architecture’s expressive capacity is enormous (it can memorize noise), so capacity <em>alone</em> cannot explain why it generalizes when trained on structured data. Generalization must come from the interaction between the <em>data</em>, the <em>optimizer</em>, and the <em>architecture</em>—not from a worst-case capacity count.</p>
+<p>When capacity is measured by parameter count, it greatly exceeds the sample size $n$ and the bound is vacuous. The random-label experiment shows that the architecture alone can memorize noise. The same network generalizes on structured data only because of what the data and the optimizer select.</p>
 
-<h3 id="implicit-regularization">Implicit Regularization</h3>
+<h3 id="implicit-regularization">Implicit regularization</h3>
 
-<p>Gradient descent is not a neutral optimizer; it has an <strong>implicit bias</strong> toward simple solutions. On separable data, gradient descent on logistic loss converges (in direction) to the <strong>maximum-margin</strong> classifier—the same solution an SVM finds—even with no explicit regularizer (<strong>Soudry et al., 2018</strong>). On least-squares problems it converges to the <strong>minimum-norm</strong> solution. This implicit preference for large-margin, low-norm, smooth functions is, in practice, what regularizes overparameterized networks. Explicit techniques—weight decay, dropout, data augmentation, early stopping—stack on top of this implicit bias.</p>
+<p>Gradient descent has an <strong>implicit bias</strong>. On linearly separable data, gradient descent on the logistic loss converges in direction to the <strong>maximum-margin</strong> separator, the SVM solution, without any explicit regularizer (<strong>Soudry et al., 2018</strong>). For underdetermined least squares started at zero, it converges to the <strong>minimum-norm</strong> solution. For deep homogeneous networks, gradient flow converges in direction to a KKT point of a margin-maximization problem (Lyu &amp; Li, 2020). Minibatch noise and large learning rates add a further bias toward flat regions. Explicit regularizers such as weight decay, dropout, data augmentation, and early stopping act on top of these implicit effects.</p>
 
-<h3 id="norm-based-and-pac-bayes-bounds">Norm-Based and PAC-Bayes Bounds</h3>
+<h3 id="norm-based-and-pac-bayes-bounds">Norm-based and PAC-Bayes bounds</h3>
 
-<p>The modern theory replaces parameter <em>count</em> with parameter <em>magnitude</em>. Margin-normalized bounds (Bartlett, Neyshabur) depend on products of layer weight norms divided by the achieved classification margin, not on the number of weights—so a huge but low-norm network can still have a small bound. <strong>PAC-Bayes</strong> bounds connect generalization to the <strong>flatness</strong> of the minimum: for a posterior $Q$ over weights and prior $P$, with probability $1-\delta$,</p>
+<p>Modern bounds measure capacity by the <strong>size</strong> of the weights rather than their number. Margin-normalized bounds (Bartlett et al., 2017; Neyshabur et al., 2018) scale with products of layer norms divided by the classification margin achieved, so a very large network with small weights can still have a small bound.</p>
+
+<p><strong>PAC-Bayes</strong> bounds apply to a distribution $Q$ over weights, compared with a prior $P$ fixed before seeing the data. With probability at least $1 - \delta$ over a sample of size $n$ (one standard form):</p>
 
 \[\mathbb{E}_{Q}\!\left[\text{test error}\right] \;\le\; \mathbb{E}_{Q}\!\left[\text{train error}\right] + \sqrt{\frac{\mathrm{KL}(Q \,\Vert\, P) + \ln\frac{n}{\delta}}{2(n-1)}}.\]
 
-<p>A flat minimum tolerates a wide posterior $Q$ (large perturbations leave the loss low) while keeping $\mathrm{KL}(Q\Vert P)$ small, tightening the bound—formally linking flat minima to good generalization and closing the loop back to the optimization-landscape section. These bounds are now tight enough to be <em>non-vacuous</em> for real networks, the first quantitative explanation of deep learning’s generalization.</p>
+<p>A flat minimum allows a broad posterior $Q$ that keeps training error low while $\mathrm{KL}(Q \Vert P)$ stays small, which is the formal link between flatness and generalization. <strong>Dziugaite &amp; Roy (2017)</strong> optimized such a bound directly and obtained the first <strong>non-vacuous</strong> generalization bound for a deep network trained on real data (MNIST). Later compression-based bounds have extended non-vacuous guarantees to much larger models, including LLMs. These bounds remain loose compared with measured test error, and none yet predicts generalization accurately across architectures.</p>
 
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Ready for the proofs?</strong> The <a href="/docs/advanced/ai-mathematics/#statistical-learning-theory">Advanced AI Mathematics</a> page derives PAC-Bayes, Rademacher complexity, and margin bounds in full.</p>
-</div>
+<p>A more formal treatment of PAC learning, Rademacher complexity, and margin bounds is on the <a href="../../advanced/ai-mathematics/">AI Mathematics</a> page.</p>
 
-<h2 id="putting-it-together">Putting It Together</h2>
+<h2 id="scaling-laws">Scaling Laws</h2>
 
-<p>These threads weave into a single story. <strong>Universal approximation</strong> says a network <em>can</em> represent the target; <strong>depth efficiency</strong> says it can do so compactly. <strong>Backpropagation</strong> makes finding the weights computationally feasible, while <strong>initialization and normalization</strong> keep its gradients alive across depth. The <strong>optimization landscape</strong> turns out to be benign in the overparameterized regime—dominated by escapable saddles and a connected manifold of flat global minima—so <strong>gradient descent succeeds</strong> despite non-convexity. The <strong>NTK</strong> explains that success exactly in the infinite-width limit by linearizing the network into kernel regression. <strong>Double descent</strong> shows that interpolation is safe, and <strong>implicit regularization</strong> explains why: the optimizer’s bias toward simple, low-norm, flat solutions is what makes overparameterized networks <strong>generalize</strong>. Together they convert deep learning from an empirical art into a subject with genuine, if still-incomplete, theory.</p>
+<p>The theory above does not predict how large a model should be or how much data it needs. The most useful guidance on those questions is empirical. <strong>Kaplan et al. (2020)</strong> found that the test loss of Transformer language models falls as a smooth power law in parameters $N$, data $D$, and compute, over many orders of magnitude. <strong>Hoffmann et al. (2022)</strong> (the “Chinchilla” paper) refitted this as</p>
+
+\[L(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}},\]
+
+<p>with fitted exponents $\alpha \approx 0.34$ and $\beta \approx 0.28$ and an irreducible term $E$. Training compute is about $C \approx 6ND$ FLOPs. Minimizing $L$ at fixed $C$ requires scaling $N$ and $D$ roughly in proportion, which works out to about <strong>20 training tokens per parameter</strong>. Models trained before 2022 had been substantially undertrained by this measure.</p>
+
+<p>Current practice deliberately trains well past the compute-optimal point. The cost of serving a model depends on $N$ and not on $D$, so a smaller model trained on many more tokens, often hundreds or thousands per parameter, is cheaper to run over its lifetime. Scaling laws have since been extended to data repetition, mixture-of-experts sparsity, precision, and inference-time compute. The <a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> page discusses them further, including emergent abilities.</p>
+
+<h2 id="summary">Summary</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Main results</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Can networks represent the target?</td>
+      <td>Universal approximation; Barron rates; depth separation</td>
+      <td>Largely settled</td>
+    </tr>
+    <tr>
+      <td>Can gradients be computed efficiently?</td>
+      <td>Backpropagation (reverse-mode autodiff)</td>
+      <td>Settled</td>
+    </tr>
+    <tr>
+      <td>Can deep networks be trained stably?</td>
+      <td>Variance-preserving initialization, residual connections, normalization, muP</td>
+      <td>Well understood in practice, partly in theory</td>
+    </tr>
+    <tr>
+      <td>Why does gradient descent find good minima?</td>
+      <td>Saddle-dominated landscapes, overparameterization, NTK convergence proofs, edge of stability</td>
+      <td>Proved in limits; partly empirical</td>
+    </tr>
+    <tr>
+      <td>Why do overparameterized networks generalize?</td>
+      <td>Implicit bias, minimum-norm interpolation, benign overfitting, PAC-Bayes and compression bounds</td>
+      <td>Open for practical networks</td>
+    </tr>
+    <tr>
+      <td>How should models be scaled?</td>
+      <td>Kaplan and Chinchilla scaling laws</td>
+      <td>Empirical and reliable within range; not derived from first principles</td>
+    </tr>
+  </tbody>
+</table>
 
 <hr />
 
 <h2 id="continue-reading">Continue Reading</h2>
 
 <div class="page-nav" style="display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-  <span>← <strong>Previous:</strong> <a href="architectures.html">Neural Network Architectures</a></span>
-  <span><strong>Next:</strong> <a href="generative-models.html">Generative Models</a> →</span>
+  <span>← <strong>Previous:</strong> <a href="core-ml-algorithms.html">Core ML Algorithms</a></span>
+  <span><strong>Next:</strong> <a href="deep-learning-architectures.html">Deep Learning Architectures</a> →</span>
 </div>
 
 <h3 id="see-also">See Also</h3>
 
 <ul>
-  <li><a href="architectures.html">Neural Network Architectures</a> — the CNNs, RNNs, and transformers this theory underpins</li>
-  <li><a href="generative-models.html">Generative Models</a> — diffusion, GANs, and VAEs built on these foundations</li>
-  <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — scaling laws and emergent abilities of large models</li>
-  <li><a href="../../advanced/ai-mathematics/">AI Mathematics</a> — formal proofs for the theorems above</li>
+  <li><a href="architectures.html">ML &amp; Deep Learning hub</a>: reading order for the core track</li>
+  <li><a href="ml-foundations.html">Machine Learning Foundations</a>: bias–variance, SGD, kernels, and Gaussian processes</li>
+  <li><a href="deep-learning-architectures.html">Deep Learning Architectures</a>: the CNNs, RNNs, Transformers, and SSMs this theory applies to</li>
+  <li><a href="loss-functions.html">Loss Functions</a>: the objectives being optimized</li>
+  <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a>: scaling laws, emergent abilities, interpretability</li>
+  <li><a href="../../advanced/ai-mathematics/">AI Mathematics</a>: formal statements and proofs</li>
 </ul>
 
       </section>

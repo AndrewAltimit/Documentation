@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Reference guide to Kubernetes: architecture, core objects, networking, resources and autoscaling, storage, operations and advanced topics, current to Kuberne...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Kubernetes">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Reference guide to Kubernetes: architecture, core objects, networking, resources and autoscaling, storage, operations and advanced topics, current to Kuberne...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/kubernetes/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Kubernetes">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Reference guide to Kubernetes: architecture, core objects, networking, resources and autoscaling, storage, operations and advanced topics, current to Kuberne...">
 
 <title>Kubernetes | Andrews Notebook</title>
 
@@ -3136,122 +3136,211 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Container orchestration at scale</p>
 </div>
 
-<p>Kubernetes (K8s) is an open-source container orchestration platform that automates the deployment, scaling, and management of containerized applications. Originally built at Google and now maintained by the Cloud Native Computing Foundation (CNCF), it is the de facto standard for running containers in production.</p>
+<p><strong>Kubernetes</strong> (K8s) is an open-source system for deploying, scaling and operating containerized applications across a cluster of machines. It grew out of Google’s internal cluster managers (Borg and Omega), was open-sourced in 2014, and was the first project donated to the Cloud Native Computing Foundation (CNCF). It is now the common substrate for running containers in production, offered as a managed service by every major cloud (EKS, GKE, AKS and others) and by many on-premises distributions.</p>
 
-<h2 id="why-kubernetes">Why Kubernetes?</h2>
+<p>Its central idea is <strong>declarative reconciliation</strong>: you store a description of the desired state — which images, how many replicas, how they are reached — in the cluster’s API, and a set of independent controllers continuously drive the real world toward it. Restarting crashed containers, replacing lost machines, rolling out new versions and scaling with load all follow from that one mechanism.</p>
 
-<p>Running containers on a single machine is straightforward. The hard part is running hundreds of them across dozens of servers while keeping them healthy, absorbing traffic spikes, and deploying updates without downtime. When a web application outgrows a single server, you need to run multiple copies across servers, restart crashed containers automatically, route requests to healthy instances, roll out new versions without interrupting service, and scale up at peak and down at quiet times. Without Kubernetes that means custom scripts, manual intervention, and constant monitoring. Kubernetes handles it through a declarative model: you describe the desired state and it continuously reconciles reality toward it.</p>
+<h2 id="guides">Guides</h2>
 
-<h2 id="learning-path">Learning Path</h2>
+<p>The pages below build on each other. Read the fundamentals in order if you are new to Kubernetes; each later page can be read on its own.</p>
 
-<p>The guides build on each other. Start with the Fundamentals track if you are new; jump ahead if you already run clusters.</p>
-
-<h3 id="fundamentals">Fundamentals</h3>
-
-<p>Three focused pages covering everything you need to run real workloads.</p>
-
-<div class="command-grid">
-  <div class="nav-card">
-    <h4><a href="fundamentals.html">Part I: Core Concepts</a></h4>
-    <p>Start here. Cluster architecture, the apply control flow, Pods, Deployments, labels, and namespaces.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="fundamentals-networking.html">Networking &amp; Configuration</a></h4>
-    <p>Services and kube-proxy, Ingress, NetworkPolicies, ConfigMaps and Secrets, and RBAC.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="fundamentals-resources.html">Health &amp; Resource Management</a></h4>
-    <p>Liveness/readiness probes, requests and limits, QoS classes, scheduling, and horizontal autoscaling.</p>
-  </div>
-</div>
-
-<h3 id="stateful-workloads--operations">Stateful Workloads &amp; Operations</h3>
-
-<p>Going beyond stateless apps: storage, controllers, and day-two operations.</p>
-
-<div class="command-grid">
-  <div class="nav-card">
-    <h4><a href="workloads.html">Workloads</a></h4>
-    <p>StatefulSets, DaemonSets, Jobs/CronJobs, autoscaling, and Pod Security for managing diverse application types.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="persistence.html">Stateful Workloads &amp; Persistence</a></h4>
-    <p>Persistent volumes, dynamic provisioning, StatefulSet ordering, backup and disaster recovery, and database patterns.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="operations.html">Operations</a></h4>
-    <p>kubectl power use, Helm, sidecar/init-container patterns, a systematic troubleshooting guide, and a production checklist.</p>
-  </div>
-</div>
-
-<h3 id="going-further">Going Further</h3>
-
-<div class="command-grid">
-  <div class="nav-card">
-    <h4><a href="advanced.html">Advanced Topics</a></h4>
-    <p>CRDs and Operators, service mesh, GitOps, performance tuning, certifications (CKA/CKAD/CKS), and the ecosystem.</p>
-  </div>
-</div>
-
-<hr />
-
-<h2 id="when-to-use-kubernetes">When to Use Kubernetes</h2>
-
-<p>Kubernetes adds complexity, so it is important to understand when it provides value:</p>
+<pre><code class="language-mermaid">flowchart LR
+    F["Fundamentals&lt;br/&gt;architecture &amp; objects"] --&gt; N["Networking &amp;&lt;br/&gt;Configuration"]
+    F --&gt; R["Health &amp; Resource&lt;br/&gt;Management"]
+    N --&gt; W["Workloads &amp;&lt;br/&gt;Storage"]
+    R --&gt; W
+    W --&gt; P["Stateful Workloads &amp;&lt;br/&gt;Persistence"]
+    W --&gt; O["Operations"]
+    P --&gt; A["Advanced Topics"]
+    O --&gt; A
+</code></pre>
 
 <table>
   <thead>
     <tr>
-      <th>Scenario</th>
-      <th>Kubernetes?</th>
-      <th>Why</th>
+      <th>Page</th>
+      <th>Covers</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Single application on one server</td>
-      <td>No</td>
-      <td>Docker Compose is simpler</td>
+      <td><a href="fundamentals.html">Fundamentals</a></td>
+      <td>Control plane and node components, the declarative model and reconciliation loop, Pods, ReplicaSets, Deployments and rolling updates, Services, Namespaces, labels and selectors</td>
     </tr>
     <tr>
-      <td>Multiple services, need scaling</td>
-      <td>Yes</td>
-      <td>Automated scaling and load balancing</td>
+      <td><a href="fundamentals-networking.html">Networking &amp; Configuration</a></td>
+      <td>The pod network model, Services and kube-proxy, DNS, Ingress and Gateway API, NetworkPolicies, ConfigMaps and Secrets, ServiceAccounts and RBAC</td>
     </tr>
     <tr>
-      <td>Microservices architecture</td>
-      <td>Yes</td>
-      <td>Service discovery and networking built-in</td>
+      <td><a href="fundamentals-resources.html">Health &amp; Resource Management</a></td>
+      <td>Startup, liveness and readiness probes; requests and limits; QoS classes and eviction; the scheduler; in-place resize; the Horizontal Pod Autoscaler</td>
     </tr>
     <tr>
-      <td>Need zero-downtime deployments</td>
-      <td>Yes</td>
-      <td>Rolling updates are native</td>
+      <td><a href="workloads.html">Workloads &amp; Storage</a></td>
+      <td>StatefulSets, DaemonSets, Jobs and CronJobs; volumes, CSI and StorageClasses; VPA and cluster autoscaling; RBAC and Pod Security Standards</td>
     </tr>
     <tr>
-      <td>Consistent dev/staging/prod</td>
-      <td>Yes</td>
-      <td>Same configuration across environments</td>
+      <td><a href="persistence.html">Stateful Workloads &amp; Persistence</a></td>
+      <td>PersistentVolumes and claims in depth, access and binding modes, StatefulSet guarantees, headless Services, snapshots, backup and disaster recovery, database patterns</td>
     </tr>
     <tr>
-      <td>Team needs self-service deployment</td>
-      <td>Yes</td>
-      <td>Declarative configs enable GitOps</td>
+      <td><a href="operations.html">Operations</a></td>
+      <td>kubectl techniques, Helm 4, sidecar and init-container patterns, metrics, logs and traces, troubleshooting by symptom, cluster upgrades, a production checklist, certifications</td>
+    </tr>
+    <tr>
+      <td><a href="advanced.html">Advanced Topics</a></td>
+      <td>CRDs and Operators, service mesh, GitOps, multi-tenancy, advanced scheduling, Cluster API, performance tuning, the ecosystem</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Not ready for Kubernetes yet?</strong> Start with <a href="../docker/">Docker</a> to learn container fundamentals first.</p>
+<h2 id="release-status">Release Status</h2>
 
-<hr />
+<p>Kubernetes publishes three minor releases a year. The project supports the three most recent minor versions, each with roughly a year of patch releases; managed services typically offer paid extended support beyond that.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Version</th>
+      <th>Released</th>
+      <th>Patch support ends</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>v1.37</td>
+      <td>August 2026</td>
+      <td>October 2027</td>
+    </tr>
+    <tr>
+      <td>v1.36</td>
+      <td>April 2026</td>
+      <td>June 2027</td>
+    </tr>
+    <tr>
+      <td>v1.35</td>
+      <td>December 2025</td>
+      <td>February 2027</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Status as of September 2026; see <a href="https://kubernetes.io/releases/">kubernetes.io/releases</a> for current data.</p>
+
+<h3 id="recent-changes-worth-knowing">Recent Changes Worth Knowing</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Change</th>
+      <th>Release</th>
+      <th>Where covered</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Native sidecar containers (<code class="language-plaintext highlighter-rouge">initContainers</code> with <code class="language-plaintext highlighter-rouge">restartPolicy: Always</code>) stable</td>
+      <td>v1.33</td>
+      <td><a href="operations.html#native-sidecars">Operations</a></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Endpoints</code> API deprecated in favour of EndpointSlices</td>
+      <td>v1.33</td>
+      <td><a href="fundamentals.html#labels-selectors-and-annotations">Fundamentals</a></td>
+    </tr>
+    <tr>
+      <td>Dynamic Resource Allocation (DRA) for GPUs and other devices stable (<code class="language-plaintext highlighter-rouge">resource.k8s.io/v1</code>)</td>
+      <td>v1.34–v1.35</td>
+      <td><a href="advanced.html#gpus-and-other-accelerators">Advanced Topics</a></td>
+    </tr>
+    <tr>
+      <td>Pod-level resource requests and limits (beta)</td>
+      <td>v1.34</td>
+      <td><a href="fundamentals-resources.html#pod-level-resources">Health &amp; Resources</a></td>
+    </tr>
+    <tr>
+      <td>In-place pod resize of CPU and memory stable</td>
+      <td>v1.35</td>
+      <td><a href="fundamentals-resources.html#in-place-resize">Health &amp; Resources</a></td>
+    </tr>
+    <tr>
+      <td>cgroup v1 deprecated; kubelet refuses cgroup v1 hosts by default</td>
+      <td>v1.35</td>
+      <td><a href="operations.html#cluster-upgrades">Operations</a></td>
+    </tr>
+    <tr>
+      <td>Community ingress-nginx controller retired (no updates after March 2026)</td>
+      <td>—</td>
+      <td><a href="fundamentals-networking.html#gateway-api">Networking</a></td>
+    </tr>
+    <tr>
+      <td>Helm 4.0 released (Nov 2025); Helm 3 security fixes end February 2027</td>
+      <td>—</td>
+      <td><a href="operations.html#helm-4">Operations</a></td>
+    </tr>
+    <tr>
+      <td>User namespaces for pods stable</td>
+      <td>v1.36</td>
+      <td><a href="workloads.html#workload-security">Workloads &amp; Storage</a></td>
+    </tr>
+    <tr>
+      <td>HPA scale to zero (beta, on by default)</td>
+      <td>v1.37</td>
+      <td><a href="fundamentals-resources.html#scaling-to-zero">Health &amp; Resources</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="when-kubernetes-fits">When Kubernetes Fits</h2>
+
+<p>Kubernetes solves hard problems but brings its own operational weight: a control plane to upgrade every few months, networking, storage and security layers to choose and maintain, and a large API to learn. It pays off when that cost is spread over many services or teams.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Situation</th>
+      <th>Reasonable choice</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>One application, one or a few hosts</td>
+      <td>Docker Compose or a single VM; a PaaS</td>
+    </tr>
+    <tr>
+      <td>A handful of stateless services on one cloud</td>
+      <td>A serverless container service (AWS ECS/Fargate, Google Cloud Run, Azure Container Apps)</td>
+    </tr>
+    <tr>
+      <td>Many services, several teams, need for self-service deployment</td>
+      <td>Managed Kubernetes (EKS, GKE, AKS)</td>
+    </tr>
+    <tr>
+      <td>Portability across clouds or on-premises, or a large platform-engineering investment</td>
+      <td>Kubernetes, managed or self-hosted</td>
+    </tr>
+    <tr>
+      <td>Edge, IoT or small footprints</td>
+      <td>Lightweight distributions (k3s, k0s, MicroK8s)</td>
+    </tr>
+    <tr>
+      <td>Mixed containers, VMs and binaries with a simpler scheduler</td>
+      <td>HashiCorp Nomad</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>If containers themselves are new to you, start with <a href="../docker/">Docker</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="../docker/">Docker</a> - Container fundamentals</li>
-  <li><a href="../aws/compute.html">AWS EKS</a> - Managed Kubernetes on AWS</li>
-  <li><a href="../terraform/">Terraform</a> - Infrastructure as code for K8s</li>
-  <li><a href="../ci-cd/">CI/CD</a> - Continuous deployment pipelines</li>
+  <li><a href="../docker/">Docker</a> — images, containers and the runtime Kubernetes builds on</li>
+  <li><a href="../container-runtimes.html">Container Runtimes</a> — containerd, CRI-O and the CRI</li>
+  <li><a href="../aws/compute.html">AWS compute</a> — EKS and the alternatives on AWS</li>
+  <li><a href="../terraform/">Terraform</a> — provisioning clusters and cloud resources as code</li>
+  <li><a href="../ci-cd/">CI/CD</a> — delivery pipelines into a cluster</li>
+  <li><a href="../../observability/">Observability</a> — metrics, logs, traces and SLOs</li>
 </ul>
 
       </section>

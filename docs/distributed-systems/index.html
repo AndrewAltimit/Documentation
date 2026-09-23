@@ -3136,107 +3136,165 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Architecture patterns, consensus algorithms, and implementation strategies for scalable systems</p>
 </div>
 
-<div class="code-example">
-  <p>Comprehensive documentation for distributed systems architecture, design patterns, and implementation strategies. From consensus algorithms to microservices, from message queuing to service mesh. This hub frames the core ideas and routes you into focused pages for each concept and pattern.</p>
-</div>
+<p>A <strong>distributed system</strong> is a set of independent computers that cooperate over a network and present themselves to users as one coherent service. Every replicated database, message broker, container orchestrator, and microservice architecture is one. This hub explains why they are hard, summarizes the few results that constrain every design, and routes you to the focused pages in this section and to the related sections on event-driven architecture, observability, and API design.</p>
 
-<h2 id="overview">Overview</h2>
+<p><strong>Assumed background:</strong> networking basics, concurrency, and at least one programming language. No prior distributed-systems experience is needed; the pages build from first principles.</p>
 
-<p>Distributed systems form the backbone of modern computing infrastructure, enabling applications to scale beyond single machines while maintaining reliability, consistency, and performance. They are also genuinely <em>hard</em>: the difficulty is not incidental complexity but the consequence of three physical facts that no amount of engineering removes — the network is unreliable, failures are partial, and there is no global clock.</p>
+<h2 id="why-distributed-systems-are-hard">Why Distributed Systems Are Hard</h2>
 
-<p><strong>What you’ll get:</strong> a working mental model of why distributed systems are hard, the patterns that tame that difficulty, and curated links into the deeper theory and the concrete technologies that implement it.</p>
-
-<p><strong>Assumed background:</strong> comfort with networking basics, concurrency, and at least one programming language. No prior distributed-systems experience required — we build up from first principles.</p>
-
-<h3 id="how-the-pieces-fit-together">How the Pieces Fit Together</h3>
-
-<p>A distributed system is a stack of decisions. The physical reality at the bottom (unreliable networks, independent failures) forces theoretical limits (CAP, FLP), which the consensus and consistency layers work around, which in turn are packaged into the patterns and technologies you actually deploy. Reading top-down tells you <em>what to build</em>; reading bottom-up tells you <em>why it has to be that way</em>.</p>
-
-<pre><code class="language-mermaid">flowchart TD
-    Reality["Physical reality&lt;br/&gt;unreliable network, partial failure, no global clock"] --&gt; Limits["Theoretical limits&lt;br/&gt;CAP, FLP, Two Generals"]
-    Limits --&gt; Coord["Coordination layer&lt;br/&gt;consensus (Raft/Paxos), consistency models"]
-    Coord --&gt; Patterns["Design patterns&lt;br/&gt;leader election, sagas, sharding, event-driven"]
-    Patterns --&gt; Tech["Technologies&lt;br/&gt;Kubernetes, Kafka, Istio, distributed DBs"]
-    Limits -.-&gt;|formal treatment| Theory["Distributed Systems Theory →"]
-    Tech -.-&gt;|orchestration| K8s["Kubernetes →"]
-</code></pre>
-
-<h3 id="the-distributed-systems-challenge">The Distributed Systems Challenge</h3>
-
-<p>Building distributed systems introduces difficulty along several axes at once:</p>
+<p>The difficulty is not incidental complexity. It follows from three physical facts that no amount of engineering removes:</p>
 
 <ol>
-  <li><strong>Network partitions</strong> — network failures can isolate parts of the system from each other.</li>
-  <li><strong>Partial failures</strong> — some components fail while others continue operating, and the survivors cannot always tell which is which.</li>
-  <li><strong>Concurrency</strong> — multiple operations happen simultaneously with no global coordinator.</li>
-  <li><strong>No global clock</strong> — each node has its own clock, making the ordering of events across nodes ambiguous.</li>
-  <li><strong>Byzantine failures</strong> — components may fail in arbitrary ways, including corrupted or malicious behavior.</li>
+  <li><strong>The network is unreliable and asynchronous.</strong> Messages can be delayed, reordered, duplicated, or lost, and there is no upper bound on delay. A node that has not replied may be slow, crashed, or cut off, and waiting longer cannot tell you which.</li>
+  <li><strong>Failures are partial.</strong> Some components fail while others keep running, and the survivors have an incomplete, possibly contradictory view of who is alive.</li>
+  <li><strong>There is no global clock.</strong> Each node’s clock drifts independently, so wall-clock timestamps cannot reliably order events across nodes. Ordering needs explicit machinery: logical clocks, a leader, or consensus.</li>
 </ol>
 
-<h3 id="two-impossibility-results-worth-knowing">Two Impossibility Results Worth Knowing</h3>
+<p>Some systems must also tolerate <strong>Byzantine</strong> faults, where a component behaves arbitrarily (corrupted state, buggy or malicious messages) rather than simply stopping. Most datacenter systems assume crash faults only. Byzantine tolerance appears mainly in blockchains and safety-critical avionics.</p>
 
-<p>Two theorems shape almost every design decision below.</p>
+<p>These facts are why the <strong>fallacies of distributed computing</strong> (Deutsch and others at Sun, 1994–97) still cause outages. Each is an assumption that feels true on one machine and is false across a network:</p>
 
-<p><strong>CAP theorem.</strong> When a network partition occurs, a system can preserve either consistency (every read sees the latest write) or availability (every request gets a non-error response), but not both. Partition tolerance is not optional in a real network, so the real choice is <strong>CP</strong> (reject requests to stay consistent — etcd, ZooKeeper, HBase) versus <strong>AP</strong> (answer requests and reconcile later — Cassandra, DynamoDB, Riak).</p>
+<table>
+  <thead>
+    <tr>
+      <th>Fallacy</th>
+      <th>Reality</th>
+      <th>Where it bites</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>The network is reliable</td>
+      <td>Packets drop, links flap, partitions happen</td>
+      <td>Unretried calls, lost messages</td>
+    </tr>
+    <tr>
+      <td>Latency is zero</td>
+      <td>Every hop costs 0.1 ms in a datacenter, 100+ ms across the globe</td>
+      <td>Chatty service calls, N+1 queries</td>
+    </tr>
+    <tr>
+      <td>Bandwidth is infinite</td>
+      <td>Links saturate; cross-region egress is billed</td>
+      <td>Large payloads, replication storms</td>
+    </tr>
+    <tr>
+      <td>The network is secure</td>
+      <td>Traffic can be observed or forged</td>
+      <td>Plaintext east-west traffic (use mTLS)</td>
+    </tr>
+    <tr>
+      <td>Topology doesn’t change</td>
+      <td>Pods and IPs churn continuously</td>
+      <td>Hard-coded addresses (use service discovery)</td>
+    </tr>
+    <tr>
+      <td>There is one administrator</td>
+      <td>Many teams, providers, and policies</td>
+      <td>Uncoordinated config changes</td>
+    </tr>
+    <tr>
+      <td>Transport cost is zero</td>
+      <td>Serialization, TLS, and egress all cost CPU and money</td>
+      <td>Over-fine-grained services</td>
+    </tr>
+    <tr>
+      <td>The network is homogeneous</td>
+      <td>Mixed protocols, versions, and hardware</td>
+      <td>Version skew during rolling deploys</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="how-the-pieces-fit-together">How the Pieces Fit Together</h2>
+
+<p>The field is a stack of consequences. Physical reality imposes theoretical limits; the coordination layer works within those limits; patterns package the coordination layer into reusable designs; technologies implement the patterns. Read top-down to learn <em>what to build</em>, bottom-up to learn <em>why it has to be built that way</em>.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    P{"Network partition&lt;br/&gt;occurs"} --&gt; Q{"During the partition,&lt;br/&gt;what do you sacrifice?"}
-    Q -- "reject requests&lt;br/&gt;to stay consistent" --&gt; CP["CP system&lt;br/&gt;e.g. etcd, ZooKeeper, HBase"]
-    Q -- "answer requests,&lt;br/&gt;reconcile later" --&gt; AP["AP system&lt;br/&gt;e.g. Cassandra, DynamoDB, Riak"]
+    Reality["Physical reality&lt;br/&gt;unreliable network · partial failure · no global clock"] --&gt; Limits["Theoretical limits&lt;br/&gt;CAP / PACELC · FLP · Two Generals"]
+    Limits --&gt; Coord["Coordination&lt;br/&gt;consensus (Raft, Paxos) · replication · consistency models · failure detection"]
+    Coord --&gt; Patterns["Patterns&lt;br/&gt;leader election · sagas · outbox · circuit breakers · CQRS"]
+    Patterns --&gt; Tech["Technologies&lt;br/&gt;etcd · Kafka · Kubernetes · Istio · distributed SQL"]
+    Tech --&gt; Ops["Operations&lt;br/&gt;observability · SLOs · chaos and simulation testing"]
+    Ops -. "feedback: what actually fails" .-&gt; Patterns
 </code></pre>
 
-<p><strong>FLP impossibility.</strong> The Fischer–Lynch–Paterson result proves that deterministic consensus is impossible in a fully asynchronous system if even one process may fail. This is why real consensus protocols lean on timeouts and failure detectors, randomization, or partial-synchrony assumptions rather than promising agreement in bounded time.</p>
+<h2 id="results-every-design-must-respect">Results Every Design Must Respect</h2>
 
-<p>For the formal statements, the happens-before relation, and the impossibility proofs themselves, see <a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a>.</p>
+<h3 id="cap-and-pacelc">CAP and PACELC</h3>
 
-<h3 id="consistency-is-a-dial-not-a-switch">Consistency Is a Dial, Not a Switch</h3>
+<p><strong>CAP</strong> (Brewer’s conjecture, proved by Gilbert and Lynch in 2002): while a network partition is in progress, a replicated system can offer linearizable consistency or availability (every request to a live node gets a non-error answer), but not both. Partitions cannot be ruled out in a real network, so the practical choice is what to give up <em>during a partition</em>:</p>
 
-<p>The stronger the guarantee, the more coordination (and latency) it costs — so the rule of thumb is to pick the <em>weakest</em> model your application can tolerate. The models below run from strongest to weakest:</p>
+<ul>
+  <li><strong>CP</strong>: refuse or block requests on the minority side to stay consistent. Examples: etcd, ZooKeeper, Consul’s catalog, Spanner, CockroachDB.</li>
+  <li><strong>AP</strong>: keep answering on both sides and reconcile afterwards. Examples: Cassandra, Riak, DynamoDB with its default eventually consistent reads.</li>
+</ul>
+
+<p>CAP says nothing about the normal case. <strong>PACELC</strong> (Abadi, 2012) completes it: <em>if</em> partitioned, choose Availability or Consistency; <em>else</em>, choose Latency or Consistency. The “else” half is the trade-off you pay on every request, because strong consistency requires cross-replica coordination even when the network is healthy.</p>
+
+<pre><code class="language-mermaid">flowchart TD
+    Q{"Is the network&lt;br/&gt;partitioned?"} -- yes --&gt; P{"Give up..."}
+    P -- "availability" --&gt; PC["PC: minority side rejects requests&lt;br/&gt;etcd, ZooKeeper, Spanner"]
+    P -- "consistency" --&gt; PA["PA: all sides answer, reconcile later&lt;br/&gt;Cassandra, Riak"]
+    Q -- no --&gt; E{"Trade off..."}
+    E -- "latency" --&gt; EC["EC: coordinate on every write&lt;br/&gt;(quorum or leader round trip)"]
+    E -- "consistency" --&gt; EL["EL: answer from the nearest replica&lt;br/&gt;(may be stale)"]
+</code></pre>
+
+<h3 id="flp-impossibility">FLP Impossibility</h3>
+
+<p>Fischer, Lynch, and Paterson (1985) proved that no deterministic protocol can guarantee consensus in a fully asynchronous system if even one process may crash. Practical protocols such as Raft and Paxos therefore always preserve <em>safety</em> (never decide two different values) but guarantee <em>liveness</em> (eventually decide) only when the network behaves for long enough. They get there with timeouts, randomized election delays, or partial-synchrony assumptions.</p>
+
+<p>Formal statements and proofs are in <a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a>. The engineering consequences are in <a href="consensus-and-coordination.html">Consensus &amp; Coordination</a>.</p>
+
+<h3 id="consistency-is-a-dial">Consistency Is a Dial</h3>
+
+<p>Stronger guarantees cost more coordination, and so more latency and less availability. Choose the <em>weakest</em> model the application can tolerate. From strongest to weakest:</p>
 
 <table>
   <thead>
     <tr>
       <th>Model</th>
       <th>Guarantee</th>
-      <th>Cost</th>
+      <th>Coordination cost</th>
       <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Linearizable</strong></td>
-      <td>Operations appear atomic and instantaneous, in real-time order</td>
-      <td>Highest (cross-node coordination per op)</td>
-      <td>Locks, leader election, financial ledgers</td>
+      <td>Each operation appears to take effect atomically at one instant between its start and end, in real-time order</td>
+      <td>Highest: a quorum or leader round trip per operation</td>
+      <td>Locks, leader election, uniqueness constraints, ledgers</td>
     </tr>
     <tr>
       <td><strong>Sequential</strong></td>
-      <td>A single global order consistent with each process’s program order</td>
+      <td>One global order consistent with each process’s program order, not necessarily real time</td>
       <td>High</td>
       <td>Replicated state machines</td>
     </tr>
     <tr>
       <td><strong>Causal</strong></td>
-      <td>Causally related operations seen in the same order everywhere</td>
-      <td>Moderate</td>
+      <td>Operations that are causally related are seen in the same order everywhere; concurrent ones may differ</td>
+      <td>Moderate: metadata such as vector clocks</td>
       <td>Collaborative editing, comment threads</td>
     </tr>
     <tr>
       <td><strong>Eventual</strong></td>
-      <td>Replicas converge if updates stop; readers may see stale data</td>
-      <td>Lowest (no coordination on the write path)</td>
-      <td>Shopping carts, DNS, social feeds</td>
+      <td>Replicas converge once updates stop; reads may be stale</td>
+      <td>Lowest: no coordination on the write path</td>
+      <td>Shopping carts, DNS, social feeds, caches</td>
     </tr>
   </tbody>
 </table>
 
-<p>Weaker models add <em>session guarantees</em> — read-your-writes (a process always sees its own updates) and monotonic reads (data never appears to go backwards) — to make eventual consistency tolerable for users. Consensus, consistency models, and the quorum mechanics behind them are developed in depth in <a href="consensus-and-coordination.html">Consensus &amp; Coordination</a>; how clients experience and reconcile these guarantees is covered in <a href="client-side-consistency.html">Client-Side Consistency &amp; Sync</a>.</p>
+<p><strong>Session guarantees</strong> (read-your-writes, monotonic reads, monotonic writes, writes-follow-reads) make weak models tolerable for a single user without paying for global coordination. Transactional isolation (serializable, snapshot isolation) is a separate axis about multi-object operations. Strict serializability combines it with linearizability.</p>
 
-<h2 id="explore-the-topics">Explore the Topics</h2>
+<h2 id="topics-in-this-section">Topics in This Section</h2>
 
-<p>The pages below are ordered so that <strong>concepts come before patterns</strong>: start with the theory that constrains every design, then move into the patterns and infrastructure that work within those constraints.</p>
+<p>The pages are ordered so that <strong>concepts come before patterns</strong>. Start with the limits that constrain every design, then move to the patterns and infrastructure that work within them.</p>
 
-<h3 id="concepts--foundations">Concepts &amp; Foundations</h3>
+<h3 id="concepts-and-foundations">Concepts and Foundations</h3>
 
 <table>
   <thead>
@@ -3248,24 +3306,24 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><a href="consensus-and-coordination.html">Consensus &amp; Coordination</a></td>
-      <td>CAP, FLP, consistency models, Paxos, Raft, Byzantine fault tolerance, quorums</td>
+      <td>CAP and PACELC, FLP, consistency models, Paxos, Raft, Byzantine fault tolerance, quorums</td>
     </tr>
     <tr>
       <td><a href="replication-strategies.html">Replication Strategies</a></td>
-      <td>Leader/follower, multi-leader, leaderless quorums, replication lag, conflict handling</td>
+      <td>Single-leader, multi-leader, and leaderless replication; replication lag; conflict resolution</td>
     </tr>
     <tr>
       <td><a href="failure-detection.html">Failure Detection &amp; Gossip</a></td>
-      <td>Heartbeats, phi-accrual detectors, epidemic protocols, anti-entropy, SWIM</td>
+      <td>Heartbeats, phi-accrual detectors, SWIM, epidemic dissemination, anti-entropy</td>
     </tr>
     <tr>
       <td><a href="client-side-consistency.html">Client-Side Consistency &amp; Sync</a></td>
-      <td>Offline-first sync, CRDTs, operational transforms, session guarantees</td>
+      <td>Offline-first sync, CRDTs, operational transformation, session guarantees</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="patterns--infrastructure">Patterns &amp; Infrastructure</h3>
+<h3 id="patterns-and-infrastructure">Patterns and Infrastructure</h3>
 
 <table>
   <thead>
@@ -3277,60 +3335,109 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><a href="microservices-and-event-driven.html">Microservices &amp; Event-Driven</a></td>
-      <td>Service decomposition, sync vs async messaging, Kafka, event sourcing, CQRS</td>
+      <td>Service boundaries, data ownership, sync vs async communication, gateways and meshes, workflows, the outbox</td>
     </tr>
     <tr>
       <td><a href="resilience-patterns.html">Resilience Patterns</a></td>
-      <td>Circuit breakers, retries, bulkheads, sagas, idempotency, distributed locks</td>
+      <td>Timeouts, retries with jitter, circuit breakers, bulkheads, sagas, idempotency, distributed locks</td>
     </tr>
     <tr>
       <td><a href="service-discovery.html">Service Discovery &amp; Configuration</a></td>
-      <td>Registries, health checks, dynamic configuration, service mesh discovery</td>
+      <td>Registries, DNS vs API discovery, health checks, dynamic configuration</td>
     </tr>
     <tr>
       <td><a href="observability.html">Observability</a></td>
-      <td>Distributed tracing, metrics, structured logging, SLOs and error budgets</td>
+      <td>Context propagation, tracing at scale, the OpenTelemetry pipeline, SLOs across dependency chains</td>
     </tr>
     <tr>
       <td><a href="testing-distributed-systems.html">Testing &amp; Chaos Engineering</a></td>
-      <td>Chaos engineering, fault injection, property-based and deterministic simulation testing</td>
+      <td>Fault injection, property-based testing, deterministic simulation, Jepsen-style checking, load testing</td>
     </tr>
   </tbody>
 </table>
 
-<p>A reading order that builds each idea on the last: start with the limits in <a href="consensus-and-coordination.html">Consensus &amp; Coordination</a> (CAP, FLP, the consistency spectrum — everything else is an engineering response to these); see how data survives in <a href="replication-strategies.html">Replication Strategies</a>; learn how a cluster decides a peer is dead in <a href="failure-detection.html">Failure Detection &amp; Gossip</a>; extend consistency to offline clients in <a href="client-side-consistency.html">Client-Side Consistency &amp; Sync</a>; then compose services in <a href="microservices-and-event-driven.html">Microservices &amp; Event-Driven</a> and harden them with <a href="resilience-patterns.html">Resilience Patterns</a>, <a href="service-discovery.html">Service Discovery &amp; Configuration</a>, <a href="observability.html">Observability</a>, and <a href="testing-distributed-systems.html">Testing &amp; Chaos Engineering</a>. For the formal underpinnings, branch into <a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a>; to deploy what you build, see <a href="../technology/kubernetes/">Kubernetes</a>.</p>
+<h3 id="suggested-reading-order">Suggested Reading Order</h3>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<pre><code class="language-mermaid">flowchart LR
+    C["Consensus and&lt;br/&gt;Coordination"] --&gt; R["Replication"]
+    R --&gt; F["Failure Detection"]
+    F --&gt; CS["Client-Side&lt;br/&gt;Consistency"]
+    C --&gt; M["Microservices and&lt;br/&gt;Event-Driven"]
+    M --&gt; RP["Resilience"]
+    M --&gt; SD["Service Discovery"]
+    RP --&gt; O["Observability"]
+    SD --&gt; O
+    O --&gt; T["Testing and Chaos"]
+</code></pre>
+
+<p>The left branch explains how data stays correct across replicas; the right branch explains how services are composed and kept running. Both depend on the limits in Consensus &amp; Coordination.</p>
+
+<h2 id="related-sections">Related Sections</h2>
+
+<p>Several neighbouring sections go deeper on topics this one introduces:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Section</th>
+      <th>Go there for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="../event-driven/">Event-Driven Architecture</a></td>
+      <td>Broker internals (Kafka, RabbitMQ, cloud brokers), event sourcing, CQRS, sagas, outbox/inbox, schema evolution</td>
+    </tr>
+    <tr>
+      <td><a href="../observability/">Observability</a></td>
+      <td>Metrics and PromQL, logging pipelines, tracing backends and instrumentation detail</td>
+    </tr>
+    <tr>
+      <td><a href="../api-design/">API Design</a></td>
+      <td>REST, gRPC and Protocol Buffers, GraphQL, webhooks, AsyncAPI</td>
+    </tr>
+    <tr>
+      <td><a href="../technology/database-design/distributed-transactions.html">Database Design: Distributed Transactions</a></td>
+      <td>Two-phase commit, sagas, exactly-once semantics at the database layer</td>
+    </tr>
+    <tr>
+      <td><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></td>
+      <td>Formal models, happens-before, impossibility proofs, consensus correctness</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="design-principles">Design Principles</h2>
 
 <ul>
-  <li><strong>Design for failure.</strong> Assume every node, link, and dependency can fail. Idempotency, timeouts, retries, and circuit breakers turn failure from catastrophic to routine.</li>
-  <li><strong>Pick your CAP side deliberately.</strong> Partitions are unavoidable, so decide up front whether each service is CP or AP — and document why.</li>
-  <li><strong>Keep services stateless.</strong> Push state into databases and caches so services scale horizontally and recover by simply restarting.</li>
-  <li><strong>Use proven patterns.</strong> Leader election, distributed locks, sagas, and event-driven messaging solve recurring problems — don’t reinvent them.</li>
-  <li><strong>Observe everything.</strong> Distributed tracing, metrics, and structured logs are the only way to reason about emergent, multi-node behavior.</li>
-  <li><strong>Start simple.</strong> Add complexity only when scale demands it. A well-run monolith beats a poorly-run microservice mesh.</li>
+  <li><strong>Design for failure.</strong> Assume every node, link, and dependency will fail. Timeouts, retries with backoff, idempotency, and circuit breakers turn failure from an outage into routine noise.</li>
+  <li><strong>Choose consistency per operation.</strong> Decide deliberately where you need linearizability (uniqueness, money, leadership) and where eventual consistency is fine. Document the choice.</li>
+  <li><strong>Keep services stateless where possible.</strong> Put state in purpose-built stores so compute scales horizontally and recovers by restarting.</li>
+  <li><strong>Make every side effect idempotent.</strong> At-least-once delivery is the norm, so duplicates must be harmless.</li>
+  <li><strong>Observe from the start.</strong> Propagate trace context across every boundary and define SLOs before the first incident, not after.</li>
+  <li><strong>Start simple.</strong> A modular monolith with clear internal boundaries is cheaper to run and easier to split later than a premature microservice mesh.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — formal foundations, impossibility results, and consensus proofs.</li>
-  <li><strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — container orchestration and cluster management.</li>
-  <li><strong><a href="../technology/docker/">Docker</a></strong> — containerization fundamentals and best practices.</li>
-  <li><strong><a href="../technology/aws/">AWS Cloud Services</a></strong> — cloud infrastructure and distributed services at scale.</li>
-  <li><strong><a href="../technology/database-design/">Database Design</a></strong> — sharding, replication, and consistency in data stores.</li>
-  <li><strong><a href="../technology/networking/">Networking</a></strong> — the unreliable substrate every distributed system runs on.</li>
-  <li><strong><a href="../technology/ci-cd/">CI/CD Pipelines</a></strong> — progressive delivery and rollouts for distributed services.</li>
+  <li><a href="../technology/kubernetes/">Kubernetes</a>: container orchestration and cluster management</li>
+  <li><a href="../technology/docker/">Docker</a>: containerization fundamentals</li>
+  <li><a href="../technology/aws/">AWS Cloud Services</a>: managed distributed infrastructure</li>
+  <li><a href="../technology/database-design/">Database Design</a>: sharding, replication, and consistency in data stores</li>
+  <li><a href="../technology/networking/">Networking</a>: the unreliable substrate every distributed system runs on</li>
+  <li><a href="../technology/ci-cd/">CI/CD Pipelines</a>: progressive delivery and rollouts for distributed services</li>
 </ul>
 
 <h3 id="further-reading">Further Reading</h3>
 
 <ul>
-  <li>“Designing Data-Intensive Applications” by Martin Kleppmann</li>
-  <li>“Distributed Systems: Principles and Paradigms” by Tanenbaum &amp; Van Steen</li>
-  <li>“Site Reliability Engineering” by Google</li>
-  <li><a href="https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf">Dynamo: Amazon’s Highly Available Key-value Store</a></li>
-  <li><a href="https://pdos.csail.mit.edu/6.824/">MIT 6.824: Distributed Systems</a></li>
+  <li>Martin Kleppmann and Chris Riccomini, <em>Designing Data-Intensive Applications</em>, 2nd ed. (O’Reilly, 2026)</li>
+  <li>Maarten van Steen and Andrew S. Tanenbaum, <em>Distributed Systems</em>, 4th ed. (free PDF at <a href="https://www.distributed-systems.net/">distributed-systems.net</a>)</li>
+  <li>Betsy Beyer et al., <em>Site Reliability Engineering</em> and <em>The Site Reliability Workbook</em> (Google, free online at <a href="https://sre.google/books/">sre.google/books</a>)</li>
+  <li>DeCandia et al., <a href="https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf">Dynamo: Amazon’s Highly Available Key-value Store</a> (SOSP 2007)</li>
+  <li>Ongaro and Ousterhout, <a href="https://raft.github.io/raft.pdf">In Search of an Understandable Consensus Algorithm</a> (Raft, USENIX ATC 2014)</li>
+  <li><a href="https://pdos.csail.mit.edu/6.824/">MIT 6.5840: Distributed Systems</a> (formerly 6.824), lectures and labs</li>
 </ul>
 
       </section>

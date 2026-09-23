@@ -3135,67 +3135,59 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Game Development</a> » Multiplayer Networking</p>
 
-<p>Multiplayer networking is the discipline of making many machines agree on the state of a shared world while the network between them is slow, lossy, and out of order. Unlike a single-player game where the simulation is the truth, an online game has to reconcile what each player <em>sees</em> with what <em>actually happened</em> on a remote authority — within a budget of milliseconds, or the game feels sluggish and cheaters thrive. This page covers network topologies (client-server vs peer-to-peer), the authoritative-server model, the prediction-and-reconciliation loop that hides latency from the local player, lag compensation for fair hit detection, interpolation and extrapolation for smooth remote entities, the three data models for transmitting state (snapshots, delta state-sync, and RPC), the netcode tradeoffs, and matchmaking. Four ideas underpin all of it:</p>
+<p>Multiplayer networking (“netcode”) is the problem of keeping several machines in agreement about a shared, fast-changing world when the network between them adds tens to hundreds of milliseconds of delay, drops packets, and delivers them out of order. A single-player game’s simulation is simply the truth. An online game has to reconcile what each player <em>sees</em> with what an authority decides <em>happened</em>, fast enough that controls feel immediate and robustly enough that cheating is hard. This page covers network topologies, the authoritative-server model, client-side prediction and reconciliation, rollback, lag compensation, interpolation of remote entities, replication data models, bandwidth and transport, engine frameworks, cheating, and matchmaking.</p>
+
+<p>Four ideas recur throughout:</p>
 
 <ul>
-  <li><strong>The server is the only truth.</strong> In competitive games, clients merely <em>predict</em>; the authoritative server simulates the real world and corrects clients. This is the only robust defense against cheating.</li>
-  <li><strong>Hide latency, never wait for it.</strong> Round-trip time is bounded by physics. Client-side prediction shows the local player an instant result and reconciles when the server’s authoritative answer arrives.</li>
-  <li><strong>Fairness means rewinding time.</strong> Lag compensation rewinds the server’s world to when the shooter actually fired, so a player who aimed correctly on their screen lands the shot despite latency.</li>
-  <li><strong>Send deltas, not the world.</strong> Bandwidth is finite. Transmit only what changed since the last acknowledged state, quantize aggressively, and prioritize entities by relevance.</li>
+  <li><strong>One authority.</strong> In competitive games the server’s simulation is the truth; clients send inputs and <em>predict</em>, and the server corrects them.</li>
+  <li><strong>Hide latency; never wait on it.</strong> Round-trip time is bounded by physics. Show the local player an immediate result and repair it when the authoritative answer arrives.</li>
+  <li><strong>Fairness requires rewinding time.</strong> The server evaluates a shot against the world as the shooter saw it, not the world as it is when the packet arrives.</li>
+  <li><strong>Send only what changed and what matters.</strong> Delta-compress against acknowledged state, quantize, and filter by relevance.</li>
 </ul>
 
-<h2 id="network-topologies-client-server-vs-peer-to-peer">Network Topologies: Client-Server vs Peer-to-Peer</h2>
+<h2 id="network-topologies">Network Topologies</h2>
 
-<p>The first architectural decision is <em>where the simulation lives</em>. Two families dominate, with a hybrid in between.</p>
+<p>The first architectural decision is where the authoritative simulation runs.</p>
 
-<h3 id="client-server-dedicated-and-listen-servers">Client-Server (Dedicated and Listen Servers)</h3>
+<h3 id="client-server">Client-Server</h3>
 
-<p>Every client talks only to a central <strong>server</strong>, which owns the canonical simulation. Clients send <em>inputs</em> (or input intentions) upward and receive <em>state</em> downward. There are two flavors:</p>
+<p>Every client talks only to a central <strong>server</strong> that owns the canonical simulation. Clients send inputs up; the server sends state down.</p>
 
 <ul>
-  <li><strong>Dedicated server</strong>: a headless process, usually in a datacenter, with no local player. Standard for competitive and large-scale games (Counter-Strike, Valorant, Overwatch).</li>
-  <li><strong>Listen server</strong>: one of the players’ machines also acts as the host. Cheaper (no server cost) but gives the host a latency advantage and a single point of failure (host migration is needed if they leave).</li>
+  <li><strong>Dedicated server.</strong> A headless process in a datacenter with no local player. Standard for competitive and large-scale games (<em>Counter-Strike 2</em>, <em>Valorant</em>, <em>Fortnite</em>).</li>
+  <li><strong>Listen server.</strong> One player’s machine also hosts. It costs nothing to operate, but the host has zero latency, can tamper with the simulation, and takes the session down if they leave unless the game supports <strong>host migration</strong>.</li>
 </ul>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        Client A ----\
-                      \
-        Client B ------&gt;  [ Authoritative Server ]  -- owns world state
-                      /
-        Client C ----/
+<pre><code class="language-mermaid">flowchart LR
+    A[Client A] -- "inputs" --&gt; S[("Authoritative server&lt;br/&gt;owns world state")]
+    B[Client B] -- "inputs" --&gt; S
+    C[Client C] -- "inputs" --&gt; S
+    S -. "snapshots / state" .-&gt; A
+    S -. "snapshots / state" .-&gt; B
+    S -. "snapshots / state" .-&gt; C
+</code></pre>
 
-   Up:   inputs (move, fire, ...)
-   Down: snapshots / state updates
-</code></pre></div></div>
+<p>A single authority makes cheating hard, keeps state consistent, and scales to large player counts. The costs are at least one round trip before any action becomes “real,” which prediction hides, and the expense of running servers.</p>
 
-<p><strong>Strengths:</strong> a single authority makes cheating hard (the server validates everything), state stays consistent, and the model scales to many players. <strong>Weaknesses:</strong> every action incurs at least one round trip of latency before it is “real,” and dedicated servers cost money to run.</p>
+<h3 id="peer-to-peer">Peer-to-Peer</h3>
 
-<h3 id="peer-to-peer-p2p">Peer-to-Peer (P2P)</h3>
-
-<p>Every peer connects to every other peer; there is no central authority. Two sub-models exist:</p>
+<p>Peers connect directly with no central authority. Two sub-models exist:</p>
 
 <ul>
-  <li><strong>Lockstep / deterministic P2P</strong>: peers exchange only <em>inputs</em> and each independently runs the <em>exact same deterministic simulation</em>. Used heavily in RTS games (StarCraft, Age of Empires) where thousands of units would be too expensive to stream as state. Requires bit-exact determinism across machines and stalls if any peer’s input is late (everyone waits for the slowest).</li>
-  <li><strong>Replicated-state P2P</strong>: peers exchange state directly. Simpler but bandwidth scales as O(N²) with peer count and trust is distributed (any peer can lie).</li>
+  <li><strong>Deterministic lockstep.</strong> Peers exchange only <em>inputs</em>, and each runs the same deterministic simulation. This is the traditional RTS model (<em>StarCraft</em>, <em>Age of Empires</em>), where streaming the state of thousands of units would be too expensive. It needs bit-exact determinism across machines, and in its basic form every peer waits for the slowest peer’s input.</li>
+  <li><strong>Replicated-state P2P.</strong> Peers send state directly. Simpler, but trust is spread across every peer and bandwidth grows with peer count.</li>
 </ul>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        Peer A &lt;----&gt; Peer B
-           ^   \      /   ^
-           |    \    /    |
-           v     \  /     v
-        Peer C &lt;--\/--&gt; Peer D     (full mesh: N*(N-1)/2 links)
-</code></pre></div></div>
-
-<p>For N peers a full mesh has N(N-1)/2 connections:</p>
+<p>A full mesh of $N$ peers has</p>
 
 \[L = \frac{N(N-1)}{2}\]
 
-<p>so 8 peers need 28 links and each peer uploads to 7 others — upstream bandwidth becomes the bottleneck quickly.</p>
+<p>links, and each peer uploads to $N-1$ others. Eight peers need 28 links, so a residential upload connection becomes the bottleneck quickly. P2P also has to traverse NAT (via STUN/ICE-style hole punching, with a relay fallback) and exposes players’ IP addresses to each other.</p>
 
-<p><strong>Strengths:</strong> no server cost, potentially lower latency for small groups (one hop instead of two), and lockstep is extremely bandwidth-efficient. <strong>Weaknesses:</strong> trust is hard (any peer can cheat), NAT traversal is fiddly, and it scales poorly past a handful of players.</p>
+<h3 id="relays-and-hybrids">Relays and Hybrids</h3>
 
-<h3 id="hybrid">Hybrid</h3>
-
-<p>Many shipping games mix the two: dedicated servers handle matchmaking, persistence, and anti-cheat, while a relay or P2P path carries the latency-critical gameplay traffic. Fighting games (rollback netcode, see below) often run P2P gameplay over a matchmaking backend. Battle-royale and MMO titles are almost always pure client-server.</p>
+<p>Many shipping games mix models. Backend services handle accounts, matchmaking, persistence, and anti-cheat, while gameplay traffic goes over P2P or through <strong>relay servers</strong>. A relay forwards packets without simulating anything, which solves NAT traversal, hides player IP addresses (a DDoS defense), and can route over a private backbone; Valve’s Steam Datagram Relay is a prominent example. Fighting games typically run P2P rollback over relays. Unity’s Netcode for GameObjects adds a <strong>distributed authority</strong> topology, in which clients each own authority over some objects and a cloud service relays and arbitrates state; it suits cooperative games where server cost matters more than cheat resistance.</p>
 
 <h3 id="choosing-a-topology">Choosing a Topology</h3>
 
@@ -3203,187 +3195,259 @@ document.addEventListener('DOMContentLoaded', function () {
   <thead>
     <tr>
       <th>Criterion</th>
-      <th>Client-Server (dedicated)</th>
-      <th>Listen Server</th>
-      <th>Lockstep P2P</th>
+      <th>Dedicated server</th>
+      <th>Listen server</th>
+      <th>Deterministic lockstep</th>
       <th>Replicated P2P</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Cheat resistance</td>
-      <td>High (server authority)</td>
+      <td>High</td>
       <td>Medium (host trusted)</td>
-      <td>Low–Medium</td>
+      <td>Medium (inputs validated by all; map hacks easy)</td>
       <td>Low</td>
     </tr>
     <tr>
       <td>Latency to act</td>
-      <td>1 RTT (predicted: ~0)</td>
-      <td>0 for host, 1 RTT others</td>
-      <td>Input-delay bound</td>
-      <td>~0.5 RTT</td>
+      <td>1 RTT, hidden by prediction</td>
+      <td>0 for host, 1 RTT for others</td>
+      <td>Input delay, or rollback</td>
+      <td>About half an RTT per peer</td>
     </tr>
     <tr>
       <td>Bandwidth</td>
       <td>Server fans out state</td>
       <td>Host fans out</td>
       <td>Tiny (inputs only)</td>
-      <td>O(N²)</td>
+      <td>Grows with peers squared</td>
     </tr>
     <tr>
       <td>Player count</td>
-      <td>Hundreds+</td>
+      <td>Hundreds or more</td>
       <td>Tens</td>
-      <td>Tens (input-bound)</td>
-      <td>Handful</td>
+      <td>Tens</td>
+      <td>A handful</td>
     </tr>
     <tr>
       <td>Operating cost</td>
       <td>High</td>
       <td>None</td>
-      <td>None</td>
-      <td>None</td>
+      <td>Low (relay only)</td>
+      <td>Low (relay only)</td>
     </tr>
     <tr>
-      <td>Typical genre</td>
-      <td>FPS, MMO, BR</td>
+      <td>Typical genres</td>
+      <td>FPS, battle royale, MMO</td>
       <td>Co-op, casual</td>
-      <td>RTS</td>
-      <td>Fighting (small)</td>
+      <td>RTS, fighting games</td>
+      <td>Small co-op</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="authoritative-servers">Authoritative Servers</h2>
+<h2 id="the-authoritative-server">The Authoritative Server</h2>
 
-<p>In an <strong>authoritative</strong> model the server’s simulation is definitionally correct; the client’s view is an <em>optimistic guess</em> that the server may overrule. The client never directly sets its own position on the server — it sends the <em>input</em> (“I am holding W and pressed jump on tick 4012”) and the server runs the movement code to decide where the player actually ends up.</p>
+<p>In an <strong>authoritative</strong> model the server’s simulation is correct by definition and each client’s view is an optimistic guess the server may overrule. The client never tells the server where it is. It sends intent (“tick 4012: W held, jump pressed”), and the server runs the movement code to decide where the player ends up.</p>
 
-<p>This separation is the foundation of anti-cheat. A client that sends “my position is (9999, 9999), I have 999 health, I just got 50 kills” is simply ignored, because the server computes those values itself. The threat model shrinks to <em>information</em> cheats (wallhacks from over-sent state) and <em>input</em> cheats (aimbots that send legitimate-but-superhuman inputs), both of which have their own mitigations (relevancy filtering and statistical detection).</p>
+<p>That separation is the foundation of anti-cheat. A client claiming “I am at (9999, 9999) with 999 health” is ignored because the server computes those values itself. What remains are <strong>information cheats</strong> (wallhacks and radar using state the server sent) and <strong>input cheats</strong> (aimbots and triggerbots that send plausible but superhuman input), which need other defenses (see <a href="#cheating-and-trust">Cheating and Trust</a>).</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Server tick loop (fixed timestep, e.g. 64 Hz):
+<p>The server runs a <strong>fixed-timestep</strong> loop:</p>
 
-  for each tick t:
-      collect_inputs_for_tick(t)       # from all clients, buffered
-      for each player:
-          apply_movement(player, input) # server is the physics authority
-      run_game_logic(t)                 # combat, scoring, pickups
-      for each client:
-          send_snapshot(client, t)      # only what is relevant to them
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Server main loop at a fixed tick rate (e.g. 64 Hz -&gt; 15.625 ms per tick)
+</span><span class="k">while</span> <span class="n">running</span><span class="p">:</span>
+    <span class="n">tick</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">client</span> <span class="ow">in</span> <span class="n">clients</span><span class="p">:</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">client</span><span class="p">.</span><span class="n">input_buffer</span><span class="p">.</span><span class="nf">pop_for_tick</span><span class="p">(</span><span class="n">tick</span><span class="p">)</span>   <span class="c1"># buffered, possibly late
+</span>        <span class="nf">simulate_player</span><span class="p">(</span><span class="n">client</span><span class="p">.</span><span class="n">player</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">TICK_DT</span><span class="p">)</span>   <span class="c1"># server is the physics authority
+</span>    <span class="nf">run_game_logic</span><span class="p">(</span><span class="n">tick</span><span class="p">)</span>                                   <span class="c1"># combat, scoring, pickups
+</span>    <span class="n">history</span><span class="p">.</span><span class="nf">record</span><span class="p">(</span><span class="n">tick</span><span class="p">,</span> <span class="n">world</span><span class="p">.</span><span class="nf">snapshot</span><span class="p">())</span>                 <span class="c1"># for lag compensation
+</span>    <span class="k">for</span> <span class="n">client</span> <span class="ow">in</span> <span class="n">clients</span><span class="p">:</span>
+        <span class="nf">send_snapshot</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="nf">relevant_state</span><span class="p">(</span><span class="n">client</span><span class="p">),</span> <span class="n">ack</span><span class="o">=</span><span class="n">client</span><span class="p">.</span><span class="n">last_input_seq</span><span class="p">)</span>
+    <span class="nf">sleep_until_next_tick</span><span class="p">()</span>
 </code></pre></div></div>
 
-<p>The server runs at a <strong>fixed tick rate</strong> (commonly 20–128 Hz). A higher tick rate reduces the granularity of error between client and server and improves hit registration, at the cost of CPU and bandwidth. CS2 and Valorant run effectively 64–128 Hz subtick/tick simulations; many MMOs run far lower (10–20 Hz) because precise sub-frame timing matters less.</p>
+<h3 id="tick-rate">Tick Rate</h3>
 
-<p><strong>Server-side validation</strong> typically includes: input sanity (no impossible acceleration), rate limiting, line-of-sight checks before revealing entities, and physics constraints (you cannot walk through a wall because the server runs the same collision code the client does).</p>
+<p>A higher tick rate shrinks the time quantum between client and server, improving hit registration and reducing latency-related artifacts, at a roughly linear cost in CPU and bandwidth. Publicly reported server rates:</p>
 
-<h2 id="client-side-prediction-and-server-reconciliation">Client-Side Prediction and Server Reconciliation</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Game</th>
+      <th>Server tick rate</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><em>Valorant</em></td>
+      <td>128 Hz</td>
+    </tr>
+    <tr>
+      <td><em>Counter-Strike 2</em></td>
+      <td>64 Hz, with sub-tick timestamps on inputs</td>
+    </tr>
+    <tr>
+      <td><em>Overwatch 2</em></td>
+      <td>About 64 Hz</td>
+    </tr>
+    <tr>
+      <td><em>Fortnite</em></td>
+      <td>30 Hz</td>
+    </tr>
+    <tr>
+      <td><em>Apex Legends</em>, <em>Call of Duty: Warzone</em></td>
+      <td>About 20 Hz</td>
+    </tr>
+    <tr>
+      <td>Many MMOs</td>
+      <td>10 to 20 Hz</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>If the client waited a full round trip every time the player pressed a key, a 100 ms ping would mean 100 ms of input lag — unplayable for an FPS. <strong>Client-side prediction</strong> solves this: the client runs the <em>same movement simulation locally</em> and shows the result immediately, then corrects itself when the authoritative answer arrives. This is the single most important technique in modern netcode and is the architecture popularized by the Quake 3 / Source (“Valve”) networking model.</p>
+<p><em>Counter-Strike 2</em>’s <strong>sub-tick</strong> system stamps each input with the precise moment it happened between ticks, and the server evaluates shots and movement at that moment rather than at the tick boundary. This decouples input precision from tick rate, though the server still simulates and broadcasts at 64 Hz.</p>
 
-<h3 id="the-prediction-loop">The Prediction Loop</h3>
+<p>Server-side validation also covers input sanity (no impossible speed or turn rate), rate limits, and running the same collision code as the client, so the server never accepts a position inside a wall.</p>
+
+<h2 id="client-side-prediction-and-reconciliation">Client-Side Prediction and Reconciliation</h2>
+
+<p>If a client waited a round trip on every key press, a 100 ms ping would mean 100 ms of input lag. <strong>Client-side prediction</strong> runs the same movement code locally and shows the result immediately, then corrects it when the server’s answer arrives. This model was popularized by <em>QuakeWorld</em> and the Quake 3 and Source engines, and is standard in modern shooters.</p>
+
+<h3 id="the-loop">The Loop</h3>
 
 <ol>
-  <li>The client samples input for tick <code class="language-plaintext highlighter-rouge">t</code>, tags it with a <strong>sequence number</strong>, and sends it to the server.</li>
-  <li><strong>Immediately</strong>, the client applies that same input to its <em>local predicted state</em> and renders the result — zero perceived latency.</li>
-  <li>The client stores the input (and the resulting predicted state) in a ring buffer of <em>unacknowledged</em> inputs.</li>
-  <li>The server processes inputs in order and returns authoritative state stamped with the <strong>last input sequence number it has applied</strong> (the acknowledgment).</li>
+  <li>Each frame, the client samples input, tags it with a <strong>sequence number</strong>, and sends it to the server. Clients usually resend the last few inputs in every packet so a single lost packet does not lose input.</li>
+  <li>The client immediately applies the input to its local predicted state and renders the result.</li>
+  <li>The client keeps each unacknowledged input, and the state it predicted, in a ring buffer.</li>
+  <li>The server processes inputs in order and returns authoritative state stamped with the <strong>last input sequence number it applied</strong>.</li>
 </ol>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C-&gt;&gt;C: Apply input #41 locally (predict)
+    C-&gt;&gt;S: Input #41
+    C-&gt;&gt;C: Apply input #42 locally (predict)
+    C-&gt;&gt;S: Input #42
+    S-&gt;&gt;S: Simulate #41
+    S--&gt;&gt;C: State after #41 (ack = 41)
+    C-&gt;&gt;C: Compare with predicted state at #41
+    Note over C: On mismatch: reset to server state,&lt;br/&gt;then replay #42 and any later inputs
+    C-&gt;&gt;C: Apply input #43 locally (predict)
+</code></pre>
 
 <h3 id="reconciliation">Reconciliation</h3>
 
-<p>When a snapshot arrives acknowledging input <code class="language-plaintext highlighter-rouge">N</code>, the client compares its <em>predicted</em> state at tick <code class="language-plaintext highlighter-rouge">N</code> against the <em>authoritative</em> state:</p>
+<p>When a snapshot acknowledges input $n$, the client compares the state it predicted at $n$ with the authoritative state:</p>
 
 <ul>
-  <li>If they match (within an epsilon), the prediction was correct — discard inputs up to <code class="language-plaintext highlighter-rouge">N</code> and carry on.</li>
-  <li>If they differ (a missed jump, a collision the client didn’t predict, knockback from another player), the client <strong>snaps to the authoritative state</strong> and then <strong>re-simulates</strong> every still-unacknowledged input <code class="language-plaintext highlighter-rouge">N+1, N+2, ...</code> on top of it. This “replay” brings the prediction back up to the present without throwing away inputs the server hasn’t seen yet.</li>
+  <li>If they match within a tolerance, the prediction was right. Drop buffered inputs up to $n$.</li>
+  <li>If they differ (an unpredicted collision, knockback from another player, a server-side slow effect), the client <strong>resets to the authoritative state</strong> and <strong>replays</strong> every input after $n$ to bring the prediction back to the present.</li>
 </ul>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Client input buffer (unacked):  [N+1][N+2][N+3] -&gt; present
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">on_server_state</span><span class="p">(</span><span class="n">snapshot</span><span class="p">):</span>
+    <span class="c1"># Forget inputs the server has already applied.
+</span>    <span class="n">pending</span><span class="p">.</span><span class="nf">drop_through</span><span class="p">(</span><span class="n">snapshot</span><span class="p">.</span><span class="n">ack_seq</span><span class="p">)</span>
+    <span class="n">predicted</span> <span class="o">=</span> <span class="n">prediction_history</span><span class="p">[</span><span class="n">snapshot</span><span class="p">.</span><span class="n">ack_seq</span><span class="p">]</span>
 
-Snapshot arrives: authoritative state @ N
-
-   1. Rewind: local state := authoritative_state[N]
-   2. Replay: apply input N+1, N+2, N+3 in order
-   3. Result: corrected predicted state at present tick
-</code></pre></div></div>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Pseudocode: client reconciliation
-</span><span class="k">def</span> <span class="nf">on_server_snapshot</span><span class="p">(</span><span class="n">snapshot</span><span class="p">):</span>
-    <span class="c1"># Discard inputs the server has already processed
-</span>    <span class="n">pending</span><span class="p">.</span><span class="nf">drop_until</span><span class="p">(</span><span class="n">snapshot</span><span class="p">.</span><span class="n">last_acked_input</span><span class="p">)</span>
-
-    <span class="n">predicted</span> <span class="o">=</span> <span class="nf">local_state_at</span><span class="p">(</span><span class="n">snapshot</span><span class="p">.</span><span class="n">last_acked_input</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nf">distance</span><span class="p">(</span><span class="n">predicted</span><span class="p">,</span> <span class="n">snapshot</span><span class="p">.</span><span class="n">state</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">EPSILON</span><span class="p">:</span>
-        <span class="c1"># Misprediction: snap to authority, then replay unacked inputs
-</span>        <span class="n">local_state</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">.</span><span class="n">state</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">pending</span><span class="p">:</span>           <span class="c1"># in sequence order
-</span>            <span class="n">local_state</span> <span class="o">=</span> <span class="nf">simulate</span><span class="p">(</span><span class="n">local_state</span><span class="p">,</span> <span class="n">inp</span><span class="p">,</span> <span class="n">FIXED_DT</span><span class="p">)</span>
-    <span class="c1"># else: prediction was correct, nothing to do
+    <span class="k">if</span> <span class="nf">distance</span><span class="p">(</span><span class="n">predicted</span><span class="p">,</span> <span class="n">snapshot</span><span class="p">.</span><span class="n">player_state</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">EPSILON</span><span class="p">:</span>
+        <span class="c1"># Misprediction: adopt the server's state, then replay unacknowledged inputs.
+</span>        <span class="n">state</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">.</span><span class="n">player_state</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">inp</span> <span class="ow">in</span> <span class="n">pending</span><span class="p">:</span>                      <span class="c1"># in sequence order
+</span>            <span class="n">state</span> <span class="o">=</span> <span class="nf">simulate_player</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">inp</span><span class="p">,</span> <span class="n">TICK_DT</span><span class="p">)</span>
+            <span class="n">prediction_history</span><span class="p">[</span><span class="n">inp</span><span class="p">.</span><span class="n">seq</span><span class="p">]</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="n">local_player</span><span class="p">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="n">local_player</span><span class="p">.</span><span class="n">visual_offset</span> <span class="o">+=</span> <span class="n">old_render_pos</span> <span class="o">-</span> <span class="n">state</span><span class="p">.</span><span class="n">position</span>  <span class="c1"># blend out over a few frames
 </span></code></pre></div></div>
 
-<p>The key invariant: <strong>client and server must run identical movement code</strong> over the same fixed timestep. If they diverge (different gravity constant, different collision epsilon), reconciliation will constantly snap and the player will rubber-band. This is why prediction is usually applied only to the <em>local player’s own movement</em> — predicting other players’ actions is unreliable, so those are handled by interpolation instead.</p>
+<p>The invariant is that <strong>client and server run identical movement code on the same fixed timestep</strong>. If they diverge (a different gravity constant, a different collision epsilon), reconciliation corrects the player constantly and they “rubber-band.” Corrections are applied to the simulation state immediately but smoothed on the rendered model over a few frames so a small error does not look like a teleport. Prediction usually covers only what the local player controls (movement, weapon fire, cooldowns); other players cannot be predicted reliably and are interpolated instead.</p>
 
-<h3 id="rollback-netcode-the-p2p-variant">Rollback Netcode (the P2P variant)</h3>
+<h2 id="rollback-netcode">Rollback Netcode</h2>
 
-<p>Fighting games use a closely related idea called <strong>rollback</strong>: each peer predicts the opponent’s input (usually “same as last frame”), simulates forward immediately, and when the real input arrives, rolls the whole game state back to that frame and re-simulates. Because fighting games are deterministic and short-horizon, this hides one-to-several frames of latency with no perceived delay, and is the gold standard (GGPO) for competitive fighters.</p>
+<p><strong>Rollback</strong> extends prediction to the whole game state and is the standard for modern fighting games, popularized by Tony Cannon’s GGPO library (open-sourced under the MIT license in 2019). Each peer:</p>
+
+<ol>
+  <li>Predicts the remote player’s input for the current frame, usually “same as last frame.”</li>
+  <li>Simulates immediately with that guess and saves a snapshot of the game state.</li>
+  <li>When the real input for an earlier frame arrives and differs from the guess, <strong>restores</strong> the snapshot from that frame and <strong>re-simulates</strong> every frame up to the present within a single rendered frame.</li>
+</ol>
+
+<pre><code class="language-mermaid">flowchart LR
+    F1["Frame 100&lt;br/&gt;remote input confirmed"] --&gt; F2["Frame 101&lt;br/&gt;predicted"]
+    F2 --&gt; F3["Frame 102&lt;br/&gt;predicted"]
+    F3 --&gt; F4["Frame 103&lt;br/&gt;predicted (now)"]
+    F4 -. "real input for 101 differs" .-&gt; RB["Restore state at 100"]
+    RB --&gt; RS["Re-simulate 101, 102, 103&lt;br/&gt;with corrected input"]
+</code></pre>
+
+<p>Rollback needs a <strong>deterministic</strong> simulation and cheap state save and restore, because a misprediction can force several frames to be re-simulated inside one 16.7 ms frame. Most implementations combine a small, fixed <strong>input delay</strong> (one to three frames) with rollback: the delay absorbs part of the latency so rollbacks are shorter and visual corrections rarer. The alternative, pure <strong>delay-based</strong> netcode, waits for remote input before simulating each frame; it never shows corrections, but it feels sluggish and degrades badly with jitter, which is why <em>Street Fighter 6</em>, <em>Tekken 8</em>, and <em>Mortal Kombat 1</em> all ship rollback. Rollback has since spread beyond fighting games, including the RTS <em>Stormgate</em>.</p>
 
 <h2 id="lag-compensation">Lag Compensation</h2>
 
-<p>Prediction fixes the <em>local player’s</em> feel, but it creates a fairness problem for <em>interactions between players</em>. Suppose you have 100 ms of latency and you fire at an enemy who is, on your screen, standing still in a doorway. By the time your “fire” packet reaches the server, ~50 ms have passed and the server’s version of that enemy has already moved out of the doorway. Without compensation, your perfectly-aimed shot misses through no fault of yours.</p>
+<p>Prediction fixes the local player’s feel but creates a fairness problem between players. On your screen, an enemy stands in a doorway; you fire. By the time your command reaches the server, the server’s copy of the enemy has moved on, so without correction a well-aimed shot misses.</p>
 
-<p><strong>Lag compensation</strong> (server-side rewind) fixes this. The server keeps a short <strong>history buffer</strong> of every entity’s position over the last few hundred milliseconds. When it receives a “fire” command, the command carries the client’s view timestamp (or the server estimates it from the client’s known RTT and interpolation delay). The server then:</p>
+<p><strong>Lag compensation</strong> (server-side rewind) fixes this. The server keeps a short <strong>history buffer</strong> of every hittable entity’s position and hitboxes. When a fire command arrives, the server:</p>
 
 <ol>
-  <li>Computes the time the shooter actually saw the world: roughly <code class="language-plaintext highlighter-rouge">now - (RTT/2) - interpolation_delay</code>.</li>
-  <li><strong>Rewinds</strong> all relevant entities to their positions at that historical time.</li>
-  <li>Performs the hit test against that rewound world.</li>
-  <li>Restores the present state and applies the result (damage) at the current tick.</li>
+  <li>Estimates when the shooter saw the world: the command’s timestamp, or approximately the current time minus the shooter’s one-way latency and their interpolation delay.</li>
+  <li><strong>Rewinds</strong> relevant entities to their recorded positions at that time.</li>
+  <li>Performs the hit test against the rewound world.</li>
+  <li>Restores the present and applies the result at the current tick.</li>
 </ol>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Real timeline on server:
+<pre><code class="language-mermaid">sequenceDiagram
+    participant A as Shooter (client)
+    participant S as Server
+    participant B as Target (client)
+    Note over A: Sees target about 100 ms in the past&lt;br/&gt;(latency + interpolation)
+    A-&gt;&gt;S: Fire at tick 500, view time T
+    S-&gt;&gt;S: Rewind target hitboxes to time T
+    S-&gt;&gt;S: Raycast against rewound hitboxes: hit
+    S-&gt;&gt;S: Restore present state
+    S--&gt;&gt;B: You were hit
+    Note over B: Already behind cover on own screen
+</code></pre>
 
-   t-150ms     t-100ms     t-50ms       now
-     |-----------|-----------|------------|
-   enemy@A    enemy@B    enemy@C      enemy@D
+<p>The rewind amount is roughly</p>
 
-Shooter (100ms RTT, ~50ms interp) saw the enemy at ~B.
-On "fire", server rewinds enemy to B, tests the ray, then restores to D.
-</code></pre></div></div>
+\[t_{\text{rewind}} \approx t_{\text{one-way}} + t_{\text{interp}}\]
 
-<p>The total rewind amount is bounded for sanity (you cannot rewind seconds, or a high-ping player would be shooting into the distant past):</p>
+<p>and is capped (Source’s default limit is one second) so a high-ping player cannot shoot far into the past. Many games cap it much lower, or reduce compensation for players above a ping threshold.</p>
 
-\[t_{\text{rewind}} = \frac{\text{RTT}}{2} + t_{\text{interp}}\]
+<p>The trade-off cannot be avoided. The shooter gets a fair shot, and the target sometimes dies “behind cover” because they were not behind cover on the shooter’s screen. When the shooter’s and target’s views disagree by a round trip, only one can be treated as correct, and most competitive shooters <strong>favor the shooter</strong>, since missing a shot you clearly landed feels worse than occasionally dying late.</p>
 
-<p>Lag compensation trades one unfairness for another: the <em>shooter</em> gets a fair shot, but the <em>target</em> can experience “I was already behind cover and still died” (being shot around a corner). This is an inherent, unavoidable tradeoff — you cannot make both the shooter’s and the target’s local views simultaneously authoritative when they disagree by a round trip. Designers tune the maximum rewind window to balance the two, and competitive shooters generally favor the shooter.</p>
+<h3 id="peekers-advantage">Peeker’s Advantage</h3>
+
+<p>A related effect is <strong>peeker’s advantage</strong>: a player who moves around a corner sees a stationary defender before the defender’s client shows the peeker. The gap is roughly the sum of both players’ latencies, the interpolation delay, and the server’s tick interval. Riot’s engineering write-ups for <em>Valorant</em> describe shrinking it with 128 Hz servers, minimal interpolation buffering, and a network of regional datacenters and peering to keep round trips low. It can be reduced but never eliminated.</p>
 
 <h2 id="interpolation-and-extrapolation">Interpolation and Extrapolation</h2>
 
-<p>The local player is predicted; <strong>remote</strong> entities are a different problem. The client receives discrete snapshots of remote players at the server tick rate (say every 33 ms at 30 Hz). Rendering them only on snapshot arrival would look like a 30 FPS slideshow on a 144 Hz monitor, with visible stutter and teleporting on packet loss. Two techniques smooth this.</p>
+<p>Remote entities arrive as discrete snapshots at the server’s send rate, far below a 144 Hz display’s frame rate. Rendering each snapshot as it arrives looks like stutter and teleporting under packet loss. Two techniques smooth it.</p>
 
 <h3 id="entity-interpolation">Entity Interpolation</h3>
 
-<p>Instead of rendering remote entities at the <em>latest</em> received position, the client deliberately renders them slightly <strong>in the past</strong> — typically one or two snapshot intervals behind. It keeps a buffer of recent snapshots and, for the render time <code class="language-plaintext highlighter-rouge">t</code>, finds the two snapshots that bracket it and <strong>linearly interpolates</strong> between them:</p>
+<p>The client deliberately renders remote entities slightly <strong>in the past</strong>, typically two snapshot intervals behind, so it almost always has a snapshot on each side of the render time. For render time $t$ between snapshots at $t_0$ and $t_1$:</p>
 
 \[P(t) = P_0 + (P_1 - P_0)\,\frac{t - t_0}{t_1 - t_0}\]
 
-<p>This guarantees smooth motion because the client is always interpolating between two known-good positions rather than guessing. The cost is a small, fixed <strong>interpolation delay</strong> (e.g. 100 ms in older Source games): remote players are shown 100 ms behind reality. This delay is exactly what lag compensation must account for when rewinding.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">interpolated_position</span><span class="p">(</span><span class="nb">buffer</span><span class="p">,</span> <span class="n">render_time</span><span class="p">):</span>
-    <span class="c1"># render_time = now - interpolation_delay
-</span>    <span class="n">s0</span><span class="p">,</span> <span class="n">s1</span> <span class="o">=</span> <span class="nb">buffer</span><span class="p">.</span><span class="nf">bracket</span><span class="p">(</span><span class="n">render_time</span><span class="p">)</span>   <span class="c1"># two snapshots around render_time
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">remote_position</span><span class="p">(</span><span class="nb">buffer</span><span class="p">,</span> <span class="n">now</span><span class="p">):</span>
+    <span class="n">render_time</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">INTERP_DELAY</span>                 <span class="c1"># e.g. 2 snapshot intervals
+</span>    <span class="n">s0</span><span class="p">,</span> <span class="n">s1</span> <span class="o">=</span> <span class="nb">buffer</span><span class="p">.</span><span class="nf">bracket</span><span class="p">(</span><span class="n">render_time</span><span class="p">)</span>             <span class="c1"># snapshots either side
 </span>    <span class="n">alpha</span> <span class="o">=</span> <span class="p">(</span><span class="n">render_time</span> <span class="o">-</span> <span class="n">s0</span><span class="p">.</span><span class="n">time</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">s1</span><span class="p">.</span><span class="n">time</span> <span class="o">-</span> <span class="n">s0</span><span class="p">.</span><span class="n">time</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">s0</span><span class="p">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">s1</span><span class="p">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>     <span class="c1"># smooth, always between knowns
+    <span class="k">return</span> <span class="nf">lerp</span><span class="p">(</span><span class="n">s0</span><span class="p">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">s1</span><span class="p">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>               <span class="c1"># slerp for rotations
 </span></code></pre></div></div>
 
-<p>Interpolation delay is the classic latency/smoothness tradeoff: a larger buffer hides more jitter and packet loss but makes remote players laggier relative to truth; a smaller buffer is more responsive but stutters under loss.</p>
+<p>Linear interpolation shows kinks at snapshot points; if snapshots carry velocity, <strong>cubic Hermite</strong> interpolation between position and velocity pairs gives smooth curves. The interpolation delay (100 ms by default in older Source games at 20 updates per second; much less at high send rates) is a latency-for-smoothness trade: a larger buffer rides out more jitter and loss but shows remote players further behind the present. That delay is exactly what lag compensation must add back when rewinding.</p>
 
 <h3 id="extrapolation-dead-reckoning">Extrapolation (Dead Reckoning)</h3>
 
-<p>When a snapshot is <em>late or lost</em>, the client has nothing to interpolate toward, so it must <strong>extrapolate</strong> — predict where the entity <em>probably</em> is by projecting its last known velocity (and sometimes acceleration) forward:</p>
+<p>If the next snapshot is late or lost, there is nothing to interpolate toward, so the client <strong>extrapolates</strong> from the last known velocity and acceleration:</p>
 
-\[P(t) = P_0 + v_0\,(t - t_0) + \tfrac{1}{2}\,a_0\,(t - t_0)^2\]
+\[P(t) = P_0 + v_0\,(t - t_0) + \frac{1}{2}\,a_0\,(t - t_0)^2\]
 
-<p>This <strong>dead reckoning</strong> keeps motion fluid through brief dropouts, but it <em>guesses</em>, so it is wrong whenever the entity changes direction. When the real snapshot finally arrives, the client must smoothly correct the error (an instant snap looks like a teleport; a blend over a few frames hides it). Extrapolation is bounded to a short window (e.g. 250 ms) — extrapolating too far produces players sliding through walls.</p>
+<p>Dead reckoning keeps motion fluid through short gaps but is wrong whenever the entity changes direction, so it is limited to a short window (typically 100 to 250 ms) and corrected by blending toward fresh data rather than snapping. Games dominated by inertia, such as vehicle or flight games, can extrapolate much more reliably than twitchy character shooters.</p>
 
 <table>
   <thead>
@@ -3396,176 +3460,269 @@ On "fire", server rewinds enemy to B, tests the ray, then restores to D.
   <tbody>
     <tr>
       <td>Uses</td>
-      <td>Past snapshots (between two knowns)</td>
-      <td>Last snapshot + velocity (guess forward)</td>
+      <td>Two past snapshots</td>
+      <td>Last snapshot plus velocity</td>
     </tr>
     <tr>
       <td>Accuracy</td>
       <td>Exact at snapshot points</td>
-      <td>Wrong on direction changes</td>
+      <td>Wrong when motion changes</td>
     </tr>
     <tr>
       <td>Cost</td>
-      <td>Fixed render delay</td>
-      <td>Visible correction snaps</td>
+      <td>Fixed display delay</td>
+      <td>Visible corrections</td>
     </tr>
     <tr>
-      <td>When</td>
+      <td>Used when</td>
       <td>Normal operation</td>
-      <td>Packet loss / late snapshots</td>
+      <td>Late or missing snapshots</td>
     </tr>
   </tbody>
 </table>
 
-<p>In practice clients interpolate by default and fall back to extrapolation only to cover gaps, blending back smoothly once fresh data arrives.</p>
+<h2 id="replication-data-models">Replication Data Models</h2>
 
-<h2 id="data-models-snapshots-vs-state-sync-vs-rpc">Data Models: Snapshots vs State-Sync vs RPC</h2>
+<p>There are three main ways to move game state across the network, and most games use all three.</p>
 
-<p>There are three distinct ways to get information across the wire, and most games use all three for different jobs.</p>
+<h3 id="snapshots-and-delta-compression">Snapshots and Delta Compression</h3>
 
-<h3 id="snapshots-full--delta">Snapshots (Full / Delta)</h3>
+<p>A <strong>snapshot</strong> is the relevant world state at one tick: positions, rotations, health, animation state. Full snapshots are simple but expensive, so servers <strong>delta-compress</strong> each snapshot against the last one the client <strong>acknowledged</strong>:</p>
 
-<p>A <strong>snapshot</strong> is the complete relevant world state at a given tick — every entity’s position, rotation, health, animation state. Sending the <em>full</em> snapshot every tick is simple but bandwidth-hungry. The standard optimization is <strong>delta compression</strong>: the server sends a full baseline occasionally, then transmits only what <em>changed</em> relative to the last snapshot the client <strong>acknowledged</strong>.</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Baseline @ tick 100:  {p1: full, p2: full, p3: full}
-Delta @ tick 101:     {p2: pos changed}            # p1, p3 omitted
-Delta @ tick 102:     {p1: health changed, p3: pos changed}
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Client acked tick 100:  {p1: full, p2: full, p3: full}
+Snapshot 103 vs 100:    {p2: pos}                     # p1, p3 unchanged
+Snapshot 104 vs 100:    {p1: health, p2: pos, p3: pos} # 103 not yet acked
 </code></pre></div></div>
 
-<p>Snapshots are robust to packet loss (each delta is computed against an <em>acked</em> baseline, so a lost packet just makes the next delta larger rather than corrupting state) and pair naturally with interpolation. This is the Quake/Source model.</p>
+<p>Because each delta is relative to state the client is known to have, a lost packet only makes the next delta larger; it never corrupts state. This is the Quake 3 and Source model, and it pairs naturally with interpolation.</p>
 
-<h3 id="state-synchronization-replicated-properties">State Synchronization (Replicated Properties)</h3>
+<h3 id="property-replication">Property Replication</h3>
 
-<p><strong>State-sync</strong> frameworks (Unreal’s replication, Unity Netcode, Photon) let you mark individual variables as <em>replicated</em>. The engine watches those properties on the server and automatically pushes changes to relevant clients — you write <code class="language-plaintext highlighter-rouge">replicated float Health;</code> and the framework handles the wire format, dirty-tracking, and relevancy. It is essentially per-property delta compression with ergonomic tooling, and it is the dominant model in commercial engines because it is declarative and integrates with the gameplay framework.</p>
+<p>Engine frameworks let you mark variables as <strong>replicated</strong>. The server tracks which have changed and sends updates to clients for which the object is relevant. It is per-property delta compression with good ergonomics, and it is the dominant model in commercial engines:</p>
 
-<h3 id="remote-procedure-calls-rpc--events">Remote Procedure Calls (RPC / Events)</h3>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Unreal Engine: replicated property with a change callback</span>
+<span class="n">UPROPERTY</span><span class="p">(</span><span class="n">ReplicatedUsing</span> <span class="o">=</span> <span class="n">OnRep_Health</span><span class="p">)</span>
+<span class="kt">float</span> <span class="n">Health</span><span class="p">;</span>
 
-<p>An <strong>RPC</strong> is a one-shot <em>event</em>: “play this explosion sound,” “the round just ended,” “fire weapon.” Unlike replicated state (which describes <em>what is</em>), RPCs describe <em>what happened</em> at a moment. They are used for discrete, non-recurring events where streaming a continuous property makes no sense. RPCs come in directions — <em>client-to-server</em> (request an action, always validated), <em>server-to-client</em> (notify a result), and <em>multicast</em> (server to all relevant clients).</p>
+<span class="kt">void</span> <span class="n">AMyCharacter</span><span class="o">::</span><span class="n">GetLifetimeReplicatedProps</span><span class="p">(</span><span class="n">TArray</span><span class="o">&lt;</span><span class="n">FLifetimeProperty</span><span class="o">&gt;&amp;</span> <span class="n">OutLifetimeProps</span><span class="p">)</span> <span class="k">const</span>
+<span class="p">{</span>
+    <span class="n">Super</span><span class="o">::</span><span class="n">GetLifetimeReplicatedProps</span><span class="p">(</span><span class="n">OutLifetimeProps</span><span class="p">);</span>
+    <span class="n">DOREPLIFETIME</span><span class="p">(</span><span class="n">AMyCharacter</span><span class="p">,</span> <span class="n">Health</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Replicated properties are eventually consistent: a client sees the latest value, not necessarily every intermediate value.</p>
+
+<h3 id="remote-procedure-calls">Remote Procedure Calls</h3>
+
+<p>An <strong>RPC</strong> is a one-shot event: “play this impact effect,” “round over,” “request to open this door.” Replicated state describes <em>what is</em>; RPCs describe <em>what happened</em>. Directions are client-to-server (a request, always validated), server-to-client (a notification), and multicast (server to all relevant clients).</p>
 
 <table>
   <thead>
     <tr>
       <th>Model</th>
       <th>Describes</th>
-      <th>Loss behavior</th>
+      <th>Behavior on packet loss</th>
       <th>Best for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Snapshot/delta</td>
+      <td>Snapshot / delta</td>
       <td>Continuous world state</td>
       <td>Self-healing via acked baseline</td>
-      <td>Positions, physics, everything-at-once</td>
+      <td>Positions, physics, many entities</td>
     </tr>
     <tr>
-      <td>State-sync</td>
-      <td>Per-property values</td>
-      <td>Engine-managed, eventually consistent</td>
-      <td>Health, ammo, scores, doors</td>
+      <td>Property replication</td>
+      <td>Per-object values</td>
+      <td>Engine resends latest value</td>
+      <td>Health, ammo, score, door state</td>
     </tr>
     <tr>
-      <td>RPC/event</td>
+      <td>RPC / event</td>
       <td>Discrete events</td>
-      <td>Must be made reliable if important</td>
-      <td>Sounds, hits, round events, abilities</td>
+      <td>Must be sent reliably if important</td>
+      <td>Round events, ability triggers, cosmetic effects</td>
     </tr>
   </tbody>
 </table>
 
-<p>A subtlety: RPCs are usually sent over a <strong>reliable-ordered</strong> channel (they can’t just be lost — a missed “you died” is unacceptable), while snapshots ride an <strong>unreliable</strong> channel (a lost position update is irrelevant because a newer one is 16 ms behind it). This is why UDP-based game protocols implement <em>selective</em> reliability per message rather than using raw TCP.</p>
+<p>Important RPCs travel on a <strong>reliable, ordered</strong> channel, since a lost “you died” is unacceptable. Snapshots travel <strong>unreliably</strong>, since a lost position update is superseded by the next one a few milliseconds later. This per-message choice is why games build their own protocols on UDP.</p>
 
-<h2 id="netcode-tradeoffs">Netcode Tradeoffs</h2>
+<h2 id="bandwidth-and-transport">Bandwidth and Transport</h2>
 
-<p>Every netcode decision is a tradeoff between four scarce resources: <strong>latency</strong>, <strong>bandwidth</strong>, <strong>CPU</strong>, and <strong>fairness/consistency</strong>. There is no globally optimal point; the right choice depends on genre.</p>
+<h3 id="transport">Transport</h3>
 
-<ul>
-  <li>
-    <p><strong>Transport: UDP vs TCP.</strong> Real-time games almost universally use <strong>UDP</strong> (or QUIC) because TCP’s in-order, fully-reliable delivery causes <strong>head-of-line blocking</strong> — a single lost packet stalls <em>all</em> subsequent data until it is retransmitted, which is catastrophic for a stream of position updates where the newest packet matters most. Games build their own lightweight reliability layer on UDP, marking each message reliable or unreliable as appropriate. See <a href="../optimization/network-io-optimization.html">Network &amp; I/O Optimization</a> for the deeper protocol comparison.</p>
-  </li>
-  <li>
-    <p><strong>Tick rate.</strong> Higher tick rate = lower error and crisper hit registration, but linearly more CPU and bandwidth. 64–128 Hz for competitive FPS; 10–30 Hz for MMOs and casual games.</p>
-  </li>
-  <li>
-    <p><strong>Bandwidth budget.</strong> Quantize floats (positions to fixed-point, rotations to compressed quaternions), use <strong>relevancy / area-of-interest</strong> filtering so a client only hears about nearby entities, and prioritize updates (a player shooting at you matters more than one across the map). Over-sending also leaks information that fuels wallhacks, so relevancy filtering is <em>both</em> a bandwidth and an anti-cheat measure.</p>
-  </li>
-  <li>
-    <p><strong>Prediction vs determinism.</strong> Client-prediction/reconciliation (FPS) hides local latency but requires shared movement code and tolerates floating-point drift. Deterministic lockstep (RTS) is bandwidth-tiny but demands <em>bit-exact</em> determinism and stalls on the slowest peer.</p>
-  </li>
-  <li>
-    <p><strong>Input delay vs rollback.</strong> Fighting games choose between adding a few frames of <strong>input delay</strong> (everyone feels a little laggy, but no visual corrections) or <strong>rollback</strong> (instant response, occasional visual snaps when predictions miss). Modern competitive fighters favor rollback.</p>
-  </li>
-  <li>
-    <p><strong>Authority placement.</strong> Full server authority maximizes cheat resistance but costs a round trip and server money; giving clients authority over their own movement is cheaper and snappier but trusts the client. Most games split the difference: clients are authoritative over <em>cosmetic</em> state and <em>predicted</em> over movement, while the server stays authoritative over anything that affects other players (damage, scoring, pickups).</p>
-  </li>
-  <li><strong>No free lunch.</strong> You cannot simultaneously minimize latency, bandwidth, and CPU while maximizing fairness. Pick the two that matter for your genre and tune the rest.</li>
-  <li><strong>Relevancy is dual-purpose.</strong> Only sending nearby entities saves bandwidth <em>and</em> denies cheaters the data wallhacks need.</li>
-</ul>
+<p>Real-time games use <strong>UDP</strong> almost universally. TCP delivers everything in order, so one lost packet causes <strong>head-of-line blocking</strong>: all later data waits for the retransmission, which is wrong for a stream where only the newest position matters. Game protocols add their own sequencing, acknowledgement, selective reliability, fragmentation, and encryption on top of UDP; examples include ENet, Valve’s GameNetworkingSockets, and the transport layers inside Unreal and Unity.</p>
 
-<h2 id="matchmaking-basics">Matchmaking Basics</h2>
+<p>Browser games cannot open raw UDP sockets. They use <strong>WebRTC data channels</strong> (unreliable, unordered modes; mainly P2P) or <strong>WebTransport</strong> over HTTP/3, whose QUIC datagrams give UDP-like unreliable delivery to a server. WebSockets run over TCP and inherit head-of-line blocking. See <a href="../optimization/network-io-optimization.html">Network &amp; I/O Optimization</a> for a deeper protocol comparison.</p>
 
-<p>Before any of the above runs, players must be grouped into sessions. <strong>Matchmaking</strong> is the service layer that takes a population of waiting players and assigns them to game servers, balancing several competing objectives.</p>
+<h3 id="budgeting-bandwidth">Budgeting Bandwidth</h3>
 
-<h3 id="core-goals">Core Goals</h3>
+<p>Bandwidth per client scales with send rate, the number of relevant entities, and bytes per entity:</p>
+
+\[\text{bandwidth} \approx f_{\text{send}} \times N_{\text{entities}} \times B_{\text{entity}}\]
+
+<p>At 60 snapshots a second, 20 visible entities, and 12 bytes each, that is about 14 KB/s (115 kbit/s) before headers, which is fine for one client but significant for a server with 100 clients. The main tools:</p>
 
 <ul>
-  <li><strong>Skill balance.</strong> Produce close games. A rating system such as <strong>Elo</strong>, <strong>Glicko-2</strong>, or Microsoft’s <strong>TrueSkill</strong> estimates each player’s skill (and uncertainty), and the matchmaker pairs players of similar rating. After a match, ratings update based on the (un)expected result — beating a much stronger player gains more than beating a weaker one. The classic Elo expected-score formula for player A against player B is:</li>
+  <li><strong>Quantization.</strong> A position on a 2 km map at 1 cm precision needs about 18 bits per axis instead of a 32-bit float. Rotations are sent as “smallest three” quaternions: drop the largest component, which can be reconstructed, and quantize the other three to 9 to 10 bits each.</li>
+  <li><strong>Relevancy (area of interest).</strong> Only send entities a client can plausibly perceive, by distance, line of sight, or spatial grid.</li>
+  <li><strong>Prioritization.</strong> Under a per-packet byte budget, send the most important entities first (nearby, recently changed, shooting at you) and let others accumulate priority until they are sent.</li>
+  <li><strong>Variable send rates.</strong> Distant or idle entities update less often.</li>
 </ul>
+
+<p>Relevancy filtering is also an anti-cheat measure: state the server never sends cannot be displayed by a wallhack.</p>
+
+<h3 id="trade-offs">Trade-Offs</h3>
+
+<p>Every netcode decision trades latency, bandwidth, CPU, and consistency against each other, and the right point depends on genre:</p>
+
+<ul>
+  <li><strong>Prediction versus determinism.</strong> Prediction and reconciliation (shooters) hide local latency and tolerate floating-point differences. Lockstep and rollback (RTS, fighting games) use tiny bandwidth but demand bit-exact determinism, which rules out non-deterministic physics and careless floating-point use.</li>
+  <li><strong>Authority placement.</strong> Full server authority maximizes cheat resistance at the cost of server spend. Client authority over its own movement is cheaper and more responsive but trusts the client. The common split: the server is authoritative over anything that affects other players (damage, scoring, pickups), and clients are authoritative over purely cosmetic state.</li>
+  <li><strong>Tick and send rate.</strong> Higher rates improve responsiveness and hit registration and cost CPU and bandwidth linearly.</li>
+</ul>
+
+<h2 id="engine-frameworks-and-services">Engine Frameworks and Services</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Framework</th>
+      <th>Model</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Unreal Engine replication</td>
+      <td>Server-authoritative property replication plus RPCs; relevancy and priority per actor</td>
+      <td>Character movement has built-in prediction; the <strong>Iris</strong> replication system (opt-in, still marked experimental in the UE 5 docs) targets larger worlds and player counts</td>
+    </tr>
+    <tr>
+      <td>Unity Netcode for GameObjects</td>
+      <td>Server-authoritative, host, or distributed authority</td>
+      <td>Aimed at casual and co-op games; prediction is left to the developer</td>
+    </tr>
+    <tr>
+      <td>Unity Netcode for Entities</td>
+      <td>ECS-based, server-authoritative</td>
+      <td>Built-in client prediction, interpolation, and lag compensation for competitive games</td>
+    </tr>
+    <tr>
+      <td>Godot high-level multiplayer</td>
+      <td><code class="language-plaintext highlighter-rouge">MultiplayerSpawner</code> and <code class="language-plaintext highlighter-rouge">MultiplayerSynchronizer</code> nodes, RPCs</td>
+      <td>Transports include ENet, WebSocket, and WebRTC</td>
+    </tr>
+    <tr>
+      <td>Photon Fusion / Photon Quantum</td>
+      <td>Fusion: state transfer with prediction; Quantum: deterministic rollback</td>
+      <td>Commercial, hosted relay infrastructure</td>
+    </tr>
+    <tr>
+      <td>GGPO and derivatives</td>
+      <td>Deterministic P2P rollback</td>
+      <td>Common in fighting games and emulators</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For dedicated-server fleets, <strong>Agones</strong> (an open-source, Kubernetes-based game-server orchestrator), Amazon GameLift, and similar services allocate and autoscale server instances; see <a href="../technology/kubernetes/">Kubernetes</a> for the underlying orchestration model.</p>
+
+<h2 id="cheating-and-trust">Cheating and Trust</h2>
+
+<p>Server authority removes the largest class of cheats, but not all of them:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Cheat</th>
+      <th>Defense</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Speed, teleport, and god-mode hacks</td>
+      <td>Server authority: simulate, never trust client state</td>
+    </tr>
+    <tr>
+      <td>Wallhacks and radar</td>
+      <td>Relevancy and visibility culling on the server (do not send hidden enemies)</td>
+    </tr>
+    <tr>
+      <td>Aimbots and triggerbots</td>
+      <td>Behavioral and statistical detection; client anti-cheat</td>
+    </tr>
+    <tr>
+      <td>Lag switching</td>
+      <td>Cap lag-compensation windows; penalize or drop inputs that arrive very late</td>
+    </tr>
+    <tr>
+      <td>Packet tampering and replay</td>
+      <td>Encryption, sequence numbers, session keys</td>
+    </tr>
+    <tr>
+      <td>DDoS against hosts</td>
+      <td>Dedicated servers or relays that hide player IP addresses</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Client-side anti-cheat (Easy Anti-Cheat, BattlEye, Riot Vanguard, and others) inspects the local machine for known cheat software; several run kernel-mode drivers, which is effective against sophisticated cheats but controversial for security and privacy reasons. It complements server authority rather than replacing it.</p>
+
+<h2 id="matchmaking">Matchmaking</h2>
+
+<p>Before any gameplay runs, players have to be grouped into sessions and assigned to servers. A matchmaker balances three competing goals:</p>
+
+<ul>
+  <li><strong>Skill balance.</strong> A rating system estimates each player’s skill and pairs players with similar ratings (see below).</li>
+  <li><strong>Connection quality.</strong> Choose the datacenter that minimizes the worst ping in the lobby. This conflicts with skill balance: a perfectly skill-matched lobby spread across three continents plays worse than a looser one in one region.</li>
+  <li><strong>Queue time.</strong> Tighter skill and ping windows mean fewer eligible opponents and longer waits, so matchmakers widen the windows as a ticket waits.</li>
+</ul>
+
+<h3 id="rating-systems">Rating Systems</h3>
+
+<p><strong>Elo</strong> tracks a single number per player. <strong>Glicko-2</strong> adds a rating deviation (uncertainty) and volatility, so new or returning players move quickly and established ones slowly. Microsoft’s <strong>TrueSkill</strong> and <strong>TrueSkill 2</strong> model team games with a Bayesian skill distribution per player, and <strong>OpenSkill</strong> provides open-source implementations of similar models. Elo’s expected score for player A against player B is</p>
 
 \[E_A = \frac{1}{1 + 10^{(R_B - R_A)/400}}\]
 
+<p>and after a game A’s rating changes by $K(S_A - E_A)$, where $S_A$ is the actual result (1, 0.5, or 0) and $K$ sets the step size. An upset therefore moves ratings more than an expected result.</p>
+
+<h3 id="pipeline">Pipeline</h3>
+
+<pre><code class="language-mermaid">flowchart TD
+    P["Player or party presses Find Match"] --&gt; T["Create ticket&lt;br/&gt;(rating, region pings, party, mode)"]
+    T --&gt; M["Matchmaker pools tickets"]
+    M --&gt; Q{"Balanced match within&lt;br/&gt;current skill and ping windows?"}
+    Q -- "No" --&gt; W["Wait; widen windows over time"]
+    W --&gt; M
+    Q -- "Yes" --&gt; A["Allocate a game server&lt;br/&gt;(fleet orchestrator)"]
+    A --&gt; C["Players connect;&lt;br/&gt;netcode loop takes over"]
+</code></pre>
+
+<p>At scale, matchmaking also handles <strong>parties</strong> (a coordinated group of five should face comparable coordination), <strong>backfill</strong> (filling slots left by leavers), <strong>role queues</strong>, and <strong>server allocation</strong> tied to queue depth. Open-source components such as Open Match (matchmaking logic) and Agones (server allocation) implement this pipeline on Kubernetes.</p>
+
+<h2 id="further-reading">Further Reading</h2>
+
 <ul>
-  <li>
-    <p><strong>Connection quality.</strong> Pick a server (region/datacenter) that minimizes the <em>maximum</em> ping across the lobby, so no player is badly disadvantaged. This often trades against skill balance — a perfectly skill-matched lobby spread across three continents plays worse than a slightly looser one in a single region.</p>
-  </li>
-  <li>
-    <p><strong>Wait time.</strong> Tighter constraints (skill window, ping window, party size) mean fewer eligible opponents and longer queues. Matchmakers therefore <strong>relax constraints over time</strong>: a player who waits expands their acceptable skill and ping ranges until a match is found.</p>
-  </li>
+  <li>Gabriel Gambetta, <em>Fast-Paced Multiplayer</em> series (gabrielgambetta.com): client prediction, reconciliation, interpolation, and lag compensation with live demos.</li>
+  <li>Glenn Fiedler, <em>Gaffer On Games</em> (gafferongames.com): UDP reliability, snapshot compression, and deterministic lockstep.</li>
+  <li>Valve Developer Community, <em>Source Multiplayer Networking</em> and <em>Latency Compensating Methods in Client/Server In-game Protocol Design and Optimization</em> (Yahn Bernier, 2001).</li>
+  <li>Timothy Ford, <em>Overwatch Gameplay Architecture and Netcode</em> (GDC 2017).</li>
 </ul>
-
-<h3 id="a-typical-pipeline">A Typical Pipeline</h3>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Player presses "Find Match"
-        |
-        v
-[ Queue / Ticket ]  -- skill, region, party, game mode
-        |
-        v
-[ Matchmaker ]  -- forms balanced lobby within current constraints
-        |        (relaxes skill/ping window as wait grows)
-        v
-[ Session / Server Allocation ]  -- spin up or assign a dedicated server
-        |
-        v
-[ Players connect ]  -- now the netcode loop above takes over
-</code></pre></div></div>
-
-<p>Additional concerns at scale include <strong>party handling</strong> (groups must stay together, and a 5-stack of friends should be matched against comparable coordination), <strong>backfill</strong> (replacing players who leave mid-match), <strong>anti-toxicity / role queues</strong>, and <strong>server allocation</strong> (orchestrating fleets of dedicated game servers — often on the same <a href="../technology/kubernetes/">Kubernetes</a>-style infrastructure as any other backend, with autoscaling tied to queue depth). Matchmaking is ultimately a constrained optimization problem balanced live against player population.</p>
-
-<h2 id="putting-it-together">Putting It Together</h2>
-
-<p>A modern competitive online game stitches all of these layers into one loop:</p>
-
-<ol>
-  <li><strong>Matchmaking</strong> groups skill-balanced players onto a low-ping dedicated server.</li>
-  <li>The <strong>authoritative server</strong> runs the canonical fixed-tick simulation; clients send only inputs.</li>
-  <li><strong>Client-side prediction</strong> shows the local player instant results, and <strong>reconciliation</strong> replays unacked inputs against authoritative corrections.</li>
-  <li><strong>Lag compensation</strong> rewinds the server’s history buffer so well-aimed shots register fairly.</li>
-  <li>Remote entities are <strong>interpolated</strong> from buffered snapshots, <strong>extrapolated</strong> briefly through packet loss.</li>
-  <li>State crosses the wire as <strong>delta snapshots</strong> (continuous world) and <strong>RPCs</strong> (discrete events), over <strong>UDP</strong> with per-message reliability and <strong>relevancy filtering</strong> to cap bandwidth and starve cheaters of data.</li>
-</ol>
-
-<p>Every one of those choices is a tradeoff dialed in for the genre — and getting them right is what separates netcode that feels instant from netcode that feels like playing underwater.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="./">Game Development</a> - The section hub: engines, core systems, and the multiplayer overview</li>
-  <li><a href="../optimization/network-io-optimization.html">Network &amp; I/O Optimization</a> - Latency vs bandwidth, UDP/QUIC vs TCP, batching, and zero-copy transports underlying game netcode</li>
-  <li><a href="../technology/networking/">Networking Fundamentals</a> - Low-level packet, protocol, and NAT concepts beneath multiplayer transport</li>
-  <li><a href="../optimization/">Performance Optimization</a> - Profiling-driven methodology for hitting tick-rate and bandwidth budgets</li>
-  <li><a href="../ai-ml/game-ai.html">Game AI</a> - Server-side behavior that must stay deterministic and authoritative in multiplayer</li>
-  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> - Consistency, latency, and coordination foundations behind authoritative state</li>
+  <li><a href="./">Game Development</a> - Section hub: engines, core systems, and design principles</li>
+  <li><a href="monetization.html">Monetization &amp; Business Models</a> - The live-service business that server infrastructure supports</li>
+  <li><a href="testing-qa.html">Testing &amp; QA</a> - Replay and determinism tests, soak and load testing for servers</li>
+  <li><a href="../optimization/network-io-optimization.html">Network &amp; I/O Optimization</a> - UDP, QUIC, and TCP trade-offs, batching, and zero-copy I/O</li>
+  <li><a href="../technology/networking/">Networking Fundamentals</a> - Packets, protocols, and NAT beneath game transports</li>
+  <li><a href="../ai-ml/game-ai.html">Game AI</a> - Server-side behavior that must stay deterministic and authoritative</li>
+  <li><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a> - Consistency, latency, and coordination foundations</li>
 </ul>
 
       </section>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How packets find their way: forwarding tables and longest-prefix match, link-state and distance-vector algorithms, OSPF, IS-IS, BGP and routing security, NAT...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Networking: Routing & Switching">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How packets find their way: forwarding tables and longest-prefix match, link-state and distance-vector algorithms, OSPF, IS-IS, BGP and routing security, NAT...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/networking/routing.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Networking: Routing & Switching">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How packets find their way: forwarding tables and longest-prefix match, link-state and distance-vector algorithms, OSPF, IS-IS, BGP and routing security, NAT...">
 
 <title>Networking: Routing & Switching | Andrews Notebook</title>
 
@@ -3131,453 +3131,802 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p><a href="./">Networking</a></p>
+        <p><a href="./">Networking</a> » Routing &amp; Switching</p>
 
-<!-- Custom styles are now loaded via main.scss -->
+<p><strong>Routing</strong> is the process of choosing a path for packets across interconnected networks; <strong>switching</strong> moves frames between hosts within one network. This page covers how a router forwards a packet (longest-prefix match against a forwarding table), how that table gets built (static routes and the link-state and distance-vector algorithms behind dynamic protocols), the interior protocols used inside an organization (OSPF, IS-IS), the Border Gateway Protocol that stitches roughly 80,000 independent networks into the internet, how BGP is secured, Network Address Translation, and Layer-2 switching with VLANs.</p>
 
-<p>The internet is a massive graph of routers and links, and getting data across it efficiently is a path-finding problem. This page starts with the graph algorithms behind routing, scales up to the protocols that route traffic within and between organizations (OSPF and BGP), covers how routers actually make decisions (static, dynamic, and NAT), and ends with VLANs for segmenting networks on shared hardware.</p>
+<h2 id="control-plane-and-data-plane">Control Plane and Data Plane</h2>
 
-<h2 id="finding-the-best-path-graph-theory-in-networks">Finding the Best Path: Graph Theory in Networks</h2>
+<p>Every router does two separate jobs:</p>
 
-<p>The internet is essentially a massive graph where routers are nodes and connections are edges. Finding efficient paths through this graph is crucial for performance.</p>
+<ul>
+  <li>The <strong>control plane</strong> runs routing protocols, exchanges reachability information with neighbours, and computes the best path to every destination. Its output is the <strong>Routing Information Base (RIB)</strong>.</li>
+  <li>The <strong>data plane</strong> (forwarding plane) moves each arriving packet to an output interface, as fast as possible, using a compact <strong>Forwarding Information Base (FIB)</strong> derived from the RIB. In hardware routers the FIB lives in TCAM or specialised lookup memory on the line card.</li>
+</ul>
 
-<h3 id="why-path-selection-matters">Why Path Selection Matters</h3>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph CP["Control plane (CPU, milliseconds to seconds)"]
+        ST["Static routes"] --&gt; RIB
+        OSPF["OSPF / IS-IS"] --&gt; RIB
+        BGP["BGP"] --&gt; RIB
+        CON["Connected interfaces"] --&gt; RIB
+        RIB["RIB: all candidate routes,&lt;br/&gt;best chosen per prefix"]
+    end
+    subgraph DP["Data plane (ASIC / NIC, nanoseconds)"]
+        FIB["FIB: best routes +&lt;br/&gt;resolved next hops"]
+        PKT(["Packet in"]) --&gt; LPM["Longest-prefix&lt;br/&gt;match"] --&gt; OUT(["Packet out&lt;br/&gt;interface + next hop"])
+        FIB -.-&gt; LPM
+    end
+    RIB --&gt;|install best| FIB
+</code></pre>
 
-<p>When you connect to a website hosted on another continent, your data doesn’t take a direct path. It hops through multiple networks, each making routing decisions. Poor routing can double or triple your latency, making applications feel sluggish.</p>
+<p>The split is what makes <a href="programmable-networks.html">software-defined networking</a> possible: once the control plane is a separate process, it can move to a central controller.</p>
 
-<p>The implementations in this section are <em>illustrative</em> — compact versions of the classic algorithms that real routers use, written to show the logic rather than to ship in a router. Let’s implement the algorithms that routers use to find optimal paths:</p>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">heapq</span>
-<span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<h3 id="longest-prefix-match">Longest-Prefix Match</h3>
 
-<span class="k">class</span> <span class="nc">NetworkGraph</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Advanced graph algorithms for network routing</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">graph</span> <span class="o">=</span> <span class="nf">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">vertices</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
-        
-    <span class="k">def</span> <span class="nf">add_edge</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Add edge with weight and optional metrics</span><span class="sh">"""</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">graph</span><span class="p">[</span><span class="n">u</span><span class="p">].</span><span class="nf">append</span><span class="p">({</span>
-            <span class="sh">'</span><span class="s">vertex</span><span class="sh">'</span><span class="p">:</span> <span class="n">v</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">weight</span><span class="sh">'</span><span class="p">:</span> <span class="n">weight</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">metrics</span><span class="sh">'</span><span class="p">:</span> <span class="n">metrics</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="p">})</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">vertices</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">vertices</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-        
-    <span class="k">def</span> <span class="nf">dijkstra_multi_metric</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="sh">'</span><span class="s">weight</span><span class="sh">'</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Dijkstra with configurable metric</span><span class="sh">"""</span>
-        <span class="n">distances</span> <span class="o">=</span> <span class="p">{</span><span class="n">vertex</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">infinity</span><span class="sh">'</span><span class="p">)</span> <span class="k">for</span> <span class="n">vertex</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">vertices</span><span class="p">}</span>
-        <span class="n">distances</span><span class="p">[</span><span class="n">source</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">predecessors</span> <span class="o">=</span> <span class="p">{</span><span class="n">vertex</span><span class="p">:</span> <span class="bp">None</span> <span class="k">for</span> <span class="n">vertex</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">vertices</span><span class="p">}</span>
-        
-        <span class="n">pq</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="n">source</span><span class="p">)]</span>
-        
-        <span class="k">while</span> <span class="n">pq</span><span class="p">:</span>
-            <span class="n">current_distance</span><span class="p">,</span> <span class="n">current_vertex</span> <span class="o">=</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">pq</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="n">current_distance</span> <span class="o">&gt;</span> <span class="n">distances</span><span class="p">[</span><span class="n">current_vertex</span><span class="p">]:</span>
-                <span class="k">continue</span>
-                
-            <span class="k">for</span> <span class="n">neighbor</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">graph</span><span class="p">[</span><span class="n">current_vertex</span><span class="p">]:</span>
-                <span class="k">if</span> <span class="n">metric</span> <span class="o">==</span> <span class="sh">'</span><span class="s">weight</span><span class="sh">'</span><span class="p">:</span>
-                    <span class="n">edge_weight</span> <span class="o">=</span> <span class="n">neighbor</span><span class="p">[</span><span class="sh">'</span><span class="s">weight</span><span class="sh">'</span><span class="p">]</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">edge_weight</span> <span class="o">=</span> <span class="n">neighbor</span><span class="p">[</span><span class="sh">'</span><span class="s">metrics</span><span class="sh">'</span><span class="p">].</span><span class="nf">get</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">inf</span><span class="sh">'</span><span class="p">))</span>
-                    
-                <span class="n">distance</span> <span class="o">=</span> <span class="n">current_distance</span> <span class="o">+</span> <span class="n">edge_weight</span>
-                
-                <span class="k">if</span> <span class="n">distance</span> <span class="o">&lt;</span> <span class="n">distances</span><span class="p">[</span><span class="n">neighbor</span><span class="p">[</span><span class="sh">'</span><span class="s">vertex</span><span class="sh">'</span><span class="p">]]:</span>
-                    <span class="n">distances</span><span class="p">[</span><span class="n">neighbor</span><span class="p">[</span><span class="sh">'</span><span class="s">vertex</span><span class="sh">'</span><span class="p">]]</span> <span class="o">=</span> <span class="n">distance</span>
-                    <span class="n">predecessors</span><span class="p">[</span><span class="n">neighbor</span><span class="p">[</span><span class="sh">'</span><span class="s">vertex</span><span class="sh">'</span><span class="p">]]</span> <span class="o">=</span> <span class="n">current_vertex</span>
-                    <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">pq</span><span class="p">,</span> <span class="p">(</span><span class="n">distance</span><span class="p">,</span> <span class="n">neighbor</span><span class="p">[</span><span class="sh">'</span><span class="s">vertex</span><span class="sh">'</span><span class="p">]))</span>
-                    
-        <span class="k">return</span> <span class="n">distances</span><span class="p">,</span> <span class="n">predecessors</span>
-    
-    <span class="k">def</span> <span class="nf">k_shortest_paths</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Yen</span><span class="sh">'</span><span class="s">s algorithm for k-shortest paths</span><span class="sh">"""</span>
-        <span class="c1"># First shortest path
-</span>        <span class="n">distances</span><span class="p">,</span> <span class="n">predecessors</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">dijkstra_multi_metric</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
-        
-        <span class="k">if</span> <span class="n">distances</span><span class="p">[</span><span class="n">target</span><span class="p">]</span> <span class="o">==</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">infinity</span><span class="sh">'</span><span class="p">):</span>
-            <span class="k">return</span> <span class="p">[]</span>
-            
-        <span class="c1"># Reconstruct first path
-</span>        <span class="n">A</span> <span class="o">=</span> <span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="nf">_reconstruct_path</span><span class="p">(</span><span class="n">predecessors</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">)]</span>
-        <span class="n">B</span> <span class="o">=</span> <span class="p">[]</span>
-        
-        <span class="k">for</span> <span class="n">k_iter</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">k_iter</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-                <span class="n">spur_node</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">k_iter</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
-                <span class="n">root_path</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">k_iter</span><span class="o">-</span><span class="mi">1</span><span class="p">][:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
-                
-                <span class="c1"># Remove edges used in previous paths
-</span>                <span class="n">removed_edges</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">A</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">i</span> <span class="ow">and</span> <span class="n">path</span><span class="p">[:</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">root_path</span><span class="p">:</span>
-                        <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">path</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">path</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
-                        <span class="c1"># Temporarily remove edge
-</span>                        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">edge</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">graph</span><span class="p">[</span><span class="n">u</span><span class="p">]):</span>
-                            <span class="k">if</span> <span class="n">edge</span><span class="p">[</span><span class="sh">'</span><span class="s">vertex</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="n">v</span><span class="p">:</span>
-                                <span class="n">removed_edges</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">u</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">edge</span><span class="p">))</span>
-                                
-                <span class="c1"># Find spur path
-</span>                <span class="n">spur_distances</span><span class="p">,</span> <span class="n">spur_pred</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">dijkstra_multi_metric</span><span class="p">(</span><span class="n">spur_node</span><span class="p">)</span>
-                
-                <span class="k">if</span> <span class="n">spur_distances</span><span class="p">[</span><span class="n">target</span><span class="p">]</span> <span class="o">&lt;</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">infinity</span><span class="sh">'</span><span class="p">):</span>
-                    <span class="n">spur_path</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_reconstruct_path</span><span class="p">(</span><span class="n">spur_pred</span><span class="p">,</span> <span class="n">spur_node</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-                    <span class="n">total_path</span> <span class="o">=</span> <span class="n">root_path</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">spur_path</span>
-                    
-                    <span class="k">if</span> <span class="n">total_path</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">B</span><span class="p">:</span>
-                        <span class="n">B</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">total_path</span><span class="p">)</span>
-                        
-                <span class="c1"># Restore edges
-</span>                <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">removed_edges</span><span class="p">:</span>
-                    <span class="n">self</span><span class="p">.</span><span class="n">graph</span><span class="p">[</span><span class="n">u</span><span class="p">].</span><span class="nf">insert</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">edge</span><span class="p">)</span>
-                    
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">B</span><span class="p">:</span>
-                <span class="k">break</span>
-                
-            <span class="c1"># Sort B by path cost
-</span>            <span class="n">B</span><span class="p">.</span><span class="nf">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="nf">_path_cost</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
-            <span class="n">A</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">B</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
-            
-        <span class="k">return</span> <span class="n">A</span>
-</code></pre></div></div>
+<p>A forwarding table maps <strong>prefixes</strong> (CIDR blocks, see <a href="fundamentals.html">Layers &amp; Addressing</a>) to next hops. When several prefixes contain the destination, the <strong>most specific one — the longest prefix — wins</strong>:</p>
 
-<h3 id="beyond-shortest-paths-network-capacity">Beyond Shortest Paths: Network Capacity</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Prefix</th>
+      <th>Next hop</th>
+      <th>Matches 10.1.2.3?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0.0.0.0/0 (default route)</td>
+      <td>203.0.113.1</td>
+      <td>Yes (/0)</td>
+    </tr>
+    <tr>
+      <td>10.0.0.0/8</td>
+      <td>192.168.1.1</td>
+      <td>Yes (/8)</td>
+    </tr>
+    <tr>
+      <td>10.1.0.0/16</td>
+      <td>192.168.1.2</td>
+      <td>Yes (/16)</td>
+    </tr>
+    <tr>
+      <td>10.1.2.0/24</td>
+      <td>192.168.1.3</td>
+      <td><strong>Yes (/24) — selected</strong></td>
+    </tr>
+    <tr>
+      <td>10.2.0.0/16</td>
+      <td>192.168.1.4</td>
+      <td>No</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Finding the shortest path is only part of the story. We also need to consider capacity—how much traffic can flow through the network. This is like planning routes for delivery trucks: the shortest path might be a narrow street that can’t handle many vehicles.</p>
+<p>Longest-prefix match is what allows aggregation (an ISP advertises one /16 upstream) while still permitting exceptions (a customer’s more-specific /24 can be routed elsewhere). It is also what makes prefix hijacks effective: a more-specific announcement attracts traffic away from the legitimate, less-specific one.</p>
 
-<h4 id="calculating-maximum-network-capacity">Calculating Maximum Network Capacity</h4>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MaxFlow</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Ford-Fulkerson with Edmonds-Karp implementation</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">graph</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">graph</span> <span class="o">=</span> <span class="n">graph</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
-        
-    <span class="k">def</span> <span class="nf">bfs</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">sink</span><span class="p">,</span> <span class="n">parent</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">BFS to find augmenting path</span><span class="sh">"""</span>
-        <span class="n">visited</span> <span class="o">=</span> <span class="p">[</span><span class="bp">False</span><span class="p">]</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">n</span>
-        <span class="n">queue</span> <span class="o">=</span> <span class="p">[</span><span class="n">source</span><span class="p">]</span>
-        <span class="n">visited</span><span class="p">[</span><span class="n">source</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
-        
-        <span class="k">while</span> <span class="n">queue</span><span class="p">:</span>
-            <span class="n">u</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-            
-            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">):</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">visited</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="ow">and</span> <span class="n">self</span><span class="p">.</span><span class="n">graph</span><span class="p">[</span><span class="n">u</span><span class="p">][</span><span class="n">v</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">visited</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
-                    <span class="n">parent</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span>
-                    <span class="n">queue</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-                    
-                    <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="n">sink</span><span class="p">:</span>
-                        <span class="k">return</span> <span class="bp">True</span>
-                        
-        <span class="k">return</span> <span class="bp">False</span>
-    
-    <span class="k">def</span> <span class="nf">max_flow</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">sink</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Find maximum flow from source to sink</span><span class="sh">"""</span>
-        <span class="n">parent</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">n</span>
-        <span class="n">max_flow_value</span> <span class="o">=</span> <span class="mi">0</span>
-        
-        <span class="c1"># Create residual graph
-</span>        <span class="n">residual</span> <span class="o">=</span> <span class="p">[[</span><span class="n">self</span><span class="p">.</span><span class="n">graph</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">)]</span> 
-                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">)]</span>
-        
-        <span class="k">while</span> <span class="n">self</span><span class="p">.</span><span class="nf">bfs</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">sink</span><span class="p">,</span> <span class="n">parent</span><span class="p">):</span>
-            <span class="c1"># Find minimum residual capacity
-</span>            <span class="n">path_flow</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">inf</span><span class="sh">'</span><span class="p">)</span>
-            <span class="n">s</span> <span class="o">=</span> <span class="n">sink</span>
-            
-            <span class="k">while</span> <span class="n">s</span> <span class="o">!=</span> <span class="n">source</span><span class="p">:</span>
-                <span class="n">path_flow</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">path_flow</span><span class="p">,</span> <span class="n">residual</span><span class="p">[</span><span class="n">parent</span><span class="p">[</span><span class="n">s</span><span class="p">]][</span><span class="n">s</span><span class="p">])</span>
-                <span class="n">s</span> <span class="o">=</span> <span class="n">parent</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>
-                
-            <span class="c1"># Update residual capacities
-</span>            <span class="n">v</span> <span class="o">=</span> <span class="n">sink</span>
-            <span class="k">while</span> <span class="n">v</span> <span class="o">!=</span> <span class="n">source</span><span class="p">:</span>
-                <span class="n">u</span> <span class="o">=</span> <span class="n">parent</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
-                <span class="n">residual</span><span class="p">[</span><span class="n">u</span><span class="p">][</span><span class="n">v</span><span class="p">]</span> <span class="o">-=</span> <span class="n">path_flow</span>
-                <span class="n">residual</span><span class="p">[</span><span class="n">v</span><span class="p">][</span><span class="n">u</span><span class="p">]</span> <span class="o">+=</span> <span class="n">path_flow</span>
-                <span class="n">v</span> <span class="o">=</span> <span class="n">parent</span><span class="p">[</span><span class="n">v</span><span class="p">]</span>
-                
-            <span class="n">max_flow_value</span> <span class="o">+=</span> <span class="n">path_flow</span>
-            
-        <span class="k">return</span> <span class="n">max_flow_value</span><span class="p">,</span> <span class="n">residual</span>
-    
-    <span class="k">def</span> <span class="nf">min_cut</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">source</span><span class="p">,</span> <span class="n">residual</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Find minimum cut after max flow</span><span class="sh">"""</span>
-        <span class="n">visited</span> <span class="o">=</span> <span class="p">[</span><span class="bp">False</span><span class="p">]</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">n</span>
-        <span class="n">queue</span> <span class="o">=</span> <span class="p">[</span><span class="n">source</span><span class="p">]</span>
-        <span class="n">visited</span><span class="p">[</span><span class="n">source</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
-        
-        <span class="k">while</span> <span class="n">queue</span><span class="p">:</span>
-            <span class="n">u</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">):</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">visited</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="ow">and</span> <span class="n">residual</span><span class="p">[</span><span class="n">u</span><span class="p">][</span><span class="n">v</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">visited</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
-                    <span class="n">queue</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-                    
-        <span class="c1"># Find edges in cut
-</span>        <span class="n">cut_edges</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">visited</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">visited</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="ow">and</span> <span class="n">self</span><span class="p">.</span><span class="n">graph</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">cut_edges</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">graph</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">]))</span>
-                    
-        <span class="k">return</span> <span class="n">cut_edges</span>
-</code></pre></div></div>
+<h3 id="choosing-between-sources-administrative-distance">Choosing Between Sources: Administrative Distance</h3>
 
-<h2 id="how-the-internet-routes-traffic-advanced-protocols">How the Internet Routes Traffic: Advanced Protocols</h2>
+<p>When two protocols offer a route to the <em>same</em> prefix length, the router needs a tie-breaker between sources before it can compare metrics (which are not comparable across protocols). Cisco calls this <strong>administrative distance</strong>; Juniper calls it <strong>route preference</strong>. Lower is more trusted. Common Cisco defaults:</p>
 
-<p>We’ve seen how routers find paths within a network. But how does traffic flow between the 70,000+ independent networks that form the internet? This is where BGP comes in—the protocol that literally holds the internet together.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Route source</th>
+      <th>Administrative distance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Directly connected</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>Static</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>eBGP</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <td>EIGRP (internal)</td>
+      <td>90</td>
+    </tr>
+    <tr>
+      <td>OSPF</td>
+      <td>110</td>
+    </tr>
+    <tr>
+      <td>IS-IS</td>
+      <td>115</td>
+    </tr>
+    <tr>
+      <td>RIP</td>
+      <td>120</td>
+    </tr>
+    <tr>
+      <td>iBGP</td>
+      <td>200</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="bgp-the-internets-routing-protocol">BGP: The Internet’s Routing Protocol</h3>
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">BGPRouter</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Simplified BGP implementation</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">as_number</span><span class="p">,</span> <span class="n">router_id</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">as_number</span> <span class="o">=</span> <span class="n">as_number</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">router_id</span> <span class="o">=</span> <span class="n">router_id</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">peers</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">rib_in</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Received routes
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rib_loc</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Local routes
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">rib_out</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Advertised routes
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">best_paths</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Best path selection
-</span>        
-    <span class="k">def</span> <span class="nf">add_peer</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">peer_ip</span><span class="p">,</span> <span class="n">peer_as</span><span class="p">,</span> <span class="n">peer_type</span><span class="o">=</span><span class="sh">'</span><span class="s">ebgp</span><span class="sh">'</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Add BGP peer</span><span class="sh">"""</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">peers</span><span class="p">[</span><span class="n">peer_ip</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">as_number</span><span class="sh">'</span><span class="p">:</span> <span class="n">peer_as</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">:</span> <span class="n">peer_type</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">state</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">idle</span><span class="sh">'</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">hold_timer</span><span class="sh">'</span><span class="p">:</span> <span class="mi">90</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">keepalive_timer</span><span class="sh">'</span><span class="p">:</span> <span class="mi">30</span>
-        <span class="p">}</span>
-        
-    <span class="k">def</span> <span class="nf">process_update</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">peer_ip</span><span class="p">,</span> <span class="n">nlri</span><span class="p">,</span> <span class="n">attributes</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Process BGP UPDATE message</span><span class="sh">"""</span>
-        <span class="k">for</span> <span class="n">prefix</span> <span class="ow">in</span> <span class="n">nlri</span><span class="p">:</span>
-            <span class="n">route_key</span> <span class="o">=</span> <span class="p">(</span><span class="n">peer_ip</span><span class="p">,</span> <span class="n">prefix</span><span class="p">)</span>
-            
-            <span class="c1"># Store in RIB-In
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">rib_in</span><span class="p">[</span><span class="n">route_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="sh">'</span><span class="s">prefix</span><span class="sh">'</span><span class="p">:</span> <span class="n">prefix</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">peer</span><span class="sh">'</span><span class="p">:</span> <span class="n">peer_ip</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">attributes</span><span class="sh">'</span><span class="p">:</span> <span class="n">attributes</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">timestamp</span><span class="sh">'</span><span class="p">:</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
-            <span class="p">}</span>
-            
-        <span class="c1"># Run best path selection
-</span>        <span class="n">self</span><span class="p">.</span><span class="nf">best_path_selection</span><span class="p">()</span>
-        
-    <span class="k">def</span> <span class="nf">best_path_selection</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">BGP best path selection algorithm</span><span class="sh">"""</span>
-        <span class="n">prefix_routes</span> <span class="o">=</span> <span class="nf">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-        
-        <span class="c1"># Group routes by prefix
-</span>        <span class="nf">for </span><span class="p">(</span><span class="n">peer</span><span class="p">,</span> <span class="n">prefix</span><span class="p">),</span> <span class="n">route</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">rib_in</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
-            <span class="n">prefix_routes</span><span class="p">[</span><span class="n">prefix</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">route</span><span class="p">)</span>
-            
-        <span class="k">for</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">routes</span> <span class="ow">in</span> <span class="n">prefix_routes</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
-            <span class="c1"># Apply BGP decision process
-</span>            <span class="n">best_route</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">select_best_route</span><span class="p">(</span><span class="n">routes</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="n">best_route</span><span class="p">:</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">best_paths</span><span class="p">[</span><span class="n">prefix</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_route</span>
-                
-                <span class="c1"># Install in RIB-Loc if best
-</span>                <span class="n">self</span><span class="p">.</span><span class="n">rib_loc</span><span class="p">[</span><span class="n">prefix</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_route</span>
-                
-                <span class="c1"># Advertise to other peers
-</span>                <span class="n">self</span><span class="p">.</span><span class="nf">advertise_route</span><span class="p">(</span><span class="n">prefix</span><span class="p">,</span> <span class="n">best_route</span><span class="p">)</span>
-                
-    <span class="k">def</span> <span class="nf">select_best_route</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">routes</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Apply BGP decision criteria</span><span class="sh">"""</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">routes</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">None</span>
-            
-        <span class="c1"># Sort by BGP decision criteria
-</span>        <span class="k">def</span> <span class="nf">route_preference</span><span class="p">(</span><span class="n">route</span><span class="p">):</span>
-            <span class="n">attrs</span> <span class="o">=</span> <span class="n">route</span><span class="p">[</span><span class="sh">'</span><span class="s">attributes</span><span class="sh">'</span><span class="p">]</span>
-            <span class="nf">return </span><span class="p">(</span>
-                <span class="o">-</span><span class="n">attrs</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">local_pref</span><span class="sh">'</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span>  <span class="c1"># Higher is better
-</span>                <span class="nf">len</span><span class="p">(</span><span class="n">attrs</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">as_path</span><span class="sh">'</span><span class="p">,</span> <span class="p">[])),</span>   <span class="c1"># Shorter is better
-</span>                <span class="n">attrs</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">origin</span><span class="sh">'</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>          <span class="c1"># Lower is better (IGP &lt; EGP &lt; Incomplete)
-</span>                <span class="n">attrs</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">med</span><span class="sh">'</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>             <span class="c1"># Lower is better
-</span>                <span class="n">self</span><span class="p">.</span><span class="n">peers</span><span class="p">[</span><span class="n">route</span><span class="p">[</span><span class="sh">'</span><span class="s">peer</span><span class="sh">'</span><span class="p">]][</span><span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">ebgp</span><span class="sh">'</span><span class="p">,</span>  <span class="c1"># Prefer eBGP
-</span>                <span class="n">attrs</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">next_hop</span><span class="sh">'</span><span class="p">,</span> <span class="sh">''</span><span class="p">),</span>       <span class="c1"># Lower IP is better
-</span>                <span class="n">route</span><span class="p">[</span><span class="sh">'</span><span class="s">peer</span><span class="sh">'</span><span class="p">]</span>                    <span class="c1"># Lower peer IP is better
-</span>            <span class="p">)</span>
-            
-        <span class="k">return</span> <span class="nf">min</span><span class="p">(</span><span class="n">routes</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">route_preference</span><span class="p">)</span>
-</code></pre></div></div>
+<p>Setting a static route’s distance above the dynamic protocol’s (for example 250) makes a <strong>floating static route</strong>: a backup that installs only when the dynamic route disappears.</p>
 
-<h3 id="ospf-smart-routing-within-organizations">OSPF: Smart Routing Within Organizations</h3>
+<h2 id="static-routing">Static Routing</h2>
 
-<p>While BGP connects different organizations, OSPF (Open Shortest Path First) optimizes routing within a single organization. It’s like having a real-time traffic map for your corporate network.</p>
+<p>A static route is a manually configured entry. It needs no protocol, costs no CPU, and never changes unless an operator changes it — which is both the benefit and the problem. Static routes suit stub networks with a single exit (a branch office, a home network, a server’s default gateway) and fail badly anywhere topology changes.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">OSPFRouter</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">OSPF builds a complete map of the network for optimal routing.
-    
-    Unlike distance-vector protocols that only know their neighbors,
-    OSPF routers share their complete view, enabling better decisions.
-    </span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">router_id</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">router_id</span> <span class="o">=</span> <span class="n">router_id</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">lsdb</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Link State Database
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">neighbors</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">routing_table</span> <span class="o">=</span> <span class="p">{}</span>
-        
-    <span class="k">def</span> <span class="nf">generate_lsa</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Generate Router LSA</span><span class="sh">"""</span>
-        <span class="n">lsa</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># Router LSA
-</span>            <span class="sh">'</span><span class="s">router_id</span><span class="sh">'</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="n">router_id</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">sequence</span><span class="sh">'</span><span class="p">:</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_next_sequence</span><span class="p">(),</span>
-            <span class="sh">'</span><span class="s">age</span><span class="sh">'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">links</span><span class="sh">'</span><span class="p">:</span> <span class="p">[]</span>
-        <span class="p">}</span>
-        
-        <span class="k">for</span> <span class="n">intf_id</span><span class="p">,</span> <span class="n">intf</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">interfaces</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
-            <span class="n">link</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">:</span> <span class="n">intf</span><span class="p">[</span><span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">],</span>  <span class="c1"># p2p, transit, stub
-</span>                <span class="sh">'</span><span class="s">id</span><span class="sh">'</span><span class="p">:</span> <span class="n">intf</span><span class="p">[</span><span class="sh">'</span><span class="s">neighbor_id</span><span class="sh">'</span><span class="p">]</span> <span class="k">if</span> <span class="n">intf</span><span class="p">[</span><span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">p2p</span><span class="sh">'</span> <span class="k">else</span> <span class="n">intf_id</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">data</span><span class="sh">'</span><span class="p">:</span> <span class="n">intf</span><span class="p">[</span><span class="sh">'</span><span class="s">ip_address</span><span class="sh">'</span><span class="p">],</span>
-                <span class="sh">'</span><span class="s">metric</span><span class="sh">'</span><span class="p">:</span> <span class="n">intf</span><span class="p">[</span><span class="sh">'</span><span class="s">cost</span><span class="sh">'</span><span class="p">]</span>
-            <span class="p">}</span>
-            <span class="n">lsa</span><span class="p">[</span><span class="sh">'</span><span class="s">links</span><span class="sh">'</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">link</span><span class="p">)</span>
-            
-        <span class="k">return</span> <span class="n">lsa</span>
-    
-    <span class="k">def</span> <span class="nf">dijkstra_spf</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate shortest paths using Dijkstra</span><span class="sh">"""</span>
-        <span class="c1"># Build graph from LSDB
-</span>        <span class="n">graph</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">build_topology_graph</span><span class="p">()</span>
-        
-        <span class="c1"># Initialize
-</span>        <span class="n">distances</span> <span class="o">=</span> <span class="p">{</span><span class="n">node</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">inf</span><span class="sh">'</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">graph</span><span class="p">}</span>
-        <span class="n">distances</span><span class="p">[</span><span class="n">self</span><span class="p">.</span><span class="n">router_id</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">predecessors</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">unvisited</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="n">graph</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
-        
-        <span class="k">while</span> <span class="n">unvisited</span><span class="p">:</span>
-            <span class="c1"># Find minimum distance node
-</span>            <span class="n">current</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="n">unvisited</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">distances</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
-            <span class="n">unvisited</span><span class="p">.</span><span class="nf">remove</span><span class="p">(</span><span class="n">current</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="n">distances</span><span class="p">[</span><span class="n">current</span><span class="p">]</span> <span class="o">==</span> <span class="nf">float</span><span class="p">(</span><span class="sh">'</span><span class="s">inf</span><span class="sh">'</span><span class="p">):</span>
-                <span class="k">break</span>
-                
-            <span class="c1"># Update neighbors
-</span>            <span class="k">for</span> <span class="n">neighbor</span><span class="p">,</span> <span class="n">cost</span> <span class="ow">in</span> <span class="n">graph</span><span class="p">[</span><span class="n">current</span><span class="p">].</span><span class="nf">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">neighbor</span> <span class="ow">in</span> <span class="n">unvisited</span><span class="p">:</span>
-                    <span class="n">alt_distance</span> <span class="o">=</span> <span class="n">distances</span><span class="p">[</span><span class="n">current</span><span class="p">]</span> <span class="o">+</span> <span class="n">cost</span>
-                    
-                    <span class="k">if</span> <span class="n">alt_distance</span> <span class="o">&lt;</span> <span class="n">distances</span><span class="p">[</span><span class="n">neighbor</span><span class="p">]:</span>
-                        <span class="n">distances</span><span class="p">[</span><span class="n">neighbor</span><span class="p">]</span> <span class="o">=</span> <span class="n">alt_distance</span>
-                        <span class="n">predecessors</span><span class="p">[</span><span class="n">neighbor</span><span class="p">]</span> <span class="o">=</span> <span class="n">current</span>
-                        
-        <span class="c1"># Build routing table
-</span>        <span class="n">self</span><span class="p">.</span><span class="nf">build_routing_table</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span> <span class="n">predecessors</span><span class="p">)</span>
-</code></pre></div></div>
+<p>On Linux, routes are managed with <code class="language-plaintext highlighter-rouge">ip route</code> from iproute2 (the older <code class="language-plaintext highlighter-rouge">route</code> command from net-tools is deprecated):</p>
 
-<h2 id="making-routing-decisions-from-simple-to-complex">Making Routing Decisions: From Simple to Complex</h2>
-
-<p>Now that we understand addressing and protocols, let’s see how routers actually decide where to send packets.</p>
-
-<h3 id="static-routing-manual-control">Static Routing: Manual Control</h3>
-<p>Sometimes you know exactly where traffic should go. Static routes are like putting up permanent road signs.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Add route</span>
-ip route add 10.0.0.0/8 via 192.168.1.1
-
-<span class="c"># Delete route</span>
-ip route del 10.0.0.0/8
-
-<span class="c"># Show routing table</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Show the IPv4 and IPv6 routing tables</span>
 ip route show
+ip <span class="nt">-6</span> route show
+
+<span class="c"># Ask the kernel which route it would use for a destination (runs the real lookup)</span>
+ip route get 10.1.2.3
+
+<span class="c"># Add a route and a default route</span>
+<span class="nb">sudo </span>ip route add 10.0.0.0/8 via 192.168.1.1 dev eth0
+<span class="nb">sudo </span>ip route add default via 192.168.1.254 metric 100
+
+<span class="c"># A backup default with a worse metric (used only if the first disappears)</span>
+<span class="nb">sudo </span>ip route add default via 192.168.2.254 metric 200
+
+<span class="c"># Delete a route</span>
+<span class="nb">sudo </span>ip route del 10.0.0.0/8
 </code></pre></div></div>
 
-<h3 id="dynamic-routing-networks-that-adapt">Dynamic Routing: Networks That Adapt</h3>
+<p>Routes added with <code class="language-plaintext highlighter-rouge">ip route</code> do not survive a reboot; persistent configuration belongs in the distribution’s network manager (netplan, NetworkManager, systemd-networkd).</p>
 
-<p>Static routes work for small networks, but imagine manually updating routes for the entire internet! Dynamic protocols automatically discover paths and adapt to changes.</p>
+<h2 id="routing-algorithms">Routing Algorithms</h2>
 
-<p><strong>Within Organizations (IGP):</strong></p>
+<p>Dynamic routing protocols are built on one of two families of shortest-path algorithm. Both find least-cost paths through a weighted graph of routers and links; they differ in what each router knows.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Link-state</th>
+      <th>Distance-vector</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Each router knows</td>
+      <td>The full topology (every link and its cost)</td>
+      <td>Only its neighbours’ distance estimates</td>
+    </tr>
+    <tr>
+      <td>Algorithm</td>
+      <td>Dijkstra (shortest-path first)</td>
+      <td>Distributed Bellman–Ford</td>
+    </tr>
+    <tr>
+      <td>What is flooded</td>
+      <td>Link-state advertisements (LSAs), to every router</td>
+      <td>Distance vectors, to neighbours only</td>
+    </tr>
+    <tr>
+      <td>Convergence</td>
+      <td>Fast; every router recomputes locally</td>
+      <td>Slower; news propagates hop by hop</td>
+    </tr>
+    <tr>
+      <td>Failure mode</td>
+      <td>Memory/CPU cost of the full map</td>
+      <td>Routing loops, count-to-infinity</td>
+    </tr>
+    <tr>
+      <td>Protocols</td>
+      <td>OSPF, IS-IS</td>
+      <td>RIP, EIGRP (an advanced variant), BGP (path-vector)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="link-state-dijkstras-algorithm">Link-State: Dijkstra’s Algorithm</h3>
+
+<p>Every router floods a description of its own links to all others, so each builds an identical <strong>link-state database</strong> and independently runs Dijkstra from itself as root. The result is a shortest-path tree; the first hop along each branch becomes the next hop in the RIB.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">heapq</span>
+
+<span class="k">def</span> <span class="nf">dijkstra</span><span class="p">(</span><span class="n">graph</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Shortest-path tree from `source`.
+
+    graph maps each router to {neighbour: link_cost}.
+    Returns (distance, first_hop) dicts: first_hop[d] is the neighbour of
+    `source` that packets for d should be forwarded to.
+    </span><span class="sh">"""</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="p">{</span><span class="n">source</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+    <span class="n">first_hop</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="bp">None</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">source</span><span class="p">:</span> <span class="bp">None</span><span class="p">}</span>
+    <span class="n">pq</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="n">source</span><span class="p">)]</span>
+    <span class="k">while</span> <span class="n">pq</span><span class="p">:</span>
+        <span class="n">d</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">pq</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">d</span> <span class="o">&gt;</span> <span class="n">dist</span><span class="p">[</span><span class="n">u</span><span class="p">]:</span>
+            <span class="k">continue</span>                      <span class="c1"># stale queue entry
+</span>        <span class="k">for</span> <span class="n">v</span><span class="p">,</span> <span class="n">cost</span> <span class="ow">in</span> <span class="n">graph</span><span class="p">[</span><span class="n">u</span><span class="p">].</span><span class="nf">items</span><span class="p">():</span>
+            <span class="n">nd</span> <span class="o">=</span> <span class="n">d</span> <span class="o">+</span> <span class="n">cost</span>
+            <span class="k">if</span> <span class="n">nd</span> <span class="o">&lt;</span> <span class="n">dist</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="sh">"</span><span class="s">inf</span><span class="sh">"</span><span class="p">)):</span>
+                <span class="n">dist</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">nd</span>
+                <span class="c1"># Neighbours of the source are their own first hop;
+</span>                <span class="c1"># everything else inherits the first hop of its predecessor.
+</span>                <span class="n">first_hop</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span> <span class="k">if</span> <span class="n">u</span> <span class="o">==</span> <span class="n">source</span> <span class="k">else</span> <span class="n">first_hop</span><span class="p">[</span><span class="n">u</span><span class="p">]</span>
+                <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">pq</span><span class="p">,</span> <span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">dist</span><span class="p">,</span> <span class="n">first_hop</span>
+
+<span class="n">topology</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+    <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="sh">"</span><span class="s">D</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+    <span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">D</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+    <span class="sh">"</span><span class="s">D</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+<span class="p">}</span>
+<span class="n">dist</span><span class="p">,</span> <span class="n">nh</span> <span class="o">=</span> <span class="nf">dijkstra</span><span class="p">(</span><span class="n">topology</span><span class="p">,</span> <span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># dist["B"] == 3 (A-C-D-B, not the direct 10-cost link); nh["B"] == "C"
+</span></code></pre></div></div>
+
+<p>With a binary heap this runs in $O((V + E)\log V)$ time. Production implementations add <strong>incremental SPF</strong> (recompute only the affected part of the tree) and <strong>equal-cost multi-path (ECMP)</strong>: when several paths tie, the router keeps all of them and hashes each flow (by its 5-tuple) onto one, spreading load without reordering packets inside a flow.</p>
+
+<h3 id="distance-vector-bellmanford">Distance-Vector: Bellman–Ford</h3>
+
+<p>Each router keeps a vector of its best-known distance to every destination and periodically sends it to its neighbours. On receipt, it applies the Bellman–Ford relaxation:</p>
+
+\[D_x(y) = \min_{v \in N(x)} \left\{ c(x, v) + D_v(y) \right\}\]
+
+<p>where $N(x)$ is the set of neighbours of router $x$, $c(x,v)$ is the link cost, and $D_v(y)$ is neighbour $v$’s advertised distance to $y$.</p>
+
+<p>The weakness is <strong>count-to-infinity</strong>: when a link fails, two routers can keep advertising stale routes to each other, each incrementing the metric by one per exchange, looping packets until the metric reaches “infinity”. RIP caps infinity at 16 hops for exactly this reason, which also caps network diameter at 15 hops. Mitigations include <strong>split horizon</strong> (never advertise a route back out the interface it was learned on), <strong>poison reverse</strong> (advertise it back with an infinite metric), and hold-down timers. EIGRP’s DUAL algorithm avoids loops entirely by only accepting paths that satisfy a <em>feasibility condition</em>.</p>
+
+<p><strong>Path-vector</strong> protocols (BGP) extend the idea by carrying the whole list of networks a route has traversed. A router that sees its own AS number in the path rejects the route, which makes loops impossible without needing a global view.</p>
+
+<h2 id="interior-gateway-protocols">Interior Gateway Protocols</h2>
+
+<p>An <strong>interior gateway protocol (IGP)</strong> routes within a single administrative domain — an enterprise, a campus, a data centre, or one ISP’s backbone.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Protocol</th>
+      <th>Type</th>
+      <th>Metric</th>
+      <th>Standard</th>
+      <th>Where it is used today</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>RIPv2 / RIPng</td>
+      <td>Distance-vector</td>
+      <td>Hop count (max 15)</td>
+      <td>RFC 2453 / RFC 2080</td>
+      <td>Labs and legacy only</td>
+    </tr>
+    <tr>
+      <td>EIGRP</td>
+      <td>Advanced distance-vector (DUAL)</td>
+      <td>Composite (bandwidth + delay by default)</td>
+      <td>Cisco; informational RFC 7868</td>
+      <td>Cisco-centric enterprises</td>
+    </tr>
+    <tr>
+      <td>OSPFv2 / OSPFv3</td>
+      <td>Link-state</td>
+      <td>Cost (from interface bandwidth)</td>
+      <td>RFC 2328 / RFC 5340</td>
+      <td>Enterprises, many ISPs</td>
+    </tr>
+    <tr>
+      <td>IS-IS</td>
+      <td>Link-state</td>
+      <td>Cost (configured)</td>
+      <td>ISO 10589, RFC 1195</td>
+      <td>Large ISP backbones, some data centres</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="ospf">OSPF</h3>
+
+<p>OSPF (Open Shortest Path First) is the most widely deployed open IGP. Its operation has three phases:</p>
+
+<ol>
+  <li><strong>Neighbour discovery.</strong> Routers send Hello packets (IP protocol 89, multicast 224.0.0.5) on each interface; matching timers, area, and subnet form an adjacency. On broadcast segments a <strong>Designated Router (DR)</strong> and backup are elected so each router peers with two routers instead of every other one.</li>
+  <li><strong>Database synchronisation.</strong> Adjacent routers exchange <strong>link-state advertisements (LSAs)</strong> until their link-state databases are identical. LSAs carry a sequence number and age, and are refreshed every 30 minutes.</li>
+  <li><strong>SPF calculation.</strong> Each router runs Dijkstra over the database and installs the results.</li>
+</ol>
+
+<p>The default cost of an interface is a reference bandwidth divided by the interface bandwidth. The traditional reference of 100 Mbps makes every link of 100 Mbps or faster cost 1, so 1 Gbps and 100 Gbps links look identical; on modern networks set a higher reference (for example <code class="language-plaintext highlighter-rouge">auto-cost reference-bandwidth 400000</code> for 400 Gbps) consistently on every router, or set costs explicitly.</p>
+
+<p><strong>Areas</strong> keep the design scalable. Flooding is contained within an area, and <strong>Area Border Routers (ABRs)</strong> summarise one area’s prefixes into another. Every area must attach to the <strong>backbone, area 0</strong>:</p>
+
+<pre><code class="language-mermaid">flowchart TB
+    subgraph A0["Area 0 (backbone)"]
+        R1["ABR 1"] --- CORE["Core router"] --- R2["ABR 2"]
+        CORE --- ASBR["ASBR"]
+    end
+    subgraph A1["Area 1"]
+        H1["Routers + LANs"] --- R1
+    end
+    subgraph A2["Area 2 (stub)"]
+        H2["Routers + LANs"] --- R2
+    end
+    ASBR --- EXT(["External routes&lt;br/&gt;(BGP, static)"])
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>LSA type</th>
+      <th>Originated by</th>
+      <th>Describes</th>
+      <th>Scope</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1 — Router</td>
+      <td>Every router</td>
+      <td>Its own links and costs</td>
+      <td>Area</td>
+    </tr>
+    <tr>
+      <td>2 — Network</td>
+      <td>DR on a broadcast segment</td>
+      <td>Routers attached to the segment</td>
+      <td>Area</td>
+    </tr>
+    <tr>
+      <td>3 — Summary</td>
+      <td>ABR</td>
+      <td>Prefixes from other areas</td>
+      <td>Area</td>
+    </tr>
+    <tr>
+      <td>4 — ASBR summary</td>
+      <td>ABR</td>
+      <td>How to reach an ASBR</td>
+      <td>Area</td>
+    </tr>
+    <tr>
+      <td>5 — External</td>
+      <td>ASBR</td>
+      <td>Routes redistributed from outside OSPF</td>
+      <td>Whole domain</td>
+    </tr>
+    <tr>
+      <td>7 — NSSA external</td>
+      <td>ASBR in an NSSA</td>
+      <td>External routes in a not-so-stubby area</td>
+      <td>NSSA only</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Stub and totally-stubby areas block type 5 (and type 3) LSAs, replacing them with a default route — useful for branch sites that have only one way out.</p>
+
+<h3 id="is-is">IS-IS</h3>
+
+<p>IS-IS (Intermediate System to Intermediate System) is the other link-state IGP. It uses the same Dijkstra core but runs directly over Layer 2 rather than over IP, uses a two-level hierarchy (Level 1 within an area, Level 2 between areas) instead of a mandatory backbone area, and carries new information as extensible TLVs. That extensibility is why large service providers favour it: IPv6, traffic-engineering attributes, and segment-routing labels were added without a new protocol version. See <a href="programmable-networks.html">Programmable Networks</a> for MPLS and segment routing, which typically ride on IS-IS or OSPF.</p>
+
+<h2 id="bgp-routing-between-networks">BGP: Routing Between Networks</h2>
+
+<p>The internet is a network of <strong>autonomous systems (ASes)</strong> — networks under one administrative control, each identified by a 32-bit AS number (originally 16-bit). The <strong>Border Gateway Protocol, version 4</strong> (RFC 4271) is the only protocol used to exchange routes between them. As of September 2026, the global table held about <strong>1.08 million IPv4 prefixes</strong> and <strong>256,000 IPv6 prefixes</strong>, originated by roughly <strong>79,500 ASes</strong> (<a href="https://bgp.potaroo.net/">CIDR Report / potaroo</a>).</p>
+
+<p>BGP differs from an IGP in almost every respect. It is not trying to find the <em>shortest</em> path; it is trying to find the <em>path that satisfies policy</em> — commercial relationships, traffic engineering, and security — and it scales by exchanging only best paths, incrementally.</p>
+
+<h3 id="sessions-and-messages">Sessions and Messages</h3>
+
+<p>BGP runs over TCP port 179 between explicitly configured neighbours. A session between different ASes is <strong>eBGP</strong>; a session within one AS is <strong>iBGP</strong>, which distributes externally learned routes to the AS’s other border routers. Because iBGP does not re-advertise iBGP-learned routes (its loop-prevention rule), every iBGP speaker would need a session to every other — a full mesh of $n(n-1)/2$ sessions — so large networks use <strong>route reflectors</strong> instead.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Message</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>OPEN</td>
+      <td>Start a session; negotiate AS number, hold time, and capabilities (4-byte ASNs, address families, add-path)</td>
+    </tr>
+    <tr>
+      <td>UPDATE</td>
+      <td>Advertise new routes (NLRI + path attributes) and/or withdraw old ones</td>
+    </tr>
+    <tr>
+      <td>KEEPALIVE</td>
+      <td>Prove liveness; typically sent every third of the hold time (commonly 60 s of a 180 s hold time, or 30/90 s)</td>
+    </tr>
+    <tr>
+      <td>NOTIFICATION</td>
+      <td>Report an error and close the session</td>
+    </tr>
+    <tr>
+      <td>ROUTE-REFRESH</td>
+      <td>Ask a peer to resend its routes after a policy change</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Hold timers detect a dead peer slowly; production networks pair BGP with <strong>BFD</strong> (Bidirectional Forwarding Detection) for sub-second failure detection.</p>
+
+<p>The session itself is a finite-state machine:</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Idle
+    Idle --&gt; Connect: start
+    Connect --&gt; OpenSent: TCP established, OPEN sent
+    Connect --&gt; Active: TCP connect failed
+    Active --&gt; OpenSent: TCP established, OPEN sent
+    Active --&gt; Connect: retry timer expires
+    OpenSent --&gt; OpenConfirm: valid OPEN received
+    OpenConfirm --&gt; Established: KEEPALIVE received
+    Established --&gt; Established: UPDATE / KEEPALIVE
+    OpenSent --&gt; Idle: error
+    OpenConfirm --&gt; Idle: error / hold timer
+    Established --&gt; Idle: NOTIFICATION / hold timer
+</code></pre>
+
+<p>A session stuck in <strong>Active</strong> is the classic misconfiguration symptom: the router is trying and failing to establish TCP (wrong neighbour address, ACL blocking port 179, or no route to the peer).</p>
+
+<h3 id="path-attributes-and-best-path-selection">Path Attributes and Best-Path Selection</h3>
+
+<p>Each route carries <strong>path attributes</strong>. The important ones:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Attribute</th>
+      <th>Meaning</th>
+      <th>Scope</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>AS_PATH</td>
+      <td>The ASes the route has passed through; used for loop detection and as a length metric</td>
+      <td>Carried everywhere</td>
+    </tr>
+    <tr>
+      <td>NEXT_HOP</td>
+      <td>The address to forward to</td>
+      <td>Carried everywhere</td>
+    </tr>
+    <tr>
+      <td>ORIGIN</td>
+      <td>How the route entered BGP: IGP, EGP, or incomplete</td>
+      <td>Carried everywhere</td>
+    </tr>
+    <tr>
+      <td>LOCAL_PREF</td>
+      <td>Operator preference for an exit point (higher wins)</td>
+      <td>Within one AS only</td>
+    </tr>
+    <tr>
+      <td>MED (MULTI_EXIT_DISC)</td>
+      <td>A hint to a neighbouring AS about which of your links to use (lower wins)</td>
+      <td>Sent to one neighbour AS</td>
+    </tr>
+    <tr>
+      <td>COMMUNITY / LARGE_COMMUNITY</td>
+      <td>Tags that trigger policy (for example “do not export”, “prepend 2x toward Europe”)</td>
+      <td>Optional, transitive</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>When a router holds several routes for the same prefix, it applies the decision process in order, stopping at the first step that breaks the tie. The common vendor ordering is:</p>
+
+<ol>
+  <li>Discard routes whose NEXT_HOP is unreachable.</li>
+  <li>Highest <strong>weight</strong> (Cisco-specific, local to the router).</li>
+  <li>Highest <strong>LOCAL_PREF</strong>.</li>
+  <li>Prefer routes originated locally.</li>
+  <li>Shortest <strong>AS_PATH</strong>.</li>
+  <li>Lowest <strong>ORIGIN</strong> (IGP &lt; EGP &lt; incomplete).</li>
+  <li>Lowest <strong>MED</strong> — by default compared only between routes from the same neighbouring AS.</li>
+  <li>Prefer <strong>eBGP</strong> over iBGP.</li>
+  <li>Lowest IGP cost to the NEXT_HOP (“hot-potato” routing: hand traffic off at the nearest exit).</li>
+  <li>Oldest eBGP route, then lowest router ID, then lowest neighbour address.</li>
+</ol>
+
+<p>Because LOCAL_PREF is evaluated before AS_PATH length, <strong>policy beats distance</strong>: an operator that sets a higher LOCAL_PREF on routes from a customer will use that customer path even if a peer offers a shorter one.</p>
+
+<h3 id="policy-customers-peers-and-providers">Policy: Customers, Peers, and Providers</h3>
+
+<p>Inter-domain routing is shaped by money. Two ASes typically have one of two relationships: <strong>customer–provider</strong> (the customer pays for transit) or <strong>settlement-free peering</strong> (two networks exchange their own and their customers’ traffic for free). The resulting export rules (the Gao–Rexford model) are:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Route learned from</th>
+      <th>Export to customers</th>
+      <th>Export to peers</th>
+      <th>Export to providers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A customer</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>A peer</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+    <tr>
+      <td>A provider</td>
+      <td>Yes</td>
+      <td>No</td>
+      <td>No</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Paths that follow these rules are “valley-free”: traffic never goes up to a provider, down to a customer, and back up again. Import policy usually mirrors the economics: LOCAL_PREF customer &gt; peer &gt; provider, so a network prefers routes it is paid to carry.</p>
+
+<p>A <strong>route leak</strong> is a violation of these rules — for example a multi-homed customer re-advertising one provider’s routes to another, turning itself into unintended transit. Leaks, rather than malicious hijacks, cause many of the largest outages.</p>
+
+<h3 id="a-minimal-ebgp-configuration">A Minimal eBGP Configuration</h3>
+
+<p>An example using <a href="https://frrouting.org/">FRRouting</a>, the open-source routing suite used on Linux routers, SONiC switches, and in Kubernetes networking. Recent FRR releases refuse to import or export any eBGP route until a policy is applied (<code class="language-plaintext highlighter-rouge">bgp ebgp-requires-policy</code>, on by default), which prevents the accidental full-table leak:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>router bgp 64500
+ bgp router-id 192.0.2.1
+ neighbor 198.51.100.1 remote-as 64501
+ neighbor 198.51.100.1 description transit-provider
+ !
+ address-family ipv4 unicast
+  network 203.0.113.0/24
+  neighbor 198.51.100.1 prefix-list OUR-PREFIXES out
+  neighbor 198.51.100.1 route-map FROM-TRANSIT in
+ exit-address-family
+!
+ip prefix-list OUR-PREFIXES seq 10 permit 203.0.113.0/24
+!
+route-map FROM-TRANSIT permit 10
+ set local-preference 100
+</code></pre></div></div>
+
+<p>The outbound prefix-list is the important part: it ensures this AS only ever announces its own address space.</p>
+
+<h3 id="bgp-inside-the-data-centre">BGP Inside the Data Centre</h3>
+
+<p>BGP is also used as an IGP. Large data centres build Clos (leaf–spine) fabrics where every switch runs eBGP with a private ASN, as described in RFC 7938. BGP’s simple, per-session state and fine-grained policy scale better there than flooding a link-state database across tens of thousands of switches, and ECMP across spines comes for free. The same fabrics commonly run <strong>EVPN</strong> (a BGP address family) to carry Layer-2 and Layer-3 overlays over VXLAN.</p>
+
+<h2 id="routing-security">Routing Security</h2>
+
+<p>BGP was designed for a small community of trusted operators: by default a router believes whatever its neighbours announce. Any AS can originate any prefix, and a more-specific announcement wins by longest-prefix match. Notable incidents include Pakistan Telecom’s 2008 hijack of a YouTube prefix (a more-specific /24, intended as a local block, leaked worldwide) and the June 2019 route leak through a small ISP that briefly diverted traffic for large parts of the internet. The October 2021 Facebook outage was the opposite failure: a maintenance change withdrew the routes to Facebook’s own DNS servers.</p>
+
+<p>The defences are layered:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism</th>
+      <th>What it validates</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Prefix filtering (IRR-based)</td>
+      <td>Customers only announce their registered prefixes</td>
+      <td>Standard practice; IRR data quality varies</td>
+    </tr>
+    <tr>
+      <td><strong>RPKI Route Origin Validation (ROV)</strong></td>
+      <td>The <em>origin</em> AS is authorised to announce the prefix</td>
+      <td>Widely deployed by large transit and cloud networks</td>
+    </tr>
+    <tr>
+      <td><strong>ASPA</strong> (Autonomous System Provider Authorization)</td>
+      <td>The AS_PATH follows declared customer–provider relationships (catches leaks and many forged paths)</td>
+      <td>IETF SIDROPS draft reached working-group consensus in 2026; early implementations</td>
+    </tr>
+    <tr>
+      <td>BGPsec (RFC 8205)</td>
+      <td>Every hop of the AS_PATH is cryptographically signed</td>
+      <td>Standardised, but effectively undeployed due to cost</td>
+    </tr>
+    <tr>
+      <td>MANRS</td>
+      <td>Operator commitment to filtering, anti-spoofing, and coordination</td>
+      <td>Industry programme</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>RPKI</strong> (Resource Public Key Infrastructure) lets the holder of an address block sign a <strong>Route Origin Authorization (ROA)</strong> stating which AS may originate it and the maximum prefix length allowed. Routers fetch validated ROA data from a local validator over the RTR protocol and classify every route:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    RIR["RIR trust anchors&lt;br/&gt;(ARIN, RIPE, APNIC, ...)"] --&gt; REPO["Signed ROAs&lt;br/&gt;in RPKI repositories"]
+    REPO --&gt; VAL["Relying-party validator&lt;br/&gt;(Routinator, rpki-client)"]
+    VAL --&gt;|RTR protocol| RTR["Border router"]
+    ANN(["BGP UPDATE:&lt;br/&gt;prefix + origin AS"]) --&gt; RTR
+    RTR --&gt; V{"Covered by a ROA?"}
+    V --&gt;|No| NF["NotFound: accept"]
+    V --&gt;|Yes, origin and length match| OK["Valid: accept"]
+    V --&gt;|Yes, mismatch| BAD["Invalid: drop"]
+</code></pre>
+
+<p>ROV stops accidental mis-originations and naive hijacks, but not an attacker who forges the correct origin AS at the end of a fake path. That gap is what ASPA and BGPsec address.</p>
+
+<h2 id="nat-network-address-translation">NAT (Network Address Translation)</h2>
+
+<p>Network Address Translation rewrites IP addresses (and usually ports) as packets cross a boundary. It was introduced as a stop-gap for IPv4 address exhaustion and became permanent: almost every home and enterprise network sits behind it.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Mapping</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Static NAT</td>
+      <td>One private address ↔ one public address, permanently</td>
+      <td>Exposing a single internal server</td>
+    </tr>
+    <tr>
+      <td>Dynamic NAT</td>
+      <td>Private addresses draw from a pool of public addresses</td>
+      <td>Rare today</td>
+    </tr>
+    <tr>
+      <td><strong>PAT / NAPT / “masquerade”</strong></td>
+      <td>Many private addresses share one public address, distinguished by port</td>
+      <td>Home routers, cloud NAT gateways</td>
+    </tr>
+    <tr>
+      <td><strong>CGNAT</strong> (carrier-grade NAT)</td>
+      <td>A second PAT layer inside the ISP, using 100.64.0.0/10 (RFC 6598)</td>
+      <td>Mobile networks and IPv4-short ISPs</td>
+    </tr>
+    <tr>
+      <td>NAT64 / DNS64</td>
+      <td>IPv6-only clients reach IPv4 servers</td>
+      <td>IPv6-only mobile and data-centre networks</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>With PAT, the router keeps a translation table keyed by the connection and rewrites the source address and port on the way out, and the destination on the way back:</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant H as Host 192.168.1.10
+    participant R as NAT router&lt;br/&gt;(public 203.0.113.5)
+    participant S as Server 198.51.100.7
+    H-&gt;&gt;R: src 192.168.1.10:51000 → dst 198.51.100.7:443
+    Note over R: Allocate public port 40001&lt;br/&gt;record 40001 ↔ 192.168.1.10:51000
+    R-&gt;&gt;S: src 203.0.113.5:40001 → dst 198.51.100.7:443
+    S-&gt;&gt;R: src 198.51.100.7:443 → dst 203.0.113.5:40001
+    Note over R: Look up 40001, rewrite destination
+    R-&gt;&gt;H: src 198.51.100.7:443 → dst 192.168.1.10:51000
+</code></pre>
+
+<p>Consequences worth knowing:</p>
+
 <ul>
-  <li><strong>RIP</strong>: Simple but limited (counts hops, max 15)
-    <ul>
-      <li>Good for: Small networks, lab environments</li>
-      <li>Problem: Treats all links equally (1Gbps same as 10Mbps)</li>
-    </ul>
-  </li>
-  <li><strong>OSPF</strong>: Smarter routing based on link speed
-    <ul>
-      <li>Good for: Large corporate networks</li>
-      <li>Advantage: Considers bandwidth, builds complete network map</li>
-    </ul>
-  </li>
-  <li><strong>EIGRP</strong>: Cisco’s enhanced protocol
-    <ul>
-      <li>Good for: Cisco-only environments</li>
-      <li>Advantage: Fast convergence, multiple metrics</li>
-    </ul>
-  </li>
+  <li><strong>Inbound connections fail by default</strong>: there is no table entry until an inside host sends first. Port forwarding (a static entry), UPnP/PCP, or NAT traversal (STUN, TURN, ICE — used by WebRTC) work around it.</li>
+  <li><strong>NAT is not a firewall</strong>, though it blocks unsolicited inbound traffic as a side effect. Stateful filtering is a separate policy.</li>
+  <li><strong>State is finite.</strong> One public address has about 64,000 ports per destination; CGNAT deployments must ration ports per subscriber and log mappings for abuse tracing.</li>
+  <li>Idle mappings time out (UDP mappings often after 30 seconds to a few minutes), which is why long-lived connections send keepalives.</li>
 </ul>
 
-<p><strong>Between Organizations (EGP):</strong></p>
-<ul>
-  <li><strong>BGP</strong>: The internet’s routing protocol
-    <ul>
-      <li>Exchanges routes between ISPs, companies, countries</li>
-      <li>Makes policy decisions (prefer certain providers, avoid others)</li>
-      <li>Handles 900,000+ routes in the global routing table</li>
-    </ul>
-  </li>
-</ul>
+<p>On Linux, PAT is a single nftables rule (nftables has replaced iptables as the kernel’s packet-filtering framework):</p>
 
-<h3 id="nat-network-address-translation">NAT (Network Address Translation)</h3>
-<p>Translates private IPs to public IPs.</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>nft add table ip nat
+<span class="nb">sudo </span>nft add chain ip nat postrouting <span class="s1">'{ type nat hook postrouting priority srcnat; }'</span>
+<span class="nb">sudo </span>nft add rule ip nat postrouting oifname <span class="s2">"eth0"</span> masquerade
+<span class="nb">sudo </span>sysctl <span class="nt">-w</span> net.ipv4.ip_forward<span class="o">=</span>1
+</code></pre></div></div>
 
-<p><strong>Types</strong>:</p>
-<ul>
-  <li>Static NAT: One-to-one mapping</li>
-  <li>Dynamic NAT: Pool of public IPs</li>
-  <li>PAT/Overload: Many-to-one using ports</li>
-</ul>
+<p>IPv6 removes the address shortage that motivated NAT, and end-to-end addressing is the norm there; the cloud equivalent is covered in <a href="cloud-networking.html">Cloud Networking</a>.</p>
 
-<h2 id="vlans-virtual-networks-on-physical-hardware">VLANs: Virtual Networks on Physical Hardware</h2>
+<h2 id="switching-and-vlans">Switching and VLANs</h2>
 
-<p>Imagine you need separate networks for different departments, but running separate cables is expensive. VLANs create multiple logical networks on the same physical switches—like having multiple virtual highways on the same road.</p>
+<p>Within one Layer-2 network, <strong>switches</strong> forward Ethernet frames by MAC address. A switch is a <strong>learning bridge</strong>:</p>
 
-<p><strong>Benefits</strong>:</p>
-<ul>
-  <li>Security isolation</li>
-  <li>Broadcast domain reduction</li>
-  <li>Flexible network design</li>
-  <li>QoS implementation</li>
-</ul>
+<ol>
+  <li>On each incoming frame it records <em>source MAC → ingress port</em> in its MAC address table (entries age out after about 300 seconds by default).</li>
+  <li>It looks up the <em>destination MAC</em>. If known, it forwards out that one port; if unknown, or if the address is broadcast, it <strong>floods</strong> out every port in the same VLAN except the ingress port.</li>
+</ol>
 
-<p><strong>Configuration Example</strong>:</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Create VLAN
-vlan 10
+<p>Flooding is what makes Layer 2 plug-and-play, and also what makes loops catastrophic: Ethernet frames have no TTL, so a looped broadcast circulates forever (a <strong>broadcast storm</strong>). The <strong>Spanning Tree Protocol</strong> family prevents this by electing a root bridge and blocking redundant ports until they are needed. The original 802.1D STP took 30–50 seconds to converge; <strong>Rapid STP</strong> (802.1w, now part of 802.1Q) converges in about a second, and <strong>MSTP</strong> runs separate trees per VLAN group. Modern data centres avoid the problem altogether by routing at every switch (leaf–spine Layer 3) and carrying any needed Layer-2 segments in overlays.</p>
+
+<h3 id="vlans-ieee-8021q">VLANs (IEEE 802.1Q)</h3>
+
+<p>A <strong>Virtual LAN</strong> splits one physical switch fabric into several isolated broadcast domains. Hosts in different VLANs cannot talk at Layer 2 even on the same switch; traffic between them must be routed, which is where security policy is enforced. Typical uses are separating departments, guest Wi-Fi, voice phones, IoT devices, and management interfaces.</p>
+
+<p>A frame crossing a <strong>trunk</strong> link (switch to switch, or switch to router/hypervisor) carries a 4-byte 802.1Q tag inserted after the source MAC address:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Bits</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>TPID</td>
+      <td>16</td>
+      <td>0x8100, identifies the frame as tagged</td>
+    </tr>
+    <tr>
+      <td>PCP</td>
+      <td>3</td>
+      <td>Priority Code Point (802.1p class of service)</td>
+    </tr>
+    <tr>
+      <td>DEI</td>
+      <td>1</td>
+      <td>Drop Eligible Indicator</td>
+    </tr>
+    <tr>
+      <td>VID</td>
+      <td>12</td>
+      <td>VLAN ID; 0 and 4095 are reserved, so 1–4094 are usable</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Access ports</strong> belong to one VLAN and carry untagged frames to end hosts; <strong>trunk ports</strong> carry many VLANs, tagged. The one untagged VLAN on a trunk is the <strong>native VLAN</strong> — leave it unused, since mismatches and VLAN-hopping attacks exploit it.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph SW1["Switch 1"]
+        P1["Gi0/1 access&lt;br/&gt;VLAN 10"]
+        P2["Gi0/2 access&lt;br/&gt;VLAN 20"]
+    end
+    subgraph SW2["Switch 2"]
+        P3["Gi0/1 access&lt;br/&gt;VLAN 10"]
+    end
+    PC1["Sales PC"] --- P1
+    PC2["Guest PC"] --- P2
+    PC3["Sales PC"] --- P3
+    SW1 ===|"Trunk: tagged 10, 20"| SW2
+    SW1 ===|"Trunk"| RTR["Router / L3 switch&lt;br/&gt;inter-VLAN routing"]
+</code></pre>
+
+<p>Cisco IOS-style configuration:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vlan 10
  name Sales
-
-# Assign port to VLAN
+vlan 20
+ name Guest
+!
 interface GigabitEthernet0/1
  switchport mode access
  switchport access vlan 10
-
-# Configure trunk
+ spanning-tree portfast
+!
 interface GigabitEthernet0/24
  switchport mode trunk
- switchport trunk allowed vlan 10,20,30
+ switchport trunk allowed vlan 10,20
+ switchport trunk native vlan 999
+ switchport nonegotiate
 </code></pre></div></div>
+
+<p>Linux creates a VLAN sub-interface on a trunk like this:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>ip <span class="nb">link </span>add <span class="nb">link </span>eth0 name eth0.10 <span class="nb">type </span>vlan <span class="nb">id </span>10
+<span class="nb">sudo </span>ip addr add 10.10.0.1/24 dev eth0.10
+<span class="nb">sudo </span>ip <span class="nb">link set </span>eth0.10 up
+</code></pre></div></div>
+
+<p><strong>Inter-VLAN routing</strong> is done either by a router with one sub-interface per VLAN on a single trunk (“router on a stick”) or, more commonly, by a Layer-3 switch with a <strong>switched virtual interface (SVI)</strong> per VLAN acting as each subnet’s default gateway.</p>
+
+<p>The 12-bit VLAN ID limits a network to 4,094 segments, too few for multi-tenant clouds. <strong>VXLAN</strong> (RFC 7348) encapsulates Ethernet frames in UDP (port 4789) with a 24-bit segment ID — about 16 million segments — and lets Layer-2 segments stretch over a routed Layer-3 fabric, typically with BGP EVPN as its control plane.</p>
 
 <hr />
 
@@ -3589,8 +3938,10 @@ interface GigabitEthernet0/24
 
 <ul>
   <li><a href="fundamentals.html">Layers &amp; Addressing</a> — IP addressing and CIDR subnetting that routing operates on.</li>
-  <li><a href="modern-architecture.html">Modern &amp; Future Networking</a> — SDN and programmable forwarding that re-imagine routing.</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> — BGP hijacking and routing security.</li>
+  <li><a href="programmable-networks.html">Programmable Networks</a> — SDN, P4, MPLS, and segment routing.</li>
+  <li><a href="cloud-networking.html">Cloud Networking</a> — VPC route tables, NAT gateways, and anycast.</li>
+  <li><a href="modern-architecture.html">Modern &amp; Future Networking</a> — traffic models and research directions.</li>
+  <li><a href="../cybersecurity/">Cybersecurity</a> — attacks on network infrastructure and their defences.</li>
 </ul>
 
       </section>

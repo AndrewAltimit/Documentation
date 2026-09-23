@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="The metallic state from Drude through Sommerfeld to Landau Fermi-liquid theory, the Fermi surface, screening and transport, and magnetism from exchange throu...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Condensed Matter: Metals & Magnetism">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="The metallic state from Drude through Sommerfeld to Landau Fermi-liquid theory, the Fermi surface, screening and transport, and magnetism from exchange throu...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/condensed-matter/metals-and-magnetism.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Condensed Matter: Metals & Magnetism">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="The metallic state from Drude through Sommerfeld to Landau Fermi-liquid theory, the Fermi surface, screening and transport, and magnetism from exchange throu...">
 
 <title>Condensed Matter: Metals & Magnetism | Andrews Notebook</title>
 
@@ -3135,97 +3135,228 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Condensed Matter Physics</a> » Metals &amp; Magnetism</p>
 
-<!-- Custom styles are now loaded via main.scss -->
-
 <h2 id="metals--magnetism">Metals &amp; Magnetism</h2>
 
-<p>Two of the oldest puzzles in solid-state physics — why metals conduct and why iron is magnetic — turn out to share a common moral: a metal is not a box of independent electrons, and a magnet is not a box of independent spins. Both are <strong>collective</strong> quantum states. This page follows the historical refinement of the metallic state (Drude → Sommerfeld → Landau’s Fermi liquid), introduces the Fermi surface and electronic screening, and then builds magnetism from the exchange interaction up through the Heisenberg and Ising models, spin waves, and the mean-field theory of magnetic phase transitions.</p>
+<p>A <strong>metal</strong> is a solid with a partly filled band, whose conduction electrons form a degenerate quantum fluid; <strong>magnetic order</strong> is the spontaneous alignment of electron spins. Both are collective quantum states rather than collections of independent particles, and both rest on the Pauli principle. Fermi statistics confines the low-energy physics of a metal to a thin shell at the Fermi surface, and the antisymmetry of the many-electron wavefunction produces the <strong>exchange interaction</strong> — an electrostatic effect, roughly a thousand times stronger than the magnetic dipole coupling between moments — that aligns spins.</p>
 
-<p><strong>The big idea: the Pauli principle does the heavy lifting.</strong> Almost everything surprising on this page traces back to fermion statistics. Electrons cannot share a quantum state, so at low temperature they stack up to the Fermi energy, leaving only a thin shell near the Fermi surface thermally active — that single fact rescues the metallic heat capacity, fixes the spin susceptibility, and (through the exchange energy that the antisymmetry of the wavefunction demands) makes magnetism possible in the first place. Magnetism is the Pauli principle made macroscopic: the spins align not because they are tiny bar magnets feeling each other’s fields — that effect is a thousand times too weak — but because aligning them lets the electrons avoid each other and lower their electrostatic energy.</p>
+<p>The first half of this page follows the theory of the metallic state (Drude, Sommerfeld, Landau’s Fermi liquid), the Fermi surface, transport and screening, and where the Fermi-liquid picture fails. The second half builds magnetism from the weak responses of independent moments, through exchange and the Heisenberg and Ising models, mean-field theory and critical behaviour, to the ordered states (including the recently identified altermagnets), itinerant magnetism, spin waves, and domains.</p>
 
-<h2 id="metals-and-fermi-liquids">Metals and Fermi Liquids</h2>
+<pre><code class="language-mermaid">flowchart TB
+    PP["Pauli principle"] --&gt; FS["Degenerate Fermi sea&lt;br/&gt;only states near E_F are active"]
+    PP --&gt; EX["Exchange interaction J"]
+    FS --&gt; DR["Drude → Sommerfeld → Landau&lt;br/&gt;transport, γT heat capacity, screening"]
+    FS --&gt; PA["Pauli paramagnetism"]
+    EX --&gt; LM["Local moments: Heisenberg / Ising models"]
+    EX --&gt; IT["Itinerant (Stoner) magnetism"]
+    PA --&gt;|"interactions enhance χ"| IT
+    LM --&gt; ORD["Ordered states: FM, AFM, ferri, altermagnet"]
+    IT --&gt; ORD
+    ORD --&gt; MG["Magnons, domains, critical behaviour"]
+</code></pre>
 
-<p>Our picture of a metal evolved in three stages, each fixing a failure of the last: a classical gas of electrons (Drude), then a quantum gas obeying the Pauli principle (Sommerfeld), then an interacting fluid of “dressed” electrons (Landau). Each step kept the successes of the previous one while resolving a glaring discrepancy with experiment.</p>
+<h2 id="the-metallic-state">The Metallic State</h2>
 
-<h3 id="drude-model">Drude Model</h3>
+<p>The picture of a metal was refined in three steps, each keeping the successes of the last and fixing a failure: a classical gas (Drude, 1900), a free quantum Fermi gas (Sommerfeld, 1927), and an interacting Fermi liquid (Landau, 1956).</p>
 
-<p>The earliest picture treats conduction electrons as a classical gas of point particles bouncing off the ions, with a mean time $\tau$ between collisions. The equation of motion for the average drift momentum $\mathbf{p}$ under fields $\mathbf{E}$ and $\mathbf{B}$, with friction represented by the relaxation time, is</p>
+<h3 id="drude-model">Drude model</h3>
 
-\[\frac{d\mathbf{p}}{dt} = -e\left(\mathbf{E} + \frac{\mathbf{p}}{m}\times\mathbf{B}\right) - \frac{\mathbf{p}}{\tau}.\]
+<p>Drude treated conduction electrons as a classical gas of charge $-e$ and mass $m$ that scatters randomly with mean free time $\tau$. The average momentum obeys</p>
 
-<p>In steady state with $\mathbf{B}=0$ this gives Ohm’s law and the DC conductivity, and including a magnetic field gives the Hall coefficient:</p>
+\[\frac{d\mathbf{p}}{dt} = -e\left(\mathbf{E} + \frac{\mathbf{p}}{m}\times\mathbf{B}\right) - \frac{\mathbf{p}}{\tau},\]
 
-\[\sigma = \frac{ne^2\tau}{m}, \qquad R_H = -\frac{1}{ne}.\]
+<p>whose steady state gives Ohm’s law and the Hall coefficient</p>
 
-<p>The Hall coefficient $R_H$ even gives the carrier density and sign correctly for simple metals. Two more successes follow almost for free:</p>
+\[\sigma_0 = \frac{ne^2\tau}{m}, \qquad R_H = -\frac{1}{ne}.\]
 
-<ul>
-  <li><strong>AC response.</strong> Solving for an oscillating field $\mathbf{E}(t) = \mathbf{E}_0 e^{-i\omega t}$ gives the frequency-dependent conductivity $\sigma(\omega) = \sigma_0 / (1 - i\omega\tau)$, which feeds directly into the dielectric function and predicts the <strong>plasma frequency</strong> $\omega_p = \sqrt{ne^2/\epsilon_0 m}$ below which a metal reflects light — the reason metals are shiny.</li>
-  <li><strong>Wiedemann–Franz law.</strong> The ratio of thermal to electrical conductivity is predicted to be proportional to temperature, $\kappa/\sigma T = L$, a constant. The numerical value comes out roughly right.</li>
-</ul>
+<p>An oscillating field gives $\sigma(\omega) = \sigma_0/(1 - i\omega\tau)$ and the <strong>plasma frequency</strong> $\omega_p = \sqrt{ne^2/\epsilon_0 m}$, below which a metal reflects light. For typical metals $\hbar\omega_p$ is 5–15 eV, in the ultraviolet — which is why metals are shiny and alkali metals become transparent in the UV. (The colours of copper and gold come from interband transitions, beyond Drude.)</p>
 
-<p>But Drude fails badly on two counts. It predicts a huge electronic contribution to the heat capacity — each electron should carry $\tfrac{3}{2}k_B$ of thermal energy, giving a constant $C_V$ that experiments flatly contradict. And it gets the <strong>Lorenz number</strong> $L$ in Wiedemann–Franz off by a factor of order two, for compensating wrong reasons (a too-large heat capacity multiplied by a too-small mean velocity). Both failures have the same root: electrons are not a classical gas.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Drude prediction</th>
+      <th>Verdict</th>
+      <th>Reason</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Ohm’s law, $\sigma_0 = ne^2\tau/m$</td>
+      <td>correct form</td>
+      <td>survives in all later theories with $m \to m^*$</td>
+    </tr>
+    <tr>
+      <td>$R_H = -1/ne$</td>
+      <td>right for alkali metals</td>
+      <td>fails in sign and magnitude for Be, Zn, Al, Bi (band structure: hole-like carriers)</td>
+    </tr>
+    <tr>
+      <td>AC conductivity and $\omega_p$</td>
+      <td>correct at low frequency</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Electronic heat capacity $\tfrac{3}{2}nk_B$</td>
+      <td>wrong: observed value is ~100 times smaller</td>
+      <td>electrons are a degenerate Fermi gas</td>
+    </tr>
+    <tr>
+      <td>Wiedemann–Franz law $\kappa/\sigma T = L$</td>
+      <td>right law, value right only by luck</td>
+      <td>two compensating errors (heat capacity too large, $v^2$ too small)</td>
+    </tr>
+    <tr>
+      <td>No magnetoresistance</td>
+      <td>wrong for most metals</td>
+      <td>multiple carrier types, Fermi-surface geometry</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="sommerfeld-model">Sommerfeld Model</h3>
+<h3 id="sommerfeld-model">Sommerfeld model</h3>
 
-<p>The fix is quantum statistics. Electrons are fermions obeying the <strong>Fermi–Dirac distribution</strong></p>
+<p>Electrons obey Fermi–Dirac statistics,</p>
 
 \[f(E) = \frac{1}{e^{(E-\mu)/k_BT} + 1},\]
 
-<p>so at $T=0$ they fill every state up to the <strong>Fermi energy</strong> $E_F$ and none above it. For a free-electron gas of density $n$ the filled states form a sphere in $\mathbf{k}$-space — the <strong>Fermi sphere</strong> — of radius $k_F = (3\pi^2 n)^{1/3}$, and</p>
+<p>so at $T = 0$ they fill a <strong>Fermi sphere</strong> of radius $k_F = (3\pi^2 n)^{1/3}$ up to the <strong>Fermi energy</strong></p>
 
 \[E_F = \frac{\hbar^2 k_F^2}{2m} = \frac{\hbar^2}{2m}(3\pi^2 n)^{2/3}.\]
 
-<p>For a typical metal $E_F \sim 5$ eV, corresponding to a <strong>Fermi temperature</strong> $T_F = E_F/k_B \sim 50{,}000$ K — far above room temperature, which is why the electron gas is always strongly <em>degenerate</em> and the classical picture never applies.</p>
+<p>Free-electron values for three simple metals (Ashcroft &amp; Mermin):</p>
 
-<p>Only the thin shell of electrons within $\sim k_B T$ of $E_F$ can be thermally excited — the rest are Pauli-blocked. This single observation fixes the heat-capacity disaster. The fraction of thermally active electrons is $\sim k_B T / E_F$, each carrying $\sim k_B T$ of energy, so the thermal energy scales as $N (k_B T)^2/E_F$ and its derivative — the heat capacity — is <strong>linear</strong> in temperature, exactly as measured:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Metal</th>
+      <th>$n$ ($10^{22}$ cm$^{-3}$)</th>
+      <th>$E_F$ (eV)</th>
+      <th>$T_F$ ($10^4$ K)</th>
+      <th>$v_F$ ($10^6$ m/s)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Na</td>
+      <td>2.65</td>
+      <td>3.24</td>
+      <td>3.77</td>
+      <td>1.07</td>
+    </tr>
+    <tr>
+      <td>Cu</td>
+      <td>8.47</td>
+      <td>7.00</td>
+      <td>8.16</td>
+      <td>1.57</td>
+    </tr>
+    <tr>
+      <td>Al</td>
+      <td>18.1</td>
+      <td>11.7</td>
+      <td>13.6</td>
+      <td>2.03</td>
+    </tr>
+  </tbody>
+</table>
 
-\[C_V = \gamma T, \qquad \gamma = \frac{\pi^2 k_B^2 g(E_F)}{3}.\]
+<p>Since $T_F \sim 10^4$–$10^5$ K, the electron gas is deeply <strong>degenerate</strong> at all accessible temperatures. Only electrons within $\sim k_BT$ of $E_F$ can be thermally excited — a fraction $\sim k_BT/E_F$, under 1% at room temperature — each gaining $\sim k_BT$. The thermal energy therefore scales as $(k_BT)^2 g(E_F)$ and the heat capacity is linear in $T$:</p>
 
-<p>The coefficient $\gamma$ (the <strong>Sommerfeld coefficient</strong>) is directly proportional to the density of states at the Fermi level, $g(E_F)$, making low-temperature heat-capacity measurements a clean experimental probe of $g(E_F)$. The same factor $g(E_F)$ governs the Pauli spin susceptibility below, so the two quantities can be cross-checked.</p>
+\[C_{el} = \gamma T, \qquad \gamma = \frac{\pi^2}{3}k_B^2\, g(E_F),\]
 
-<p><strong>Why the Sommerfeld correction is small.</strong> At room temperature $k_BT/E_F \approx 300/50{,}000 \approx 0.6\%$. Only that tiny fraction of the conduction electrons is “awake”; the rest are frozen deep inside the Fermi sea, unable to change state because every nearby level is already occupied. Drude’s mistake was to let all $N$ electrons absorb heat classically — overcounting the thermally active population by a factor of $E_F/k_BT \sim 100$.</p>
+<p>where $g(E_F)$ is the density of states at the Fermi level (both spins). Combined with the phonon term, $C = \gamma T + \beta T^3$ at low temperature (see <a href="lattice-dynamics.html#debye-model">Lattice Dynamics</a>). The same Fermi-surface argument fixes Wiedemann–Franz: both heat and charge are carried by electrons at $E_F$ with the same $\tau$ (for elastic scattering), giving the <strong>Sommerfeld Lorenz number</strong></p>
 
-<h3 id="the-fermi-surface">The Fermi Surface</h3>
+\[L_0 = \frac{\kappa}{\sigma T} = \frac{\pi^2}{3}\left(\frac{k_B}{e}\right)^2 \approx 2.44 \times 10^{-8}\ \mathrm{W\,\Omega\,K^{-2}}.\]
 
-<p>The boundary in $\mathbf{k}$-space between occupied and empty states at $T=0$ is the <strong>Fermi surface</strong>. For free electrons it is a sphere, but in a real crystal the periodic potential distorts it: bands bend, the surface can neck, pinch through Brillouin-zone boundaries, and split into multiple sheets (electron pockets and hole pockets). Only electrons <em>at</em> the Fermi surface participate in low-energy phenomena — conduction, heat capacity, magnetism, screening — so the geometry of this surface, not the bulk of the filled states beneath it, controls a metal’s behavior.</p>
+<p>It holds when scattering is elastic (impurities at low $T$, phonons at high $T$) and fails at intermediate temperatures, where small-angle inelastic phonon scattering degrades heat current more than charge current. Large violations are a diagnostic of exotic transport, as in hydrodynamic electron flow or strange metals.</p>
 
-<p>Two facts make the Fermi surface central:</p>
+<h3 id="the-fermi-surface">The Fermi surface</h3>
+
+<p>The <strong>Fermi surface</strong> is the surface in $\mathbf{k}$-space separating occupied from empty states at $T = 0$. In a crystal the periodic potential distorts the free-electron sphere: it can neck through Brillouin-zone faces (as in copper) or break into separate electron and hole pockets. Low-energy properties — conduction, $\gamma$, spin susceptibility, screening — depend only on states at this surface.</p>
 
 <ul>
-  <li><strong>It carries the current.</strong> An applied field $\mathbf{E}$ shifts the whole Fermi sphere by $\delta\mathbf{k} = -e\mathbf{E}\tau/\hbar$. The interior states cancel pairwise; only the <em>displaced</em> surface produces a net current. This is why conductivity depends on the Fermi velocity $v_F = \hbar k_F/m$ and the surface area, not on the total electron count in any simple way.</li>
-  <li><strong>It is directly measurable.</strong> In the <strong>de Haas–van Alphen effect</strong>, the magnetization of a metal oscillates periodically in $1/B$ as Landau levels sweep through the Fermi energy. The oscillation period gives the extremal cross-sectional area $A$ of the Fermi surface perpendicular to $\mathbf{B}$ via the Onsager relation,</li>
+  <li><strong>It carries the current.</strong> A field $\mathbf{E}$ displaces the occupied region by $\delta\mathbf{k} = -e\mathbf{E}\tau/\hbar$; interior states cancel and only the displaced surface contributes. Conductivity depends on the Fermi velocity and the Fermi-surface area, not on the total electron count.</li>
+  <li><strong>It is measurable.</strong> In a magnetic field, closed electron orbits are quantized into Landau levels, and the magnetization (<strong>de Haas–van Alphen</strong>) and resistivity (<strong>Shubnikov–de Haas</strong>) oscillate periodically in $1/B$. The period gives an extremal cross-sectional area $A$ normal to $\mathbf{B}$ through the <strong>Onsager relation</strong></li>
 </ul>
 
 \[\Delta\!\left(\frac{1}{B}\right) = \frac{2\pi e}{\hbar A}.\]
 
-<p>By rotating the crystal and tracking how $A$ changes, experimentalists reconstruct the full three-dimensional Fermi surface — one of the great triumphs of mid-20th-century solid-state physics.</p>
+<p>Rotating the sample maps the full 3D Fermi surface; the temperature dependence of the oscillation amplitude gives the cyclotron mass $m^*$. ARPES images the Fermi surface directly in momentum space. Both are covered on <a href="experimental-techniques.html">Experimental Techniques</a>.</p>
+
+<h3 id="transport-and-matthiessens-rule">Transport and Matthiessen’s rule</h3>
+
+<p>Independent scattering mechanisms add rates, so their resistivities approximately add (<strong>Matthiessen’s rule</strong>):</p>
+
+\[\rho(T) = \rho_0 + \rho_{\text{e-e}}(T) + \rho_{\text{ph}}(T).\]
+
+<table>
+  <thead>
+    <tr>
+      <th>Contribution</th>
+      <th>Origin</th>
+      <th>Temperature dependence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\rho_0$ (residual)</td>
+      <td>impurities, defects</td>
+      <td>constant; the residual resistance ratio $\rho(300\,\mathrm{K})/\rho_0$ measures sample purity</td>
+    </tr>
+    <tr>
+      <td>$\rho_{\text{e-e}}$</td>
+      <td>electron–electron Umklapp scattering</td>
+      <td>$AT^2$ (Fermi liquid)</td>
+    </tr>
+    <tr>
+      <td>$\rho_{\text{ph}}$</td>
+      <td>electron–phonon scattering</td>
+      <td>$\propto T^5$ well below $\theta_D$, $\propto T$ above (Bloch–Grüneisen; see <a href="lattice-dynamics.html#normal-state-consequences">Lattice Dynamics</a>)</td>
+    </tr>
+    <tr>
+      <td>Kondo term</td>
+      <td>spin-flip scattering off dilute magnetic impurities</td>
+      <td>$-\ln T$; produces a resistance minimum</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In ordinary metals the phonon term dominates above ~20 K; the $T^2$ term is visible at low temperature in transition metals and dominates in heavy-fermion compounds.</p>
 
 <h3 id="screening">Screening</h3>
 
-<p>Drop a test charge into a metal and the mobile electron sea rushes to surround it, neutralizing its field beyond a short distance. This <strong>screening</strong> is why a metal’s interior is field-free and why electron–electron and electron–impurity interactions are short-ranged despite the bare Coulomb force being long-ranged.</p>
+<p>A test charge in a metal is surrounded by a compensating cloud of electrons, so its field decays over a short distance. This is why a metal’s interior is field-free and why the Coulomb interaction between electrons, bare range infinite, is effectively short-ranged.</p>
 
-<p>In the <strong>Thomas–Fermi</strong> approximation, a slowly varying potential $\phi(\mathbf{r})$ locally shifts the bands, the electrons redistribute to flatten the electrochemical potential, and the induced charge density is $\delta n = -e^2 g(E_F)\phi$. Inserting this into Poisson’s equation turns the long-range Coulomb potential of a point charge into a <strong>screened (Yukawa) potential</strong>:</p>
+<p>In the <strong>Thomas–Fermi</strong> approximation, a slowly varying potential $\phi(\mathbf{r})$ induces a charge density $\delta\rho = -e^2 g(E_F)\,\phi$. Combined with Poisson’s equation, a point charge produces a <strong>screened (Yukawa) potential</strong></p>
 
-\[\phi(r) = \frac{Q}{4\pi\epsilon_0 r}\, e^{-r/\lambda_{TF}}, \qquad \frac{1}{\lambda_{TF}^2} = \frac{e^2 g(E_F)}{\epsilon_0}.\]
+\[\phi(r) = \frac{Q}{4\pi\epsilon_0 r}\, e^{-r/\lambda_{TF}}, \qquad \frac{1}{\lambda_{TF}^2} = \frac{e^2 g(E_F)}{\epsilon_0},\]
 
-<p>The <strong>Thomas–Fermi screening length</strong> $\lambda_{TF}$ is typically less than an ångström in a good metal — interactions are screened on the scale of the interatomic spacing. The fuller quantum treatment (the <strong>Lindhard dielectric function</strong> $\epsilon(\mathbf{q},\omega)$) reproduces Thomas–Fermi at long wavelength but adds a subtlety: the sharp edge of the Fermi sphere produces a weak non-analyticity at $q = 2k_F$, which in real space gives slowly decaying <strong>Friedel oscillations</strong> $\propto \cos(2k_F r)/r^3$ in the screened charge density. These oscillations are the fingerprint of the Fermi surface in the response function, and they mediate the RKKY interaction between magnetic impurities discussed below.</p>
+<p>with $\lambda_{TF}$ about half an ångström in a good metal. The full linear-response result, the <strong>Lindhard dielectric function</strong> $\epsilon(\mathbf{q},\omega)$, reduces to Thomas–Fermi at small $q$ but is non-analytic at $q = 2k_F$, where the Fermi surface can no longer span the wavevector. In real space this gives <strong>Friedel oscillations</strong> in the induced density,</p>
 
-<h3 id="fermi-liquid-theory">Fermi Liquid Theory</h3>
+\[\delta n(r) \propto \frac{\cos(2k_F r)}{r^3} \qquad (r \gg 1/k_F),\]
 
-<p>Real electrons repel each other strongly, so why does the free-electron picture work at all? Landau’s answer: interactions “dress” each electron into a <strong>quasiparticle</strong> — an electron carrying a cloud of disturbance in the surrounding sea — that behaves like a free particle with a renormalized effective mass $m^<em>$. The crucial claim, <strong>adiabatic continuity</strong>, is that if you imagine slowly turning on the interactions, each free-electron state evolves smoothly into a quasiparticle state without level crossings, so the low-energy excitations remain in one-to-one correspondence with those of the free gas. That is why Sommerfeld’s results survive — they just acquire renormalized coefficients ($m \to m^</em>$).</p>
+<p>which are imaged directly by STM around surface impurities. The same $2k_F$ singularity produces Kohn anomalies in phonon spectra and the oscillating RKKY coupling between magnetic moments. At finite frequency, the zero of $\epsilon(\mathbf{q},\omega)$ is the <strong>plasmon</strong>, the collective charge oscillation at $\omega_p$ that electron-energy-loss spectroscopy measures.</p>
 
-<p>Residual interactions are encoded in the Landau parameters $f_{\mathbf{k}\mathbf{k}’}^{\sigma\sigma’}$, which give the change in energy when one quasiparticle is added in the presence of others:</p>
+<h3 id="fermi-liquid-theory">Fermi-liquid theory</h3>
 
-\[\delta E = \sum_{\mathbf{k}\sigma} \epsilon_{\mathbf{k}} n_{\mathbf{k}\sigma} + \frac{1}{2V}\sum_{\mathbf{k}\mathbf{k}'\sigma\sigma'} f_{\mathbf{k}\mathbf{k}'}^{\sigma\sigma'} n_{\mathbf{k}\sigma} n_{\mathbf{k}'\sigma'}.\]
+<p>Electron–electron repulsion in a metal is comparable to the kinetic energy, yet the free-electron model works. <strong>Landau’s Fermi-liquid theory</strong> explains why: if interactions are switched on adiabatically, each free-electron state evolves continuously into a <strong>quasiparticle</strong> state with the same quantum numbers — an electron dressed by its screening cloud and particle–hole excitations — with an effective mass $m^*$. The low-energy spectrum stays in one-to-one correspondence with that of the free gas.</p>
 
-<p>Expanding the angular dependence of $f$ in Legendre polynomials yields the dimensionless <strong>Landau parameters</strong> $F_\ell^s$ (symmetric, charge channel) and $F_\ell^a$ (antisymmetric, spin channel). These compress all the residual interactions into a handful of numbers that renormalize measurable quantities:</p>
+<p>Quasiparticles are long-lived near $E_F$ because Pauli blocking restricts phase space for scattering:</p>
+
+\[\frac{1}{\tau} \propto (E - E_F)^2 + (\pi k_BT)^2,\]
+
+<p>so the decay rate vanishes faster than the energy itself, and the resulting electron–electron resistivity is $\rho \propto T^2$. In many correlated metals the $T^2$ coefficient $A$ and the Sommerfeld coefficient $\gamma$ both scale with $m^*$, and the <strong>Kadowaki–Woods ratio</strong> $A/\gamma^2$ is roughly universal within a material class.</p>
+
+<p>Residual interactions enter through the Landau function $f^{\sigma\sigma’}_{\mathbf{k}\mathbf{k}’}$, the energy of a quasiparticle in the presence of others:</p>
+
+\[\delta E = \sum_{\mathbf{k}\sigma} \epsilon_{\mathbf{k}}\, \delta n_{\mathbf{k}\sigma} + \frac{1}{2V}\sum_{\mathbf{k}\mathbf{k}'\sigma\sigma'} f_{\mathbf{k}\mathbf{k}'}^{\sigma\sigma'}\, \delta n_{\mathbf{k}\sigma}\, \delta n_{\mathbf{k}'\sigma'}.\]
+
+<p>Expanding $f$ on the Fermi surface in Legendre polynomials and multiplying by the density of states gives the dimensionless <strong>Landau parameters</strong> $F^s_\ell$ (charge channel) and $F^a_\ell$ (spin channel). In 3D they renormalize observables as follows:</p>
 
 <table>
   <thead>
     <tr>
       <th>Quantity</th>
-      <th>Free gas</th>
+      <th>Free Fermi gas</th>
       <th>Fermi liquid</th>
     </tr>
   </thead>
@@ -3233,186 +3364,451 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td>Effective mass</td>
       <td>$m$</td>
-      <td>$m^* = m(1 + F_1^s/3)$</td>
+      <td>$m^*/m = 1 + F_1^s/3$</td>
     </tr>
     <tr>
-      <td>Heat capacity $\gamma$</td>
-      <td>$\propto g(E_F)$</td>
-      <td>$\propto m^*$ (enhanced)</td>
+      <td>Sommerfeld coefficient $\gamma$</td>
+      <td>$\gamma_0$</td>
+      <td>$\gamma_0\, m^*/m$</td>
     </tr>
     <tr>
       <td>Compressibility</td>
-      <td>$\propto g(E_F)$</td>
-      <td>$\div (1 + F_0^s)$</td>
+      <td>$\kappa_0$</td>
+      <td>$\kappa_0\,\dfrac{m^*/m}{1 + F_0^s}$</td>
     </tr>
     <tr>
       <td>Spin susceptibility</td>
-      <td>$\chi_{Pauli}$</td>
-      <td>$\div (1 + F_0^a)$</td>
+      <td>$\chi_P$</td>
+      <td>$\chi_P\,\dfrac{m^*/m}{1 + F_0^a}$</td>
+    </tr>
+    <tr>
+      <td>Wilson ratio $R_W \propto \chi/\gamma$</td>
+      <td>1</td>
+      <td>$1/(1 + F_0^a)$</td>
     </tr>
   </tbody>
 </table>
 
-<p>The theory also predicts a distinctive <strong>collective mode</strong> — zero sound, an oscillation of the Fermi surface shape that propagates even in the collisionless regime where ordinary (first) sound cannot. A divergence in one of these renormalizations signals an instability: $1 + F_0^a \to 0$ heralds the <strong>Stoner ferromagnetic instability</strong> (the spin susceptibility diverges and the metal magnetizes), tying Fermi-liquid theory directly to the magnetism discussed next.</p>
+<p>Liquid $^3$He is the textbook Fermi liquid, with $m^<em>/m$ from about 3 to 6 depending on pressure. In <strong>heavy-fermion</strong> compounds, hybridization of $f$ electrons with conduction electrons produces $m^</em>/m$ of order 100–1000. The theory also predicts <strong>zero sound</strong>, a collisionless oscillation of the Fermi-surface shape observed in $^3$He. A diverging response signals an instability: $F_0^a \to -1$ is the Stoner ferromagnetic instability (see <a href="#itinerant-magnetism-and-the-stoner-criterion">Itinerant magnetism</a>), and $F_0^s \to -1$ phase separation.</p>
 
-<p><strong>When the Fermi liquid breaks down.</strong> The whole edifice rests on quasiparticles being long-lived: phase space restricts the electron–electron scattering rate to $1/\tau \sim (E - E_F)^2$, so excitations near $E_F$ are arbitrarily sharp. This fails in one dimension (replaced by the <em>Luttinger liquid</em>, where excitations fractionalize into separate spin and charge waves) and apparently fails in the “strange metal” phase of high-$T_c$ cuprates, where resistivity rises <em>linearly</em> in $T$ rather than quadratically — one of the central open problems in condensed matter.</p>
+<h3 id="beyond-the-fermi-liquid">Beyond the Fermi liquid</h3>
+
+<ul>
+  <li><strong>One dimension.</strong> Any interaction destroys the quasiparticle pole; the low-energy theory is a <strong>Luttinger liquid</strong>, in which electrons fractionalize into independent spin and charge excitations with different velocities (spin–charge separation), seen in ARPES on quasi-1D materials and in tunnelling into nanowires and carbon nanotubes.</li>
+  <li><strong>Strange metals.</strong> Near quantum critical points in cuprates, heavy-fermion compounds, iron pnictides, and twisted graphene, resistivity is linear in $T$ over wide ranges rather than $T^2$. The scattering rate often approaches the <strong>Planckian bound</strong> $1/\tau \approx k_BT/\hbar$, suggesting dissipation as fast as quantum mechanics allows. Shot-noise measurements on nanowires of the heavy-fermion strange metal YbRh$_2$Si$_2$ (2023) found noise strongly suppressed relative to the value expected for quasiparticles, direct evidence that current there is not carried by well-defined quasiparticles. A theory of strange metals remains one of the central open problems in condensed matter.</li>
+  <li><strong>Mott insulators.</strong> When on-site repulsion $U$ exceeds the bandwidth, a half-filled band that band theory calls metallic becomes insulating. See the <a href="emergent-phases.html#hubbard-model-and-the-mott-transition">Hubbard model</a>.</li>
+  <li><strong>Disorder.</strong> Strong disorder localizes electrons (<a href="disorder-and-localization.html">Disorder &amp; Localization</a>).</li>
+</ul>
 
 <h2 id="magnetism">Magnetism</h2>
 
-<p>Magnetism is a purely quantum, purely collective effect — a classical system in thermal equilibrium cannot be magnetic at all (the <strong>Bohr–van Leeuwen theorem</strong>, which follows because the magnetic field enters the classical partition function only through a shift of integration variables that the momentum integral undoes). The phenomena below differ in <em>how the atomic moments respond</em>: independently and weakly (paramagnetism), or by locking into collective order through exchange interactions (ferro-, antiferro-, and ferrimagnetism).</p>
+<p>A classical system in thermal equilibrium has zero magnetization (the <strong>Bohr–van Leeuwen theorem</strong>: a vector potential enters the classical partition function only through $\mathbf{p} - q\mathbf{A}$, which a shift of the momentum integration removes). All magnetism is quantum mechanical.</p>
+
+<h3 id="response-of-independent-moments">Response of independent moments</h3>
+
+<p>With no magnetic order, the magnetization is linear in field, $M = \chi H$, and the responses separate by origin:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Response</th>
+      <th>Origin</th>
+      <th>Sign and typical $\chi$ (SI, dimensionless)</th>
+      <th>$T$ dependence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Larmor (core) diamagnetism</td>
+      <td>orbital response of filled shells</td>
+      <td>negative, $\sim -10^{-5}$</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Landau diamagnetism</td>
+      <td>orbital motion of conduction electrons</td>
+      <td>negative; $-\tfrac{1}{3}\chi_P$ for free electrons</td>
+      <td>weak</td>
+    </tr>
+    <tr>
+      <td>Pauli paramagnetism</td>
+      <td>spin polarization of electrons at $E_F$</td>
+      <td>positive, $\sim 10^{-5}$</td>
+      <td>weak</td>
+    </tr>
+    <tr>
+      <td>Curie paramagnetism</td>
+      <td>partly filled shells (local moments)</td>
+      <td>positive, up to $\sim 10^{-3}$ at room temperature</td>
+      <td>$\propto 1/T$</td>
+    </tr>
+    <tr>
+      <td>Superconducting diamagnetism</td>
+      <td>Meissner screening</td>
+      <td>$-1$</td>
+      <td>below $T_c$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Curie paramagnetism.</strong> A free moment of total angular momentum $J$ and Landé factor $g$ has magnetization given by the Brillouin function $B_J$. Expanding for small field gives the <strong>Curie law</strong></p>
+
+\[\chi = \frac{C}{T}, \qquad C = \frac{n\mu_0 g^2\mu_B^2 J(J+1)}{3k_B},\]
+
+<p>with $n$ the number of moments per unit volume. The effective moment $p_{\text{eff}} = g\sqrt{J(J+1)}$ extracted from $C$ identifies the ionic state; in 3d transition-metal ions the orbital moment is largely quenched by the crystal field, so $p_{\text{eff}} \approx 2\sqrt{S(S+1)}$.</p>
+
+<p><strong>Pauli paramagnetism.</strong> In a metal, the Pauli principle allows only electrons near $E_F$ to flip, so</p>
+
+\[\chi_P = \mu_0\mu_B^2\, g(E_F),\]
+
+<p>independent of temperature and set by the same $g(E_F)$ as $\gamma$.</p>
+
+<h3 id="the-exchange-interaction">The exchange interaction</h3>
+
+<p>The magnetic dipole energy between neighbouring moments is ~0.1 meV, enough to order moments only below about 1 K, yet iron stays ferromagnetic to 1043 K. The ordering energy is <strong>exchange</strong>. Because the two-electron wavefunction is antisymmetric, a spin triplet (symmetric in spin) has an antisymmetric spatial part, which keeps the electrons apart and reduces their Coulomb repulsion; the singlet does the opposite. For two spin-$\tfrac{1}{2}$ electrons the splitting is summarized by</p>
+
+\[\hat{H}_{12} = -J\,\hat{\mathbf{S}}_1 \cdot \hat{\mathbf{S}}_2, \qquad J = E_{\text{singlet}} - E_{\text{triplet}},\]
+
+<p>using $\hat{\mathbf{S}}_1\cdot\hat{\mathbf{S}}_2 = \tfrac{1}{4}$ (triplet) and $-\tfrac{3}{4}$ (singlet). On this page $J &gt; 0$ is ferromagnetic. (Many textbooks, including Kittel, write $-2J\,\hat{\mathbf{S}}_i\cdot\hat{\mathbf{S}}_j$, which halves $J$; check the convention before comparing numbers.)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism</th>
+      <th>Where</th>
+      <th>Typical sign</th>
+      <th>Key feature</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Direct exchange</td>
+      <td>overlapping orbitals on neighbours</td>
+      <td>either</td>
+      <td>short-ranged; sensitive to distance</td>
+    </tr>
+    <tr>
+      <td>Superexchange</td>
+      <td>TM–O–TM bonds in insulating oxides (MnO, NiO, cuprates)</td>
+      <td>usually antiferromagnetic for 180° bonds</td>
+      <td>virtual hopping: $J \sim -4t^2/U$; sign set by the Goodenough–Kanamori rules</td>
+    </tr>
+    <tr>
+      <td>Double exchange</td>
+      <td>mixed-valence oxides (manganites)</td>
+      <td>ferromagnetic</td>
+      <td>carrier hopping favours parallel core spins; colossal magnetoresistance</td>
+    </tr>
+    <tr>
+      <td>RKKY</td>
+      <td>local moments in a metal (rare earths, dilute alloys)</td>
+      <td>oscillates</td>
+      <td>mediated by conduction electrons; $\propto \cos(2k_F r)/r^3$</td>
+    </tr>
+    <tr>
+      <td>Itinerant (Stoner) exchange</td>
+      <td>band electrons in Fe, Co, Ni</td>
+      <td>ferromagnetic</td>
+      <td>splits spin-up and spin-down bands</td>
+    </tr>
+    <tr>
+      <td>Dzyaloshinskii–Moriya</td>
+      <td>bonds lacking inversion symmetry, with spin–orbit coupling</td>
+      <td>antisymmetric: $\mathbf{D}\cdot(\mathbf{S}_i\times\mathbf{S}_j)$</td>
+      <td>cants spins; stabilizes spirals and <a href="emergent-phases.html#topological-spin-textures">skyrmions</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="heisenberg-xy-and-ising-models">Heisenberg, XY, and Ising models</h3>
+
+<p>Summing exchange over bonds gives the <strong>Heisenberg model</strong>, with each nearest-neighbour bond $\langle ij\rangle$ counted once:</p>
+
+\[\hat{H} = -J\sum_{\langle ij\rangle} \hat{\mathbf{S}}_i \cdot \hat{\mathbf{S}}_j - g\mu_B \mu_0 H \sum_i \hat{S}_i^z.\]
+
+<p>Spin–orbit coupling and crystal fields add <strong>anisotropy</strong> that reduces the symmetry. Easy-plane anisotropy gives the <strong>XY model</strong> (spins in a plane, O(2) symmetry); strong easy-axis anisotropy gives the <strong>Ising model</strong>, $s_i = \pm 1$:</p>
+
+\[H = -J\sum_{\langle ij\rangle} s_i s_j - h\sum_i s_i.\]
+
+<p>The number of spin components $n$ (1, 2, 3 for Ising, XY, Heisenberg) together with the spatial dimension $d$ decides whether order is possible at finite temperature:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>$d$</th>
+      <th>Ising ($n=1$)</th>
+      <th>XY ($n=2$)</th>
+      <th>Heisenberg ($n=3$)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>no order for $T &gt; 0$ (Ising, 1925)</td>
+      <td>no order</td>
+      <td>no order</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>order below $k_BT_c = 2J/\ln(1+\sqrt{2})$ (Onsager, 1944)</td>
+      <td>no long-range order, but a Berezinskii–Kosterlitz–Thouless transition to quasi-long-range order</td>
+      <td>no order (Mermin–Wagner)</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>order</td>
+      <td>order</td>
+      <td>order</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In 1D, a single domain wall costs finite energy $2J$ but gains entropy $k_B\ln N$, so order is destroyed at any $T &gt; 0$. The <strong>Mermin–Wagner theorem</strong> extends this to continuous symmetries in $d \le 2$ with short-range interactions: long-wavelength spin waves cost so little energy that their thermal fluctuations diverge. Real 2D magnets evade it through anisotropy: monolayer CrI$_3$ (2017) orders ferromagnetically because easy-axis anisotropy gaps the spin waves and places it in the 2D Ising class.</p>
+
+<h3 id="mean-field-theory">Mean-field theory</h3>
+
+<p><strong>Weiss mean-field theory</strong> replaces the neighbours of each spin by their thermal average. For the Heisenberg model with $z$ nearest neighbours, each spin sees an effective field proportional to the magnetization, and the self-consistency condition is</p>
+
+\[\langle S^z\rangle = S\,B_S\!\left(\frac{S\left(g\mu_B\mu_0 H + zJ\langle S^z\rangle\right)}{k_BT}\right),\]
+
+<p>which has a nonzero solution at $H = 0$ below the <strong>Curie temperature</strong></p>
+
+\[k_B T_C = \frac{zJ\,S(S+1)}{3}.\]
+
+<p>Above $T_C$ the susceptibility follows the <strong>Curie–Weiss law</strong></p>
+
+\[\chi = \frac{C}{T - \theta},\]
+
+<p>with Weiss temperature $\theta = T_C$ in mean-field theory. Measuring $1/\chi$ against $T$ and extrapolating the high-temperature line is the standard first characterization of a magnetic material: the slope gives the moment, the intercept $\theta$ the sign and scale of the dominant exchange.</p>
+
+<div class="diagram-container" style="margin: 1.5rem 0;">
+<svg viewBox="0 0 480 290" role="img" aria-label="Inverse susceptibility versus temperature: three parallel straight lines. The paramagnet passes through the origin, the ferromagnet intercepts the temperature axis at positive theta equal to T_C, and the antiferromagnet extrapolates to a negative intercept minus theta, with data only above T_N." style="max-width: 560px; width: 100%; display: block; margin: 0 auto; color: currentColor;">
+  <defs>
+    <marker id="mm-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 L2,4 Z" fill="currentColor" />
+    </marker>
+  </defs>
+  <g fill="none" stroke="currentColor">
+    <line x1="60" y1="250" x2="450" y2="250" stroke-width="1.5" marker-end="url(#mm-arrow)" />
+    <line x1="200" y1="262" x2="200" y2="22" stroke-width="1.5" marker-end="url(#mm-arrow)" />
+    <line x1="200" y1="250" x2="420" y2="96" stroke-width="2.5" />
+    <line x1="280" y1="250" x2="420" y2="152" stroke-width="2.5" stroke-dasharray="10,5" />
+    <line x1="120" y1="250" x2="240" y2="166" stroke-width="1.2" stroke-dasharray="2,4" opacity="0.7" />
+    <line x1="240" y1="166" x2="420" y2="40" stroke-width="2.5" stroke-dasharray="14,4,3,4" />
+    <line x1="240" y1="244" x2="240" y2="256" stroke-width="1.5" />
+  </g>
+  <g fill="currentColor" font-family="sans-serif" font-size="13">
+    <text x="456" y="262">T</text>
+    <text x="208" y="28">1/&#967;</text>
+    <text x="200" y="272" text-anchor="middle">0</text>
+    <text x="280" y="272" text-anchor="middle">&#952; = T<tspan font-size="10" dy="3">C</tspan></text>
+    <text x="120" y="272" text-anchor="middle">&#8722;|&#952;|</text>
+    <text x="240" y="240" text-anchor="middle" font-size="11">T<tspan font-size="9" dy="3">N</tspan></text>
+    <text x="424" y="44" font-size="12">antiferromagnet</text>
+    <text x="424" y="100" font-size="12">paramagnet</text>
+    <text x="424" y="156" font-size="12">ferromagnet</text>
+  </g>
+</svg>
+<p style="text-align: center; font-size: 0.85rem; margin-top: 0.5rem;">Curie–Weiss behaviour $1/\chi = (T - \theta)/C$ above the ordering temperature. A positive intercept indicates ferromagnetic exchange, a negative one antiferromagnetic exchange. For an antiferromagnet the fitted $|\theta|$ is usually larger than $T_N$; a ratio $|\theta|/T_N \gg 1$ signals frustration.</p>
+</div>
+
+<p>Mean-field theory neglects correlated fluctuations and typically overestimates $T_C$ — it predicts order even in 1D. It also gives the same <strong>critical exponents</strong> for every system, which are correct only above the upper critical dimension $d = 4$. In $d = 2, 3$ the exponents depend only on $d$ and the symmetry of the order parameter (the <strong>universality class</strong>) and are obtained from exact solutions, the renormalization group, and the conformal bootstrap:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Exponent</th>
+      <th>Definition</th>
+      <th>Mean field</th>
+      <th>2D Ising (exact)</th>
+      <th>3D Ising</th>
+      <th>3D Heisenberg</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\alpha$</td>
+      <td>$C \sim \lvert t\rvert^{-\alpha}$</td>
+      <td>0 (jump)</td>
+      <td>0 (log)</td>
+      <td>0.110</td>
+      <td>$-0.13$</td>
+    </tr>
+    <tr>
+      <td>$\beta$</td>
+      <td>$M \sim (-t)^{\beta}$</td>
+      <td>1/2</td>
+      <td>1/8</td>
+      <td>0.326</td>
+      <td>0.37</td>
+    </tr>
+    <tr>
+      <td>$\gamma$</td>
+      <td>$\chi \sim \lvert t\rvert^{-\gamma}$</td>
+      <td>1</td>
+      <td>7/4</td>
+      <td>1.237</td>
+      <td>1.40</td>
+    </tr>
+    <tr>
+      <td>$\nu$</td>
+      <td>$\xi \sim \lvert t\rvert^{-\nu}$</td>
+      <td>1/2</td>
+      <td>1</td>
+      <td>0.630</td>
+      <td>0.71</td>
+    </tr>
+    <tr>
+      <td>$\delta$</td>
+      <td>$M \sim H^{1/\delta}$ at $T_c$</td>
+      <td>3</td>
+      <td>15</td>
+      <td>4.79</td>
+      <td>4.8</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Here $t = (T - T_c)/T_c$. The 3D Ising class also describes the liquid–gas critical point and order–disorder transitions in binary alloys. The scaling theory behind these numbers is on <a href="advanced-formalism.html#scaling-hypothesis-and-exponents">Graduate-Level Formalism</a> and <a href="../statistical-mechanics/">Statistical Mechanics</a>.</p>
+
+<h3 id="ordered-states">Ordered states</h3>
+
+<p>Collinear magnetic order comes in four symmetry-distinct types:</p>
 
 <table>
   <thead>
     <tr>
       <th>Order</th>
-      <th>Moment arrangement</th>
+      <th>Arrangement</th>
       <th>Net moment</th>
-      <th>Hallmark temperature</th>
+      <th>Band spin splitting (no spin–orbit)</th>
+      <th>Examples</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Paramagnet</td>
-      <td>random, align weakly with field</td>
-      <td>zero at $H=0$</td>
-      <td>none</td>
-    </tr>
-    <tr>
       <td>Ferromagnet</td>
-      <td>parallel</td>
-      <td>large, spontaneous</td>
-      <td>Curie $T_C$</td>
+      <td>all moments parallel</td>
+      <td>large</td>
+      <td>uniform (Zeeman-like)</td>
+      <td>Fe, Co, Ni, CrI$_3$</td>
     </tr>
     <tr>
       <td>Antiferromagnet</td>
-      <td>alternating up/down</td>
-      <td>zero (cancels)</td>
-      <td>Néel $T_N$</td>
+      <td>two sublattices, opposite and equal; related by translation or inversion</td>
+      <td>zero</td>
+      <td>none (Kramers degenerate)</td>
+      <td>MnO, NiO, Cr, La$_2$CuO$_4$</td>
     </tr>
     <tr>
       <td>Ferrimagnet</td>
-      <td>alternating but unequal</td>
-      <td>nonzero (partial cancel)</td>
-      <td>Curie $T_C$</td>
+      <td>opposite but unequal sublattices</td>
+      <td>nonzero</td>
+      <td>uniform</td>
+      <td>Fe$_3$O$_4$, YIG, GdCo alloys</td>
+    </tr>
+    <tr>
+      <td>Altermagnet</td>
+      <td>opposite and equal; related only by a rotation</td>
+      <td>zero</td>
+      <td>alternating in sign across the BZ ($d$-, $g$-, $i$-wave)</td>
+      <td>MnTe, CrSb</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="the-exchange-interaction">The Exchange Interaction</h3>
+<p>Non-collinear states (spirals, cones, cantings from Dzyaloshinskii–Moriya coupling, skyrmion lattices) and frustrated magnets that fail to order at all (<strong>quantum spin liquids</strong>) extend the list; see <a href="emergent-phases.html#topological-spin-textures">Topological Spin Textures</a>.</p>
 
-<p>The force that aligns spins is <em>not</em> the magnetic dipole interaction between moments — that is some $10^{-3}$ eV and would order magnets only below $\sim 1$ K, whereas iron stays magnetic past 1000 K. The real driver is <strong>exchange</strong>: a purely electrostatic effect dressed in quantum clothing. Because the total electronic wavefunction must be antisymmetric, the spin configuration controls the spatial configuration. Two electrons in a spin <em>triplet</em> (parallel spins) have an antisymmetric spatial wavefunction that keeps them apart, lowering their Coulomb repulsion; a spin <em>singlet</em> (antiparallel) does the opposite. The energy difference between the two arrangements is the <strong>exchange integral</strong> $J$.</p>
+<p><strong>Antiferromagnets.</strong> With $J &lt; 0$ on a bipartite lattice, the order parameter is the staggered magnetization $\mathbf{M}_A - \mathbf{M}_B$. Two-sublattice mean-field theory gives order below the <strong>Néel temperature</strong> $k_BT_N = z\lvert J\rvert S(S+1)/3$ and Curie–Weiss behaviour above it with a negative intercept, $\chi = C/(T + \lvert\theta\rvert)$. Below $T_N$ the susceptibility is anisotropic: parallel to the ordered axis it falls toward zero as $T \to 0$, perpendicular to it it stays roughly constant. Antiferromagnetic order is invisible to a magnetometer but produces magnetic Bragg peaks in neutron diffraction, which is how Shull and Smart confirmed Néel order in MnO in 1949. Frustration pushes $T_N$ well below $\lvert\theta\rvert$; MnO has $T_N \approx 116$ K but $\lvert\theta\rvert \approx 610$ K. Antiferromagnets are now studied for spintronics because they have no stray fields and switch at terahertz rather than gigahertz frequencies.</p>
 
-<p>For two localized spins this is captured exactly by the <strong>Heisenberg form</strong>,</p>
+<p><strong>Ferrimagnets.</strong> Magnetite (Fe$_3$O$_4$, the original lodestone, $T_C \approx 858$ K) is an inverse spinel: Fe$^{3+}$ on tetrahedral sites couples antiparallel, through superexchange, to equal numbers of Fe$^{3+}$ and Fe$^{2+}$ on octahedral sites. The Fe$^{3+}$ moments cancel and the Fe$^{2+}$ moments remain, about $4\,\mu_B$ per formula unit. When the two sublattice magnetizations have different temperature dependences, the net moment can vanish at a <strong>compensation temperature</strong> and reverse sign; rare-earth iron garnets and amorphous GdFeCo, used in magneto-optical recording and all-optical switching, exploit this.</p>
 
-\[\hat{H}_{ij} = -2J\,\hat{\mathbf{S}}_i \cdot \hat{\mathbf{S}}_j,\]
+<p><strong>Altermagnets.</strong> Proposed as a distinct class by Šmejkal, Sinova and Jungwirth (2022), altermagnets are collinear, fully compensated magnets in which the two sublattices are mapped into each other not by a translation or inversion but only by a rotation (or mirror). This breaks the combined symmetry that forces spin degeneracy in an ordinary antiferromagnet, so the electronic bands are <strong>spin-split even without spin–orbit coupling</strong>, with a splitting that alternates in sign around the Brillouin zone like a $d$-, $g$- or $i$-wave form factor. Spin-resolved ARPES confirmed the splitting in MnTe and CrSb in 2024. Altermagnets combine the zero net moment and fast dynamics of antiferromagnets with ferromagnet-like spin-polarized currents and an anomalous Hall effect, which makes them a focus of spintronics research. Several early candidates, notably RuO$_2$, have since been questioned on whether they order magnetically at all.</p>
 
-<p>with the sign convention that $J &gt; 0$ favors parallel spins (ferromagnetic) and $J &lt; 0$ favors antiparallel (antiferromagnetic). Several physical mechanisms generate an effective $J$:</p>
+<h3 id="itinerant-magnetism-and-the-stoner-criterion">Itinerant magnetism and the Stoner criterion</h3>
 
-<ul>
-  <li><strong>Direct exchange</strong> between overlapping orbitals on neighboring atoms.</li>
-  <li><strong>Superexchange</strong> through an intervening non-magnetic ion (e.g. the O$^{2-}$ bridging two Mn$^{2+}$ ions in MnO), usually antiferromagnetic — described by the Goodenough–Kanamori rules.</li>
-  <li><strong>Itinerant/Stoner exchange</strong> in metals, where it acts on the conduction electrons themselves and can split the spin-up and spin-down bands.</li>
-  <li><strong>RKKY interaction</strong>, where localized moments couple indirectly through the conduction sea; the coupling oscillates in sign with distance as $\cos(2k_F r)/r^3$ — the same Friedel oscillation seen in screening.</li>
-</ul>
+<p>In Fe, Co and Ni the magnetic electrons are also conduction electrons, and the moments per atom are non-integer — about 2.22, 1.72 and 0.62 $\mu_B$ — which a local-moment picture cannot explain. In the <strong>Stoner model</strong>, an on-site exchange energy $I$ lowers the energy of a spin imbalance; the cost is kinetic, since electrons must be moved to higher band states. Including interactions enhances the Pauli susceptibility,</p>
 
-<h3 id="the-heisenberg-and-ising-models">The Heisenberg and Ising Models</h3>
+\[\chi = \frac{\chi_P}{1 - I\,N(E_F)},\]
 
-<p>Summing the pairwise exchange over a lattice gives the <strong>Heisenberg model</strong>, the workhorse Hamiltonian of localized magnetism:</p>
+<p>where $N(E_F)$ is the density of states per spin per atom. When the <strong>Stoner criterion</strong></p>
 
-\[\hat{H} = -\sum_{\langle ij\rangle} J_{ij}\,\hat{\mathbf{S}}_i \cdot \hat{\mathbf{S}}_j - g\mu_B \mu_0 H \sum_i \hat{S}_i^z,\]
+\[I\,N(E_F) &gt; 1\]
 
-<p>where $\langle ij\rangle$ runs over bonds and the second term is the Zeeman coupling to an applied field. When strong spin–orbit or crystal-field anisotropy pins the spins to a single axis, the transverse components freeze out and the model reduces to the <strong>Ising model</strong>, in which each spin is a classical $\pm 1$ variable:</p>
+<p>is met, the paramagnetic state is unstable and the spin-up and spin-down bands split spontaneously. Fe, Co and Ni satisfy it because their narrow 3d bands put a high density of states at $E_F$; Pd and Pt fall just short and are strongly <strong>exchange-enhanced paramagnets</strong>. This is the band-electron form of the Fermi-liquid instability $F_0^a \to -1$. Stoner theory captures ground-state moments but badly overestimates $T_C$, because it neglects transverse spin fluctuations; modern treatments (spin-fluctuation theory, DFT combined with dynamical mean-field theory) interpolate between the itinerant and local-moment limits.</p>
 
-\[\hat{H} = -\sum_{\langle ij\rangle} J_{ij}\, s_i s_j - h\sum_i s_i, \qquad s_i = \pm 1.\]
+<h3 id="spin-waves-and-magnons">Spin waves and magnons</h3>
 
-<p>The Ising model is the most-studied model in statistical physics. Its lessons are foundational:</p>
+<p>The low-energy excitations of an ordered magnet are not single flipped spins but coherent waves of small spin deviation — <strong>spin waves</strong>, whose quanta are <strong>magnons</strong>. The <strong>Holstein–Primakoff</strong> transformation writes spin operators in terms of bosons; to leading order in $1/S$ the Heisenberg ferromagnet (with the convention above) gives</p>
 
-<ul>
-  <li><strong>1D:</strong> Onsager-soluble; no order at any finite temperature, because a single domain wall costs only finite energy and entropy always wins (a defining instance of the Mermin–Wagner intuition).</li>
-  <li><strong>2D:</strong> Onsager’s exact solution (1944) gives a genuine phase transition at $k_B T_c = 2J/\ln(1+\sqrt{2})$, with the magnetization, susceptibility, and heat capacity showing power-law critical behavior.</li>
-  <li><strong>3D:</strong> No closed-form solution; critical exponents come from renormalization-group and Monte Carlo methods. The Ising universality class describes not only magnets but the liquid–gas critical point and binary-alloy ordering.</li>
-</ul>
+\[\hbar\omega_{\mathbf{k}} = JS\sum_{\boldsymbol{\delta}}\left(1 - \cos\mathbf{k}\cdot\boldsymbol{\delta}\right) \;\xrightarrow{\text{1D}}\; 2JS\,(1 - \cos ka) \approx JSa^2k^2,\]
 
-<h3 id="paramagnetism">Paramagnetism</h3>
-
-<p>Independent atomic moments align only weakly with an applied field, and thermal agitation fights that alignment — so the susceptibility falls off as $1/T$ (the <strong>Curie law</strong>):</p>
-
-\[\chi = \frac{C}{T}, \qquad C = \frac{N\mu_0\mu_B^2 g^2 J(J+1)}{3k_B}.\]
-
-<p>This comes from expanding the <strong>Brillouin function</strong> $B_J(x)$ (the exact magnetization of a free spin-$J$ moment in a field) for small argument. In a metal the story is different: the Pauli principle blocks most spins from flipping, so only electrons near the Fermi surface contribute, giving a temperature-<em>independent</em> <strong>Pauli paramagnetism</strong>,</p>
-
-\[\chi = \mu_0\mu_B^2 g(E_F).\]
-
-<p>Once interactions are switched on, this bare susceptibility is enhanced by the <strong>Stoner factor</strong> $1/(1 - U g(E_F))$, where $U$ is the on-site repulsion. When $U g(E_F) \to 1$ the susceptibility diverges and the metal spontaneously magnetizes — the <strong>Stoner criterion</strong> for itinerant ferromagnetism, the band-electron counterpart of the Fermi-liquid instability $F_0^a \to -1$ noted above.</p>
-
-<h3 id="ferromagnetism-and-mean-field-theory">Ferromagnetism and Mean-Field Theory</h3>
-
-<p>When the exchange interaction is strong enough, moments align <em>spontaneously</em> even with no applied field. The Heisenberg Hamiltonian is intractable in general, so <strong>Weiss mean-field theory</strong> replaces the fluctuating neighbor spins felt by a given spin with their average, packaged as an effective internal field $\lambda M$ proportional to the magnetization itself. Each spin then behaves like a paramagnet in the total field $H + \lambda M$, giving a <em>self-consistent</em> equation:</p>
-
-\[M = Ng\mu_B J\, B_J\!\left(\frac{g\mu_B J(H + \lambda M)}{k_B T}\right).\]
-
-<p>Below the <strong>Curie temperature</strong></p>
-
-\[T_C = \frac{g^2\mu_B^2 J(J+1)\,\lambda}{3k_B}\]
-
-<p>this equation has a nonzero solution at $H = 0$ — spontaneous magnetization, the order parameter switching on continuously from zero. Above $T_C$ thermal disorder wins and the material reverts to a paramagnet, now obeying the <strong>Curie–Weiss law</strong> $\chi = C/(T - T_C)$, whose shifted denominator (compared with the bare Curie law) is the experimental signature of ferromagnetic correlations.</p>
+<p>where $\boldsymbol{\delta}$ runs over the $z$ nearest-neighbour vectors. The dispersion is <strong>quadratic</strong>, $\hbar\omega \approx Dk^2$ with spin-wave stiffness $D$. For an antiferromagnet it is <strong>linear</strong>, $\hbar\omega \approx \hbar c\,k$ (in 1D, $2\lvert J\rvert S\lvert\sin ka\rvert$), like acoustic phonons.</p>
 
 <table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Ferromagnetic magnons</th>
+      <th>Antiferromagnetic magnons</th>
+      <th>Acoustic phonons</th>
+    </tr>
+  </thead>
   <tbody>
     <tr>
-      <td>Near $T_C$ the mean-field theory predicts universal <strong>critical exponents</strong> — $M \sim (T_C - T)^{1/2}$, $\chi \sim</td>
-      <td>T - T_C</td>
-      <td>^{-1}$, $C$ a finite jump — which is the magnetic instance of Landau theory. These mean-field exponents are correct above the upper critical dimension ($d \ge 4$) but quantitatively wrong in 2D and 3D, where fluctuations the mean field ignores become decisive; the correct exponents come from the renormalization group and define the universality classes shared with the Ising and Heisenberg fixed points.</td>
+      <td>Small-$k$ dispersion</td>
+      <td>$Dk^2$</td>
+      <td>$\hbar c k$</td>
+      <td>$\hbar v_s k$</td>
+    </tr>
+    <tr>
+      <td>Low-$T$ heat capacity (3D)</td>
+      <td>$\propto T^{3/2}$</td>
+      <td>$\propto T^3$</td>
+      <td>$\propto T^3$</td>
+    </tr>
+    <tr>
+      <td>Order-parameter reduction</td>
+      <td>$M(0) - M(T) \propto T^{3/2}$ (Bloch law)</td>
+      <td>staggered moment $\propto T^2$</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Polarization</td>
+      <td>one (right-handed)</td>
+      <td>two (opposite chirality)</td>
+      <td>three</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="antiferromagnetism">Antiferromagnetism</h3>
+<p>The <strong>Bloch $T^{3/2}$ law</strong>, $M(T) = M(0)\left[1 - (T/T_0)^{3/2}\right]$, follows from counting thermally excited magnons with the $k^2$ dispersion. Anisotropy opens a gap at $k = 0$, as seen in ferromagnetic resonance. Magnon dispersions across the whole zone are measured by inelastic neutron scattering, and increasingly by resonant inelastic X-ray scattering; even in antiferromagnetic ground states quantum zero-point fluctuations reduce the ordered moment below $S$ (to about 60% for the 2D spin-$\tfrac{1}{2}$ square lattice). <strong>Magnonics</strong> uses magnons in low-damping insulators such as yttrium iron garnet to carry spin information without charge currents.</p>
 
-<p>Here the exchange favors <em>anti</em>-alignment ($J &lt; 0$): neighboring moments point opposite ways, so the net magnetization cancels even though the system is fully ordered. The structure is best described by splitting the lattice into two interpenetrating <strong>sublattices</strong> A and B with opposite <strong>staggered magnetization</strong> $M_A = -M_B$, the true order parameter. Order sets in below the <strong>Néel temperature</strong> $T_N$. Applying the same mean-field machinery to the two-sublattice model gives, above $T_N$,</p>
+<h3 id="anisotropy-domains-and-hysteresis">Anisotropy, domains, and hysteresis</h3>
 
-\[\chi = \frac{2C}{T + T_N},\]
+<p>A macroscopic ferromagnet usually has little or no net moment in zero field because it breaks into <strong>domains</strong>. The magnetostatic (stray-field) energy favours flux closure; exchange favours uniform magnetization; <strong>magnetocrystalline anisotropy</strong> (energy density $K$, from spin–orbit coupling) favours particular crystal axes. Their balance sets the domain wall, across which the magnetization rotates over a width and with an energy per unit area of</p>
 
-<p>with the telltale $T + T_N$ in the denominator — the opposite sign to a ferromagnet’s $T - T_C$. Below $T_N$ the susceptibility becomes anisotropic: it stays finite (and roughly constant) for fields perpendicular to the sublattice axis but drops toward zero parallel to it, since aligned spins resist a field that would have to flip half of them. Antiferromagnetic order is invisible to a bulk magnetometer but shows up directly in <strong>neutron diffraction</strong>, which sees magnetic Bragg peaks at the staggered wavevector — the technique with which Shull first confirmed Néel order in MnO.</p>
+\[\delta_w \approx \pi\sqrt{\frac{A}{K}}, \qquad \sigma_w \approx 4\sqrt{AK},\]
 
-<h3 id="ferrimagnetism">Ferrimagnetism</h3>
-
-<p>Ferrimagnets are antiferromagnets whose two sublattices carry <em>unequal</em> moments (different ions or different site multiplicities), so the cancellation is incomplete and a net spontaneous magnetization survives. Magnetite (Fe$_3$O$_4$) — the original lodestone — is the canonical example: Fe$^{3+}$ and Fe$^{2+}$ ions on inequivalent spinel sites couple antiparallel through superexchange but do not cancel. Because the two sublattice magnetizations fall off differently with temperature, a ferrimagnet can even pass through a <strong>compensation point</strong> where they momentarily cancel and the net moment vanishes before reappearing — a feature exploited in some magneto-optical recording media.</p>
-
-<h3 id="spin-waves-and-magnons">Spin Waves and Magnons</h3>
-
-<p>Just as a crystal’s lowest-energy excitations are quantized lattice vibrations (phonons), an ordered magnet’s lowest excitations are quantized waves of precessing, slightly tilted spins — <strong>magnons</strong>. Rather than flipping a single spin (which costs the full exchange energy), the system lowers the cost by spreading the deviation coherently over a long-wavelength wave. The <strong>Holstein–Primakoff transformation</strong> maps spin operators onto bosonic creation/annihilation operators and, to leading order in $1/S$, diagonalizes the Heisenberg ferromagnet into independent magnon modes with dispersion</p>
-
-\[\hbar\omega_{\mathbf{k}} = 2JS\,(1 - \cos(ka)) \approx 2JSa^2 k^2 \quad (ka \ll 1).\]
-
-<p>The long-wavelength dispersion is <strong>quadratic</strong>, $\omega \sim k^2$ — in sharp contrast to the <em>linear</em> dispersion of acoustic phonons (and of antiferromagnetic magnons, which are linear, $\omega \sim k$). This difference is observable: a quadratic magnon spectrum produces the <strong>Bloch $T^{3/2}$ law</strong> for the temperature decay of the spontaneous magnetization,</p>
-
-\[M(T) = M(0)\left[1 - \left(\frac{T}{T^*}\right)^{3/2}\right],\]
-
-<p>and a corresponding $T^{3/2}$ magnon heat capacity, both confirmed by experiment. Magnon dispersions are mapped directly by <strong>inelastic neutron scattering</strong>, making spin waves one of the most precisely tested predictions in magnetism.</p>
-
-<p><strong>Why dimension and symmetry decide whether order survives.</strong> The <strong>Mermin–Wagner theorem</strong> states that a continuous symmetry cannot be spontaneously broken at finite temperature in one or two dimensions: the soft, long-wavelength magnons (Goldstone modes) are so easy to excite that they destroy the order. This is exactly why the 2D Heisenberg model has no finite-temperature order, while the 2D <em>Ising</em> model — whose discrete symmetry has no Goldstone mode — does. The gapless quadratic magnon is the loophole and the executioner at once.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p>where $A$ is the exchange stiffness. In Fe, $\delta_w$ is tens of nanometres. Magnetization processes — domain-wall motion at low fields, domain rotation at high fields, wall pinning by defects — produce <strong>hysteresis</strong>:</p>
 
 <ul>
-  <li><strong>Three models, one metal.</strong> Drude gives Ohm’s law and the Hall effect; Sommerfeld fixes the heat capacity with Fermi statistics; Landau rescues the picture for interacting electrons via quasiparticles.</li>
-  <li><strong>Only the Fermi surface matters.</strong> Conduction, heat capacity, magnetism, and screening are all controlled by the thin shell of states near $E_F$, not by the filled sea beneath.</li>
-  <li><strong>Screening tames the Coulomb force.</strong> The mobile electron sea converts long-range $1/r$ interactions into short-range Yukawa potentials, with Friedel oscillations betraying the Fermi surface.</li>
-  <li><strong>Exchange, not dipoles, makes magnets.</strong> Magnetic order is an electrostatic effect enforced by the Pauli principle — orders of magnitude stronger than dipole–dipole coupling.</li>
-  <li><strong>Mean-field theory predicts transitions.</strong> The Weiss field gives $T_C$, $T_N$, the Curie–Weiss law, and mean-field critical exponents — corrected by the renormalization group near the transition.</li>
-  <li><strong>Magnons are the magnetic phonons.</strong> Quantized spin waves carry the low-energy excitations of an ordered magnet, giving the Bloch $T^{3/2}$ law and direct neutron-scattering signatures.</li>
+  <li><strong>Soft magnets</strong> (low $K$, few pinning sites; Fe–Si steel, permalloy, amorphous and nanocrystalline alloys) have small coercivity and low loss, for transformers and motors.</li>
+  <li><strong>Hard magnets</strong> (high $K$; Nd$<em>2$Fe$</em>{14}$B, SmCo$<em>5$, ferrites) have large coercivity and remanence, for permanent magnets. Their energy product $(BH)</em>{\max}$ is the standard figure of merit.</li>
+  <li><strong>Single-domain particles</strong> below a critical size switch coherently; below a smaller size thermal fluctuations flip them (superparamagnetism), which limits the grain size in magnetic recording.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and the electronic properties that underpin metals and magnetism.</li>
-  <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — what happens when the electron sea or the spin lattice condenses into a new ordered state.</li>
-  <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — second quantization, Green’s functions, and the many-body machinery behind Fermi-liquid theory and spin waves.</li>
-  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — the Ising model, mean-field theory, and the physics of phase transitions and critical exponents.</li>
-  <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the Pauli principle and exchange that make both metals and magnetism quantum from the start.</li>
-  <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
+  <li><a href="./">Condensed Matter Physics (Hub)</a> — crystal structure, band theory, and the density of states.</li>
+  <li><a href="lattice-dynamics.html">Lattice Dynamics &amp; Phonons</a> — the phonon heat capacity and electron–phonon resistivity that complement the electronic properties here.</li>
+  <li><a href="emergent-phases.html">Superconductivity, Quantum Hall &amp; Topological Phases</a> — superconductivity, the Hubbard model, heavy fermions, and skyrmions.</li>
+  <li><a href="disorder-and-localization.html">Disorder &amp; Localization</a> — what happens to metals when disorder dominates.</li>
+  <li><a href="experimental-techniques.html">Experimental Techniques</a> — quantum oscillations, ARPES, neutron scattering, and magnetometry.</li>
+  <li><a href="advanced-formalism.html">Graduate-Level Formalism &amp; Experiment</a> — second quantization, Green’s functions, and the renormalization group.</li>
+  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — the Ising model, mean-field theory, and phase transitions.</li>
+  <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — spin, the Pauli principle, and exchange.</li>
 </ul>
 
       </section>

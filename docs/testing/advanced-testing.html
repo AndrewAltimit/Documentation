@@ -2875,69 +2875,58 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Testing Hub</a> » Advanced Strategies</p>
 
-<p>Once a codebase has example-based unit and integration tests, the marginal bug gets harder to find: it lives in an input you never thought to write down, an interaction between two services that each pass their own tests, a tail latency that only appears at saturation, or a failure mode that never fires in CI. This page collects the techniques that attack those bugs directly — <strong>contract testing</strong> for service boundaries, <strong>property-based testing</strong> and <strong>fuzzing</strong> for the input space you can’t enumerate, <strong>mutation testing</strong> to grade the tests themselves, <strong>end-to-end</strong> and <strong>snapshot</strong> testing for whole-system behavior, <strong>load/performance testing</strong> for behavior under stress, <strong>chaos engineering</strong> for unmodeled failure, and <strong>testing in production</strong> (canaries and feature flags) for the bugs that only reality contains. Four ideas recur:</p>
-
-<ul>
-  <li>
-<strong>Test the contract, not the wire.</strong> Two services can each pass their own suites and still be incompatible; a shared, versioned contract turns “works on my machine” into a checkable invariant on both sides.</li>
-  <li>
-<strong>Assert a property, not an example.</strong> Hand-written cases sample a tiny corner of the input space; property-based testing and fuzzing search the corners you would never type — and shrink failures to a minimal repro.</li>
-  <li>
-<strong>Grade your tests.</strong> Coverage says a line ran, not that a bug there would be caught. Mutation testing injects faults and asks whether any test notices — the only direct measure of suite strength.</li>
-  <li>
-<strong>Reality is the last test.</strong> Load, chaos, canaries, and feature flags accept that some bugs only exist under real traffic and real failure — and make exposure to them controlled, observable, and reversible.</li>
-</ul>
+<p>Once a codebase has solid example-based <a href="unit-and-integration.html">unit and integration tests</a>, the remaining bugs are harder to reach: they live in inputs nobody thought to write down, in the boundary between two services that each pass their own tests, in tail latency at saturation, in failure modes that never occur in CI, or in the tests themselves. This page covers the techniques aimed at those bugs — <strong>contract testing</strong>, <strong>property-based testing</strong>, <strong>fuzzing</strong>, <strong>mutation testing</strong>, <strong>end-to-end and snapshot testing</strong>, <strong>load and performance testing</strong>, <strong>chaos engineering</strong>, <strong>testing in production</strong>, and <strong>AI-assisted test generation</strong> — with what each catches, how it works, and current tooling.</p>
 
 <h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
 
 <ol id="markdown-toc">
-  <li><a href="#the-testing-pyramid-and-where-advanced-techniques-fit" id="markdown-toc-the-testing-pyramid-and-where-advanced-techniques-fit">The Testing Pyramid and Where Advanced Techniques Fit</a></li>
+  <li><a href="#where-these-techniques-fit" id="markdown-toc-where-these-techniques-fit">Where These Techniques Fit</a></li>
   <li>
 <a href="#contract-testing" id="markdown-toc-contract-testing">Contract Testing</a>    <ol>
       <li><a href="#consumer-driven-contracts-pact" id="markdown-toc-consumer-driven-contracts-pact">Consumer-Driven Contracts (Pact)</a></li>
-      <li><a href="#matchers-and-why-they-matter" id="markdown-toc-matchers-and-why-they-matter">Matchers and Why They Matter</a></li>
-      <li><a href="#can-i-deploy-and-the-deployment-gate" id="markdown-toc-can-i-deploy-and-the-deployment-gate">Can-I-Deploy and the Deployment Gate</a></li>
-      <li><a href="#bidirectional--schema-based-contracts" id="markdown-toc-bidirectional--schema-based-contracts">Bidirectional / Schema-Based Contracts</a></li>
+      <li><a href="#the-deployment-gate-can-i-deploy" id="markdown-toc-the-deployment-gate-can-i-deploy">The Deployment Gate: <code class="language-plaintext highlighter-rouge">can-i-deploy</code></a></li>
+      <li><a href="#provider-driven-and-schema-based-contracts" id="markdown-toc-provider-driven-and-schema-based-contracts">Provider-Driven and Schema-Based Contracts</a></li>
     </ol>
   </li>
   <li>
 <a href="#property-based-testing" id="markdown-toc-property-based-testing">Property-Based Testing</a>    <ol>
-      <li><a href="#finding-good-properties" id="markdown-toc-finding-good-properties">Finding Good Properties</a></li>
+      <li><a href="#finding-properties" id="markdown-toc-finding-properties">Finding Properties</a></li>
       <li><a href="#hypothesis-python" id="markdown-toc-hypothesis-python">Hypothesis (Python)</a></li>
-      <li><a href="#shrinking-the-feature-that-makes-pbt-usable" id="markdown-toc-shrinking-the-feature-that-makes-pbt-usable">Shrinking: The Feature That Makes PBT Usable</a></li>
-      <li><a href="#quickcheck-haskell-and-the-original-idea" id="markdown-toc-quickcheck-haskell-and-the-original-idea">QuickCheck (Haskell) and the Original Idea</a></li>
+      <li><a href="#shrinking" id="markdown-toc-shrinking">Shrinking</a></li>
+      <li><a href="#stateful-model-based-testing" id="markdown-toc-stateful-model-based-testing">Stateful (Model-Based) Testing</a></li>
+      <li><a href="#frameworks" id="markdown-toc-frameworks">Frameworks</a></li>
     </ol>
   </li>
   <li>
 <a href="#fuzzing" id="markdown-toc-fuzzing">Fuzzing</a>    <ol>
       <li><a href="#coverage-guided-fuzzing" id="markdown-toc-coverage-guided-fuzzing">Coverage-Guided Fuzzing</a></li>
-      <li><a href="#sanitizers-turn-silent-corruption-into-crashes" id="markdown-toc-sanitizers-turn-silent-corruption-into-crashes">Sanitizers Turn Silent Corruption into Crashes</a></li>
+      <li><a href="#sanitizers" id="markdown-toc-sanitizers">Sanitizers</a></li>
       <li><a href="#structure-aware-fuzzing" id="markdown-toc-structure-aware-fuzzing">Structure-Aware Fuzzing</a></li>
+      <li><a href="#tooling" id="markdown-toc-tooling">Tooling</a></li>
     </ol>
   </li>
   <li>
 <a href="#mutation-testing" id="markdown-toc-mutation-testing">Mutation Testing</a>    <ol>
       <li><a href="#how-it-works" id="markdown-toc-how-it-works">How It Works</a></li>
-      <li><a href="#the-equivalent-mutant-problem" id="markdown-toc-the-equivalent-mutant-problem">The Equivalent Mutant Problem</a></li>
+      <li><a href="#cost-and-the-equivalent-mutant-problem" id="markdown-toc-cost-and-the-equivalent-mutant-problem">Cost and the Equivalent-Mutant Problem</a></li>
     </ol>
   </li>
   <li>
 <a href="#end-to-end-and-snapshot-testing" id="markdown-toc-end-to-end-and-snapshot-testing">End-to-End and Snapshot Testing</a>    <ol>
-      <li><a href="#end-to-end-e2e-testing" id="markdown-toc-end-to-end-e2e-testing">End-to-End (E2E) Testing</a></li>
+      <li><a href="#end-to-end-tests" id="markdown-toc-end-to-end-tests">End-to-End Tests</a></li>
       <li><a href="#snapshot-testing" id="markdown-toc-snapshot-testing">Snapshot Testing</a></li>
     </ol>
   </li>
   <li>
 <a href="#load-and-performance-testing" id="markdown-toc-load-and-performance-testing">Load and Performance Testing</a>    <ol>
-      <li><a href="#measure-the-tail-not-the-mean" id="markdown-toc-measure-the-tail-not-the-mean">Measure the Tail, Not the Mean</a></li>
-      <li><a href="#k6-developer-centric-scriptable" id="markdown-toc-k6-developer-centric-scriptable">k6 (Developer-Centric, Scriptable)</a></li>
-      <li><a href="#locust-python-and-jmeter-guienterprise" id="markdown-toc-locust-python-and-jmeter-guienterprise">Locust (Python) and JMeter (GUI/Enterprise)</a></li>
+      <li><a href="#measure-the-tail-and-avoid-coordinated-omission" id="markdown-toc-measure-the-tail-and-avoid-coordinated-omission">Measure the Tail, and Avoid Coordinated Omission</a></li>
+      <li><a href="#tools" id="markdown-toc-tools">Tools</a></li>
     </ol>
   </li>
   <li>
 <a href="#chaos-engineering" id="markdown-toc-chaos-engineering">Chaos Engineering</a>    <ol>
-      <li><a href="#the-scientific-method-applied-to-failure" id="markdown-toc-the-scientific-method-applied-to-failure">The Scientific Method Applied to Failure</a></li>
-      <li><a href="#what-to-inject-and-the-tooling" id="markdown-toc-what-to-inject-and-the-tooling">What to Inject, and the Tooling</a></li>
+      <li><a href="#the-experiment-loop" id="markdown-toc-the-experiment-loop">The Experiment Loop</a></li>
+      <li><a href="#faults-and-tooling" id="markdown-toc-faults-and-tooling">Faults and Tooling</a></li>
       <li><a href="#safety-and-game-days" id="markdown-toc-safety-and-game-days">Safety and Game Days</a></li>
     </ol>
   </li>
@@ -2945,228 +2934,236 @@ document.addEventListener('DOMContentLoaded', function () {
 <a href="#testing-in-production" id="markdown-toc-testing-in-production">Testing in Production</a>    <ol>
       <li><a href="#feature-flags" id="markdown-toc-feature-flags">Feature Flags</a></li>
       <li><a href="#canary-releases" id="markdown-toc-canary-releases">Canary Releases</a></li>
-      <li><a href="#other-production-testing-techniques" id="markdown-toc-other-production-testing-techniques">Other Production-Testing Techniques</a></li>
+      <li><a href="#related-techniques" id="markdown-toc-related-techniques">Related Techniques</a></li>
     </ol>
   </li>
-  <li><a href="#putting-it-together-defense-in-depth" id="markdown-toc-putting-it-together-defense-in-depth">Putting It Together: Defense in Depth</a></li>
+  <li><a href="#ai-assisted-test-generation" id="markdown-toc-ai-assisted-test-generation">AI-Assisted Test Generation</a></li>
+  <li><a href="#putting-it-together" id="markdown-toc-putting-it-together">Putting It Together</a></li>
   <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
 </ol>
 
 <hr>
 
-<h2 id="the-testing-pyramid-and-where-advanced-techniques-fit">The Testing Pyramid and Where Advanced Techniques Fit</h2>
+<h2 id="where-these-techniques-fit">Where These Techniques Fit</h2>
 
-<p>The classic <strong>testing pyramid</strong> prescribes many fast, isolated unit tests at the base, fewer integration tests in the middle, and a thin layer of slow end-to-end tests at the top. The shape encodes an economic argument: tests higher in the pyramid are slower, flakier, and more expensive to maintain per assertion, so you want as few of them as the risk allows.</p>
-
-<p>The advanced techniques on this page do not replace that pyramid — they <em>deepen each layer</em> and add orthogonal axes the pyramid never mentions:</p>
+<p>Example tests check individual <em>points</em> in a program’s behavior. The techniques here check <em>regions</em> of the input space, <em>boundaries</em> between deployables, <em>the quality of the suite itself</em>, and <em>operating conditions</em> that cannot be reproduced in CI.</p>
 
 <table>
   <thead>
     <tr>
       <th>Axis</th>
-      <th>Question it answers</th>
+      <th>Question</th>
       <th>Techniques</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Input space</strong></td>
-      <td>What inputs break my code?</td>
+      <td>Input space</td>
+      <td>Which inputs break the code?</td>
       <td>Property-based testing, fuzzing</td>
     </tr>
     <tr>
-      <td><strong>Test quality</strong></td>
-      <td>Are my tests actually any good?</td>
+      <td>Test quality</td>
+      <td>Would the suite notice a bug?</td>
       <td>Mutation testing</td>
     </tr>
     <tr>
-      <td><strong>Boundaries</strong></td>
-      <td>Do my services still agree?</td>
+      <td>Service boundaries</td>
+      <td>Do independently deployed services still agree?</td>
       <td>Contract testing</td>
     </tr>
     <tr>
-      <td><strong>Whole-system</strong></td>
-      <td>Does the assembled product work and stay stable?</td>
-      <td>End-to-end, snapshot testing</td>
+      <td>Whole system</td>
+      <td>Does the assembled product work, and did its output change?</td>
+      <td>End-to-end, snapshot, visual regression</td>
     </tr>
     <tr>
-      <td><strong>Under stress</strong></td>
-      <td>What happens at scale and at the tail?</td>
-      <td>Load / performance testing</td>
+      <td>Stress</td>
+      <td>What happens at peak load and in the tail?</td>
+      <td>Load, stress, spike, soak testing</td>
     </tr>
     <tr>
-      <td><strong>Under failure</strong></td>
+      <td>Failure</td>
       <td>What happens when infrastructure breaks?</td>
       <td>Chaos engineering</td>
     </tr>
     <tr>
-      <td><strong>In reality</strong></td>
-      <td>Does it work for real users on real traffic?</td>
-      <td>Canary, feature flags, A/B</td>
+      <td>Reality</td>
+      <td>Does it work on real traffic and data?</td>
+      <td>Feature flags, canaries, shadow traffic</td>
     </tr>
   </tbody>
 </table>
-
-<p>A useful mental model: example tests check <em>points</em> in the behavior space; these techniques check <em>regions</em> (property/fuzz), <em>boundaries</em> (contract), <em>the test suite itself</em> (mutation), and <em>operating conditions you cannot reproduce in CI</em> (load, chaos, production).</p>
 
 <hr>
 
 <h2 id="contract-testing">Contract Testing</h2>
 
-<p>In a system of independently deployed services, an <strong>integration test</strong> that spins up the real producer <em>and</em> the real consumer is slow, flaky, and forces lock-step deployment. <strong>Contract testing</strong> replaces that with a much cheaper invariant: each side is tested against a shared <strong>contract</strong> that captures exactly the request/response shapes the consumer relies on. If both sides honor the contract, they are guaranteed to interoperate — without ever being deployed together in the test.</p>
+<p>When services are deployed independently, a test that runs the real consumer against the real provider is slow, flaky, and pushes teams toward lock-step releases. <strong>Contract testing</strong> replaces it with two fast, independent checks against a shared artifact, the <strong>contract</strong>: the consumer verifies it only relies on what the contract describes, and the provider verifies it satisfies the contract. If both pass, the pair is compatible without ever being deployed together in a test.</p>
 
 <h3 id="consumer-driven-contracts-pact">Consumer-Driven Contracts (Pact)</h3>
 
-<p><strong>Pact</strong> popularized the <em>consumer-driven</em> variant, which inverts the usual direction of authority. The flow is:</p>
+<p><strong>Pact</strong> is the most widely used implementation. In the consumer-driven style, the consumer defines the contract from what it actually uses:</p>
 
-<ol>
-  <li>
-<strong>The consumer</strong> writes a test against a <em>mock</em> provider. Each interaction it exercises (“given a user exists, a <code class="language-plaintext highlighter-rouge">GET /users/42</code> returns <code class="language-plaintext highlighter-rouge">{id, name}</code>”) is recorded into a <strong>pact file</strong> — a JSON document of request/response expectations.</li>
-  <li>The pact file is published to a <strong>broker</strong> (a central registry, e.g. Pactflow).</li>
-  <li>
-<strong>The provider</strong> runs <strong>provider verification</strong>: it replays every recorded request against the <em>real</em> provider implementation and asserts the responses still match the contract. <em>Provider states</em> (e.g. “a user with id 42 exists”) are set up via hooks before each interaction.</li>
-</ol>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Consumer CI (web-app)
+    participant M as Pact mock provider
+    participant B as Pact Broker
+    participant P as Provider CI (user-service)
+    C-&gt;&gt;M: run consumer tests against mock
+    M--&gt;&gt;C: record interactions
+    C-&gt;&gt;B: publish pact (consumer version, branch)
+    B-&gt;&gt;P: webhook: new pact to verify
+    P-&gt;&gt;P: set provider state, replay each request against real service
+    P-&gt;&gt;B: publish verification result (provider version)
+    C-&gt;&gt;B: can-i-deploy web-app to production?
+    B--&gt;&gt;C: yes, if every relevant pact is verified
+</code></pre>
 
-<p>The key property: the contract contains only what the consumer <em>actually uses</em>. The provider is free to add fields, add endpoints, and change anything no consumer depends on — the contract will not break. This is <strong>Postel’s law made testable</strong>: be liberal in what you accept, conservative in what consumers demand.</p>
+<p>The consumer test uses the <code class="language-plaintext highlighter-rouge">Pact</code> class (the PactV4 API, current in Pact JS):</p>
 
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Consumer side (Pact JS) — defines the contract from what the consumer needs</span>
-<span class="kd">const</span> <span class="p">{</span> <span class="nx">PactV3</span><span class="p">,</span> <span class="nx">MatchersV3</span> <span class="p">}</span> <span class="o">=</span> <span class="nf">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">@pact-foundation/pact</span><span class="dl">'</span><span class="p">);</span>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Consumer side (Pact JS) — the contract is derived from what the consumer uses</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">Pact</span><span class="p">,</span> <span class="nx">MatchersV3</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@pact-foundation/pact</span><span class="dl">'</span><span class="p">;</span>
 <span class="kd">const</span> <span class="p">{</span> <span class="nx">like</span><span class="p">,</span> <span class="nx">eachLike</span> <span class="p">}</span> <span class="o">=</span> <span class="nx">MatchersV3</span><span class="p">;</span>
 
-<span class="kd">const</span> <span class="nx">provider</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">PactV3</span><span class="p">({</span> <span class="na">consumer</span><span class="p">:</span> <span class="dl">'</span><span class="s1">web-app</span><span class="dl">'</span><span class="p">,</span> <span class="na">provider</span><span class="p">:</span> <span class="dl">'</span><span class="s1">user-service</span><span class="dl">'</span> <span class="p">});</span>
+<span class="kd">const</span> <span class="nx">provider</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Pact</span><span class="p">({</span> <span class="na">consumer</span><span class="p">:</span> <span class="dl">'</span><span class="s1">web-app</span><span class="dl">'</span><span class="p">,</span> <span class="na">provider</span><span class="p">:</span> <span class="dl">'</span><span class="s1">user-service</span><span class="dl">'</span> <span class="p">});</span>
 
-<span class="nx">provider</span>
-  <span class="p">.</span><span class="nf">given</span><span class="p">(</span><span class="dl">'</span><span class="s1">a user with id 42 exists</span><span class="dl">'</span><span class="p">)</span>          <span class="c1">// provider state</span>
-  <span class="p">.</span><span class="nf">uponReceiving</span><span class="p">(</span><span class="dl">'</span><span class="s1">a request for user 42</span><span class="dl">'</span><span class="p">)</span>
-  <span class="p">.</span><span class="nf">withRequest</span><span class="p">({</span> <span class="na">method</span><span class="p">:</span> <span class="dl">'</span><span class="s1">GET</span><span class="dl">'</span><span class="p">,</span> <span class="na">path</span><span class="p">:</span> <span class="dl">'</span><span class="s1">/users/42</span><span class="dl">'</span> <span class="p">})</span>
-  <span class="p">.</span><span class="nf">willRespondWith</span><span class="p">({</span>
-    <span class="na">status</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
-    <span class="na">headers</span><span class="p">:</span> <span class="p">{</span> <span class="dl">'</span><span class="s1">Content-Type</span><span class="dl">'</span><span class="p">:</span> <span class="dl">'</span><span class="s1">application/json</span><span class="dl">'</span> <span class="p">},</span>
-    <span class="c1">// Matchers assert *shape/type*, not exact values — the contract is structural</span>
-    <span class="na">body</span><span class="p">:</span> <span class="p">{</span> <span class="na">id</span><span class="p">:</span> <span class="nf">like</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span> <span class="na">name</span><span class="p">:</span> <span class="nf">like</span><span class="p">(</span><span class="dl">'</span><span class="s1">Ada Lovelace</span><span class="dl">'</span><span class="p">),</span> <span class="na">roles</span><span class="p">:</span> <span class="nf">eachLike</span><span class="p">(</span><span class="dl">'</span><span class="s1">admin</span><span class="dl">'</span><span class="p">)</span> <span class="p">},</span>
-  <span class="p">});</span>
-
-<span class="k">await</span> <span class="nx">provider</span><span class="p">.</span><span class="nf">executeTest</span><span class="p">(</span><span class="k">async </span><span class="p">(</span><span class="nx">mockServer</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
-  <span class="kd">const</span> <span class="nx">user</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">getUser</span><span class="p">(</span><span class="nx">mockServer</span><span class="p">.</span><span class="nx">url</span><span class="p">,</span> <span class="mi">42</span><span class="p">);</span>   <span class="c1">// real consumer code, mock provider</span>
-  <span class="nf">expect</span><span class="p">(</span><span class="nx">user</span><span class="p">.</span><span class="nx">name</span><span class="p">).</span><span class="nf">toBeDefined</span><span class="p">();</span>
-<span class="p">});</span>
-<span class="c1">// Running this test emits web-app-user-service.json, the pact file.</span>
+<span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">fetches a user</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span>
+  <span class="nx">provider</span>
+    <span class="p">.</span><span class="nf">addInteraction</span><span class="p">()</span>
+    <span class="p">.</span><span class="nf">given</span><span class="p">(</span><span class="dl">'</span><span class="s1">a user with id 42 exists</span><span class="dl">'</span><span class="p">)</span>              <span class="c1">// provider state</span>
+    <span class="p">.</span><span class="nf">uponReceiving</span><span class="p">(</span><span class="dl">'</span><span class="s1">a request for user 42</span><span class="dl">'</span><span class="p">)</span>
+    <span class="p">.</span><span class="nf">withRequest</span><span class="p">(</span><span class="dl">'</span><span class="s1">GET</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">/users/42</span><span class="dl">'</span><span class="p">)</span>
+    <span class="p">.</span><span class="nf">willRespondWith</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">(</span><span class="nx">b</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+      <span class="nx">b</span><span class="p">.</span><span class="nf">headers</span><span class="p">({</span> <span class="dl">'</span><span class="s1">Content-Type</span><span class="dl">'</span><span class="p">:</span> <span class="dl">'</span><span class="s1">application/json</span><span class="dl">'</span> <span class="p">});</span>
+      <span class="c1">// Matchers assert type and shape, not literal values</span>
+      <span class="nx">b</span><span class="p">.</span><span class="nf">jsonBody</span><span class="p">({</span> <span class="na">id</span><span class="p">:</span> <span class="nf">like</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span> <span class="na">name</span><span class="p">:</span> <span class="nf">like</span><span class="p">(</span><span class="dl">'</span><span class="s1">Ada Lovelace</span><span class="dl">'</span><span class="p">),</span> <span class="na">roles</span><span class="p">:</span> <span class="nf">eachLike</span><span class="p">(</span><span class="dl">'</span><span class="s1">admin</span><span class="dl">'</span><span class="p">)</span> <span class="p">});</span>
+    <span class="p">})</span>
+    <span class="p">.</span><span class="nf">executeTest</span><span class="p">(</span><span class="k">async </span><span class="p">(</span><span class="nx">mockServer</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+      <span class="kd">const</span> <span class="nx">user</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">getUser</span><span class="p">(</span><span class="nx">mockServer</span><span class="p">.</span><span class="nx">url</span><span class="p">,</span> <span class="mi">42</span><span class="p">);</span> <span class="c1">// real client code</span>
+      <span class="nf">expect</span><span class="p">(</span><span class="nx">user</span><span class="p">.</span><span class="nx">name</span><span class="p">).</span><span class="nf">toBe</span><span class="p">(</span><span class="dl">'</span><span class="s1">Ada Lovelace</span><span class="dl">'</span><span class="p">);</span>
+    <span class="p">}));</span>
+<span class="c1">// Produces a pact file: web-app-user-service.json</span>
 </code></pre></div></div>
 
-<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Provider side (Ruby) — verifies the real service still honors every pact</span>
-<span class="no">Pact</span><span class="p">.</span><span class="nf">service_provider</span> <span class="s1">'user-service'</span> <span class="k">do</span>
-  <span class="n">honours_pacts_from_pact_broker</span> <span class="k">do</span>
-    <span class="n">pact_broker_base_url</span> <span class="s1">'https://broker.example.com'</span>
-  <span class="k">end</span>
-<span class="k">end</span>
+<p>The provider replays the pacts against its running implementation, using <strong>state handlers</strong> to set up each interaction’s preconditions:</p>
 
-<span class="no">Pact</span><span class="p">.</span><span class="nf">provider_states_for</span> <span class="s1">'web-app'</span> <span class="k">do</span>
-  <span class="n">provider_state</span> <span class="s1">'a user with id 42 exists'</span> <span class="k">do</span>
-    <span class="n">set_up</span> <span class="p">{</span> <span class="no">User</span><span class="p">.</span><span class="nf">create!</span><span class="p">(</span><span class="ss">id: </span><span class="mi">42</span><span class="p">,</span> <span class="ss">name: </span><span class="s1">'Ada Lovelace'</span><span class="p">,</span> <span class="ss">roles: </span><span class="p">[</span><span class="s1">'admin'</span><span class="p">])</span> <span class="p">}</span>
-    <span class="n">tear_down</span> <span class="p">{</span> <span class="no">User</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="ss">id: </span><span class="mi">42</span><span class="p">).</span><span class="nf">delete_all</span> <span class="p">}</span>
-  <span class="k">end</span>
-<span class="k">end</span>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Provider side (Pact JS)</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">Verifier</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@pact-foundation/pact</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="k">await</span> <span class="k">new</span> <span class="nc">Verifier</span><span class="p">({</span>
+  <span class="na">provider</span><span class="p">:</span> <span class="dl">'</span><span class="s1">user-service</span><span class="dl">'</span><span class="p">,</span>
+  <span class="na">providerBaseUrl</span><span class="p">:</span> <span class="dl">'</span><span class="s1">http://localhost:8080</span><span class="dl">'</span><span class="p">,</span>
+  <span class="na">pactBrokerUrl</span><span class="p">:</span> <span class="dl">'</span><span class="s1">https://broker.example.com</span><span class="dl">'</span><span class="p">,</span>
+  <span class="na">consumerVersionSelectors</span><span class="p">:</span> <span class="p">[{</span> <span class="na">mainBranch</span><span class="p">:</span> <span class="kc">true</span> <span class="p">},</span> <span class="p">{</span> <span class="na">deployedOrReleased</span><span class="p">:</span> <span class="kc">true</span> <span class="p">}],</span>
+  <span class="na">stateHandlers</span><span class="p">:</span> <span class="p">{</span>
+    <span class="dl">'</span><span class="s1">a user with id 42 exists</span><span class="dl">'</span><span class="p">:</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="nx">db</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nf">insert</span><span class="p">({</span> <span class="na">id</span><span class="p">:</span> <span class="mi">42</span><span class="p">,</span> <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">Ada Lovelace</span><span class="dl">'</span><span class="p">,</span> <span class="na">roles</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">admin</span><span class="dl">'</span><span class="p">]</span> <span class="p">}),</span>
+  <span class="p">},</span>
+  <span class="na">publishVerificationResult</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">CI</span> <span class="o">===</span> <span class="dl">'</span><span class="s1">true</span><span class="dl">'</span><span class="p">,</span>
+  <span class="na">providerVersion</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">GIT_SHA</span><span class="p">,</span>
+  <span class="na">providerVersionBranch</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">GIT_BRANCH</span><span class="p">,</span>
+<span class="p">}).</span><span class="nf">verifyProvider</span><span class="p">();</span>
 </code></pre></div></div>
 
-<h3 id="matchers-and-why-they-matter">Matchers and Why They Matter</h3>
+<p>Key properties:</p>
 
-<p>Contracts must assert <strong>structure and type</strong>, not concrete values — otherwise every change to seed data breaks every consumer. Pact matchers (<code class="language-plaintext highlighter-rouge">like</code>, <code class="language-plaintext highlighter-rouge">eachLike</code>, <code class="language-plaintext highlighter-rouge">term</code>/regex, <code class="language-plaintext highlighter-rouge">integer</code>, <code class="language-plaintext highlighter-rouge">datetime</code>) say “a field of this type exists here.” A contract that pinned <code class="language-plaintext highlighter-rouge">name</code> to the literal string <code class="language-plaintext highlighter-rouge">"Ada Lovelace"</code> would be brittle and meaningless; one that asserts <code class="language-plaintext highlighter-rouge">name</code> is <em>a string</em> captures the real dependency.</p>
+<ul>
+  <li>
+<strong>Contracts contain only what consumers use.</strong> The provider can add fields and endpoints freely; only removing or changing something a consumer depends on breaks verification.</li>
+  <li>
+<strong>Matchers, not literals.</strong> <code class="language-plaintext highlighter-rouge">like</code>, <code class="language-plaintext highlighter-rouge">eachLike</code>, <code class="language-plaintext highlighter-rouge">regex</code>, <code class="language-plaintext highlighter-rouge">integer</code>, and <code class="language-plaintext highlighter-rouge">datetime</code> assert type and structure. A contract pinned to literal seed data would break on every data change.</li>
+  <li>
+<strong>Consumer version selectors</strong> choose which pacts the provider verifies — typically the consumer’s main branch plus whatever is currently deployed or released.</li>
+</ul>
 
-<h3 id="can-i-deploy-and-the-deployment-gate">Can-I-Deploy and the Deployment Gate</h3>
+<h3 id="the-deployment-gate-can-i-deploy">The Deployment Gate: <code class="language-plaintext highlighter-rouge">can-i-deploy</code>
+</h3>
 
-<p>The broker tracks which versions of each side have verified which contract versions. Before deploying, a service asks the broker <strong><code class="language-plaintext highlighter-rouge">can-i-deploy</code></strong>: <em>given the versions already in the target environment, is every contract I participate in mutually verified?</em> This is the payoff — contract testing lets services deploy independently while a single query guarantees the deployed combination is compatible.</p>
+<p>The broker records which versions of each application have verified which contracts, and which versions are deployed in each environment. Before deploying, a pipeline asks whether the new version is compatible with everything already there:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># CI gate before promoting user-service v2.3.1 to production</span>
-pact-broker can-i-deploy <span class="se">\</span>
-  <span class="nt">--pacticipant</span> user-service <span class="nt">--version</span> 2.3.1 <span class="se">\</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pact-broker can-i-deploy <span class="se">\</span>
+  <span class="nt">--pacticipant</span> user-service <span class="nt">--version</span> <span class="s2">"</span><span class="nv">$GIT_SHA</span><span class="s2">"</span> <span class="se">\</span>
   <span class="nt">--to-environment</span> production
-<span class="c"># exits non-zero (blocks the deploy) if any consumer's verified contract would break</span>
+<span class="c"># non-zero exit blocks the deploy if any contract with a deployed consumer is unverified or failing</span>
+pact-broker record-deployment <span class="se">\</span>
+  <span class="nt">--pacticipant</span> user-service <span class="nt">--version</span> <span class="s2">"</span><span class="nv">$GIT_SHA</span><span class="s2">"</span> <span class="nt">--environment</span> production
 </code></pre></div></div>
 
-<h3 id="bidirectional--schema-based-contracts">Bidirectional / Schema-Based Contracts</h3>
+<h3 id="provider-driven-and-schema-based-contracts">Provider-Driven and Schema-Based Contracts</h3>
 
-<p>A newer style compares a provider’s <strong>OpenAPI/Protobuf schema</strong> against consumer expectations rather than recorded interactions, which scales better for providers with many consumers and an existing API spec. The trade-off: schema-based contracts verify <em>the documented surface</em>, while Pact verifies <em>the behaviors a consumer actually exercised</em> — including response bodies for specific states. Contract testing complements, and does not replace, the <a href="../api-design/">API design</a> discipline of versioning and additive change.</p>
+<p>In <strong>bi-directional</strong> (schema-based) contract testing, supported by PactFlow, the provider publishes its OpenAPI document along with evidence that its implementation conforms to it, consumers publish their pacts, and the broker checks that each pact is a compatible subset of the schema. This scales to providers with many consumers and an existing spec, at the cost of verifying the <em>documented</em> surface rather than behavior in specific provider states. For gRPC and GraphQL, schema-compatibility checkers (such as <code class="language-plaintext highlighter-rouge">buf breaking</code> for Protobuf) cover much of the same ground. Contract testing complements the <a href="../api-design/">API design</a> discipline of versioning and additive change; it does not replace it.</p>
 
 <hr>
 
 <h2 id="property-based-testing">Property-Based Testing</h2>
 
-<p>Example-based tests assert that <em>one specific input</em> produces <em>one specific output</em>. <strong>Property-based testing (PBT)</strong> instead asserts a <strong>property</strong> that must hold for <em>all</em> inputs in a domain, then lets a framework generate hundreds of random inputs to try to falsify it. The mindset shift is from “for input 3, output is 9” to “for all integers n, <code class="language-plaintext highlighter-rouge">square(n) &gt;= 0</code>.”</p>
+<p>An example-based test asserts that one input produces one output. A <strong>property-based test</strong> (PBT) states a property that must hold for <em>all</em> inputs in a domain, and a framework generates hundreds of inputs trying to falsify it. The change in mindset is from “for 3, the output is 9” to “for every list, sorting preserves length and yields ascending order.”</p>
 
-<h3 id="finding-good-properties">Finding Good Properties</h3>
+<h3 id="finding-properties">Finding Properties</h3>
 
-<p>The hardest part of PBT is articulating properties. A catalog of reusable patterns:</p>
+<p>The hard part is stating properties. Reusable patterns:</p>
 
 <table>
   <thead>
     <tr>
       <th>Pattern</th>
       <th>Form</th>
-      <th>Example</th>
+      <th>Examples</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Round-trip / inverse</strong></td>
+      <td>Round trip</td>
       <td><code class="language-plaintext highlighter-rouge">decode(encode(x)) == x</code></td>
-      <td>JSON, compression, parsers</td>
+      <td>Serialization, compression, parsers and printers</td>
     </tr>
     <tr>
-      <td><strong>Idempotence</strong></td>
+      <td>Invariant</td>
+      <td>Some fact about the output holds for any input</td>
+      <td>Sorting preserves length and multiset of elements; a balanced tree stays balanced</td>
+    </tr>
+    <tr>
+      <td>Idempotence</td>
       <td><code class="language-plaintext highlighter-rouge">f(f(x)) == f(x)</code></td>
-      <td>
-<code class="language-plaintext highlighter-rouge">sort</code>, <code class="language-plaintext highlighter-rouge">normalize</code>, dedup, <code class="language-plaintext highlighter-rouge">abs</code>
-</td>
+      <td>Normalization, deduplication, formatting, <code class="language-plaintext highlighter-rouge">PUT</code> handlers</td>
     </tr>
     <tr>
-      <td><strong>Invariant</strong></td>
-      <td>property of output regardless of input</td>
-      <td>
-<code class="language-plaintext highlighter-rouge">len(sort(xs)) == len(xs)</code>; output is ordered</td>
-    </tr>
-    <tr>
-      <td><strong>Oracle / model</strong></td>
+      <td>Oracle / model</td>
       <td><code class="language-plaintext highlighter-rouge">fast(x) == reference(x)</code></td>
-      <td>optimized impl vs. a naive one</td>
+      <td>Optimized implementation vs. a simple, obviously correct one</td>
     </tr>
     <tr>
-      <td><strong>Metamorphic</strong></td>
-      <td>relation between related inputs</td>
-      <td>
-<code class="language-plaintext highlighter-rouge">sin(x) == sin(x + 2π)</code>; <code class="language-plaintext highlighter-rouge">sum(xs+ys) == sum(xs)+sum(ys)</code>
-</td>
+      <td>Metamorphic</td>
+      <td>A relation between outputs for related inputs</td>
+      <td>Adding a filter never <em>adds</em> search results; permuting rows doesn’t change an aggregate</td>
     </tr>
     <tr>
-      <td><strong>Commutativity / symmetry</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">f(a,b) == f(b,a)</code></td>
-      <td>set union, addition</td>
+      <td>Algebraic</td>
+      <td>Commutativity, associativity, identity</td>
+      <td>Merge functions, CRDTs, set operations</td>
     </tr>
   </tbody>
 </table>
 
-<p>Metamorphic properties are especially valuable when you have <em>no oracle</em> for the absolute correct answer (common in ML and numerical code): you cannot say what <code class="language-plaintext highlighter-rouge">classify(image)</code> should be, but you can say <code class="language-plaintext highlighter-rouge">classify(image) == classify(brighten(image))</code> should hold.</p>
+<p>Metamorphic properties are especially useful when no oracle exists — numerical code, search ranking, ML models — because they relate outputs to each other instead of to a known right answer.</p>
 
 <h3 id="hypothesis-python">Hypothesis (Python)</h3>
 
-<p><strong>Hypothesis</strong> generates inputs from composable <em>strategies</em> and, crucially, <strong>shrinks</strong> any failure to a minimal counterexample before reporting it:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">from</span> <span class="n">hypothesis</span> <span class="kn">import</span> <span class="n">given</span><span class="p">,</span> <span class="n">strategies</span> <span class="k">as</span> <span class="n">st</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">hypothesis</span> <span class="kn">import</span> <span class="n">given</span><span class="p">,</span> <span class="n">strategies</span> <span class="k">as</span> <span class="n">st</span>
-
-<span class="c1"># Round-trip property: encoding then decoding must return the original
-</span><span class="nd">@given</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">lists</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">integers</span><span class="p">()))</span>
+<span class="nd">@given</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">lists</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">integers</span><span class="p">()))</span>
 <span class="k">def</span> <span class="nf">test_json_roundtrip</span><span class="p">(</span><span class="n">xs</span><span class="p">):</span>
     <span class="k">assert</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">xs</span><span class="p">))</span> <span class="o">==</span> <span class="n">xs</span>
 
-<span class="c1"># Invariant + idempotence properties for a sort
-</span><span class="nd">@given</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">lists</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">integers</span><span class="p">()))</span>
+<span class="nd">@given</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">lists</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">integers</span><span class="p">()))</span>
 <span class="k">def</span> <span class="nf">test_sort_properties</span><span class="p">(</span><span class="n">xs</span><span class="p">):</span>
     <span class="n">s</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="nf">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="nf">len</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>                       <span class="c1"># invariant: preserves length
-</span>    <span class="k">assert</span> <span class="nf">all</span><span class="p">(</span><span class="n">a</span> <span class="o">&lt;=</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>   <span class="c1"># invariant: ordered
-</span>    <span class="k">assert</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="n">s</span>                          <span class="c1"># idempotence
+    <span class="k">assert</span> <span class="nf">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="nf">len</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>                       <span class="c1"># invariant
+</span>    <span class="k">assert</span> <span class="nf">all</span><span class="p">(</span><span class="n">a</span> <span class="o">&lt;=</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>   <span class="c1"># ordered
+</span>    <span class="k">assert</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="n">s</span>                          <span class="c1"># idempotent
 </span>
-<span class="c1"># Composite strategy: generate structured domain objects
-</span><span class="nd">@st.composite</span>
+<span class="nd">@st.composite</span>
 <span class="k">def</span> <span class="nf">users</span><span class="p">(</span><span class="n">draw</span><span class="p">):</span>
     <span class="k">return</span> <span class="nc">User</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="nf">draw</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">integers</span><span class="p">(</span><span class="n">min_value</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span>
                 <span class="n">name</span><span class="o">=</span><span class="nf">draw</span><span class="p">(</span><span class="n">st</span><span class="p">.</span><span class="nf">text</span><span class="p">(</span><span class="n">min_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span>
@@ -3177,105 +3174,281 @@ pact-broker can-i-deploy <span class="se">\</span>
     <span class="k">assert</span> <span class="n">User</span><span class="p">.</span><span class="nf">from_dict</span><span class="p">(</span><span class="n">u</span><span class="p">.</span><span class="nf">to_dict</span><span class="p">())</span> <span class="o">==</span> <span class="n">u</span>
 </code></pre></div></div>
 
-<h3 id="shrinking-the-feature-that-makes-pbt-usable">Shrinking: The Feature That Makes PBT Usable</h3>
+<p>Hypothesis stores every failing example in a local database and replays it first on the next run, so a found bug stays reproduced until fixed.</p>
 
-<p>When a random test fails, the raw counterexample is usually huge and unreadable (<code class="language-plaintext highlighter-rouge">[847, -12, 0, 33, ...]</code>). <strong>Shrinking</strong> repeatedly simplifies the failing input — removing list elements, reducing numbers toward zero — while preserving the failure, and reports the <em>minimal</em> example. A bug that “fails on some 200-element list” becomes “fails on <code class="language-plaintext highlighter-rouge">[0, 0]</code>,” which is debuggable. Without shrinking, PBT would mostly produce noise; shrinking is what turns it into a tool.</p>
+<h3 id="shrinking">Shrinking</h3>
 
-<h3 id="quickcheck-haskell-and-the-original-idea">QuickCheck (Haskell) and the Original Idea</h3>
+<p>A randomly found counterexample is usually large and noisy. <strong>Shrinking</strong> repeatedly simplifies the failing input — dropping list elements, moving numbers toward zero, shortening strings — while the property still fails, then reports the minimal case. “Fails on some 200-element list” becomes “fails on <code class="language-plaintext highlighter-rouge">[0, -1]</code>.” Shrinking is what makes PBT output actionable.</p>
 
-<p>PBT originated with <strong>QuickCheck</strong> in Haskell, where the type system makes generators almost free — the <code class="language-plaintext highlighter-rouge">Arbitrary</code> typeclass derives a generator from a type:</p>
+<h3 id="stateful-model-based-testing">Stateful (Model-Based) Testing</h3>
 
-<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- The reverse of a reverse is the identity, for any list of Ints</span>
-<span class="n">prop_reverseInvolution</span> <span class="o">::</span> <span class="p">[</span><span class="kt">Int</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="kt">Bool</span>
-<span class="n">prop_reverseInvolution</span> <span class="n">xs</span> <span class="o">=</span> <span class="n">reverse</span> <span class="p">(</span><span class="n">reverse</span> <span class="n">xs</span><span class="p">)</span> <span class="o">==</span> <span class="n">xs</span>
+<p>Stateful PBT generates <em>sequences of operations</em> against a system and an executable model, and checks they agree after every step. It finds bugs that need a specific history to trigger — the classic case being a cache or a storage engine that misbehaves only after a particular interleaving of writes, deletes, and compactions.</p>
 
-<span class="c1">-- Concatenation length is additive</span>
-<span class="n">prop_appendLength</span> <span class="o">::</span> <span class="p">[</span><span class="kt">Int</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="p">[</span><span class="kt">Int</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="kt">Bool</span>
-<span class="n">prop_appendLength</span> <span class="n">xs</span> <span class="n">ys</span> <span class="o">=</span> <span class="n">length</span> <span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">ys</span><span class="p">)</span> <span class="o">==</span> <span class="n">length</span> <span class="n">xs</span> <span class="o">+</span> <span class="n">length</span> <span class="n">ys</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">hypothesis.stateful</span> <span class="kn">import</span> <span class="n">RuleBasedStateMachine</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">invariant</span>
+<span class="kn">from</span> <span class="n">hypothesis</span> <span class="kn">import</span> <span class="n">strategies</span> <span class="k">as</span> <span class="n">st</span>
 
-<span class="c1">-- quickCheck prop_reverseInvolution  ==&gt; +++ OK, passed 100 tests.</span>
+<span class="k">class</span> <span class="nc">KVStoreMachine</span><span class="p">(</span><span class="n">RuleBasedStateMachine</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">()</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">real</span> <span class="o">=</span> <span class="nc">KVStore</span><span class="p">()</span>     <span class="c1"># system under test
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">model</span> <span class="o">=</span> <span class="p">{}</span>           <span class="c1"># obviously correct model
+</span>
+    <span class="nd">@rule</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="n">st</span><span class="p">.</span><span class="nf">text</span><span class="p">(),</span> <span class="n">v</span><span class="o">=</span><span class="n">st</span><span class="p">.</span><span class="nf">integers</span><span class="p">())</span>
+    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">real</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">model</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+    <span class="nd">@rule</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="n">st</span><span class="p">.</span><span class="nf">text</span><span class="p">())</span>
+    <span class="k">def</span> <span class="nf">delete</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">real</span><span class="p">.</span><span class="nf">delete</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+
+    <span class="nd">@invariant</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">agrees_with_model</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nf">dict</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">real</span><span class="p">.</span><span class="nf">items</span><span class="p">())</span> <span class="o">==</span> <span class="n">self</span><span class="p">.</span><span class="n">model</span>
+
+<span class="n">TestKVStore</span> <span class="o">=</span> <span class="n">KVStoreMachine</span><span class="p">.</span><span class="n">TestCase</span>
 </code></pre></div></div>
 
-<p>Ports now exist almost everywhere — <code class="language-plaintext highlighter-rouge">fast-check</code> (JS/TS), <code class="language-plaintext highlighter-rouge">proptest</code> and <code class="language-plaintext highlighter-rouge">quickcheck</code> (Rust), <code class="language-plaintext highlighter-rouge">jqwik</code> (Java), <code class="language-plaintext highlighter-rouge">gopter</code> (Go), <code class="language-plaintext highlighter-rouge">ScalaCheck</code>, <code class="language-plaintext highlighter-rouge">FsCheck</code>. <strong>Stateful / model-based</strong> PBT extends the idea to sequences of operations: generate a random sequence of API calls, run them against both the real system and a simplified model, and assert the two stay in agreement — the technique that finds subtle state-machine bugs and underpins much <a href="../distributed-systems/testing-distributed-systems.html">distributed systems testing</a>.</p>
+<h3 id="frameworks">Frameworks</h3>
+
+<p>PBT began with <strong>QuickCheck</strong> for Haskell (Claessen and Hughes, 2000), where types derive generators almost for free:</p>
+
+<div class="language-haskell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">prop_reverseInvolution</span> <span class="o">::</span> <span class="p">[</span><span class="kt">Int</span><span class="p">]</span> <span class="o">-&gt;</span> <span class="kt">Bool</span>
+<span class="n">prop_reverseInvolution</span> <span class="n">xs</span> <span class="o">=</span> <span class="n">reverse</span> <span class="p">(</span><span class="n">reverse</span> <span class="n">xs</span><span class="p">)</span> <span class="o">==</span> <span class="n">xs</span>
+<span class="c1">-- quickCheck prop_reverseInvolution  ==&gt;  +++ OK, passed 100 tests.</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Libraries</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Python</td>
+      <td>Hypothesis</td>
+    </tr>
+    <tr>
+      <td>JavaScript / TypeScript</td>
+      <td>fast-check</td>
+    </tr>
+    <tr>
+      <td>Java / Kotlin</td>
+      <td>jqwik, Kotest property testing</td>
+    </tr>
+    <tr>
+      <td>Rust</td>
+      <td>proptest, quickcheck</td>
+    </tr>
+    <tr>
+      <td>Go</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">rapid</code>, gopter</td>
+    </tr>
+    <tr>
+      <td>Scala / .NET / Erlang</td>
+      <td>ScalaCheck, FsCheck / CsCheck, PropEr</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Stateful PBT applied to distributed systems — with simulated networks and injected faults — is covered in <a href="../distributed-systems/testing-distributed-systems.html#property-based-testing">Testing Distributed Systems</a>.</p>
 
 <hr>
 
 <h2 id="fuzzing">Fuzzing</h2>
 
-<p><strong>Fuzzing</strong> is property-based testing’s aggressive cousin aimed at <em>robustness</em> rather than logical correctness: feed a program a flood of malformed, unexpected, or adversarial inputs and watch for crashes, hangs, memory errors, and assertion failures. Where PBT generators are written by hand to target a property, fuzzers generate inputs <em>automatically</em> and often <em>evolve</em> them to maximize code coverage.</p>
+<p><strong>Fuzzing</strong> feeds a program large volumes of generated, often malformed input and watches for crashes, hangs, memory-safety violations, and failed assertions. Where property-based tests usually target logical properties with hand-written generators, fuzzers target <em>robustness</em> and generate inputs largely automatically, evolving them toward unexplored code.</p>
 
 <h3 id="coverage-guided-fuzzing">Coverage-Guided Fuzzing</h3>
 
-<p>The breakthrough behind modern fuzzers (<strong>AFL/AFL++</strong>, <strong>libFuzzer</strong>, Go’s native <code class="language-plaintext highlighter-rouge">testing.F</code>) is <strong>coverage feedback</strong>. The fuzzer instruments the target to record which branches each input exercises. Inputs that hit <em>new</em> coverage are kept and mutated further (bit flips, splices, dictionary insertions); inputs that explore nothing new are discarded. This turns blind random search into a guided one that, over millions of executions, drives itself deep into the program — discovering inputs no human would write.</p>
+<p>Modern fuzzers instrument the target to record which branches each input reaches, and keep inputs that reach new code as seeds for further mutation:</p>
 
-<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// Go native fuzzing — `go test -fuzz=FuzzParse` evolves the corpus automatically</span>
+<pre><code class="language-mermaid">flowchart LR
+    Corpus[("Corpus&lt;br/&gt;seed inputs")] --&gt; Pick["Pick input"]
+    Pick --&gt; Mutate["Mutate&lt;br/&gt;bit flips, splices,&lt;br/&gt;dictionary tokens"]
+    Mutate --&gt; Run["Run instrumented target&lt;br/&gt;(with sanitizers)"]
+    Run --&gt;|"crash, hang,&lt;br/&gt;sanitizer report"| Crash["Save reproducer,&lt;br/&gt;minimize"]
+    Run --&gt;|"new coverage"| Corpus
+    Run --&gt;|"nothing new"| Pick
+</code></pre>
+
+<p>Over millions of executions this feedback loop steers generation deep into parsers and state machines, producing inputs no human would write. Go has this built into its toolchain:</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">// go test -fuzz=FuzzParseConfig -fuzztime=60s</span>
 <span class="k">func</span> <span class="n">FuzzParseConfig</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">F</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">f</span><span class="o">.</span><span class="n">Add</span><span class="p">([]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"key = value</span><span class="se">\n</span><span class="s">"</span><span class="p">))</span>        <span class="c">// seed corpus</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">Add</span><span class="p">([]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"key = value</span><span class="se">\n</span><span class="s">"</span><span class="p">))</span>   <span class="c">// seed corpus</span>
     <span class="n">f</span><span class="o">.</span><span class="n">Add</span><span class="p">([]</span><span class="kt">byte</span><span class="p">(</span><span class="s">"[section]</span><span class="se">\n</span><span class="s">"</span><span class="p">))</span>
     <span class="n">f</span><span class="o">.</span><span class="n">Fuzz</span><span class="p">(</span><span class="k">func</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">data</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">)</span> <span class="p">{</span>
         <span class="n">cfg</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">ParseConfig</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
-            <span class="k">return</span> <span class="c">// rejecting bad input is fine; *crashing* is the bug</span>
+            <span class="k">return</span> <span class="c">// rejecting bad input is fine; panicking is the bug</span>
         <span class="p">}</span>
-        <span class="c">// Property under fuzz: a parse that succeeds must round-trip</span>
-        <span class="k">if</span> <span class="n">out</span> <span class="o">:=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">Marshal</span><span class="p">();</span> <span class="o">!</span><span class="n">ParseEquivalent</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span> <span class="p">{</span>
-            <span class="n">t</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"round-trip mismatch for %q"</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="c">// Property: anything that parses must survive a round trip</span>
+        <span class="n">again</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">ParseConfig</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">Marshal</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">||</span> <span class="o">!</span><span class="n">again</span><span class="o">.</span><span class="n">Equal</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">t</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"round trip failed for %q"</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
         <span class="p">}</span>
     <span class="p">})</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="sanitizers-turn-silent-corruption-into-crashes">Sanitizers Turn Silent Corruption into Crashes</h3>
+<p>Failing inputs are written to <code class="language-plaintext highlighter-rouge">testdata/fuzz/FuzzParseConfig/</code> and replayed by plain <code class="language-plaintext highlighter-rouge">go test</code> as regression tests from then on.</p>
 
-<p>Fuzzing is dramatically more effective with <strong>sanitizers</strong> compiled into the target: <strong>AddressSanitizer (ASan)</strong> catches out-of-bounds and use-after-free, <strong>UBSan</strong> catches undefined behavior, <strong>MemorySanitizer</strong> catches reads of uninitialized memory. Without them a fuzzer only finds inputs that <em>crash outright</em>; with them it finds memory-safety bugs that would otherwise corrupt silently and surface as a security vulnerability months later. This is why fuzzing is a cornerstone of finding exploitable bugs — many CVEs in parsers, codecs, and protocol stacks were found by <strong>OSS-Fuzz</strong>, Google’s continuous fuzzing service for open-source projects.</p>
+<h3 id="sanitizers">Sanitizers</h3>
+
+<p>Without instrumentation, a fuzzer only notices bugs that crash outright. Compiling the target with <strong>sanitizers</strong> turns silent corruption into immediate, diagnosable failures: <strong>AddressSanitizer</strong> (out-of-bounds access, use-after-free), <strong>UndefinedBehaviorSanitizer</strong> (integer overflow, invalid shifts, misaligned pointers), and <strong>MemorySanitizer</strong> (reads of uninitialized memory). This combination is why fuzzing is a primary technique for finding exploitable bugs in C and C++ code.</p>
 
 <h3 id="structure-aware-fuzzing">Structure-Aware Fuzzing</h3>
 
-<p>A naive byte-level fuzzer wastes most of its time producing inputs a parser rejects in the first few bytes. <strong>Structure-aware fuzzing</strong> (libFuzzer’s <code class="language-plaintext highlighter-rouge">FuzzedDataProvider</code>, <code class="language-plaintext highlighter-rouge">arbitrary</code> in Rust, protobuf-based mutators) generates inputs that are <em>already</em> valid at the grammar level — well-formed protobuf messages, syntactically valid programs — so the fuzzer spends its budget exploring <em>semantic</em> logic rather than rediscovering the file format. The frontier blurs into PBT: a structure-aware fuzzer is, in effect, a coverage-guided property-based tester.</p>
+<p>Byte-level mutation wastes most executions on inputs that fail the first validity check. <strong>Structure-aware</strong> fuzzers generate inputs that are already syntactically valid — protobuf messages via <code class="language-plaintext highlighter-rouge">libprotobuf-mutator</code>, typed values via Rust’s <code class="language-plaintext highlighter-rouge">arbitrary</code> crate or libFuzzer’s <code class="language-plaintext highlighter-rouge">FuzzedDataProvider</code>, grammar-based generators for languages — so effort goes into semantic logic. At that point a fuzzer is effectively a coverage-guided property-based tester.</p>
+
+<h3 id="tooling">Tooling</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Targets</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>AFL++</td>
+      <td>C/C++, binaries (QEMU / Frida modes)</td>
+      <td>Actively developed community successor to AFL</td>
+    </tr>
+    <tr>
+      <td>libFuzzer</td>
+      <td>C/C++ (in-process, LLVM)</td>
+      <td>In maintenance mode: bug fixes only; its authors moved to Centipede, now part of Google’s FuzzTest</td>
+    </tr>
+    <tr>
+      <td>FuzzTest</td>
+      <td>C++</td>
+      <td>Google’s property-style fuzzing framework integrated with GoogleTest</td>
+    </tr>
+    <tr>
+      <td>Go native fuzzing</td>
+      <td>Go</td>
+      <td>
+<code class="language-plaintext highlighter-rouge">testing.F</code>, since Go 1.18</td>
+    </tr>
+    <tr>
+      <td>cargo-fuzz</td>
+      <td>Rust</td>
+      <td>libFuzzer-based; pairs with <code class="language-plaintext highlighter-rouge">arbitrary</code>
+</td>
+    </tr>
+    <tr>
+      <td>Atheris</td>
+      <td>Python (and native extensions)</td>
+      <td>Coverage-guided, libFuzzer-based</td>
+    </tr>
+    <tr>
+      <td>Jazzer</td>
+      <td>JVM</td>
+      <td>Coverage-guided; also detects injection-style bugs</td>
+    </tr>
+    <tr>
+      <td>OSS-Fuzz / ClusterFuzzLite</td>
+      <td>Open-source projects / your own CI</td>
+      <td>Continuous fuzzing infrastructure from Google; ClusterFuzzLite runs in CI</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>OSS-Fuzz</strong> has run continuous fuzzing for over a thousand open-source projects and found many thousands of bugs, a large share of them security vulnerabilities in parsers, codecs, and network stacks. Since 2023 Google has also used LLMs to write new fuzz harnesses for OSS-Fuzz projects, reporting previously unknown vulnerabilities (including one in OpenSSL) in code that existing harnesses did not reach.</p>
 
 <hr>
 
 <h2 id="mutation-testing">Mutation Testing</h2>
 
-<p>Code coverage answers “did a test <em>execute</em> this line?” It does <strong>not</strong> answer “would a test <em>catch a bug</em> on this line?” — a test can run a line and assert nothing meaningful about it. <strong>Mutation testing</strong> measures the latter directly, and it is the only technique that grades the <em>test suite itself</em>.</p>
+<p>Coverage says whether a test <em>executed</em> a line; it cannot say whether a test would <em>notice a bug</em> on that line. <strong>Mutation testing</strong> measures that directly and is the only mainstream technique that grades the test suite itself.</p>
 
 <h3 id="how-it-works">How It Works</h3>
 
-<p>The tool generates <strong>mutants</strong>: copies of your code each with one small, deliberate fault injected — <code class="language-plaintext highlighter-rouge">+</code> becomes <code class="language-plaintext highlighter-rouge">-</code>, <code class="language-plaintext highlighter-rouge">&lt;</code> becomes <code class="language-plaintext highlighter-rouge">&lt;=</code>, a boolean is negated, a return value is replaced with a constant, a statement is deleted. For each mutant it runs the test suite:</p>
+<p>The tool creates <strong>mutants</strong> — copies of the program with one small fault each — and runs the relevant tests against every mutant:</p>
 
-<ul>
-  <li>If a test <strong>fails</strong>, the mutant is <strong>killed</strong> — the suite detected the injected fault. Good.</li>
-  <li>If all tests <strong>pass</strong>, the mutant <strong>survived</strong> — a real bug at that location would have shipped silently. Bad.</li>
-</ul>
+<pre><code class="language-mermaid">flowchart LR
+    Src["Source"] --&gt; Gen["Generate mutants&lt;br/&gt;swap operators,&lt;br/&gt;negate condition,&lt;br/&gt;delete statement,&lt;br/&gt;return constant"]
+    Gen --&gt; Run["Run tests covering&lt;br/&gt;each mutant"]
+    Run --&gt;|"some test fails"| Killed["Killed&lt;br/&gt;fault detected"]
+    Run --&gt;|"all tests pass"| Survived["Survived&lt;br/&gt;coverage without verification"]
+    Run --&gt;|"no test covers it"| NoCov["No coverage"]
+    Survived --&gt; Review{"Review"}
+    Review --&gt;|"real gap"| Add["Add or strengthen assertion"]
+    Review --&gt;|"behavior identical"| Equiv["Equivalent mutant, ignore"]
+</code></pre>
 
-<p>The <strong>mutation score</strong> is <code class="language-plaintext highlighter-rouge">killed / (total non-equivalent mutants)</code>. A surviving mutant is a precise, actionable pointer: <em>this exact line is exercised but not actually asserted on.</em></p>
+\[\text{mutation score} = \frac{\text{killed mutants}}{\text{total mutants} - \text{equivalent mutants}}\]
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Suppose this is under test:
-</span><span class="k">def</span> <span class="nf">apply_discount</span><span class="p">(</span><span class="n">price</span><span class="p">,</span> <span class="n">pct</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">pct</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">:</span>                 <span class="c1"># mutant: change &gt; to &gt;=
-</span>        <span class="n">pct</span> <span class="o">=</span> <span class="mi">50</span>                 <span class="c1"># mutant: change 50 to 49, or delete the line
-</span>    <span class="k">return</span> <span class="n">price</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">pct</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>   <span class="c1"># mutant: change - to +, * to /
-</span>
-<span class="c1"># A test that only checks apply_discount(100, 10) == 90 KILLS none of the
-# boundary mutants — it never exercises the pct &gt; 50 clamp. Mutation testing
-# surfaces "pct &gt; 50  -&gt; survived", telling you to add a boundary case.
+<p>A surviving mutant is a precise, actionable finding: this exact change to this exact line went unnoticed.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">apply_discount</span><span class="p">(</span><span class="n">price</span><span class="p">,</span> <span class="n">pct</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">pct</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">:</span>          <span class="c1"># mutants: &gt; to &gt;=, 50 to 51
+</span>        <span class="n">pct</span> <span class="o">=</span> <span class="mi">50</span>          <span class="c1"># mutant: delete this line
+</span>    <span class="k">return</span> <span class="n">price</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">pct</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>
+
+<span class="c1"># A suite that only checks apply_discount(100, 10) == 90 leaves every
+# clamp mutant alive. Adding apply_discount(100, 50) == 50 and
+# apply_discount(100, 51) == 50 kills them.
 </span></code></pre></div></div>
 
-<p>Run with <code class="language-plaintext highlighter-rouge">mutmut</code> or <code class="language-plaintext highlighter-rouge">cosmic-ray</code> (Python), <strong>Stryker</strong> (JS/TS, C#, Scala), <strong>PIT</strong> (Java), or <code class="language-plaintext highlighter-rouge">cargo-mutants</code> (Rust).</p>
+<h3 id="cost-and-the-equivalent-mutant-problem">Cost and the Equivalent-Mutant Problem</h3>
 
-<h3 id="the-equivalent-mutant-problem">The Equivalent Mutant Problem</h3>
+<p>Mutation testing is expensive — roughly one test run per mutant — so tools restrict each mutant to the tests that cover it, run in parallel, and support <strong>incremental</strong> mode that only mutates changed code. A common CI pattern is mutation testing on the diff of each pull request, with a full run nightly or weekly on critical modules.</p>
 
-<p>The central difficulty: some mutants are <strong>equivalent</strong> — they change the code but not its observable behavior (e.g. mutating a loop bound that a later <code class="language-plaintext highlighter-rouge">break</code> makes irrelevant). No test can kill an equivalent mutant because there is nothing to detect, so they drag the score down spuriously and detecting them is undecidable in general. Mature workflows accept a target below 100%, review survivors rather than chasing a perfect score, and run mutation testing on <strong>changed lines only</strong> in CI (it is expensive — <em>N</em> mutants × full suite per mutant) while running the full sweep nightly.</p>
+<p>Some mutants are <strong>equivalent</strong>: they change the code without changing behavior (for instance, mutating a bound that a later <code class="language-plaintext highlighter-rouge">break</code> makes irrelevant). No test can kill them, and detecting them is undecidable in general. Treat the score as a guide rather than a target, and review survivors instead of chasing 100%.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Language</th>
+      <th>Tools</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Java / JVM</td>
+      <td>PIT (Pitest)</td>
+    </tr>
+    <tr>
+      <td>JavaScript / TypeScript, C#, Scala</td>
+      <td>Stryker (StrykerJS, Stryker.NET, Stryker4s)</td>
+    </tr>
+    <tr>
+      <td>Python</td>
+      <td>mutmut, cosmic-ray</td>
+    </tr>
+    <tr>
+      <td>Rust</td>
+      <td>cargo-mutants</td>
+    </tr>
+    <tr>
+      <td>C / C++</td>
+      <td>Mull</td>
+    </tr>
+    <tr>
+      <td>Go</td>
+      <td>go-mutesting, Gremlins</td>
+    </tr>
+  </tbody>
+</table>
 
 <hr>
 
 <h2 id="end-to-end-and-snapshot-testing">End-to-End and Snapshot Testing</h2>
 
-<h3 id="end-to-end-e2e-testing">End-to-End (E2E) Testing</h3>
+<h3 id="end-to-end-tests">End-to-End Tests</h3>
 
-<p><strong>E2E tests</strong> drive the fully assembled system the way a user would — clicking through a real browser, hitting a real (or realistic) backend, exercising the database and integrations. They are the top of the pyramid: highest fidelity, highest cost, highest flakiness. Their value is catching integration gaps that unit and contract tests structurally cannot — a broken redirect, a misconfigured CORS header, a frontend/backend field-name mismatch that slipped past both sides’ isolated tests.</p>
+<p><strong>End-to-end (E2E) tests</strong> drive the assembled system as a user would — through a real browser or the public API, against real backends. They catch integration gaps that lower levels structurally miss: a broken redirect, a CORS misconfiguration, a front-end/back-end field mismatch, a missing environment variable in the deployed build.</p>
 
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Playwright E2E — drives a real browser against the deployed app</span>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Playwright</span>
 <span class="k">import</span> <span class="p">{</span> <span class="nx">test</span><span class="p">,</span> <span class="nx">expect</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@playwright/test</span><span class="dl">'</span><span class="p">;</span>
 
 <span class="nf">test</span><span class="p">(</span><span class="dl">'</span><span class="s1">user can sign in and reach the dashboard</span><span class="dl">'</span><span class="p">,</span> <span class="k">async </span><span class="p">({</span> <span class="nx">page</span> <span class="p">})</span> <span class="o">=&gt;</span> <span class="p">{</span>
@@ -3283,32 +3456,49 @@ pact-broker can-i-deploy <span class="se">\</span>
   <span class="k">await</span> <span class="nx">page</span><span class="p">.</span><span class="nf">getByLabel</span><span class="p">(</span><span class="dl">'</span><span class="s1">Email</span><span class="dl">'</span><span class="p">).</span><span class="nf">fill</span><span class="p">(</span><span class="dl">'</span><span class="s1">ada@example.com</span><span class="dl">'</span><span class="p">);</span>
   <span class="k">await</span> <span class="nx">page</span><span class="p">.</span><span class="nf">getByLabel</span><span class="p">(</span><span class="dl">'</span><span class="s1">Password</span><span class="dl">'</span><span class="p">).</span><span class="nf">fill</span><span class="p">(</span><span class="dl">'</span><span class="s1">correct-horse</span><span class="dl">'</span><span class="p">);</span>
   <span class="k">await</span> <span class="nx">page</span><span class="p">.</span><span class="nf">getByRole</span><span class="p">(</span><span class="dl">'</span><span class="s1">button</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">Sign in</span><span class="dl">'</span> <span class="p">}).</span><span class="nf">click</span><span class="p">();</span>
-  <span class="c1">// Web-first assertions auto-retry until the condition holds or times out,</span>
-  <span class="c1">// which is the primary defense against E2E flakiness.</span>
+  <span class="c1">// Web-first assertions retry until they pass or time out</span>
   <span class="k">await</span> <span class="nf">expect</span><span class="p">(</span><span class="nx">page</span><span class="p">).</span><span class="nf">toHaveURL</span><span class="p">(</span><span class="dl">'</span><span class="s1">/dashboard</span><span class="dl">'</span><span class="p">);</span>
   <span class="k">await</span> <span class="nf">expect</span><span class="p">(</span><span class="nx">page</span><span class="p">.</span><span class="nf">getByRole</span><span class="p">(</span><span class="dl">'</span><span class="s1">heading</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">Welcome, Ada</span><span class="dl">'</span> <span class="p">})).</span><span class="nf">toBeVisible</span><span class="p">();</span>
 <span class="p">});</span>
 </code></pre></div></div>
 
-<p><strong>Managing E2E flakiness</strong> is the discipline that makes E2E suites usable: prefer <em>auto-retrying, user-visible assertions</em> (Playwright/Cypress) over fixed <code class="language-plaintext highlighter-rouge">sleep</code>s; select elements by role/label/test-id, never by brittle CSS paths; isolate test data so runs don’t interfere; and keep the suite small — E2E is for critical user journeys, not exhaustive coverage. A flaky E2E suite that everyone ignores is worse than no suite.</p>
+<p>Keeping E2E suites reliable:</p>
+
+<ul>
+  <li>Use <strong>auto-waiting, auto-retrying assertions</strong> (Playwright, Cypress) instead of fixed sleeps.</li>
+  <li>Select elements by <strong>role, label, or test ID</strong> — what users and assistive technology see — rather than CSS paths that change with styling.</li>
+  <li>Give each test its own data (create a fresh account via the API in setup) so parallel runs don’t collide; log in once and reuse the authenticated storage state.</li>
+  <li>Keep the suite <strong>small</strong>: critical user journeys only. Use traces (Playwright’s trace viewer) to debug failures instead of re-running blind.</li>
+</ul>
 
 <h3 id="snapshot-testing">Snapshot Testing</h3>
 
-<p><strong>Snapshot testing</strong> records a serialized representation of an output on first run and, on every subsequent run, asserts the output still matches the stored snapshot. It trades precise hand-written assertions for broad, cheap coverage of <em>anything serializable</em>: rendered UI trees, API JSON responses, generated code, CLI output, compiler IR.</p>
+<p><strong>Snapshot testing</strong> stores a serialized output on first run and fails when later output differs. It gives broad, cheap coverage for anything serializable: rendered component markup, API responses, generated code, CLI output, compiler IR.</p>
 
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">test</span><span class="p">(</span><span class="dl">'</span><span class="s1">renders the invoice component</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
-  <span class="kd">const</span> <span class="nx">tree</span> <span class="o">=</span> <span class="nx">renderer</span><span class="p">.</span><span class="nf">create</span><span class="p">(</span><span class="o">&lt;</span><span class="nx">Invoice</span> <span class="nx">amount</span><span class="o">=</span><span class="p">{</span><span class="mi">42</span><span class="p">}</span> <span class="nx">customer</span><span class="o">=</span><span class="dl">"</span><span class="s2">Ada</span><span class="dl">"</span> <span class="o">/&gt;</span><span class="p">).</span><span class="nf">toJSON</span><span class="p">();</span>
-  <span class="nf">expect</span><span class="p">(</span><span class="nx">tree</span><span class="p">).</span><span class="nf">toMatchSnapshot</span><span class="p">();</span>  <span class="c1">// first run records; later runs compare</span>
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">render</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@testing-library/react</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="nf">test</span><span class="p">(</span><span class="dl">'</span><span class="s1">renders the invoice</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="p">{</span> <span class="nx">asFragment</span> <span class="p">}</span> <span class="o">=</span> <span class="nf">render</span><span class="p">(</span><span class="o">&lt;</span><span class="nx">Invoice</span> <span class="nx">amount</span><span class="o">=</span><span class="p">{</span><span class="mi">42</span><span class="p">}</span> <span class="nx">customer</span><span class="o">=</span><span class="dl">"</span><span class="s2">Ada</span><span class="dl">"</span> <span class="o">/&gt;</span><span class="p">);</span>
+  <span class="nf">expect</span><span class="p">(</span><span class="nf">asFragment</span><span class="p">()).</span><span class="nf">toMatchSnapshot</span><span class="p">();</span>   <span class="c1">// stored in __snapshots__/</span>
+<span class="p">});</span>
+
+<span class="nf">test</span><span class="p">(</span><span class="dl">'</span><span class="s1">formats a currency amount</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="c1">// Inline snapshots live in the test file and are easier to review</span>
+  <span class="nf">expect</span><span class="p">(</span><span class="nf">formatAmount</span><span class="p">(</span><span class="mf">1234.5</span><span class="p">,</span> <span class="dl">'</span><span class="s1">EUR</span><span class="dl">'</span><span class="p">)).</span><span class="nf">toMatchInlineSnapshot</span><span class="p">(</span><span class="s2">`"€1,234.50"`</span><span class="p">);</span>
 <span class="p">});</span>
 </code></pre></div></div>
 
-<p>The strength — catching <em>any</em> unintended change — is also the weakness. Snapshots are prone to <strong>rubber-stamping</strong>: when a test fails, the path of least resistance is <code class="language-plaintext highlighter-rouge">--update</code> without reading the diff, which silently blesses regressions. They are also noisy on large or volatile outputs. Best practice: keep snapshots <strong>small and reviewable</strong>, treat a snapshot diff in code review as a real diff requiring justification, and reserve snapshots for stable serializations rather than rapidly-changing UI. <strong>Visual regression testing</strong> (Percy, Chromatic, Playwright’s <code class="language-plaintext highlighter-rouge">toHaveScreenshot</code>) applies the same record-and-compare idea to <em>rendered pixels</em>, catching CSS regressions that DOM snapshots miss.</p>
+<p>(React’s own <code class="language-plaintext highlighter-rouge">react-test-renderer</code> is deprecated as of React 19; the React team recommends React Testing Library for rendering in tests.)</p>
+
+<p>The weakness is <strong>rubber-stamping</strong>: when a snapshot fails, the easy path is to re-record it without reading the diff, silently accepting a regression. Keep snapshots small and focused, review snapshot diffs in code review like any other change, scrub volatile values (timestamps, IDs), and prefer explicit assertions for anything with a precise expected value. Language-agnostic equivalents include <code class="language-plaintext highlighter-rouge">insta</code> (Rust), <code class="language-plaintext highlighter-rouge">syrupy</code> (Python), and golden-file tests (common in Go).</p>
+
+<p><strong>Visual regression testing</strong> — Playwright’s <code class="language-plaintext highlighter-rouge">toHaveScreenshot</code>, Chromatic, Percy — compares rendered pixels instead, catching CSS and layout regressions that markup snapshots miss. Run it in a pinned browser and OS image; font rendering differences between machines are the main source of false positives.</p>
 
 <hr>
 
 <h2 id="load-and-performance-testing">Load and Performance Testing</h2>
 
-<p>Functional tests answer “is it correct?”; <strong>load and performance testing</strong> answers “does it stay correct, fast, and standing under realistic and extreme traffic?” The distinct goals are worth naming precisely:</p>
+<p>Functional tests ask whether the system is correct; <strong>performance tests</strong> ask whether it stays correct, fast, and available under realistic and extreme load.</p>
 
 <table>
   <thead>
@@ -3320,56 +3510,70 @@ pact-broker can-i-deploy <span class="se">\</span>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Load</strong></td>
+      <td>Load</td>
       <td>Does it meet SLOs at expected peak?</td>
-      <td>Drive expected peak traffic, check latency/error SLOs</td>
+      <td>Hold expected peak traffic; check latency and error SLOs</td>
     </tr>
     <tr>
-      <td><strong>Stress</strong></td>
+      <td>Stress</td>
       <td>Where and how does it break?</td>
-      <td>Ramp past capacity until failure; observe the failure mode</td>
+      <td>Ramp beyond capacity; observe the failure mode and recovery</td>
     </tr>
     <tr>
-      <td><strong>Spike</strong></td>
+      <td>Spike</td>
       <td>Does it survive sudden surges?</td>
-      <td>Step traffic up sharply, then back down</td>
+      <td>Step load up sharply, then down</td>
     </tr>
     <tr>
-      <td><strong>Soak / endurance</strong></td>
-      <td>Does it degrade over hours/days?</td>
-      <td>Hold moderate load for a long time; hunt leaks and creep</td>
+      <td>Soak / endurance</td>
+      <td>Does it degrade over time?</td>
+      <td>Moderate load for hours; look for leaks, growing queues, disk fill</td>
     </tr>
     <tr>
-      <td><strong>Scalability</strong></td>
-      <td>Does adding capacity help linearly?</td>
-      <td>Measure throughput vs. resources added</td>
+      <td>Scalability</td>
+      <td>Does adding capacity add throughput?</td>
+      <td>Measure throughput as instances are added</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="measure-the-tail-not-the-mean">Measure the Tail, Not the Mean</h3>
+<h3 id="measure-the-tail-and-avoid-coordinated-omission">Measure the Tail, and Avoid Coordinated Omission</h3>
 
-<p>The single most important rule in performance testing: <strong>report percentiles, never averages.</strong> A mean latency hides the users who suffer; the p99 <em>is</em> the experience of 1% of requests, and at scale that is a large, vocal population. Worse, <strong>tail latency amplifies in fan-out systems</strong>: if a request touches 100 services in parallel and each has a 1% chance of being slow, the probability the <em>overall</em> request is slow is $1 - 0.99^{100} \approx 0.63$ — so a rare per-service stall becomes the <em>common</em> end-to-end case. Always set SLOs on p95/p99 (and watch p999), and beware <strong>coordinated omission</strong>: a closed-loop generator that waits for slow responses stops sending requests during the exact window the system is slowest, so it never records the worst latencies. Open-loop, arrival-rate generators avoid this bias.</p>
+<p>Report <strong>percentiles</strong>, not averages: the mean hides the slow requests users complain about, and p99 is the experience of one request in a hundred. Tail latency also amplifies with fan-out — if a request calls 100 backends in parallel and each is slow 1% of the time, the request is slow with probability $1 - 0.99^{100} \approx 0.63$. Set SLOs on p95/p99 and watch p99.9.</p>
 
-<h3 id="k6-developer-centric-scriptable">k6 (Developer-Centric, Scriptable)</h3>
+<p><strong>Coordinated omission</strong> is the classic measurement bug: a <em>closed-loop</em> generator (each virtual user waits for a response before sending the next request) stops sending while the system is stalled, so it never records the latency that queued requests would have experienced. <em>Open-loop</em> generators that schedule requests at a fixed arrival rate regardless of responses avoid this bias.</p>
 
-<p><strong>k6</strong> scripts load tests in JavaScript and expresses SLOs as <strong>thresholds</strong> that fail the run (and the CI build) when breached:</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Closed["Closed loop (VUs wait)"]
+        direction TB
+        C1["send"] --&gt; C2["wait for response"] --&gt; C1
+    end
+    subgraph Open["Open loop (arrival rate)"]
+        direction TB
+        O1["scheduler emits N req/s"] --&gt; O2["requests queue if system slows"]
+    end
+    Closed --&gt;|"system stalls: requests stop,&lt;br/&gt;stall under-reported"| R1["optimistic latency"]
+    Open --&gt;|"system stalls: queue grows,&lt;br/&gt;stall fully measured"| R2["true user latency"]
+</code></pre>
+
+<h3 id="tools">Tools</h3>
+
+<p><strong>k6</strong> (Grafana Labs; JavaScript scripts, Go engine, now in its 2.x release line) expresses SLOs as <strong>thresholds</strong> that fail the run — and therefore the CI job — when breached:</p>
 
 <div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="nx">http</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">k6/http</span><span class="dl">'</span><span class="p">;</span>
 <span class="k">import</span> <span class="p">{</span> <span class="nx">check</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">k6</span><span class="dl">'</span><span class="p">;</span>
 
 <span class="k">export</span> <span class="kd">const</span> <span class="nx">options</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="c1">// Open-model: a constant *arrival rate*, immune to coordinated omission</span>
   <span class="na">scenarios</span><span class="p">:</span> <span class="p">{</span>
     <span class="na">steady</span><span class="p">:</span> <span class="p">{</span>
-      <span class="na">executor</span><span class="p">:</span> <span class="dl">'</span><span class="s1">constant-arrival-rate</span><span class="dl">'</span><span class="p">,</span>
+      <span class="na">executor</span><span class="p">:</span> <span class="dl">'</span><span class="s1">constant-arrival-rate</span><span class="dl">'</span><span class="p">,</span>   <span class="c1">// open model</span>
       <span class="na">rate</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span> <span class="na">timeUnit</span><span class="p">:</span> <span class="dl">'</span><span class="s1">1s</span><span class="dl">'</span><span class="p">,</span> <span class="na">duration</span><span class="p">:</span> <span class="dl">'</span><span class="s1">5m</span><span class="dl">'</span><span class="p">,</span>
       <span class="na">preAllocatedVUs</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="na">maxVUs</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
     <span class="p">},</span>
   <span class="p">},</span>
   <span class="na">thresholds</span><span class="p">:</span> <span class="p">{</span>
-    <span class="na">http_req_duration</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">p(95)&lt;300</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">p(99)&lt;800</span><span class="dl">'</span><span class="p">],</span>  <span class="c1">// SLO as a build gate</span>
-    <span class="na">http_req_failed</span><span class="p">:</span>   <span class="p">[</span><span class="dl">'</span><span class="s1">rate&lt;0.01</span><span class="dl">'</span><span class="p">],</span>               <span class="c1">// &lt;1% errors</span>
+    <span class="na">http_req_duration</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">p(95)&lt;300</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">p(99)&lt;800</span><span class="dl">'</span><span class="p">],</span>
+    <span class="na">http_req_failed</span><span class="p">:</span> <span class="p">[</span><span class="dl">'</span><span class="s1">rate&lt;0.01</span><span class="dl">'</span><span class="p">],</span>
   <span class="p">},</span>
 <span class="p">};</span>
 
@@ -3379,19 +3583,17 @@ pact-broker can-i-deploy <span class="se">\</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="locust-python-and-jmeter-guienterprise">Locust (Python) and JMeter (GUI/Enterprise)</h3>
-
-<p><strong>Locust</strong> defines virtual users as Python code, which makes complex, stateful user journeys (log in, browse, add to cart, check out) easy to express and scale across worker machines:</p>
+<p><strong>Locust</strong> defines users as Python classes, which suits stateful journeys:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">locust</span> <span class="kn">import</span> <span class="n">HttpUser</span><span class="p">,</span> <span class="n">task</span><span class="p">,</span> <span class="n">between</span>
 
-<span class="k">class</span> <span class="nc">ShopperUser</span><span class="p">(</span><span class="n">HttpUser</span><span class="p">):</span>
-    <span class="n">wait_time</span> <span class="o">=</span> <span class="nf">between</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>   <span class="c1"># think-time between actions
+<span class="k">class</span> <span class="nc">Shopper</span><span class="p">(</span><span class="n">HttpUser</span><span class="p">):</span>
+    <span class="n">wait_time</span> <span class="o">=</span> <span class="nf">between</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>            <span class="c1"># think time
 </span>
     <span class="k">def</span> <span class="nf">on_start</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
         <span class="n">self</span><span class="p">.</span><span class="n">client</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">/login</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">user</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ada</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">pass</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="p">})</span>
 
-    <span class="nd">@task</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>                    <span class="c1"># weighted: browsing is 3x as common as checkout
+    <span class="nd">@task</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>                             <span class="c1"># browsing is 3x as common as checkout
 </span>    <span class="k">def</span> <span class="nf">browse</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
         <span class="n">self</span><span class="p">.</span><span class="n">client</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">/products</span><span class="sh">"</span><span class="p">)</span>
 
@@ -3400,131 +3602,206 @@ pact-broker can-i-deploy <span class="se">\</span>
         <span class="n">self</span><span class="p">.</span><span class="n">client</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="sh">"</span><span class="s">/cart/checkout</span><span class="sh">"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">item</span><span class="sh">"</span><span class="p">:</span> <span class="mi">42</span><span class="p">})</span>
 </code></pre></div></div>
 
-<p><strong>Apache JMeter</strong> is the long-standing JVM tool: a GUI for building test plans, broad protocol support (HTTP, JDBC, JMS, gRPC via plugins), and deep enterprise integration. It is heavier and less code-review-friendly than k6/Locust, but its protocol breadth and maturity keep it common in large organizations. Whichever tool you choose, the rules are the same: <strong>generate realistic, often Zipfian, load</strong> (real traffic is skewed, not uniform); run against an environment that resembles production; and watch <em>server-side</em> resource metrics (CPU, memory, connection pools, GC) alongside client-side latency to find the <em>bottleneck</em>, not just the symptom. See <a href="../optimization/">performance optimization</a> for interpreting the resulting saturation curves and latency distributions.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Scripting</th>
+      <th>Load model</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>k6</td>
+      <td>JavaScript</td>
+      <td>Open and closed executors</td>
+      <td>Thresholds as CI gates; browser module for front-end metrics</td>
+    </tr>
+    <tr>
+      <td>Locust</td>
+      <td>Python</td>
+      <td>Closed (users with wait time)</td>
+      <td>Easy distributed workers; expressive user journeys</td>
+    </tr>
+    <tr>
+      <td>Gatling</td>
+      <td>Java, Kotlin, Scala, JavaScript DSLs</td>
+      <td>Open and closed injection profiles</td>
+      <td>Detailed HTML reports</td>
+    </tr>
+    <tr>
+      <td>Apache JMeter</td>
+      <td>GUI / XML test plans</td>
+      <td>Thread groups (closed); plugins for arrival rate</td>
+      <td>Broad protocol support (HTTP, JDBC, JMS); mature enterprise tooling</td>
+    </tr>
+    <tr>
+      <td>wrk2, Vegeta</td>
+      <td>CLI</td>
+      <td>Constant rate (open)</td>
+      <td>Quick HTTP benchmarks with correct latency measurement</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Whatever the tool: generate realistic, skewed traffic (real access patterns are rarely uniform), test in an environment that resembles production, and collect server-side metrics — CPU, memory, connection pools, GC, queue depth — alongside client latency, to find the bottleneck and not just the symptom. See <a href="../optimization/">Performance Optimization</a> for analyzing the results.</p>
 
 <hr>
 
 <h2 id="chaos-engineering">Chaos Engineering</h2>
 
-<p><strong>Chaos engineering</strong> is the disciplined practice of injecting failure into a (often production) system to verify it tolerates that failure <em>before</em> the failure happens for real. Its premise is blunt: <strong>you do not know your system is resilient until you have actively tried to break it.</strong> Most outages are recovery bugs — the failover that never ran, the retry that storms, the timeout that cascades — and the only way to exercise the recovery path is to trigger the failure.</p>
+<p><strong>Chaos engineering</strong> deliberately injects failures into a system — often in production — to verify it tolerates them before they happen for real. Many severe outages are failures of <em>recovery</em> paths (a failover that was never exercised, retries that amplify load, a timeout that cascades), and the only way to exercise a recovery path is to trigger the failure.</p>
 
-<h3 id="the-scientific-method-applied-to-failure">The Scientific Method Applied to Failure</h3>
+<h3 id="the-experiment-loop">The Experiment Loop</h3>
 
-<p>A chaos <em>experiment</em> is run like a hypothesis test, which is what separates it from “randomly breaking things”:</p>
+<p>A chaos experiment is run like a hypothesis test, which distinguishes it from breaking things at random:</p>
 
-<ol>
-  <li>
-<strong>Define steady state</strong> — a measurable signal of health (e.g. checkout success rate ≥ 99.5%, p99 &lt; 400 ms).</li>
-  <li>
-<strong>Hypothesize</strong> that steady state <em>holds even when</em> a specific failure is injected.</li>
-  <li>
-<strong>Inject</strong> the failure into the smallest viable slice — a single instance, one availability zone, 1% of traffic. This is the <strong>blast radius</strong>.</li>
-  <li>
-<strong>Measure</strong> the steady-state signal. If it holds, you have evidence of resilience; if it breaks, you have found a real weakness cheaply, on your terms.</li>
-  <li>
-<strong>Automate and expand</strong> blast radius only as confidence grows.</li>
-</ol>
+<pre><code class="language-mermaid">flowchart LR
+    SS["Define steady state&lt;br/&gt;(e.g. checkout success ≥ 99.5%,&lt;br/&gt;p99 under 400 ms)"] --&gt; H["Hypothesize it holds&lt;br/&gt;under a specific fault"]
+    H --&gt; I["Inject fault into smallest&lt;br/&gt;blast radius: one instance,&lt;br/&gt;one AZ, 1% of traffic"]
+    I --&gt; M{"Steady state&lt;br/&gt;held?"}
+    M --&gt;|yes| E["Expand blast radius,&lt;br/&gt;automate the experiment"]
+    M --&gt;|"no: abort"| F["Fix the weakness,&lt;br/&gt;update runbooks and alerts"]
+    E --&gt; H
+    F --&gt; H
+</code></pre>
 
-<h3 id="what-to-inject-and-the-tooling">What to Inject, and the Tooling</h3>
+<h3 id="faults-and-tooling">Faults and Tooling</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Failure mode</th>
+      <th>Fault</th>
       <th>Real incident it simulates</th>
-      <th>Tool</th>
+      <th>Tools</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Kill an instance/pod</td>
-      <td>Crash, hardware loss, scale-in</td>
-      <td>Chaos Monkey, <code class="language-plaintext highlighter-rouge">kubectl delete pod</code>, LitmusChaos</td>
+      <td>Kill instance / pod / process</td>
+      <td>Crash, host loss, scale-in</td>
+      <td>Chaos Monkey, <code class="language-plaintext highlighter-rouge">kubectl delete pod</code>, LitmusChaos, Chaos Mesh</td>
     </tr>
     <tr>
-      <td>Inject latency</td>
-      <td>Slow dependency, GC pause, noisy neighbor</td>
-      <td>Toxiproxy, Istio fault injection</td>
+      <td>Add latency or errors to calls</td>
+      <td>Slow or failing dependency</td>
+      <td>Toxiproxy, Istio / Envoy fault injection</td>
     </tr>
     <tr>
-      <td>Drop/partition network</td>
-      <td>Switch failure, AZ isolation</td>
+      <td>Partition or degrade the network</td>
+      <td>Switch failure, AZ isolation, packet loss</td>
       <td>
 <code class="language-plaintext highlighter-rouge">tc netem</code>, Chaos Mesh, Toxiproxy</td>
     </tr>
     <tr>
-      <td>Exhaust CPU/memory/disk</td>
-      <td>Resource leak, noisy neighbor</td>
+      <td>Exhaust CPU, memory, disk</td>
+      <td>Leak, noisy neighbor, full volume</td>
       <td>stress-ng, Gremlin</td>
     </tr>
     <tr>
-      <td>Fail a dependency</td>
-      <td>Downstream outage</td>
-      <td>Service-mesh fault injection</td>
+      <td>Fail a zone or managed service</td>
+      <td>Cloud provider incident</td>
+      <td>AWS Fault Injection Service, Azure Chaos Studio</td>
     </tr>
   </tbody>
 </table>
 
-<p>Netflix’s <strong>Chaos Monkey</strong> (randomly terminating production instances during business hours, when engineers are present to respond) and the broader <strong>Simian Army</strong> made the practice famous; <strong>LitmusChaos</strong>, <strong>Chaos Mesh</strong> (Kubernetes-native), and <strong>Gremlin</strong> (commercial, with safety controls) are common today.</p>
+<p>Netflix’s <strong>Chaos Monkey</strong>, which terminates production instances during business hours when engineers are present, popularized the practice. <strong>LitmusChaos</strong> and <strong>Chaos Mesh</strong> are CNCF projects for Kubernetes; <strong>Gremlin</strong> is a commercial platform; AWS and Azure offer managed fault-injection services with built-in stop conditions tied to alarms.</p>
 
 <h3 id="safety-and-game-days">Safety and Game Days</h3>
 
-<p>Chaos in production is only responsible with <strong>guardrails</strong>: a small initial blast radius, a fast <strong>abort/halt</strong> switch, business-hours scheduling, and live monitoring so you stop the experiment the moment steady state breaks. Many teams begin with <strong>game days</strong> — scheduled, supervised exercises where the team injects a failure and practices the human response (does the alert fire? does the runbook work? does the on-call know what to do?). The output of a game day is as often a fixed <em>runbook</em> or <em>alert</em> as a fixed <em>line of code</em>. The same techniques applied to <em>N</em> interacting timelines are covered in depth in <a href="../distributed-systems/testing-distributed-systems.html">distributed systems testing</a>.</p>
+<p>Chaos in production is responsible only with guardrails: a minimal initial blast radius, automatic <strong>stop conditions</strong> tied to the steady-state metrics, a manual abort, and scheduling when responders are available. Teams often start with <strong>game days</strong> — supervised exercises in which a failure is injected and the team practices detection and response. Their output is frequently a fixed alert, dashboard, or runbook rather than a code change. Fault injection across many interacting nodes is covered in depth in <a href="../distributed-systems/testing-distributed-systems.html#chaos-engineering">Testing Distributed Systems</a>.</p>
 
 <hr>
 
 <h2 id="testing-in-production">Testing in Production</h2>
 
-<p>Some bugs <em>only exist in production</em>: real traffic shapes, real data skew, real third-party behavior, real scale. <strong>Testing in production</strong> is not negligence — done right, it is the recognition that staging is always a lower-fidelity copy, paired with the engineering controls (incremental exposure, observability, instant rollback) that make production testing <em>safe</em>.</p>
+<p>Some bugs only exist in production: real traffic mixes, real data skew, real third-party behavior, real scale. <strong>Testing in production</strong> accepts that staging is always a lower-fidelity copy and adds the controls — incremental exposure, observability, fast rollback — that make production exposure safe.</p>
 
 <h3 id="feature-flags">Feature Flags</h3>
 
-<p>A <strong>feature flag</strong> decouples <em>deploying</em> code from <em>releasing</em> it. New code ships to production <strong>dark</strong> — behind a flag that is off — and is turned on for a controlled audience at runtime, with no redeploy. This is the substrate for every safe production-testing technique:</p>
+<p>A <strong>feature flag</strong> separates <em>deploying</em> code from <em>releasing</em> it. Code ships dark behind a flag and is enabled at runtime for chosen audiences without redeploying:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="n">flags</span><span class="p">.</span><span class="nf">is_enabled</span><span class="p">(</span><span class="sh">"</span><span class="s">new-checkout-flow</span><span class="sh">"</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="n">current_user</span><span class="p">):</span>
-    <span class="k">return</span> <span class="nf">new_checkout</span><span class="p">(</span><span class="n">cart</span><span class="p">)</span>     <span class="c1"># exposed to a controlled cohort
-</span><span class="k">return</span> <span class="nf">legacy_checkout</span><span class="p">(</span><span class="n">cart</span><span class="p">)</span>      <span class="c1"># everyone else, unchanged
-</span></code></pre></div></div>
+    <span class="k">return</span> <span class="nf">new_checkout</span><span class="p">(</span><span class="n">cart</span><span class="p">)</span>
+<span class="k">return</span> <span class="nf">legacy_checkout</span><span class="p">(</span><span class="n">cart</span><span class="p">)</span>
+</code></pre></div></div>
 
-<p>Flags enable <strong>kill switches</strong> (instant disable without a deploy if something breaks), <strong>targeted rollout</strong> (internal users → 1% → 10% → 100%), and <strong>trunk-based development</strong> (merge incomplete work behind an off flag instead of long-lived branches). The discipline cost is real: flags are conditional branches that multiply the state space, so they need an owner, a removal date, and cleanup — a codebase choked with stale flags is its own kind of debt.</p>
+<p>Flags provide <strong>kill switches</strong> (turn a feature off in seconds), <strong>progressive rollout</strong> (employees, then 1%, 10%, 100%), and support <strong>trunk-based development</strong> (merge unfinished work behind an off flag). <strong>OpenFeature</strong>, a CNCF project, defines a vendor-neutral flag-evaluation API with SDKs for most languages, so application code does not depend on a particular flag vendor. Flags multiply the number of code paths, so each needs an owner and a removal date; stale flags are technical debt.</p>
 
 <h3 id="canary-releases">Canary Releases</h3>
 
-<p>A <strong>canary release</strong> routes a small fraction of <em>real</em> traffic to the new version while the rest stays on the stable one, then <em>automatically compares their metrics</em>:</p>
+<p>A <strong>canary release</strong> sends a small share of real traffic to the new version and compares it with the stable version on the same traffic at the same time:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                  ┌─────────────────────┐  95%   ┌──────────────┐
-   Production ───▶│  Traffic Router /   │───────▶│  Stable v1   │
-   Traffic        │  Service Mesh       │        └──────────────┘
-                  │                     │   5%   ┌──────────────┐
-                  └─────────────────────┘───────▶│  Canary v2   │
-                            │                     └──────────────┘
-                            ▼
-                  Compare error rate, p99 latency, business KPIs
-                  between v1 and v2 on equivalent live traffic.
-                  Healthy → ramp 5% → 25% → 100%.
-                  Regressed → route 100% back to v1, automatically.
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    U["Production traffic"] --&gt; R["Router / service mesh"]
+    R --&gt;|"95%"| S["Stable v1"]
+    R --&gt;|"5%"| C["Canary v2"]
+    S --&gt; A{"Automated analysis:&lt;br/&gt;error rate, p99,&lt;br/&gt;business KPIs&lt;br/&gt;v2 vs v1"}
+    C --&gt; A
+    A --&gt;|"healthy"| P["Promote: 25% → 50% → 100%"]
+    A --&gt;|"regressed"| RB["Roll back: 100% to v1"]
+</code></pre>
 
-<p>The decision is <strong>statistical, not anecdotal</strong>: tools like Argo Rollouts, Flagger, and Spinnaker run <strong>automated canary analysis</strong>, comparing the canary’s error rate, latency, and business KPIs against the baseline on <em>equivalent concurrent traffic</em> and promoting or rolling back automatically. Because the comparison is against the live baseline at the same instant, it controls for the time-of-day and traffic-mix variation that makes staging numbers untrustworthy.</p>
+<p>Tools such as <strong>Argo Rollouts</strong>, <strong>Flagger</strong>, and <strong>Spinnaker</strong> (with Kayenta) automate the analysis and the promote-or-rollback decision. Comparing against the concurrent baseline controls for time-of-day and traffic-mix effects that make before/after comparisons unreliable.</p>
 
-<h3 id="other-production-testing-techniques">Other Production-Testing Techniques</h3>
+<h3 id="related-techniques">Related Techniques</h3>
 
-<ul>
-  <li>
-<strong>Blue-green deployment</strong> — run two full environments and switch all traffic at once; instant rollback by switching back, but no gradual exposure.</li>
-  <li>
-<strong>Shadow / dark traffic (mirroring)</strong> — copy real requests to the new version and discard its responses, exercising it on production load with <em>zero</em> user impact (ideal for validating a rewrite’s correctness and performance).</li>
-  <li>
-<strong>A/B testing</strong> — like a canary, but the goal is measuring a <em>product</em> metric (conversion, engagement) across variants rather than detecting a <em>regression</em>; the statistical machinery is the same.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>How it works</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Blue-green deployment</td>
+      <td>Two full environments; switch all traffic at once</td>
+      <td>Instant rollback, but no gradual exposure; double capacity during switch</td>
+    </tr>
+    <tr>
+      <td>Shadow (mirrored) traffic</td>
+      <td>Copy live requests to the new version and discard its responses</td>
+      <td>Zero user impact; side effects (writes, emails) must be suppressed</td>
+    </tr>
+    <tr>
+      <td>A/B testing</td>
+      <td>Split users between variants to measure a product metric</td>
+      <td>Same machinery as canaries, but the goal is a business decision, not regression detection</td>
+    </tr>
+    <tr>
+      <td>Synthetic monitoring</td>
+      <td>Scripted user journeys run continuously against production</td>
+      <td>Detects breakage between deploys; covers only scripted paths</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The connective tissue under all of these is <strong>observability</strong>: canaries, flags, and chaos are only safe if you can <em>see</em> the steady-state signal in real time and <em>act</em> on it. Testing in production without strong metrics, tracing, and alerting is just breaking production.</p>
+<p>All of these depend on <strong>observability</strong>: they are only safe if the steady-state signal is visible in real time and tied to automatic rollback.</p>
 
 <hr>
 
-<h2 id="putting-it-together-defense-in-depth">Putting It Together: Defense in Depth</h2>
+<h2 id="ai-assisted-test-generation">AI-Assisted Test Generation</h2>
 
-<p>No single technique is sufficient; they form layers, each catching what the others structurally miss:</p>
+<p>Large language models are increasingly used to write tests, with results that depend heavily on how their output is checked. Generated tests that are only required to <em>pass</em> tend to encode whatever the code currently does, bugs included, and add coverage without adding verification. The more robust approaches couple generation to an objective signal:</p>
+
+<ul>
+  <li>
+<strong>Mutation-guided generation.</strong> Meta’s ACH system (2025) has an LLM generate realistic faults of a kind engineers are concerned about, then generate tests and keep only those that pass on the real code and fail on the mutant — tests are guaranteed to catch at least one plausible bug. Meta reported deploying it across products including Facebook, Instagram, Messenger, and WhatsApp.</li>
+  <li>
+<strong>Fuzz-harness generation.</strong> LLM-written fuzz targets (as in OSS-Fuzz’s work described <a href="#tooling">above</a>) are validated by whether they compile, run, and reach new coverage, and their findings are crashes that can be verified independently.</li>
+  <li>
+<strong>Property suggestion.</strong> Models can propose candidate properties or metamorphic relations from code and documentation; a human decides whether each is a real requirement.</li>
+</ul>
+
+<p>The common rule: treat generated tests as proposals, keep them only when a mechanical check (a killed mutant, new coverage, a reproducible crash) shows they detect something, and review their assertions as you would a colleague’s.</p>
+
+<hr>
+
+<h2 id="putting-it-together">Putting It Together</h2>
 
 <table>
   <thead>
@@ -3532,78 +3809,80 @@ pact-broker can-i-deploy <span class="se">\</span>
       <th>Technique</th>
       <th>Catches</th>
       <th>Misses</th>
-      <th>Run it…</th>
+      <th>When to run</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Property-based</strong></td>
-      <td>Logic bugs across the input space, bad edge cases</td>
-      <td>Cross-service mismatches, infra faults</td>
+      <td>Property-based</td>
+      <td>Logic bugs across the input space, edge cases</td>
+      <td>Cross-service mismatches, infrastructure faults</td>
       <td>Every CI run</td>
     </tr>
     <tr>
-      <td><strong>Fuzzing</strong></td>
-      <td>Crashes, memory-safety &amp; robustness bugs</td>
-      <td>Higher-level logic correctness</td>
-      <td>Continuously (OSS-Fuzz style) + CI smoke</td>
+      <td>Fuzzing</td>
+      <td>Crashes, memory-safety and robustness bugs</td>
+      <td>High-level logical correctness</td>
+      <td>Continuously, plus short CI runs</td>
     </tr>
     <tr>
-      <td><strong>Mutation</strong></td>
-      <td>Weak/missing assertions in the suite itself</td>
-      <td>Bugs in untested-but-unmutated code</td>
-      <td>On changed lines per PR; full sweep nightly</td>
+      <td>Mutation</td>
+      <td>Weak or missing assertions</td>
+      <td>Bugs in code with no tests at all (shown as no coverage)</td>
+      <td>Changed code per PR; full sweep nightly</td>
     </tr>
     <tr>
-      <td><strong>Contract</strong></td>
+      <td>Contract</td>
       <td>Incompatible service boundaries</td>
-      <td>Behavior within a service</td>
-      <td>Every CI run; gate deploys with can-i-deploy</td>
+      <td>Behavior inside a service</td>
+      <td>Every CI run; <code class="language-plaintext highlighter-rouge">can-i-deploy</code> gates deploys</td>
     </tr>
     <tr>
-      <td><strong>E2E / snapshot</strong></td>
-      <td>Integration gaps, whole-system regressions</td>
-      <td>Rare interleavings, scale, real-traffic skew</td>
-      <td>Critical journeys per PR; broader nightly</td>
+      <td>E2E / snapshot / visual</td>
+      <td>Integration gaps, unintended output changes</td>
+      <td>Rare interleavings, scale</td>
+      <td>Critical journeys per PR; broader suite nightly</td>
     </tr>
     <tr>
-      <td><strong>Load / performance</strong></td>
-      <td>Saturation collapse, tail amplification</td>
-      <td>Logical correctness</td>
-      <td>Pre-release, capacity planning, pre-peak</td>
+      <td>Load / performance</td>
+      <td>Saturation, tail amplification, leaks</td>
+      <td>Functional correctness</td>
+      <td>Before releases and capacity changes</td>
     </tr>
     <tr>
-      <td><strong>Chaos</strong></td>
-      <td>Unmodeled failure modes, recovery &amp; runbook gaps</td>
-      <td>Anything you didn’t think to inject</td>
-      <td>Continuously, low blast radius + game days</td>
+      <td>Chaos</td>
+      <td>Unhandled failures, recovery and runbook gaps</td>
+      <td>Faults nobody thought to inject</td>
+      <td>Continuously at low blast radius, plus game days</td>
     </tr>
     <tr>
-      <td><strong>Production (canary/flags)</strong></td>
+      <td>Production (flags, canaries)</td>
       <td>Bugs that only real traffic and data reveal</td>
-      <td>Bugs your metrics can’t see</td>
-      <td>Every release, incrementally</td>
+      <td>What metrics cannot see</td>
+      <td>Every release</td>
     </tr>
   </tbody>
 </table>
 
-<p>A mature program runs property, mutation, contract, and fast E2E checks in CI on every change; fuzzes continuously; load-tests before any capacity-relevant change; deploys behind feature flags via automated canary analysis; and practices continuous low-blast-radius chaos with periodic game days. The throughline, borrowed from the chaos-engineering mindset, applies to <em>all</em> of them: <strong>you do not know a property holds until you have actively tried to break it.</strong></p>
+<p>No single technique is sufficient; each catches what the others structurally miss. A mature program runs property, contract, and a small E2E suite on every change, mutation-tests changed code, fuzzes continuously, load-tests before capacity-relevant changes, releases behind flags and automated canaries, and runs low-blast-radius chaos experiments continuously.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li>
-<strong><a href="./">Testing Hub</a></strong> — the foundational testing concepts and the rest of this section</li>
+<a href="./">Testing Hub</a> — the shape of a test suite and how the testing pages fit together</li>
   <li>
-<strong><a href="../distributed-systems/testing-distributed-systems.html">Distributed Systems: Testing &amp; Chaos Engineering</a></strong> — property-based, deterministic-simulation, Jepsen-style, and chaos testing across <em>N</em> interacting timelines</li>
+<a href="unit-and-integration.html">Unit &amp; Integration Testing</a> — the example-based foundation these techniques build on</li>
   <li>
-<strong><a href="../api-design/">API Design</a></strong> — the versioning and contract discipline that contract testing enforces</li>
+<a href="../distributed-systems/testing-distributed-systems.html">Testing Distributed Systems</a> — deterministic simulation, Jepsen-style checking, and chaos across many nodes</li>
   <li>
-<strong><a href="../optimization/">Performance Optimization</a></strong> — interpreting the latency distributions and saturation curves load testing produces</li>
+<a href="../api-design/">API Design</a> — the versioning and compatibility discipline that contract testing enforces</li>
   <li>
-<strong><a href="../technology/ci-cd/">CI/CD Pipelines</a></strong> — where these checks live, gate deploys, and drive canary promotion</li>
+<a href="../optimization/">Performance Optimization</a> — interpreting latency distributions and saturation curves</li>
   <li>
-<strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — the orchestration layer where pod-kill and partition chaos experiments and canary rollouts run</li>
+<a href="../technology/ci-cd/">CI/CD Pipelines</a> — where these checks run, gate deploys, and drive canary promotion</li>
+  <li>
+<a href="../technology/kubernetes/">Kubernetes</a> — where pod-kill experiments and canary rollouts typically run</li>
 </ul>
 
       </section>

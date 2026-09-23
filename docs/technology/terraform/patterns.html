@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Running Terraform across teams: stack layout and blast radius, cross-stack data, multi-account and multi-region setups, CI/CD, policy as code, security scann...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Terraform: Enterprise Patterns">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Running Terraform across teams: stack layout and blast radius, cross-stack data, multi-account and multi-region setups, CI/CD, policy as code, security scann...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/terraform/patterns.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Terraform: Enterprise Patterns">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Running Terraform across teams: stack layout and blast radius, cross-stack data, multi-account and multi-region setups, CI/CD, policy as code, security scann...">
 
 <title>Terraform: Enterprise Patterns | Andrews Notebook</title>
 
@@ -3131,577 +3131,586 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>Battle-tested patterns for scaling Terraform across teams and organizations. This page opens with four real-world case studies, then covers performance at scale, multi-account organization, security scanning, and testing infrastructure code.</p>
+        <p>Terraform that one engineer runs from a laptop needs almost no structure. Terraform that dozens of teams run against hundreds of accounts needs a lot. This page covers the patterns that have held up at that scale. It explains how to split configuration into stacks and share data between them, how to organize accounts and regions, how to run plans and applies safely from CI, how to enforce policy, and how to test modules. It ends with short reference architectures that combine these patterns. <a href="state-modules.html">State &amp; Modules</a> is assumed background.</p>
 
-<h2 id="real-world-case-studies">Real-World Case Studies</h2>
+<h2 id="splitting-configuration-into-stacks">Splitting configuration into stacks</h2>
 
-<p>Learning from how other organizations solve infrastructure challenges can save you weeks of trial and error. These case studies showcase common patterns you will encounter as your Terraform usage matures.</p>
+<p>A <strong>stack</strong> (also called a root module or workspace) is one unit of <code class="language-plaintext highlighter-rouge">plan</code>/<code class="language-plaintext highlighter-rouge">apply</code> with its own state. How you draw stack boundaries is the most consequential design decision in a Terraform estate:</p>
 
-<hr />
-
-<h3 id="case-study-1-multi-region-disaster-recovery">Case Study 1: Multi-Region Disaster Recovery</h3>
-
-<p><strong>The Challenge</strong></p>
-
-<p>A financial services company needed disaster recovery across three AWS regions. If the primary region failed, traffic should automatically route to the standby.</p>
-
-<p><strong>Why This Pattern Matters</strong></p>
-
-<p>Multi-region deployments are common for:</p>
 <ul>
-  <li>Financial services (regulatory requirements)</li>
-  <li>Global applications (latency reduction)</li>
-  <li>High-availability systems (business continuity)</li>
+  <li><strong>Blast radius.</strong> A single apply can only damage what is in that stack’s state.</li>
+  <li><strong>Speed.</strong> Plan time grows with the number of resources that have to be refreshed. A stack of a few hundred resources plans in seconds. A stack of several thousand can take tens of minutes and runs into API rate limits.</li>
+  <li><strong>Ownership.</strong> One stack should have one owning team and one approval path.</li>
+  <li><strong>Rate of change.</strong> Keep things that change daily, such as application services, apart from things that change yearly, such as the account baseline and core networking.</li>
 </ul>
 
-<p><strong>The Solution</strong></p>
+<p>A common arrangement is a set of <strong>layers</strong>, where each layer consumes outputs from the layers below it:</p>
 
-<p>The key insight: use modules to ensure each region is configured identically, and Route53 for automatic failover.</p>
+<pre><code class="language-mermaid">flowchart BT
+    subgraph L0["Layer 0: bootstrap (rarely changed)"]
+        Org["Organization, accounts,&lt;br/&gt;state buckets, CI identities"]
+    end
+    subgraph L1["Layer 1: platform baseline"]
+        Net["Networking&lt;br/&gt;(VPCs, TGW, DNS zones)"]
+        Sec["Security baseline&lt;br/&gt;(logging, guardrails, KMS)"]
+    end
+    subgraph L2["Layer 2: shared services"]
+        EKS["Kubernetes clusters"]
+        Data["Shared databases, queues"]
+    end
+    subgraph L3["Layer 3: applications (changed daily)"]
+        A1["team-a service"]
+        A2["team-b service"]
+    end
+    L0 --&gt; L1 --&gt; L2 --&gt; L3
+</code></pre>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Same module for primary and standby regions</span>
-<span class="nx">module</span> <span class="s2">"primary"</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/regional-infrastructure"</span>
+<h3 id="directories-workspaces-or-an-orchestrator">Directories, workspaces, or an orchestrator</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>How environments differ</th>
+      <th>Good for</th>
+      <th>Watch out for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Directory per environment (<code class="language-plaintext highlighter-rouge">envs/prod/</code>, <code class="language-plaintext highlighter-rouge">envs/dev/</code>) calling shared modules</td>
+      <td>Separate root modules with their own backend config and <code class="language-plaintext highlighter-rouge">.tfvars</code></td>
+      <td>Most teams; explicit and easy to review</td>
+      <td>Boilerplate that is copied between directories</td>
+    </tr>
+    <tr>
+      <td>CLI workspaces (<code class="language-plaintext highlighter-rouge">terraform workspace select prod</code>)</td>
+      <td>Same code, one state per workspace</td>
+      <td>Short-lived, near-identical copies (feature environments)</td>
+      <td>Environments that must differ in structure; easy to apply to the wrong workspace</td>
+    </tr>
+    <tr>
+      <td>Terragrunt</td>
+      <td>A thin wrapper that generates backend and provider config and runs many stacks in dependency order</td>
+      <td>Large multi-account estates that want DRY configuration</td>
+      <td>An extra tool and file format to learn</td>
+    </tr>
+    <tr>
+      <td>HCP Terraform Stacks</td>
+      <td><code class="language-plaintext highlighter-rouge">.tfcomponent.hcl</code> and <code class="language-plaintext highlighter-rouge">.tfdeploy.hcl</code> files describe components and their deployments (GA, HCP Terraform only)</td>
+      <td>Organizations already on HCP Terraform</td>
+      <td>Not available in the open-source CLI or OpenTofu</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="sharing-data-between-stacks">Sharing data between stacks</h3>
+
+<p>Higher layers need IDs from lower ones, such as a VPC ID or subnet IDs. The options, from loosest to tightest coupling:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mechanism</th>
+      <th>Coupling</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Plain data sources (<code class="language-plaintext highlighter-rouge">data "aws_vpc"</code> filtered by tag)</td>
+      <td>Lowest</td>
+      <td>The consumer needs no access to the producer’s state, only a naming or tagging convention</td>
+    </tr>
+    <tr>
+      <td>A parameter store (SSM Parameter Store, Consul, a key-value store) written by the producer</td>
+      <td>Low</td>
+      <td>Explicit published contract; readable by non-Terraform tools too</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tfe_outputs</code> data source (HCP Terraform)</td>
+      <td>Medium</td>
+      <td>Reads only outputs, not full state</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">terraform_remote_state</code></td>
+      <td>Highest</td>
+      <td>Needs read access to the producer’s <strong>entire</strong> state, including any secrets in it</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Prefer the first two for anything that crosses a team boundary.</p>
+
+<h2 id="multi-account-and-multi-region">Multi-account and multi-region</h2>
+
+<p>Large AWS estates use AWS Organizations, typically managed with Control Tower or Account Factory for Terraform (AFT). Accounts are grouped into organizational units by purpose: security and log archive, shared networking, workload accounts per environment, and sandboxes. Terraform runs in a central CI account and <strong>assumes a deployment role</strong> in each target account, so no long-lived keys exist in workload accounts.</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">variable</span> <span class="s2">"target_account_id"</span> <span class="p">{</span> <span class="nx">type</span> <span class="o">=</span> <span class="nx">string</span> <span class="p">}</span>
+
+<span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
   <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
-  <span class="nx">role</span>   <span class="o">=</span> <span class="s2">"primary"</span>
-<span class="p">}</span>
 
-<span class="nx">module</span> <span class="s2">"standby"</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/regional-infrastructure"</span>
-  <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-west-2"</span>
-  <span class="nx">role</span>   <span class="o">=</span> <span class="s2">"standby"</span>
-<span class="p">}</span>
-
-<span class="c1"># Route53 handles automatic failover</span>
-<span class="nx">resource</span> <span class="s2">"aws_route53_health_check"</span> <span class="s2">"primary"</span> <span class="p">{</span>
-  <span class="nx">fqdn</span>              <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">primary</span><span class="p">.</span><span class="nx">alb_dns_name</span>
-  <span class="nx">type</span>              <span class="o">=</span> <span class="s2">"HTTPS"</span>
-  <span class="nx">failure_threshold</span> <span class="o">=</span> <span class="mi">3</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p><strong>Lessons Learned</strong>:</p>
-<ul>
-  <li>Modules ensure consistency across regions</li>
-  <li>Test failover regularly (automate it)</li>
-  <li>Monitor cross-region replication lag</li>
-  <li>Define RTO/RPO upfront - they drive architecture decisions</li>
-</ul>
-
-<hr />
-
-<h3 id="case-study-2-self-service-developer-platform">Case Study 2: Self-Service Developer Platform</h3>
-
-<p><strong>The Challenge</strong></p>
-
-<p>A tech company with 1000+ developers needed to provide Kubernetes clusters on demand while maintaining security and controlling costs.</p>
-
-<p><strong>Why This Pattern Matters</strong></p>
-
-<p>As organizations grow, platform teams cannot manually provision infrastructure for every request. Self-service platforms let developers move fast while maintaining guardrails.</p>
-
-<p><strong>The Solution</strong></p>
-
-<p>Use <code class="language-plaintext highlighter-rouge">for_each</code> to dynamically create clusters from a configuration map, with standardized settings enforced through the module.</p>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Each team gets their own cluster from the same module</span>
-<span class="nx">module</span> <span class="s2">"team_clusters"</span> <span class="p">{</span>
-  <span class="nx">source</span>   <span class="o">=</span> <span class="s2">"./modules/k8s-platform"</span>
-  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">team_configs</span>
-
-  <span class="nx">cluster_name</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span>
-  <span class="nx">node_count</span>   <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">node_count</span>
-
-  <span class="c1"># Enforce standards through the module</span>
-  <span class="nx">security_policies</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"restricted"</span><span class="p">]</span>
-  <span class="nx">cost_quotas</span>       <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">budget</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p><strong>Key patterns used:</strong></p>
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">for_each</code> for dynamic resource creation</li>
-  <li>Modules to enforce standards</li>
-  <li>Quotas to control costs</li>
-  <li>Built-in monitoring and alerting</li>
-</ul>
-
-<p><strong>Lessons Learned</strong>:</p>
-<ul>
-  <li>Standardization enables self-service without chaos</li>
-  <li>Cost controls are essential at scale (hibernation schedules, quotas)</li>
-  <li>Build monitoring in from day one, not after problems occur</li>
-</ul>
-
-<hr />
-
-<h3 id="case-study-3-compliance-driven-healthcare-infrastructure">Case Study 3: Compliance-Driven Healthcare Infrastructure</h3>
-
-<p><strong>The Challenge</strong></p>
-
-<p>A healthcare provider needed HIPAA-compliant infrastructure with encryption everywhere, audit trails, and guaranteed data retention.</p>
-
-<p><strong>Why This Pattern Matters</strong></p>
-
-<p>Regulated industries (healthcare, finance, government) have strict requirements. Building compliance into your Terraform modules means every deployment is compliant by default.</p>
-
-<p><strong>The Solution</strong></p>
-
-<p>Create modules that enforce compliance requirements - encryption, logging, and retention policies are not optional.</p>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Module enforces HIPAA requirements by default</span>
-<span class="nx">module</span> <span class="s2">"patient_data"</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/compliant-storage"</span>
-
-  <span class="nx">bucket_name</span> <span class="o">=</span> <span class="s2">"patient-records"</span>
-
-  <span class="c1"># These are enforced, not optional</span>
-  <span class="nx">encryption_required</span>   <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">access_logging</span>        <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">retention_days</span>        <span class="o">=</span> <span class="mi">2555</span>  <span class="c1"># 7 years for HIPAA</span>
-  <span class="nx">block_public_access</span>   <span class="o">=</span> <span class="kc">true</span>
-<span class="err">}</span>
-
-<span class="c1"># All API calls logged to immutable storage</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudtrail"</span> <span class="s2">"audit"</span> <span class="p">{</span>
-  <span class="nx">name</span>                       <span class="o">=</span> <span class="s2">"hipaa-audit"</span>
-  <span class="nx">enable_log_file_validation</span> <span class="o">=</span> <span class="kc">true</span>
-  <span class="nx">kms_key_id</span>                 <span class="o">=</span> <span class="nx">aws_kms_key</span><span class="p">.</span><span class="nx">audit</span><span class="p">.</span><span class="nx">arn</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p><strong>Key compliance patterns:</strong></p>
-<ul>
-  <li>Encryption enforced at module level (not optional)</li>
-  <li>Immutable audit logs (cannot be deleted)</li>
-  <li>Data subnets isolated from internet</li>
-  <li>Automated compliance checking</li>
-</ul>
-
-<p><strong>Lessons Learned</strong>:</p>
-<ul>
-  <li>Build compliance into modules, not as an afterthought</li>
-  <li>Automate compliance checking (run daily)</li>
-  <li>Immutable logs are critical for audits</li>
-  <li>“Enforce, don’t trust” - make secure defaults mandatory</li>
-</ul>
-
-<hr />
-
-<h3 id="case-study-4-zero-downtime-microservices-migration">Case Study 4: Zero-Downtime Microservices Migration</h3>
-
-<p><strong>The Challenge</strong></p>
-
-<p>Migrate a monolithic application to microservices without any downtime. The monolith handles $10M in daily transactions.</p>
-
-<p><strong>Why This Pattern Matters</strong></p>
-
-<p>The “strangler fig” pattern lets you gradually replace a monolith piece by piece, rather than a risky big-bang rewrite.</p>
-
-<p><strong>The Solution</strong></p>
-
-<p>Use API Gateway with weighted routing to gradually shift traffic from monolith to microservices.</p>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Start with 100% to monolith, gradually shift</span>
-<span class="nx">resource</span> <span class="s2">"aws_api_gateway_stage"</span> <span class="s2">"prod"</span> <span class="p">{</span>
-  <span class="nx">stage_name</span> <span class="o">=</span> <span class="s2">"prod"</span>
-
-  <span class="c1"># Initially: 90% monolith, 10% new service</span>
-  <span class="c1"># Gradually increase microservice percentage</span>
-  <span class="nx">canary_settings</span> <span class="p">{</span>
-    <span class="nx">percent_traffic</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># To new microservice</span>
+  <span class="nx">assume_role</span> <span class="p">{</span>
+    <span class="nx">role_arn</span>     <span class="o">=</span> <span class="s2">"arn:aws:iam::${var.target_account_id}:role/terraform-deployer"</span>
+    <span class="nx">session_name</span> <span class="o">=</span> <span class="s2">"terraform-ci"</span>
   <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p><strong>Migration phases:</strong></p>
-<ol>
-  <li>Deploy new microservice alongside monolith</li>
-  <li>Route 10% of traffic to microservice (canary)</li>
-  <li>Monitor errors and latency</li>
-  <li>If healthy, increase to 50%, then 100%</li>
-  <li>Repeat for next service</li>
-</ol>
+<p>For multiple regions within one account, AWS provider 6.x accepts a <code class="language-plaintext highlighter-rouge">region</code> argument on most resources, so a single provider block can serve every region:</p>
 
-<p><strong>Lessons Learned</strong>:</p>
-<ul>
-  <li>Gradual migration reduces risk dramatically</li>
-  <li>Monitoring is critical during transition (set up dashboards first)</li>
-  <li>Always have rollback capability</li>
-  <li>Service mesh helps manage inter-service communication</li>
-</ul>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">variable</span> <span class="s2">"regions"</span> <span class="p">{</span>
+  <span class="nx">type</span>    <span class="o">=</span> <span class="nx">set</span><span class="p">(</span><span class="nx">string</span><span class="p">)</span>
+  <span class="nx">default</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"us-east-1"</span><span class="p">,</span> <span class="s2">"eu-west-1"</span><span class="p">]</span>
+<span class="p">}</span>
 
-<hr />
-
-<h3 id="key-takeaways-from-these-case-studies">Key Takeaways from These Case Studies</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Area</th>
-      <th>Pattern</th>
-      <th>Why It Works</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>Modules</strong></td>
-      <td>Opinionated with sensible defaults</td>
-      <td>Consistency without configuration burden</td>
-    </tr>
-    <tr>
-      <td><strong>State</strong></td>
-      <td>Split by team/service boundary</td>
-      <td>Reduces blast radius, enables parallelism</td>
-    </tr>
-    <tr>
-      <td><strong>Security</strong></td>
-      <td>Encrypt by default, audit everything</td>
-      <td>Compliance becomes automatic</td>
-    </tr>
-    <tr>
-      <td><strong>Operations</strong></td>
-      <td>Progressive rollouts with monitoring</td>
-      <td>Catch problems before they affect everyone</td>
-    </tr>
-  </tbody>
-</table>
-
-<hr />
-
-<h2 id="performance-at-scale">Performance at Scale</h2>
-
-<p>As your infrastructure grows beyond a few hundred resources, Terraform operations can slow down noticeably. Understanding why helps you optimize effectively.</p>
-
-<h3 id="common-performance-bottlenecks">Common Performance Bottlenecks</h3>
-
-<table>
-  <thead>
-    <tr>
-      <th>Bottleneck</th>
-      <th>Symptom</th>
-      <th>Solution</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Large state files</td>
-      <td>Slow init, plan, apply</td>
-      <td>Split state by team/service</td>
-    </tr>
-    <tr>
-      <td>API rate limits</td>
-      <td>“Rate exceeded” errors</td>
-      <td>Reduce parallelism, add retries</td>
-    </tr>
-    <tr>
-      <td>Sequential dependencies</td>
-      <td>Cannot parallelize</td>
-      <td>Restructure resources</td>
-    </tr>
-    <tr>
-      <td>Remote state latency</td>
-      <td>Slow operations</td>
-      <td>Use regional backends</td>
-    </tr>
-  </tbody>
-</table>
-
-<h3 id="practical-optimization-techniques">Practical Optimization Techniques</h3>
-
-<p><strong>1. Split state by domain</strong></p>
-
-<p>Instead of one massive state file, split by team or service:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>infrastructure/
-  networking/     # VPCs, subnets (platform team)
-  compute/        # EC2, EKS (app teams)
-  databases/      # RDS, DynamoDB (data team)
-</code></pre></div></div>
-
-<p><strong>2. Use <code class="language-plaintext highlighter-rouge">-parallelism</code> wisely</strong></p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Default is 10. Increase for faster applies, decrease if hitting rate limits</span>
-terraform apply <span class="nt">-parallelism</span><span class="o">=</span>20
-</code></pre></div></div>
-
-<p><strong>3. Target specific resources</strong></p>
-
-<p>When debugging or making small changes, target specific resources:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform plan <span class="nt">-target</span><span class="o">=</span>module.database
-terraform apply <span class="nt">-target</span><span class="o">=</span>aws_instance.web
-</code></pre></div></div>
-
-<p><strong>4. Reduce refresh time</strong></p>
-
-<p>Skip refresh when you know nothing changed externally:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform plan <span class="nt">-refresh</span><span class="o">=</span><span class="nb">false</span>
-</code></pre></div></div>
-
-<hr />
-
-<h2 id="enterprise-patterns">Enterprise Patterns</h2>
-
-<p>When Terraform grows from dozens to thousands of resources across multiple teams and accounts, new challenges emerge. This section covers patterns that scale.</p>
-
-<h3 id="multi-account-organization">Multi-Account Organization</h3>
-
-<p>Large organizations typically structure AWS accounts by:</p>
-<ul>
-  <li><strong>Environment</strong> (dev, staging, prod)</li>
-  <li><strong>Team</strong> (platform, app-team-1, data)</li>
-  <li><strong>Purpose</strong> (security, audit, networking)</li>
-</ul>
-
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Define accounts systematically</span>
-<span class="nx">module</span> <span class="s2">"organization"</span> <span class="p">{</span>
-  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/aws-organization"</span>
-
-  <span class="nx">organizational_units</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">production</span>  <span class="o">=</span> <span class="p">{</span> <span class="nx">accounts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"prod-us"</span><span class="p">,</span> <span class="s2">"prod-eu"</span><span class="p">]</span> <span class="p">}</span>
-    <span class="nx">development</span> <span class="o">=</span> <span class="p">{</span> <span class="nx">accounts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"dev-team1"</span><span class="p">,</span> <span class="s2">"dev-team2"</span><span class="p">]</span> <span class="p">}</span>
-    <span class="nx">security</span>    <span class="o">=</span> <span class="p">{</span> <span class="nx">accounts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"audit"</span><span class="p">,</span> <span class="s2">"logging"</span><span class="p">]</span> <span class="p">}</span>
-  <span class="p">}</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"regional_artifacts"</span> <span class="p">{</span>
+  <span class="nx">for_each</span>      <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">regions</span>
+  <span class="nx">region</span>        <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span>
+  <span class="nx">bucket_prefix</span> <span class="o">=</span> <span class="s2">"artifacts-${each.key}-"</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<h3 id="module-governance">Module Governance</h3>
+<p>Before provider 6.0 (and still, when every region needs a different account or role), each region required its own aliased <code class="language-plaintext highlighter-rouge">provider</code> block. Every module call also had to pass the right alias explicitly, because Terraform does not allow <code class="language-plaintext highlighter-rouge">for_each</code> over provider configurations. OpenTofu 1.9+ does allow <code class="language-plaintext highlighter-rouge">for_each</code> on provider blocks.</p>
 
-<p>At scale, you need governance around modules:</p>
+<h2 id="module-governance">Module governance</h2>
 
 <table>
   <thead>
     <tr>
       <th>Practice</th>
-      <th>Why It Matters</th>
+      <th>Why</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Version pinning</td>
-      <td>Prevents breaking changes</td>
+      <td>Publish modules to a private registry or tag them in Git (<code class="language-plaintext highlighter-rouge">?ref=v3.2.0</code>) and pin callers to a version</td>
+      <td>Consumers upgrade deliberately, not by accident</td>
     </tr>
     <tr>
-      <td>Deprecation policy</td>
-      <td>Give teams time to migrate</td>
+      <td>Follow semantic versioning; a breaking input or output change is a major release</td>
+      <td>Callers can use <code class="language-plaintext highlighter-rouge">~&gt; 3.2</code> safely</td>
     </tr>
     <tr>
-      <td>Testing requirements</td>
-      <td>Catch issues before deployment</td>
+      <td>Mark retiring inputs and outputs with <code class="language-plaintext highlighter-rouge">deprecated = "..."</code> (Terraform 1.15+)</td>
+      <td>Callers get a warning before the next major version removes them</td>
     </tr>
     <tr>
-      <td>Documentation standards</td>
-      <td>Enable self-service</td>
+      <td>Use <code class="language-plaintext highlighter-rouge">moved</code> blocks when renaming resources inside a module</td>
+      <td>A module upgrade doesn’t force callers to destroy and recreate</td>
+    </tr>
+    <tr>
+      <td>Generate docs with <code class="language-plaintext highlighter-rouge">terraform-docs</code>; keep an <code class="language-plaintext highlighter-rouge">examples/</code> directory</td>
+      <td>Makes self-service possible</td>
+    </tr>
+    <tr>
+      <td>Put <code class="language-plaintext highlighter-rouge">terraform test</code> suites in <code class="language-plaintext highlighter-rouge">tests/</code> and run them in CI</td>
+      <td>Every release is checked the same way</td>
+    </tr>
+    <tr>
+      <td>Keep modules small and composable (network, cluster, service) rather than one “platform” module</td>
+      <td>Easier to test, version, and reason about</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="key-scaling-patterns">Key Scaling Patterns</h3>
+<h2 id="cicd-workflow">CI/CD workflow</h2>
 
-<p><strong>1. Hierarchical State Management</strong></p>
-
-<p>Split state into layers that different teams own:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Layer 1: Account baseline (platform team)
-    |
-Layer 2: Networking (platform team)
-    |
-Layer 3: Applications (app teams)
-</code></pre></div></div>
-
-<p>Each layer reads outputs from the layer above via <code class="language-plaintext highlighter-rouge">terraform_remote_state</code>.</p>
-
-<p><strong>2. GitOps Workflow</strong></p>
-
-<p>Automate Terraform in CI/CD:</p>
-<ul>
-  <li>Run <code class="language-plaintext highlighter-rouge">terraform plan</code> on every PR</li>
-  <li>Require approval for production applies</li>
-  <li>Add cost estimation (Infracost) and security scanning (Checkov)</li>
-  <li>Post results as PR comments</li>
-</ul>
+<p>Production applies should happen only from a pipeline, never from a laptop. The standard flow, sometimes called <em>GitOps for infrastructure</em>, runs <code class="language-plaintext highlighter-rouge">plan</code> on the pull request and <code class="language-plaintext highlighter-rouge">apply</code> of that same saved plan after approval:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    PR[Pull Request] --&gt; Fmt[fmt + validate]
-    Fmt --&gt; Scan[Checkov / tfsec]
-    Scan --&gt; Plan[terraform plan]
-    Plan --&gt; Comment[Post plan + Infracost&lt;br/&gt;as PR comment]
-    Comment --&gt; Review{Human approval}
-    Review --&gt;|approved + merged| Apply[terraform apply]
-    Review --&gt;|changes requested| PR
-    Apply --&gt; State[(Remote state)]
+    PR["Pull request"] --&gt; Static["fmt -check&lt;br/&gt;validate, TFLint"]
+    Static --&gt; Scan["Checkov / Trivy&lt;br/&gt;static scan"]
+    Scan --&gt; Plan["plan -out=tfplan&lt;br/&gt;(OIDC credentials)"]
+    Plan --&gt; Policy["Policy check on&lt;br/&gt;plan JSON (OPA / Sentinel)"]
+    Policy --&gt; Comment["Plan + Infracost diff&lt;br/&gt;posted to PR"]
+    Comment --&gt; Review{"Approval"}
+    Review -- changes requested --&gt; PR
+    Review -- approved --&gt; Apply["apply tfplan"]
+    Apply --&gt; State[("Remote state")]
+    Nightly["Scheduled job"] --&gt; Drift["plan -detailed-exitcode&lt;br/&gt;(exit 2 = drift)"]
+    Drift --&gt; Alert["Open issue / alert"]
 </code></pre>
 
-<p>The plan output and cost diff land on the PR before anyone approves, so reviewers see exactly what will change — and what it will cost — without running anything locally.</p>
+<p>Practices that make this safe:</p>
 
-<p><strong>3. Policy as Code</strong></p>
-
-<p>Use tools like OPA (Open Policy Agent) or Sentinel to enforce rules:</p>
 <ul>
-  <li>Allowed instance types per environment</li>
-  <li>Required tags on all resources</li>
-  <li>Cost thresholds that block excessive spending</li>
+  <li><strong>Short-lived credentials.</strong> The runner authenticates with OIDC federation (for example GitHub Actions to an AWS IAM role, or HCP Terraform dynamic credentials). Give the plan job a read-only role and the apply job a write role gated by environment protection rules.</li>
+  <li><strong>Apply exactly what was reviewed.</strong> Store the binary <code class="language-plaintext highlighter-rouge">tfplan</code> as a pipeline artifact and apply that file. If state changed in between, Terraform rejects the stale plan and the pipeline must re-plan.</li>
+  <li><strong>One run per stack at a time.</strong> State locking prevents corruption, but the pipeline should also queue runs per stack, so that two merged PRs don’t race each other.</li>
+  <li><strong>Drift detection.</strong> A nightly <code class="language-plaintext highlighter-rouge">terraform plan -detailed-exitcode</code> returns exit code 0 for no changes, 1 for an error, and 2 when changes are present. Exit code 2 on an unchanged <code class="language-plaintext highlighter-rouge">main</code> branch means drift.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">-input=false</code> and <code class="language-plaintext highlighter-rouge">-lock-timeout=5m</code></strong> in every automated command.</li>
 </ul>
 
-<hr />
+<p>Tools that implement this loop include Atlantis (self-hosted, driven by PR comments), HCP Terraform and Terraform Enterprise, commercial platforms (Spacelift, env0, Scalr), and plain GitHub Actions or GitLab CI jobs. For generic pipeline design see <a href="../ci-cd/platforms-and-pipelines.html">CI/CD Platforms and Pipelines</a>.</p>
 
-<h2 id="security-and-compliance">Security and Compliance</h2>
+<h2 id="policy-as-code">Policy as code</h2>
 
-<p>When infrastructure becomes code, security practices from software development apply directly.</p>
+<p>Static scanners check the source. Policy engines check the <strong>plan</strong>, which has resolved values, module expansions, and the actual actions (create, delete, replace). <code class="language-plaintext highlighter-rouge">terraform show -json tfplan</code> produces a machine-readable plan that any policy engine can read.</p>
 
-<h3 id="security-scanning-tools">Security Scanning Tools</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Engine</th>
+      <th>Where it runs</th>
+      <th>Language</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Sentinel</td>
+      <td>HCP Terraform / Terraform Enterprise policy sets</td>
+      <td>Sentinel</td>
+    </tr>
+    <tr>
+      <td>OPA</td>
+      <td>HCP Terraform policy sets, Spacelift, env0, or any CI via <code class="language-plaintext highlighter-rouge">conftest</code></td>
+      <td>Rego</td>
+    </tr>
+    <tr>
+      <td>Checkov / Trivy custom policies</td>
+      <td>CI, on source or plan JSON</td>
+      <td>Python/YAML, Rego</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Run these tools in CI/CD before any apply reaches production:</p>
+<p>A Rego policy for <code class="language-plaintext highlighter-rouge">conftest</code> that rejects deleting any RDS instance and requires a <code class="language-plaintext highlighter-rouge">CostCenter</code> tag on every new resource:</p>
+
+<div class="language-rego highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="ow">package</span> <span class="n">terraform</span><span class="p">.</span><span class="n">plan</span>
+
+<span class="ow">import</span> <span class="n">rego</span><span class="p">.</span><span class="n">v1</span>
+
+<span class="n">deny</span> <span class="n">contains</span> <span class="n">msg</span> <span class="n">if</span> <span class="p">{</span>
+  <span class="n">rc</span> <span class="o">:=</span> <span class="n">input</span><span class="p">.</span><span class="n">resource_changes</span><span class="p">[</span><span class="n">_</span><span class="p">]</span>
+  <span class="n">rc</span><span class="p">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">"aws_db_instance"</span>
+  <span class="s2">"delete"</span> <span class="n">in</span> <span class="n">rc</span><span class="p">.</span><span class="n">change</span><span class="p">.</span><span class="n">actions</span>
+  <span class="n">msg</span> <span class="o">:=</span> <span class="n">sprintf</span><span class="p">(</span><span class="s2">"%s would be deleted; database deletions need a break-glass change"</span><span class="p">,</span> <span class="p">[</span><span class="n">rc</span><span class="p">.</span><span class="n">address</span><span class="p">])</span>
+<span class="p">}</span>
+
+<span class="n">deny</span> <span class="n">contains</span> <span class="n">msg</span> <span class="n">if</span> <span class="p">{</span>
+  <span class="n">rc</span> <span class="o">:=</span> <span class="n">input</span><span class="p">.</span><span class="n">resource_changes</span><span class="p">[</span><span class="n">_</span><span class="p">]</span>
+  <span class="s2">"create"</span> <span class="n">in</span> <span class="n">rc</span><span class="p">.</span><span class="n">change</span><span class="p">.</span><span class="n">actions</span>
+  <span class="s2">"tags"</span> <span class="n">in</span> <span class="n">object</span><span class="p">.</span><span class="n">keys</span><span class="p">(</span><span class="n">rc</span><span class="p">.</span><span class="n">change</span><span class="p">.</span><span class="n">after</span><span class="p">)</span> <span class="c1"># the resource type supports tags</span>
+  <span class="ow">not</span> <span class="n">rc</span><span class="p">.</span><span class="n">change</span><span class="p">.</span><span class="n">after</span><span class="p">.</span><span class="n">tags</span><span class="p">.</span><span class="n">CostCenter</span>
+  <span class="n">msg</span> <span class="o">:=</span> <span class="n">sprintf</span><span class="p">(</span><span class="s2">"%s is missing the CostCenter tag"</span><span class="p">,</span> <span class="p">[</span><span class="n">rc</span><span class="p">.</span><span class="n">address</span><span class="p">])</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform plan <span class="nt">-out</span><span class="o">=</span>tfplan
+terraform show <span class="nt">-json</span> tfplan <span class="o">&gt;</span> plan.json
+conftest <span class="nb">test </span>plan.json <span class="nt">--policy</span> policy/
+</code></pre></div></div>
+
+<p>Guardrails that exist outside Terraform, such as AWS Service Control Policies, Azure Policy, and GCP organization policies, remain the final line of defense. Policy checks in CI can be bypassed by anyone who can run Terraform some other way.</p>
+
+<h2 id="security">Security</h2>
+
+<h3 id="scanning-and-linting">Scanning and linting</h3>
 
 <table>
   <thead>
     <tr>
       <th>Tool</th>
-      <th>What It Checks</th>
-      <th>How to Run</th>
+      <th>Checks</th>
+      <th>Command</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Checkov</strong></td>
-      <td>Misconfigurations, compliance</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform validate</code></td>
+      <td>Syntax, types, references</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform validate</code></td>
+    </tr>
+    <tr>
+      <td>TFLint</td>
+      <td>Provider-aware lint rules: invalid instance types, deprecated syntax, naming</td>
+      <td><code class="language-plaintext highlighter-rouge">tflint --recursive</code></td>
+    </tr>
+    <tr>
+      <td>Checkov</td>
+      <td>Hundreds of misconfiguration and compliance rules (CIS, PCI, HIPAA mappings)</td>
       <td><code class="language-plaintext highlighter-rouge">checkov -d .</code></td>
     </tr>
     <tr>
-      <td><strong>tfsec</strong></td>
-      <td>Security issues</td>
-      <td><code class="language-plaintext highlighter-rouge">tfsec .</code></td>
+      <td>Trivy</td>
+      <td>Misconfiguration scanning; the successor to tfsec, which Aqua Security has moved into Trivy</td>
+      <td><code class="language-plaintext highlighter-rouge">trivy config .</code></td>
     </tr>
     <tr>
-      <td><strong>Terrascan</strong></td>
-      <td>Policy violations</td>
-      <td><code class="language-plaintext highlighter-rouge">terrascan scan</code></td>
-    </tr>
-    <tr>
-      <td><strong>Infracost</strong></td>
-      <td>Cost estimates</td>
-      <td><code class="language-plaintext highlighter-rouge">infracost breakdown</code></td>
+      <td>Infracost</td>
+      <td>Monthly cost of the change, as a PR comment</td>
+      <td><code class="language-plaintext highlighter-rouge">infracost diff --path .</code></td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="secret-management">Secret Management</h3>
+<h3 id="secrets-and-state">Secrets and state</h3>
 
-<p>Never store secrets in Terraform files or state. Instead:</p>
+<p>State contains every attribute of every managed resource. That includes generated passwords, private keys created with the <code class="language-plaintext highlighter-rouge">tls</code> provider, and database connection strings. Controls, in order of importance:</p>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Read secrets from AWS Secrets Manager</span>
-<span class="nx">data</span> <span class="s2">"aws_secretsmanager_secret_version"</span> <span class="s2">"db_password"</span> <span class="p">{</span>
-  <span class="nx">secret_id</span> <span class="o">=</span> <span class="s2">"prod/database/password"</span>
-<span class="p">}</span>
+<ol>
+  <li><strong>Keep secrets out of state.</strong> Terraform 1.10 introduced <em>ephemeral</em> values and 1.11 introduced <em>write-only</em> arguments. Together they let a secret flow from a generator or vault into a resource without being persisted anywhere (example in <a href="advanced.html#ephemeral-values-and-write-only-arguments">Advanced Topics</a>). Where the platform can own the secret entirely, as with RDS <code class="language-plaintext highlighter-rouge">manage_master_user_password = true</code>, let it.</li>
+  <li><strong>Encrypt and restrict the backend.</strong> Use S3 with SSE-KMS and a bucket policy that allows only the CI roles, or the equivalent on other clouds. Enable versioning on the bucket so a corrupted state can be rolled back. OpenTofu can also encrypt state client-side (since 1.7) with a key from AWS KMS, GCP KMS, OpenBao, or a passphrase.</li>
+  <li><strong>Limit who can read state.</strong> Read access to state is effectively read access to every secret in it. This is why <code class="language-plaintext highlighter-rouge">terraform_remote_state</code> across team boundaries is discouraged.</li>
+</ol>
 
-<span class="nx">resource</span> <span class="s2">"aws_db_instance"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">password</span> <span class="o">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_secretsmanager_secret_version</span><span class="p">.</span><span class="nx">db_password</span><span class="p">.</span><span class="nx">secret_string</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<p>For more advanced scenarios, use HashiCorp Vault for dynamic, short-lived credentials.</p>
-
-<hr />
-
-<h2 id="testing-infrastructure-code">Testing Infrastructure Code</h2>
-
-<p>Testing catches problems before they affect production. Here is the testing pyramid for Terraform:</p>
-
-<h3 id="testing-levels">Testing Levels</h3>
+<h2 id="testing-infrastructure-code">Testing infrastructure code</h2>
 
 <table>
   <thead>
     <tr>
       <th>Level</th>
-      <th>What It Tests</th>
-      <th>Tools</th>
+      <th>What it checks</th>
+      <th>Tooling</th>
+      <th>Cost</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Validation</strong></td>
-      <td>Syntax, types</td>
-      <td><code class="language-plaintext highlighter-rouge">terraform validate</code></td>
+      <td>Static</td>
+      <td>Format, syntax, lint, misconfiguration</td>
+      <td><code class="language-plaintext highlighter-rouge">fmt</code>, <code class="language-plaintext highlighter-rouge">validate</code>, TFLint, Checkov, Trivy</td>
+      <td>Seconds, no cloud access</td>
     </tr>
     <tr>
-      <td><strong>Static Analysis</strong></td>
-      <td>Security, best practices</td>
-      <td>Checkov, tfsec</td>
+      <td>Unit (plan-only)</td>
+      <td>Module logic: conditionals, naming, <code class="language-plaintext highlighter-rouge">for_each</code> keys, validations</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform test</code> with <code class="language-plaintext highlighter-rouge">command = plan</code> and mock providers</td>
+      <td>Seconds, no cloud access</td>
     </tr>
     <tr>
-      <td><strong>Unit Tests</strong></td>
-      <td>Module logic</td>
-      <td>Terratest, pytest</td>
+      <td>Integration</td>
+      <td>Real resources are created and behave correctly</td>
+      <td><code class="language-plaintext highlighter-rouge">terraform test</code> with <code class="language-plaintext highlighter-rouge">command = apply</code>, or Terratest (Go)</td>
+      <td>Minutes, costs money</td>
     </tr>
     <tr>
-      <td><strong>Integration Tests</strong></td>
-      <td>Real infrastructure</td>
-      <td>Terratest</td>
+      <td>End-to-end</td>
+      <td>The whole stack works (HTTP responds, failover happens)</td>
+      <td>Terratest, custom smoke tests</td>
+      <td>Slowest; nightly or pre-release</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="practical-testing-example">Practical Testing Example</h3>
+<p>The native framework (<code class="language-plaintext highlighter-rouge">terraform test</code>, GA in 1.6; mock providers in 1.7) reads <code class="language-plaintext highlighter-rouge">*.tftest.hcl</code> files from <code class="language-plaintext highlighter-rouge">tests/</code>. Each <code class="language-plaintext highlighter-rouge">run</code> block plans or applies the module and checks assertions. Resources created by <code class="language-plaintext highlighter-rouge">apply</code> runs are destroyed at the end of the test.</p>
 
-<p>Use Terratest (Go) for integration tests:</p>
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># tests/bucket.tftest.hcl</span>
+<span class="nx">mock_provider</span> <span class="s2">"aws"</span> <span class="p">{}</span>
 
-<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">func</span> <span class="n">TestWebServerModule</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">opts</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">terraform</span><span class="o">.</span><span class="n">Options</span><span class="p">{</span>
-        <span class="n">TerraformDir</span><span class="o">:</span> <span class="s">"./modules/webserver"</span><span class="p">,</span>
-        <span class="n">Vars</span><span class="o">:</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="k">interface</span><span class="p">{}{</span>
-            <span class="s">"instance_type"</span><span class="o">:</span> <span class="s">"t3.micro"</span><span class="p">,</span>
-        <span class="p">},</span>
-    <span class="p">}</span>
+<span class="nx">variables</span> <span class="p">{</span>
+  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"logs"</span>
+  <span class="nx">environment</span> <span class="o">=</span> <span class="s2">"dev"</span>
+<span class="p">}</span>
 
-    <span class="k">defer</span> <span class="n">terraform</span><span class="o">.</span><span class="n">Destroy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
-    <span class="n">terraform</span><span class="o">.</span><span class="n">InitAndApply</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+<span class="nx">run</span> <span class="s2">"name_includes_environment"</span> <span class="p">{</span>
+  <span class="nx">command</span> <span class="o">=</span> <span class="nx">plan</span>
 
-    <span class="c">// Verify the instance is reachable</span>
-    <span class="n">ip</span> <span class="o">:=</span> <span class="n">terraform</span><span class="o">.</span><span class="n">Output</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">,</span> <span class="s">"public_ip"</span><span class="p">)</span>
-    <span class="n">http_helper</span><span class="o">.</span><span class="n">HttpGetWithRetry</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="s">"http://"</span><span class="o">+</span><span class="n">ip</span><span class="p">,</span> <span class="no">nil</span><span class="p">,</span> <span class="m">200</span><span class="p">,</span> <span class="s">"OK"</span><span class="p">,</span> <span class="m">30</span><span class="p">,</span> <span class="m">5</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+  <span class="nx">assert</span> <span class="p">{</span>
+    <span class="nx">condition</span>     <span class="o">=</span> <span class="nx">startswith</span><span class="p">(</span><span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">this</span><span class="p">.</span><span class="nx">bucket</span><span class="p">,</span> <span class="s2">"logs-dev-"</span><span class="p">)</span>
+    <span class="nx">error_message</span> <span class="o">=</span> <span class="s2">"Bucket name must be prefixed with &lt;name&gt;-&lt;environment&gt;-."</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">run</span> <span class="s2">"rejects_unknown_environment"</span> <span class="p">{</span>
+  <span class="nx">command</span> <span class="o">=</span> <span class="nx">plan</span>
+
+  <span class="nx">variables</span> <span class="p">{</span>
+    <span class="nx">environment</span> <span class="o">=</span> <span class="s2">"qa"</span>
+  <span class="p">}</span>
+
+  <span class="nx">expect_failures</span> <span class="o">=</span> <span class="p">[</span><span class="nx">var</span><span class="p">.</span><span class="nx">environment</span><span class="p">]</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p><strong>When to test:</strong></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>terraform <span class="nb">test</span>                  <span class="c"># run all suites</span>
+terraform <span class="nb">test</span> <span class="nt">-junit-xml</span><span class="o">=</span>tests.xml   <span class="c"># CI-friendly report (GA in 1.11)</span>
+</code></pre></div></div>
+
+<p>Terratest is still useful when a test needs general-purpose logic, such as HTTP checks with retries, SSH, or cross-cloud assertions:</p>
+
+<div class="language-go highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">func</span> <span class="n">TestWebServer</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span><span class="n">testing</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">opts</span> <span class="o">:=</span> <span class="n">terraform</span><span class="o">.</span><span class="n">WithDefaultRetryableErrors</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">terraform</span><span class="o">.</span><span class="n">Options</span><span class="p">{</span>
+        <span class="n">TerraformDir</span><span class="o">:</span> <span class="s">"../examples/webserver"</span><span class="p">,</span>
+        <span class="n">Vars</span><span class="o">:</span>         <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="k">interface</span><span class="p">{}{</span><span class="s">"instance_type"</span><span class="o">:</span> <span class="s">"t3.micro"</span><span class="p">},</span>
+    <span class="p">})</span>
+    <span class="k">defer</span> <span class="n">terraform</span><span class="o">.</span><span class="n">Destroy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+    <span class="n">terraform</span><span class="o">.</span><span class="n">InitAndApply</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+
+    <span class="n">url</span> <span class="o">:=</span> <span class="s">"http://"</span> <span class="o">+</span> <span class="n">terraform</span><span class="o">.</span><span class="n">Output</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">opts</span><span class="p">,</span> <span class="s">"public_ip"</span><span class="p">)</span>
+    <span class="n">http_helper</span><span class="o">.</span><span class="n">HttpGetWithRetry</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="no">nil</span><span class="p">,</span> <span class="m">200</span><span class="p">,</span> <span class="s">"OK"</span><span class="p">,</span> <span class="m">30</span><span class="p">,</span> <span class="m">5</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Run static checks and plan-only tests on every PR. Integration tests belong in a nightly job or before a module release, in a dedicated sandbox account that an automated cleanup tool (such as <code class="language-plaintext highlighter-rouge">aws-nuke</code>) wipes regularly.</p>
+
+<h2 id="performance-at-scale">Performance at scale</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Likely cause</th>
+      <th>Remedy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plan</code> takes many minutes</td>
+      <td>Too many resources in one state; refresh calls every API</td>
+      <td>Split the stack; in an emergency, <code class="language-plaintext highlighter-rouge">-refresh=false</code> for a plan you know is drift-free</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ThrottlingException</code> / <code class="language-plaintext highlighter-rouge">Rate exceeded</code></td>
+      <td>Parallel refresh against rate-limited APIs</td>
+      <td>Lower <code class="language-plaintext highlighter-rouge">-parallelism</code>; raise the provider’s <code class="language-plaintext highlighter-rouge">max_retries</code>; split stacks</td>
+    </tr>
+    <tr>
+      <td>Slow <code class="language-plaintext highlighter-rouge">init</code> in CI</td>
+      <td>Providers re-downloaded on every run</td>
+      <td>Set <code class="language-plaintext highlighter-rouge">TF_PLUGIN_CACHE_DIR</code> and cache it, or use a provider network mirror</td>
+    </tr>
+    <tr>
+      <td>Long chains of sequential creates</td>
+      <td>A deep dependency graph (A → B → C → …)</td>
+      <td>Remove unnecessary <code class="language-plaintext highlighter-rouge">depends_on</code>; put independent resources in separate modules</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">-target</code> narrows a plan to certain addresses and their dependencies. It is meant for recovering from mistakes, not for routine use. Every targeted apply leaves the rest of the configuration unapplied, and Terraform prints a warning to that effect. If you find yourself targeting regularly, the stack is too big.</p>
+
+<h2 id="reference-architectures">Reference architectures</h2>
+
+<p>These short sketches show how the patterns above combine for common requirements.</p>
+
+<h3 id="multi-region-activepassive-failover">Multi-region active/passive failover</h3>
+
+<p>One regional module is instantiated in two regions, so the regions cannot drift apart. DNS health checks move traffic when the primary fails.</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">module</span> <span class="s2">"primary"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/regional-stack"</span>
+  <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-east-1"</span>
+  <span class="nx">role</span>   <span class="o">=</span> <span class="s2">"primary"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"secondary"</span> <span class="p">{</span>
+  <span class="nx">source</span> <span class="o">=</span> <span class="s2">"./modules/regional-stack"</span>
+  <span class="nx">region</span> <span class="o">=</span> <span class="s2">"us-west-2"</span>
+  <span class="nx">role</span>   <span class="o">=</span> <span class="s2">"secondary"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_route53_health_check"</span> <span class="s2">"primary"</span> <span class="p">{</span>
+  <span class="nx">fqdn</span>              <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">primary</span><span class="p">.</span><span class="nx">alb_dns_name</span>
+  <span class="nx">type</span>              <span class="o">=</span> <span class="s2">"HTTPS"</span>
+  <span class="nx">resource_path</span>     <span class="o">=</span> <span class="s2">"/healthz"</span>
+  <span class="nx">failure_threshold</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_route53_record"</span> <span class="s2">"app_primary"</span> <span class="p">{</span>
+  <span class="nx">zone_id</span>         <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">zone_id</span>
+  <span class="nx">name</span>            <span class="o">=</span> <span class="s2">"app.example.com"</span>
+  <span class="nx">type</span>            <span class="o">=</span> <span class="s2">"A"</span>
+  <span class="nx">set_identifier</span>  <span class="o">=</span> <span class="s2">"primary"</span>
+  <span class="nx">health_check_id</span> <span class="o">=</span> <span class="nx">aws_route53_health_check</span><span class="err">.</span><span class="nx">primary</span><span class="p">.</span><span class="nx">id</span>
+
+  <span class="nx">failover_routing_policy</span> <span class="p">{</span>
+    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"PRIMARY"</span>
+  <span class="p">}</span>
+
+  <span class="nx">alias</span> <span class="p">{</span>
+    <span class="nx">name</span>                   <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">primary</span><span class="p">.</span><span class="nx">alb_dns_name</span>
+    <span class="nx">zone_id</span>                <span class="o">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">primary</span><span class="p">.</span><span class="nx">alb_zone_id</span>
+    <span class="nx">evaluate_target_health</span> <span class="o">=</span> <span class="kc">true</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+<span class="c1"># ...a matching SECONDARY record points at module.secondary</span>
+</code></pre></div></div>
+
+<p>Decide the recovery time and recovery point objectives (RTO and RPO) first, because they determine whether data replication is asynchronous (cross-region read replicas, S3 replication) or needs a global database. Terraform can recreate the stateless tier in minutes. It cannot restore data, so test restores and failover on a schedule.</p>
+
+<h3 id="self-service-environments-for-many-teams">Self-service environments for many teams</h3>
+
+<p>A platform team publishes an opinionated module and a single root stack instantiates it per team from a map:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">module</span> <span class="s2">"team_env"</span> <span class="p">{</span>
+  <span class="nx">source</span>   <span class="o">=</span> <span class="s2">"app.terraform.io/acme/team-environment/aws"</span>
+  <span class="nx">version</span>  <span class="o">=</span> <span class="s2">"~&gt; 4.1"</span>
+  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">teams</span> <span class="c1"># map(object({ budget_usd = number, node_count = optional(number, 3) }))</span>
+
+  <span class="nx">team_name</span>  <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span>
+  <span class="nx">node_count</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">node_count</span>
+  <span class="nx">budget_usd</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">budget_usd</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>The module builds in the guardrails: network policy, tagging, budget alarms, and nightly scale-to-zero outside production. Onboarding a team then means one PR that adds a map entry. Internal developer portals such as Backstage often generate exactly this PR.</p>
+
+<h3 id="regulated-data-compliance-by-default">Regulated data (compliance by default)</h3>
+
+<p>For HIPAA, PCI DSS, or similar regimes, make the secure configuration the only one the module can produce, rather than a set of flags callers must remember:</p>
+
 <ul>
-  <li>Always validate and run static analysis in CI</li>
-  <li>Run unit tests on every PR</li>
-  <li>Run integration tests nightly or before releases (they are slow and cost money)</li>
+  <li>Encryption with customer-managed KMS keys is always on and is not exposed as a variable.</li>
+  <li>Public access blocks, TLS-only bucket policies, and access logging are part of the module.</li>
+  <li>Organization-wide CloudTrail with log file validation writes to a separate log-archive account, with S3 Object Lock for immutability.</li>
+  <li>Retention periods come from policy. HIPAA requires compliance documentation to be kept for six years, and medical-record retention is set by state law. Encode these values as module defaults and review them with compliance staff.</li>
+  <li>Plan-time policy (OPA or Sentinel) and nightly Checkov scans produce the audit evidence.</li>
 </ul>
 
-<div class="notice--warning">
-  <h4>Common Pitfalls at Scale</h4>
-  <ul>
-    <li><strong>One monolithic state file:</strong> A single state for the whole org makes every plan slow and every apply high-risk. Split by blast-radius boundary (account, environment, service) early.</li>
-    <li><strong>Secrets in state:</strong> Even when sourced from Secrets Manager, the resolved value is written to state in plaintext. Encrypt the state backend, lock down access, and prefer dynamic credentials from Vault where possible.</li>
-    <li><strong>Unpinned module and provider versions:</strong> Floating versions turn an unrelated <code>terraform init</code> into a surprise upgrade. Pin module sources to a tag and constrain providers with <code>~&gt;</code>.</li>
-    <li><strong>Overusing <code>-target</code>:</strong> Convenient for debugging, but routine targeted applies drift state from config. Treat it as a break-glass tool, not a workflow.</li>
-    <li><strong>Skipping <code>plan</code> review in CI:</strong> Auto-applying on merge without a reviewed plan removes the last safety gate. Always surface the plan for approval before a production apply.</li>
-  </ul>
-</div>
+<h3 id="incremental-migration-strangler-fig">Incremental migration (strangler fig)</h3>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p>To replace a monolith without a cutover weekend, put a routing layer in front of it, such as an ALB with weighted target groups, API Gateway, or a service mesh. Then shift traffic one route at a time. With Terraform, the weights are just variables, so each step is a reviewed PR that can be reverted:</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">resource</span> <span class="s2">"aws_lb_listener_rule"</span> <span class="s2">"orders"</span> <span class="p">{</span>
+  <span class="nx">listener_arn</span> <span class="o">=</span> <span class="nx">aws_lb_listener</span><span class="p">.</span><span class="nx">https</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">priority</span>     <span class="o">=</span> <span class="mi">100</span>
+
+  <span class="nx">condition</span> <span class="p">{</span>
+    <span class="nx">path_pattern</span> <span class="p">{</span> <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"/api/orders/*"</span><span class="p">]</span> <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">action</span> <span class="p">{</span>
+    <span class="nx">type</span> <span class="o">=</span> <span class="s2">"forward"</span>
+    <span class="nx">forward</span> <span class="p">{</span>
+      <span class="nx">target_group</span> <span class="p">{</span>
+        <span class="nx">arn</span>    <span class="o">=</span> <span class="nx">aws_lb_target_group</span><span class="p">.</span><span class="nx">monolith</span><span class="p">.</span><span class="nx">arn</span>
+        <span class="nx">weight</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">-</span> <span class="nx">var</span><span class="p">.</span><span class="nx">orders_service_weight</span>
+      <span class="p">}</span>
+      <span class="nx">target_group</span> <span class="p">{</span>
+        <span class="nx">arn</span>    <span class="o">=</span> <span class="nx">aws_lb_target_group</span><span class="p">.</span><span class="nx">orders_service</span><span class="p">.</span><span class="nx">arn</span>
+        <span class="nx">weight</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">orders_service_weight</span> <span class="c1"># 0 -&gt; 10 -&gt; 50 -&gt; 100</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>Each increase should wait for error-rate and latency dashboards to stay healthy. A progressive-delivery controller can automate this, but the Terraform version keeps every step visible in Git history.</p>
+
+<h2 id="pitfalls-at-scale">Pitfalls at scale</h2>
 
 <ul>
-  <li><strong>Structure for scale.</strong> Separate state per environment and per blast-radius boundary so a change to one stack cannot accidentally affect another.</li>
-  <li><strong>Compliance as code.</strong> Encode guardrails (encryption, tagging, allowed regions) as policy so violations are caught at plan time, not in an audit.</li>
-  <li><strong>Test before you trust.</strong> Validate and lint on every PR; reserve slow, costly integration tests for nightly or pre-release runs.</li>
-  <li><strong>Plan for disaster recovery.</strong> Version-controlled config plus remote state lets you rebuild a region from scratch — practice it before you need it.</li>
+  <li><strong>One state for everything.</strong> Every plan is slow, every apply is risky, and the whole organization queues on a single lock. Split early along ownership and rate-of-change lines.</li>
+  <li><strong>Reading full state across team boundaries.</strong> <code class="language-plaintext highlighter-rouge">terraform_remote_state</code> gives the consumer every secret in the producer’s state. Publish outputs through a parameter store instead.</li>
+  <li><strong>Floating versions.</strong> Module sources without a <code class="language-plaintext highlighter-rouge">ref</code> and providers without <code class="language-plaintext highlighter-rouge">~&gt;</code> turn an unrelated <code class="language-plaintext highlighter-rouge">init -upgrade</code> into a surprise upgrade.</li>
+  <li><strong>Routine <code class="language-plaintext highlighter-rouge">-target</code> applies.</strong> They hide configuration that has never been applied, and state drifts from code.</li>
+  <li><strong>Auto-apply without a reviewed plan.</strong> Merging a PR is not the same as approving what the plan does. Surface the plan and require approval for production.</li>
+  <li><strong>Policy only in CI.</strong> Anyone with cloud credentials can bypass it. Back it with SCPs or organization policies.</li>
 </ul>
-
-<hr />
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="core-concepts.html">Core Concepts</a> - The HCL and workflow fundamentals</li>
-  <li><a href="state-modules.html">State &amp; Modules</a> - Remote state and reusable modules</li>
-  <li><a href="advanced.html">Advanced Topics</a> - Meta-programming and Policy as Code</li>
-  <li><a href="../aws/">AWS Cloud Services</a> - Provisioning targets and reference architectures</li>
-  <li><a href="../kubernetes/">Kubernetes</a> - Cluster provisioning patterns</li>
+  <li><a href="core-concepts.html">Core Concepts</a>: workflow, providers, meta-arguments</li>
+  <li><a href="state-modules.html">State &amp; Modules</a>: backends, locking, workspaces, module design</li>
+  <li><a href="advanced.html">Advanced Topics</a>: refactoring blocks, ephemeral values, troubleshooting</li>
+  <li><a href="../ci-cd/">CI/CD</a>: pipeline design in general</li>
+  <li><a href="../cybersecurity/cloud-and-container-security.html">Cloud and Container Security</a>: cloud security controls that complement IaC policy</li>
+  <li><a href="../aws/">AWS Cloud Services</a>: account structure and reference architectures</li>
 </ul>
-
 
       </section>
     </div>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Network defenses (firewalls, VPNs, IDS/IPS), Zero Trust architecture, how intrusions unfold, social engineering, supply-chain attacks and defenses (SBOM, SLS...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Cybersecurity: Attacks & Network Defense">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Network defenses (firewalls, VPNs, IDS/IPS), Zero Trust architecture, how intrusions unfold, social engineering, supply-chain attacks and defenses (SBOM, SLS...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/cybersecurity/attacks-and-defense.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Cybersecurity: Attacks & Network Defense">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Network defenses (firewalls, VPNs, IDS/IPS), Zero Trust architecture, how intrusions unfold, social engineering, supply-chain attacks and defenses (SBOM, SLS...">
 
 <title>Cybersecurity: Attacks & Network Defense | Andrews Notebook</title>
 
@@ -3135,166 +3135,316 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="attacks--network-defense">Attacks &amp; Network Defense</h1>
 
-<p>Defending a network means both building perimeter controls and understanding the adversary. This page covers network defenses (firewalls, VPNs, IDS), the advanced attack techniques that bypass them (social engineering, supply chain, ransomware), and the physical and ML-based attack vectors that target the edges of what software controls.</p>
+<p>Defending a network means building layered controls <em>and</em> understanding how adversaries get past them. This page covers network defenses (firewalls, VPNs, intrusion detection), Zero Trust architecture, the stages of a typical intrusion, and the attack classes that dominate current incident data: social engineering, software supply-chain compromise, and ransomware. It closes with attacks that sit below or beside software controls — side channels and fault injection, attacks on machine-learning systems, and physical and hardware threats.</p>
 
-<h2 id="network-security-defending-your-digital-perimeter">Network Security: Defending Your Digital Perimeter</h2>
+<h2 id="defense-in-depth">Defense in depth</h2>
 
-<p>Now that we understand how encryption protects data (see <a href="cryptography.html">Cryptography</a>), let’s explore how to defend against attacks on your networks and systems.</p>
-
-<p>Effective security is layered — no single control is trusted to stop everything. This <strong>defense-in-depth</strong> model means an attacker who breaches one layer still faces the next:</p>
+<p>No single control is trusted to stop everything. <strong>Defense in depth</strong> stacks independent layers so that an attacker who defeats one still faces the next, and so that each layer produces signals a defender can detect:</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    A["Attacker"] --&gt; E["Edge: firewall / WAF / DDoS protection"]
-    E --&gt; N["Network: segmentation, VPN, IDS/IPS"]
-    N --&gt; H["Host: patching, EDR, least privilege"]
-    H --&gt; APP["Application: input validation, authn/authz"]
-    APP --&gt; D["Data: encryption at rest &amp; in transit"]
-    style A fill:#ffebee,stroke:#c62828
-    style D fill:#e8f5e9,stroke:#2e7d32
+    A["Attacker"] --&gt; E["Edge&lt;br/&gt;firewall, WAF, DDoS protection, email filtering"]
+    E --&gt; I["Identity&lt;br/&gt;phishing-resistant MFA, conditional access"]
+    I --&gt; N["Network&lt;br/&gt;segmentation, ZTNA, IDS/IPS"]
+    N --&gt; H["Host&lt;br/&gt;patching, EDR, least privilege"]
+    H --&gt; APP["Application&lt;br/&gt;input handling, authn/authz"]
+    APP --&gt; D["Data&lt;br/&gt;encryption, backups, access logging"]
 </code></pre>
 
-<h3 id="firewalls-your-first-line-of-defense">Firewalls: Your First Line of Defense</h3>
+<p>The layers are not equally strong, and in modern environments the identity layer carries more weight than the network edge. The rest of this page works through the layers and the attacks aimed at each.</p>
 
-<p>A firewall is like a security guard for your network, checking every packet of data that tries to enter or leave. But unlike a human guard, it makes decisions based on rules you define:</p>
+<h2 id="network-defenses">Network defenses</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Example: Block all incoming connections except web traffic</span>
-iptables <span class="nt">-A</span> INPUT <span class="nt">-p</span> tcp <span class="nt">--dport</span> 80 <span class="nt">-j</span> ACCEPT   <span class="c"># Allow HTTP</span>
-iptables <span class="nt">-A</span> INPUT <span class="nt">-p</span> tcp <span class="nt">--dport</span> 443 <span class="nt">-j</span> ACCEPT  <span class="c"># Allow HTTPS</span>
-iptables <span class="nt">-A</span> INPUT <span class="nt">-j</span> DROP                        <span class="c"># Block everything else</span>
+<h3 id="firewalls">Firewalls</h3>
 
-<span class="c"># Why this matters: Without these rules, anyone could connect</span>
-<span class="c"># to any service running on your computer</span>
+<p>A firewall enforces rules about which traffic may cross a boundary. Capabilities have accumulated over successive generations, each a response to attacks the previous one could not see:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Generation</th>
+      <th>Decides on</th>
+      <th>Stops</th>
+      <th>Misses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Packet filter</td>
+      <td>Individual packet headers (IP, port, protocol)</td>
+      <td>Traffic to unexposed ports</td>
+      <td>Anything riding an allowed port; spoofed replies</td>
+    </tr>
+    <tr>
+      <td>Stateful</td>
+      <td>Connection state (new, established, related)</td>
+      <td>Unsolicited inbound packets pretending to be replies</td>
+      <td>Malicious content inside legitimate sessions</td>
+    </tr>
+    <tr>
+      <td>Next-generation (NGFW)</td>
+      <td>Application identity, user identity, payload signatures</td>
+      <td>Known exploits and disallowed applications on standard ports</td>
+      <td>Encrypted payloads unless TLS inspection is enabled; novel attacks</td>
+    </tr>
+    <tr>
+      <td>Web application firewall (WAF)</td>
+      <td>HTTP semantics: parameters, headers, bodies</td>
+      <td>Common injection and scanner patterns</td>
+      <td>Logic flaws and access-control bugs (see <a href="application-and-cloud-security.html">Application Security</a>)</td>
+    </tr>
+    <tr>
+      <td>Cloud security groups / microsegmentation</td>
+      <td>Workload identity or tags, per instance or pod</td>
+      <td>Lateral movement between workloads</td>
+      <td>Abuse of permitted flows</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A minimal host firewall with Linux <strong>nftables</strong> (the successor to iptables) shows the essentials of a stateful default-deny policy — including the two rules naive examples forget, accepting established replies and loopback traffic:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># /etc/nftables.conf</span>
+table inet filter <span class="o">{</span>
+  chain input <span class="o">{</span>
+    <span class="nb">type </span>filter hook input priority 0<span class="p">;</span> policy drop<span class="p">;</span>
+    ct state established,related accept   <span class="c"># replies to connections we opened</span>
+    ct state invalid drop
+    iif <span class="s2">"lo"</span> accept                        <span class="c"># local services talking to each other</span>
+    meta l4proto <span class="o">{</span> icmp, ipv6-icmp <span class="o">}</span> accept  <span class="c"># needed for PMTU discovery and IPv6</span>
+    tcp dport <span class="o">{</span> 22, 80, 443 <span class="o">}</span> accept
+  <span class="o">}</span>
+<span class="o">}</span>
 </code></pre></div></div>
 
-<h3 id="the-evolution-of-network-attacks">The Evolution of Network Attacks</h3>
+<p>TLS inspection (decrypting, inspecting, and re-encrypting traffic at a proxy) restores visibility into encrypted flows but concentrates risk: the inspection device holds a trusted CA key, breaks certificate pinning, and must itself be patched and hardened. Many organizations now inspect selectively and rely more on endpoint telemetry.</p>
 
-<p>Attackers have become increasingly sophisticated. Here’s how network attacks have evolved and how defenses have adapted:</p>
+<h3 id="vpns-and-zero-trust-network-access">VPNs and zero-trust network access</h3>
 
-<h4 id="1-simple-port-scanning--stateful-firewalls">1. Simple Port Scanning → Stateful Firewalls</h4>
-<p>Early attackers would scan for open ports. Modern firewalls track connection states, allowing responses only to connections you initiated.</p>
+<p>A <strong>VPN</strong> creates an encrypted tunnel so that traffic crossing an untrusted network (public Wi-Fi, the internet between sites) cannot be read or modified in transit.</p>
 
-<h4 id="2-application-exploits--deep-packet-inspection">2. Application Exploits → Deep Packet Inspection</h4>
-<p>Attackers started hiding malicious code in seemingly normal traffic. Next-generation firewalls inspect the actual content of packets, not just headers.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Protocol</th>
+      <th>Characteristics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>WireGuard</strong></td>
+      <td>Small codebase, fixed modern cryptography (Curve25519, ChaCha20-Poly1305), in the Linux kernel since 5.6; basis of many commercial VPNs and mesh products</td>
+    </tr>
+    <tr>
+      <td><strong>IPsec (IKEv2)</strong></td>
+      <td>Standards-based, ubiquitous in site-to-site links and native OS clients; complex to configure</td>
+    </tr>
+    <tr>
+      <td><strong>TLS/SSL VPN</strong></td>
+      <td>Runs over TCP/UDP 443, traverses restrictive networks; typical of enterprise remote-access appliances</td>
+    </tr>
+  </tbody>
+</table>
 
-<h4 id="3-encrypted-attacks--ssltls-inspection">3. Encrypted Attacks → SSL/TLS Inspection</h4>
-<p>As more traffic became encrypted, attackers hid behind HTTPS. Modern security appliances can decrypt, inspect, and re-encrypt traffic (with proper certificates).</p>
+<p>Two caveats shape current practice. First, a VPN protects the path, not the endpoints: a remote-access VPN that drops a user onto a flat internal network grants far more reach than the user needs. Second, internet-facing VPN and edge appliances have themselves become a leading initial-access vector — mass exploitation of Citrix NetScaler (“Citrix Bleed,” 2023), Ivanti Connect Secure (2024), and Fortinet and Palo Alto gateways has made patch speed on edge devices a first-order concern.</p>
 
-<h3 id="vpns-creating-secure-tunnels">VPNs: Creating Secure Tunnels</h3>
+<p><strong>Zero-trust network access (ZTNA)</strong> replaces network-level access with per-application access: the user authenticates to a broker, device posture is checked, and a connection is brokered to one specific application rather than to a subnet. See <a href="#zero-trust-never-trust-always-verify">Zero Trust</a> below.</p>
 
-<p>When you connect to public WiFi, a VPN creates an encrypted tunnel to a trusted server. All your traffic flows through this tunnel, safe from prying eyes:</p>
+<h3 id="intrusion-detection-and-prevention">Intrusion detection and prevention</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># What happens without VPN:
-# Your computer → [UNENCRYPTED] → Coffee shop WiFi → Internet
-# Anyone on the same WiFi can see your traffic
-</span>
-<span class="c1"># With VPN:
-# Your computer → [ENCRYPTED TUNNEL] → VPN server → Internet
-# Coffee shop WiFi only sees encrypted data
-</span></code></pre></div></div>
+<p>An <strong>IDS</strong> watches traffic or host activity and raises alerts; an <strong>IPS</strong> sits inline and can block. Detection approaches:</p>
 
-<h3 id="intrusion-detection-when-prevention-isnt-enough">Intrusion Detection: When Prevention Isn’t Enough</h3>
+<ul>
+  <li><strong>Signature-based</strong>: match known-bad patterns. Precise, but blind to novel attacks and to encrypted payloads.</li>
+  <li><strong>Anomaly-based</strong>: model normal behavior (flows, volumes, protocols) and flag deviations. Catches the unknown at the cost of false positives.</li>
+  <li><strong>Protocol analysis</strong>: parse traffic into structured logs (connections, DNS queries, TLS handshakes, HTTP requests) for hunting and correlation.</li>
+</ul>
 
-<p>Even the best defenses can be breached. Intrusion Detection Systems (IDS) act like security cameras, watching for suspicious behavior:</p>
+<p>The open-source standards are <strong>Suricata</strong> and <strong>Snort</strong> (signature IDS/IPS) and <strong>Zeek</strong> (network security monitoring and protocol logging). A Suricata rule flagging a UNION-based SQL injection attempt in a request URI:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example IDS rule detecting potential SQL injection
-</span><span class="k">if</span> <span class="sh">"</span><span class="s">SELECT</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">request</span> <span class="ow">and</span> <span class="sh">"</span><span class="s">UNION</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">request</span><span class="p">:</span>
-    <span class="nf">alert</span><span class="p">(</span><span class="sh">"</span><span class="s">Possible SQL injection attempt detected!</span><span class="sh">"</span><span class="p">)</span>
-    <span class="nf">log_attack</span><span class="p">(</span><span class="n">source_ip</span><span class="p">,</span> <span class="n">request_details</span><span class="p">)</span>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>alert http any any -&gt; $HOME_NET any (msg:"Possible SQLi - UNION SELECT in URI"; \
+  flow:established,to_server; http.uri; content:"union"; nocase; \
+  content:"select"; nocase; distance:0; classtype:web-application-attack; \
+  sid:1000001; rev:1;)
+</code></pre></div></div>
 
-<span class="c1"># More sophisticated detection uses machine learning
-# to identify anomalies in network behavior
-</span></code></pre></div></div>
+<p>Because most traffic is now encrypted, network detection increasingly relies on metadata — TLS fingerprints (JA3/JA4), DNS, flow records — while <strong>endpoint detection and response (EDR)</strong> provides the process-level visibility the network has lost. Alerts from all of these feed the SIEM described in <a href="security-operations.html">Security Operations</a>.</p>
 
 <h2 id="zero-trust-never-trust-always-verify">Zero Trust: Never Trust, Always Verify</h2>
 
-<p>The old model of “trust internal network, distrust external” is dead. Zero Trust assumes the network is already hostile and verifies every request on its own merits, regardless of where it originates — which is why it underpins modern cloud <a href="cloud-and-container-security.html#iam-the-keys-to-your-kingdom">IAM</a> as well as network design.</p>
+<p>The perimeter model assumed that anything inside the corporate network could be trusted. Remote work, cloud services, and attackers who reliably get <em>some</em> foothold broke that assumption. <strong>Zero Trust</strong> treats the network as hostile and evaluates every access request on its own merits — identity, device health, and context — regardless of where it originates. It is the principle behind modern cloud <a href="cloud-and-container-security.html#iam-the-keys-to-your-kingdom">IAM</a> as much as network design.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Traditional security model
-</span><span class="k">if</span> <span class="n">request</span><span class="p">.</span><span class="n">source_ip</span> <span class="ow">in</span> <span class="n">internal_network</span><span class="p">:</span>
-    <span class="nf">allow</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>  <span class="c1"># DANGEROUS!
-</span>
-<span class="c1"># Zero Trust model
-</span><span class="k">def</span> <span class="nf">handle_request</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
-    <span class="c1"># Verify everything, every time
-</span>    <span class="k">if</span> <span class="ow">not</span> <span class="nf">verify_identity</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">user</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nf">deny</span><span class="p">()</span>
+<p><strong>NIST SP 800-207</strong> defines the reference architecture: a <strong>policy decision point</strong> (policy engine plus policy administrator) decides, and a <strong>policy enforcement point</strong> sits in front of every resource and enforces the decision per session.</p>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="nf">verify_device</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">device</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nf">deny</span><span class="p">()</span>
+<pre><code class="language-mermaid">flowchart LR
+    S["Subject&lt;br/&gt;(user + device)"] --&gt; PEP["Policy enforcement point&lt;br/&gt;(identity-aware proxy, ZTNA broker, sidecar)"]
+    PEP --&gt; R["Resource&lt;br/&gt;(app, API, data)"]
+    PEP &lt;--&gt;|"allow / deny&lt;br/&gt;per session"| PDP["Policy decision point&lt;br/&gt;(policy engine + administrator)"]
+    IDP["Identity provider&lt;br/&gt;MFA, risk signals"] --&gt; PDP
+    MDM["Device posture&lt;br/&gt;EDR, patch level, compliance"] --&gt; PDP
+    TI["Threat intel, logs,&lt;br/&gt;behavior analytics"] --&gt; PDP
+</code></pre>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="nf">verify_location</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">location</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nf">deny</span><span class="p">()</span>
+<p>Core tenets:</p>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="nf">verify_authorization</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">user</span><span class="p">,</span> <span class="n">request</span><span class="p">.</span><span class="n">resource</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nf">deny</span><span class="p">()</span>
-
-    <span class="c1"># Continuous verification
-</span>    <span class="nf">monitor_behavior</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="nf">allow</span><span class="p">()</span>
-</code></pre></div></div>
-
-<h2 id="advanced-attack-techniques-how-hackers-think">Advanced Attack Techniques: How Hackers Think</h2>
-
-<p>To defend effectively, you need to understand how attackers operate. Modern attacks go far beyond simple password guessing.</p>
-
-<h3 id="social-engineering-hacking-humans">Social Engineering: Hacking Humans</h3>
-
-<p>The weakest link in any security system is often the human element. Attackers know this:</p>
-
-<p><strong>Phishing Evolution</strong>:</p>
-<ol>
-  <li><strong>Basic</strong>: “Your account is suspended! Click here!”</li>
-  <li><strong>Spear Phishing</strong>: Targeted emails using personal information</li>
-  <li><strong>Whaling</strong>: Targeting executives with sophisticated attacks</li>
-  <li><strong>Vishing</strong>: Voice phishing over phone calls</li>
-  <li><strong>Smishing</strong>: SMS-based phishing</li>
-</ol>
-
-<p><strong>Defense</strong>: Security awareness training and technical controls like email authentication (SPF, DKIM, DMARC).</p>
-
-<p><strong>AI-Powered Attacks</strong>:</p>
 <ul>
-  <li><strong>Deepfake voice cloning</strong>: CEO fraud using synthetic voices</li>
-  <li><strong>AI-generated phishing</strong>: Personalized at scale using LLMs</li>
-  <li><strong>Business Email Compromise (BEC)</strong>: $2.9 billion in losses (2023)</li>
-  <li><strong>Defense</strong>: AI-powered email security, behavioral analysis, voice authentication</li>
+  <li><strong>Authenticate and authorize every session</strong>, using strong (preferably phishing-resistant) authentication and current device posture.</li>
+  <li><strong>Least-privilege, per-resource access</strong> rather than network-level access.</li>
+  <li><strong>Assume breach</strong>: segment so that a compromised workload or account has a small blast radius, and log everything needed to detect misuse.</li>
+  <li><strong>Continuously re-evaluate</strong>: a session’s trust can be revoked when risk signals change.</li>
 </ul>
 
-<h3 id="supply-chain-attacks-trusting-the-untrustworthy">Supply Chain Attacks: Trusting the Untrustworthy</h3>
+<p>CISA’s <strong>Zero Trust Maturity Model</strong> (v2.0, 2023) organizes adoption into five pillars — Identity, Devices, Networks, Applications and Workloads, and Data — each progressing through Traditional, Initial, Advanced, and Optimal stages. Zero Trust is an architecture adopted incrementally, not a product; in practice most programs start with identity (SSO, phishing-resistant MFA, conditional access) and replacing flat VPN access with per-application access.</p>
 
-<p>Why hack one company when you can hack a supplier and reach hundreds? The SolarWinds attack compromised 18,000 organizations through a single software update.</p>
+<h2 id="how-intrusions-unfold">How intrusions unfold</h2>
 
-<p><strong>Recent Supply Chain Attacks (2023-2024)</strong>:</p>
-<ul>
-  <li><strong>3CX</strong>: Compromised software update affected 600,000+ companies</li>
-  <li><strong>MOVEit</strong>: SQL injection led to breaches at 1000+ organizations</li>
-  <li><strong>PyPI/npm attacks</strong>: Malicious packages targeting developers</li>
-  <li><strong>xz Utils backdoor</strong>: Near-miss that could have compromised Linux systems worldwide</li>
-</ul>
+<p>Real attacks are campaigns, not single exploits. <strong>MITRE ATT&amp;CK</strong> catalogs observed adversary behavior as <em>tactics</em> (the goal of a step) and <em>techniques</em> (how it is achieved), and has become the shared vocabulary for detection engineering and threat intelligence. A condensed view of the enterprise tactics:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># How supply chain attacks work:
-# 1. Attacker compromises software vendor
-# 2. Malicious code inserted into legitimate update
-# 3. Customers install "trusted" update
-# 4. Attacker now has access to all customers
-</span>
-<span class="c1"># Defense: Software composition analysis
-</span><span class="kn">import</span> <span class="n">subprocess</span>
+<pre><code class="language-mermaid">flowchart LR
+    R["Reconnaissance &amp;&lt;br/&gt;resource development"] --&gt; IA["Initial access&lt;br/&gt;phishing, exposed service,&lt;br/&gt;stolen credentials"]
+    IA --&gt; EX["Execution &amp;&lt;br/&gt;persistence"]
+    EX --&gt; PE["Privilege escalation &amp;&lt;br/&gt;defense evasion"]
+    PE --&gt; CA["Credential access &amp;&lt;br/&gt;discovery"]
+    CA --&gt; LM["Lateral movement"]
+    LM --&gt; CO["Collection &amp;&lt;br/&gt;exfiltration"]
+    CO --&gt; IM["Impact&lt;br/&gt;encryption, destruction,&lt;br/&gt;extortion"]
+    LM -.-&gt;|"repeat on new hosts"| CA
+</code></pre>
 
-<span class="c1"># Check dependencies for known vulnerabilities
-</span><span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="p">.</span><span class="nf">run</span><span class="p">([</span><span class="sh">'</span><span class="s">pip-audit</span><span class="sh">'</span><span class="p">],</span> <span class="n">capture_output</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="k">if</span> <span class="sh">'</span><span class="s">vulnerability</span><span class="sh">'</span> <span class="ow">in</span> <span class="n">result</span><span class="p">.</span><span class="n">stdout</span><span class="p">.</span><span class="nf">decode</span><span class="p">():</span>
-    <span class="nf">alert_security_team</span><span class="p">()</span>
+<p>The defender’s advantage is that attackers must succeed at <em>every</em> stage, while a defender needs to detect only one. Mapping detections to ATT&amp;CK techniques shows where coverage is thin.</p>
+
+<h2 id="social-engineering">Social engineering</h2>
+
+<p>People remain the most reliable initial-access vector, and generative AI has lowered the cost of convincing, personalized lures.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Mechanism</th>
+      <th>Primary countermeasure</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Phishing / spear phishing</td>
+      <td>Deceptive email, often personalized from public data</td>
+      <td>Email authentication, link and attachment sandboxing, reporting culture</td>
+    </tr>
+    <tr>
+      <td>Adversary-in-the-middle (AiTM) phishing</td>
+      <td>Proxy kits relay the real login page and steal the session cookie <em>after</em> MFA succeeds</td>
+      <td>Phishing-resistant MFA (passkeys, FIDO2 keys), token binding, conditional access</td>
+    </tr>
+    <tr>
+      <td>MFA fatigue</td>
+      <td>Repeated push prompts until the user approves one</td>
+      <td>Number matching, rate limits, phishing-resistant factors</td>
+    </tr>
+    <tr>
+      <td>Help-desk and vishing</td>
+      <td>Caller impersonates an employee to reset passwords or enroll a new MFA device</td>
+      <td>Strict identity verification for resets; call-backs to known numbers</td>
+    </tr>
+    <tr>
+      <td>Smishing and QR phishing</td>
+      <td>SMS or QR codes move the lure off the protected corporate channel</td>
+      <td>User awareness; mobile threat defense</td>
+    </tr>
+    <tr>
+      <td>Business email compromise (BEC)</td>
+      <td>Impersonated or compromised executive or vendor requests a payment or bank-detail change</td>
+      <td>Out-of-band verification of payment changes; dual approval</td>
+    </tr>
+    <tr>
+      <td>Deepfake voice and video</td>
+      <td>Synthetic audio or video of an executive on a call</td>
+      <td>Procedural verification that does not depend on recognizing a voice or face</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>BEC remains one of the costliest crimes reported to the FBI</strong>: the IC3’s 2025 report attributes about $3.05 billion in losses to it, out of $20.9 billion in total reported cybercrime losses. Help-desk social engineering drove several major 2023–2025 intrusions attributed to the “Scattered Spider” cluster, including the 2023 MGM Resorts outage.</p>
+
+<p><strong>Email authentication</strong> makes domain spoofing detectable. SPF lists authorized sending servers, DKIM signs messages, and DMARC tells receivers what to do when both fail and aligns them with the visible <code class="language-plaintext highlighter-rouge">From</code> domain. Since February 2024, Google and Yahoo require SPF, DKIM, and a DMARC record from bulk senders. A domain should progress to <code class="language-plaintext highlighter-rouge">p=reject</code>:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>_dmarc.example.com.  TXT  "v=DMARC1; p=reject; rua=mailto:dmarc-reports@example.com; adkim=s; aspf=s"
 </code></pre></div></div>
+
+<h2 id="supply-chain-attacks">Supply-chain attacks</h2>
+
+<p>Compromising one supplier reaches all of its customers at once, and the victims install the malicious code themselves because it arrives through a trusted channel. Attackers target every link from a developer’s workstation to the running artifact:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    DEV["Developer&lt;br/&gt;(stolen tokens, phished maintainer)"] --&gt; SRC["Source repo&lt;br/&gt;(malicious commit,&lt;br/&gt;social-engineered co-maintainer)"]
+    SRC --&gt; BUILD["Build / CI&lt;br/&gt;(poisoned pipeline,&lt;br/&gt;compromised action)"]
+    DEP["Dependencies&lt;br/&gt;(typosquats, dependency confusion,&lt;br/&gt;hijacked packages)"] --&gt; BUILD
+    BUILD --&gt; PKG["Package / registry&lt;br/&gt;(tampered artifact)"]
+    PKG --&gt; DEPLOY["Deployment&lt;br/&gt;(unsigned image admitted)"]
+    DEPLOY --&gt; USERS["Every downstream customer"]
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th>Incident</th>
+      <th>Link compromised</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2020</td>
+      <td><strong>SolarWinds Orion</strong></td>
+      <td>Build system</td>
+      <td>Trojanized update shipped to roughly 18,000 customers; a small subset selected for follow-on intrusion</td>
+    </tr>
+    <tr>
+      <td>2021</td>
+      <td><strong>Log4Shell</strong> (CVE-2021-44228)</td>
+      <td>Ubiquitous dependency</td>
+      <td>Not an attack on the supply chain but a vulnerability in it; showed how few organizations knew where they used a component</td>
+    </tr>
+    <tr>
+      <td>2023</td>
+      <td><strong>3CX</strong></td>
+      <td>Build system, via an upstream compromise</td>
+      <td>Trojanized desktop client; the intrusion itself began with a trojanized third-party trading application — a cascading supply-chain attack</td>
+    </tr>
+    <tr>
+      <td>2023</td>
+      <td><strong>MOVEit Transfer</strong> (CVE-2023-34362)</td>
+      <td>Third-party file-transfer product</td>
+      <td>Zero-day SQL injection mass-exploited by the Cl0p group; data stolen from thousands of organizations</td>
+    </tr>
+    <tr>
+      <td>2024</td>
+      <td><strong>xz Utils</strong> (CVE-2024-3094)</td>
+      <td>Maintainer trust</td>
+      <td>Multi-year social-engineering campaign to become a co-maintainer, then a backdoor targeting SSH; caught shortly before reaching stable distributions</td>
+    </tr>
+    <tr>
+      <td>2025</td>
+      <td><strong>tj-actions/changed-files</strong> (CVE-2025-30066)</td>
+      <td>CI component</td>
+      <td>Popular GitHub Action retagged to malicious code that dumped CI secrets into build logs</td>
+    </tr>
+    <tr>
+      <td>2025</td>
+      <td><strong>npm maintainer phishing and the “Shai-Hulud” worm</strong></td>
+      <td>Package registry</td>
+      <td>Phished maintainers’ packages (including <code class="language-plaintext highlighter-rouge">chalk</code> and <code class="language-plaintext highlighter-rouge">debug</code>) were republished with malware; a self-propagating worm then used stolen npm tokens to infect hundreds more packages</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="supply-chain-defense-knowing-and-trusting-what-you-ship">Supply-Chain Defense: Knowing and Trusting What You Ship</h3>
 
-<p>Detecting a malicious package after the fact is reactive. A mature program shifts left, building the supply chain so that every artifact is <em>inventoried</em>, <em>verifiable</em>, and <em>attributable</em>. Four pillars carry most of the weight: an inventory of what you ship (SBOM), proof of how it was built (provenance), cryptographic identity on the artifacts (signing), and continuous evaluation of the components and vendors you depend on.</p>
+<p>A mature program makes every artifact <strong>inventoried</strong> (SBOM), <strong>attributable</strong> (build provenance), <strong>verifiable</strong> (signatures checked at deploy time), and continuously re-evaluated as new vulnerabilities and supplier incidents emerge.</p>
 
-<h4 id="software-bills-of-materials-sbom">Software Bills of Materials (SBOM)</h4>
+<h4 id="software-bills-of-materials-sbom">Software bills of materials (SBOM)</h4>
 
-<p>An SBOM is a machine-readable inventory of every component — direct and transitive — that goes into a build, with versions, suppliers, licenses, and ideally hashes. When a new CVE drops (think Log4Shell), the difference between “we’ll know in an hour” and “we’ll know in three weeks” is whether you have current SBOMs you can query. Two formats dominate:</p>
+<p>An SBOM is a machine-readable inventory of every component — direct and transitive — in an artifact, with versions, suppliers, licenses, and ideally hashes. When the next Log4Shell lands, current SBOMs turn “are we affected?” from a weeks-long hunt into a query.</p>
 
 <table>
   <thead>
@@ -3307,323 +3457,461 @@ iptables <span class="nt">-A</span> INPUT <span class="nt">-j</span> DROP       
   <tbody>
     <tr>
       <td>Steward</td>
-      <td>OWASP</td>
-      <td>Linux Foundation (ISO/IEC 5962:2021)</td>
+      <td>OWASP; standardized as ECMA-424</td>
+      <td>Linux Foundation; ISO/IEC 5962</td>
     </tr>
     <tr>
-      <td>Primary focus</td>
-      <td>Security &amp; vulnerability use cases (VEX, dependencies, services)</td>
-      <td>Licensing &amp; compliance, broad artifact description</td>
+      <td>Emphasis</td>
+      <td>Security use cases: vulnerabilities, VEX, services, ML and crypto inventories (CBOM)</td>
+      <td>Licensing and compliance; SPDX 3.0 added security and AI profiles</td>
     </tr>
     <tr>
       <td>Encodings</td>
       <td>JSON, XML, Protobuf</td>
-      <td>JSON, YAML, RDF, tag-value, spreadsheet</td>
+      <td>JSON(-LD), YAML, RDF, tag-value</td>
     </tr>
     <tr>
       <td>Component identity</td>
-      <td>CPE, PURL, SWID</td>
-      <td>PURL, CPE, download location</td>
-    </tr>
-    <tr>
-      <td>Common generators</td>
-      <td><code class="language-plaintext highlighter-rouge">cyclonedx-*</code> CLIs, Syft, build plugins</td>
-      <td>Syft, FOSSology, SPDX tools</td>
+      <td>PURL, CPE, SWID</td>
+      <td>PURL, CPE</td>
     </tr>
   </tbody>
 </table>
 
-<p>Both satisfy the U.S. NTIA “minimum elements” for an SBOM and both can carry <strong>VEX</strong> (Vulnerability Exploitability eXchange) data, which states whether a known CVE in a bundled component is actually <em>exploitable</em> in your product — critical for cutting through the noise of transitive findings.</p>
+<p>Both meet the U.S. NTIA minimum elements. <strong>VEX</strong> (Vulnerability Exploitability eXchange) statements accompany an SBOM to say whether a CVE in a bundled component is actually exploitable in the product — essential for cutting through transitive-dependency noise.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Generate an SBOM from a built container image (format-agnostic tool)</span>
-syft myorg/app:1.4.2 <span class="nt">-o</span> cyclonedx-json <span class="o">&gt;</span> sbom.cdx.json
-syft myorg/app:1.4.2 <span class="nt">-o</span> spdx-json       <span class="o">&gt;</span> sbom.spdx.json
-
-<span class="c"># Scan that SBOM for known vulnerabilities (decoupled from generation)</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Generate an SBOM from a built image, then scan it separately</span>
+syft registry.example/app:1.4.2 <span class="nt">-o</span> cyclonedx-json <span class="o">&gt;</span> sbom.cdx.json
 grype sbom:sbom.cdx.json <span class="nt">--fail-on</span> high
 </code></pre></div></div>
 
-<h4 id="slsa-provenance-for-the-build-itself">SLSA: Provenance for the Build Itself</h4>
+<h4 id="slsa-provenance-for-the-build">SLSA: provenance for the build</h4>
 
-<p><a href="https://slsa.dev/">SLSA</a> (“Supply-chain Levels for Software Artifacts”) is a framework for hardening the <em>build pipeline</em> so that an artifact’s origin is tamper-evident. Its core deliverable is signed <strong>provenance</strong>: an attestation that says “this artifact, with this digest, was produced from this source commit by this builder using these parameters.” The levels are cumulative:</p>
+<p><a href="https://slsa.dev/">SLSA</a> (Supply-chain Levels for Software Artifacts) is a framework of incremental requirements for making artifact origin tamper-evident. Its central deliverable is signed <strong>provenance</strong>: an attestation that “the artifact with this digest was built from this source revision by this builder with these parameters.” The current specification, <strong>SLSA v1.2</strong>, has two tracks:</p>
 
-<ul>
-  <li><strong>L1</strong> — Provenance exists. The build process is scripted and emits a provenance document, even if unsigned. Gives basic transparency.</li>
-  <li><strong>L2</strong> — Signed provenance from a hosted build service. Provenance is generated by the platform (not the developer’s laptop) and cryptographically signed, so it can’t be silently forged.</li>
-  <li><strong>L3</strong> — Hardened, isolated builds. The build runs in an ephemeral, isolated environment with non-falsifiable provenance; secrets and the signing process are inaccessible to user-defined build steps, defeating an attacker who controls the build script.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Build track level</th>
+      <th>Requirement</th>
+      <th>Defends against</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>L0</td>
+      <td>None</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>L1</td>
+      <td>Provenance exists (may be unsigned)</td>
+      <td>Mistakes; gives basic transparency</td>
+    </tr>
+    <tr>
+      <td>L2</td>
+      <td>Provenance generated and signed by a hosted build platform</td>
+      <td>Tampering after the build; forged provenance</td>
+    </tr>
+    <tr>
+      <td>L3</td>
+      <td>Hardened, isolated builds; signing keys inaccessible to build steps</td>
+      <td>A compromised build script forging provenance or tampering with other builds</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Conceptual: a build emits provenance that a policy engine later verifies</span>
-<span class="na">attestation</span><span class="pi">:</span>
-  <span class="na">predicateType</span><span class="pi">:</span> <span class="s">https://slsa.dev/provenance/v1</span>
-  <span class="na">subject</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">myorg/app</span>
-      <span class="na">digest</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">sha256</span><span class="pi">:</span> <span class="s2">"</span><span class="s">9f86d0…"</span> <span class="pi">}</span>   <span class="c1"># the exact artifact this vouches for</span>
-  <span class="na">predicate</span><span class="pi">:</span>
-    <span class="na">buildDefinition</span><span class="pi">:</span>
-      <span class="na">buildType</span><span class="pi">:</span> <span class="s2">"</span><span class="s">https://github.com/actions/runner"</span>
-      <span class="na">externalParameters</span><span class="pi">:</span>
-        <span class="na">source</span><span class="pi">:</span> <span class="s2">"</span><span class="s">git+https://github.com/myorg/app@&lt;commit-sha&gt;"</span>
-    <span class="na">runDetails</span><span class="pi">:</span>
-      <span class="na">builder</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">id</span><span class="pi">:</span> <span class="s2">"</span><span class="s">https://github.com/slsa-framework/..."</span> <span class="pi">}</span>
+<p>The <strong>Source track</strong>, added in v1.2, applies the same idea to repositories: from basic version control up to enforced change-management controls such as mandatory review, so that provenance can vouch for <em>how</em> the source revision came to be.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Shape of a SLSA v1 provenance predicate (in-toto attestation)</span>
+<span class="na">_type</span><span class="pi">:</span> <span class="s">https://in-toto.io/Statement/v1</span>
+<span class="na">subject</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">registry.example/app</span>
+    <span class="na">digest</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">sha256</span><span class="pi">:</span> <span class="s2">"</span><span class="s">9f86d081..."</span> <span class="pi">}</span>
+<span class="na">predicateType</span><span class="pi">:</span> <span class="s">https://slsa.dev/provenance/v1</span>
+<span class="na">predicate</span><span class="pi">:</span>
+  <span class="na">buildDefinition</span><span class="pi">:</span>
+    <span class="na">buildType</span><span class="pi">:</span> <span class="s">https://actions.github.io/buildtypes/workflow/v1</span>
+    <span class="na">externalParameters</span><span class="pi">:</span>
+      <span class="na">workflow</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">repository</span><span class="pi">:</span> <span class="s2">"</span><span class="s">https://github.com/example-org/app"</span><span class="pi">,</span> <span class="nv">ref</span><span class="pi">:</span> <span class="s2">"</span><span class="s">refs/tags/v1.4.2"</span> <span class="pi">}</span>
+  <span class="na">runDetails</span><span class="pi">:</span>
+    <span class="na">builder</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">id</span><span class="pi">:</span> <span class="s2">"</span><span class="s">https://github.com/actions/runner/github-hosted"</span> <span class="pi">}</span>
 </code></pre></div></div>
 
-<h4 id="signing-and-verification">Signing and Verification</h4>
+<h4 id="signing-and-verification">Signing and verification</h4>
 
-<p>Provenance and SBOMs are only trustworthy if they’re signed and the signatures are checked at admission time. <strong>Sigstore</strong> has become the de-facto open ecosystem:</p>
+<p>Provenance and SBOMs matter only if they are signed and checked at admission. <strong>Sigstore</strong> is the de facto open ecosystem:</p>
 
 <ul>
-  <li><strong>cosign</strong> signs container images and arbitrary blobs (including SBOMs and SLSA provenance) and attaches them to the registry as OCI artifacts.</li>
-  <li><strong>Fulcio</strong> issues short-lived signing certificates bound to an OIDC identity (a CI workload, a developer’s SSO account), enabling <strong>keyless signing</strong> — no long-lived private key to leak.</li>
-  <li><strong>Rekor</strong> is an append-only transparency log; every signature is recorded so it can be audited and so revocation/monitoring is possible.</li>
+  <li><strong>cosign</strong> signs container images and arbitrary blobs and attaches signatures and attestations to the registry as OCI artifacts.</li>
+  <li><strong>Fulcio</strong> issues short-lived certificates bound to an OIDC identity (a CI workflow or a developer’s SSO account), enabling <strong>keyless signing</strong> — there is no long-lived private key to steal.</li>
+  <li><strong>Rekor</strong> is an append-only transparency log recording every signature, so misuse of an identity is publicly auditable.</li>
 </ul>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Keyless sign in CI (identity comes from the workflow's OIDC token)</span>
-cosign sign <span class="nt">--yes</span> myorg/app@sha256:9f86d0…
+<p>npm and PyPI now publish Sigstore-backed provenance and attestations for packages built on supported CI systems, and GitHub offers artifact attestations built on the same components.</p>
 
-<span class="c"># Attach an SBOM as a signed attestation</span>
-cosign attest <span class="nt">--yes</span> <span class="nt">--predicate</span> sbom.cdx.json <span class="se">\</span>
-  <span class="nt">--type</span> cyclonedx myorg/app@sha256:9f86d0…
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Keyless signing and attestation in CI</span>
+cosign sign <span class="nt">--yes</span> registry.example/app@sha256:&lt;digest&gt;
+cosign attest <span class="nt">--yes</span> <span class="nt">--type</span> cyclonedx <span class="nt">--predicate</span> sbom.cdx.json registry.example/app@sha256:&lt;digest&gt;
 
-<span class="c"># Verify at deploy time: signature + who signed it + which workflow</span>
+<span class="c"># Verification at deploy time: valid signature AND expected signer identity</span>
 cosign verify <span class="se">\</span>
-  <span class="nt">--certificate-identity-regexp</span> <span class="s1">'^https://github.com/myorg/.+'</span> <span class="se">\</span>
+  <span class="nt">--certificate-identity-regexp</span> <span class="s1">'^https://github.com/example-org/'</span> <span class="se">\</span>
   <span class="nt">--certificate-oidc-issuer</span> https://token.actions.githubusercontent.com <span class="se">\</span>
-  myorg/app@sha256:9f86d0…
+  registry.example/app@sha256:&lt;digest&gt;
 </code></pre></div></div>
 
-<p>Admission controllers (Kyverno, OPA/Gatekeeper, Sigstore’s policy-controller) enforce these checks in the cluster, <em>rejecting</em> any image that lacks valid provenance signed by an approved identity. This closes the SolarWinds-style gap: a tampered build artifact won’t match a legitimate provenance attestation and is refused at deploy.</p>
+<p>Admission controllers (Kyverno’s <code class="language-plaintext highlighter-rouge">ImageValidatingPolicy</code>, Sigstore policy-controller, OPA Gatekeeper) enforce these checks in Kubernetes, rejecting images without valid provenance from an approved identity; see <a href="cloud-and-container-security.html#admission-control-and-policy-as-code">Cloud &amp; Container Security</a>. A SolarWinds-style tampered artifact would not match legitimate provenance and would be refused.</p>
 
-<h4 id="dependency-scanning-and-pinning">Dependency Scanning and Pinning</h4>
-
-<ul>
-  <li><strong>Software Composition Analysis (SCA)</strong> — tools like <code class="language-plaintext highlighter-rouge">pip-audit</code>, <code class="language-plaintext highlighter-rouge">npm audit</code>, Dependabot, OSV-Scanner, Grype, and Trivy map your declared dependencies against vulnerability databases (NVD, the <a href="https://osv.dev/">OSV</a> database, GitHub Advisories) and open PRs to bump them.</li>
-  <li><strong>Lockfiles and hash pinning</strong> — <code class="language-plaintext highlighter-rouge">requirements.txt</code> with <code class="language-plaintext highlighter-rouge">--hash</code>, <code class="language-plaintext highlighter-rouge">package-lock.json</code>, <code class="language-plaintext highlighter-rouge">go.sum</code>, and <code class="language-plaintext highlighter-rouge">Cargo.lock</code> pin exact versions <em>and digests</em>, so a registry that silently republishes a different artifact under the same version is detected.</li>
-  <li><strong>Vendoring / internal proxies</strong> — an internal registry mirror (Artifactory, Nexus, a Go module proxy) gives you a quarantine point and defeats <strong>dependency-confusion</strong> attacks, where an attacker publishes a public package with the same name as your private one and a higher version number.</li>
-  <li><strong>Build hygiene</strong> — pin CI actions to commit SHAs (not mutable tags), run builds with no network egress where possible, and review new transitive dependencies, not just direct ones.</li>
-</ul>
-
-<h4 id="vendor-and-third-party-risk-assessment">Vendor and Third-Party Risk Assessment</h4>
-
-<p>Software you buy or integrate is part of your attack surface. A structured third-party risk management (TPRM) process evaluates suppliers before and during the relationship:</p>
+<h4 id="dependency-hygiene">Dependency hygiene</h4>
 
 <ul>
-  <li><strong>Security questionnaires &amp; attestations</strong> — standardized instruments (SIG, CAIQ) plus independent assurance reports (<strong>SOC 2 Type II</strong>, <strong>ISO/IEC 27001</strong> certification) substantiate a vendor’s controls rather than taking their word.</li>
-  <li><strong>Right-to-audit &amp; SLAs</strong> — contracts should mandate breach-notification timelines, patch SLAs, data-handling and sub-processor disclosure, and the right to assess.</li>
-  <li><strong>Continuous monitoring</strong> — external attack-surface and security-rating services flag a vendor’s deteriorating posture between annual reviews; subscribe to their advisories so you learn about <em>their</em> incidents quickly.</li>
-  <li><strong>Tiering</strong> — assess depth-of-review against the blast radius: a vendor with access to production data or that ships code into your build warrants far deeper scrutiny than a marketing SaaS.</li>
+  <li><strong>Software composition analysis</strong>: <code class="language-plaintext highlighter-rouge">pip-audit</code>, <code class="language-plaintext highlighter-rouge">npm audit</code>, OSV-Scanner, Grype, Trivy, Dependabot, and Renovate match dependencies against advisory databases (<a href="https://osv.dev/">OSV</a>, GitHub Advisories, NVD) and propose upgrades.</li>
+  <li><strong>Lockfiles with hashes</strong>: <code class="language-plaintext highlighter-rouge">package-lock.json</code>, <code class="language-plaintext highlighter-rouge">poetry.lock</code>/<code class="language-plaintext highlighter-rouge">uv.lock</code>, <code class="language-plaintext highlighter-rouge">go.sum</code>, <code class="language-plaintext highlighter-rouge">Cargo.lock</code>, and <code class="language-plaintext highlighter-rouge">pip --require-hashes</code> pin exact versions <em>and</em> digests, so a republished artifact is detected.</li>
+  <li><strong>Delay adoption</strong>: a cooldown (for example, not installing package versions less than a few days old) avoids most malicious releases, which are usually detected and pulled within hours to days. Renovate’s <code class="language-plaintext highlighter-rouge">minimumReleaseAge</code> and similar settings implement this.</li>
+  <li><strong>Internal proxies and namespace control</strong>: a registry mirror (Artifactory, Nexus, a Go module proxy) gives a quarantine point and defeats <strong>dependency confusion</strong>, where a public package impersonates a private package name with a higher version number.</li>
+  <li><strong>CI hygiene</strong>: pin third-party actions to full commit SHAs rather than mutable tags (the tj-actions lesson), give workflows the minimum token permissions, disable install scripts where possible (<code class="language-plaintext highlighter-rouge">npm ci --ignore-scripts</code>), and use short-lived OIDC credentials instead of stored secrets. See <a href="../ci-cd/security-and-operations.html">CI/CD Security and Operations</a>.</li>
 </ul>
 
-<h3 id="ransomware-the-digital-hostage-crisis">Ransomware: The Digital Hostage Crisis</h3>
+<h4 id="third-party-risk-management">Third-party risk management</h4>
 
-<p>Ransomware encrypts your files and demands payment for the key. Modern ransomware is sophisticated:</p>
+<p>Software and services bought from vendors are part of the attack surface:</p>
 
-<ol>
-  <li><strong>Initial Access</strong>: Through phishing, RDP brute force, or exploits</li>
-  <li><strong>Reconnaissance</strong>: Map the network, find valuable data</li>
-  <li><strong>Lateral Movement</strong>: Spread to critical systems</li>
-  <li><strong>Data Exfiltration</strong>: Steal data for “double extortion”</li>
-  <li><strong>Encryption</strong>: Lock everything simultaneously</li>
-  <li><strong>Ransom Demand</strong>: Pay or lose your data (and maybe have it leaked)</li>
-</ol>
+<ul>
+  <li><strong>Assurance evidence</strong>: standardized questionnaires (SIG, CAIQ) backed by independent reports (<strong>SOC 2 Type II</strong>, <strong>ISO/IEC 27001</strong> certification).</li>
+  <li><strong>Contract terms</strong>: breach-notification deadlines, patch SLAs, sub-processor disclosure, and a right to assess.</li>
+  <li><strong>Continuous monitoring</strong>: attack-surface and security-rating services, plus vendor advisories, between annual reviews.</li>
+  <li><strong>Tiering</strong>: depth of review proportional to blast radius — a vendor whose code runs in your build, or who holds production data, warrants far more scrutiny than a marketing tool.</li>
+</ul>
 
-<p><strong>Defense Strategy</strong>:</p>
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># The 3-2-1 backup rule</span>
-<span class="c"># 3 copies of important data</span>
-<span class="c"># 2 different storage media</span>
-<span class="c"># 1 offsite backup</span>
+<h2 id="ransomware">Ransomware</h2>
 
-<span class="c"># Plus: Immutable backups that can't be encrypted</span>
-<span class="c"># Plus: Regular restore testing</span>
-<span class="c"># Plus: Network segmentation to limit spread</span>
-</code></pre></div></div>
+<p>Ransomware has evolved from opportunistic file encryption into an organized criminal industry. Most operations run as <strong>ransomware-as-a-service (RaaS)</strong>: developers supply the malware and leak site, affiliates perform intrusions, and <strong>initial-access brokers</strong> sell footholds. <strong>Double extortion</strong> — stealing data before encrypting it and threatening to publish — is the norm, and some groups (such as Cl0p in the MOVEit campaign) skip encryption entirely and extort on stolen data alone.</p>
 
-<h2 id="advanced-attack-vectors">Advanced Attack Vectors</h2>
+<pre><code class="language-mermaid">flowchart LR
+    IA["Initial access&lt;br/&gt;phishing, edge-device exploit,&lt;br/&gt;valid VPN/RDP credentials"] --&gt; REC["Reconnaissance&lt;br/&gt;AD enumeration"]
+    REC --&gt; PRIV["Privilege escalation&lt;br/&gt;domain admin"]
+    PRIV --&gt; LAT["Lateral movement&lt;br/&gt;RDP, SMB, remote tools"]
+    LAT --&gt; EXF["Exfiltration&lt;br/&gt;for leak-site extortion"]
+    EXF --&gt; KILL["Inhibit recovery&lt;br/&gt;delete backups &amp; shadow copies,&lt;br/&gt;disable EDR"]
+    KILL --&gt; ENC["Encrypt&lt;br/&gt;hypervisors and servers at once"]
+    ENC --&gt; EXT["Extortion&lt;br/&gt;ransom note, leak threats"]
+</code></pre>
 
-<h3 id="side-channel-attacks-the-invisible-threat">Side-Channel Attacks: The Invisible Threat</h3>
+<p>Reported figures understate the damage: the FBI IC3 received more than 3,600 ransomware complaints in 2025 with about $32 million in reported direct losses — a number the IC3 itself notes excludes lost business, recovery costs, and unreported incidents.</p>
 
-<p>Some attacks don’t target your code or network—they exploit the physical properties of computing. These “side channels” leak information through timing, power consumption, or electromagnetic radiation.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Stage targeted</th>
+      <th>Defense</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Initial access</td>
+      <td>Patch internet-facing devices fast; phishing-resistant MFA on VPN, email, and remote access; remove exposed RDP</td>
+    </tr>
+    <tr>
+      <td>Privilege escalation and lateral movement</td>
+      <td>Tiered administration, LAPS or equivalent for local admin passwords, segmentation, EDR with tamper protection</td>
+    </tr>
+    <tr>
+      <td>Exfiltration</td>
+      <td>Egress monitoring; alert on large transfers to cloud storage or unusual destinations</td>
+    </tr>
+    <tr>
+      <td>Inhibit recovery</td>
+      <td><strong>Immutable or offline backups</strong> (object lock, write-once storage) in a separately administered account</td>
+    </tr>
+    <tr>
+      <td>Encryption</td>
+      <td>Hypervisor hardening (ESXi is a favored target); EDR ransomware behavior detection</td>
+    </tr>
+    <tr>
+      <td>Recovery</td>
+      <td>Tested restores with measured recovery time; an incident-response plan and retainer (see <a href="incident-response.html">Incident Response</a>)</td>
+    </tr>
+  </tbody>
+</table>
 
-<h4 id="timing-attacks-when-speed-kills-security">Timing Attacks: When Speed Kills Security</h4>
+<p>The traditional <strong>3-2-1 backup rule</strong> (three copies, two media, one offsite) is now usually extended to <strong>3-2-1-1-0</strong>: one copy immutable or air-gapped, and zero errors in regular restore tests. Backups whose deletion requires only the same domain-admin credentials the attacker has stolen do not count.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Vulnerable password check
-</span><span class="k">def</span> <span class="nf">check_password_vulnerable</span><span class="p">(</span><span class="n">input_password</span><span class="p">,</span> <span class="n">correct_password</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">input_password</span><span class="p">)</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">correct_password</span><span class="p">):</span>
+<h2 id="side-channel-and-fault-injection-attacks">Side-channel and fault-injection attacks</h2>
+
+<p>Side-channel attacks recover secrets not from flaws in an algorithm but from <strong>physical or microarchitectural byproducts of computing it</strong>: execution time, cache state, power draw, electromagnetic emanation, or sound. Fault-injection attacks go further and actively disturb the hardware to make it skip a check.</p>
+
+<h3 id="timing-attacks">Timing attacks</h3>
+
+<p>Any operation whose running time depends on secret data leaks that data. The classic example is comparing a secret with an early-exit loop:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">hmac</span><span class="p">,</span> <span class="n">hashlib</span>
+
+<span class="c1"># VULNERABLE: returns at the first differing byte, so response time
+# reveals how many leading bytes of the attacker's guess are correct
+</span><span class="k">def</span> <span class="nf">verify_signature_leaky</span><span class="p">(</span><span class="n">expected</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">provided</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">expected</span><span class="p">)</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">provided</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="n">provided</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">a</span> <span class="o">!=</span> <span class="n">b</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">False</span>
+    <span class="k">return</span> <span class="bp">True</span>
 
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">input_password</span><span class="p">)):</span>
-        <span class="k">if</span> <span class="n">input_password</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="n">correct_password</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
-            <span class="k">return</span> <span class="bp">False</span>  <span class="c1"># Returns immediately on first mismatch!
-</span>    <span class="k">return</span> <span class="bp">True</span>
-
-<span class="c1"># Attack: Measure how long the function takes
-# Longer execution = more characters correct
-# Attacker can guess password one character at a time!
-</span>
-<span class="c1"># Secure constant-time comparison
-</span><span class="kn">import</span> <span class="n">hmac</span>
-
-<span class="k">def</span> <span class="nf">check_password_secure</span><span class="p">(</span><span class="n">input_password</span><span class="p">,</span> <span class="n">correct_password</span><span class="p">):</span>
-    <span class="c1"># Always compares all bytes, regardless of mismatches
-</span>    <span class="k">return</span> <span class="n">hmac</span><span class="p">.</span><span class="nf">compare_digest</span><span class="p">(</span><span class="n">input_password</span><span class="p">,</span> <span class="n">correct_password</span><span class="p">)</span>
+<span class="c1"># SAFE: constant-time comparison of a webhook HMAC
+</span><span class="k">def</span> <span class="nf">verify_signature</span><span class="p">(</span><span class="n">secret</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">provided_hex</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="n">hmac</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="n">secret</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">hashlib</span><span class="p">.</span><span class="n">sha256</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">hmac</span><span class="p">.</span><span class="nf">compare_digest</span><span class="p">(</span><span class="n">expected</span><span class="p">,</span> <span class="n">provided_hex</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h4 id="power-analysis-reading-secrets-from-power-lines">Power Analysis: Reading Secrets from Power Lines</h4>
+<p>Remote timing attacks are practical against network services given enough samples, and the same principle governs cryptographic implementations: modern libraries use constant-time arithmetic and avoid secret-dependent branches and table lookups.</p>
 
-<p>When your CPU processes different data, it uses different amounts of power. Attackers with physical access can measure these variations:</p>
+<h3 id="microarchitectural-side-channels">Microarchitectural side channels</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># During RSA decryption, the CPU uses more power for '1' bits than '0' bits
-# By measuring power consumption during decryption,
-# attackers can recover the private key bit by bit!
-</span>
-<span class="c1"># Defense: Power analysis countermeasures
-</span><span class="k">def</span> <span class="nf">masked_multiplication</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
-    <span class="c1"># Add random "mask" to hide real values
-</span>    <span class="n">mask</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
-    <span class="n">masked_a</span> <span class="o">=</span> <span class="n">a</span> <span class="o">^</span> <span class="n">mask</span>
-    <span class="n">masked_b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">^</span> <span class="n">mask</span>
-    <span class="c1"># Perform operation on masked values
-</span>    <span class="n">result</span> <span class="o">=</span> <span class="nf">complex_operation</span><span class="p">(</span><span class="n">masked_a</span><span class="p">,</span> <span class="n">masked_b</span><span class="p">)</span>
-    <span class="c1"># Remove mask from result
-</span>    <span class="k">return</span> <span class="n">result</span> <span class="o">^</span> <span class="n">mask</span>
-</code></pre></div></div>
+<p>Shared CPU state can leak across security boundaries. <strong>Spectre</strong> and <strong>Meltdown</strong> (2018) showed that speculative execution leaves secret-dependent traces in the cache that another process — or JavaScript in a browser — can measure, and a long series of variants (MDS, Retbleed, Downfall, Inception, and others) followed. Mitigations combine microcode updates, kernel changes (page-table isolation, retpolines), compiler hardening, browser process isolation and reduced timer precision, and — for the most sensitive multi-tenant workloads — avoiding core sharing between trust domains. <strong>Rowhammer</strong>, which flips DRAM bits by rapidly accessing neighboring rows, is the fault-injection counterpart that software can trigger remotely; ECC and target-row-refresh reduce but do not eliminate it.</p>
 
-<h3 id="machine-learning-under-attack">Machine Learning Under Attack</h3>
+<h3 id="physical-side-channels-and-fault-injection">Physical side channels and fault injection</h3>
 
-<p>As AI becomes more prevalent, attackers have developed ways to fool machine learning models:</p>
+<p>With physical access, an attacker can both observe finer signals and perturb the device:</p>
 
-<h4 id="adversarial-examples-fooling-ai">Adversarial Examples: Fooling AI</h4>
+<table>
+  <thead>
+    <tr>
+      <th>Attack</th>
+      <th>Mechanism</th>
+      <th>Countermeasures</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Simple / differential power analysis (SPA/DPA)</td>
+      <td>Correlate power traces with hypotheses about key bits; DPA uses statistics over many traces</td>
+      <td>Masking (randomly splitting secrets into shares), hiding (constant-power logic, random delays), dual-rail circuits</td>
+    </tr>
+    <tr>
+      <td>Electromagnetic analysis, TEMPEST</td>
+      <td>Near-field probes or remote capture of compromising emanations</td>
+      <td>Shielding, Faraday enclosures, filtered power</td>
+    </tr>
+    <tr>
+      <td>Acoustic and optical</td>
+      <td>Sound of components; photon emission or laser probing of decapsulated dies</td>
+      <td>Physical shielding, active meshes</td>
+    </tr>
+    <tr>
+      <td>Voltage, clock, EM, and laser fault injection (“glitching”)</td>
+      <td>Induce a fault at the instant of a check, e.g. a secure-boot signature comparison</td>
+      <td>Redundant and inverted checks, control-flow integrity, glitch sensors, randomized timing</td>
+    </tr>
+    <tr>
+      <td>Cold-boot</td>
+      <td>Chill DRAM to preserve contents after power loss and read residual keys</td>
+      <td>Memory encryption (AMD SME, Intel TME), keys held in TPM or secure element, wiping keys on sleep</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Add tiny, invisible changes to an image
-# that completely fool an AI classifier
-</span>
-<span class="k">def</span> <span class="nf">create_adversarial_example</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">true_label</span><span class="p">):</span>
-    <span class="c1"># Calculate gradient of loss with respect to input
-</span>    <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># Tiny perturbation
-</span>
-    <span class="c1"># Fast Gradient Sign Method (FGSM)
-</span>    <span class="n">gradient</span> <span class="o">=</span> <span class="nf">calculate_gradient</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">true_label</span><span class="p">)</span>
-    <span class="n">perturbation</span> <span class="o">=</span> <span class="n">epsilon</span> <span class="o">*</span> <span class="nf">sign</span><span class="p">(</span><span class="n">gradient</span><span class="p">)</span>
+<h2 id="machine-learning-under-attack">Machine Learning Under Attack</h2>
 
-    <span class="c1"># Add perturbation to image
-</span>    <span class="n">adversarial_image</span> <span class="o">=</span> <span class="n">image</span> <span class="o">+</span> <span class="n">perturbation</span>
+<p>Machine-learning systems add attack surfaces that conventional controls do not cover. <strong>MITRE ATLAS</strong> extends ATT&amp;CK-style tactics and techniques to ML systems.</p>
 
-    <span class="c1"># To human: looks identical
-</span>    <span class="c1"># To AI: completely different!
-</span>    <span class="c1"># "Stop sign" → "Speed limit 45"
-</span>    <span class="k">return</span> <span class="n">adversarial_image</span>
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Attack</th>
+      <th>Stage</th>
+      <th>Goal</th>
+      <th>Main defenses</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Adversarial examples (evasion)</td>
+      <td>Inference</td>
+      <td>Small input perturbation causes misclassification</td>
+      <td>Adversarial training, input preprocessing, certified robustness for narrow cases</td>
+    </tr>
+    <tr>
+      <td>Data poisoning and backdoors</td>
+      <td>Training</td>
+      <td>Corrupt training data so the model misbehaves, possibly only on a trigger</td>
+      <td>Data provenance, dataset curation and filtering, anomaly detection on training data</td>
+    </tr>
+    <tr>
+      <td>Model extraction</td>
+      <td>Inference API</td>
+      <td>Clone a model by querying it</td>
+      <td>Rate limiting, query monitoring, returning labels rather than full probability vectors, watermarking</td>
+    </tr>
+    <tr>
+      <td>Membership inference and data extraction</td>
+      <td>Inference</td>
+      <td>Learn whether a record was in the training set, or recover memorized training data</td>
+      <td>Differential privacy in training, deduplication, output filtering</td>
+    </tr>
+    <tr>
+      <td>Model supply chain</td>
+      <td>Distribution</td>
+      <td>Malicious model files (e.g. Python pickle payloads that execute on load)</td>
+      <td>Safe formats such as <code class="language-plaintext highlighter-rouge">safetensors</code>, signature verification, scanning model artifacts</td>
+    </tr>
+    <tr>
+      <td>Prompt injection</td>
+      <td>LLM application</td>
+      <td>Instructions hidden in data hijack an LLM agent’s tools</td>
+      <td>Least agency, human confirmation, treating model output as untrusted; see <a href="application-and-cloud-security.html#llm-and-agentic-application-security">Application Security</a></td>
+    </tr>
+  </tbody>
+</table>
 
-<h4 id="model-stealing-intellectual-property-theft">Model Stealing: Intellectual Property Theft</h4>
+<p>The canonical evasion attack, the <strong>Fast Gradient Sign Method (FGSM)</strong>, perturbs an input $x$ in the direction that most increases the loss $J$ of a model with parameters $\theta$ for the true label $y$, bounded by a small step $\epsilon$:</p>
 
-<p>Attackers can steal a machine learning model by querying it:</p>
+\[x_{\text{adv}} = x + \epsilon \cdot \operatorname{sign}\left(\nabla_x J(\theta, x, y)\right)\]
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Attacker queries your model API with carefully chosen inputs
-# Uses responses to train their own copy of your model
-# After enough queries, they have a functional clone!
-</span>
-<span class="c1"># Defense: Rate limiting, anomaly detection, output perturbation
-</span><span class="k">def</span> <span class="nf">protect_model_api</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">input_data</span><span class="p">):</span>
-    <span class="c1"># Add small random noise to outputs
-</span>    <span class="n">prediction</span> <span class="o">=</span> <span class="n">model</span><span class="p">.</span><span class="nf">predict</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
-    <span class="n">noise</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">prediction</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">prediction</span> <span class="o">+</span> <span class="n">noise</span>
-</code></pre></div></div>
+<p>A perturbation invisible to a human can flip an image classifier’s output with high confidence. Iterative variants (PGD) are stronger, and physically realizable perturbations — stickers on road signs, patterned eyeglass frames — carry the attack into the real world.</p>
 
 <h2 id="physical--hardware-attacks">Physical &amp; Hardware Attacks</h2>
 
-<p>Most of this page assumes the adversary is on the wire. But an attacker who can <em>touch</em> the hardware — or who is the hardware vendor — operates below the layer your software trusts. Physical security is the substrate every other control rests on: an unlocked rack, a cloned badge, or a leaking power rail can make perfect cryptography irrelevant.</p>
+<p>An attacker who can touch the hardware — or who controls part of its supply chain — operates below the layer software trusts. An unlocked rack, a cloned badge, or an implanted device can make perfect cryptography irrelevant.</p>
 
-<h3 id="data-center--facility-access-control">Data-Center &amp; Facility Access Control</h3>
+<h3 id="facility-access-control">Facility access control</h3>
 
-<p>Physical defense, like network defense, is layered. A modern colocation or cloud facility enforces concentric zones, each with stronger controls than the last:</p>
+<p>Physical defense is layered like network defense, with concentric zones of increasing control:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    P["Perimeter: fencing, CCTV, vehicle barriers"] --&gt; L["Lobby: visitor sign-in, escort, ID check"]
-    L --&gt; F["Floor: badge + PIN, anti-tailgating mantrap"]
-    F --&gt; C["Cage / Rack: cage keys, locked cabinets"]
-    C --&gt; S["Server: locked bezel, port locks"]
-    style P fill:#e3f2fd,stroke:#1565c0
-    style S fill:#e8f5e9,stroke:#2e7d32
+    P["Perimeter&lt;br/&gt;fencing, CCTV, vehicle barriers"] --&gt; L["Lobby&lt;br/&gt;visitor sign-in, ID check, escort"]
+    L --&gt; F["Data hall&lt;br/&gt;badge + PIN/biometric, mantrap"]
+    F --&gt; C["Cage / rack&lt;br/&gt;locked cabinets, per-cage access"]
+    C --&gt; S["Server&lt;br/&gt;locked bezel, port blockers, intrusion switch"]
 </code></pre>
 
-<p>Key controls and the threats they address:</p>
-
 <ul>
-  <li><strong>Mantraps / access-control vestibules</strong> — a two-door airlock that admits one person at a time, defeating <strong>tailgating</strong> (slipping in behind an authorized employee).</li>
-  <li><strong>Multi-factor physical access</strong> — badge (something you have) + PIN or biometric (something you know/are). A cloned RFID badge alone shouldn’t open a cage.</li>
-  <li><strong>Anti-passback</strong> — the system refuses a badge-in if that badge never badged out, catching a credential that’s been passed back through a fence or door.</li>
-  <li><strong>Least privilege &amp; logging</strong> — access is scoped per cage/row, time-boxed for contractors, and every entry is logged and reconciled against change tickets. Cameras provide non-repudiation.</li>
-  <li><strong>Environmental and tamper monitoring</strong> — door-ajar sensors, cage motion sensors, and seismic/vibration sensors on high-value racks.</li>
+  <li><strong>Mantraps (access-control vestibules)</strong> admit one person at a time, defeating tailgating.</li>
+  <li><strong>Multi-factor physical access</strong>: badge plus PIN or biometric, because RFID badges — especially legacy 125 kHz proximity cards — are easily cloned.</li>
+  <li><strong>Anti-passback</strong> refuses a badge that never badged out, catching credentials passed back to another person.</li>
+  <li><strong>Scoped, time-boxed, logged access</strong> reconciled against change tickets, with camera coverage for non-repudiation.</li>
+  <li><strong>Environmental and tamper sensors</strong>: door-ajar, cage motion, and vibration sensors on high-value racks.</li>
 </ul>
 
-<h3 id="tamper-evidence-and-tamper-resistance">Tamper Evidence and Tamper Resistance</h3>
+<h3 id="tamper-evidence-resistance-and-response">Tamper evidence, resistance, and response</h3>
 
-<p>You can rarely <em>prevent</em> a determined attacker with physical possession from eventually getting in. The realistic goals are to make tampering <strong>evident</strong> (you can tell it happened) and, for the most sensitive components, <strong>responsive</strong> (the device destroys its secrets when attacked):</p>
+<p>A determined attacker with physical possession usually gets in eventually. The realistic goals are to make tampering <strong>evident</strong> and, for the most sensitive components, to make the device <strong>respond</strong> by destroying its secrets:</p>
 
-<ul>
-  <li><strong>Tamper-evident</strong> — holographic seals, frangible labels, and security tape that shred or display “VOID” if peeled. Chassis-intrusion switches log a BIOS event when a server lid opens. These don’t stop an attacker; they ensure you <em>know</em>.</li>
-  <li><strong>Tamper-resistant</strong> — hardened enclosures, epoxy potting over sensitive chips, and meshes that resist drilling and probing.</li>
-  <li><strong>Tamper-responsive</strong> — active sensing (mesh continuity, voltage/temperature/light sensors) that triggers immediate <strong>zeroization</strong> of keys. This is the bar set by <strong>FIPS 140-3 Level 3/4</strong> for cryptographic modules: penetrating the boundary actively erases the secrets.</li>
-  <li><strong>Chain of custody &amp; evidence handling</strong> — for hardware that’s been out of your control (returned from RMA, seized, shipped), assume compromise until inspected; this is also why <strong>evil-maid</strong> attacks (brief unsupervised access to a powered-off laptop to implant a bootkit) are countered with measured boot and full-disk encryption bound to a TPM.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Examples</th>
+      <th>FIPS 140-3 physical security</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Tamper-evident</td>
+      <td>Void-on-removal seals, security tape, chassis-intrusion switches logging a firmware event</td>
+      <td>Level 2</td>
+    </tr>
+    <tr>
+      <td>Tamper-resistant</td>
+      <td>Hardened enclosures, epoxy potting, anti-drill meshes</td>
+      <td>Level 3 (with response)</td>
+    </tr>
+    <tr>
+      <td>Tamper-responsive</td>
+      <td>Mesh, voltage, temperature, and light sensors that trigger immediate key <strong>zeroization</strong></td>
+      <td>Level 3–4; Level 4 adds protection against environmental attacks</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="side-channel--fault-injection-attacks">Side-Channel &amp; Fault-Injection Attacks</h3>
+<p>Hardware that has been out of your control — returned from repair, shipped, or seized — should be treated as compromised until inspected. <strong>Evil-maid</strong> attacks (brief access to an unattended laptop to implant a bootkit) are countered with measured boot and full-disk encryption keys sealed to the TPM, ideally with a pre-boot PIN.</p>
 
-<p><a href="#side-channel-attacks-the-invisible-threat">Side channels</a> were introduced above as timing and power leaks. With physical access the threat broadens considerably, because the attacker can both <em>observe</em> finer signals and <em>actively perturb</em> the device:</p>
+<h3 id="hardware-roots-of-trust">Hardware roots of trust</h3>
 
-<ul>
-  <li><strong>Differential Power Analysis (DPA)</strong> — statistically correlating many power traces against a key hypothesis recovers keys even when single-trace (simple) power analysis fails. Countermeasures: masking (as shown earlier), hiding (constant-power logic, randomized clock), and balanced dual-rail circuits.</li>
-  <li><strong>Electromagnetic (EM) emanation</strong> — like power analysis but read with a near-field probe; also the basis of <strong>TEMPEST</strong>, where compromising emanations (from a CPU, cable, or even a monitor) are captured remotely. Defenses: shielding, Faraday enclosures, and filtered power.</li>
-  <li><strong>Acoustic and optical</strong> — chip-level acoustic cryptanalysis and laser/optical probing of decapsulated dies.</li>
-  <li><strong>Fault injection (glitching)</strong> — deliberately inducing a fault to skip a security check: <strong>voltage glitching</strong> (a brief undervolt), <strong>clock glitching</strong>, <strong>electromagnetic fault injection</strong>, and <strong>laser fault injection</strong>. A classic target is a <code class="language-plaintext highlighter-rouge">if (signature_valid)</code> branch or a secure-boot check. Defenses: redundant checks, control-flow integrity, sensors that detect out-of-spec voltage/clock, and randomized timing.</li>
-  <li><strong>Rowhammer &amp; cold-boot</strong> — Rowhammer flips DRAM bits by rapidly accessing neighboring rows (a <em>remote-ish</em> hardware fault); cold-boot attacks freeze RAM to read residual keys after power-off. Mitigations: ECC and target-row-refresh memory, and never holding keys in unencrypted DRAM longer than necessary.</li>
-</ul>
+<p>Keys held in general-purpose memory are exposed to many of the attacks above, so high-assurance systems keep them in dedicated hardware that performs cryptographic operations without exporting key material:</p>
 
-<h3 id="hardware-security-modules-and-secure-elements">Hardware Security Modules and Secure Elements</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Role</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>HSM</strong> (hardware security module)</td>
+      <td>Tamper-responsive appliance or card; keys generated and used inside a certified boundary (commonly FIPS 140-3 Level 3); accessed via PKCS#11, KMIP, or JCE</td>
+      <td>PKI root CAs, payment PIN processing, code-signing keys, cloud KMS back ends</td>
+    </tr>
+    <tr>
+      <td><strong>TPM 2.0</strong></td>
+      <td>Motherboard or firmware crypto-processor; records boot measurements in PCRs</td>
+      <td>Measured boot, remote attestation, sealing disk-encryption keys to a known-good boot chain</td>
+    </tr>
+    <tr>
+      <td><strong>Secure element / enclave</strong></td>
+      <td>Isolated on-chip processor</td>
+      <td>Payment cards, SIMs, passports; Apple Secure Enclave, Android StrongBox; passkey private keys</td>
+    </tr>
+    <tr>
+      <td><strong>Confidential computing</strong></td>
+      <td>CPU-enforced encrypted, attested VMs or enclaves (AMD SEV-SNP, Intel TDX, Arm CCA)</td>
+      <td>Protecting workloads from a compromised host or cloud operator</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Because keys living in general-purpose memory are exposed to many of the attacks above, high-assurance systems keep keys in dedicated hardware that performs crypto <em>on behalf of</em> applications without ever exporting the key material:</p>
+<p>Even if the host OS is fully compromised, an attacker can request <em>operations</em> from an HSM or TPM but cannot extract the key, and the module’s policy and rate limits bound the damage. The most sensitive keys should additionally require quorum (M-of-N) authorization and audit logging.</p>
 
-<ul>
-  <li><strong>HSM (Hardware Security Module)</strong> — a tamper-responsive appliance or PCIe card that generates, stores, and uses keys inside a certified boundary (typically <strong>FIPS 140-3 Level 3+</strong>). Applications send “sign this / decrypt this” requests over PKCS#11, KMIP, or JCE; the private key never leaves. HSMs back PKI roots, payment (PIN/HSM) systems, code-signing keys, and cloud KMS services.</li>
-  <li><strong>TPM (Trusted Platform Module)</strong> — a low-cost secure crypto-processor on the motherboard that stores platform keys, performs <strong>measured boot</strong> (recording firmware/bootloader hashes into PCRs), and enables <strong>remote attestation</strong> and <strong>sealing</strong> (releasing a disk-encryption key only if the boot chain measurements match).</li>
-  <li><strong>Secure Element / Smartcard / SIM</strong> — a hardened single-chip used in payment cards, passports, and phones; <strong>Apple’s Secure Enclave</strong> and Android’s <strong>StrongBox</strong> are on-device variants isolating biometric templates and device keys.</li>
-  <li><strong>Why it helps</strong> — even if the host OS is fully compromised, the attacker can request <em>operations</em> but cannot extract the key, and rate limiting / policy in the module bounds the damage. Pair HSM-resident keys with strict authorization (quorum/M-of-N for the most sensitive keys) and audit logging.</li>
-</ul>
+<h3 id="biometric-presentation-attacks">Biometric presentation attacks</h3>
 
-<h3 id="biometric-spoofing-and-presentation-attacks">Biometric Spoofing and Presentation Attacks</h3>
+<p>Biometrics are not secrets: faces, fingerprints, and voices are observable and reproducible. A <strong>presentation attack</strong> (the ISO/IEC 30107 term) submits a forged trait to a sensor:</p>
 
-<p>Biometrics (“something you are”) gate both physical doors and device unlock, but a biometric is not a secret — your face and fingerprints are observable and reproducible. A <strong>presentation attack</strong> (the ISO/IEC 30107 term) submits a forged trait to the sensor:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Modality</th>
+      <th>Common spoofs</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Fingerprint</td>
+      <td>Latent prints cast in gelatin, glue, or conductive silicone; high-resolution photographs</td>
+    </tr>
+    <tr>
+      <td>Face</td>
+      <td>Printed photos, screen replay, 3D masks; deepfake video injected into remote identity-verification flows</td>
+    </tr>
+    <tr>
+      <td>Voice</td>
+      <td>Recordings and AI voice clones (the same technology behind vishing)</td>
+    </tr>
+    <tr>
+      <td>Iris</td>
+      <td>High-resolution photographs, printed contact lenses</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>Fingerprint</strong> — lifted latent prints cast in gelatin, glue, or conductive silicone; high-res photos for capacitive/optical sensors.</li>
-  <li><strong>Face</strong> — printed photos, video replay on a screen, 3D-printed masks, and increasingly <strong>deepfakes</strong> against remote/video identity-verification flows.</li>
-  <li><strong>Voice</strong> — recorded or AI-cloned speech against voice authentication (the same cloning that powers vishing).</li>
-  <li><strong>Iris</strong> — high-resolution photographs with a printed or contact-lens overlay.</li>
-</ul>
-
-<p>Defenses center on <strong>Presentation Attack Detection (PAD) / liveness detection</strong>:</p>
-
-<ul>
-  <li><strong>Active liveness</strong> — challenge-response (blink, turn head, speak a random phrase) that a static artifact can’t satisfy.</li>
-  <li><strong>Passive liveness</strong> — sensing properties only a live trait has: sub-dermal blood flow, pulse, skin texture/specular reflection, 3D depth (structured-light or ToF, as in Face ID), or sweat-pore patterns on a finger.</li>
-  <li><strong>Multi-modal &amp; multi-factor</strong> — combine biometrics with a possession factor; never treat a biometric as a sole high-assurance credential for remote access.</li>
-  <li><strong>Template protection</strong> — store cancelable/transformed templates, not raw biometrics, so a database breach doesn’t permanently compromise a trait you can’t change. Standards: ISO/IEC 30107-3 (PAD testing) and FIDO’s biometric certification program for measured anti-spoof performance.</li>
-</ul>
+<p>Defenses center on <strong>presentation attack detection (PAD)</strong>, also called liveness detection: <em>active</em> challenges (blink, turn, speak a random phrase) and <em>passive</em> signals only a live trait produces (depth from structured light or time-of-flight, blood flow, skin texture). Remote identity verification must also defend against <strong>injection attacks</strong>, in which synthetic video bypasses the camera entirely via a virtual camera driver. Biometrics should unlock a local credential (as with passkeys, where the biometric never leaves the device) rather than serve as a standalone remote authenticator, and stored templates should be protected or cancelable so that a database breach does not permanently compromise a trait that cannot be changed. ISO/IEC 30107-3 and the FIDO Alliance biometric certification program define how PAD performance is tested.</p>
 
 <hr />
 
 <div class="page-nav">
-  <span class="page-nav-prev"><a href="application-and-cloud-security.html">← Web, Cloud &amp; Container Security</a></span>
-  <span class="page-nav-next"><a href="operations-and-response.html">Operations, Response &amp; Compliance →</a></span>
+  <span class="page-nav-prev"><a href="cloud-and-container-security.html">← Cloud &amp; Container Security</a></span>
+  <span class="page-nav-next"><a href="operations-and-response.html">Security Operations &amp; Response →</a></span>
 </div>
 
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="operations-and-response.html">Operations, Response &amp; Compliance</a> — what to do once an attack succeeds</li>
-  <li><a href="application-and-cloud-security.html">Web, Cloud &amp; Container Security</a> — application-layer attacks and Zero Trust in IAM</li>
+  <li><a href="operations-and-response.html">Security Operations &amp; Response</a> — detecting and responding once an attack succeeds</li>
+  <li><a href="application-and-cloud-security.html">Application Security</a> — injection, SSRF, authentication, and LLM application risks</li>
+  <li><a href="cloud-and-container-security.html">Cloud &amp; Container Security</a> — IAM, workload identity, and Kubernetes admission control</li>
+  <li><a href="cryptography.html">Cryptography</a> — the primitives side-channel attacks target</li>
   <li><a href="../networking/">Networking</a> — the protocols and routing these defenses operate on</li>
+  <li><a href="../ci-cd/security-and-operations.html">CI/CD Security and Operations</a> — hardening the build pipeline against supply-chain attacks</li>
 </ul>
 
       </section>

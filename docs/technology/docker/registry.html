@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How OCI registries store and address images, tags versus digests, choosing and operating a registry, and the supply-chain controls that prove what you ship: ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Docker: Registries & Supply-Chain Security">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How OCI registries store and address images, tags versus digests, choosing and operating a registry, and the supply-chain controls that prove what you ship: ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/docker/registry.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Docker: Registries & Supply-Chain Security">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How OCI registries store and address images, tags versus digests, choosing and operating a registry, and the supply-chain controls that prove what you ship: ...">
 
 <title>Docker: Registries & Supply-Chain Security | Andrews Notebook</title>
 
@@ -3133,73 +3133,58 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Docker</a> » Registries &amp; Supply-Chain Security</p>
 
-<p>A registry is where images live between <code class="language-plaintext highlighter-rouge">docker build</code> and <code class="language-plaintext highlighter-rouge">docker run</code>. Everything downstream — what runs in production, what a vulnerability scanner reports, what an auditor trusts — depends on the integrity of that distribution step. This page covers how registries store and address images, how tags differ from immutable digests, and the modern supply-chain controls (signing, SBOMs, scanning, and provenance) that let you prove an image is the one you built from source you control.</p>
+<p>A registry is where images live between <code class="language-plaintext highlighter-rouge">docker build</code> and <code class="language-plaintext highlighter-rouge">docker run</code>. What runs in production, what a scanner reports, and what an auditor accepts all depend on the integrity of that distribution step. This page covers how registries store and address images, why deployments should use digests rather than tags, how to choose and operate a registry, and the supply-chain controls (signing, SBOMs, vulnerability scanning, and build provenance) that let you prove an image is the one your pipeline built from source you control.</p>
 
 <h2 id="how-a-registry-works">How a Registry Works</h2>
 
-<p>A registry is an HTTP service that implements the <a href="https://github.com/opencontainers/distribution-spec">OCI Distribution Specification</a> (the open successor to the Docker Registry HTTP API v2). When you <code class="language-plaintext highlighter-rouge">docker push</code>, the client uploads two kinds of objects:</p>
+<p>A registry is an HTTP service implementing the <a href="https://github.com/opencontainers/distribution-spec">OCI Distribution Specification</a>, the standardized successor to the Docker Registry HTTP API v2. It stores two kinds of objects, both <strong>content-addressed</strong> by the SHA-256 digest of their bytes:</p>
 
 <ul>
-  <li><strong>Blobs</strong> — the compressed layer tarballs and the image config JSON. Each is content-addressed by the SHA-256 digest of its bytes.</li>
-  <li><strong>Manifests</strong> — small JSON documents that list the config blob and the ordered layer blobs (by digest and size) that make up an image. Manifests are themselves content-addressed.</li>
+  <li><strong>Blobs</strong>: compressed layer tarballs and the image’s JSON config.</li>
+  <li><strong>Manifests</strong>: small JSON documents listing the config blob and the ordered layer blobs (each by digest and size) that make up one image for one platform.</li>
 </ul>
 
-<p>A <strong>tag</strong> is just a mutable human-friendly name (a pointer) stored in the registry that resolves to a manifest digest. A <strong>multi-arch image</strong> uses a <em>manifest list</em> (also called an image index): one top-level manifest whose entries are per-platform manifests (<code class="language-plaintext highlighter-rouge">linux/amd64</code>, <code class="language-plaintext highlighter-rouge">linux/arm64</code>, …). The client picks the entry matching its platform.</p>
+<p>A multi-platform image adds an <strong>image index</strong> (Docker calls it a <em>manifest list</em>): a manifest whose entries point to per-platform manifests such as <code class="language-plaintext highlighter-rouge">linux/amd64</code> and <code class="language-plaintext highlighter-rouge">linux/arm64</code>. The client selects the entry matching its platform. A <strong>tag</strong> is the only mutable object: a name in a repository that currently points to some manifest or index digest.</p>
 
-<p>Pushing and pulling both reduce to “exchange blobs and manifests by digest.” Because every object is named by the hash of its content, the registry can deduplicate shared layers across images and the client can verify integrity end-to-end.</p>
+<pre><code class="language-mermaid">flowchart LR
+    T["Tag&lt;br/&gt;web-api:1.4.2&lt;br/&gt;(mutable pointer)"] --&gt; IX["Image index&lt;br/&gt;sha256:a1b2...&lt;br/&gt;(immutable)"]
+    IX --&gt;|linux/amd64| M1["Manifest&lt;br/&gt;sha256:c3d4..."]
+    IX --&gt;|linux/arm64| M2["Manifest&lt;br/&gt;sha256:e5f6..."]
+    M1 --&gt; C1["Config blob"]
+    M1 --&gt; BL1["Layer: base OS"]
+    M1 --&gt; BL2["Layer: app"]
+    M2 --&gt; C2["Config blob"]
+    M2 --&gt; BL3["Layer: base OS (arm64)"]
+    M2 --&gt; BL2
+</code></pre>
 
-<div class="docker-workflow">
-      <svg viewBox="0 0 700 260" class="workflow-diagram">
-        <!-- Tag -->
-        <rect x="30" y="20" width="150" height="50" fill="#3498db" opacity="0.3" stroke="#2980b9" stroke-width="2" />
-        <text x="105" y="42" text-anchor="middle" font-size="12" font-weight="bold">Tag</text>
-        <text x="105" y="58" text-anchor="middle" font-size="10">myapp:1.4.2 (mutable)</text>
+<p>Push and pull both reduce to exchanging blobs and manifests by digest. The client uploads only blobs the registry does not already have, the registry deduplicates layers shared across images, and the client verifies every byte it downloads against the digest that named it.</p>
 
-        <path d="M 105 70 L 105 100" stroke="#34495e" stroke-width="2" marker-end="url(#arrow)" />
-        <text x="170" y="90" text-anchor="middle" font-size="9">resolves to</text>
+<p>The digest of the top-level manifest or index therefore pins the entire image transitively: it covers the config and every layer, because they are referenced by their own digests. Change anything inside the image and the top-level digest changes. That property is what makes deploying by digest trustworthy.</p>
 
-        <!-- Manifest list -->
-        <rect x="20" y="100" width="170" height="60" fill="#9b59b6" opacity="0.25" stroke="#8e44ad" stroke-width="2" />
-        <text x="105" y="122" text-anchor="middle" font-size="11" font-weight="bold">Manifest List</text>
-        <text x="105" y="138" text-anchor="middle" font-size="9">sha256:a1b2... (immutable)</text>
-        <text x="105" y="151" text-anchor="middle" font-size="8">amd64 + arm64 entries</text>
+<h3 id="artifacts-and-the-referrers-api">Artifacts and the Referrers API</h3>
 
-        <!-- Platform manifests -->
-        <rect x="250" y="40" width="150" height="50" fill="#e67e22" opacity="0.25" stroke="#d35400" stroke-width="2" />
-        <text x="325" y="60" text-anchor="middle" font-size="10" font-weight="bold">Manifest (amd64)</text>
-        <text x="325" y="76" text-anchor="middle" font-size="8">config + layer digests</text>
+<p>Registries now store more than images. OCI Image and Distribution Specifications v1.1 (2024) standardized two additions that the supply-chain tools below depend on:</p>
 
-        <rect x="250" y="120" width="150" height="50" fill="#e67e22" opacity="0.25" stroke="#d35400" stroke-width="2" />
-        <text x="325" y="140" text-anchor="middle" font-size="10" font-weight="bold">Manifest (arm64)</text>
-        <text x="325" y="156" text-anchor="middle" font-size="8">config + layer digests</text>
+<ul>
+  <li><strong>Artifacts.</strong> A manifest can carry an <code class="language-plaintext highlighter-rouge">artifactType</code> and arbitrary blobs, so Helm charts, WebAssembly modules, SBOMs, signatures, and ML model files can be pushed to the same registry with the same authentication and replication.</li>
+  <li><strong>The <code class="language-plaintext highlighter-rouge">subject</code> field and Referrers API.</strong> An artifact can declare that it refers to another manifest (its <em>subject</em>). The registry indexes these links, and a client can ask “what refers to <code class="language-plaintext highlighter-rouge">sha256:c3d4...</code>?” to discover the signatures, SBOMs, and provenance attached to an image.</li>
+</ul>
 
-        <path d="M 190 125 L 248 70" stroke="#34495e" stroke-width="1.5" marker-end="url(#arrow)" />
-        <path d="M 190 135 L 248 140" stroke="#34495e" stroke-width="1.5" marker-end="url(#arrow)" />
+<pre><code class="language-mermaid">flowchart BT
+    SIG["Signature&lt;br/&gt;(cosign / Notation)"] --&gt;|subject| IMG["Image manifest&lt;br/&gt;sha256:c3d4..."]
+    SBOM["SBOM&lt;br/&gt;(SPDX / CycloneDX)"] --&gt;|subject| IMG
+    PROV["Provenance&lt;br/&gt;(SLSA / in-toto)"] --&gt;|subject| IMG
+    VEX["VEX statement"] --&gt;|subject| IMG
+</code></pre>
 
-        <!-- Blobs -->
-        <rect x="470" y="30" width="200" height="200" fill="#27ae60" opacity="0.15" stroke="#229954" stroke-width="2" />
-        <text x="570" y="50" text-anchor="middle" font-size="11" font-weight="bold">Content-Addressed Blobs</text>
-        <rect x="490" y="65" width="160" height="26" fill="#229954" opacity="0.5" />
-        <text x="570" y="82" text-anchor="middle" font-size="8" fill="white">config json (sha256:...)</text>
-        <rect x="490" y="100" width="160" height="26" fill="#229954" opacity="0.5" />
-        <text x="570" y="117" text-anchor="middle" font-size="8" fill="white">layer 1 (sha256:...)</text>
-        <rect x="490" y="135" width="160" height="26" fill="#229954" opacity="0.5" />
-        <text x="570" y="152" text-anchor="middle" font-size="8" fill="white">layer 2 (shared, dedup)</text>
-        <rect x="490" y="170" width="160" height="26" fill="#229954" opacity="0.5" />
-        <text x="570" y="187" text-anchor="middle" font-size="8" fill="white">layer 3 (sha256:...)</text>
+<p>Registries without referrers support fall back to a tag-naming convention (for example cosign’s <code class="language-plaintext highlighter-rouge">sha256-&lt;digest&gt;.sig</code> tags). BuildKit, by contrast, stores its SBOM and provenance attestations as extra entries inside the image index.</p>
 
-        <path d="M 400 65 L 468 100" stroke="#34495e" stroke-width="1.5" marker-end="url(#arrow)" />
-        <path d="M 400 145 L 468 140" stroke="#34495e" stroke-width="1.5" marker-end="url(#arrow)" />
-      </svg>
-</div>
+<h3 id="image-reference-anatomy">Image Reference Anatomy</h3>
 
-<p>The digest you see in <code class="language-plaintext highlighter-rouge">docker images --digests</code> or <code class="language-plaintext highlighter-rouge">docker buildx imagetools inspect</code> is the SHA-256 of the manifest bytes. That single hash transitively pins the config and every layer, because the manifest references them by their own digests. This is the property that makes digests trustworthy: change anything inside the image and the top-level digest changes.</p>
-
-<h3 id="image-references-anatomy">Image References Anatomy</h3>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ghcr.io/acme/web-api:1.4.2@sha256:9f86d08...
-└──┬──┘ └───┬────┘ └─┬─┘ └────────┬────────┘
- host    repository  tag        digest
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ghcr.io/acme/web-api:1.4.2@sha256:9f86d08...
+└──┬──┘ └───┬──────┘ └─┬─┘ └──────┬───────┘
+  host   repository    tag       digest
 </code></pre></div></div>
 
 <table>
@@ -3214,143 +3199,153 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td>Host (registry)</td>
       <td><code class="language-plaintext highlighter-rouge">ghcr.io</code></td>
-      <td>Omitted defaults to Docker Hub (<code class="language-plaintext highlighter-rouge">registry-1.docker.io</code>)</td>
+      <td>Omitted means Docker Hub (<code class="language-plaintext highlighter-rouge">docker.io</code>, served from <code class="language-plaintext highlighter-rouge">registry-1.docker.io</code>)</td>
     </tr>
     <tr>
-      <td>Repository (namespace + name)</td>
+      <td>Repository</td>
       <td><code class="language-plaintext highlighter-rouge">acme/web-api</code></td>
-      <td>On Docker Hub, a bare name like <code class="language-plaintext highlighter-rouge">nginx</code> means <code class="language-plaintext highlighter-rouge">library/nginx</code></td>
+      <td>On Docker Hub a bare name such as <code class="language-plaintext highlighter-rouge">nginx</code> means <code class="language-plaintext highlighter-rouge">library/nginx</code> (Docker Official Images)</td>
     </tr>
     <tr>
       <td>Tag</td>
       <td><code class="language-plaintext highlighter-rouge">1.4.2</code></td>
-      <td>Mutable pointer; defaults to <code class="language-plaintext highlighter-rouge">latest</code> if omitted</td>
+      <td>Mutable; defaults to <code class="language-plaintext highlighter-rouge">latest</code> if omitted</td>
     </tr>
     <tr>
       <td>Digest</td>
       <td><code class="language-plaintext highlighter-rouge">sha256:9f86d08...</code></td>
-      <td>Immutable; when present, overrides the tag</td>
+      <td>Immutable; when present, the registry resolves the digest and the tag is ignored</td>
     </tr>
   </tbody>
 </table>
 
-<p>When both a tag and a digest are present, the digest wins — the tag is informational. Pulling <code class="language-plaintext highlighter-rouge">image:tag@sha256:...</code> fetches exactly that manifest and errors if the tag no longer points there.</p>
+<p>When both are present the digest wins and the tag is informational only; Docker does not check that the tag still points at that digest. Renovate and Dependabot understand <code class="language-plaintext highlighter-rouge">tag@digest</code> references and update both together.</p>
 
 <h2 id="choosing-a-registry">Choosing a Registry</h2>
 
-<p>Most teams use one of a few registries. They all speak the OCI distribution protocol, so <code class="language-plaintext highlighter-rouge">docker</code>, <code class="language-plaintext highlighter-rouge">buildx</code>, <code class="language-plaintext highlighter-rouge">crane</code>, and <code class="language-plaintext highlighter-rouge">cosign</code> work against any of them; they differ in hosting model, authentication, and integration.</p>
+<p>All mainstream registries speak the OCI distribution protocol, so <code class="language-plaintext highlighter-rouge">docker</code>, <code class="language-plaintext highlighter-rouge">buildx</code>, <code class="language-plaintext highlighter-rouge">crane</code>, <code class="language-plaintext highlighter-rouge">oras</code>, <code class="language-plaintext highlighter-rouge">skopeo</code>, and <code class="language-plaintext highlighter-rouge">cosign</code> work against any of them. They differ in hosting model, identity integration, and extra features.</p>
 
 <table>
   <thead>
     <tr>
       <th>Registry</th>
       <th>Hosting</th>
-      <th>Auth model</th>
-      <th>Best for</th>
+      <th>Authentication</th>
+      <th>Notable features</th>
+      <th>Typical fit</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Docker Hub</strong></td>
-      <td>SaaS (Docker, Inc.)</td>
-      <td>Docker ID / PAT</td>
-      <td>Public images, official base images, getting started</td>
+      <td>SaaS (Docker)</td>
+      <td>Docker ID, personal or organization access tokens</td>
+      <td>Docker Official Images, Docker Hardened Images, Scout analysis</td>
+      <td>Public images, base images</td>
     </tr>
     <tr>
-      <td><strong>GitHub Container Registry (GHCR)</strong></td>
+      <td><strong>GitHub Container Registry</strong> (<code class="language-plaintext highlighter-rouge">ghcr.io</code>)</td>
       <td>SaaS (GitHub)</td>
-      <td>GitHub token / PAT</td>
-      <td>Repos already on GitHub; tight Actions integration</td>
+      <td><code class="language-plaintext highlighter-rouge">GITHUB_TOKEN</code> in Actions, PATs</td>
+      <td>Permissions inherited from repositories, artifact attestations</td>
+      <td>Projects hosted on GitHub</td>
     </tr>
     <tr>
       <td><strong>Amazon ECR</strong></td>
       <td>SaaS (AWS)</td>
-      <td>IAM (short-lived tokens)</td>
-      <td>Workloads on ECS/EKS; IAM-native access control</td>
+      <td>IAM; 12-hour tokens</td>
+      <td>Tag immutability, pull-through cache, enhanced scanning (Inspector), cross-region replication</td>
+      <td>ECS, EKS, Lambda</td>
     </tr>
     <tr>
-      <td><strong>Google Artifact Registry (GAR/GCR)</strong></td>
+      <td><strong>Google Artifact Registry</strong></td>
       <td>SaaS (Google Cloud)</td>
-      <td>IAM / service accounts</td>
-      <td>GKE and Cloud Run deployments</td>
+      <td>IAM, service accounts, workload identity</td>
+      <td>Multi-format (containers, language packages), remote and virtual repositories; successor to the retired Container Registry (<code class="language-plaintext highlighter-rouge">gcr.io</code>)</td>
+      <td>GKE, Cloud Run</td>
+    </tr>
+    <tr>
+      <td><strong>Azure Container Registry</strong></td>
+      <td>SaaS (Azure)</td>
+      <td>Microsoft Entra ID, repository-scoped tokens</td>
+      <td>Geo-replication, Notation integration, ACR Tasks</td>
+      <td>AKS, Azure pipelines</td>
     </tr>
     <tr>
       <td><strong>Harbor</strong></td>
-      <td>Self-hosted (CNCF)</td>
-      <td>Local / OIDC / LDAP</td>
-      <td>On-prem, air-gapped, policy-driven enterprises</td>
+      <td>Self-hosted (CNCF graduated)</td>
+      <td>Local users, OIDC, LDAP</td>
+      <td>Project RBAC, Trivy scanning, signature enforcement, replication, proxy cache</td>
+      <td>On-premises and air-gapped environments</td>
     </tr>
     <tr>
-      <td><strong>Azure Container Registry (ACR)</strong></td>
-      <td>SaaS (Azure)</td>
-      <td>Entra ID / tokens</td>
-      <td>AKS and Azure-native pipelines</td>
+      <td><strong>Quay</strong></td>
+      <td>SaaS or self-hosted (Red Hat)</td>
+      <td>Robot accounts, OIDC</td>
+      <td>Clair scanning, mirroring</td>
+      <td>OpenShift environments</td>
     </tr>
   </tbody>
 </table>
 
 <h3 id="authenticating-and-pushing">Authenticating and Pushing</h3>
 
-<p>The mechanics are identical across providers — only the login step differs because each has its own credential source.</p>
+<p>Only the login step differs between providers, because each has its own credential source.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Docker Hub (default registry; tag with your namespace)</span>
-docker login <span class="nt">-u</span> myuser
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Docker Hub</span>
+docker login <span class="nt">-u</span> myuser                       <span class="c"># prompts for an access token</span>
 docker tag myapp:1.4.2 myuser/myapp:1.4.2
 docker push myuser/myapp:1.4.2
 
-<span class="c"># GitHub Container Registry (use a PAT or the Actions GITHUB_TOKEN)</span>
-<span class="nb">echo</span> <span class="s2">"</span><span class="nv">$CR_PAT</span><span class="s2">"</span> | docker login ghcr.io <span class="nt">-u</span> my-gh-user <span class="nt">--password-stdin</span>
-docker tag myapp:1.4.2 ghcr.io/acme/myapp:1.4.2
+<span class="c"># GitHub Container Registry</span>
+<span class="nb">echo</span> <span class="s2">"</span><span class="nv">$GHCR_TOKEN</span><span class="s2">"</span> | docker login ghcr.io <span class="nt">-u</span> my-gh-user <span class="nt">--password-stdin</span>
 docker push ghcr.io/acme/myapp:1.4.2
 
-<span class="c"># Amazon ECR (short-lived token from the AWS CLI, repo must exist)</span>
+<span class="c"># Amazon ECR (repository must already exist)</span>
 aws ecr get-login-password <span class="nt">--region</span> us-east-1 <span class="se">\</span>
-  | docker login <span class="nt">--password-stdin</span> 123456789012.dkr.ecr.us-east-1.amazonaws.com
+  | docker login <span class="nt">--username</span> AWS <span class="nt">--password-stdin</span> 123456789012.dkr.ecr.us-east-1.amazonaws.com
 docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/myapp:1.4.2
 
-<span class="c"># Google Artifact Registry (helper wires gcloud creds into the Docker client)</span>
+<span class="c"># Google Artifact Registry (registers gcloud as a Docker credential helper)</span>
 gcloud auth configure-docker us-docker.pkg.dev
 docker push us-docker.pkg.dev/my-project/my-repo/myapp:1.4.2
 </code></pre></div></div>
 
-<p>ECR tokens expire after 12 hours, which is why CI authenticates on every run rather than storing a static password. GHCR inside GitHub Actions can authenticate with the automatically provisioned <code class="language-plaintext highlighter-rouge">GITHUB_TOKEN</code>, scoped to the repository — no long-lived secret required.</p>
+<p><code class="language-plaintext highlighter-rouge">docker login</code> stores credentials in the OS keychain when a credential helper (<code class="language-plaintext highlighter-rouge">credsStore</code> in <code class="language-plaintext highlighter-rouge">~/.docker/config.json</code>) is configured, and otherwise base64-encoded in that file, which is effectively plaintext. In CI, prefer short-lived identity-based credentials: GitHub Actions’ <code class="language-plaintext highlighter-rouge">GITHUB_TOKEN</code> for GHCR, or OIDC federation to AWS, Google Cloud, or Azure, rather than long-lived stored passwords.</p>
 
-<p>A few axes distinguish them:</p>
+<h3 id="docker-hub-rate-limits-and-mirrors">Docker Hub Rate Limits and Mirrors</h3>
+
+<p>Docker Hub limits image pulls per 6-hour window: 100 for unauthenticated clients (counted per IPv4 address or IPv6 /64 subnet) and 200 for authenticated Personal accounts, with higher limits on paid plans. CI fleets behind a shared NAT address exhaust the anonymous limit quickly. The usual mitigations are:</p>
 
 <ul>
-  <li><strong>Self-host vs SaaS</strong> — Harbor gives you on-prem control, replication, and air-gap support; managed registries remove the ops burden.</li>
-  <li><strong>Identity-native auth</strong> — cloud registries fold into IAM, so access follows your existing roles instead of separate registry credentials.</li>
-  <li><strong>Replication and caching</strong> — Harbor and pull-through caches mirror upstream images to cut egress and survive upstream outages.</li>
-  <li><strong>Retention and GC</strong> — tag retention rules plus garbage collection reclaim space from untagged, content-addressed blobs.</li>
+  <li><strong>Authenticate</strong> every pull in CI, even for public images.</li>
+  <li><strong>Use a pull-through cache</strong>: Harbor proxy projects, ECR pull-through cache rules, Artifact Registry remote repositories, or a self-hosted <code class="language-plaintext highlighter-rouge">registry:2</code> in proxy mode. The Docker daemon’s <code class="language-plaintext highlighter-rouge">registry-mirrors</code> setting in <code class="language-plaintext highlighter-rouge">daemon.json</code> redirects Docker Hub pulls (only) to such a mirror.</li>
+  <li><strong>Copy critical base images</strong> into your own registry with <code class="language-plaintext highlighter-rouge">crane copy</code> or <code class="language-plaintext highlighter-rouge">skopeo copy</code>, which also protects builds from upstream outages and deletions.</li>
 </ul>
 
-<h3 id="harbor-a-self-hosted-registry">Harbor: a Self-Hosted Registry</h3>
+<h3 id="harbor">Harbor</h3>
 
-<p><a href="https://goharbor.io/">Harbor</a> is the CNCF-graduated open-source registry. Beyond storing images it adds project-level RBAC, built-in Trivy scanning, image signing enforcement, replication between Harbor instances (and to/from Docker Hub or ECR), and a pull-through proxy cache. It is the common choice for air-gapped or compliance-driven environments where images cannot leave the perimeter. You point the Docker client at it exactly like any other registry:</p>
+<p><a href="https://goharbor.io/">Harbor</a> is the CNCF-graduated open-source registry. On top of storage it adds project-level RBAC, integrated Trivy scanning with deployment gating on severity, cosign and Notation signature enforcement, tag retention and immutability rules, replication to and from other registries, and proxy-cache projects. It is the common choice for on-premises or air-gapped environments where images cannot leave the perimeter. Clients use it like any other registry:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker login harbor.internal.acme.com
-docker push harbor.internal.acme.com/platform/myapp:1.4.2
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker login harbor.internal.example.com
+docker push harbor.internal.example.com/platform/myapp:1.4.2
 </code></pre></div></div>
+
+<h3 id="storage-growth-and-garbage-collection">Storage Growth and Garbage Collection</h3>
+
+<p>Deleting a tag removes only the pointer. The manifest and its blobs remain until the registry’s garbage collector finds them unreferenced. Every managed registry offers lifecycle or retention policies (for example “keep the last 30 <code class="language-plaintext highlighter-rouge">sha-*</code> tags; expire untagged manifests after 7 days”); configure them early, because CI that pushes on every commit produces thousands of images. Retention rules must not delete digests that production still references.</p>
 
 <h2 id="tagging-strategy-and-immutability">Tagging Strategy and Immutability</h2>
 
-<p>Tags are mutable by default, and that mutability is the single largest source of “works in CI, breaks in prod” incidents. Two builds can both be tagged <code class="language-plaintext highlighter-rouge">latest</code>; whichever pushed last wins, and a pull tomorrow may silently get a different image than a pull today.</p>
+<p>Tags are mutable by default, and that mutability is a leading cause of “works in CI, breaks in production” incidents: two builds can both be tagged <code class="language-plaintext highlighter-rouge">latest</code>, the last push wins, and tomorrow’s pull may return a different image than today’s.</p>
 
 <h3 id="why-latest-is-a-trap">Why <code class="language-plaintext highlighter-rouge">latest</code> Is a Trap</h3>
 
-<p><code class="language-plaintext highlighter-rouge">latest</code> is not special to the registry — it is just the tag applied when you omit one. It carries no guarantee of being the newest or most stable build. Deploying <code class="language-plaintext highlighter-rouge">myapp:latest</code> means your running version depends on push timing and pull caching, which is irreproducible. <strong>Pin deployments to a specific tag, and verify with a digest.</strong></p>
+<p><code class="language-plaintext highlighter-rouge">latest</code> has no special meaning to a registry; it is simply the tag used when none is specified. It does not guarantee the newest or the most stable build. A deployment of <code class="language-plaintext highlighter-rouge">myapp:latest</code> depends on push order and on which hosts have a cached copy, so two replicas can run different code. Pin deployments to an explicit tag, and in production to a digest.</p>
 
 <h3 id="a-workable-tagging-scheme">A Workable Tagging Scheme</h3>
 
-<p>Apply <em>multiple</em> tags to the same image so humans and machines each get what they need:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># One build, several tags pointing at the same digest</span>
-docker build <span class="nt">-t</span> myapp:1.4.2 <span class="nb">.</span>
-docker tag myapp:1.4.2 myapp:1.4
-docker tag myapp:1.4.2 myapp:1
-docker tag myapp:1.4.2 myapp:sha-<span class="si">$(</span>git rev-parse <span class="nt">--short</span> HEAD<span class="si">)</span>
-docker push <span class="nt">--all-tags</span> myapp
-</code></pre></div></div>
+<p>Give each build several tags so that people and automation each get a stable handle:</p>
 
 <table>
   <thead>
@@ -3363,144 +3358,159 @@ docker push <span class="nt">--all-tags</span> myapp
   </thead>
   <tbody>
     <tr>
-      <td>Immutable build ID</td>
+      <td>Commit ID</td>
       <td><code class="language-plaintext highlighter-rouge">sha-a1b2c3d</code></td>
-      <td>Effectively immutable</td>
-      <td>Deployments, rollbacks, audit trails</td>
+      <td>Immutable by convention</td>
+      <td>Deployments, rollbacks, correlating incidents with commits</td>
     </tr>
     <tr>
-      <td>Exact semver</td>
+      <td>Exact version</td>
       <td><code class="language-plaintext highlighter-rouge">1.4.2</code></td>
       <td>Should be immutable</td>
-      <td>Release pinning</td>
+      <td>Releases</td>
     </tr>
     <tr>
-      <td>Rolling minor/major</td>
+      <td>Rolling minor / major</td>
       <td><code class="language-plaintext highlighter-rouge">1.4</code>, <code class="language-plaintext highlighter-rouge">1</code></td>
       <td>Moves forward</td>
-      <td>“Latest patch of 1.4” convenience</td>
+      <td>Consumers who want the latest patch</td>
     </tr>
     <tr>
       <td>Channel</td>
       <td><code class="language-plaintext highlighter-rouge">stable</code>, <code class="language-plaintext highlighter-rouge">edge</code></td>
       <td>Moves forward</td>
-      <td>Human-facing convenience only</td>
+      <td>Human convenience only</td>
     </tr>
   </tbody>
 </table>
 
-<p>The <code class="language-plaintext highlighter-rouge">sha-&lt;commit&gt;</code> tag ties an image back to the exact source commit that produced it — invaluable when correlating a production incident with a code change.</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># One build, several tags pointing at the same digest (BuildKit)</span>
+docker buildx build <span class="se">\</span>
+  <span class="nt">-t</span> ghcr.io/acme/myapp:1.4.2 <span class="se">\</span>
+  <span class="nt">-t</span> ghcr.io/acme/myapp:1.4 <span class="se">\</span>
+  <span class="nt">-t</span> ghcr.io/acme/myapp:sha-<span class="si">$(</span>git rev-parse <span class="nt">--short</span> HEAD<span class="si">)</span> <span class="se">\</span>
+  <span class="nt">--platform</span> linux/amd64,linux/arm64 <span class="se">\</span>
+  <span class="nt">--push</span> <span class="nb">.</span>
+</code></pre></div></div>
 
-<h3 id="enforcing-immutability-at-the-registry">Enforcing Immutability at the Registry</h3>
+<p>In GitHub Actions, <code class="language-plaintext highlighter-rouge">docker/metadata-action</code> derives this set of tags and the standard OCI labels (<code class="language-plaintext highlighter-rouge">org.opencontainers.image.source</code>, <code class="language-plaintext highlighter-rouge">.revision</code>, <code class="language-plaintext highlighter-rouge">.version</code>) from the Git ref automatically.</p>
 
-<p>Convention is not enough; enforce it server-side so a tag can never be overwritten once published:</p>
+<h3 id="enforcing-immutability">Enforcing Immutability</h3>
+
+<p>Convention is not enough; make the registry reject overwrites, and deploy by digest so tags cannot affect what runs.</p>
 
 <ul>
-  <li><strong>Amazon ECR</strong> — set the repository to <code class="language-plaintext highlighter-rouge">IMMUTABLE</code> tag mutability; re-pushing an existing tag is rejected.</li>
-  <li><strong>Harbor</strong> — define <em>immutability rules</em> per project matching tag patterns (e.g. <code class="language-plaintext highlighter-rouge">v*</code>).</li>
-  <li><strong>Google Artifact Registry</strong> — enable immutable tags on the repository.</li>
-  <li><strong>Universal</strong> — deploy by digest (<code class="language-plaintext highlighter-rouge">image@sha256:...</code>) so the tag is irrelevant to what actually runs.</li>
+  <li><strong>Amazon ECR</strong>: set the repository’s tag mutability to <code class="language-plaintext highlighter-rouge">IMMUTABLE</code>.</li>
+  <li><strong>Harbor</strong>: define per-project immutability rules on tag patterns such as <code class="language-plaintext highlighter-rouge">v*</code>.</li>
+  <li><strong>Google Artifact Registry</strong>: enable immutable tags on the repository.</li>
+  <li><strong>Everywhere</strong>: resolve the tag to a digest once, at release time, and reference <code class="language-plaintext highlighter-rouge">image@sha256:...</code> in deployment manifests.</li>
 </ul>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># ECR: make a repository tag-immutable</span>
-aws ecr create-repository <span class="nt">--repository-name</span> myapp <span class="se">\</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ecr create-repository <span class="nt">--repository-name</span> myapp <span class="se">\</span>
   <span class="nt">--image-tag-mutability</span> IMMUTABLE
 
-<span class="c"># Resolve a tag to its digest once, then deploy the digest forever</span>
+<span class="c"># Resolve a tag to its digest</span>
 docker buildx imagetools inspect ghcr.io/acme/myapp:1.4.2 <span class="se">\</span>
   <span class="nt">--format</span> <span class="s1">'{{.Manifest.Digest}}'</span>
-<span class="c"># -&gt; sha256:9f86d081884c7d65...  (use this in your manifests)</span>
+crane digest ghcr.io/acme/myapp:1.4.2          <span class="c"># equivalent, with go-containerregistry</span>
 </code></pre></div></div>
 
 <h2 id="the-software-supply-chain-problem">The Software Supply Chain Problem</h2>
 
-<p>Pinning a digest proves an image has not changed since you recorded that digest. It does <strong>not</strong> prove <em>who built it</em>, <em>from what source</em>, or <em>whether it contains known-vulnerable components</em>. Supply-chain security adds those guarantees. The mental model is a chain of attestations, each answering a different question:</p>
+<p>A pinned digest proves the bytes have not changed since you recorded it. It does not prove who built the image, from what source, or whether it contains known-vulnerable components. Attacks such as the SolarWinds build compromise, the Codecov uploader tampering, and hijacked GitHub Action tags all targeted exactly those gaps. Supply-chain controls add verifiable answers, each as a separate attestation:</p>
 
 <table>
   <thead>
     <tr>
       <th>Control</th>
       <th>Question it answers</th>
-      <th>Tool(s)</th>
+      <th>Common tools</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Digest pinning</strong></td>
       <td>Did the bytes change?</td>
-      <td>Registry / OCI digests</td>
+      <td>OCI digests</td>
     </tr>
     <tr>
       <td><strong>Signing</strong></td>
-      <td>Did <em>we</em> publish this, with our key?</td>
-      <td>cosign, Notation, DCT</td>
+      <td>Did an identity we trust publish this digest?</td>
+      <td>cosign (Sigstore), Notation</td>
     </tr>
     <tr>
       <td><strong>SBOM</strong></td>
       <td>What components are inside?</td>
-      <td>Syft, BuildKit</td>
+      <td>Syft, BuildKit, Docker Scout</td>
     </tr>
     <tr>
       <td><strong>Vulnerability scan</strong></td>
-      <td>Do those components have known CVEs?</td>
-      <td>Trivy, Grype, Scout</td>
+      <td>Do those components have known CVEs, and do they matter?</td>
+      <td>Trivy, Grype, Docker Scout, registry scanners</td>
     </tr>
     <tr>
       <td><strong>Provenance</strong></td>
-      <td>How and from what source was it built?</td>
-      <td>SLSA, BuildKit attestations</td>
+      <td>Which source, builder, and parameters produced it?</td>
+      <td>SLSA provenance via BuildKit, GitHub artifact attestations</td>
     </tr>
   </tbody>
 </table>
 
-<p>These are independent and composable. A mature pipeline produces all of them as OCI artifacts stored <em>next to</em> the image in the same registry, then enforces them at deploy time with an admission policy.</p>
+<pre><code class="language-mermaid">flowchart LR
+    SRC["Source commit"] --&gt; BUILD["Hosted build&lt;br/&gt;(BuildKit in CI)"]
+    BUILD --&gt;|push| REG[("Registry")]
+    BUILD -. "SBOM + provenance&lt;br/&gt;attestations" .-&gt; REG
+    BUILD --&gt; SCAN["Scan gate&lt;br/&gt;(Trivy / Grype)"]
+    SCAN --&gt; SIGN["Keyless sign&lt;br/&gt;(cosign + OIDC)"]
+    SIGN -. "signature" .-&gt; REG
+    REG --&gt; ADM{"Admission policy&lt;br/&gt;(Kyverno, policy-controller)"}
+    ADM --&gt;|"signed by expected identity,&lt;br/&gt;provenance present"| RUN["Runs in cluster"]
+    ADM --&gt;|otherwise| REJ["Rejected"]
+</code></pre>
+
+<p>The controls are independent and composable. A mature pipeline produces all of them as OCI artifacts stored next to the image, and enforces them at deploy time.</p>
 
 <h2 id="image-signing">Image Signing</h2>
 
-<p>Signing binds a cryptographic identity to an image digest, so a verifier can reject anything not signed by an expected key or identity. There are three approaches you will encounter.</p>
-
-<h3 id="docker-content-trust-legacy">Docker Content Trust (legacy)</h3>
-
-<p>The original mechanism, built on <a href="https://theupdateframework.io/">The Update Framework (TUF)</a> via Notary v1. Setting <code class="language-plaintext highlighter-rouge">DOCKER_CONTENT_TRUST=1</code> makes the Docker client sign on push and verify on pull:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">DOCKER_CONTENT_TRUST</span><span class="o">=</span>1
-docker push myorg/myapp:1.4.2   <span class="c"># prompts to create/use signing keys</span>
-docker pull myorg/myapp:1.4.2   <span class="c"># fails if the tag is unsigned</span>
-</code></pre></div></div>
-
-<p>DCT works but is tied to the Docker CLI, uses tag-based (not digest-based) trust, and the Notary v1 ecosystem is effectively in maintenance. New designs should prefer cosign or Notation, which store signatures as standard OCI artifacts any tool can read.</p>
+<p>Signing binds a cryptographic identity to an image <strong>digest</strong>, so a verifier can reject anything not signed by an expected identity. Always sign and verify digests, never tags.</p>
 
 <h3 id="cosign-sigstore">cosign (Sigstore)</h3>
 
-<p><a href="https://docs.sigstore.dev/cosign/overview/">cosign</a>, part of the Sigstore project, is the de facto standard. It signs the image <em>digest</em> and stores the signature as an OCI artifact alongside the image. It supports two modes:</p>
+<p><a href="https://docs.sigstore.dev/cosign/signing/overview/">cosign</a>, from the OpenSSF Sigstore project, is the most widely used signer. It supports two modes.</p>
 
-<p><strong>Key-based</strong> — you hold a key pair:</p>
+<p><strong>Keyless</strong> (the default and recommended mode). cosign obtains a short-lived X.509 certificate from Sigstore’s <a href="https://docs.sigstore.dev/certificate_authority/overview/">Fulcio</a> CA, binding the signature to an OIDC identity such as a specific GitHub Actions workflow. The signing event is recorded in the <a href="https://docs.sigstore.dev/logging/overview/">Rekor</a> transparency log, so there is no long-lived private key to store, leak, or rotate, and every signature is publicly auditable.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cosign generate-key-pair                       <span class="c"># cosign.key + cosign.pub</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># In CI with an ambient OIDC token (GitHub Actions: permissions id-token: write)</span>
+cosign sign <span class="nt">--yes</span> ghcr.io/acme/myapp@sha256:9f86d08...
+
+<span class="c"># Verify: who signed (identity) AND which OIDC provider vouched for them (issuer)</span>
+cosign verify ghcr.io/acme/myapp@sha256:9f86d08... <span class="se">\</span>
+  <span class="nt">--certificate-identity</span> <span class="s1">'https://github.com/acme/myapp/.github/workflows/release.yml@refs/tags/v1.4.2'</span> <span class="se">\</span>
+  <span class="nt">--certificate-oidc-issuer</span> https://token.actions.githubusercontent.com
+</code></pre></div></div>
+
+<p>Verification must check both the identity and the issuer. Use an exact identity, or a tightly anchored <code class="language-plaintext highlighter-rouge">--certificate-identity-regexp</code> such as <code class="language-plaintext highlighter-rouge">'^https://github\.com/acme/myapp/\.github/workflows/release\.yml@refs/tags/v'</code>; a loose pattern like <code class="language-plaintext highlighter-rouge">https://github.com/acme/.*</code> accepts any workflow in any repository of the organization.</p>
+
+<p><strong>Key-based.</strong> You manage a key pair, optionally in a KMS (<code class="language-plaintext highlighter-rouge">--key awskms://...</code>, <code class="language-plaintext highlighter-rouge">gcpkms://...</code>, <code class="language-plaintext highlighter-rouge">azurekms://...</code>, <code class="language-plaintext highlighter-rouge">hashivault://...</code>). This suits air-gapped environments that cannot reach the public Sigstore services.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cosign generate-key-pair
 cosign sign <span class="nt">--key</span> cosign.key ghcr.io/acme/myapp@sha256:9f86d08...
 cosign verify <span class="nt">--key</span> cosign.pub ghcr.io/acme/myapp@sha256:9f86d08...
 </code></pre></div></div>
 
-<p><strong>Keyless</strong> — the headline feature. Instead of managing long-lived keys, cosign requests a short-lived certificate from the Sigstore <a href="https://docs.sigstore.dev/certificate_authority/overview/">Fulcio</a> CA, bound to an OIDC identity (a GitHub Actions workload, a Google account, etc.). The signing event is recorded in the <a href="https://docs.sigstore.dev/logging/overview/">Rekor</a> transparency log. There is no key to leak or rotate:</p>
+<p>cosign 3.x (current as of late 2026) writes signatures in the standardized <strong>Sigstore bundle</strong> format by default, logs to Rekor v2, and still verifies legacy-format signatures. Several older flags are deprecated ahead of a future v4. In GitHub Actions, <code class="language-plaintext highlighter-rouge">sigstore/cosign-installer@v4</code> or later is required to install cosign 3.x.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># In CI, COSIGN_EXPERIMENTAL not needed on modern cosign; uses ambient OIDC</span>
-cosign sign ghcr.io/acme/myapp@sha256:9f86d08...
+<h3 id="notation-notary-project">Notation (Notary Project)</h3>
 
-<span class="c"># Verify that the signer was a specific GitHub Actions workflow</span>
-cosign verify ghcr.io/acme/myapp@sha256:9f86d08... <span class="se">\</span>
-  <span class="nt">--certificate-identity-regexp</span> <span class="s1">'https://github.com/acme/.*'</span> <span class="se">\</span>
-  <span class="nt">--certificate-oidc-issuer</span> https://token.actions.githubusercontent.com
+<p><a href="https://notaryproject.dev/">Notation</a> is the CNCF Notary Project’s signer. It also stores signatures as OCI artifacts, but is built around conventional X.509 PKI and declarative trust policies rather than Sigstore’s keyless model. It fits organizations with an existing certificate authority or key management service, and is integrated with Azure Container Registry and Key Vault, AWS Signer, and Harbor.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>notation sign   <span class="nv">$REGISTRY</span>/myapp@sha256:9f86d08...
+notation verify <span class="nv">$REGISTRY</span>/myapp@sha256:9f86d08...   <span class="c"># evaluated against trustpolicy.json</span>
 </code></pre></div></div>
 
-<p>Keyless verification checks two things: the certificate’s identity (who) and its OIDC issuer (where the identity came from). That pair is far harder to forge than possession of a static key.</p>
+<h3 id="docker-content-trust-retired">Docker Content Trust (retired)</h3>
 
-<h3 id="notation-notary-v2--cncf">Notation (Notary v2 / CNCF)</h3>
-
-<p><a href="https://notaryproject.dev/">Notation</a> is the CNCF Notary Project’s signer. Like cosign it produces OCI-native signatures, but it is built around x.509 PKI and trust policies rather than Sigstore’s keyless model — a better fit for enterprises with an existing certificate authority. Azure Container Registry and others integrate it natively.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>notation sign <span class="nv">$REGISTRY</span>/myapp@sha256:9f86d08...
-notation verify <span class="nv">$REGISTRY</span>/myapp@sha256:9f86d08...   <span class="c"># uses configured trust policy</span>
-</code></pre></div></div>
+<p>Docker Content Trust (DCT), built on Notary v1 and The Update Framework, signed <strong>tags</strong> rather than digests and stored trust data on a separate Notary server. It has been retired: Docker Engine 29 (November 2025) removed DCT from the Docker CLI, so <code class="language-plaintext highlighter-rouge">DOCKER_CONTENT_TRUST=1</code> no longer signs or verifies anything with the stock CLI, and Docker has announced that the Notary v1 service at <code class="language-plaintext highlighter-rouge">notary.docker.io</code> shuts down on December 8, 2026. Existing DCT users should migrate to cosign or Notation.</p>
 
 <h3 id="choosing-a-signer">Choosing a Signer</h3>
 
@@ -3510,221 +3520,222 @@ notation verify <span class="nv">$REGISTRY</span>/myapp@sha256:9f86d08...   <spa
       <th>Tool</th>
       <th>Trust root</th>
       <th>Signature storage</th>
-      <th>Pick it when</th>
+      <th>Choose it when</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>cosign</strong></td>
-      <td>Keys or keyless (Fulcio + OIDC)</td>
-      <td>OCI artifact</td>
-      <td>You want keyless CI signing and the broadest ecosystem</td>
+      <td>Keyless (Fulcio + OIDC + Rekor) or keys / KMS</td>
+      <td>OCI artifact or referrer</td>
+      <td>You want keyless CI signing and the broadest ecosystem support</td>
     </tr>
     <tr>
       <td><strong>Notation</strong></td>
-      <td>x.509 / your own CA</td>
-      <td>OCI artifact</td>
-      <td>You already run PKI and want CA-rooted trust policies</td>
+      <td>X.509 certificates from your own CA / KMS</td>
+      <td>OCI referrer</td>
+      <td>You already operate PKI and want CA-rooted trust policies</td>
     </tr>
     <tr>
       <td><strong>Docker Content Trust</strong></td>
       <td>TUF / Notary v1</td>
       <td>Separate Notary server</td>
-      <td>Maintaining existing DCT setups only; avoid for new work</td>
+      <td>Not for any new work; retired</td>
     </tr>
   </tbody>
 </table>
 
 <h2 id="software-bill-of-materials-sbom">Software Bill of Materials (SBOM)</h2>
 
-<p>An SBOM is a machine-readable inventory of everything inside an image: OS packages, language dependencies, versions, and licenses. It is the difference between “we think we use log4j somewhere” and “image <code class="language-plaintext highlighter-rouge">sha256:9f86…</code> contains <code class="language-plaintext highlighter-rouge">log4j-core 2.14.1</code> in <code class="language-plaintext highlighter-rouge">/app/lib</code>.” When a new CVE lands, you query SBOMs instead of rebuilding and rescanning the world.</p>
+<p>An SBOM is a machine-readable inventory of an image’s contents: OS packages, language dependencies, versions, licenses, and file locations. It turns “do we use log4j anywhere?” into a query: image <code class="language-plaintext highlighter-rouge">sha256:9f86...</code> contains <code class="language-plaintext highlighter-rouge">log4j-core 2.14.1</code> in <code class="language-plaintext highlighter-rouge">/app/lib</code>. When a new CVE is published, you search stored SBOMs instead of re-scanning every image.</p>
 
-<p>Two standard formats dominate: <strong>SPDX</strong> (Linux Foundation / ISO standard) and <strong>CycloneDX</strong> (OWASP). Tools emit either.</p>
+<p>Two formats dominate: <strong>SPDX</strong> (Linux Foundation; ISO/IEC 5962) and <strong>CycloneDX</strong> (OWASP; also standardized as ECMA-424). Most tools emit both. Regulatory pressure is growing: US Executive Order 14028 pushed SBOMs into federal software procurement, and the EU Cyber Resilience Act requires manufacturers to maintain SBOMs for products with digital elements.</p>
 
-<h3 id="generating-an-sbom-with-syft">Generating an SBOM with Syft</h3>
+<h3 id="generating-an-sbom">Generating an SBOM</h3>
 
-<p><a href="https://github.com/anchore/syft">Syft</a> (by Anchore) scans an image’s filesystem and catalogs its components:</p>
+<p><a href="https://github.com/anchore/syft">Syft</a> catalogs an existing image:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Human-readable table</span>
-syft ghcr.io/acme/myapp:1.4.2
-
-<span class="c"># CycloneDX JSON (good input for scanners and dependency tooling)</span>
-syft ghcr.io/acme/myapp:1.4.2 <span class="nt">-o</span> cyclonedx-json<span class="o">=</span>sbom.cdx.json
-
-<span class="c"># SPDX JSON (widely required for compliance / NTIA minimum elements)</span>
-syft ghcr.io/acme/myapp:1.4.2 <span class="nt">-o</span> spdx-json<span class="o">=</span>sbom.spdx.json
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>syft ghcr.io/acme/myapp:1.4.2                                   <span class="c"># table</span>
+syft ghcr.io/acme/myapp:1.4.2 <span class="nt">-o</span> cyclonedx-json<span class="o">=</span>sbom.cdx.json   <span class="c"># CycloneDX</span>
+syft ghcr.io/acme/myapp:1.4.2 <span class="nt">-o</span> spdx-json<span class="o">=</span>sbom.spdx.json       <span class="c"># SPDX</span>
 </code></pre></div></div>
 
-<p>BuildKit can also generate an SBOM <em>at build time</em> and attach it as an attestation, which is more accurate than scanning the finished image because the builder knows exactly what each stage installed:</p>
+<p>BuildKit can generate the SBOM during the build (using a Syft-based scanner) and attach it to the image as an attestation. Build-time generation can also scan intermediate stages, which catches components that a scan of the final filesystem misses:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker buildx build <span class="nt">--sbom</span><span class="o">=</span><span class="nb">true</span> <span class="nt">--provenance</span><span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker buildx build <span class="nt">--sbom</span><span class="o">=</span><span class="nb">true</span> <span class="nt">--provenance</span><span class="o">=</span><span class="nv">mode</span><span class="o">=</span>max <span class="se">\</span>
   <span class="nt">-t</span> ghcr.io/acme/myapp:1.4.2 <span class="nt">--push</span> <span class="nb">.</span>
+
+docker buildx imagetools inspect ghcr.io/acme/myapp:1.4.2 <span class="se">\</span>
+  <span class="nt">--format</span> <span class="s1">'{{ json .SBOM }}'</span>
 </code></pre></div></div>
 
-<p>Attaching the SBOM to the image (rather than keeping it in a CI artifact bucket) means anyone who can pull the image can also fetch its bill of materials with <code class="language-plaintext highlighter-rouge">docker buildx imagetools inspect --format '{{ json .SBOM }}'</code> or <code class="language-plaintext highlighter-rouge">cosign download sbom</code>.</p>
+<p>Attaching the SBOM to the image, rather than leaving it in a CI artifact bucket, means anyone who can pull the image can also retrieve its bill of materials. Attestations require the containerd image store or a push to a registry; the classic image store cannot hold them locally.</p>
 
 <h2 id="vulnerability-scanning">Vulnerability Scanning</h2>
 
-<p>A scanner cross-references the components in an image (from its SBOM or by introspecting the filesystem) against vulnerability databases such as the NVD, GitHub Advisory Database, and distro security trackers, then reports matching CVEs by severity.</p>
+<p>A scanner matches the components in an image, taken from its SBOM or by inspecting the filesystem, against vulnerability data from sources such as the NVD, the GitHub Advisory Database, OSV, and distribution security trackers, and reports matching CVEs by severity.</p>
 
-<h3 id="trivy-and-grype">Trivy and Grype</h3>
+<h3 id="scanners">Scanners</h3>
 
-<p><a href="https://github.com/aquasecurity/trivy">Trivy</a> (Aqua) and <a href="https://github.com/anchore/grype">Grype</a> (Anchore) are the two leading open-source scanners. Both scan an image directly or an SBOM you already produced.</p>
+<p><a href="https://github.com/aquasecurity/trivy">Trivy</a> (Aqua Security) and <a href="https://github.com/anchore/grype">Grype</a> (Anchore) are the leading open-source scanners; both scan images, filesystems, or existing SBOMs. <code class="language-plaintext highlighter-rouge">docker scout cves</code> is built into Docker Desktop and the CLI and adds base-image upgrade recommendations. Managed registries (ECR with Amazon Inspector, Artifact Registry, ACR with Defender for Cloud, Harbor with Trivy) scan on push.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Trivy: scan an image, fail CI on High/Critical only</span>
-trivy image <span class="nt">--severity</span> HIGH,CRITICAL <span class="nt">--exit-code</span> 1 ghcr.io/acme/myapp:1.4.2
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>trivy image <span class="nt">--severity</span> HIGH,CRITICAL <span class="nt">--ignore-unfixed</span> <span class="nt">--exit-code</span> 1 ghcr.io/acme/myapp:1.4.2
+trivy sbom sbom.cdx.json                         <span class="c"># scan an existing SBOM, no image pull</span>
 
-<span class="c"># Trivy: scan the SBOM you already built (faster, no re-pull)</span>
-trivy sbom sbom.cdx.json
-
-<span class="c"># Grype: scan an image and gate on a severity threshold</span>
 grype ghcr.io/acme/myapp:1.4.2 <span class="nt">--fail-on</span> high
-
-<span class="c"># Grype: scan a Syft SBOM directly</span>
 grype sbom:./sbom.spdx.json
+
+docker scout cves ghcr.io/acme/myapp:1.4.2
+docker scout recommendations ghcr.io/acme/myapp:1.4.2
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">docker scout cves</code> (built into Docker Desktop and the CLI) is a convenient third option that also surfaces remediation advice — “upgrade base image from <code class="language-plaintext highlighter-rouge">3.18</code> to <code class="language-plaintext highlighter-rouge">3.19</code> to drop 7 CVEs.”</p>
+<h3 id="making-results-actionable">Making Results Actionable</h3>
 
-<h3 id="making-scan-results-actionable">Making Scan Results Actionable</h3>
-
-<p>Raw CVE counts are noise without policy. Practical scanning means:</p>
+<p>Raw CVE counts are noise without policy.</p>
 
 <ul>
-  <li><strong>Gate on severity, not totals.</strong> Failing on every <code class="language-plaintext highlighter-rouge">LOW</code> blocks releases for unfixable noise; gate on <code class="language-plaintext highlighter-rouge">HIGH</code>/<code class="language-plaintext highlighter-rouge">CRITICAL</code> with a fix available.</li>
-  <li><strong>Distinguish fixable from unfixable.</strong> A CVE with no upstream patch cannot be remediated by you today; Trivy’s <code class="language-plaintext highlighter-rouge">--ignore-unfixed</code> filters these out of the gate.</li>
-  <li><strong>Suppress with justification, not silence.</strong> Use a <code class="language-plaintext highlighter-rouge">.trivyignore</code> (or VEX document) to waive specific CVEs <em>with a reason and an expiry</em>, rather than lowering the global threshold.</li>
-  <li><strong>Re-scan continuously.</strong> An image clean at build time accumulates CVEs as new ones are disclosed. Scan on a schedule, not just at push.</li>
+  <li><strong>Gate on severity and fixability.</strong> Fail builds on High and Critical findings that have a fix available (<code class="language-plaintext highlighter-rouge">--ignore-unfixed</code> in Trivy, <code class="language-plaintext highlighter-rouge">--only-fixed</code> in Grype); report the rest.</li>
+  <li><strong>Record exceptions with a reason and an expiry.</strong> Use a <code class="language-plaintext highlighter-rouge">.trivyignore</code> file or, better, a <strong>VEX</strong> (Vulnerability Exploitability eXchange) document stating that a CVE is <code class="language-plaintext highlighter-rouge">not_affected</code> because, for example, the vulnerable function is never called. Trivy and Grype both consume OpenVEX, and Docker Hardened Images ship VEX statements with each image.</li>
+  <li><strong>Re-scan continuously.</strong> An image that was clean at build time accumulates CVEs as new ones are disclosed. Re-scan deployed digests on a schedule, not only on push.</li>
+  <li><strong>Reduce what there is to scan.</strong> Minimal and hardened bases (distroless, Wolfi/Chainguard, Docker Hardened Images, <code class="language-plaintext highlighter-rouge">scratch</code>) contain far fewer packages; see <a href="storage-security.html#image-security">Storage &amp; Security</a> and <a href="dockerfiles.html">Dockerfiles &amp; CI/CD</a>.</li>
 </ul>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Only fail on fixable High/Critical issues</span>
-trivy image <span class="nt">--severity</span> HIGH,CRITICAL <span class="nt">--ignore-unfixed</span> <span class="nt">--exit-code</span> 1 <span class="se">\</span>
-  ghcr.io/acme/myapp:1.4.2
-</code></pre></div></div>
-
-<p>This is also where <a href="dockerfiles.html">minimal base images</a> pay off directly: a distroless or <code class="language-plaintext highlighter-rouge">alpine</code> base ships far fewer packages, so there is simply less surface for a scanner to flag.</p>
 
 <h2 id="provenance-and-slsa">Provenance and SLSA</h2>
 
-<p>Signing proves <em>who</em> published an image; provenance proves <em>how it was built</em>. <strong>Build provenance</strong> is a signed statement describing the build: which source repository and commit, which builder, which build parameters, and which materials (dependencies) went in. It is the attestation that lets a verifier reject an image that did not come from your trusted, hermetic pipeline — defending against a compromised CI runner or a tampered build.</p>
+<p>Signing proves <em>who</em> published an image; provenance records <em>how it was built</em>: the source repository and commit, the builder, the build parameters, and the input materials such as base images. Signed provenance lets a verifier reject an image that did not come from the expected repository and pipeline, which defends against compromised developer machines, tampered builds, and images pushed by stolen credentials.</p>
 
 <h3 id="slsa">SLSA</h3>
 
-<p><a href="https://slsa.dev/">SLSA</a> (“Supply-chain Levels for Software Artifacts”) is a framework that grades build integrity in levels. Roughly:</p>
+<p><a href="https://slsa.dev/">SLSA</a> (Supply-chain Levels for Software Artifacts, pronounced “salsa”) is an OpenSSF framework of incrementally stronger requirements. The current specification, v1.2, defines a <strong>Build track</strong> and a <strong>Source track</strong>. The Build track levels are:</p>
 
 <table>
   <thead>
     <tr>
-      <th>SLSA Build Level</th>
-      <th>Guarantee</th>
+      <th>Build level</th>
+      <th>Requirement</th>
+      <th>What it defends against</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>L0</strong></td>
-      <td>No guarantees</td>
+      <td>None</td>
+      <td>Nothing</td>
     </tr>
     <tr>
       <td><strong>L1</strong></td>
-      <td>Provenance exists and describes how the artifact was built</td>
+      <td>Provenance exists, describing how the artifact was built</td>
+      <td>Mistakes; enables inventory and debugging</td>
     </tr>
     <tr>
       <td><strong>L2</strong></td>
-      <td>Provenance is signed and generated by a hosted build service</td>
+      <td>Built on a hosted build platform that generates and signs the provenance</td>
+      <td>Tampering after the build</td>
     </tr>
     <tr>
       <td><strong>L3</strong></td>
-      <td>Build runs on a hardened, isolated platform; provenance is unforgeable by the build itself</td>
+      <td>Hardened build platform: runs are isolated from each other and signing material is inaccessible to user-defined build steps</td>
+      <td>Tampering during the build, including by a compromised build step</td>
     </tr>
   </tbody>
 </table>
 
-<p>Higher levels make provenance progressively harder to forge — at L3 the build platform generates and signs provenance in a way the build steps themselves cannot tamper with.</p>
+<h3 id="generating-and-verifying-provenance">Generating and Verifying Provenance</h3>
 
-<h3 id="generating-provenance">Generating Provenance</h3>
+<p>BuildKit emits SLSA provenance in in-toto format and attaches it to the image:</p>
 
-<p>BuildKit emits in-toto provenance attestations and attaches them to the image:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># mode=max records the full build: source, build args, base images, etc.</span>
-docker buildx build <span class="se">\</span>
-  <span class="nt">--provenance</span><span class="o">=</span><span class="nv">mode</span><span class="o">=</span>max <span class="se">\</span>
-  <span class="nt">--sbom</span><span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker buildx build <span class="nt">--provenance</span><span class="o">=</span><span class="nv">mode</span><span class="o">=</span>max <span class="nt">--sbom</span><span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
   <span class="nt">-t</span> ghcr.io/acme/myapp:1.4.2 <span class="nt">--push</span> <span class="nb">.</span>
 
-<span class="c"># Inspect the attached attestations</span>
 docker buildx imagetools inspect ghcr.io/acme/myapp:1.4.2 <span class="se">\</span>
   <span class="nt">--format</span> <span class="s1">'{{ json .Provenance }}'</span>
 </code></pre></div></div>
 
-<p>GitHub’s <a href="https://github.com/slsa-framework/slsa-github-generator">official SLSA provenance action</a> and the built-in <a href="https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds">artifact attestations</a> produce signed, SLSA-aligned provenance directly from Actions, with the signing identity rooted in the workflow itself.</p>
+<p><code class="language-plaintext highlighter-rouge">mode=max</code> records the full build definition, including build arguments; do not pass secrets as build arguments (use secret mounts), since they would appear in the provenance.</p>
+
+<p>GitHub <a href="https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds">artifact attestations</a> sign SLSA provenance with Sigstore from inside a workflow (the public-good instance for public repositories, GitHub’s private instance for private ones) and can push it to the registry as a referrer. Verification uses the GitHub CLI:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gh attestation verify oci://ghcr.io/acme/myapp:1.4.2 <span class="nt">--owner</span> acme
+</code></pre></div></div>
 
 <h2 id="putting-it-together-a-hardened-pipeline">Putting It Together: a Hardened Pipeline</h2>
 
-<p>A complete supply-chain-aware build does six things in sequence, producing artifacts that are stored beside the image and enforced at deploy time. The example below uses GitHub Actions with GHCR, keyless cosign, and BuildKit attestations.</p>
+<p>The workflow below builds a multi-platform image with BuildKit SBOM and provenance attestations, gates on a vulnerability scan, keyless-signs the digest with cosign, and publishes a GitHub build-provenance attestation. Action versions are current as of September 2026; in production, pin third-party actions to full commit SHAs, since tags can be moved by whoever controls the action’s repository.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .github/workflows/release.yml</span>
-<span class="na">name</span><span class="pi">:</span> <span class="s">build-and-attest</span>
+<span class="na">name</span><span class="pi">:</span> <span class="s">release</span>
 <span class="na">on</span><span class="pi">:</span>
   <span class="na">push</span><span class="pi">:</span>
     <span class="na">tags</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">v*"</span><span class="pi">]</span>
 
 <span class="na">permissions</span><span class="pi">:</span>
   <span class="na">contents</span><span class="pi">:</span> <span class="s">read</span>
-  <span class="na">packages</span><span class="pi">:</span> <span class="s">write</span>        <span class="c1"># push to GHCR</span>
-  <span class="na">id-token</span><span class="pi">:</span> <span class="s">write</span>        <span class="c1"># OIDC token for keyless cosign</span>
+  <span class="na">packages</span><span class="pi">:</span> <span class="s">write</span>           <span class="c1"># push to GHCR</span>
+  <span class="na">id-token</span><span class="pi">:</span> <span class="s">write</span>           <span class="c1"># OIDC token for keyless signing</span>
+  <span class="na">attestations</span><span class="pi">:</span> <span class="s">write</span>       <span class="c1"># GitHub artifact attestations</span>
+  <span class="na">artifact-metadata</span><span class="pi">:</span> <span class="s">write</span>
+
+<span class="na">env</span><span class="pi">:</span>
+  <span class="na">IMAGE</span><span class="pi">:</span> <span class="s">ghcr.io/${{ github.repository }}</span>
 
 <span class="na">jobs</span><span class="pi">:</span>
   <span class="na">release</span><span class="pi">:</span>
     <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
     <span class="na">steps</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v7</span>
 
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/login-action@v3</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/setup-buildx-action@v4</span>
+
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/login-action@v4</span>
         <span class="na">with</span><span class="pi">:</span>
           <span class="na">registry</span><span class="pi">:</span> <span class="s">ghcr.io</span>
           <span class="na">username</span><span class="pi">:</span> <span class="s">${{ github.actor }}</span>
           <span class="na">password</span><span class="pi">:</span> <span class="s">${{ secrets.GITHUB_TOKEN }}</span>
 
-      <span class="c1"># 1. Build with provenance + SBOM attestations attached</span>
-      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">build</span>
-        <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/build-push-action@v6</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">meta</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/metadata-action@v6</span>
         <span class="na">with</span><span class="pi">:</span>
-          <span class="na">push</span><span class="pi">:</span> <span class="kc">true</span>
-          <span class="na">tags</span><span class="pi">:</span> <span class="s">ghcr.io/${{ github.repository }}:${{ github.ref_name }}</span>
-          <span class="na">provenance</span><span class="pi">:</span> <span class="s">mode=max</span>
-          <span class="na">sbom</span><span class="pi">:</span> <span class="kc">true</span>
+          <span class="na">images</span><span class="pi">:</span> <span class="s">${{ env.IMAGE }}</span>
 
-      <span class="c1"># 2. Scan the freshly pushed image; fail on fixable High/Critical</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">aquasecurity/trivy-action@master</span>
+      <span class="c1"># 1. Build and push with SBOM + provenance attached</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">build</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/build-push-action@v7</span>
         <span class="na">with</span><span class="pi">:</span>
-          <span class="na">image-ref</span><span class="pi">:</span> <span class="s">ghcr.io/${{ github.repository }}:${{ github.ref_name }}</span>
+          <span class="na">platforms</span><span class="pi">:</span> <span class="s">linux/amd64,linux/arm64</span>
+          <span class="na">push</span><span class="pi">:</span> <span class="kc">true</span>
+          <span class="na">tags</span><span class="pi">:</span> <span class="s">${{ steps.meta.outputs.tags }}</span>
+          <span class="na">labels</span><span class="pi">:</span> <span class="s">${{ steps.meta.outputs.labels }}</span>
+          <span class="na">sbom</span><span class="pi">:</span> <span class="kc">true</span>
+          <span class="na">provenance</span><span class="pi">:</span> <span class="s">mode=max</span>
+
+      <span class="c1"># 2. Gate on fixable High/Critical vulnerabilities</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">aquasecurity/trivy-action@v0.36.0</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">image-ref</span><span class="pi">:</span> <span class="s">${{ env.IMAGE }}@${{ steps.build.outputs.digest }}</span>
           <span class="na">severity</span><span class="pi">:</span> <span class="s">HIGH,CRITICAL</span>
           <span class="na">ignore-unfixed</span><span class="pi">:</span> <span class="kc">true</span>
           <span class="na">exit-code</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span>
 
-      <span class="c1"># 3. Keyless-sign the image digest (identity = this workflow)</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">sigstore/cosign-installer@v3</span>
-      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">cosign sign --yes ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}</span>
+      <span class="c1"># 3. Keyless-sign the digest (identity = this workflow at this ref)</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">sigstore/cosign-installer@v4</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">cosign sign --yes "${{ env.IMAGE }}@${{ steps.build.outputs.digest }}"</span>
+
+      <span class="c1"># 4. GitHub build-provenance attestation, pushed to the registry</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/attest@v4</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">subject-name</span><span class="pi">:</span> <span class="s">${{ env.IMAGE }}</span>
+          <span class="na">subject-digest</span><span class="pi">:</span> <span class="s">${{ steps.build.outputs.digest }}</span>
+          <span class="na">push-to-registry</span><span class="pi">:</span> <span class="kc">true</span>
 </code></pre></div></div>
 
-<p>At deploy time, an admission controller (for example <a href="../kubernetes/">Kyverno</a> or Sigstore’s policy-controller) verifies the signature identity and the presence of provenance before the image is allowed to run:</p>
+<p>At deploy time an admission controller, such as Kyverno’s <code class="language-plaintext highlighter-rouge">verifyImages</code> rules or Sigstore’s policy-controller in <a href="../kubernetes/">Kubernetes</a>, checks the signature identity, issuer, and required attestations before a pod may start, and can rewrite tags to digests. The check is equivalent to:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># What a deploy-time gate effectively checks</span>
-cosign verify ghcr.io/acme/myapp@sha256:9f86d08... <span class="se">\</span>
-  <span class="nt">--certificate-identity-regexp</span> <span class="s1">'https://github.com/acme/.*'</span> <span class="se">\</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cosign verify ghcr.io/acme/myapp@sha256:9f86d08... <span class="se">\</span>
+  <span class="nt">--certificate-identity-regexp</span> <span class="s1">'^https://github\.com/acme/myapp/\.github/workflows/release\.yml@refs/tags/v'</span> <span class="se">\</span>
   <span class="nt">--certificate-oidc-issuer</span> https://token.actions.githubusercontent.com
 </code></pre></div></div>
 
-<p>The result is an unbroken chain: a digest no one can alter, a signature only your pipeline can produce, an SBOM listing every component, a scan gating on real risk, and provenance tying the artifact back to a specific commit and builder.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Deploy by digest.</strong> Tags are mutable pointers; the <code class="language-plaintext highlighter-rouge">sha256:</code> digest immutably pins the config and every layer. Resolve tags to digests once and deploy the digest.</li>
-  <li><strong>Enforce immutability server-side.</strong> Set ECR/GAR repos or Harbor projects to reject tag overwrites, and never deploy <code class="language-plaintext highlighter-rouge">latest</code> — convention alone is not enough.</li>
-  <li><strong>Sign with cosign.</strong> Keyless cosign signing binds a workflow identity to an image digest with no long-lived keys to leak. Verify identity <em>and</em> issuer.</li>
-  <li><strong>SBOM + scan + provenance.</strong> Generate an SBOM (Syft/BuildKit), gate on fixable High/Critical CVEs (Trivy/Grype), and attach SLSA provenance so you can prove what shipped and how.</li>
-</ul>
+<p>The result is a verifiable chain: a digest that cannot change, a signature only this workflow could produce, an SBOM listing every component, a scan gating on real risk, and provenance tying the artifact to a specific commit and builder.</p>
 
 <hr />
 
@@ -3732,11 +3743,11 @@ cosign verify ghcr.io/acme/myapp@sha256:9f86d08... <span class="se">\</span>
 
 <ul>
   <li><a href="fundamentals.html">Fundamentals</a> - Images, layers, and the content-addressed model behind digests</li>
-  <li><a href="storage-security.html">Storage &amp; Security</a> - Runtime hardening, secrets, and the scanning basics expanded here</li>
-  <li><a href="dockerfiles.html">Dockerfiles &amp; CI/CD</a> - Minimal base images and build pipelines that produce these artifacts</li>
-  <li><a href="advanced.html">Advanced Patterns</a> - Production deployment architectures</li>
-  <li><a href="../kubernetes/">Kubernetes</a> - Admission control and verifying signatures at deploy time</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> - Broader security fundamentals</li>
+  <li><a href="storage-security.html">Storage &amp; Security</a> - Runtime hardening and secrets management</li>
+  <li><a href="dockerfiles.html">Dockerfiles &amp; CI/CD</a> - Minimal base images and build pipelines</li>
+  <li><a href="../ci-cd/security-and-operations.html">CI/CD Security and Operations</a> - Pipeline hardening beyond the image</li>
+  <li><a href="../kubernetes/">Kubernetes</a> - Admission control and deploy-time verification</li>
+  <li><a href="../cybersecurity/cloud-and-container-security.html">Cloud and Container Security</a> - Broader container security context</li>
 </ul>
 
       </section>

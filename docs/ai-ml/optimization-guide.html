@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Fitting and speeding up diffusion and LLM inference: memory budgeting, precision and quantization formats, attention kernels, offloading, compilation, step d...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AI/ML: Optimization & Performance">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Fitting and speeding up diffusion and LLM inference: memory budgeting, precision and quantization formats, attention kernels, offloading, compilation, step d...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/ai-ml/optimization-guide.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AI/ML: Optimization & Performance">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Fitting and speeding up diffusion and LLM inference: memory budgeting, precision and quantization formats, attention kernels, offloading, compilation, step d...">
 
 <title>AI/ML: Optimization & Performance | Andrews Notebook</title>
 
@@ -3133,405 +3133,498 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI/ML Documentation</a> » Optimization &amp; Performance</p>
 
-<p>A consolidated reference for the two questions every practitioner eventually hits: <em>“How do I make this fit in my VRAM?”</em> and <em>“How do I make it run faster?”</em> — covering quantization, memory-reduction tactics, inference acceleration, and batching across both diffusion and LLM workloads.</p>
+<p>This page is a practical reference for two questions about running generative models: <em>how do I make it fit in memory?</em> and <em>how do I make it faster?</em> It covers diffusion image and video models and large language models (LLMs). Topics include how to estimate a memory budget, numeric precision and quantization formats, memory-reduction techniques (efficient attention, tiling, offloading, KV-cache management), speed techniques (compilation, optimized runtimes, step distillation, caching, speculative decoding), and batching for throughput. Training-time compression methods such as pruning, distillation, and QAT are covered in <a href="model-compression.html">Model Compression</a>.</p>
 
-<ul>
-  <li><strong>Quantize First.</strong> Lower-precision weights (bf16 → fp8 → 4-bit) are the single biggest lever for fitting big models on consumer GPUs, with minor quality cost.</li>
-  <li><strong>Trade Time for Memory.</strong> Attention slicing, tiling, and CPU offload all swap speed for VRAM headroom — the difference between OOM and a working pipeline.</li>
-  <li><strong>Then Trade Memory for Time.</strong> torch.compile, fused attention, distillation, and batching reclaim throughput once the model fits.</li>
-</ul>
+<h2 id="diagnosing-the-bottleneck">Diagnosing the Bottleneck</h2>
 
-<h2 id="the-two-bottlenecks">The Two Bottlenecks</h2>
+<p>Nearly every performance problem comes down to one of three limits:</p>
 
-<p>Almost every performance problem in generative AI reduces to one of two limits:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Limit</th>
+      <th>Symptom</th>
+      <th>Typical workloads</th>
+      <th>Levers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Memory capacity</strong></td>
+      <td>Out-of-memory (OOM) error</td>
+      <td>Large models on consumer GPUs; long LLM contexts</td>
+      <td>Quantize, offload, tile, shrink the KV cache</td>
+    </tr>
+    <tr>
+      <td><strong>Memory bandwidth</strong></td>
+      <td>GPU “busy” but tensor cores mostly idle</td>
+      <td>LLM token generation (decode) at small batch sizes</td>
+      <td>Fewer bytes per weight (quantization), batching, speculative decoding</td>
+    </tr>
+    <tr>
+      <td><strong>Compute</strong></td>
+      <td>Tensor cores saturated</td>
+      <td>Diffusion denoising, LLM prompt processing (prefill), large batches</td>
+      <td>Lower-precision math (FP8/FP4), fewer steps, caching, compilation</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>Memory-bound (VRAM):</strong> the model, its activations, and the KV cache don’t fit. You hit <em>out-of-memory</em> (OOM) errors. The fixes shrink footprint — quantization, slicing, tiling, offload.</li>
-  <li><strong>Compute-bound (time):</strong> the model fits, but each generation is too slow. The fixes shrink work — fewer/cheaper operations, distillation, compilation, batching.</li>
-</ul>
-
-<p>The order matters: <strong>make it fit, then make it fast.</strong> A model that OOMs has infinite latency, so memory always comes first. Once it fits, profile to find the actual bottleneck before optimizing — wall-clock time and peak VRAM per run tell you which lever to pull rather than guessing.</p>
+<p>The order of work is <strong>make it fit, then make it fast</strong>. A model that doesn’t fit has no latency to optimize. Once it fits, measure before changing anything. <code class="language-plaintext highlighter-rouge">torch.cuda.max_memory_allocated()</code>, <code class="language-plaintext highlighter-rouge">nvidia-smi</code>, and a profiler (PyTorch Profiler, Nsight Systems) tell you which limit you are actually hitting.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    Start["Model won't run&lt;br/&gt;or runs too slowly"] --&gt; Q{"Does it fit&lt;br/&gt;in VRAM?"}
-    Q --&gt;|No| Mem["Reduce footprint:&lt;br/&gt;quantize → slice/tile → offload"]
-    Mem --&gt; Q
-    Q --&gt;|Yes| C{"Fast enough?"}
-    C --&gt;|No| Speed["Reduce work:&lt;br/&gt;compile → fused attention →&lt;br/&gt;distillation → batching"]
-    C --&gt;|Yes| Done["Ship it"]
-    Speed --&gt; C
+    Start["Model won't run,&lt;br/&gt;or runs too slowly"] --&gt; Fit{"Fits in VRAM?"}
+    Fit --&gt;|No| Mem["Reduce footprint&lt;br/&gt;quantize -&gt; efficient attention -&gt; tile -&gt; offload"]
+    Mem --&gt; Fit
+    Fit --&gt;|Yes| Fast{"Fast enough?"}
+    Fast --&gt;|No| Kind{"Bottleneck?"}
+    Kind --&gt;|"bandwidth&lt;br/&gt;(LLM decode)"| BW["Quantize weights, batch requests,&lt;br/&gt;speculative decoding"]
+    Kind --&gt;|"compute&lt;br/&gt;(diffusion, prefill)"| CP["FP8/FP4 math, compile,&lt;br/&gt;fewer steps, step caching"]
+    BW --&gt; Fast
+    CP --&gt; Fast
+    Fast --&gt;|Yes| Done["Ship it"]
 </code></pre>
+
+<h3 id="estimating-memory">Estimating memory</h3>
+
+<p>The main memory cost is the weights:</p>
+
+\[M_{\text{weights}} \approx N_{\text{params}} \times \frac{b}{8} \text{ bytes}\]
+
+<p>where $b$ is bits per weight. A 12B-parameter model needs about 24 GB in BF16, 12 GB in FP8, and about 7 GB at 4.5 bits per weight. For LLMs the <strong>KV cache</strong> comes on top. It stores keys and values for every past token in every layer:</p>
+
+\[M_{\text{KV}} = 2 \times L \times H_{\text{kv}} \times d_{\text{head}} \times T \times B \times \text{bytes per element}\]
+
+<p>for $L$ layers, $H_{\text{kv}}$ key/value heads, head dimension $d_{\text{head}}$, context length $T$, and batch size $B$. Take Llama 3.1 8B ($L = 32$, $H_{\text{kv}} = 8$, $d_{\text{head}} = 128$) in BF16. That is 128 KiB per token, so a single 128K-token context needs about 16 GiB of KV cache, which is more than the 8B weights themselves. Activations, the CUDA context, and allocator fragmentation add a further 10-30%.</p>
+
+<h3 id="estimating-llm-decode-speed">Estimating LLM decode speed</h3>
+
+<p>When generating one token at a time, every weight has to be read from memory once per token. At batch size 1 this gives an upper bound on speed:</p>
+
+\[\text{tokens/s} \lesssim \frac{\text{memory bandwidth}}{M_{\text{weights}}}\]
+
+<p>An 8B model at ~4.5 bits per weight (~4.5 GB) on a GPU with 1 TB/s of bandwidth tops out near 220 tokens/s. The same model on a dual-channel DDR5 desktop CPU (~80 GB/s) tops out near 18 tokens/s. This is why quantization speeds up local LLMs even though it adds arithmetic, and why offloading layers to system RAM slows them down so sharply.</p>
 
 <h2 id="numeric-precision-and-quantization">Numeric Precision and Quantization</h2>
 
-<p>Every weight and activation in a model is a number stored in some format. Using <strong>fewer bits per number</strong> shrinks the model and often speeds it up, because memory bandwidth — not arithmetic — is usually the limiting resource. The cost is precision: rounding errors that, kept small, barely affect output quality.</p>
+<p>Storing each number in fewer bits shrinks the model. On hardware with native low-precision tensor cores, it also speeds up the math. The cost is rounding error, which is negligible at 16 and 8 bits and noticeable, depending on the method, at 4 bits and below.</p>
 
-<h3 id="floating-point-formats">Floating-Point Formats</h3>
-
-<p>The standard formats trade off range (how large/small a value can be) against precision (how finely values are resolved):</p>
+<h3 id="floating-point-formats">Floating-point formats</h3>
 
 <table>
   <thead>
     <tr>
       <th>Format</th>
-      <th>Bits</th>
-      <th>Range</th>
-      <th>Precision</th>
+      <th>Bits (sign/exp/mantissa)</th>
+      <th>Dynamic range</th>
+      <th>Native tensor-core support (NVIDIA)</th>
       <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>fp32</td>
-      <td>32</td>
+      <td>FP32</td>
+      <td>1/8/23</td>
       <td>Wide</td>
-      <td>High</td>
-      <td>Training reference, master weights</td>
+      <td>All</td>
+      <td>Master weights, optimizer state, reductions</td>
     </tr>
     <tr>
-      <td>tf32</td>
-      <td>19*</td>
-      <td>fp32 range</td>
-      <td>~fp16 mantissa</td>
-      <td>Ampere+ matmul accumulation (transparent)</td>
+      <td>TF32</td>
+      <td>1/8/10 (in a 32-bit slot)</td>
+      <td>FP32 range</td>
+      <td>Ampere+</td>
+      <td>Transparent FP32-matmul speedup</td>
     </tr>
     <tr>
-      <td>fp16</td>
-      <td>16</td>
-      <td>Narrow</td>
-      <td>Medium</td>
-      <td>Inference; can overflow without loss scaling</td>
+      <td>FP16</td>
+      <td>1/5/10</td>
+      <td>Narrow (max 65504)</td>
+      <td>Volta+</td>
+      <td>Inference; training needs loss scaling</td>
     </tr>
     <tr>
-      <td>bf16</td>
-      <td>16</td>
-      <td>fp32 range</td>
-      <td>Lower mantissa</td>
-      <td>Training/inference; stable, the modern default</td>
+      <td>BF16</td>
+      <td>1/8/7</td>
+      <td>FP32 range</td>
+      <td>Ampere+</td>
+      <td>The default for training and inference</td>
     </tr>
     <tr>
-      <td>fp8 (E4M3 / E5M2)</td>
-      <td>8</td>
-      <td>Narrow</td>
-      <td>Low</td>
-      <td>Hopper/Ada inference, large-model weights</td>
+      <td>FP8 E4M3 / E5M2</td>
+      <td>1/4/3, 1/5/2</td>
+      <td>Narrow, needs scaling</td>
+      <td>Ada, Hopper, Blackwell</td>
+      <td>Inference weights and activations; FP8 training</td>
+    </tr>
+    <tr>
+      <td>FP4 E2M1 (MXFP4, NVFP4)</td>
+      <td>1/2/1 + block scale</td>
+      <td>Needs per-block scale</td>
+      <td>Blackwell</td>
+      <td>4-bit inference with native FP4 math</td>
     </tr>
   </tbody>
 </table>
 
-<p>*tf32 stores 19 bits internally but occupies an fp32 slot.</p>
-
-<p><strong>fp16 vs. bf16</strong> is the most common choice. Both are 16-bit, halving memory versus fp32, but they split the bits differently:</p>
-
 <ul>
-  <li><strong>fp16</strong> spends more bits on the mantissa (precision) and fewer on the exponent (range). It is precise but overflows easily — large activations become <code class="language-plaintext highlighter-rouge">inf</code>/<code class="language-plaintext highlighter-rouge">NaN</code>, which is why fp16 <em>training</em> needs loss scaling.</li>
-  <li><strong>bf16</strong> keeps fp32’s full exponent range with a coarser mantissa. It almost never overflows, so it is far more stable. On Ampere and newer hardware, <strong>bf16 is the default</strong> for both training and inference.</li>
+  <li><strong>FP16 vs. BF16.</strong> Both halve memory compared with FP32. FP16 has more mantissa bits but overflows easily, so large activations become <code class="language-plaintext highlighter-rouge">inf</code> or <code class="language-plaintext highlighter-rouge">NaN</code>. This is the cause of the well-known black images from the SDXL VAE in FP16. BF16 keeps FP32’s exponent range, rarely overflows, and is the right default on Ampere and newer GPUs.</li>
+  <li><strong>FP8.</strong> E4M3 (more precision) is used for weights and activations, and E5M2 (more range) for gradients. FP8 needs a scale factor per tensor, channel, or block. On Ada, Hopper, and Blackwell, FP8 matmuls run at about twice BF16 throughput. On older GPUs, FP8 weights save memory but are upcast before computing.</li>
+  <li><strong>FP4 microscaling.</strong> MXFP4 (OCP standard: 32-element blocks, power-of-two scale) and NVIDIA’s NVFP4 (16-element blocks, FP8 scale) store 4-bit values that share a scale per block. Blackwell tensor cores compute on them directly, so FP4 is both smaller and faster there. The format details are in <a href="model-compression.html#number-formats">Model Compression</a>.</li>
 </ul>
 
-<p>The general rule: store the master copy of weights in a wider format when training, but run inference in 16-bit (bf16 preferred) for a free 2x memory saving with negligible quality loss.</p>
+<h3 id="how-integer-quantization-works">How integer quantization works</h3>
 
-<h3 id="fp8-and-sub-8-bit">fp8 and Sub-8-Bit</h3>
+<p>A value $x$ is stored as an integer $q$ with a scale $s$ and optional zero-point $z$:</p>
 
-<p>Going below 16 bits enters dedicated <em>quantization</em> territory. <strong>fp8</strong> comes in two variants — <code class="language-plaintext highlighter-rouge">E4M3</code> (more precision, less range) for weights and activations, and <code class="language-plaintext highlighter-rouge">E5M2</code> (more range) for gradients. On Hopper (H100) and Ada (RTX 40-series) GPUs, fp8 matmul runs at roughly double bf16 throughput while halving weight memory again. For diffusion, fp8 is often the difference between a model like FLUX fitting in 12 GB or not.</p>
+\[q = \mathrm{round}\!\left(\frac{x}{s}\right) + z, \qquad \hat{x} = s\,(q - z)\]
 
-<p>Below 8 bits, formats become <strong>integer</strong> quantization (int8, int4) with explicit scale factors, because there aren’t enough bits left for a useful floating-point exponent. These are the realm of the LLM quantization schemes below.</p>
+<p>The difference $x - \hat{x}$ is the quantization error. The main design choice is <strong>granularity</strong>. One scale for the whole tensor lets a single outlier waste most of the range. Per-channel scales, or per-group scales over blocks of 32-128 weights, track local magnitude much better, and every modern 4-bit scheme uses them. Most models you download were quantized <strong>post-training</strong> (PTQ). <strong>Quantization-aware training</strong> (QAT) gives better 4-bit quality but needs a training run, and some model families now ship official QAT checkpoints.</p>
 
-<h3 id="how-quantization-works">How Quantization Works</h3>
-
-<p>The core operation maps a high-precision range onto a small integer range using a <strong>scale</strong> $s$ and (optionally) a <strong>zero-point</strong> $z$:</p>
-
-\[q = \text{round}\left(\frac{x}{s}\right) + z, \qquad \hat{x} = s \,(q - z)\]
-
-<p>Here $x$ is the original value, $q$ the stored integer, and $\hat{x}$ the dequantized approximation. The <strong>quantization error</strong> $x - \hat{x}$ is what costs quality. Two design choices control it:</p>
-
-<ul>
-  <li><strong>Granularity.</strong> A single scale per tensor (<em>per-tensor</em>) is cheapest but lets one outlier stretch the range and crush everyone else’s resolution. <em>Per-channel</em> or <em>per-group</em> scales (a separate $s$ for each row, or each block of 64–128 weights) track local magnitude far better — the basis of GPTQ/AWQ group sizes.</li>
-  <li><strong>Symmetry.</strong> Symmetric quantization fixes $z = 0$ (range centered on zero), which is simpler and standard for weights. Asymmetric quantization tunes $z$ to fit skewed distributions like post-ReLU activations.</li>
-</ul>
-
-<p><strong>Quantization-aware vs. post-training.</strong> Post-training quantization (PTQ) quantizes an already-trained model — fast, no retraining, slight quality loss. Quantization-aware training (QAT) simulates the rounding during training so the model adapts to it — higher quality at low bit-widths, but it requires a training run. Most LLM and diffusion quants you download are PTQ.</p>
-
-<h3 id="llm-quantization-formats">LLM Quantization Formats</h3>
-
-<p>For large language models, the dominant ecosystem revolves around three named schemes plus a container format. They differ in <em>how</em> they choose scales and <em>what</em> they protect:</p>
+<h3 id="llm-quantization-formats">LLM quantization formats</h3>
 
 <table>
   <thead>
     <tr>
       <th>Format</th>
-      <th>Bits (typical)</th>
-      <th>Method</th>
-      <th>Strength</th>
+      <th>Typical bits</th>
+      <th>How scales are chosen</th>
+      <th>Runs on</th>
+      <th>Main tooling</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>GGUF</strong></td>
-      <td>2–8 (Q2–Q8)</td>
-      <td>Block-wise k-quants, CPU+GPU</td>
-      <td>Runs on CPU/Apple Silicon via llama.cpp; flexible offload</td>
+      <td><strong>GGUF</strong> (k-quants, i-quants)</td>
+      <td>1.5-8</td>
+      <td>Block-wise; optional importance matrix (imatrix) from calibration text</td>
+      <td>CPU, Apple Silicon, CUDA/ROCm/Vulkan GPUs</td>
+      <td>llama.cpp, Ollama, LM Studio</td>
     </tr>
     <tr>
       <td><strong>GPTQ</strong></td>
-      <td>3–4</td>
-      <td>Layer-wise error compensation (Hessian-based)</td>
-      <td>Strong 4-bit accuracy; GPU inference</td>
+      <td>3-4 (8)</td>
+      <td>Layer-wise error compensation using second-order (Hessian) information</td>
+      <td>GPU</td>
+      <td>vLLM, SGLang, transformers; created with LLM Compressor / GPTQModel</td>
     </tr>
     <tr>
       <td><strong>AWQ</strong></td>
       <td>4</td>
-      <td>Protects salient (high-activation) weight channels</td>
-      <td>Fast, accurate 4-bit; good kernel support</td>
+      <td>Rescales salient channels (those that see large activations) before rounding</td>
+      <td>GPU</td>
+      <td>vLLM, SGLang, TensorRT-LLM</td>
     </tr>
     <tr>
-      <td><strong>bitsandbytes (NF4)</strong></td>
+      <td><strong>bitsandbytes NF4 / int8</strong></td>
+      <td>4 / 8</td>
+      <td>NormalFloat4 codebook + double quantization; quantized at load time</td>
+      <td>GPU</td>
+      <td>transformers; QLoRA fine-tuning</td>
+    </tr>
+    <tr>
+      <td><strong>FP8 (W8A8)</strong></td>
+      <td>8</td>
+      <td>Per-tensor or per-channel scales, dynamic per-token activations</td>
+      <td>Ada / Hopper / Blackwell</td>
+      <td>vLLM, SGLang, TensorRT-LLM</td>
+    </tr>
+    <tr>
+      <td><strong>MXFP4 / NVFP4</strong></td>
       <td>4</td>
-      <td>NormalFloat4 + double quantization</td>
-      <td>Drop-in for training/QLoRA; widely supported</td>
+      <td>Hardware block scaling</td>
+      <td>Blackwell (MXFP4 also AMD MI350)</td>
+      <td>vLLM, SGLang, TensorRT-LLM</td>
+    </tr>
+    <tr>
+      <td><strong>EXL3</strong></td>
+      <td>1.5-8</td>
+      <td>Trellis-coded quantization (from QTIP)</td>
+      <td>NVIDIA GPU</td>
+      <td>ExLlamaV3, TabbyAPI</td>
     </tr>
   </tbody>
 </table>
 
 <ul>
-  <li><strong>GGUF</strong> (the successor to GGML) is a <em>container</em> format used by <strong>llama.cpp</strong> and tools built on it (Ollama, LM Studio, KoboldCpp). Its “k-quant” variants (<code class="language-plaintext highlighter-rouge">Q4_K_M</code>, <code class="language-plaintext highlighter-rouge">Q5_K_M</code>, <code class="language-plaintext highlighter-rouge">Q6_K</code>, …) quantize weights in small blocks with mixed precision — more bits for the layers that need them. Its standout feature is flexible <strong>CPU/GPU split</strong>: you can offload as many layers to the GPU as fit and run the rest on CPU, letting a 70B model run on a single consumer card (slowly). GGUF is also the diffusion world’s portable quant format (FLUX <code class="language-plaintext highlighter-rouge">Q4</code>–<code class="language-plaintext highlighter-rouge">Q8</code>).</li>
-  <li><strong>GPTQ</strong> quantizes one layer at a time, using second-order (Hessian) information to compensate for the error introduced in each weight as it rounds the rest. This makes its 4-bit models notably more accurate than naive rounding. It targets GPU inference (ExLlama/AutoGPTQ kernels).</li>
-  <li><strong>AWQ</strong> (Activation-aware Weight Quantization) observes that a small fraction of weight channels — those multiplied by large activations — dominate output quality. It scales those salient channels to protect them before quantizing, achieving accuracy close to GPTQ with simpler, faster kernels.</li>
-  <li><strong>bitsandbytes NF4</strong> underpins <strong>QLoRA</strong>: it stores frozen base weights in a 4-bit NormalFloat format (information-theoretically optimal for normally-distributed weights) and trains LoRA adapters on top in bf16, making it possible to fine-tune a 65B model on a single 48 GB GPU.</li>
+  <li><strong>GGUF</strong> is the single-file container used by <strong>llama.cpp</strong> and everything built on it. K-quants such as <code class="language-plaintext highlighter-rouge">Q4_K_M</code> and <code class="language-plaintext highlighter-rouge">Q5_K_M</code> quantize in small blocks and keep sensitive tensors at higher precision. I-quants (<code class="language-plaintext highlighter-rouge">IQ2_XS</code> to <code class="language-plaintext highlighter-rouge">IQ4_XS</code>) use lattice codebooks for better quality below 4 bits, especially with an imatrix. GGUF’s main strength is <strong>partial offload</strong>: <code class="language-plaintext highlighter-rouge">-ngl</code> / <code class="language-plaintext highlighter-rouge">n_gpu_layers</code> puts as many layers on the GPU as fit and runs the rest on the CPU.</li>
+  <li><strong>GPTQ and AWQ</strong> are the standard GPU formats for data-center serving. Their accuracy at 4-bit is similar. AWQ is simpler and needs less calibration.</li>
+  <li><strong>bitsandbytes NF4</strong> quantizes when the model is loaded, with no calibration file. It is the basis of <strong>QLoRA</strong>, where a frozen NF4 base plus BF16 LoRA adapters allowed fine-tuning a 65B model on a single 48 GB GPU in the original paper.</li>
 </ul>
 
-<h4 id="choosing-an-llm-quant-level">Choosing an LLM Quant Level</h4>
-
-<p>The accuracy-vs-size curve is steep at the bottom and flat near the top:</p>
+<h4 id="choosing-a-gguf-quant-level">Choosing a GGUF quant level</h4>
 
 <table>
   <thead>
     <tr>
       <th>Quant</th>
-      <th>Size vs. fp16</th>
+      <th>Approx. bits/weight</th>
+      <th>Size vs. FP16</th>
       <th>Quality</th>
-      <th>When to use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Q8 / 8-bit</td>
-      <td>~50%</td>
-      <td>Near-lossless</td>
-      <td>Plenty of VRAM, quality-critical</td>
+      <td><code class="language-plaintext highlighter-rouge">Q8_0</code></td>
+      <td>8.5</td>
+      <td>~53%</td>
+      <td>Practically lossless</td>
     </tr>
     <tr>
-      <td>Q5_K_M / 5-bit</td>
-      <td>~35%</td>
+      <td><code class="language-plaintext highlighter-rouge">Q6_K</code></td>
+      <td>6.6</td>
+      <td>~41%</td>
+      <td>Indistinguishable in most use</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Q5_K_M</code></td>
+      <td>5.7</td>
+      <td>~36%</td>
       <td>Excellent</td>
-      <td>Sweet spot for most chat/coding</td>
     </tr>
     <tr>
-      <td>Q4_K_M / 4-bit</td>
-      <td>~28%</td>
-      <td>Very good</td>
-      <td>Best size/quality trade-off, the default</td>
+      <td><code class="language-plaintext highlighter-rouge">Q4_K_M</code></td>
+      <td>4.8</td>
+      <td>~30%</td>
+      <td>Very good; the usual default</td>
     </tr>
     <tr>
-      <td>Q3 / 3-bit</td>
-      <td>~20%</td>
-      <td>Noticeable degradation</td>
-      <td>Only if 4-bit won’t fit</td>
+      <td><code class="language-plaintext highlighter-rouge">IQ3_M</code> / <code class="language-plaintext highlighter-rouge">Q3_K_M</code></td>
+      <td>3.7-3.9</td>
+      <td>~24%</td>
+      <td>Noticeable loss; prefer a smaller model at 4-bit if one exists</td>
     </tr>
     <tr>
-      <td>Q2 / 2-bit</td>
-      <td>~15%</td>
-      <td>Significant degradation</td>
-      <td>Last resort for huge models</td>
+      <td><code class="language-plaintext highlighter-rouge">IQ2_XS</code> / <code class="language-plaintext highlighter-rouge">Q2_K</code></td>
+      <td>2.3-3.0</td>
+      <td>~16-19%</td>
+      <td>Large loss; last resort for very large models</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>Q4_K_M (or AWQ/GPTQ 4-bit) is the default recommendation</strong> — it captures most of the quality of the full model at roughly a quarter of the size. Drop to 3-bit only when 4-bit won’t fit; the quality cliff below 4-bit is steep.</p>
+<p>Quality falls off steeply below about 4 bits per weight, and small models lose more than large ones. A larger model at 4-bit usually beats a smaller model at 8-bit for the same memory, down to about 3 bits.</p>
 
-<h3 id="quantization-for-diffusion-models">Quantization for Diffusion Models</h3>
+<h3 id="quantization-for-diffusion-models">Quantization for diffusion models</h3>
 
-<p>Diffusion models quantize too, with their own conventions:</p>
+<p>Diffusion models use the same ideas with their own conventions:</p>
 
 <ul>
-  <li><strong>fp8</strong> is the most common diffusion quant (FLUX, SDXL). A single <code class="language-plaintext highlighter-rouge">_fp8</code> checkpoint halves the UNet/transformer footprint with minimal visible quality loss, and runs faster on Ada/Hopper.</li>
-  <li><strong>GGUF</strong> diffusion quants (<code class="language-plaintext highlighter-rouge">Q4_0</code> through <code class="language-plaintext highlighter-rouge">Q8_0</code>, plus k-quants) let very large models like FLUX run on 8–12 GB cards, decoded by ComfyUI’s GGUF loader nodes. Lower quants soften fine detail.</li>
-  <li><strong>Text-encoder quantization.</strong> FLUX’s T5-XXL text encoder is itself huge; quantizing <em>it</em> (fp8 or GGUF) often frees more VRAM than quantizing the diffusion model, because the encoder runs once per prompt and can be offloaded between runs.</li>
+  <li><strong>FP8</strong> (<code class="language-plaintext highlighter-rouge">fp8_e4m3fn</code>, including “scaled” variants with per-tensor scales) is the most common diffusion quantization. It halves the denoiser with almost no visible change and runs faster on Ada, Hopper, and Blackwell.</li>
+  <li><strong>GGUF</strong> (<code class="language-plaintext highlighter-rouge">Q8_0</code> down to <code class="language-plaintext highlighter-rouge">Q3_K</code>) makes 12B-32B models such as FLUX.1, FLUX.2, and Qwen-Image usable on 8-16 GB cards through ComfyUI-GGUF. It is a memory saving, not a speedup, because weights are dequantized on the fly. Lower levels soften fine texture and small text.</li>
+  <li><strong>4-bit compute formats.</strong> <strong>SVDQuant</strong> (served by the Nunchaku engine) quantizes both weights and activations to 4 bits. It moves outliers into a small 16-bit low-rank branch and runs real 4-bit kernels: INT4 on RTX 30/40-series, NVFP4 on Blackwell. For FLUX.1 it reports about 3.5x less memory and about 3x speedup over an NF4 weight-only baseline on an RTX 4090. ComfyUI also loads NVFP4 checkpoints natively on Blackwell.</li>
+  <li><strong>Text encoders.</strong> T5-XXL (FLUX.1, SD 3.5) and the LLM encoders of FLUX.2 (24B Mistral Small), Qwen-Image, and Z-Image are large. Quantizing the encoder to FP8 or GGUF, or offloading it after encoding, often frees more VRAM than quantizing the denoiser. The encoder runs once per prompt.</li>
 </ul>
 
-<p>A practical FLUX-on-12-GB recipe: fp8 (or <code class="language-plaintext highlighter-rouge">Q5_K_M</code>) diffusion model, fp8 T5 text encoder, and sequential CPU offload of whichever component is idle.</p>
+<p>In diffusers, the same backends are available through <code class="language-plaintext highlighter-rouge">PipelineQuantizationConfig</code> / <code class="language-plaintext highlighter-rouge">BitsAndBytesConfig</code> / <code class="language-plaintext highlighter-rouge">TorchAoConfig</code> at load time, and FP8 storage with BF16 compute through layerwise casting (see <a href="#offloading-and-layerwise-casting">Offloading</a>).</p>
 
-<h2 id="reducing-vram-footprint">Reducing VRAM Footprint</h2>
+<h2 id="reducing-memory">Reducing Memory</h2>
 
-<p>Quantization shrinks the <em>weights</em>. The techniques below shrink everything else — activations, attention buffers, and the cost of keeping all components resident at once. They mostly <strong>trade time for memory</strong>: each makes the model fit on a smaller card at some speed cost.</p>
+<p>These techniques shrink everything other than the weight bits: attention buffers, activations, and the cost of keeping every component on the GPU at once. Most of them <strong>trade speed for memory</strong>.</p>
 
-<h3 id="attention-slicing">Attention Slicing</h3>
+<h3 id="efficient-attention-kernels">Efficient attention kernels</h3>
 
-<p>Attention computes an $N \times N$ score matrix over $N$ tokens (or image patches). At high resolution that matrix dominates memory. <strong>Attention slicing</strong> computes it in chunks — a few query rows at a time — so the peak buffer is a fraction of the full matrix:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pipe</span><span class="p">.</span><span class="nf">enable_attention_slicing</span><span class="p">()</span>        <span class="c1"># auto chunk size
-</span><span class="n">pipe</span><span class="p">.</span><span class="nf">enable_attention_slicing</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>       <span class="c1"># maximum slicing, slowest, lowest VRAM
-</span></code></pre></div></div>
-
-<p>It is the simplest OOM fix for diffusion and costs only modest speed, but on modern stacks it is largely superseded by <em>memory-efficient attention</em> (below), which gets the same memory benefit with little or no slowdown.</p>
-
-<h3 id="memory-efficient-attention-xformers-sdpa-flashattention">Memory-Efficient Attention: xFormers, SDPA, FlashAttention</h3>
-
-<p>Naive attention materializes the full score matrix in memory. <strong>FlashAttention</strong> restructures the computation to never store it: it tiles the calculation and fuses softmax into the matmul, streaming results so memory scales <strong>linearly</strong> in sequence length instead of quadratically, while <em>also</em> running faster (fewer memory round-trips). This is why it underpins essentially all modern LLM and diffusion inference.</p>
-
-<p>You consume it through one of three interfaces:</p>
+<p>Standard attention builds an $N \times N$ score matrix for $N$ tokens or image patches. At 1024x1024 a FLUX-class model attends over 4096 image tokens plus text tokens, and video models attend over tens of thousands. <strong>FlashAttention</strong> tiles the computation, fuses the softmax into the matmuls, and never stores the full matrix. Memory then grows <em>linearly</em> with sequence length, and it also runs faster because it makes fewer trips to memory.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Interface</th>
-      <th>Where it lives</th>
+      <th>Kernel</th>
+      <th>Hardware</th>
       <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>PyTorch SDPA</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">scaled_dot_product_attention</code> (built-in)</td>
-      <td>Auto-selects FlashAttention/memory-efficient/math backend; the modern default</td>
+      <td>PyTorch SDPA (<code class="language-plaintext highlighter-rouge">scaled_dot_product_attention</code>)</td>
+      <td>Any</td>
+      <td>Built-in dispatcher; picks FlashAttention-2, memory-efficient, or cuDNN backends automatically. On by default in diffusers and transformers</td>
     </tr>
     <tr>
-      <td><strong>FlashAttention 2/3</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">flash-attn</code> package</td>
-      <td>Hand-tuned kernels; fastest on supported (Ampere+) hardware</td>
+      <td>FlashAttention-2</td>
+      <td>Ampere+</td>
+      <td><code class="language-plaintext highlighter-rouge">flash-attn</code> package; <code class="language-plaintext highlighter-rouge">attn_implementation="flash_attention_2"</code> in transformers</td>
     </tr>
     <tr>
-      <td><strong>xFormers</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">xformers</code> package</td>
-      <td>Memory-efficient attention for older stacks; mostly superseded by SDPA</td>
+      <td>FlashAttention-3</td>
+      <td>Hopper</td>
+      <td>Uses Hopper asynchrony and supports FP8</td>
+    </tr>
+    <tr>
+      <td>FlashAttention-4</td>
+      <td>Hopper, Blackwell</td>
+      <td>Written in CuTe DSL; up to ~1.3x over cuDNN on B200 in BF16</td>
+    </tr>
+    <tr>
+      <td>SageAttention 2 / 3</td>
+      <td>Ampere+ / Blackwell (v3, FP4)</td>
+      <td><em>Quantized</em> attention (INT8/FP8, or FP4 in v3); 2-5x faster than FlashAttention with small quality impact; popular for FLUX and video models in ComfyUI</td>
+    </tr>
+    <tr>
+      <td>xFormers</td>
+      <td>Older stacks</td>
+      <td>Largely superseded by SDPA</td>
     </tr>
   </tbody>
 </table>
 
-<p>In current PyTorch and diffusers, <strong>SDPA is on by default</strong> and routes to FlashAttention when available — you usually get this for free by keeping your stack current. Explicitly:</p>
+<p><strong>Attention slicing</strong> (<code class="language-plaintext highlighter-rouge">pipe.enable_attention_slicing()</code>) computes attention a few rows at a time. It dates from before memory-efficient kernels were common, and with SDPA it usually just makes things slower. Use it only as a last resort on very old stacks.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># diffusers — enable memory-efficient attention on older versions
-</span><span class="n">pipe</span><span class="p">.</span><span class="nf">enable_xformers_memory_efficient_attention</span><span class="p">()</span>
+<h3 id="tiled-vae-and-tiled-diffusion">Tiled VAE and tiled diffusion</h3>
 
-<span class="c1"># transformers — request FlashAttention 2 for an LLM
-</span><span class="n">model</span> <span class="o">=</span> <span class="n">AutoModelForCausalLM</span><span class="p">.</span><span class="nf">from_pretrained</span><span class="p">(</span>
-    <span class="n">name</span><span class="p">,</span> <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">bfloat16</span><span class="p">,</span> <span class="n">attn_implementation</span><span class="o">=</span><span class="sh">"</span><span class="s">flash_attention_2</span><span class="sh">"</span>
-<span class="p">)</span>
-</code></pre></div></div>
+<p>Decoding latents to pixels multiplies the spatial size by 8 in each dimension, so the <strong>VAE decode</strong> is often the memory peak at high resolution, and even more so for video. Tiled decoding processes overlapping tiles:</p>
 
-<p>The win is dual: lower peak VRAM <em>and</em> higher throughput, with no quality change. There is rarely a reason not to use it when your hardware supports it.</p>
-
-<h3 id="tiled-vae-and-tiled-diffusion">Tiled VAE and Tiled Diffusion</h3>
-
-<p>For diffusion at very high resolution, the <strong>VAE decode</strong> (latent → pixels) is a memory spike all its own — it expands the latent by 8x in each spatial dimension. <strong>Tiled VAE</strong> decodes the image in overlapping tiles, so peak memory scales with tile size, not full resolution:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pipe</span><span class="p">.</span><span class="nf">enable_vae_tiling</span><span class="p">()</span>    <span class="c1"># decode in tiles — the standard high-res OOM fix
-</span><span class="n">pipe</span><span class="p">.</span><span class="nf">enable_vae_slicing</span><span class="p">()</span>   <span class="c1"># decode a batch one image at a time
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pipe</span><span class="p">.</span><span class="n">vae</span><span class="p">.</span><span class="nf">enable_tiling</span><span class="p">()</span>     <span class="c1"># decode in overlapping tiles: the standard high-res OOM fix
+</span><span class="n">pipe</span><span class="p">.</span><span class="n">vae</span><span class="p">.</span><span class="nf">enable_slicing</span><span class="p">()</span>    <span class="c1"># decode a batch one image at a time
 </span></code></pre></div></div>
 
-<p><strong>Tiled diffusion</strong> (e.g. <em>Mixture-of-Diffusers</em>, <em>Ultimate SD Upscale</em>) extends the idea to the denoising loop itself, generating the image tile-by-tile with overlap blending — the basis of upscaling far beyond a model’s native resolution without OOM. (See <a href="advanced-techniques.html">Advanced Techniques</a> for the multi-stage upscaling workflow this enables.)</p>
+<p><strong>Tiled diffusion</strong> (MultiDiffusion, Mixture of Diffusers, Ultimate SD Upscale) applies the same idea to the denoising loop. It generates large images tile by tile and blends the overlaps. This is the usual basis for upscaling well past a model’s native resolution (see <a href="advanced-techniques.html">Advanced Techniques</a>).</p>
 
-<h3 id="cpu-offload-and-sequential-loading">CPU Offload and Sequential Loading</h3>
+<h3 id="offloading-and-layerwise-casting">Offloading and layerwise casting</h3>
 
-<p>When even a quantized model won’t fit, keep idle components in system RAM and stream them to the GPU only when needed. Diffusers exposes two granularities:</p>
+<p>When the weights don’t fit, keep idle parts in system RAM and move them to the GPU only when needed. Diffusers offers several granularities:</p>
 
 <table>
   <thead>
     <tr>
       <th>Method</th>
-      <th>What it does</th>
+      <th>What moves</th>
       <th>Speed cost</th>
-      <th>Fits</th>
+      <th>When to use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">enable_model_cpu_offload()</code></td>
-      <td>Moves <em>whole submodels</em> (text encoder, UNet, VAE) on/off GPU around their use</td>
+      <td><code class="language-plaintext highlighter-rouge">pipe.enable_model_cpu_offload()</code></td>
+      <td>Whole components (text encoder, denoiser, VAE) around their use</td>
       <td>Small</td>
-      <td>Most pipelines on mid cards</td>
+      <td>Slightly VRAM-bound; the usual default</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">enable_sequential_cpu_offload()</code></td>
-      <td>Streams individual <em>layers</em> on demand</td>
-      <td>Large (much slower)</td>
-      <td>Extreme cases / tiny VRAM</td>
+      <td><code class="language-plaintext highlighter-rouge">model.enable_group_offload(..., use_stream=True)</code></td>
+      <td>Groups of layers, prefetched on a CUDA stream so transfers overlap compute</td>
+      <td>Moderate</td>
+      <td>Denoiser alone doesn’t fit; much faster than sequential</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pipe.enable_sequential_cpu_offload()</code></td>
+      <td>Individual layers, synchronously</td>
+      <td>Large</td>
+      <td>Last resort for tiny VRAM</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">model.enable_layerwise_casting(storage_dtype=torch.float8_e4m3fn, compute_dtype=torch.bfloat16)</code></td>
+      <td>Nothing; weights are <em>stored</em> in FP8 and upcast per layer</td>
+      <td>Small</td>
+      <td>Halve weight memory on GPUs without FP8 math</td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pipe</span><span class="p">.</span><span class="nf">enable_model_cpu_offload</span><span class="p">()</span>        <span class="c1"># good default when slightly VRAM-bound
-</span><span class="n">pipe</span><span class="p">.</span><span class="nf">enable_sequential_cpu_offload</span><span class="p">()</span>   <span class="c1"># last resort; runs but is slow
-</span></code></pre></div></div>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
+<span class="kn">from</span> <span class="n">diffusers</span> <span class="kn">import</span> <span class="n">FluxPipeline</span>
 
-<p><strong>Model offload</strong> moves a component to the GPU just before it runs and evicts it after — only one of {text encoder, UNet, VAE} is resident at a time, which is enough to run SDXL/FLUX on 6–8 GB at a small speed cost. <strong>Sequential offload</strong> goes further, streaming layer-by-layer; it lets enormous models run on tiny cards but is dramatically slower because of constant PCIe transfers.</p>
+<span class="n">pipe</span> <span class="o">=</span> <span class="n">FluxPipeline</span><span class="p">.</span><span class="nf">from_pretrained</span><span class="p">(</span><span class="sh">"</span><span class="s">black-forest-labs/FLUX.1-dev</span><span class="sh">"</span><span class="p">,</span> <span class="n">torch_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">bfloat16</span><span class="p">)</span>
+<span class="n">pipe</span><span class="p">.</span><span class="n">transformer</span><span class="p">.</span><span class="nf">enable_layerwise_casting</span><span class="p">(</span>
+    <span class="n">storage_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">float8_e4m3fn</span><span class="p">,</span> <span class="n">compute_dtype</span><span class="o">=</span><span class="n">torch</span><span class="p">.</span><span class="n">bfloat16</span>
+<span class="p">)</span>
+<span class="n">pipe</span><span class="p">.</span><span class="nf">enable_model_cpu_offload</span><span class="p">()</span>   <span class="c1"># text encoders, transformer, and VAE take turns on the GPU
+</span><span class="n">pipe</span><span class="p">.</span><span class="n">vae</span><span class="p">.</span><span class="nf">enable_tiling</span><span class="p">()</span>
+</code></pre></div></div>
 
-<p>For LLMs, the analogous mechanism is <strong>layer offload</strong>: GGUF’s <code class="language-plaintext highlighter-rouge">n_gpu_layers</code> puts as many transformer layers on the GPU as fit and runs the rest on CPU. The accelerate library’s <code class="language-plaintext highlighter-rouge">device_map="auto"</code> does the same for transformers models, spilling overflow layers to CPU (or disk). Throughput is gated by whichever layers run on the slow device, so offload as few as possible.</p>
+<p><strong>ComfyUI</strong> manages this automatically. It loads models to the GPU on demand, evicts or partially loads them under memory pressure, and exposes <code class="language-plaintext highlighter-rouge">--lowvram</code>, <code class="language-plaintext highlighter-rouge">--novram</code>, and <code class="language-plaintext highlighter-rouge">--reserve-vram</code> flags for manual control.</p>
 
-<h3 id="other-memory-levers">Other Memory Levers</h3>
+<p>For <strong>LLMs</strong>, the equivalent is <strong>layer offload</strong>: llama.cpp’s <code class="language-plaintext highlighter-rouge">-ngl</code>, or <code class="language-plaintext highlighter-rouge">device_map="auto"</code> with <code class="language-plaintext highlighter-rouge">max_memory</code> in transformers/accelerate, which puts leftover layers on the CPU or disk. Throughput then depends on the layers running on the slow device, because each token has to wait for them. Offload as few layers as possible, and prefer a smaller quant that fits entirely.</p>
+
+<h3 id="kv-cache-and-context-memory-llms">KV-cache and context memory (LLMs)</h3>
+
+<p>At long contexts the KV cache can be larger than the weights (see the <a href="#estimating-memory">estimate above</a>).</p>
 
 <ul>
-  <li><strong>Gradient checkpointing</strong> (training only) recomputes activations during the backward pass instead of storing them, cutting activation memory at a ~20–30% compute cost. Essential for training large models or LoRAs on limited VRAM (see <a href="lora-training.html">LoRA Training</a>).</li>
-  <li><strong>8-bit optimizers</strong> (<code class="language-plaintext highlighter-rouge">bitsandbytes</code> AdamW8bit) quantize the optimizer <em>state</em> — the running moments Adam keeps per parameter — halving optimizer memory with negligible quality loss. Standard for LoRA training.</li>
-  <li><strong>KV-cache management (LLMs).</strong> During generation an LLM caches the keys and values of every past token; this <strong>KV cache</strong> grows linearly with context length and can dwarf the weights at long contexts. Quantizing the cache (8-bit KV), using paged attention (vLLM’s <em>PagedAttention</em>), or grouped-query attention (GQA, baked into the model) keeps long-context inference in budget.</li>
-  <li><strong>Batch size.</strong> The simplest VRAM lever of all — activations scale with batch size, so reducing it is the first thing to try on an OOM, and raising it is how you reclaim throughput once you have headroom (see <a href="#batching-and-throughput">Batching</a>).</li>
+  <li><strong>Architecture.</strong> Grouped-query attention (GQA) shares each K/V head across several query heads, cutting the cache 4-8x compared with full multi-head attention. DeepSeek’s multi-head latent attention (MLA) compresses K/V into a low-rank latent. Sliding-window or hybrid attention layers cap the cache for part of the network. These are properties of the model, so check them before you pick a model for long-context work.</li>
+  <li><strong>KV-cache quantization.</strong> FP8 KV cache (<code class="language-plaintext highlighter-rouge">--kv-cache-dtype fp8</code> in vLLM) halves cache memory with little quality loss. llama.cpp supports <code class="language-plaintext highlighter-rouge">q8_0</code> and <code class="language-plaintext highlighter-rouge">q4_0</code> cache types.</li>
+  <li><strong>PagedAttention.</strong> vLLM stores the cache in fixed-size pages, the way an operating system handles virtual memory. This avoids fragmentation and over-reservation and lets requests share pages for common prefixes.</li>
+  <li><strong>Prefix caching.</strong> Reusing the KV cache for a shared system prompt or document (vLLM automatic prefix caching, SGLang RadixAttention) saves both memory and prefill compute.</li>
+</ul>
+
+<h3 id="training-time-levers">Training-time levers</h3>
+
+<ul>
+  <li><strong>Gradient checkpointing</strong> recomputes activations during the backward pass instead of storing them. It cuts activation memory a lot for roughly 20-30% more compute, and it is standard for LoRA training on consumer GPUs.</li>
+  <li><strong>8-bit and paged optimizers</strong> (bitsandbytes <code class="language-plaintext highlighter-rouge">AdamW8bit</code>, <code class="language-plaintext highlighter-rouge">PagedAdamW8bit</code>) quantize Adam’s two moment buffers, which otherwise take twice the parameter memory in FP32.</li>
+  <li><strong>Mixed precision</strong> (BF16 autocast with FP32 master weights) is standard. FP8 training is used in large-scale pretraining on Hopper and Blackwell.</li>
+  <li><strong>Batch size</strong> scales activation memory linearly. It is the first thing to lower on OOM, and gradient accumulation keeps the effective batch size. See <a href="lora-training.html">LoRA Training</a>.</li>
 </ul>
 
 <h2 id="speeding-up-inference">Speeding Up Inference</h2>
 
-<p>Once the model fits, the goal flips to throughput. These techniques <strong>trade memory (or a one-time cost) for speed</strong>.</p>
+<p>Once the model fits, the goal becomes latency or throughput. These techniques trade a one-time cost, some memory, or a little quality for speed.</p>
 
 <h3 id="torchcompile">torch.compile</h3>
 
-<p><code class="language-plaintext highlighter-rouge">torch.compile</code> traces the model into an optimized graph and fuses operations into fewer, larger kernels — eliminating Python overhead and memory round-trips. It is a one-line wrapper with a large payoff after a warm-up compilation:</p>
+<p><code class="language-plaintext highlighter-rouge">torch.compile</code> captures the model into a graph and generates fused kernels, which removes Python overhead and extra memory traffic. It is usually 1.2-1.5x faster for diffusion transformers after warm-up. It combines well with quantization and is required for torchao’s quantized kernels to reach full speed.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">pipe</span><span class="p">.</span><span class="n">unet</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">compile</span><span class="p">(</span><span class="n">pipe</span><span class="p">.</span><span class="n">unet</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="sh">"</span><span class="s">reduce-overhead</span><span class="sh">"</span><span class="p">,</span> <span class="n">fullgraph</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="c1"># or for an LLM
-</span><span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">compile</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Diffusion: compile only the repeated transformer block ("regional compilation").
+# Same runtime gain as compiling the whole model, with several times shorter compile time.
+</span><span class="n">pipe</span><span class="p">.</span><span class="n">transformer</span><span class="p">.</span><span class="nf">compile_repeated_blocks</span><span class="p">(</span><span class="n">fullgraph</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="c1"># Whole-model compile (LLMs, U-Nets)
+</span><span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">compile</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="sh">"</span><span class="s">max-autotune</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>The first call is slow (it compiles); subsequent calls are typically <strong>20–50% faster</strong> for diffusion UNets/transformers. Caveats: the compile cost is paid again whenever input shapes change (so keep resolution/batch fixed), and <code class="language-plaintext highlighter-rouge">fullgraph=True</code> will error on code it can’t trace — useful for catching graph breaks. Modes like <code class="language-plaintext highlighter-rouge">reduce-overhead</code> (CUDA graphs) and <code class="language-plaintext highlighter-rouge">max-autotune</code> push further at the cost of longer compilation.</p>
+<p>A change in input shape (resolution, batch size) triggers a recompile unless you mark dimensions as dynamic. <code class="language-plaintext highlighter-rouge">mode="reduce-overhead"</code> uses CUDA graphs to cut kernel-launch overhead at small batch sizes, and <code class="language-plaintext highlighter-rouge">max-autotune</code> searches kernel configurations at the cost of a longer compile. <code class="language-plaintext highlighter-rouge">fullgraph=True</code> raises an error on graph breaks, which is a good way to find them.</p>
 
-<h3 id="tensorrt-and-optimized-runtimes">TensorRT and Optimized Runtimes</h3>
-
-<p>For production, <strong>TensorRT</strong> (NVIDIA) compiles a model into a hardware-specific engine with kernel fusion, precision calibration (fp16/int8/fp8), and tactic auto-tuning. It typically beats <code class="language-plaintext highlighter-rouge">torch.compile</code>, often by another 1.5–2x, but at a cost in flexibility: the engine is built for a fixed set of input shapes and a specific GPU, and building it takes minutes. It shines when you serve one model at scale on known hardware.</p>
+<h3 id="optimized-runtimes-and-serving-engines">Optimized runtimes and serving engines</h3>
 
 <table>
   <thead>
     <tr>
       <th>Runtime</th>
       <th>Best for</th>
-      <th>Trade-off</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">torch.compile</code></td>
-      <td>General PyTorch speedup, flexible</td>
-      <td>Recompiles on shape change</td>
+      <td><strong>vLLM</strong></td>
+      <td>General LLM serving</td>
+      <td>PagedAttention, continuous batching, prefix caching, speculative decoding, broad quantization and hardware support</td>
+    </tr>
+    <tr>
+      <td><strong>SGLang</strong></td>
+      <td>LLM serving with shared prefixes, structured output, agents</td>
+      <td>RadixAttention prefix cache; performance comparable to vLLM</td>
+    </tr>
+    <tr>
+      <td><strong>TensorRT-LLM</strong></td>
+      <td>Highest throughput on NVIDIA</td>
+      <td>Ahead-of-time engines with FP8/NVFP4, in-flight batching; more setup</td>
+    </tr>
+    <tr>
+      <td><strong>llama.cpp / Ollama / LM Studio</strong></td>
+      <td>Local, single-user, CPU and Apple Silicon</td>
+      <td>GGUF; partial GPU offload</td>
     </tr>
     <tr>
       <td><strong>TensorRT</strong> (diffusion)</td>
-      <td>Fixed-shape production serving</td>
-      <td>Inflexible engines, long build</td>
-    </tr>
-    <tr>
-      <td><strong>TensorRT-LLM / vLLM</strong></td>
-      <td>High-throughput LLM serving</td>
-      <td>Setup complexity</td>
+      <td>Fixed-shape production diffusion on NVIDIA</td>
+      <td>Engine built per GPU and shape range; minutes to build</td>
     </tr>
     <tr>
       <td><strong>ONNX Runtime</strong></td>
-      <td>Cross-platform / non-NVIDIA</td>
-      <td>Fewer cutting-edge kernels</td>
+      <td>Cross-vendor, CPU, DirectML, NPUs</td>
+      <td>Broadest portability</td>
     </tr>
   </tbody>
 </table>
 
-<p>For LLMs specifically, <strong>vLLM</strong> and <strong>TensorRT-LLM</strong> add throughput tricks beyond raw kernels: continuous batching, PagedAttention, and speculative decoding (below).</p>
+<p>Hugging Face <strong>TGI</strong> (text-generation-inference) entered maintenance mode in December 2025, and Hugging Face now recommends vLLM or SGLang for new deployments.</p>
 
-<h3 id="fewer-steps-distillation-turbo-and-lcm">Fewer Steps: Distillation, Turbo, and LCM</h3>
+<h3 id="fewer-steps-distilled-models-and-caching">Fewer steps: distilled models and caching</h3>
 
-<p>Diffusion’s biggest time cost is the <strong>step count</strong> — 20–50 denoising passes, each a full model forward. Distillation trains a <em>student</em> model to reach the same result in far fewer steps, collapsing 30+ steps to single digits. You <strong>consume</strong> these as checkpoints or LoRAs rather than implement them:</p>
+<p>For diffusion, total cost is roughly <em>steps x cost per step</em>, and CFG doubles the cost per step. There are three ways to cut it.</p>
+
+<p><strong>1. Step-distilled models</strong> reach a usable image in 1-8 steps:</p>
 
 <table>
   <thead>
@@ -3539,151 +3632,272 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Method</th>
       <th>Steps</th>
       <th>CFG</th>
-      <th>How you use it</th>
+      <th>Form</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>LCM</strong> (Latent Consistency)</td>
-      <td>4–8</td>
-      <td>~1–2</td>
-      <td>Portable LCM-LoRA, applies to existing models</td>
+      <td>LCM / LCM-LoRA, TCD</td>
+      <td>4-8</td>
+      <td>~1-2</td>
+      <td>LoRA for SD 1.5 / SDXL</td>
     </tr>
     <tr>
-      <td><strong>LCM/TCD LoRA</strong></td>
-      <td>4–8</td>
-      <td>~1</td>
-      <td>Drop-in adapter; lowest-friction speedup</td>
+      <td>SDXL-Turbo (ADD)</td>
+      <td>1-4</td>
+      <td>off</td>
+      <td>Checkpoint</td>
     </tr>
     <tr>
-      <td><strong>SDXL-Turbo / SD-Turbo</strong> (ADD)</td>
-      <td>1–4</td>
-      <td>1 (disabled)</td>
-      <td>Dedicated distilled checkpoint</td>
+      <td>SDXL-Lightning, Hyper-SD, DMD2</td>
+      <td>1-8</td>
+      <td>off or low</td>
+      <td>LoRA or checkpoint</td>
     </tr>
     <tr>
-      <td><strong>SDXL-Lightning</strong></td>
-      <td>1–8</td>
-      <td>varies</td>
-      <td>Checkpoint or LoRA, several step variants</td>
+      <td>FLUX.1 [schnell]</td>
+      <td>1-4</td>
+      <td>off</td>
+      <td>Checkpoint</td>
     </tr>
     <tr>
-      <td><strong>FLUX-schnell</strong></td>
-      <td>1–4</td>
-      <td>guidance-distilled</td>
-      <td>Dedicated fast FLUX variant</td>
+      <td>FLUX.2 [klein] (distilled), Z-Image Turbo</td>
+      <td>~4-8</td>
+      <td>off</td>
+      <td>Checkpoint</td>
+    </tr>
+    <tr>
+      <td>Lightning LoRAs for Qwen-Image, Wan</td>
+      <td>4-8</td>
+      <td>off</td>
+      <td>LoRA</td>
     </tr>
   </tbody>
 </table>
 
-<p>The mechanics: <strong>consistency distillation</strong> (LCM/TCD) trains the student so that <em>any</em> noisy point on a trajectory maps to the same clean endpoint, letting a handful of big steps replace many small ones. <strong>Adversarial distillation</strong> (ADD → SDXL-Turbo, LADD → SD3-Turbo) adds a GAN-style discriminator so even a <em>single</em>-step output looks real rather than blurry. Both trade some diversity and fine fidelity for a large speedup. (The math and the related flow-matching idea are covered in <a href="advanced-techniques.html">Advanced Techniques</a>.)</p>
+<p><em>Consistency distillation</em> (LCM, TCD) trains the model to map any point on a denoising trajectory directly to the same clean endpoint. <em>Adversarial</em> and <em>distribution-matching</em> distillation (ADD/LADD, DMD2) add a discriminator or a distribution-level loss so that one- or few-step outputs stay sharp. These methods lose some diversity and fine detail. <strong>Guidance distillation</strong> (FLUX.1 [dev]) is different: it folds CFG into a single forward pass, halving the cost per step without reducing the number of steps. Background is in <a href="advanced-techniques.html">Advanced Techniques</a>.</p>
 
-<p>The practical recipe: a distilled model with <strong>CFG near 1</strong> and a compatible scheduler (e.g. LCM scheduler) turns a 2-second generation into a sub-second one — enough for live preview and interactive use. For LLMs, the analogous “fewer forward passes” trick is <strong>speculative decoding</strong>: a small draft model proposes several tokens that the large model verifies in one pass, cutting latency with no quality change.</p>
+<p><strong>2. Step caching</strong> exploits the fact that a diffusion transformer’s internal features change little between neighboring steps. It skips most blocks on some steps and reuses cached residuals. These methods need no training and give roughly 1.5-2x speedups, with a quality threshold you tune:</p>
 
-<h3 id="cheaper-attention-and-token-merging">Cheaper Attention and Token Merging</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Skip decision</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>TeaCache</td>
+      <td>Change in timestep-modulated input exceeds a threshold</td>
+    </tr>
+    <tr>
+      <td>First Block Cache</td>
+      <td>Change in the first block’s output is small, so the rest are reused</td>
+    </tr>
+    <tr>
+      <td>MagCache</td>
+      <td>Accumulated residual-magnitude error budget</td>
+    </tr>
+    <tr>
+      <td>TaylorSeer</td>
+      <td>Predicts skipped features with a Taylor expansion</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Beyond memory-efficient attention (which is also a speedup), <strong>Token Merging (ToMe)</strong> reduces the <em>number</em> of tokens attention must process by merging redundant ones before each block and unmerging after. A single ratio knob (~0.5) trades a little fidelity for a meaningful diffusion speedup. It composes with everything else here.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">diffusers.hooks</span> <span class="kn">import</span> <span class="n">apply_first_block_cache</span><span class="p">,</span> <span class="n">FirstBlockCacheConfig</span>
+<span class="nf">apply_first_block_cache</span><span class="p">(</span><span class="n">pipe</span><span class="p">.</span><span class="n">transformer</span><span class="p">,</span> <span class="nc">FirstBlockCacheConfig</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">0.2</span><span class="p">))</span>
+</code></pre></div></div>
 
-<h2 id="batching-and-throughput">Batching and Throughput</h2>
+<p>ComfyUI exposes the same ideas through nodes (built-in <em>EasyCache</em>, TeaCache, and WaveSpeed First Block Cache custom nodes).</p>
 
-<p>Latency (time for <em>one</em> result) and throughput (results per second across <em>many</em> requests) are different goals, and <strong>batching</strong> is the main lever for the second. GPUs are massively parallel, so processing several inputs together costs far less than the sum of processing them individually — up to the point where you saturate compute or run out of VRAM.</p>
+<p><strong>3. Token merging (ToMe)</strong> reduces the number of tokens that attention has to process in U-Net models by merging similar ones. It gives a moderate speedup at ratios around 0.3-0.5 and matters less for modern DiTs, where caching is more effective.</p>
 
-<h3 id="static-batching-diffusion">Static Batching (Diffusion)</h3>
+<h3 id="speculative-decoding-llms">Speculative decoding (LLMs)</h3>
 
-<p>For diffusion, generating $N$ images at once shares the model load and runs the denoising loop in parallel across the batch:</p>
+<p>At small batch sizes, LLM decoding is limited by memory bandwidth and leaves compute idle. <strong>Speculative decoding</strong> uses that idle compute. A cheap <em>drafter</em> proposes $k$ tokens, and the target model checks all of them in one forward pass, accepting the longest correct prefix. The acceptance rule preserves the target model’s output distribution exactly, so quality is unchanged.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">images</span> <span class="o">=</span> <span class="nf">pipe</span><span class="p">([</span><span class="n">prompt</span><span class="p">]</span> <span class="o">*</span> <span class="mi">8</span><span class="p">,</span> <span class="n">num_images_per_prompt</span><span class="o">=</span><span class="mi">1</span><span class="p">).</span><span class="n">images</span>   <span class="c1"># 8 in one batch
-</span></code></pre></div></div>
-
-<p>Throughput rises with batch size until VRAM (activations scale with batch) or compute saturates — typically the per-image time keeps dropping until the GPU is fully utilized, then flattens. This is the right mode for offline/bulk generation. Pair it with <strong>best-of-N selection</strong> (generate a batch, keep the best) to turn spare throughput into quality.</p>
-
-<h3 id="continuous-batching-llm-serving">Continuous Batching (LLM Serving)</h3>
-
-<p>LLM requests have wildly different lengths, so a <em>static</em> batch wastes the GPU waiting for the longest sequence. <strong>Continuous batching</strong> (a.k.a. in-flight batching, the core of vLLM and TGI) instead injects new requests into the batch as soon as others finish, keeping the GPU saturated:</p>
-
-<pre><code class="language-mermaid">flowchart LR
-    subgraph Static["Static batch (wasteful)"]
-        S1["Req A: 200 tok"] --&gt; Swait["GPU idle&lt;br/&gt;waiting for B"]
-        S2["Req B: 800 tok"] --&gt; Sdone["Batch done"]
-        Swait --&gt; Sdone
-    end
-    subgraph Cont["Continuous batch (saturated)"]
-        C1["A finishes →&lt;br/&gt;slot freed"] --&gt; Cnew["New req C&lt;br/&gt;joins immediately"]
+<pre><code class="language-mermaid">sequenceDiagram
+    participant D as Drafter (cheap)
+    participant T as Target model
+    loop until done
+        D-&gt;&gt;D: propose k tokens autoregressively
+        D-&gt;&gt;T: k candidate tokens
+        T-&gt;&gt;T: one forward pass scores all k positions
+        T--&gt;&gt;D: accept longest valid prefix + 1 corrected token
     end
 </code></pre>
 
-<p>Combined with <strong>PagedAttention</strong> (non-contiguous KV-cache memory, eliminating fragmentation), continuous batching is why dedicated servers like vLLM achieve many times the throughput of naive <code class="language-plaintext highlighter-rouge">generate()</code> loops. For self-hosted LLM serving at any real volume, this is the single highest-leverage optimization.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Drafter</th>
+      <th>Extra memory</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Separate small model (same tokenizer)</td>
+      <td>High</td>
+      <td>Simple; needs a well-matched small model</td>
+    </tr>
+    <tr>
+      <td>EAGLE-3 head</td>
+      <td>Moderate</td>
+      <td>Light head trained on the target’s hidden states; among the best speedups (often 2-3x)</td>
+    </tr>
+    <tr>
+      <td>MTP (multi-token prediction) heads</td>
+      <td>Low</td>
+      <td>Built into some models (e.g. DeepSeek-V3, Qwen3-Next)</td>
+    </tr>
+    <tr>
+      <td>N-gram / prompt lookup</td>
+      <td>None</td>
+      <td>Copies from the prompt; strong for editing, RAG, and code</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="choosing-a-batch-strategy">Choosing a Batch Strategy</h3>
+<p>The speedup shrinks as batch size grows, because compute stops being idle. Speculative decoding helps latency-sensitive, low-concurrency serving the most.</p>
+
+<h2 id="batching-and-throughput">Batching and Throughput</h2>
+
+<p>Latency is the time for one result. Throughput is results per second across many requests. <strong>Batching</strong> trades a little latency for a lot of throughput, because GPUs are wide and one request rarely fills them.</p>
+
+<h3 id="static-batching-diffusion">Static batching (diffusion)</h3>
+
+<p>Generating several images in one call shares the model’s memory traffic across the batch:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">images</span> <span class="o">=</span> <span class="nf">pipe</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="n">num_images_per_prompt</span><span class="o">=</span><span class="mi">4</span><span class="p">).</span><span class="n">images</span>
+</code></pre></div></div>
+
+<p>Time per image falls as the batch grows until compute is saturated, and memory grows linearly. This is the right mode for bulk or offline generation. It also makes best-of-N selection cheap: generate a batch and keep the best image.</p>
+
+<h3 id="continuous-batching-llm-serving">Continuous batching (LLM serving)</h3>
+
+<p>LLM requests vary a lot in length. With a static batch, finished requests leave their slots idle until the longest one ends. <strong>Continuous batching</strong> (also called in-flight batching) schedules at the level of individual iterations: when a request finishes, a waiting one takes its slot on the next step.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Batch slot</th>
+      <th>t1</th>
+      <th>t2</th>
+      <th>t3</th>
+      <th>t4</th>
+      <th>t5</th>
+      <th>t6</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Static</strong>, slot 1</td>
+      <td>A</td>
+      <td>A</td>
+      <td>idle</td>
+      <td>idle</td>
+      <td>idle</td>
+      <td>idle</td>
+    </tr>
+    <tr>
+      <td><strong>Static</strong>, slot 2</td>
+      <td>B</td>
+      <td>B</td>
+      <td>B</td>
+      <td>B</td>
+      <td>B</td>
+      <td>B</td>
+    </tr>
+    <tr>
+      <td><strong>Continuous</strong>, slot 1</td>
+      <td>A</td>
+      <td>A</td>
+      <td>C</td>
+      <td>C</td>
+      <td>D</td>
+      <td>D</td>
+    </tr>
+    <tr>
+      <td><strong>Continuous</strong>, slot 2</td>
+      <td>B</td>
+      <td>B</td>
+      <td>B</td>
+      <td>B</td>
+      <td>B</td>
+      <td>B</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Serving engines combine continuous batching with <strong>chunked prefill</strong>, which splits long prompts so they don’t stall ongoing decodes, PagedAttention, and prefix caching. Together these give many times the throughput of a naive <code class="language-plaintext highlighter-rouge">generate()</code> loop. For any multi-user LLM deployment, running a real serving engine (vLLM, SGLang, TensorRT-LLM) is the most important optimization.</p>
+
+<h3 id="choosing-a-strategy">Choosing a strategy</h3>
 
 <table>
   <thead>
     <tr>
       <th>Workload</th>
       <th>Strategy</th>
-      <th>Why</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Bulk image generation</td>
-      <td>Large static batch</td>
-      <td>Uniform work; maximize GPU utilization</td>
+      <td>Bulk image or video generation</td>
+      <td>Large static batch, FP8 or 4-bit weights, step caching</td>
     </tr>
     <tr>
-      <td>Interactive single image</td>
-      <td>Batch of 1, distilled model</td>
-      <td>Latency-bound; few-step model wins</td>
+      <td>Interactive image generation</td>
+      <td>Batch of 1, distilled model, compiled denoiser</td>
     </tr>
     <tr>
       <td>Multi-user LLM serving</td>
-      <td>Continuous batching (vLLM/TGI)</td>
-      <td>Variable lengths; keep GPU saturated</td>
+      <td>vLLM or SGLang, continuous batching, FP8 weights and KV cache, prefix caching</td>
     </tr>
     <tr>
       <td>Single-user local LLM</td>
-      <td>Batch of 1, quantized + KV cache</td>
-      <td>Latency-bound; offload only what’s needed</td>
+      <td>Largest quant that fits fully in VRAM, speculative decoding if supported</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="putting-it-together-worked-recipes">Putting It Together: Worked Recipes</h2>
+<h2 id="worked-recipes">Worked Recipes</h2>
 
-<p>The techniques stack. A few known-good combinations:</p>
-
-<p><strong>FLUX.1-dev on a 12 GB GPU (quality-leaning):</strong></p>
+<p><strong>FLUX.1 [dev] on a 12 GB GPU:</strong></p>
 <ul>
-  <li>fp8 (or <code class="language-plaintext highlighter-rouge">Q5_K_M</code> GGUF) diffusion model + fp8 T5 text encoder</li>
-  <li><code class="language-plaintext highlighter-rouge">enable_model_cpu_offload()</code> so the encoder and VAE don’t co-reside with the transformer</li>
-  <li>SDPA/FlashAttention (default), VAE tiling for high-res</li>
-  <li>Optionally <code class="language-plaintext highlighter-rouge">torch.compile</code> the transformer once shapes are fixed</li>
+  <li>FP8 (or GGUF <code class="language-plaintext highlighter-rouge">Q5_K</code>/<code class="language-plaintext highlighter-rouge">Q6_K</code>) transformer and FP8 T5-XXL text encoder.</li>
+  <li>Model CPU offload so the text encoder and VAE don’t sit next to the transformer on the GPU. VAE tiling for anything above about 1.5 MP.</li>
+  <li>SDPA by default, or SageAttention in ComfyUI. Optionally First Block Cache or TeaCache for about 1.5x more speed.</li>
+  <li>On RTX 30/40/50-series, Nunchaku’s 4-bit SVDQuant model is both smaller and roughly 3x faster.</li>
 </ul>
 
-<p><strong>Interactive SDXL preview (latency-leaning):</strong></p>
+<p><strong>Interactive SDXL preview:</strong></p>
 <ul>
-  <li>SDXL base + LCM-LoRA (or SDXL-Turbo), CFG ≈ 1, 4–8 steps</li>
-  <li>Model loaded once, text encodings cached for repeated prompts</li>
-  <li><code class="language-plaintext highlighter-rouge">torch.compile</code> with <code class="language-plaintext highlighter-rouge">reduce-overhead</code>; fp16/bf16 weights</li>
+  <li>SDXL fine-tune plus a DMD2 or Lightning LoRA, 4-8 steps, CFG 1, the matching sampler.</li>
+  <li>Keep the pipeline resident, cache prompt embeddings, and compile the U-Net with <code class="language-plaintext highlighter-rouge">mode="reduce-overhead"</code>.</li>
 </ul>
 
-<p><strong>70B LLM on a single 24 GB GPU:</strong></p>
+<p><strong>70B LLM on local hardware:</strong></p>
 <ul>
-  <li>4-bit quant (AWQ/GPTQ for GPU, or GGUF <code class="language-plaintext highlighter-rouge">Q4_K_M</code> with layer offload)</li>
-  <li>FlashAttention 2, 8-bit KV cache for long context</li>
-  <li>For serving multiple users: vLLM with continuous batching + PagedAttention</li>
+  <li><code class="language-plaintext highlighter-rouge">Q4_K_M</code> weights are about 42 GB, so a single 24 GB GPU can’t hold them. On one 24 GB card, either offload about half the layers to CPU (expect single-digit tokens/s) or drop to <code class="language-plaintext highlighter-rouge">IQ2_XS</code>/<code class="language-plaintext highlighter-rouge">IQ3</code> and accept the quality loss.</li>
+  <li>Two 24 GB GPUs or one 48 GB GPU hold a 4-bit 70B model with room for 8K-32K of context using an 8-bit KV cache. Unified-memory machines (Apple Silicon, AMD Strix Halo) fit it at lower bandwidth.</li>
+  <li>In many cases a newer 27B-32B model at <code class="language-plaintext highlighter-rouge">Q5</code>/<code class="language-plaintext highlighter-rouge">Q6</code> fits entirely on one 24 GB card and is faster and just as capable. Compare against the tasks you actually run.</li>
 </ul>
 
-<p><strong>Training a LoRA on 8–12 GB:</strong></p>
+<p><strong>Multi-user LLM serving on one data-center GPU:</strong></p>
 <ul>
-  <li>bf16 mixed precision + NF4-quantized base (QLoRA) when needed</li>
-  <li>Gradient checkpointing + AdamW8bit optimizer</li>
-  <li>Batch size 1–2; see <a href="lora-training.html">LoRA Training</a> for the full recipe</li>
+  <li>vLLM or SGLang with FP8 (Hopper) or NVFP4 (Blackwell) weights, FP8 KV cache, prefix caching on, and EAGLE-3 speculative decoding for latency-sensitive traffic.</li>
+</ul>
+
+<p><strong>LoRA training on 8-12 GB:</strong></p>
+<ul>
+  <li>BF16 mixed precision, gradient checkpointing, <code class="language-plaintext highlighter-rouge">AdamW8bit</code>. Load the base model in FP8 or NF4 (QLoRA-style) for large models such as FLUX.</li>
+  <li>Batch size 1-2 with gradient accumulation. Cache latents and text embeddings to disk. See <a href="lora-training.html">LoRA Training</a>.</li>
 </ul>
 
 <h2 id="trade-off-summary">Trade-Off Summary</h2>
-
-<p>Every optimization moves along one of two axes — <em>cheaper memory</em> or <em>cheaper time</em> — and most cost a little of the other resource or a little quality:</p>
 
 <table>
   <thead>
@@ -3696,105 +3910,121 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>bf16/fp16 weights</td>
-      <td>~50% memory</td>
-      <td>—</td>
+      <td>BF16/FP16 instead of FP32</td>
+      <td>~50% memory, time</td>
+      <td>-</td>
       <td>Negligible</td>
     </tr>
     <tr>
-      <td>fp8 / 4-bit quant</td>
-      <td>50–75% memory</td>
-      <td>—</td>
-      <td>Minor → moderate</td>
+      <td>FP8 weights (+ activations on Ada+)</td>
+      <td>~50% memory; time on Ada+</td>
+      <td>-</td>
+      <td>Negligible to minor</td>
     </tr>
     <tr>
-      <td>Attention slicing</td>
+      <td>4-bit weights (GGUF, AWQ, GPTQ, NF4)</td>
+      <td>~70% memory; decode time</td>
+      <td>Slower compute-bound work unless native FP4/INT4</td>
+      <td>Minor to moderate</td>
+    </tr>
+    <tr>
+      <td>FP4 / SVDQuant W4A4</td>
+      <td>~70% memory and time</td>
+      <td>Needs supported GPU/kernels</td>
+      <td>Minor to moderate</td>
+    </tr>
+    <tr>
+      <td>Efficient attention (Flash / SDPA)</td>
+      <td>Memory and time</td>
+      <td>-</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td>Quantized attention (SageAttention)</td>
+      <td>Time</td>
+      <td>-</td>
+      <td>Small</td>
+    </tr>
+    <tr>
+      <td>VAE / diffusion tiling</td>
+      <td>Peak memory</td>
+      <td>Slight time</td>
+      <td>Rare seams</td>
+    </tr>
+    <tr>
+      <td>Model / group offload</td>
       <td>Memory</td>
-      <td>Speed</td>
+      <td>Small to moderate time</td>
       <td>None</td>
     </tr>
     <tr>
-      <td>Memory-efficient attention</td>
-      <td>Memory <strong>and</strong> time</td>
-      <td>—</td>
+      <td>Sequential / layer offload to CPU</td>
+      <td>Much memory</td>
+      <td>Much time</td>
       <td>None</td>
     </tr>
     <tr>
-      <td>VAE/diffusion tiling</td>
-      <td>Memory (high-res)</td>
-      <td>Slight speed</td>
-      <td>None (minor seams)</td>
-    </tr>
-    <tr>
-      <td>Model CPU offload</td>
-      <td>Memory</td>
-      <td>Speed (small)</td>
-      <td>None</td>
-    </tr>
-    <tr>
-      <td>Sequential offload</td>
-      <td>Memory (a lot)</td>
-      <td>Speed (a lot)</td>
-      <td>None</td>
+      <td>KV-cache FP8, PagedAttention</td>
+      <td>Memory at long context</td>
+      <td>-</td>
+      <td>Negligible</td>
     </tr>
     <tr>
       <td>Gradient checkpointing</td>
-      <td>Memory (training)</td>
-      <td>~25% compute</td>
+      <td>Training memory</td>
+      <td>~20-30% compute</td>
       <td>None</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">torch.compile</code></td>
       <td>Time</td>
-      <td>One-time compile</td>
+      <td>Compile warm-up</td>
       <td>None</td>
     </tr>
     <tr>
-      <td>TensorRT</td>
-      <td>Time (a lot)</td>
+      <td>TensorRT / TensorRT-LLM</td>
+      <td>Time</td>
       <td>Flexibility, build time</td>
-      <td>None (or calibrated)</td>
+      <td>None or calibrated</td>
     </tr>
     <tr>
-      <td>Distillation / Turbo / LCM</td>
-      <td>Time (a lot)</td>
-      <td>—</td>
-      <td>Minor (diversity/detail)</td>
+      <td>Step distillation</td>
+      <td>Much time</td>
+      <td>Diversity, fine detail</td>
+      <td>Minor to moderate</td>
     </tr>
     <tr>
-      <td>Static batching</td>
-      <td>Time/image</td>
-      <td>Memory</td>
-      <td>None</td>
+      <td>Step caching</td>
+      <td>Time</td>
+      <td>-</td>
+      <td>Tunable, minor</td>
     </tr>
     <tr>
-      <td>Continuous batching</td>
+      <td>Speculative decoding</td>
+      <td>Latency at low concurrency</td>
+      <td>Drafter memory</td>
+      <td>None (exact)</td>
+    </tr>
+    <tr>
+      <td>Static / continuous batching</td>
       <td>Throughput</td>
-      <td>Setup complexity</td>
+      <td>Per-request latency, memory</td>
       <td>None</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Make it fit, then make it fast.</strong> Memory-bound problems (OOM) come first because they make latency infinite; once the model fits, profile before optimizing for speed.</li>
-  <li><strong>Quantization is the biggest memory lever.</strong> bf16 is the modern 16-bit default; fp8 halves again on Ada/Hopper; 4-bit (AWQ/GPTQ/GGUF <code class="language-plaintext highlighter-rouge">Q4_K_M</code>) is the LLM sweet spot, capturing most quality at a quarter of the size.</li>
-  <li><strong>Memory-efficient attention is a free lunch</strong> — FlashAttention/SDPA cuts both VRAM and time with no quality change. Slicing, tiling, and CPU offload trade speed for further VRAM headroom.</li>
-  <li><strong>Inference speedups trade memory or a one-time cost for time:</strong> <code class="language-plaintext highlighter-rouge">torch.compile</code> (20–50%), TensorRT (more, less flexible), and distillation (LCM/Turbo) that collapses 30+ diffusion steps to single digits.</li>
-  <li><strong>Batching maximizes throughput</strong> — static batches for bulk diffusion, continuous batching + PagedAttention (vLLM/TGI) for multi-user LLM serving — the highest-leverage win for serving at volume.</li>
-</ul>
-
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Distillation, flow matching, and multi-stage workflows in depth</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Gradient checkpointing, 8-bit optimizers, and QLoRA-style training</li>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - VRAM budgets and quant options per model family</li>
-  <li><a href="model-types.html">Model Types</a> - How checkpoints, GGUF, and LoRAs relate</li>
-  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Applying offload and tiling in node workflows</li>
-  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Core diffusion concepts these optimizations target</li>
+  <li><a href="model-compression.html">Model Compression</a> - Pruning, distillation, quantization theory, and deployment runtimes</li>
+  <li><a href="advanced-techniques.html">Advanced Techniques</a> - Distillation, flow matching, and multi-stage upscaling in depth</li>
+  <li><a href="lora-training.html">LoRA Training</a> - Memory-efficient fine-tuning</li>
+  <li><a href="model-types.html">Model Types</a> - Checkpoint formats, precision variants, and component sizes</li>
+  <li><a href="base-models-comparison.html">Base Models Comparison</a> - VRAM budgets per model family</li>
+  <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Applying offload, tiling, and caching in node workflows</li>
+  <li><a href="../optimization/gpu-optimization.html">GPU Optimization</a> - GPU architecture and kernel-level performance</li>
+  <li><a href="mlops-production.html">MLOps &amp; Production</a> - Serving and operating models in production</li>
   <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
 </ul>
 

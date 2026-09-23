@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Runtime game audio: the voice and bus model, Wwise and FMOD middleware, 3D spatialization and propagation, adaptive music, mixing and loudness, DSP primitive...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Game Dev: Audio Design & Implementation">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Runtime game audio: the voice and bus model, Wwise and FMOD middleware, 3D spatialization and propagation, adaptive music, mixing and loudness, DSP primitive...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/gamedev/audio-design.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Game Dev: Audio Design & Implementation">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Runtime game audio: the voice and bus model, Wwise and FMOD middleware, 3D spatialization and propagation, adaptive music, mixing and loudness, DSP primitive...">
 
 <title>Game Dev: Audio Design & Implementation | Andrews Notebook</title>
 
@@ -3135,426 +3135,534 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Game Development</a> » Audio Design &amp; Implementation</p>
 
-<p>Audio is the half of a game that players feel rather than notice. A satisfying weapon, a footstep that tells you an enemy is behind a wall, music that swells the instant combat begins — all of it is <strong>interactive audio</strong>: sound that is generated, positioned, and mixed at runtime in response to gameplay, not played back as a fixed soundtrack. This page collects the fundamentals an audio programmer or technical sound designer needs: the signal-chain mental model, the middleware (Wwise and FMOD) that most studios rely on, 3D spatialization and attenuation, adaptive and interactive music systems, runtime mixing with buses and ducking, the DSP building blocks, and the CPU/memory budgets that keep all of it inside frame.</p>
+<p><strong>Interactive audio</strong> is sound that is generated, positioned, and mixed at runtime in response to gameplay, rather than played back as a fixed track. A footstep has to pick a surface, a gunshot has to sound different through a wall, and the music has to change when combat starts without an audible seam. This page covers what an audio programmer or technical sound designer works with: the voice-and-bus runtime model, audio middleware (Wwise and FMOD) and engine-native alternatives, 3D spatialization and sound propagation, adaptive music, mixing and loudness standards, the DSP primitives underneath effects, and the voice, CPU, and memory budgets that keep audio inside the frame.</p>
 
-<h2 id="game-audio-fundamentals">Game Audio Fundamentals</h2>
+<h2 id="fundamentals">Fundamentals</h2>
 
 <h3 id="the-runtime-signal-chain">The runtime signal chain</h3>
 
-<p>Every sound a player hears travels the same path, conceptually identical across engines and middleware:</p>
+<p>Every engine and middleware package follows the same basic path from asset to speaker:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Asset (PCM / compressed)
-   │  decode / stream
-   ▼
-Voice  ── per-instance state: pitch, volume, playhead, fade
-   │
-   ▼
-3D Spatialization  ── pan, distance attenuation, occlusion, HRTF
-   │
-   ▼
-Bus / Submix graph  ── grouping, effects (DSP), ducking
-   │
-   ▼
-Master bus  ── limiter, output format (stereo / 5.1 / Atmos / binaural)
-   │
-   ▼
-Hardware output
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    A["Asset&lt;br/&gt;PCM or compressed"] --&gt;|"decode / stream"| V["Voice&lt;br/&gt;pitch, volume,&lt;br/&gt;playhead, envelope"]
+    V --&gt; S["Spatialization&lt;br/&gt;pan, attenuation,&lt;br/&gt;occlusion, HRTF"]
+    S --&gt; B["Bus graph&lt;br/&gt;grouping, DSP,&lt;br/&gt;ducking"]
+    B --&gt; M["Master bus&lt;br/&gt;limiter, output format"]
+    M --&gt; O["Device&lt;br/&gt;stereo / 5.1 / 7.1.4 /&lt;br/&gt;binaural"]
+</code></pre>
 
-<ul>
-  <li>A <strong>sound/asset</strong> is the source PCM data (a <code class="language-plaintext highlighter-rouge">.wav</code>, or a compressed <code class="language-plaintext highlighter-rouge">.ogg</code>/<code class="language-plaintext highlighter-rouge">.opus</code>/platform ADPCM).</li>
-  <li>A <strong>voice</strong> is one <em>playing instance</em> of a sound, with its own pitch, volume, playhead position, and envelope. Voices are the scarce runtime resource (see <a href="#voice-management-and-limiting">voice limiting</a>).</li>
-  <li>The <strong>mixer graph</strong> routes voices through <strong>buses</strong> (a.k.a. submixes/groups) where grouped volume control and <strong>DSP effects</strong> are applied, down to a single <strong>master</strong> output.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Term</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Sound / asset</strong></td>
+      <td>Source audio data: a <code class="language-plaintext highlighter-rouge">.wav</code> during authoring, shipped as PCM, ADPCM, Vorbis, Opus, or a platform codec.</td>
+    </tr>
+    <tr>
+      <td><strong>Voice</strong></td>
+      <td>One <em>playing instance</em> of a sound, with its own pitch, volume, playhead, and envelope. Voices are the scarce runtime resource (see <a href="#voice-management-and-limiting">voice management</a>).</td>
+    </tr>
+    <tr>
+      <td><strong>Emitter / game object</strong></td>
+      <td>The world entity a voice is attached to, which supplies position, orientation, and velocity.</td>
+    </tr>
+    <tr>
+      <td><strong>Listener</strong></td>
+      <td>The ear position, usually the camera or the player’s head. Split-screen games have more than one.</td>
+    </tr>
+    <tr>
+      <td><strong>Bus</strong></td>
+      <td>A mixing node (also called a submix or group). Voices route into buses, which apply shared volume and effects and feed other buses, ending at the master.</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="sample-rate-bit-depth-and-dynamic-range">Sample rate, bit depth, and dynamic range</h3>
+<p>The audio engine runs on its own thread. Game code only sends commands such as “play”, “set parameter”, or “move emitter”, and the audio thread renders fixed-size buffers ahead of the hardware. Buffer size sets the latency floor: a buffer of $N$ samples at sample rate $f_s$ adds $N / f_s$ seconds, so 512 samples at 48 kHz is about 10.7 ms. Double or triple buffering adds to that. Smaller buffers respond faster but raise the risk of dropouts when the audio thread misses a deadline.</p>
 
-<p>Digital audio is the <strong>Nyquist–Shannon</strong> sampling of a continuous waveform. To reproduce frequencies up to a bandwidth $f_{max}$ without aliasing, the sample rate must satisfy:</p>
+<h3 id="sample-rate-and-bit-depth">Sample rate and bit depth</h3>
+
+<p>By the Nyquist–Shannon theorem, a signal with bandwidth $f_{max}$ can be sampled without aliasing only if</p>
 
 \[f_s \ge 2 f_{max}\]
 
-<p>Human hearing tops out near 20 kHz, which is why <strong>48 kHz</strong> (giving headroom above 20 kHz for the anti-alias filter’s transition band) is the game-audio standard; 44.1 kHz is the legacy CD rate. Bit depth sets the noise floor. For an ideal $n$-bit linear PCM signal the signal-to-quantization-noise ratio is:</p>
+<p>Human hearing tops out near 20 kHz. <strong>48 kHz</strong> is the game and video standard because it leaves room above 20 kHz for the anti-aliasing filter’s transition band. 44.1 kHz is the legacy CD rate. Bit depth sets the quantization noise floor. For ideal $n$-bit linear PCM, the signal-to-quantization-noise ratio for a full-scale sine is</p>
 
-\[\mathrm{SQNR}_{dB} \approx 6.02\, n + 1.76\]
+\[\mathrm{SQNR}_{\mathrm{dB}} \approx 6.02\, n + 1.76\]
 
-<p>So 16-bit gives about 98 dB of dynamic range (ample for shipped assets) and 24- or 32-bit float is used during authoring and inside the mix engine to avoid clipping and preserve headroom across many summed voices.</p>
+<p>That gives about 98 dB for 16-bit, which is enough for shipped assets. Authoring uses 24-bit, and mix engines work internally in 32-bit float so that summing many voices cannot clip until the final limiter.</p>
 
-<h3 id="loudness-not-peak">Loudness, not peak</h3>
+<h3 id="decibels-and-loudness">Decibels and loudness</h3>
 
-<p>Perceived loudness is governed by <strong>gain in decibels</strong>, a logarithmic ratio:</p>
+<p>Level is expressed as a logarithmic amplitude ratio:</p>
 
-\[G_{dB} = 20 \log_{10}\!\left(\frac{A}{A_{ref}}\right)\]
+\[G_{\mathrm{dB}} = 20 \log_{10}\!\left(\frac{A}{A_{\mathrm{ref}}}\right)\]
 
-<p>A 6 dB increase doubles amplitude; a 10 dB increase is roughly a <em>perceived</em> doubling of loudness. Modern games master and normalize to a <strong>perceptual loudness target</strong> (LUFS, ITU-R BS.1770 / EBU R128) rather than to peak level, so that dialogue, music, and effects sit at consistent loudness and the master limiter rarely has to engage. A typical console game targets around -16 to -23 LUFS integrated depending on platform guidelines.</p>
+<p>A +6 dB change doubles amplitude. A change of about +10 dB is heard as roughly twice as loud. Peak level says little about perceived loudness, so games measure <strong>integrated loudness</strong> in LUFS (ITU-R BS.1770 K-weighting, as in EBU R128). Integrated loudness is averaged over a representative play session. The Audio Standards Working Group’s recommendation (ASWG-R001) is about <strong>−24 LUFS for console and PC</strong> and <strong>−18 LUFS for mobile</strong>, with true peak kept below about −1 dBTP. Platform holders publish their own guidance, which is broadly similar. Dialogue is usually the anchor for the mix, and everything else is balanced against it.</p>
 
-<h2 id="audio-middleware-wwise--fmod">Audio Middleware: Wwise &amp; FMOD</h2>
+<h2 id="middleware-and-engine-audio">Middleware and Engine Audio</h2>
 
-<p>Most studios do not hand-roll a mixer. They use <strong>audio middleware</strong> — an authoring tool plus a runtime library that the engine drives through an API. The two dominant tools are <strong>Audiokinetic Wwise</strong> and <strong>FMOD Studio</strong>. Both follow the same separation of concerns: sound designers build behavior in a standalone authoring tool; programmers post abstract <em>events</em> and <em>parameters</em> from gameplay code, never naming raw files.</p>
+<p>Most studios license <strong>audio middleware</strong> instead of writing a mixer. Middleware is a standalone authoring application plus a runtime library that the engine drives through an API. The two dominant packages are <strong>Audiokinetic Wwise</strong> (Audiokinetic has been owned by Sony Interactive Entertainment since 2019, but Wwise remains multi-platform) and <strong>FMOD Studio</strong> (Firelight Technologies). Both are free below a budget or revenue threshold and licensed above it. Check current terms before committing.</p>
 
-<h3 id="why-middleware-instead-of-engine-audio">Why middleware instead of engine audio</h3>
+<h3 id="why-use-middleware">Why use middleware</h3>
 
 <ul>
-  <li><strong>Designer ownership.</strong> Randomization, layering, attenuation curves, mixing, and adaptive music are authored visually and iterated without recompiling the game.</li>
-  <li><strong>Event abstraction.</strong> Code posts <code class="language-plaintext highlighter-rouge">Play_Footstep</code> and sets a <code class="language-plaintext highlighter-rouge">Surface</code> parameter; the designer decides it should random-pick among nine grass samples, pitch-vary 3%, and route to the SFX bus. The code never changes when the sound design does.</li>
-  <li><strong>Profiling.</strong> Both tools connect live to a running game to show active voices, bus levels, memory, and CPU in real time.</li>
-  <li><strong>Platform abstraction.</strong> One project builds optimized soundbanks per platform (codecs, spatializers) from the same authoring data.</li>
+  <li><strong>Designers own the behavior.</strong> Randomization, layering, attenuation curves, mixing, and music logic are authored in a tool and hot-reloaded into a running game, with no recompile.</li>
+  <li><strong>Events are separated from assets.</strong> Code posts <code class="language-plaintext highlighter-rouge">Play_Footstep</code> and sets a <code class="language-plaintext highlighter-rouge">Surface</code> parameter. The designer decides that this picks one of nine grass samples at random, varies pitch by ±3%, and routes to the Foley bus. The code stays the same when the sound design changes.</li>
+  <li><strong>Live profiling.</strong> The authoring tool connects to a running build, including a console devkit, and shows active and virtual voices, bus meters, CPU per plugin, and memory per bank.</li>
+  <li><strong>Per-platform builds.</strong> A single project produces banks with platform-specific codecs, sample rates, and spatializers.</li>
 </ul>
 
-<h3 id="the-eventparameter-model">The event/parameter model</h3>
+<h3 id="the-event-and-parameter-model">The event and parameter model</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Gameplay code                 Middleware runtime
-─────────────                 ──────────────────
-PostEvent("Play_Engine") ──▶  Event "Play_Engine"
-SetRTPC("RPM", 4200)     ──▶  RTPC/Parameter "RPM" = 4200
-                                 │
-                                 ▼  drives pitch + crossfade
-                              Blend container of engine loops
-SetState("Combat","On")  ──▶  State → music switches to combat
-SetSwitch("Surf","Metal")──▶  Switch → footstep container picks metal
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Game["Gameplay code"]
+        E1["PostEvent Play_Engine"]
+        E2["SetRTPC RPM = 4200"]
+        E3["SetState Music = Combat"]
+        E4["SetSwitch Surface = Metal"]
+    end
+    subgraph MW["Middleware runtime"]
+        EV["Event starts a&lt;br/&gt;blend container"]
+        P["Parameter drives pitch&lt;br/&gt;and loop crossfade"]
+        ST["State changes the music&lt;br/&gt;segment and mix snapshot"]
+        SW["Switch selects the&lt;br/&gt;metal footstep container"]
+    end
+    E1 --&gt; EV
+    E2 --&gt; P
+    E3 --&gt; ST
+    E4 --&gt; SW
+</code></pre>
 
 <table>
   <thead>
     <tr>
       <th>Concept</th>
-      <th>Wwise term</th>
-      <th>FMOD term</th>
+      <th>Wwise</th>
+      <th>FMOD Studio</th>
       <th>Role</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Triggerable behavior</td>
-      <td><strong>Event</strong></td>
-      <td><strong>Event</strong></td>
-      <td>What code posts to start/stop sound</td>
+      <td>Event</td>
+      <td>Event</td>
+      <td>What code posts to start, stop, or modify sound</td>
     </tr>
     <tr>
-      <td>Continuous gameplay value</td>
-      <td><strong>RTPC</strong> (Real-Time Parameter Control)</td>
-      <td><strong>Parameter</strong></td>
-      <td>Maps a number (RPM, health, speed) onto volume/pitch/effects</td>
+      <td>Continuous game value</td>
+      <td>RTPC (Game Parameter)</td>
+      <td>Parameter (local or global)</td>
+      <td>Maps a number such as RPM, health, or speed onto volume, pitch, filters, or layer blends</td>
     </tr>
     <tr>
-      <td>Discrete global mode</td>
-      <td><strong>State</strong></td>
-      <td>(global parameter)</td>
-      <td>Music/mix changes by game phase (explore vs combat)</td>
+      <td>Global discrete mode</td>
+      <td>State</td>
+      <td>Global labeled parameter</td>
+      <td>Game phase (explore or combat), which drives music and mix</td>
     </tr>
     <tr>
-      <td>Discrete per-instance choice</td>
-      <td><strong>Switch</strong></td>
-      <td>(labeled parameter)</td>
-      <td>Per-object variation (footstep surface)</td>
+      <td>Per-object discrete choice</td>
+      <td>Switch</td>
+      <td>Local labeled parameter</td>
+      <td>Per-emitter variation, such as footstep surface</td>
     </tr>
     <tr>
-      <td>Mix grouping</td>
-      <td><strong>Bus</strong> / Audio Bus</td>
-      <td><strong>Bus / Group</strong></td>
-      <td>Routing + effects</td>
+      <td>Mix node</td>
+      <td>Audio Bus, Auxiliary Bus</td>
+      <td>Group Bus, Return Bus</td>
+      <td>Routing, effects, and sends</td>
     </tr>
     <tr>
-      <td>Packaged audio data</td>
-      <td><strong>SoundBank</strong></td>
-      <td><strong>Bank</strong></td>
+      <td>Mix preset</td>
+      <td>States on buses, Mixer plug-ins</td>
+      <td>Snapshot</td>
+      <td>Context-driven mix changes</td>
+    </tr>
+    <tr>
+      <td>Shipped data</td>
+      <td>SoundBank</td>
+      <td>Bank</td>
       <td>What ships and loads at runtime</td>
     </tr>
     <tr>
-      <td>Container of variations</td>
-      <td>Random/Sequence/Blend/Switch <strong>Container</strong></td>
-      <td>Multi/Scatterer <strong>instrument</strong></td>
-      <td>Authored playback logic</td>
+      <td>Variation logic</td>
+      <td>Random, Sequence, Switch, Blend containers</td>
+      <td>Multi, Scatterer, and nested-event instruments</td>
+      <td>Authored playback behavior</td>
     </tr>
   </tbody>
 </table>
 
 <h3 id="integration-sketch">Integration sketch</h3>
 
-<p>A minimal engine-side integration posts events and feeds parameters every frame:</p>
+<p>The engine side posts events, feeds parameters, and pushes transforms every frame. In Wwise:</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// One-shot, positioned in the world</span>
-<span class="n">AkSoundEngine</span><span class="o">::</span><span class="n">PostEvent</span><span class="p">(</span><span class="s">"Play_Explosion"</span><span class="p">,</span> <span class="n">explosionGameObjectID</span><span class="p">);</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Register once per emitter; the ID is any stable 64-bit value.</span>
+<span class="n">AK</span><span class="o">::</span><span class="n">SoundEngine</span><span class="o">::</span><span class="n">RegisterGameObj</span><span class="p">(</span><span class="n">carId</span><span class="p">,</span> <span class="s">"Car"</span><span class="p">);</span>
 
-<span class="c1">// Continuous parameter: engine pitch follows RPM (per frame)</span>
-<span class="n">AkSoundEngine</span><span class="o">::</span><span class="n">SetRTPCValue</span><span class="p">(</span><span class="s">"RPM"</span><span class="p">,</span> <span class="n">car</span><span class="p">.</span><span class="n">rpm</span><span class="p">,</span> <span class="n">carGameObjectID</span><span class="p">);</span>
+<span class="c1">// One-shot at an emitter</span>
+<span class="n">AK</span><span class="o">::</span><span class="n">SoundEngine</span><span class="o">::</span><span class="n">PostEvent</span><span class="p">(</span><span class="s">"Play_Explosion"</span><span class="p">,</span> <span class="n">explosionId</span><span class="p">);</span>
 
-<span class="c1">// Discrete: footstep surface chosen from a raycast under the foot</span>
-<span class="n">AkSoundEngine</span><span class="o">::</span><span class="n">SetSwitch</span><span class="p">(</span><span class="s">"Surface"</span><span class="p">,</span> <span class="n">surfaceName</span><span class="p">,</span> <span class="n">playerGameObjectID</span><span class="p">);</span>
+<span class="c1">// Continuous parameter, updated each frame</span>
+<span class="n">AK</span><span class="o">::</span><span class="n">SoundEngine</span><span class="o">::</span><span class="n">SetRTPCValue</span><span class="p">(</span><span class="s">"RPM"</span><span class="p">,</span> <span class="n">car</span><span class="p">.</span><span class="n">rpm</span><span class="p">,</span> <span class="n">carId</span><span class="p">);</span>
 
-<span class="c1">// Global music state on entering combat</span>
-<span class="n">AkSoundEngine</span><span class="o">::</span><span class="n">SetState</span><span class="p">(</span><span class="s">"Music"</span><span class="p">,</span> <span class="s">"Combat"</span><span class="p">);</span>
+<span class="c1">// Discrete per-object choice from a ground raycast</span>
+<span class="n">AK</span><span class="o">::</span><span class="n">SoundEngine</span><span class="o">::</span><span class="n">SetSwitch</span><span class="p">(</span><span class="s">"Surface"</span><span class="p">,</span> <span class="s">"Metal"</span><span class="p">,</span> <span class="n">playerId</span><span class="p">);</span>
 
-<span class="c1">// Each frame: push listener + emitter transforms so 3D math is correct</span>
-<span class="n">AkSoundEngine</span><span class="o">::</span><span class="n">SetPosition</span><span class="p">(</span><span class="n">playerGameObjectID</span><span class="p">,</span> <span class="n">emitterTransform</span><span class="p">);</span>
-<span class="n">AkSoundEngine</span><span class="o">::</span><span class="n">SetListenerPosition</span><span class="p">(</span><span class="n">cameraTransform</span><span class="p">);</span>
-<span class="n">AkSoundEngine</span><span class="o">::</span><span class="n">RenderAudio</span><span class="p">();</span>   <span class="c1">// advance the audio frame</span>
+<span class="c1">// Global music/mix state</span>
+<span class="n">AK</span><span class="o">::</span><span class="n">SoundEngine</span><span class="o">::</span><span class="n">SetState</span><span class="p">(</span><span class="s">"Music"</span><span class="p">,</span> <span class="s">"Combat"</span><span class="p">);</span>
+
+<span class="c1">// Each frame: move emitters and the listener, then render</span>
+<span class="n">AkSoundPosition</span> <span class="n">pos</span><span class="p">;</span>
+<span class="n">pos</span><span class="p">.</span><span class="n">SetPosition</span><span class="p">(</span><span class="n">carPos</span><span class="p">.</span><span class="n">x</span><span class="p">,</span> <span class="n">carPos</span><span class="p">.</span><span class="n">y</span><span class="p">,</span> <span class="n">carPos</span><span class="p">.</span><span class="n">z</span><span class="p">);</span>
+<span class="n">pos</span><span class="p">.</span><span class="n">SetOrientation</span><span class="p">(</span><span class="n">carFwd</span><span class="p">.</span><span class="n">x</span><span class="p">,</span> <span class="n">carFwd</span><span class="p">.</span><span class="n">y</span><span class="p">,</span> <span class="n">carFwd</span><span class="p">.</span><span class="n">z</span><span class="p">,</span> <span class="n">carUp</span><span class="p">.</span><span class="n">x</span><span class="p">,</span> <span class="n">carUp</span><span class="p">.</span><span class="n">y</span><span class="p">,</span> <span class="n">carUp</span><span class="p">.</span><span class="n">z</span><span class="p">);</span>
+<span class="n">AK</span><span class="o">::</span><span class="n">SoundEngine</span><span class="o">::</span><span class="n">SetPosition</span><span class="p">(</span><span class="n">carId</span><span class="p">,</span> <span class="n">pos</span><span class="p">);</span>
+<span class="n">AK</span><span class="o">::</span><span class="n">SoundEngine</span><span class="o">::</span><span class="n">RenderAudio</span><span class="p">();</span>   <span class="c1">// submit this frame's commands to the audio thread</span>
 </code></pre></div></div>
 
-<p>FMOD’s API is analogous (<code class="language-plaintext highlighter-rouge">Studio::EventInstance</code>, <code class="language-plaintext highlighter-rouge">setParameterByName</code>, <code class="language-plaintext highlighter-rouge">set3DAttributes</code>). The key discipline in both: <strong>update listener and emitter positions every visual frame</strong>, then call the engine’s render/update once per frame.</p>
+<p>In FMOD Studio the equivalent is to create an <code class="language-plaintext highlighter-rouge">FMOD::Studio::EventInstance</code>, then call <code class="language-plaintext highlighter-rouge">setParameterByName</code>, <code class="language-plaintext highlighter-rouge">set3DAttributes</code> on each instance, and <code class="language-plaintext highlighter-rouge">setListenerAttributes</code> on the system, and call <code class="language-plaintext highlighter-rouge">Studio::System::update()</code> once per frame. Neither API blocks the game thread. The rule is the same in both: update listener and emitter transforms every frame, and set velocities as well, or Doppler will be wrong. Then flush once per frame.</p>
 
 <h3 id="engine-native-audio">Engine-native audio</h3>
 
-<p>Engine-native systems remain a valid choice, especially for smaller projects:</p>
+<p>Built-in engine audio is a reasonable choice for many projects, especially small teams that don’t need middleware’s authoring workflow:</p>
 
-<ul>
-  <li><strong>Unreal Engine</strong> ships <strong>MetaSounds</strong> (a node-based <em>procedural</em> synthesis graph — the modern successor to Sound Cues), Audio Components for 3D placement, attenuation/spatialization settings, and submix buses. See the <a href="../technology/unreal.html#audio-metasounds">Unreal Engine guide</a> for the engine-side pipeline; the concepts on this page (attenuation curves, buses, ducking, adaptive states) map directly onto MetaSounds and submixes.</li>
-  <li><strong>Unity</strong> has a built-in AudioSource/AudioMixer with snapshots and exposed parameters; many teams still add Wwise/FMOD for richer adaptive music.</li>
-  <li><strong>Godot</strong> provides <code class="language-plaintext highlighter-rouge">AudioStreamPlayer</code>, <code class="language-plaintext highlighter-rouge">AudioStreamPlayer3D</code>, and an audio bus layout with built-in effects.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Engine</th>
+      <th>Native audio stack</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Unreal Engine 5</strong></td>
+      <td>MetaSounds (node-based procedural sound graphs, with sample-accurate triggering), Sound Classes and Submixes, Attenuation assets, Audio Modulation (control buses and parameter patches), Quartz (sample-accurate musical clock)</td>
+      <td>MetaSounds replaces Sound Cues for new work. See <a href="../technology/unreal.html#audio-metasounds">Unreal Engine: Audio</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Unity 6</strong></td>
+      <td>AudioSource/AudioListener, AudioMixer with snapshots, exposed parameters, and ducking via Send/Duck Volume effects</td>
+      <td>Wwise and FMOD both ship Unity integrations and are common for music-heavy games.</td>
+    </tr>
+    <tr>
+      <td><strong>Godot 4</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">AudioStreamPlayer</code>/<code class="language-plaintext highlighter-rouge">2D</code>/<code class="language-plaintext highlighter-rouge">3D</code>, bus layout with built-in effects, <code class="language-plaintext highlighter-rouge">AudioStreamInteractive</code>/<code class="language-plaintext highlighter-rouge">Synchronized</code>/<code class="language-plaintext highlighter-rouge">Playlist</code> for adaptive music</td>
+      <td>Interactive music streams were added in Godot 4.3.</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The mental models below are middleware-agnostic.</p>
+<p>The concepts on the rest of this page apply to all of these. Only the names change.</p>
 
-<h2 id="spatial--3d-audio">Spatial &amp; 3D Audio</h2>
+<h2 id="spatial-and-3d-audio">Spatial and 3D Audio</h2>
 
-<p>3D audio places a sound at a position in the world and renders the cues the brain uses to localize it: <strong>level differences</strong> between ears, <strong>timing differences</strong>, <strong>frequency shaping</strong> from the head and ears, and <strong>distance attenuation</strong>.</p>
+<p>3D audio positions a sound in the world and reproduces the cues the brain uses to localize it: level and time differences between the ears, spectral shaping by the head and outer ear, distance cues, and the acoustics of the space between the source and the listener.</p>
 
 <h3 id="distance-attenuation">Distance attenuation</h3>
 
-<p>As a source moves away, its level falls. In a free field, intensity follows the inverse-square law, i.e. a <strong>6 dB drop per doubling of distance</strong>:</p>
+<p>In a free field, intensity falls with the inverse square of distance, which is a <strong>6 dB drop per doubling of distance</strong>:</p>
 
-\[L(r) = L_{ref} - 20 \log_{10}\!\left(\frac{r}{r_{ref}}\right)\]
+\[L(r) = L_{\mathrm{ref}} - 20 \log_{10}\!\left(\frac{r}{r_{\mathrm{ref}}}\right)\]
 
-<p>Pure inverse-square is rarely shipped as-is — it is too quiet too fast for gameplay. Designers author an <strong>attenuation curve</strong>: full volume out to a <em>minimum distance</em>, a tuned falloff, and silence (or a floor) beyond a <em>maximum distance</em>. A common authored shape is a smooth interpolation between min and max:</p>
+<p>Games seldom use pure inverse-square falloff because it makes sounds too quiet too quickly for gameplay. Designers author an <strong>attenuation curve</strong> instead: full level out to $r_{min}$, a shaped falloff, and silence (or a floor) beyond $r_{max}$. One common shape is</p>
 
-\[\text{gain}(r) =
+\[g(r) =
 \begin{cases}
-1 &amp; r \le r_{min} \\
-\left(\dfrac{r_{max} - r}{r_{max} - r_{min}}\right)^{p} &amp; r_{min} &lt; r &lt; r_{max} \\
+1 &amp; r \le r_{min} \\[4pt]
+\left(\dfrac{r_{max} - r}{r_{max} - r_{min}}\right)^{p} &amp; r_{min} &lt; r &lt; r_{max} \\[4pt]
 0 &amp; r \ge r_{max}
 \end{cases}\]
 
-<p>where the exponent $p$ shapes the curve (linear, logarithmic, or <code class="language-plaintext highlighter-rouge">log-reverse</code>). Critically, <strong>culling</strong> a voice once $r \ge r_{max}$ is a primary performance lever — distant inaudible sources should never consume a voice (see <a href="#performance-budgets">budgets</a>).</p>
+<p>where the exponent $p$ controls how quickly the level falls. Distance also drives other curves: a low-pass filter for air absorption, the wet/dry ratio (distant sources sound more reverberant), and the <strong>spread</strong> (a nearby waterfall surrounds the listener, while a distant one is a point). $r_{max}$ matters for performance too. A voice beyond it should be virtualized or never started (see <a href="#performance-budgets">budgets</a>).</p>
 
-<h3 id="panning-and-the-constant-power-law">Panning and the constant-power law</h3>
+<h3 id="panning">Panning</h3>
 
-<p>Stereo/surround positioning distributes one source’s energy across speakers. Naive linear panning ($L = 1-\theta$, $R = \theta$) dips in perceived loudness at the center because power, not amplitude, sums. <strong>Constant-power panning</strong> keeps total power flat:</p>
+<p>Positioning a source across speakers distributes its energy among them. Linear panning ($L = 1-x$, $R = x$) sounds about 3 dB quieter at the center because acoustic power, not amplitude, is what adds up. <strong>Constant-power panning</strong> keeps $L^2 + R^2 = 1$:</p>
 
 \[L = \cos\!\left(\frac{\pi}{4}(1+\theta)\right), \qquad
 R = \sin\!\left(\frac{\pi}{4}(1+\theta)\right), \qquad \theta \in [-1, 1]\]
 
-<p>so that $L^2 + R^2 = 1$ for all pan positions.</p>
+<p>Multichannel layouts generalize this to <strong>vector-base amplitude panning (VBAP)</strong> between the nearest speaker pair or triplet. Many engines instead encode sources into <strong>Ambisonics</strong>, a speaker-independent spherical-harmonic sound field, and decode that to whatever the output is: speakers, binaural, or a head-tracked VR mix.</p>
 
 <h3 id="hrtf-and-binaural-rendering">HRTF and binaural rendering</h3>
 
-<p>For headphones, true 3D localization (including elevation and front/back) comes from a <strong>Head-Related Transfer Function</strong> — the per-direction filtering caused by the listener’s head, torso, and outer ears (pinnae). Rendering convolves the dry mono source with the left/right HRIR (impulse response) for the source’s direction:</p>
+<p>On headphones, convincing elevation and front/back localization comes from the <strong>head-related transfer function (HRTF)</strong>, which is the direction-dependent filtering applied by the head, torso, and pinnae. The renderer convolves the dry source with the left and right head-related impulse responses (HRIRs) for the source direction $(\theta, \phi)$:</p>
 
 \[y_{L}(t) = (x * h_{L,\theta,\phi})(t), \qquad
 y_{R}(t) = (x * h_{R,\theta,\phi})(t)\]
 
-<p>The two physical cues HRTF encapsulates are the <strong>Interaural Level Difference (ILD)</strong> — the far ear is shadowed by the head, dominant at high frequencies — and the <strong>Interaural Time Difference (ITD)</strong> — sound reaches the near ear first, dominant at low frequencies. Spatializer plugins (Wwise’s, FMOD’s, Oculus Audio, Steam Audio, Microsoft Spatial Sound) supply this. For VR this is mandatory — see <a href="../vr-ar/">VR/AR Development</a> for head-tracking integration.</p>
+<p>An HRTF combines two interaural cues. The <strong>interaural time difference (ITD)</strong>, up to about 0.7 ms, dominates below about 1.5 kHz. The <strong>interaural level difference (ILD)</strong>, caused by head shadowing, dominates at higher frequencies. The pinna adds spectral notches that encode elevation. Generic HRTFs work for most listeners. Personalized ones reduce front/back confusion further. Platform object renderers (Windows Sonic, Dolby Atmos for Headphones, PlayStation 5 Tempest 3D AudioTech, Apple spatial audio) and plugins (Steam Audio, Meta XR Audio SDK, and the built-in Wwise and FMOD spatializers) provide HRTF rendering. Head-tracked binaural audio is required in VR; see <a href="../vr-ar/">VR/AR Development</a>.</p>
 
-<h3 id="occlusion-obstruction-and-reverb">Occlusion, obstruction, and reverb</h3>
+<h3 id="occlusion-obstruction-and-propagation">Occlusion, obstruction, and propagation</h3>
 
-<p>The world between source and listener changes the sound:</p>
+<p>The geometry between a source and the listener changes what reaches the ear:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Effect</th>
+      <th>Geometry</th>
+      <th>Treatment</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Occlusion</strong></td>
+      <td>Source is fully enclosed, such as behind a closed door or wall</td>
+      <td>Low-pass and attenuate both the direct and reverberant signals</td>
+    </tr>
+    <tr>
+      <td><strong>Obstruction</strong></td>
+      <td>Direct path is blocked, but the room path is open, such as around a pillar</td>
+      <td>Filter the dry signal and leave the reverb send unchanged</td>
+    </tr>
+    <tr>
+      <td><strong>Exclusion</strong></td>
+      <td>Direct path is open but the rooms are acoustically separate, such as through an open doorway</td>
+      <td>Leave the dry signal and reduce the send into the listener’s room reverb</td>
+    </tr>
+    <tr>
+      <td><strong>Diffraction / portals</strong></td>
+      <td>Sound bends around edges and passes through openings</td>
+      <td>Re-position the virtual source at the portal or edge, and attenuate by the bend angle</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The simplest approach casts a few rays from listener to emitter, spread across frames, and maps the fraction blocked onto a cutoff frequency and gain. Modern games increasingly use geometry-aware <strong>propagation</strong> systems:</p>
 
 <ul>
-  <li><strong>Occlusion</strong> — solid geometry fully blocks the direct path <em>and</em> its reverb; the sound is low-passed and quieted (you hear a muffled gunshot through a wall).</li>
-  <li><strong>Obstruction</strong> — the direct path is blocked but the reverberant path is open (around a corner); the <em>dry</em> signal is filtered but the wet/reverb persists.</li>
-  <li><strong>Reverb zones</strong> — environment-aware acoustics. Reverb tails simulate room size and material via early reflections plus a decay; <strong>convolution reverb</strong> convolves the dry signal with a recorded space’s impulse response for realism, while <strong>algorithmic reverb</strong> (feedback delay networks) is cheaper and tunable. Distance/direction to the source can also drive an <strong>early-reflection</strong> model for a stronger sense of place.</li>
+  <li><strong>Room and portal graphs.</strong> Designers mark rooms and portals (doors, windows). Sound travels along the shortest path through open portals and is diffracted at edges. Wwise Spatial Audio (Rooms and Portals, geometric diffraction and reflection) and Unreal’s Audio Gameplay Volumes work this way.</li>
+  <li><strong>Ray- or path-traced propagation at runtime.</strong> Steam Audio (open source under Apache 2.0 since 2024) traces reflections and pathing against scene geometry and can produce per-source reverb.</li>
+  <li><strong>Baked wave simulation.</strong> Tools such as Microsoft Project Acoustics precompute wave-based propagation offline and look up the results at runtime. This gives accurate diffraction at very low runtime cost, but only for static geometry.</li>
 </ul>
 
-<p>These are typically computed with cheap raycasts (one or a few per emitter, amortized across frames) feeding a low-pass cutoff and a wet/dry ratio onto each voice.</p>
+<p><strong>Reverb</strong> gives a sense of the space. <strong>Convolution reverb</strong> convolves the signal with a measured or simulated impulse response and sounds realistic but costs more. <strong>Algorithmic reverb</strong> uses feedback delay networks (FDNs), which are cheap and tunable. Games typically place one reverb per acoustic zone on an auxiliary bus and send voices to it based on the rooms they occupy.</p>
 
-<h2 id="adaptive--interactive-music">Adaptive &amp; Interactive Music</h2>
+<h2 id="adaptive-and-interactive-music">Adaptive and Interactive Music</h2>
 
-<p>Adaptive music is a soundtrack that <strong>responds to gameplay state</strong> without audible seams. Two complementary techniques dominate, usually combined.</p>
+<p>Adaptive music responds to game state without audible seams. Two techniques dominate, and most scores use both.</p>
 
 <h3 id="horizontal-re-sequencing">Horizontal re-sequencing</h3>
 
-<p>The score is split into segments arranged along time; transitions are quantized to musical boundaries so they never sound abrupt.</p>
+<p>The score is cut into segments, and a state machine moves between them. Transitions are <strong>quantized</strong> to musical boundaries (the next beat, the next bar, or a custom cue) so that a change requested mid-phrase still lands on the music’s grid:</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Explore  ──(enter combat: wait to next bar)──▶  Combat
-Combat   ──(transition segment / stinger)──▶    Victory
-   ▲                                              │
-   └──────────(combat ends: fade to)─────────────┘
-</code></pre></div></div>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Explore
+    Explore --&gt; Tension: enemy aware (next bar)
+    Tension --&gt; Explore: lost aggro (fade 4 bars)
+    Tension --&gt; Combat: engaged (next beat + stinger)
+    Explore --&gt; Combat: ambushed (immediate, stinger)
+    Combat --&gt; Victory: last enemy killed (transition segment)
+    Combat --&gt; Explore: fled (next bar, fade out)
+    Victory --&gt; Explore: segment ends
+</code></pre>
+
+<p><strong>Transition segments</strong> are short bridging clips placed between sections whose key or tempo would otherwise clash. <strong>Entry and exit cues</strong> mark the points within a segment where a transition may start or end.</p>
+
+<h3 id="vertical-layering">Vertical layering</h3>
+
+<p>A looping passage is built from synchronized <strong>stems</strong> (for example percussion, bass, strings, and lead). The stems are faded in and out in real time according to an intensity value $I(t)$ derived from gameplay (enemy count, proximity, or health). Each layer $i$ has its own fade window $[I_i^{\mathrm{on}}, I_i^{\mathrm{full}}]$:</p>
+
+\[g_{i}(t) = \mathrm{clamp}\!\left(\frac{I(t) - I_{i}^{\mathrm{on}}}{I_{i}^{\mathrm{full}} - I_{i}^{\mathrm{on}}},\, 0,\, 1\right)\]
+
+<p>All stems share tempo, key, and playhead, so a layer can enter or leave at any moment without re-sequencing. The intensity value is usually smoothed or given hysteresis so that the music doesn’t jump back and forth when gameplay does.</p>
+
+<h3 id="stingers-parameters-and-generative-music">Stingers, parameters, and generative music</h3>
 
 <ul>
-  <li><strong>Transition rules</strong> snap a switch to the next beat, bar, or marker so a change requested mid-phrase lands musically.</li>
-  <li><strong>Transition segments</strong> are short bridge clips inserted between sections to smooth otherwise jarring key/tempo changes.</li>
+  <li><strong>Stingers</strong> are short one-shot phrases (a flourish on level-up, a hit on discovery) played over the running score and aligned to the next beat.</li>
+  <li><strong>Parameter mapping</strong> applies the RTPC/parameter mechanism used for engine pitch to the music. <code class="language-plaintext highlighter-rouge">Tension</code>, <code class="language-plaintext highlighter-rouge">PlayerHealth</code>, or <code class="language-plaintext highlighter-rouge">EnemyProximity</code> can drive layer gains, filter cutoffs, or a tempo change at a phrase boundary.</li>
+  <li><strong>Generative and procedural music</strong> assembles phrases at runtime from rules or small motifs, in MetaSounds, Wwise’s Interactive Music hierarchy, or custom sequencers. It suits open-ended play where authored transitions can’t cover every state.</li>
 </ul>
 
-<h3 id="vertical-layering-re-orchestration">Vertical layering (re-orchestration)</h3>
+<p>A typical combination: combat intensity is handled <strong>vertically</strong>, phase changes (explore, combat, victory) are handled <strong>horizontally</strong>, and stingers mark discrete events.</p>
 
-<p>A single looping passage is built from <strong>stems</strong> (drums, bass, strings, lead) that are added or removed in real time by fading layers, driven by an intensity parameter:</p>
+<h2 id="mixing">Mixing</h2>
 
-\[g_{i}(t) = \mathrm{clamp}\!\left(\frac{I(t) - t_{i}^{\,on}}{t_{i}^{\,off} - t_{i}^{\,on}},\, 0,\, 1\right)\]
-
-<p>where $I(t)$ is the gameplay <strong>intensity</strong> (enemy count, proximity, health) and each layer $i$ has its own fade-in window. Because all stems share tempo and key and play in sync, layers can join or drop at any instant without re-sequencing.</p>
-
-<h3 id="stingers-and-parameter-mapping">Stingers and parameter mapping</h3>
-
-<ul>
-  <li><strong>Stingers</strong> are short one-shot musical phrases (a flourish on a level-up, a sting on a discovery) overlaid on the running score, time-aligned to the beat.</li>
-  <li>A continuous gameplay value (an RTPC/parameter such as <code class="language-plaintext highlighter-rouge">Tension</code>, <code class="language-plaintext highlighter-rouge">PlayerHealth</code>, or <code class="language-plaintext highlighter-rouge">EnemyProximity</code>) maps onto layer gains, tempo, or filter cutoff so the music breathes with play. This is the same RTPC/parameter mechanism used for engine pitch and footstep variation — adaptive music is just parameters driving a music graph.</li>
-</ul>
-
-<p>In practice combat music is <em>vertical</em> (intensity fades stems in) while phase changes — explore → combat → victory — are <em>horizontal</em> (segment switches quantized to bars), with stingers punctuating discrete events.</p>
-
-<h2 id="mixing--buses">Mixing &amp; Buses</h2>
-
-<p>The <strong>mix</strong> decides what the player hears at every moment when dozens of voices compete. It is structured as a <strong>bus graph</strong>: voices route into category buses, buses route into the master, and effects and automation live on the buses.</p>
+<p>The mix decides what the player hears when dozens of voices compete for attention. It is built as a <strong>bus graph</strong>. Voices route into category buses, category buses route into higher-level buses and the master, and effects and automation sit on the buses.</p>
 
 <h3 id="bus-hierarchy">Bus hierarchy</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                    ┌──────────────┐
-   Voices ─────────▶│  SFX bus     │──┐
-                    └──────────────┘  │
-                    ┌──────────────┐  │   ┌──────────────┐
-   Voices ─────────▶│ Dialogue bus │──┼──▶│ Master bus   │──▶ Output
-                    └──────────────┘  │   │ (limiter)    │
-                    ┌──────────────┐  │   └──────────────┘
-   Voices ─────────▶│  Music bus   │──┘
-                    └──────────────┘
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Voices
+        W["Weapons"]
+        F["Foley / footsteps"]
+        AMB["Ambience"]
+        VO["Dialogue"]
+        MUS["Music stems"]
+        UI["UI"]
+    end
+    W --&gt; SFX["SFX bus"]
+    F --&gt; SFX
+    AMB --&gt; SFX
+    VO --&gt; DLG["Dialogue bus"]
+    MUS --&gt; MB["Music bus"]
+    UI --&gt; UIB["UI bus"]
+    SFX -.-&gt;|send| RV["Aux: room reverb"]
+    DLG -.-&gt;|send| RV
+    SFX --&gt; MST["Master bus&lt;br/&gt;limiter"]
+    DLG --&gt; MST
+    MB --&gt; MST
+    UIB --&gt; MST
+    RV --&gt; MST
+</code></pre>
 
-<p>A bus gives one fader and one set of effects over a whole category, so a player’s “Music 50% / SFX 80%” slider is a single bus volume, and an EQ on the dialogue bus shapes every line at once.</p>
+<p>Each bus has one fader and one effects chain for a whole category. The player’s “Music / SFX / Dialogue” sliders are bus volumes, and a single EQ on the dialogue bus affects every line. Reverb lives on an <strong>auxiliary (send/return) bus</strong> that many voices share. UI and music are usually kept dry and non-spatialized.</p>
 
-<h3 id="ducking-and-sidechaining">Ducking and sidechaining</h3>
+<h3 id="ducking-and-sidechain-compression">Ducking and sidechain compression</h3>
 
-<p>The classic interactive mix problem: dialogue must stay intelligible over music and effects. <strong>Ducking</strong> automatically lowers one bus when another is active — when a dialogue voice plays, the music and SFX buses are pulled down (and restored on release):</p>
+<p>The core mixing problem in games is keeping dialogue intelligible over music and effects. <strong>Ducking</strong> lowers one bus while another is active, for example music by 8 dB and SFX by 5 dB while dialogue plays, with attack and release times so the change isn’t noticed. <strong>Sidechain compression</strong> is the signal-driven version: the music compressor’s detector listens to the dialogue bus level, so louder speech ducks the music more. Above a threshold $T$, a compressor with ratio $R$ applies gain</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Dialogue active? ──yes──▶ Music bus −8 dB, SFX bus −5 dB  (attack)
-                 ──no───▶ restore over release time
-</code></pre></div></div>
-
-<p><strong>Sidechain compression</strong> is the signal-driven version: the music bus’s compressor uses the dialogue bus <em>level</em> as its detector, so louder dialogue ducks the music more, smoothly and automatically. A compressor reduces gain above a threshold by a ratio:</p>
-
-\[G_{dB} =
+\[G_{\mathrm{dB}} =
 \begin{cases}
-0 &amp; L_{in} \le T \\
--\left(1 - \dfrac{1}{R}\right)\,(L_{in} - T) &amp; L_{in} &gt; T
+0 &amp; L_{\mathrm{in}} \le T \\
+-\left(1 - \dfrac{1}{R}\right)(L_{\mathrm{in}} - T) &amp; L_{\mathrm{in}} &gt; T
 \end{cases}\]
 
-<p>with attack/release times shaping how fast the duck engages and recovers. <strong>HDR (High Dynamic Range) audio</strong> generalizes this: louder sounds (a nearby explosion) momentarily push quieter ones (distant ambience) below the window, mimicking the ear’s adaptation and freeing voices.</p>
+<p>with attack and release times controlling how fast the gain reduction engages and recovers.</p>
+
+<p><strong>HDR audio</strong> (used in DICE’s Frostbite games and available in Wwise) extends this idea to the whole mix. Every sound is authored at a physically motivated loudness, and a sliding window of fixed size follows the loudest active sounds. When an explosion goes off nearby, quiet ambience drops below the window and is culled, which frees voices and imitates the ear adapting to loud sounds.</p>
 
 <h3 id="snapshots-and-mix-states">Snapshots and mix states</h3>
 
-<p>Mix changes by game context — entering a cutscene, opening a pause menu, going underwater — are handled by <strong>snapshots</strong> (Wwise States/FMOD snapshots): a stored set of bus volumes and effect settings that the engine interpolates to over a fade time. Underwater might be a snapshot that low-passes the SFX bus and adds reverb; pause might duck everything but the UI.</p>
+<p>Context changes such as a cutscene, the pause menu, going underwater, or low health are handled with <strong>snapshots</strong> (FMOD) or <strong>states applied to buses</strong> (Wwise). A snapshot is a stored set of bus volumes and effect parameters that the mixer interpolates toward over a fade time. An underwater snapshot might low-pass the SFX bus and add a heavy reverb send. A pause snapshot might duck everything except UI.</p>
+
+<h3 id="accessibility">Accessibility</h3>
+
+<p>Audio carries gameplay information that some players can’t hear, and the mix should allow for this:</p>
+
+<ul>
+  <li><strong>Separate volume sliders</strong> for dialogue, music, SFX, and UI, plus a <strong>dynamic range</strong> option (“night mode” or “TV speakers”) that compresses the master bus.</li>
+  <li>A <strong>mono downmix</strong> option for players with single-sided hearing loss. Without it, hard-panned cues are lost.</li>
+  <li><strong>Subtitles and captions</strong> that include speaker names and important non-speech sounds, with size and background options.</li>
+  <li><strong>Visualized sound cues</strong>: on-screen direction indicators for footsteps, gunfire, and similar sounds, driven by the same emitter data the spatializer uses. Fortnite’s sound visualization is a well-known example.</li>
+</ul>
 
 <h2 id="dsp-basics">DSP Basics</h2>
 
-<p><strong>Digital Signal Processing</strong> is the math applied to the sample stream on each bus or voice. A handful of primitives cover most game audio effects.</p>
+<p><strong>Digital signal processing (DSP)</strong> is the per-sample math applied on voices and buses. A few primitives account for most game audio effects.</p>
 
-<h3 id="gain-mixing-and-pitch">Gain, mixing, and pitch</h3>
+<h3 id="gain-mixing-and-resampling">Gain, mixing, and resampling</h3>
 
 <ul>
   <li><strong>Gain</strong> is a per-sample multiply: $y[n] = g\,x[n]$.</li>
-  <li><strong>Mixing</strong> is summation: $y[n] = \sum_i g_i\,x_i[n]$ — which is why headroom and a master limiter matter once many voices sum.</li>
-  <li><strong>Pitch shift / resampling</strong> advances the read position by a fractional rate $\rho$ and interpolates: $y[n] = x(n\rho)$. A rate of 2 plays an octave up (and, naively, twice as fast). Doppler is exactly this rate driven by relative emitter/listener velocity:</li>
+  <li><strong>Mixing</strong> is summation: $y[n] = \sum_i g_i\,x_i[n]$. Summation is why float headroom and a master limiter matter.</li>
+  <li><strong>Resampling / pitch shift</strong> reads the source at a fractional rate $\rho$ with interpolation: $y[n] = x(n\rho)$. A rate of 2 plays an octave higher and twice as fast.</li>
 </ul>
 
-\[\rho = \frac{c + v_{listener}}{c + v_{source}}\]
+<p><strong>Doppler shift</strong> is resampling driven by relative motion. With speed of sound $c$, listener speed $v_l$ toward the source, and source speed $v_s$ toward the listener:</p>
+
+\[\rho = \frac{c + v_l}{c - v_s}\]
+
+<p>Games usually scale or clamp the effect, because physically correct Doppler at vehicle speeds sounds exaggerated. Velocities should come from smoothed positions so that teleports and frame hitches don’t cause pitch spikes.</p>
 
 <h3 id="filters">Filters</h3>
 
-<p>A <strong>biquad</strong> (second-order IIR) filter is the workhorse — low-pass for occlusion/muffling, high-pass to clear rumble, EQ bands to shape buses:</p>
+<p>The <strong>biquad</strong>, a second-order IIR filter, does most of the filtering work: low-pass for occlusion and distance, high-pass to remove rumble, and peaking and shelving EQ on buses:</p>
 
 \[y[n] = b_0 x[n] + b_1 x[n-1] + b_2 x[n-2] - a_1 y[n-1] - a_2 y[n-2]\]
 
-<p>The coefficients ${b_0, b_1, b_2, a_1, a_2}$ are derived from a cutoff frequency and Q. Occlusion lowering a cutoff from 20 kHz toward ~800 Hz is what makes a sound feel “behind a wall.”</p>
+<p>The coefficients are computed from a cutoff (or center) frequency, $Q$, and gain, usually with the RBJ “Audio EQ Cookbook” formulas. Moving an occlusion low-pass from 20 kHz down to about 1 kHz is what makes a sound seem to come from behind a wall. When a cutoff is modulated every frame, interpolate the coefficients or use a state-variable filter to avoid zipper noise.</p>
 
 <h3 id="delay-based-effects">Delay-based effects</h3>
 
-<p>A <strong>delay line</strong> (a ring buffer read $D$ samples behind the write head) underlies echo, chorus, flanging, and algorithmic reverb:</p>
+<p>A <strong>delay line</strong> is a ring buffer read $D$ samples behind its write head. It is the basis of echo, chorus, flanging, and algorithmic reverb:</p>
 
-\[y[n] = x[n] + g\,y[n - D]\]
+\[y[n] = x[n] + g\,y[n - D], \qquad |g| &lt; 1\]
 
-<p>Feeding the output back ($g &lt; 1$) gives a decaying echo; a <strong>feedback delay network</strong> of several such lines with mixing produces reverb. Convolution reverb instead computes $y = x * h$ against a measured impulse response, usually via FFT-based fast convolution to stay cheap.</p>
+<p>Feedback produces a decaying echo. A <strong>feedback delay network</strong> of several mutually coupled delay lines produces a dense reverb tail. Convolution reverb computes $y = x * h$ against an impulse response, using partitioned FFT convolution so that long tails stay affordable in real time.</p>
 
-<h3 id="cost-awareness">Cost awareness</h3>
+<h3 id="where-effects-go">Where effects go</h3>
 
-<p>Per-voice DSP (a biquad per occluded source) scales with voice count; per-bus DSP (one reverb, one compressor) is paid once regardless of voices. The mixing strategy is therefore to put <strong>expensive effects on buses, not voices</strong> — a single reverb send shared by many voices rather than a reverb per voice. This directly motivates the budgets below.</p>
+<p>Per-voice DSP, such as an occlusion filter on every source, scales with voice count. Per-bus DSP, such as one reverb or one compressor, costs the same no matter how many voices feed it. So <strong>put expensive effects on buses, not voices</strong>: use one shared reverb send per acoustic zone instead of a reverb on every voice.</p>
 
 <h2 id="performance-budgets">Performance Budgets</h2>
 
-<p>Audio shares the frame with everything else. It typically gets a small CPU slice (often a single dedicated thread / a few percent of frame time) and a fixed memory pool, and it must never block the render thread. Budgets are enforced along three axes: <strong>voices, CPU, and memory</strong>.</p>
+<p>Audio shares the machine with everything else. It usually gets one dedicated thread (sometimes plus worker jobs for decoding and convolution), a CPU budget of a few percent of a core per frame, and a fixed memory pool. The audio thread must never block on the game or render thread. Budgets are set for three resources: <strong>voices, CPU, and memory</strong>.</p>
 
 <h3 id="voice-management-and-limiting">Voice management and limiting</h3>
 
-<p>Active <strong>voices</strong> are the scarce resource — each consumes decode, DSP, and mix cost. Engines cap simultaneous voices (commonly 32–128 active, with virtualization for the rest) using:</p>
+<p>Each active voice costs decoding, DSP, and mixing. Engines cap the number of physical voices (typically a few dozen on mobile and a few hundred on current consoles and PC) and handle the rest as follows:</p>
 
 <ul>
-  <li><strong>Priority</strong> — each sound has a priority; when the cap is hit, the lowest-priority voices are stolen or virtualized first. Player gunfire outranks a distant ambient bird.</li>
-  <li><strong>Virtual voices</strong> — out-of-budget or inaudible sounds keep their <em>playhead</em> advancing (so they resume in the right place) but render nothing until they become audible again.</li>
-  <li><strong>Distance/audibility culling</strong> — voices past the attenuation <code class="language-plaintext highlighter-rouge">max distance</code>, or below an audibility threshold under the current mix, are not rendered at all (cheapest of all: never start them).</li>
-  <li><strong>Playback limits / instance caps</strong> — “at most 4 simultaneous footsteps,” “max 1 of this UI ping” — prevents a swarm of identical sounds from phasing into mush and burning voices.</li>
+  <li><strong>Priority.</strong> Every sound has a priority, often adjusted by distance. When the cap is reached, the lowest-priority voices are stolen or virtualized first. Player gunfire outranks a distant bird.</li>
+  <li><strong>Virtual voices.</strong> Inaudible or over-budget sounds keep advancing their playhead (or restart, or pause, depending on the chosen behavior) but render nothing until they become audible again.</li>
+  <li><strong>Audibility culling.</strong> Voices beyond the attenuation $r_{max}$, or below an audibility threshold under the current mix or HDR window, are not rendered. The cheapest voice is one that is never started.</li>
+  <li><strong>Instance limits.</strong> Rules such as “at most 4 footsteps” or “one of this UI ping”, with a steal policy (oldest, quietest, or farthest), stop a swarm of identical sounds from smearing together and using up voices.</li>
 </ul>
 
-<h3 id="cpu-budget">CPU budget</h3>
+<h3 id="cpu">CPU</h3>
 
 <table>
   <thead>
     <tr>
       <th>Cost center</th>
-      <th>Driver</th>
-      <th>Lever</th>
+      <th>Scales with</th>
+      <th>Main levers</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Decoding</td>
-      <td>Compressed voices (Vorbis/Opus/ADPCM)</td>
-      <td>Stream long assets; keep frequent short SFX as cheap-decode formats</td>
+      <td>Number of compressed voices and codec cost</td>
+      <td>Stream long assets, use cheap-to-decode formats (ADPCM, PCM) for short frequent SFX, use hardware decoders where the platform has them</td>
     </tr>
     <tr>
       <td>Per-voice DSP</td>
-      <td>Filters/spatialization per voice</td>
-      <td>Cull/virtualize aggressively; share effects on buses</td>
+      <td>Active voices × effects per voice</td>
+      <td>Virtualize aggressively; move effects to buses</td>
     </tr>
     <tr>
       <td>Per-bus DSP</td>
-      <td>Reverb, compressors, EQ</td>
-      <td>Few buses; reuse one reverb via sends</td>
+      <td>Number of buses and their effects</td>
+      <td>Share reverbs through sends; limit effect chains</td>
     </tr>
     <tr>
       <td>Spatialization</td>
-      <td>HRTF/raycasts per emitter</td>
-      <td>Amortize occlusion rays over frames; lower-cost panning for distant sources</td>
+      <td>Emitters × HRTF, rays, or paths</td>
+      <td>Spread occlusion rays over several frames; use HRTF only for near or important sources and cheaper panning for the rest</td>
     </tr>
     <tr>
       <td>Mixing</td>
-      <td>Summing all active voices</td>
-      <td>The voice cap <em>is</em> the mixing budget</td>
+      <td>Total active voices</td>
+      <td>The voice cap is effectively the mixing budget</td>
     </tr>
   </tbody>
 </table>
 
-<p>Profile with the middleware’s live profiler (Wwise Profiler, FMOD Profiler) connected to the target hardware, not the dev PC — console/mobile decode and DSP costs differ sharply. See <a href="../optimization/cpu-optimization.html">CPU Optimization</a> for general profiling discipline.</p>
+<p>Profile on the target hardware with the middleware profiler connected (Wwise Profiler, FMOD Studio Profiler, or Unreal Insights), not on a development PC. Decode and DSP costs on consoles and mobile devices differ a lot from desktop costs. See <a href="../optimization/cpu-optimization.html">CPU Optimization</a>.</p>
 
-<h3 id="memory-budget">Memory budget</h3>
-
-<ul>
-  <li><strong>Resident vs. streamed.</strong> Short, frequent, latency-sensitive sounds (footsteps, gunshots, UI) live fully in RAM in loaded <strong>soundbanks</strong>. Long assets (music, ambience, dialogue) <strong>stream</strong> from disk in chunks, trading a little latency and I/O for a small memory footprint.</li>
-  <li><strong>Bank loading strategy.</strong> Group assets into banks by level/region and load/unload them with the content, so only what a level needs is resident. This is the audio analogue of texture/mesh streaming — see <a href="../optimization/memory-optimization.html">Memory Optimization</a>.</li>
-  <li><strong>Codec choice</strong> trades memory for CPU: highly compressed formats save RAM/disk but cost more to decode each frame; uncompressed PCM is the reverse. Pick per-asset based on frequency and length.</li>
-</ul>
-
-<h3 id="mobile-and-console-specifics">Mobile and console specifics</h3>
-
-<p>Mobile adds <strong>battery and thermal</strong> pressure (decoding and mixing are continuous CPU load) and <strong>smaller voice/memory budgets</strong>; consoles impose <strong>certification requirements</strong> (mandated mixdowns, mute-on-suspend, output-format support). Plan budgets per target platform from the start, exactly as with rendering — see <a href="../optimization/platform-tuning.html">Platform Tuning</a>.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h3 id="memory">Memory</h3>
 
 <ul>
-  <li><strong>Voices are the scarce resource.</strong> Every sound is a voice with decode, DSP, and mix cost. Priority, virtualization, instance caps, and distance culling keep simultaneous voices inside budget.</li>
-  <li><strong>Middleware abstracts events from assets.</strong> Wwise/FMOD let code post abstract events and parameters while designers author randomization, layering, attenuation, and mixing without recompiling.</li>
-  <li><strong>3D audio is attenuation plus localization.</strong> An authored attenuation curve sets distance falloff and culling; constant-power panning and HRTF place the source; occlusion and reverb situate it in the world.</li>
-  <li><strong>Adaptive music = horizontal + vertical.</strong> Re-sequence segments quantized to bars for phase changes; fade stem layers by an intensity parameter for moment-to-moment tension; punctuate with stingers.</li>
-  <li><strong>Mix on buses, with ducking.</strong> Route voices into category buses, put expensive DSP there, and use ducking/sidechaining and snapshots so dialogue stays intelligible across game states.</li>
-  <li><strong>Budget per platform from day one.</strong> Voices, CPU, and memory are fixed pools. Stream long assets, keep short SFX resident, profile on target hardware, not the dev PC.</li>
+  <li><strong>Resident versus streamed.</strong> Short, frequent, latency-sensitive sounds (footsteps, weapons, UI) are kept fully in memory in loaded banks. Long assets (music, ambience beds, dialogue) are streamed from disk in chunks. For streamed sounds that must start instantly, keep a small <strong>prefetch</strong> of the start of the file in memory.</li>
+  <li><strong>Bank strategy.</strong> Group assets into banks by level, region, or feature, and load or unload them with the content. Wwise’s auto-defined SoundBanks (one bank per event, loaded on demand) avoid hand-maintaining large monolithic banks. This is the audio counterpart of texture and mesh streaming; see <a href="../optimization/memory-optimization.html">Memory Optimization</a>.</li>
+  <li><strong>Codecs.</strong> Choose a codec per asset based on how often it plays and how long it is. Vorbis and Opus give high compression at a higher decode cost. ADPCM gives about 4:1 compression with very cheap decoding. PCM is the reverse of Vorbis and Opus.</li>
+  <li><strong>Localization.</strong> Dialogue is often the largest audio asset set. Ship it in per-language packs and load only the selected language.</li>
 </ul>
+
+<h3 id="platform-specifics">Platform specifics</h3>
+
+<p>Mobile adds <strong>battery and thermal</strong> limits (audio is a constant CPU load), smaller voice and memory budgets, and OS audio-session rules such as interruptions, the silent switch, and routing to Bluetooth devices (which adds a lot of latency). Consoles impose <strong>certification requirements</strong>: correct behavior on suspend and resume, handling of output-device changes, and support for the platform’s 3D audio path. Plan budgets for each target platform from the start, as you would for rendering; see <a href="../optimization/platform-tuning.html">Platform Tuning</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="./">Game Development</a> — engines, core systems, and the overall game-dev pipeline</li>
-  <li><a href="../technology/unreal.html#audio-metasounds">Unreal Engine</a> — engine-native audio: Sound Cues, Audio Components, and MetaSounds</li>
-  <li><a href="../vr-ar/">VR/AR Development</a> — head-tracked binaural audio and spatial tracking</li>
-  <li><a href="../ai-ml/game-ai.html">Game AI</a> — gameplay state (combat, proximity) that drives adaptive audio</li>
-  <li><a href="../optimization/cpu-optimization.html">CPU Optimization</a> — profiling and budgeting the audio thread</li>
-  <li><a href="../optimization/memory-optimization.html">Memory Optimization</a> — soundbank residency and streaming</li>
-  <li><a href="../optimization/platform-tuning.html">Platform Tuning</a> — console and mobile audio constraints and certification</li>
+  <li><a href="./">Game Development</a>: engines, core systems, and the overall game-development pipeline</li>
+  <li><a href="../technology/unreal.html#audio-metasounds">Unreal Engine: Audio</a>: MetaSounds, submixes, and Unreal’s spatialization</li>
+  <li><a href="../vr-ar/">VR/AR Development</a>: head-tracked binaural audio and spatial tracking</li>
+  <li><a href="../ai-ml/game-ai.html">Game AI</a>: the gameplay state (combat, awareness, proximity) that drives adaptive audio</li>
+  <li><a href="../optimization/cpu-optimization.html">CPU Optimization</a>: profiling and budgeting the audio thread</li>
+  <li><a href="../optimization/memory-optimization.html">Memory Optimization</a>: bank residency and streaming</li>
+  <li><a href="../optimization/platform-tuning.html">Platform Tuning</a>: console and mobile audio constraints and certification</li>
 </ul>
 
       </section>

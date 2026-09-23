@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Relational data modeling: keys and constraints, functional dependencies and normal forms (1NF–BCNF and beyond), relationships, hierarchies, temporal data, di...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Database Design: Data Modeling & Normalization">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Relational data modeling: keys and constraints, functional dependencies and normal forms (1NF–BCNF and beyond), relationships, hierarchies, temporal data, di...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/database-design/modeling.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Database Design: Data Modeling & Normalization">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Relational data modeling: keys and constraints, functional dependencies and normal forms (1NF–BCNF and beyond), relationships, hierarchies, temporal data, di...">
 
 <title>Database Design: Data Modeling & Normalization | Andrews Notebook</title>
 
@@ -3135,420 +3135,796 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="data-modeling--normalization">Data Modeling &amp; Normalization</h1>
 
-<h2 id="from-files-to-databases">From Files to Databases</h2>
+<p><strong>Data modeling</strong> is the process of deciding what a database stores and how it is structured: which entities exist, how they relate, which facts depend on which keys, and which rules the database itself must enforce. A good relational model makes invalid states unrepresentable, keeps each fact in exactly one place, and still answers the application’s queries efficiently. This page covers the relational model’s building blocks (keys and constraints), normalization theory, relationship and hierarchy patterns, temporal and analytical (dimensional) models, and the anti-patterns that most often cause trouble in production schemas.</p>
 
-<h3 id="the-relational-model-organizing-your-data">The Relational Model: Organizing Your Data</h3>
+<p>Examples use PostgreSQL syntax (version 13 or later unless noted); dialect differences are called out where they matter.</p>
 
-<p>The breakthrough came when Edgar Codd realized that data could be organized as tables (relations) with well-defined rules. This wasn’t just tidiness—it enabled powerful operations and guarantees.</p>
+<h2 id="levels-of-a-data-model">Levels of a Data Model</h2>
 
-<p>Consider our e-commerce example. Instead of one complex file, we organize data into focused tables:</p>
+<p>Modeling usually moves through three levels of increasing detail. Each level answers a different question, and mistakes are cheapest to fix at the top.</p>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Products table: Each row is a product</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
-    <span class="n">product_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>  <span class="c1">-- Unique identifier</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
-    <span class="n">stock</span> <span class="nb">INT</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">stock</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1">-- Never negative!</span>
-<span class="p">);</span>
-
-<span class="c1">-- Orders table: Each row is an order</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
-    <span class="n">order_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">customer_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">order_date</span> <span class="nb">TIMESTAMP</span><span class="p">,</span>
-    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">customers</span><span class="p">(</span><span class="n">customer_id</span><span class="p">)</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<p>This structure brings immediate benefits:</p>
-<ul>
-  <li><strong>No redundancy</strong>: Product info stored once, referenced many times</li>
-  <li><strong>Data integrity</strong>: Can’t reference non-existent customers</li>
-  <li><strong>Efficient queries</strong>: Indexes make lookups fast</li>
-  <li><strong>Concurrent access</strong>: Multiple users can read/write safely</li>
-</ul>
-
-<h3 id="acid-making-databases-reliable">ACID: Making Databases Reliable</h3>
-
-<p>The real magic happens when databases guarantee ACID properties. These aren’t abstract concepts—they solve real problems:</p>
-
-<p><strong>Atomicity</strong> - “All or Nothing”
-When a customer places an order, multiple things must happen:</p>
-<ol>
-  <li>Decrease product stock</li>
-  <li>Create order record</li>
-  <li>Charge payment</li>
-  <li>Send confirmation email</li>
-</ol>
-
-<p>If step 3 fails, you don’t want steps 1-2 to remain. Atomicity ensures either everything succeeds or nothing changes.</p>
-
-<p><strong>Consistency</strong> - “Rules Always Apply”
-Your business rules (stock &gt;= 0, valid email format) are enforced always, even during system failures.</p>
-
-<p><strong>Isolation</strong> - “No Interference”
-Two customers buying the last item see consistent results—one succeeds, one sees “out of stock”. No weird partial states.</p>
-
-<p><strong>Durability</strong> - “Confirmed Means Saved”
-Once you tell a customer “order confirmed”, that order survives power outages, crashes, and restarts.</p>
-
-<h3 id="sql-the-universal-database-language">SQL: The Universal Database Language</h3>
-
-<p>SQL emerged as the standard way to interact with relational databases. It’s declarative—you say what you want, not how to get it:</p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Find all orders from high-value customers last month</span>
-<span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="k">COUNT</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">order_id</span><span class="p">)</span> <span class="k">as</span> <span class="n">order_count</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="k">as</span> <span class="n">revenue</span>
-<span class="k">FROM</span> <span class="n">customers</span> <span class="k">c</span>
-<span class="k">JOIN</span> <span class="n">orders</span> <span class="n">o</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span> <span class="o">=</span> <span class="n">o</span><span class="p">.</span><span class="n">customer_id</span>
-<span class="k">WHERE</span> <span class="n">o</span><span class="p">.</span><span class="n">order_date</span> <span class="o">&gt;=</span> <span class="n">DATE_SUB</span><span class="p">(</span><span class="k">CURRENT_DATE</span><span class="p">,</span> <span class="n">INTERVAL</span> <span class="mi">30</span> <span class="k">DAY</span><span class="p">)</span>
-<span class="k">GROUP</span> <span class="k">BY</span> <span class="k">c</span><span class="p">.</span><span class="n">customer_id</span>
-<span class="k">HAVING</span> <span class="k">SUM</span><span class="p">(</span><span class="n">o</span><span class="p">.</span><span class="n">total</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1000</span>
-<span class="k">ORDER</span> <span class="k">BY</span> <span class="n">revenue</span> <span class="k">DESC</span><span class="p">;</span>
-</code></pre></div></div>
-
-<blockquote>
-  <p><strong>Dialect note: date arithmetic.</strong> <code class="language-plaintext highlighter-rouge">DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)</code> is MySQL syntax. The rest of this guide leans PostgreSQL, where the equivalent is <code class="language-plaintext highlighter-rouge">CURRENT_DATE - INTERVAL '30 days'</code>.</p>
-</blockquote>
-
-<p>The database figures out the most efficient way to execute this—which tables to read first, which indexes to use, how to join the data. This separation of “what” from “how” is powerful.</p>
-
-<h2 id="database-normalization-avoiding-data-disasters">Database Normalization: Avoiding Data Disasters</h2>
-
-<p>As your application grows, poor data organization leads to nightmares. Normalization is the process of organizing data to minimize redundancy and dependency issues.</p>
-
-<h3 id="why-normalization-matters">Why Normalization Matters</h3>
-
-<p>Consider this poorly designed table:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Orders Table:
-OrderID | CustomerName | CustomerEmail | Product1 | Price1 | Product2 | Price2
-1001    | John Smith   | john@email   | Laptop   | 999    | Mouse    | 29
-1002    | John Smith   | john@email   | Keyboard | 79     | NULL     | NULL
-</code></pre></div></div>
-
-<p>Problems:</p>
-<ol>
-  <li><strong>Update anomalies</strong>: Change John’s email? Update every row!</li>
-  <li><strong>Insert anomalies</strong>: Can’t add products without orders</li>
-  <li><strong>Delete anomalies</strong>: Delete last order? Lose customer info!</li>
-  <li><strong>Wasted space</strong>: Those NULLs add up</li>
-</ol>
-
-<h3 id="the-normalization-process">The Normalization Process</h3>
-
-<p>Normalization systematically eliminates these problems:</p>
-
-<p><strong>Step 1: Eliminate Repeating Groups (1NF)</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Bad: Multiple products in one row</span>
-<span class="c1">-- Good: Separate rows for each product</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">order_items</span> <span class="p">(</span>
-    <span class="n">order_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">product_name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span>
-    <span class="n">quantity</span> <span class="nb">INT</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<p><strong>Step 2: Remove Partial Dependencies (2NF)</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Product price depends only on product, not order</span>
-<span class="c1">-- Split into separate tables</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
-    <span class="n">product_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">product_name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">price</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
-<span class="p">);</span>
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">order_items</span> <span class="p">(</span>
-    <span class="n">order_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">product_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">quantity</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">product_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">products</span><span class="p">(</span><span class="n">product_id</span><span class="p">)</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<p><strong>Step 3: Remove Transitive Dependencies (3NF)</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Customer info depends on customer, not order</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">customers</span> <span class="p">(</span>
-    <span class="n">customer_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
-<span class="p">);</span>
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
-    <span class="n">order_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">customer_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">order_date</span> <span class="nb">TIMESTAMP</span><span class="p">,</span>
-    <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="n">customers</span><span class="p">(</span><span class="n">customer_id</span><span class="p">)</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<p>Now updates are simple, storage efficient, and data integrity is maintained!</p>
-
-<h3 id="when-to-break-the-rules">When to Break the Rules</h3>
-
-<p>Sometimes denormalization improves performance. Amazon might store customer names in order records to avoid joins in their massive order history displays. The key is knowing why you’re breaking the rules and managing the trade-offs.</p>
-
-<h2 id="modeling-relationships-connecting-your-data">Modeling Relationships: Connecting Your Data</h2>
-
-<p>The three cardinalities below are the building blocks of every schema. A many-to-many relationship is always resolved with a <strong>junction table</strong> that holds a foreign key to each side:</p>
-
-<pre><code class="language-mermaid">erDiagram
-    USER ||--|| PROFILE : "has (1:1)"
-    AUTHOR ||--o{ BOOK : "writes (1:N)"
-    STUDENT }o--o{ COURSE : "enrolls (M:N via junction)"
+<pre><code class="language-mermaid">flowchart LR
+    C["Conceptual model&lt;br/&gt;entities and relationships&lt;br/&gt;(what the business talks about)"]
+    L["Logical model&lt;br/&gt;attributes, keys, cardinality,&lt;br/&gt;normalized relations"]
+    P["Physical model&lt;br/&gt;types, indexes, partitioning,&lt;br/&gt;engine-specific DDL"]
+    C --&gt; L --&gt; P
 </code></pre>
 
-<h3 id="one-to-one">One-to-One</h3>
-<p>Each record in Table A relates to one record in Table B.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Audience</th>
+      <th>Artifacts</th>
+      <th>Typical decisions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Conceptual</td>
+      <td>Domain experts, product</td>
+      <td>ER sketch, glossary</td>
+      <td>“A customer places orders; an order has one or more line items.”</td>
+    </tr>
+    <tr>
+      <td>Logical</td>
+      <td>Engineers</td>
+      <td>Relations, keys, functional dependencies</td>
+      <td>Which attributes form the key; which normal form to target</td>
+    </tr>
+    <tr>
+      <td>Physical</td>
+      <td>Engineers, DBAs</td>
+      <td><code class="language-plaintext highlighter-rouge">CREATE TABLE</code>, indexes, partitions</td>
+      <td><code class="language-plaintext highlighter-rouge">numeric(12,2)</code> vs <code class="language-plaintext highlighter-rouge">bigint</code> cents; B-tree vs GIN index; partition by month</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-    <span class="n">user_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">username</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<h2 id="the-relational-model">The Relational Model</h2>
+
+<p>Edgar F. Codd’s relational model (1970) represents data as <strong>relations</strong> — sets of tuples over named, typed attributes — and manipulates them with a small algebra (selection, projection, join, union, difference). SQL tables are a pragmatic approximation: rows are unordered, but duplicates and <code class="language-plaintext highlighter-rouge">NULL</code>s are allowed, which is why a well-designed table always declares a key.</p>
+
+<h3 id="keys">Keys</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Term</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Superkey</strong></td>
+      <td>Any set of columns whose values uniquely identify a row</td>
+    </tr>
+    <tr>
+      <td><strong>Candidate key</strong></td>
+      <td>A minimal superkey (remove any column and it stops being unique)</td>
+    </tr>
+    <tr>
+      <td><strong>Primary key</strong></td>
+      <td>The candidate key chosen as the row’s canonical identifier</td>
+    </tr>
+    <tr>
+      <td><strong>Alternate key</strong></td>
+      <td>Any other candidate key; enforce it with <code class="language-plaintext highlighter-rouge">UNIQUE</code></td>
+    </tr>
+    <tr>
+      <td><strong>Natural key</strong></td>
+      <td>A key drawn from the domain (ISO country code, ISBN, email)</td>
+    </tr>
+    <tr>
+      <td><strong>Surrogate key</strong></td>
+      <td>A meaningless generated identifier (identity column, UUID)</td>
+    </tr>
+    <tr>
+      <td><strong>Foreign key</strong></td>
+      <td>Columns that must match a candidate key in another (or the same) table</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The usual practice is a <strong>surrogate primary key plus <code class="language-plaintext highlighter-rouge">UNIQUE</code> constraints on the natural keys</strong>. Surrogates are stable when business identifiers change, compact to index, and cheap to join on; the <code class="language-plaintext highlighter-rouge">UNIQUE</code> constraints keep the natural identity rules enforced.</p>
+
+<p>For generated keys, prefer standard identity columns over PostgreSQL’s legacy <code class="language-plaintext highlighter-rouge">SERIAL</code> pseudo-type. When keys must be generated outside the database (distributed services, offline clients) use <strong>UUIDv7</strong>, which is time-ordered and therefore inserts into B-tree indexes far more cheaply than random UUIDv4. PostgreSQL 18 ships a native <code class="language-plaintext highlighter-rouge">uuidv7()</code> function; older versions need an extension or application-side generation.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">customers</span> <span class="p">(</span>
+    <span class="n">customer_id</span>  <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">email</span>        <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">UNIQUE</span><span class="p">,</span>              <span class="c1">-- natural key, still enforced</span>
+    <span class="n">name</span>         <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">created_at</span>   <span class="n">timestamptz</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">()</span>
 <span class="p">);</span>
 
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="p">(</span>
+    <span class="n">product_id</span>   <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">sku</span>          <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">UNIQUE</span><span class="p">,</span>
+    <span class="n">name</span>         <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">price</span>        <span class="nb">numeric</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">price</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">stock</span>        <span class="nb">integer</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">stock</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
+    <span class="n">order_id</span>     <span class="n">uuid</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">DEFAULT</span> <span class="n">uuidv7</span><span class="p">(),</span>  <span class="c1">-- PostgreSQL 18+</span>
+    <span class="n">customer_id</span>  <span class="nb">bigint</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">customers</span> <span class="p">(</span><span class="n">customer_id</span><span class="p">),</span>
+    <span class="n">status</span>       <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="s1">'pending'</span>
+                 <span class="k">CHECK</span> <span class="p">(</span><span class="n">status</span> <span class="k">IN</span> <span class="p">(</span><span class="s1">'pending'</span><span class="p">,</span> <span class="s1">'paid'</span><span class="p">,</span> <span class="s1">'shipped'</span><span class="p">,</span> <span class="s1">'cancelled'</span><span class="p">)),</span>
+    <span class="n">ordered_at</span>   <span class="n">timestamptz</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">()</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<h3 id="constraints-let-the-database-enforce-the-rules">Constraints: Let the Database Enforce the Rules</h3>
+
+<p>Application validation can be bypassed by a second service, a migration script, or a bug; constraints cannot. Declare every rule the schema can express:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Constraint</th>
+      <th>Enforces</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">NOT NULL</code></td>
+      <td>Presence</td>
+      <td>The default should be <code class="language-plaintext highlighter-rouge">NOT NULL</code>; allow <code class="language-plaintext highlighter-rouge">NULL</code> only when “unknown” is a real state</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CHECK</code></td>
+      <td>Row-level predicates</td>
+      <td>Ranges, enumerations, cross-column rules (<code class="language-plaintext highlighter-rouge">end_at &gt; start_at</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">UNIQUE</code></td>
+      <td>Alternate keys</td>
+      <td>Partial unique indexes handle conditional uniqueness (<code class="language-plaintext highlighter-rouge">WHERE deleted_at IS NULL</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PRIMARY KEY</code></td>
+      <td>Identity</td>
+      <td>Implies <code class="language-plaintext highlighter-rouge">NOT NULL</code> + <code class="language-plaintext highlighter-rouge">UNIQUE</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">FOREIGN KEY</code></td>
+      <td>Referential integrity</td>
+      <td>Choose <code class="language-plaintext highlighter-rouge">ON DELETE</code> behavior deliberately (below)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">EXCLUDE</code> (PostgreSQL)</td>
+      <td>No two rows “conflict” under an operator</td>
+      <td>Classic use: no overlapping bookings for the same room</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Foreign-key actions encode ownership:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th><code class="language-plaintext highlighter-rouge">ON DELETE</code></th>
+      <th>Use when</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RESTRICT</code> / <code class="language-plaintext highlighter-rouge">NO ACTION</code> (default)</td>
+      <td>The child is independent and must be dealt with explicitly (orders referencing a customer)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">CASCADE</code></td>
+      <td>The child is <em>owned</em> by the parent and meaningless without it (line items of an order)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SET NULL</code> / <code class="language-plaintext highlighter-rouge">SET DEFAULT</code></td>
+      <td>The relationship is optional (a ticket’s assignee leaves the company)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>PostgreSQL does not automatically index the referencing side of a foreign key. Index it yourself, or deletes on the parent and joins from the parent will scan the child table — see <a href="indexing-and-queries.html">Indexing &amp; Query Execution</a>.</p>
+
+<h3 id="where-acid-fits">Where ACID Fits</h3>
+
+<p>Constraints define what a valid state is; <strong>transactions</strong> guarantee the database only moves between valid states. The ACID properties — atomicity, consistency, isolation, durability — are covered in depth in <a href="transactions-and-concurrency.html">Transactions &amp; Concurrency</a>. Two modeling consequences are worth stating here:</p>
+
+<ul>
+  <li>A transaction covers only database work. Sending an email or calling a payment API inside a transaction does not make that side effect roll back; record the intent in the same transaction and deliver it afterwards (the <a href="distributed-transactions.html#the-outbox-pattern">transactional outbox</a>).</li>
+  <li>The “C” in ACID is only as strong as your constraints. A schema without <code class="language-plaintext highlighter-rouge">CHECK</code> and <code class="language-plaintext highlighter-rouge">FOREIGN KEY</code> constraints delegates consistency entirely to application code.</li>
+</ul>
+
+<h2 id="database-normalization-avoiding-data-disasters">Normalization</h2>
+
+<p><strong>Normalization</strong> decomposes relations so that every non-key fact depends on the key, the whole key, and nothing but the key. Its purpose is not saving disk space; it is eliminating <strong>update anomalies</strong> — situations where the schema lets the same fact hold two different values.</p>
+
+<h3 id="anomalies-in-an-unnormalized-table">Anomalies in an Unnormalized Table</h3>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>order_id | customer_email   | customer_name | product_1 | price_1 | product_2 | price_2
+---------+------------------+---------------+-----------+---------+-----------+--------
+1001     | john@example.com | John Smith    | Laptop    | 999.00  | Mouse     | 29.00
+1002     | john@example.com | John Smith    | Keyboard  | 79.00   | NULL      | NULL
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Anomaly</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Update</strong></td>
+      <td>John changes his email; every order row must be updated, and missing one leaves two “truths”</td>
+    </tr>
+    <tr>
+      <td><strong>Insert</strong></td>
+      <td>A new product cannot be recorded until someone orders it</td>
+    </tr>
+    <tr>
+      <td><strong>Delete</strong></td>
+      <td>Deleting order 1002 may delete the only record of the Keyboard’s price</td>
+    </tr>
+    <tr>
+      <td><strong>Structural</strong></td>
+      <td>An order with three products does not fit; <code class="language-plaintext highlighter-rouge">product_1..n</code> columns cap the design</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="functional-dependencies">Functional Dependencies</h3>
+
+<p>A <strong>functional dependency</strong> $X \to Y$ holds when any two rows that agree on columns $X$ also agree on $Y$. Dependencies come from business rules, not from sample data: <code class="language-plaintext highlighter-rouge">sku -&gt; price</code> holds if the catalog has one current price per SKU; <code class="language-plaintext highlighter-rouge">(order_id, sku) -&gt; quantity</code> holds because an order lists each product once.</p>
+
+<p>Normal forms are defined in terms of these dependencies and the table’s candidate keys. Attributes that belong to some candidate key are <strong>prime</strong>; the rest are <strong>non-prime</strong>.</p>
+
+<h3 id="the-normal-forms">The Normal Forms</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Normal form</th>
+      <th>Requirement</th>
+      <th>Violation it removes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1NF</strong></td>
+      <td>Every column holds a single value of its domain; no repeating groups</td>
+      <td><code class="language-plaintext highlighter-rouge">product_1, product_2, ...</code> columns; comma-separated lists</td>
+    </tr>
+    <tr>
+      <td><strong>2NF</strong></td>
+      <td>1NF, and no non-prime attribute depends on <em>part</em> of a composite key</td>
+      <td><code class="language-plaintext highlighter-rouge">product_name</code> depending only on <code class="language-plaintext highlighter-rouge">sku</code> in an <code class="language-plaintext highlighter-rouge">(order_id, sku)</code> table</td>
+    </tr>
+    <tr>
+      <td><strong>3NF</strong></td>
+      <td>2NF, and no non-prime attribute depends on another non-prime attribute (no transitive dependency)</td>
+      <td><code class="language-plaintext highlighter-rouge">customer_name</code> depending on <code class="language-plaintext highlighter-rouge">customer_id</code>, which depends on <code class="language-plaintext highlighter-rouge">order_id</code></td>
+    </tr>
+    <tr>
+      <td><strong>BCNF</strong></td>
+      <td>For every non-trivial $X \to Y$, $X$ is a superkey</td>
+      <td>Rare 3NF cases with overlapping candidate keys</td>
+    </tr>
+    <tr>
+      <td><strong>4NF</strong></td>
+      <td>BCNF, and no non-trivial multivalued dependencies</td>
+      <td>Independent multi-valued facts stored together (a person’s skills × languages)</td>
+    </tr>
+    <tr>
+      <td><strong>5NF</strong></td>
+      <td>4NF, and every join dependency is implied by the candidate keys</td>
+      <td>Facts that can only be reconstructed by joining three or more projections</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>In practice, <strong>3NF or BCNF is the target</strong> for transactional (OLTP) schemas. 4NF and 5NF violations are uncommon and usually show up as a table whose row count is the cross product of two unrelated lists.</p>
+
+<h3 id="worked-decomposition">Worked Decomposition</h3>
+
+<p>Starting from the unnormalized orders table:</p>
+
+<ol>
+  <li><strong>1NF</strong> — move the repeating product columns into one row per line item: <code class="language-plaintext highlighter-rouge">order_lines(order_id, product_name, price, quantity, customer_email, customer_name)</code>.</li>
+  <li><strong>2NF</strong> — the key of that table is <code class="language-plaintext highlighter-rouge">(order_id, sku)</code>. <code class="language-plaintext highlighter-rouge">price</code> and <code class="language-plaintext highlighter-rouge">product_name</code> depend on <code class="language-plaintext highlighter-rouge">sku</code> alone, and <code class="language-plaintext highlighter-rouge">customer_*</code> depends on <code class="language-plaintext highlighter-rouge">order_id</code> alone, so split them out into <code class="language-plaintext highlighter-rouge">products</code> and <code class="language-plaintext highlighter-rouge">orders</code>.</li>
+  <li><strong>3NF</strong> — in <code class="language-plaintext highlighter-rouge">orders(order_id, customer_id, customer_email, customer_name)</code>, the customer attributes depend on <code class="language-plaintext highlighter-rouge">customer_id</code>, a non-key attribute. Move them into <code class="language-plaintext highlighter-rouge">customers</code>.</li>
+</ol>
+
+<p>The result:</p>
+
+<pre><code class="language-mermaid">erDiagram
+    CUSTOMERS ||--o{ ORDERS : places
+    ORDERS ||--|{ ORDER_ITEMS : contains
+    PRODUCTS ||--o{ ORDER_ITEMS : "appears in"
+    CUSTOMERS {
+        bigint customer_id PK
+        text email UK
+        text name
+    }
+    ORDERS {
+        uuid order_id PK
+        bigint customer_id FK
+        timestamptz ordered_at
+    }
+    ORDER_ITEMS {
+        uuid order_id PK, FK
+        bigint product_id PK, FK
+        int quantity
+        numeric unit_price
+    }
+    PRODUCTS {
+        bigint product_id PK
+        text sku UK
+        numeric price
+    }
+</code></pre>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">order_items</span> <span class="p">(</span>
+    <span class="n">order_id</span>    <span class="n">uuid</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">orders</span> <span class="p">(</span><span class="n">order_id</span><span class="p">)</span> <span class="k">ON</span> <span class="k">DELETE</span> <span class="k">CASCADE</span><span class="p">,</span>
+    <span class="n">product_id</span>  <span class="nb">bigint</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">products</span> <span class="p">(</span><span class="n">product_id</span><span class="p">),</span>
+    <span class="n">quantity</span>    <span class="nb">integer</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">CHECK</span> <span class="p">(</span><span class="n">quantity</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">unit_price</span>  <span class="nb">numeric</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>     <span class="c1">-- price at time of sale (see below)</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">order_id</span><span class="p">,</span> <span class="n">product_id</span><span class="p">)</span>
+<span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="k">ON</span> <span class="n">order_items</span> <span class="p">(</span><span class="n">product_id</span><span class="p">);</span>   <span class="c1">-- FK side is not indexed automatically</span>
+</code></pre></div></div>
+
+<p>Note <code class="language-plaintext highlighter-rouge">order_items.unit_price</code>. It looks like a duplicate of <code class="language-plaintext highlighter-rouge">products.price</code>, but it is a different fact: <em>the price this order was charged</em>, which must not change when the catalog price does. Recognizing when an apparently redundant column is really a distinct, time-bound fact is one of the most common judgment calls in modeling.</p>
+
+<h3 id="denormalization">Denormalization</h3>
+
+<p>Normalization optimizes for correctness of writes; some read paths need data pre-joined or pre-aggregated. <strong>Denormalization</strong> deliberately stores derived or duplicated data — but it should be a measured decision with a named mechanism for keeping the copy correct.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Keeps the copy correct via</th>
+      <th>Good for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Materialized view</td>
+      <td><code class="language-plaintext highlighter-rouge">REFRESH MATERIALIZED VIEW [CONCURRENTLY]</code> on a schedule</td>
+      <td>Dashboards and reports that tolerate staleness</td>
+    </tr>
+    <tr>
+      <td>Generated column</td>
+      <td>The database, on write (<code class="language-plaintext highlighter-rouge">STORED</code>) or on read (virtual; the default in PostgreSQL 18)</td>
+      <td>Values derived from the same row (<code class="language-plaintext highlighter-rouge">total = qty * unit_price</code>)</td>
+    </tr>
+    <tr>
+      <td>Counter / summary column</td>
+      <td>A trigger or the same transaction as the source write</td>
+      <td><code class="language-plaintext highlighter-rouge">posts.comment_count</code>, account balances</td>
+    </tr>
+    <tr>
+      <td>Read model / projection</td>
+      <td>Change data capture or an event stream</td>
+      <td>Search indexes, caches, CQRS read stores</td>
+    </tr>
+    <tr>
+      <td>Duplicated attribute</td>
+      <td>Application code (weakest guarantee)</td>
+      <td>Last resort; document it</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Measure first: a correctly indexed join over normalized tables is fast enough far more often than intuition suggests.</p>
+
+<h2 id="modeling-relationships">Modeling Relationships</h2>
+
+<p>Every relationship between entities has a <strong>cardinality</strong> (how many on each side) and an <strong>optionality</strong> (whether participation is required). Crow’s-foot notation, used by the mermaid diagrams on this page, encodes both.</p>
+
+<pre><code class="language-mermaid">erDiagram
+    USERS ||--o| USER_PROFILES : "has (1:0..1)"
+    AUTHORS ||--o{ BOOKS : "writes (1:N)"
+    STUDENTS ||--o{ ENROLLMENTS : enrolls
+    COURSES ||--o{ ENROLLMENTS : "has"
+    EMPLOYEES |o--o{ EMPLOYEES : "manages (self-reference)"
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Cardinality</th>
+      <th>Implementation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>One-to-one</td>
+      <td>Foreign key that is also the primary key (or <code class="language-plaintext highlighter-rouge">UNIQUE</code>) on the dependent side</td>
+    </tr>
+    <tr>
+      <td>One-to-many</td>
+      <td>Foreign key on the “many” side</td>
+    </tr>
+    <tr>
+      <td>Many-to-many</td>
+      <td>Junction (associative) table with a foreign key to each side; the pair is its primary key</td>
+    </tr>
+    <tr>
+      <td>Self-referencing</td>
+      <td>Foreign key to the same table (hierarchies, manager chains)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- One-to-one: the profile's PK *is* the FK, so at most one profile per user</span>
 <span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">user_profiles</span> <span class="p">(</span>
-    <span class="n">user_id</span> <span class="nb">INT</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">user_id</span><span class="p">),</span>
-    <span class="n">bio</span> <span class="nb">TEXT</span><span class="p">,</span>
-    <span class="n">avatar_url</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<h3 id="one-to-many">One-to-Many</h3>
-<p>One record in Table A relates to many in Table B.</p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">authors</span> <span class="p">(</span>
-    <span class="n">author_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+    <span class="n">user_id</span>    <span class="nb">bigint</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="k">REFERENCES</span> <span class="n">users</span> <span class="p">(</span><span class="n">user_id</span><span class="p">)</span> <span class="k">ON</span> <span class="k">DELETE</span> <span class="k">CASCADE</span><span class="p">,</span>
+    <span class="n">bio</span>        <span class="nb">text</span><span class="p">,</span>
+    <span class="n">avatar_url</span> <span class="nb">text</span>
 <span class="p">);</span>
 
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">books</span> <span class="p">(</span>
-    <span class="n">book_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">title</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span>
-    <span class="n">author_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">authors</span><span class="p">(</span><span class="n">author_id</span><span class="p">)</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<h3 id="many-to-many">Many-to-Many</h3>
-<p>Multiple records in Table A relate to multiple in Table B.</p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">students</span> <span class="p">(</span>
-    <span class="n">student_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
-<span class="p">);</span>
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">courses</span> <span class="p">(</span>
-    <span class="n">course_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">title</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
-<span class="p">);</span>
-
+<span class="c1">-- Many-to-many: the junction table often carries attributes of the relationship</span>
 <span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">enrollments</span> <span class="p">(</span>
-    <span class="n">student_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">students</span><span class="p">(</span><span class="n">student_id</span><span class="p">),</span>
-    <span class="n">course_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">courses</span><span class="p">(</span><span class="n">course_id</span><span class="p">),</span>
-    <span class="n">enrollment_date</span> <span class="nb">DATE</span><span class="p">,</span>
+    <span class="n">student_id</span>  <span class="nb">bigint</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">students</span> <span class="p">(</span><span class="n">student_id</span><span class="p">),</span>
+    <span class="n">course_id</span>   <span class="nb">bigint</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">courses</span> <span class="p">(</span><span class="n">course_id</span><span class="p">),</span>
+    <span class="n">enrolled_on</span> <span class="nb">date</span>   <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="k">current_date</span><span class="p">,</span>
+    <span class="n">grade</span>       <span class="nb">text</span><span class="p">,</span>
     <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">student_id</span><span class="p">,</span> <span class="n">course_id</span><span class="p">)</span>
 <span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="k">ON</span> <span class="n">enrollments</span> <span class="p">(</span><span class="n">course_id</span><span class="p">);</span>   <span class="c1">-- the PK already covers student_id lookups</span>
 </code></pre></div></div>
 
-<h2 id="data-modeling-patterns">Data Modeling Patterns</h2>
+<p>A one-to-one split is justified when the second table is optional, large and rarely read (keeping the hot table narrow), or subject to different access controls. Otherwise, keep the columns in one table.</p>
 
-<h3 id="star-schema">Star Schema</h3>
-<p>Central fact table with dimension tables.</p>
+<h2 id="hierarchical-data">Hierarchical Data</h2>
 
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Fact table</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">sales_facts</span> <span class="p">(</span>
-    <span class="n">sale_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">product_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">customer_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">date_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">amount</span> <span class="nb">DECIMAL</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
-    <span class="n">quantity</span> <span class="nb">INT</span>
+<p>Trees (categories, org charts, threaded comments) are a recurring modeling problem because SQL has no native tree type. Four representations dominate:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Structure</th>
+      <th>Read subtree</th>
+      <th>Move subtree</th>
+      <th>Integrity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Adjacency list</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">parent_id</code> FK</td>
+      <td>Recursive CTE</td>
+      <td>Update one row</td>
+      <td>FK enforced</td>
+    </tr>
+    <tr>
+      <td><strong>Materialized path</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">path</code> such as <code class="language-plaintext highlighter-rouge">1.3.7</code> (PostgreSQL <code class="language-plaintext highlighter-rouge">ltree</code>)</td>
+      <td>Prefix match, indexable</td>
+      <td>Rewrite paths of whole subtree</td>
+      <td>Not enforced by FK</td>
+    </tr>
+    <tr>
+      <td><strong>Nested sets</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">lft</code>, <code class="language-plaintext highlighter-rouge">rgt</code> interval numbers</td>
+      <td>Range query, very fast</td>
+      <td>Renumber much of the tree</td>
+      <td>Fragile under concurrent writes</td>
+    </tr>
+    <tr>
+      <td><strong>Closure table</strong></td>
+      <td>Separate <code class="language-plaintext highlighter-rouge">(ancestor, descendant, depth)</code> table</td>
+      <td>Join, fast</td>
+      <td>Delete/insert closure rows</td>
+      <td>FK enforced</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The adjacency list is the right default now that every major database supports recursive CTEs:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">categories</span> <span class="p">(</span>
+    <span class="n">category_id</span> <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">parent_id</span>   <span class="nb">bigint</span> <span class="k">REFERENCES</span> <span class="n">categories</span> <span class="p">(</span><span class="n">category_id</span><span class="p">),</span>
+    <span class="n">name</span>        <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span>
 <span class="p">);</span>
 
-<span class="c1">-- Dimension tables</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">dim_products</span> <span class="p">(</span>
-    <span class="n">product_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">category</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
-    <span class="n">brand</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
-<span class="p">);</span>
+<span class="c1">-- All descendants of category 3, with depth</span>
+<span class="k">WITH</span> <span class="k">RECURSIVE</span> <span class="n">subtree</span> <span class="k">AS</span> <span class="p">(</span>
+    <span class="k">SELECT</span> <span class="n">category_id</span><span class="p">,</span> <span class="n">parent_id</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="mi">0</span> <span class="k">AS</span> <span class="n">depth</span>
+    <span class="k">FROM</span> <span class="n">categories</span> <span class="k">WHERE</span> <span class="n">category_id</span> <span class="o">=</span> <span class="mi">3</span>
+  <span class="k">UNION</span> <span class="k">ALL</span>
+    <span class="k">SELECT</span> <span class="k">c</span><span class="p">.</span><span class="n">category_id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">parent_id</span><span class="p">,</span> <span class="k">c</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="n">s</span><span class="p">.</span><span class="n">depth</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">FROM</span> <span class="n">categories</span> <span class="k">c</span>
+    <span class="k">JOIN</span> <span class="n">subtree</span> <span class="n">s</span> <span class="k">ON</span> <span class="k">c</span><span class="p">.</span><span class="n">parent_id</span> <span class="o">=</span> <span class="n">s</span><span class="p">.</span><span class="n">category_id</span>
+<span class="p">)</span>
+<span class="k">SELECT</span> <span class="o">*</span> <span class="k">FROM</span> <span class="n">subtree</span><span class="p">;</span>
+</code></pre></div></div>
 
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">dim_customers</span> <span class="p">(</span>
-    <span class="n">customer_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">city</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
-    <span class="n">country</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<p>Reach for a materialized path (<code class="language-plaintext highlighter-rouge">ltree</code> with a GiST index) or a closure table when subtree reads dominate on deep, large trees; nested sets are mainly of historical interest.</p>
+
+<h2 id="polymorphic-and-variant-data">Polymorphic and Variant Data</h2>
+
+<h3 id="polymorphic-associations">Polymorphic associations</h3>
+
+<p>A common framework pattern lets one table point at rows in several others via a <code class="language-plaintext highlighter-rouge">(type, id)</code> pair:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Anti-pattern: commentable_id cannot be a foreign key</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">comments</span> <span class="p">(</span>
+    <span class="n">comment_id</span>       <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">commentable_type</span> <span class="nb">text</span>   <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>   <span class="c1">-- 'post' | 'photo' | 'video'</span>
+    <span class="n">commentable_id</span>   <span class="nb">bigint</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">body</span>             <span class="nb">text</span>   <span class="k">NOT</span> <span class="k">NULL</span>
 <span class="p">);</span>
 </code></pre></div></div>
 
-<h3 id="snowflake-schema">Snowflake Schema</h3>
-<p>Normalized star schema with sub-dimensions.</p>
+<p>Because <code class="language-plaintext highlighter-rouge">commentable_id</code> refers to different tables depending on another column, the database cannot enforce referential integrity: deleting a post orphans its comments silently. Two alternatives preserve integrity:</p>
 
-<h3 id="entity-attribute-value-eav">Entity-Attribute-Value (EAV)</h3>
-<p>Flexible schema for variable attributes.</p>
-
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">entities</span> <span class="p">(</span>
-    <span class="n">entity_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">entity_type</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Option A: exclusive arcs - one nullable FK per target, exactly one set</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">comments</span> <span class="p">(</span>
+    <span class="n">comment_id</span> <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">post_id</span>    <span class="nb">bigint</span> <span class="k">REFERENCES</span> <span class="n">posts</span> <span class="p">(</span><span class="n">post_id</span><span class="p">)</span>   <span class="k">ON</span> <span class="k">DELETE</span> <span class="k">CASCADE</span><span class="p">,</span>
+    <span class="n">photo_id</span>   <span class="nb">bigint</span> <span class="k">REFERENCES</span> <span class="n">photos</span> <span class="p">(</span><span class="n">photo_id</span><span class="p">)</span> <span class="k">ON</span> <span class="k">DELETE</span> <span class="k">CASCADE</span><span class="p">,</span>
+    <span class="n">body</span>       <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="k">CHECK</span> <span class="p">(</span><span class="n">num_nonnulls</span><span class="p">(</span><span class="n">post_id</span><span class="p">,</span> <span class="n">photo_id</span><span class="p">)</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
 <span class="p">);</span>
 
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">attributes</span> <span class="p">(</span>
-    <span class="n">attribute_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">attribute_name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
-    <span class="n">data_type</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
-<span class="p">);</span>
+<span class="c1">-- Option B: a common supertype - posts and photos each reference a</span>
+<span class="c1">-- "commentable" row, and comments reference that</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">commentables</span> <span class="p">(</span><span class="n">commentable_id</span> <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">);</span>
+<span class="c1">-- posts.commentable_id and photos.commentable_id: UNIQUE REFERENCES commentables</span>
+<span class="c1">-- comments.commentable_id: REFERENCES commentables</span>
+</code></pre></div></div>
 
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="k">values</span> <span class="p">(</span>
-    <span class="n">entity_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">entities</span><span class="p">(</span><span class="n">entity_id</span><span class="p">),</span>
-    <span class="n">attribute_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">attributes</span><span class="p">(</span><span class="n">attribute_id</span><span class="p">),</span>
-    <span class="n">value</span> <span class="nb">TEXT</span><span class="p">,</span>
-    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">attribute_id</span><span class="p">)</span>
+<p>Exclusive arcs suit a small, stable set of targets; the supertype table scales to many.</p>
+
+<h3 id="subtypes-and-inheritance">Subtypes and inheritance</h3>
+
+<p>When entities share a core but differ in detail (an <code class="language-plaintext highlighter-rouge">employee</code> who may be a <code class="language-plaintext highlighter-rouge">manager</code> or an <code class="language-plaintext highlighter-rouge">engineer</code>), the same three strategies apply as in ORM inheritance mapping: single table with a discriminator and nullable subtype columns, one table per subtype joined to a base table, or one independent table per concrete type. The trade-offs are discussed in <a href="orm-patterns.html#mapping-inheritance">ORMs &amp; Data-Access Patterns</a>.</p>
+
+<h3 id="semi-structured-attributes-jsonb-not-eav">Semi-structured attributes: JSONB, not EAV</h3>
+
+<p>For attributes that genuinely vary per row (product specifications across categories), the <strong>entity–attribute–value</strong> (EAV) design stores one row per attribute:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- EAV: every value is text, every read is a pivot, nothing is constrained</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">product_attributes</span> <span class="p">(</span>
+    <span class="n">product_id</span> <span class="nb">bigint</span> <span class="k">REFERENCES</span> <span class="n">products</span> <span class="p">(</span><span class="n">product_id</span><span class="p">),</span>
+    <span class="n">attribute</span>  <span class="nb">text</span><span class="p">,</span>
+    <span class="n">value</span>      <span class="nb">text</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">product_id</span><span class="p">,</span> <span class="n">attribute</span><span class="p">)</span>
 <span class="p">);</span>
 </code></pre></div></div>
 
-<h2 id="common-database-patterns-and-anti-patterns">Common Database Patterns and Anti-Patterns</h2>
+<p>EAV loses types, constraints, and readable queries; reassembling one product takes a pivot or one join per attribute. In PostgreSQL (and increasingly in MySQL, SQL Server, and SQLite) a <strong>JSON column</strong> is the better tool: keep stable, frequently filtered attributes as real columns and put the long tail in <code class="language-plaintext highlighter-rouge">jsonb</code>.</p>
 
-<h3 id="design-patterns-that-work">Design Patterns That Work</h3>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="k">ADD</span> <span class="k">COLUMN</span> <span class="n">specs</span> <span class="n">jsonb</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="s1">'{}'</span><span class="p">;</span>
 
-<p><strong>1. Audit Trail Pattern</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Track all changes to sensitive data</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
-    <span class="c1">-- ... other fields</span>
+<span class="c1">-- Constrain what matters, index what you query</span>
+<span class="k">ALTER</span> <span class="k">TABLE</span> <span class="n">products</span> <span class="k">ADD</span> <span class="k">CONSTRAINT</span> <span class="n">specs_is_object</span>
+    <span class="k">CHECK</span> <span class="p">(</span><span class="n">jsonb_typeof</span><span class="p">(</span><span class="n">specs</span><span class="p">)</span> <span class="o">=</span> <span class="s1">'object'</span><span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> <span class="n">products_specs_gin</span> <span class="k">ON</span> <span class="n">products</span> <span class="k">USING</span> <span class="n">gin</span> <span class="p">(</span><span class="n">specs</span> <span class="n">jsonb_path_ops</span><span class="p">);</span>
+
+<span class="k">SELECT</span> <span class="n">name</span> <span class="k">FROM</span> <span class="n">products</span> <span class="k">WHERE</span> <span class="n">specs</span> <span class="o">@&gt;</span> <span class="s1">'{"ram_gb": 32}'</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h2 id="temporal-data-and-history">Temporal Data and History</h2>
+
+<p>Most business data changes over time, and many questions are about the past (“what was the price on 1 March?”, “who changed this row?”). Choose a mechanism per requirement:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Need</th>
+      <th>Pattern</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Who changed what, when (forensics, compliance)</td>
+      <td><strong>Audit table</strong> populated by a trigger or change data capture</td>
+    </tr>
+    <tr>
+      <td>Value as of a point in time, queried by the app</td>
+      <td><strong>Validity periods</strong> (<code class="language-plaintext highlighter-rouge">valid_from</code>, <code class="language-plaintext highlighter-rouge">valid_to</code> or a range column)</td>
+    </tr>
+    <tr>
+      <td>Prevent overlapping periods</td>
+      <td><code class="language-plaintext highlighter-rouge">EXCLUDE</code> constraint, or <code class="language-plaintext highlighter-rouge">PRIMARY KEY ... WITHOUT OVERLAPS</code> in PostgreSQL 18</td>
+    </tr>
+    <tr>
+      <td>History of dimension attributes in a warehouse</td>
+      <td><strong>Slowly changing dimension</strong>, type 2 (see below)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>An audit trigger in PostgreSQL:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users_audit</span> <span class="p">(</span>
+    <span class="n">audit_id</span>    <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">user_id</span>     <span class="nb">bigint</span>      <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="k">operation</span>   <span class="nb">text</span>        <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>           <span class="c1">-- INSERT | UPDATE | DELETE</span>
+    <span class="n">changed_at</span>  <span class="n">timestamptz</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">now</span><span class="p">(),</span>
+    <span class="n">changed_by</span>  <span class="nb">text</span>        <span class="k">DEFAULT</span> <span class="n">current_setting</span><span class="p">(</span><span class="s1">'app.user'</span><span class="p">,</span> <span class="k">true</span><span class="p">),</span>
+    <span class="n">old_row</span>     <span class="n">jsonb</span><span class="p">,</span>
+    <span class="n">new_row</span>     <span class="n">jsonb</span>
 <span class="p">);</span>
 
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users_audit</span> <span class="p">(</span>
-    <span class="n">audit_id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">user_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">changed_by</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">users</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
-    <span class="n">changed_at</span> <span class="nb">TIMESTAMP</span> <span class="k">DEFAULT</span> <span class="k">CURRENT_TIMESTAMP</span><span class="p">,</span>
-    <span class="k">operation</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="c1">-- INSERT, UPDATE, DELETE</span>
-    <span class="n">old_values</span> <span class="n">JSONB</span><span class="p">,</span>
-    <span class="n">new_values</span> <span class="n">JSONB</span>
-<span class="p">);</span>
+<span class="k">CREATE</span> <span class="k">FUNCTION</span> <span class="n">log_user_changes</span><span class="p">()</span> <span class="k">RETURNS</span> <span class="k">trigger</span>
+<span class="k">LANGUAGE</span> <span class="n">plpgsql</span> <span class="k">AS</span> <span class="err">$</span><span class="n">fn</span><span class="err">$</span>
+<span class="k">BEGIN</span>
+    <span class="k">INSERT</span> <span class="k">INTO</span> <span class="n">users_audit</span> <span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="k">operation</span><span class="p">,</span> <span class="n">old_row</span><span class="p">,</span> <span class="n">new_row</span><span class="p">)</span>
+    <span class="k">VALUES</span> <span class="p">(</span>
+        <span class="n">COALESCE</span><span class="p">(</span><span class="k">NEW</span><span class="p">.</span><span class="n">user_id</span><span class="p">,</span> <span class="k">OLD</span><span class="p">.</span><span class="n">user_id</span><span class="p">),</span>
+        <span class="n">TG_OP</span><span class="p">,</span>
+        <span class="k">CASE</span> <span class="k">WHEN</span> <span class="n">TG_OP</span> <span class="o">&lt;&gt;</span> <span class="s1">'INSERT'</span> <span class="k">THEN</span> <span class="n">to_jsonb</span><span class="p">(</span><span class="k">OLD</span><span class="p">)</span> <span class="k">END</span><span class="p">,</span>
+        <span class="k">CASE</span> <span class="k">WHEN</span> <span class="n">TG_OP</span> <span class="o">&lt;&gt;</span> <span class="s1">'DELETE'</span> <span class="k">THEN</span> <span class="n">to_jsonb</span><span class="p">(</span><span class="k">NEW</span><span class="p">)</span> <span class="k">END</span>
+    <span class="p">);</span>
+    <span class="k">RETURN</span> <span class="k">NULL</span><span class="p">;</span>   <span class="c1">-- return value is ignored for AFTER triggers</span>
+<span class="k">END</span>
+<span class="err">$</span><span class="n">fn</span><span class="err">$</span><span class="p">;</span>
 
-<span class="c1">-- Trigger to automatically log changes</span>
-<span class="k">CREATE</span> <span class="k">TRIGGER</span> <span class="n">audit_users</span>
+<span class="k">CREATE</span> <span class="k">TRIGGER</span> <span class="n">users_audit_trg</span>
 <span class="k">AFTER</span> <span class="k">INSERT</span> <span class="k">OR</span> <span class="k">UPDATE</span> <span class="k">OR</span> <span class="k">DELETE</span> <span class="k">ON</span> <span class="n">users</span>
 <span class="k">FOR</span> <span class="k">EACH</span> <span class="k">ROW</span> <span class="k">EXECUTE</span> <span class="k">FUNCTION</span> <span class="n">log_user_changes</span><span class="p">();</span>
 </code></pre></div></div>
 
-<p><strong>2. Hierarchical Data Pattern</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Method 1: Adjacency List (simple, good for shallow trees)</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">categories</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">parent_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">categories</span><span class="p">(</span><span class="n">id</span><span class="p">)</span>
+<p>Validity periods with database-enforced non-overlap (PostgreSQL 18 temporal keys; on earlier versions use an <code class="language-plaintext highlighter-rouge">EXCLUDE USING gist</code> constraint with the <code class="language-plaintext highlighter-rouge">btree_gist</code> extension):</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="n">EXTENSION</span> <span class="n">IF</span> <span class="k">NOT</span> <span class="k">EXISTS</span> <span class="n">btree_gist</span><span class="p">;</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">product_prices</span> <span class="p">(</span>
+    <span class="n">product_id</span> <span class="nb">bigint</span>    <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">REFERENCES</span> <span class="n">products</span> <span class="p">(</span><span class="n">product_id</span><span class="p">),</span>
+    <span class="k">valid</span>      <span class="n">tstzrange</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">price</span>      <span class="nb">numeric</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">product_id</span><span class="p">,</span> <span class="k">valid</span> <span class="k">WITHOUT</span> <span class="k">OVERLAPS</span><span class="p">)</span>   <span class="c1">-- PostgreSQL 18+</span>
 <span class="p">);</span>
 
-<span class="c1">-- Method 2: Materialized Path (fast for reading)</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">categories</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">path</span> <span class="nb">TEXT</span>  <span class="c1">-- '1/3/7' means: root(1) -&gt; parent(3) -&gt; this(7)</span>
-<span class="p">);</span>
+<span class="k">SELECT</span> <span class="n">price</span> <span class="k">FROM</span> <span class="n">product_prices</span>
+<span class="k">WHERE</span> <span class="n">product_id</span> <span class="o">=</span> <span class="mi">42</span> <span class="k">AND</span> <span class="k">valid</span> <span class="o">@&gt;</span> <span class="n">timestamptz</span> <span class="s1">'2026-03-01'</span><span class="p">;</span>
+</code></pre></div></div>
 
-<span class="c1">-- Method 3: Nested Sets (complex but powerful)</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">categories</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
-    <span class="n">lft</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">rgt</span> <span class="nb">INT</span>
+<h2 id="dimensional-models-for-analytics">Dimensional Models for Analytics</h2>
+
+<p>Transactional schemas are normalized for many small writes. Analytical workloads read large slices and aggregate them, and are usually modeled <strong>dimensionally</strong> (Kimball): a central <strong>fact table</strong> of measurements at a declared <strong>grain</strong>, surrounded by <strong>dimension tables</strong> of descriptive context.</p>
+
+<pre><code class="language-mermaid">erDiagram
+    FACT_SALES }o--|| DIM_DATE : "sold on"
+    FACT_SALES }o--|| DIM_PRODUCT : "of"
+    FACT_SALES }o--|| DIM_CUSTOMER : "to"
+    FACT_SALES }o--|| DIM_STORE : "at"
+    FACT_SALES {
+        int date_key FK
+        int product_key FK
+        int customer_key FK
+        int store_key FK
+        int quantity
+        numeric net_amount
+    }
+    DIM_PRODUCT {
+        int product_key PK
+        text sku
+        text category
+        text brand
+    }
+</code></pre>
+
+<ul>
+  <li><strong>Star schema</strong> — dimensions are denormalized (category and brand live directly on <code class="language-plaintext highlighter-rouge">dim_product</code>), so any question is one join away from the fact table. The default choice.</li>
+  <li><strong>Snowflake schema</strong> — dimensions are themselves normalized (<code class="language-plaintext highlighter-rouge">dim_product -&gt; dim_category -&gt; dim_department</code>). Saves space and centralizes hierarchies at the cost of more joins; modern columnar engines make the space argument weak.</li>
+  <li><strong>Grain</strong> — state it explicitly (“one row per order line”). Mixing grains in one fact table is the most common dimensional-modeling bug.</li>
+  <li><strong>Slowly changing dimensions (SCD)</strong> — type 1 overwrites an attribute (history lost); <strong>type 2</strong> inserts a new dimension row with its own surrogate key and validity dates, so old facts keep pointing at the attribute values that were true when they happened.</li>
+</ul>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">dim_customer</span> <span class="p">(</span>
+    <span class="n">customer_key</span>  <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>  <span class="c1">-- surrogate per version</span>
+    <span class="n">customer_id</span>   <span class="nb">bigint</span>  <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>          <span class="c1">-- natural/business key</span>
+    <span class="n">city</span>          <span class="nb">text</span><span class="p">,</span>
+    <span class="n">segment</span>       <span class="nb">text</span><span class="p">,</span>
+    <span class="n">valid_from</span>    <span class="nb">date</span>    <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">valid_to</span>      <span class="nb">date</span>    <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="s1">'9999-12-31'</span><span class="p">,</span>
+    <span class="n">is_current</span>    <span class="nb">boolean</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="k">true</span>
 <span class="p">);</span>
 </code></pre></div></div>
 
-<p><strong>3. Polymorphic Association Pattern</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- When multiple tables need to reference a common feature</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">comments</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">commentable_type</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>  <span class="c1">-- 'Post', 'Photo', 'Video'</span>
-    <span class="n">commentable_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">content</span> <span class="nb">TEXT</span><span class="p">,</span>
-    <span class="k">INDEX</span> <span class="n">idx_commentable</span> <span class="p">(</span><span class="n">commentable_type</span><span class="p">,</span> <span class="n">commentable_id</span><span class="p">)</span>
+<p>Dimensional models typically live in columnar warehouses or lakehouse tables (Parquet with Iceberg or Delta Lake) rather than in the OLTP database; wide, denormalized “one big table” designs are also common there because columnar storage makes unused columns nearly free to carry.</p>
+
+<h2 id="schema-anti-patterns">Schema Anti-Patterns</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Anti-pattern</th>
+      <th>Symptom</th>
+      <th>Better design</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Repeating columns</strong> (<code class="language-plaintext highlighter-rouge">tag1</code>, <code class="language-plaintext highlighter-rouge">tag2</code>, <code class="language-plaintext highlighter-rouge">tag3</code>)</td>
+      <td>Arbitrary limits; <code class="language-plaintext highlighter-rouge">OR</code> across columns in every query</td>
+      <td>Child or junction table (<code class="language-plaintext highlighter-rouge">post_tags</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>Delimited lists in a column</strong> (<code class="language-plaintext highlighter-rouge">'12,45,97'</code>)</td>
+      <td>Cannot index, join, or constrain members</td>
+      <td>Junction table, or an array/JSON column when members are never joined</td>
+    </tr>
+    <tr>
+      <td><strong>EAV for core attributes</strong></td>
+      <td>Pivots everywhere; no types or constraints</td>
+      <td>Real columns plus <code class="language-plaintext highlighter-rouge">jsonb</code> for the long tail</td>
+    </tr>
+    <tr>
+      <td><strong>Polymorphic foreign keys</strong></td>
+      <td>Orphaned rows; no FK possible</td>
+      <td>Exclusive arcs or a supertype table</td>
+    </tr>
+    <tr>
+      <td><strong>Intelligent keys</strong> (<code class="language-plaintext highlighter-rouge">'US-2024-WEB-00123'</code>)</td>
+      <td>Parsing keys in queries; key changes when rules change</td>
+      <td>Surrogate key + separate columns + composite <code class="language-plaintext highlighter-rouge">UNIQUE</code></td>
+    </tr>
+    <tr>
+      <td><strong>Floating point for money</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">0.1 + 0.2 &lt;&gt; 0.3</code> rounding drift</td>
+      <td><code class="language-plaintext highlighter-rouge">numeric(p,s)</code> or integer minor units</td>
+    </tr>
+    <tr>
+      <td><strong>Timestamps without time zone</strong> for events</td>
+      <td>Ambiguous across DST and regions</td>
+      <td><code class="language-plaintext highlighter-rouge">timestamptz</code> (stored as UTC)</td>
+    </tr>
+    <tr>
+      <td><strong>Nullable everything</strong></td>
+      <td>Three-valued logic surprises; unclear required fields</td>
+      <td><code class="language-plaintext highlighter-rouge">NOT NULL</code> by default, explicit defaults</td>
+    </tr>
+    <tr>
+      <td><strong>Soft delete without partial unique index</strong></td>
+      <td>Re-creating a “deleted” email fails the <code class="language-plaintext highlighter-rouge">UNIQUE</code> check</td>
+      <td><code class="language-plaintext highlighter-rouge">UNIQUE (email) WHERE deleted_at IS NULL</code>, or archive tables</td>
+    </tr>
+    <tr>
+      <td><strong>One giant <code class="language-plaintext highlighter-rouge">status</code> text column with no <code class="language-plaintext highlighter-rouge">CHECK</code></strong></td>
+      <td>Typos become new states</td>
+      <td><code class="language-plaintext highlighter-rouge">CHECK (status IN (...))</code>, an enum type, or a lookup table with FK</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The intelligent-key fix, concretely:</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders_v2</span> <span class="p">(</span>
+    <span class="n">order_id</span>     <span class="nb">bigint</span> <span class="k">GENERATED</span> <span class="n">ALWAYS</span> <span class="k">AS</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">country</span>      <span class="nb">char</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">order_year</span>   <span class="nb">smallint</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">channel</span>      <span class="nb">text</span>     <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">order_number</span> <span class="nb">integer</span>  <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="k">UNIQUE</span> <span class="p">(</span><span class="n">country</span><span class="p">,</span> <span class="n">order_year</span><span class="p">,</span> <span class="n">channel</span><span class="p">,</span> <span class="n">order_number</span><span class="p">)</span>
 <span class="p">);</span>
+<span class="c1">-- The human-readable reference is derived, not stored as the key:</span>
+<span class="c1">-- country || '-' || order_year || '-' || channel || '-' || lpad(order_number::text, 5, '0')</span>
 </code></pre></div></div>
 
 <blockquote>
-  <p><strong>Dialect note: inline index syntax.</strong> The inline <code class="language-plaintext highlighter-rouge">INDEX idx_... (...)</code> clause inside <code class="language-plaintext highlighter-rouge">CREATE TABLE</code> is MySQL-only and is invalid in PostgreSQL. In PostgreSQL, create the table first and then issue a separate <code class="language-plaintext highlighter-rouge">CREATE INDEX idx_commentable ON comments (commentable_type, commentable_id);</code>.</p>
+  <p><strong>Dialect notes.</strong> MySQL spells identity columns <code class="language-plaintext highlighter-rouge">AUTO_INCREMENT</code> and allows an inline <code class="language-plaintext highlighter-rouge">INDEX name (cols)</code> clause inside <code class="language-plaintext highlighter-rouge">CREATE TABLE</code>; PostgreSQL requires a separate <code class="language-plaintext highlighter-rouge">CREATE INDEX</code>. <code class="language-plaintext highlighter-rouge">uuidv7()</code>, virtual-by-default generated columns, and <code class="language-plaintext highlighter-rouge">WITHOUT OVERLAPS</code> keys require PostgreSQL 18.</p>
 </blockquote>
-
-<h3 id="anti-patterns-to-avoid">Anti-Patterns to Avoid</h3>
-
-<p><strong>1. Entity-Attribute-Value (EAV) Gone Wrong</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Anti-pattern: Storing everything as key-value pairs</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">user_attributes</span> <span class="p">(</span>
-    <span class="n">user_id</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="n">attribute_name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
-    <span class="n">attribute_value</span> <span class="nb">TEXT</span>  <span class="c1">-- Everything stored as text!</span>
-<span class="p">);</span>
-
-<span class="c1">-- Problems:</span>
-<span class="c1">-- - No type safety</span>
-<span class="c1">-- - Terrible query performance</span>
-<span class="c1">-- - No referential integrity</span>
-<span class="c1">-- - Complex queries for simple tasks</span>
-
-<span class="c1">-- Better: Use JSONB for truly dynamic attributes</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">users</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">email</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
-    <span class="n">metadata</span> <span class="n">JSONB</span>  <span class="c1">-- Flexible but still queryable</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<p><strong>2. Intelligent Keys Anti-Pattern</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Anti-pattern: Encoding meaning in primary keys</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
-    <span class="n">order_id</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">PRIMARY</span> <span class="k">KEY</span>  <span class="c1">-- 'US-2024-WEB-00123'</span>
-<span class="p">);</span>
-
-<span class="c1">-- Problems:</span>
-<span class="c1">-- - What if business rules change?</span>
-<span class="c1">-- - Parsing keys for queries is slow</span>
-<span class="c1">-- - Running out of namespace</span>
-
-<span class="c1">-- Better: Use surrogate keys</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">orders</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">country</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
-    <span class="nb">year</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="k">source</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span>
-    <span class="n">order_number</span> <span class="nb">INT</span><span class="p">,</span>
-    <span class="k">UNIQUE</span><span class="p">(</span><span class="n">country</span><span class="p">,</span> <span class="nb">year</span><span class="p">,</span> <span class="k">source</span><span class="p">,</span> <span class="n">order_number</span><span class="p">)</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<p><strong>3. Multicolumn Attributes Anti-Pattern</strong></p>
-<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Anti-pattern: Columns like tag1, tag2, tag3...</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">posts</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">title</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span>
-    <span class="n">tag1</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
-    <span class="n">tag2</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
-    <span class="n">tag3</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
-<span class="p">);</span>
-
-<span class="c1">-- Better: Proper many-to-many relationship</span>
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">tags</span> <span class="p">(</span>
-    <span class="n">id</span> <span class="nb">SERIAL</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
-    <span class="n">name</span> <span class="nb">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span> <span class="k">UNIQUE</span>
-<span class="p">);</span>
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">post_tags</span> <span class="p">(</span>
-    <span class="n">post_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">posts</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
-    <span class="n">tag_id</span> <span class="nb">INT</span> <span class="k">REFERENCES</span> <span class="n">tags</span><span class="p">(</span><span class="n">id</span><span class="p">),</span>
-    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">post_id</span><span class="p">,</span> <span class="n">tag_id</span><span class="p">)</span>
-<span class="p">);</span>
-</code></pre></div></div>
-
-<hr />
 
 <h2 id="next-steps">Next Steps</h2>
 
 <ul>
   <li><strong>Next:</strong> <a href="indexing-and-queries.html">Indexing &amp; Query Execution</a> — make the schema you just modeled fast to read.</li>
+  <li><a href="schema-evolution-and-migrations.html">Schema Evolution &amp; Migrations</a> — change a live schema without downtime.</li>
+  <li><a href="nosql-data-models.html">NoSQL Data Models</a> — the query-first alternative to normalization.</li>
   <li><strong>Up:</strong> <a href="./">Database Design hub</a></li>
   <li>See also: <a href="../database-crash-course.html">Database Crash Course</a> for the SQL basics behind these schemas.</li>
+  <li><strong>Code:</strong> <a href="../../../code-examples/technology/database-design/normalization.py"><code class="language-plaintext highlighter-rouge">normalization.py</code></a> — Armstrong’s axioms, attribute closure, BCNF decomposition, and 3NF synthesis in Python.</li>
 </ul>
 
       </section>

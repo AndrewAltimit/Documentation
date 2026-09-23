@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Why loop integrals diverge, how regularization and counterterms turn them into finite predictions, how couplings run under the renormalization group, and the...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="QFT: Renormalization & the Renormalization Group">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Why loop integrals diverge, how regularization and counterterms turn them into finite predictions, how couplings run under the renormalization group, and the...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/renormalization.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="QFT: Renormalization & the Renormalization Group">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Why loop integrals diverge, how regularization and counterterms turn them into finite predictions, how couplings run under the renormalization group, and the...">
 
 <title>QFT: Renormalization & the Renormalization Group | Andrews Notebook</title>
 
@@ -3137,330 +3137,491 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="quantum-field-theory.html">Quantum Field Theory</a> » Renormalization &amp; the Renormalization Group</p>
 
-<div class="theory-card">
-  <h4>The physical idea behind renormalization</h4>
-  <p>Early QFT calculations produced infinite answers, which nearly killed the theory. The resolution is profound: the "constants" in the Lagrangian (mass, charge) are not what we measure. What we measure depends on the <strong>energy scale</strong> at which we probe — a bare electron is dressed by a cloud of virtual particles. Renormalization systematically separates the unmeasurable bare quantities from finite, measured ones. The result is not a trick but a deep statement: physics looks different at different scales, encoded by the <em>running</em> of couplings. The modern, Wilsonian view goes further still — renormalizability is not a fundamental requirement but a statement about which interactions survive when you zoom out to low energy.</p>
-</div>
+<p><strong>Renormalization</strong> is the procedure that turns the divergent loop integrals of quantum field theory into finite predictions. The key point is that the masses and couplings written in a Lagrangian are not the quantities experiments measure. Measured values include the effects of virtual particles and depend on the energy scale at which they are probed. Once the theory is written in terms of measured quantities, the infinities cancel. What remains is the <strong>renormalization group</strong> (RG): the scale dependence (“running”) of couplings, which accounts for asymptotic freedom in QCD, the growth of the fine-structure constant at high energy, and the universality of critical phenomena. In Wilson’s formulation, renormalizability stops being a requirement placed on fundamental theories. It becomes a statement about which interactions survive at low energies, and this is the basis of <a href="#effective-field-theory-the-modern-viewpoint">effective field theory</a>. This page assumes the Feynman-diagram machinery of <a href="qft-methods.html">Path Integrals &amp; Methods</a>.</p>
 
-<p>This page develops, in full, the renormalization story that the <a href="quantum-field-theory.html">Quantum Field Theory</a> overview only sketches: where the divergences come from, the regularization schemes that tame them, the renormalization procedure and its conditions, the renormalization group and running couplings, and the Wilsonian/effective-field-theory picture that ties it all together.</p>
+<pre><code class="language-mermaid">graph LR
+    LOOP["Loop integral over virtual momenta"] --&gt; DIV["UV divergence"]
+    DIV --&gt; REG["Regularize: cutoff, Pauli-Villars, dim reg, lattice"]
+    REG --&gt; CT["Renormalize: counterterms absorb divergences into bare parameters"]
+    CT --&gt; FIN["Finite predictions in terms of measured parameters"]
+    CT --&gt; MU["Leftover dependence on the reference scale mu"]
+    MU --&gt; RG["Renormalization group: couplings run"]
+    RG --&gt; FP["Fixed points, asymptotic freedom, Landau poles"]
+    RG --&gt; EFT["Wilsonian view: effective field theories"]
+</code></pre>
 
-<h2 id="why-loop-integrals-diverge">Why Loop Integrals Diverge</h2>
+<h2 id="where-the-divergences-come-from">Where the Divergences Come From</h2>
 
-<p>A free quantum field is a collection of harmonic oscillators, one per momentum mode, and a propagator is just a correlator of those oscillators. Interactions force us to integrate over the momenta of <em>virtual</em> particles running around closed loops — and there is no upper limit on how energetic those virtual particles can be. The integration over arbitrarily large loop momentum $k$ is where the infinities live.</p>
+<p>A loop in a Feynman diagram integrates over the momentum of a virtual particle, and nothing in the theory bounds that momentum. The simplest case is the one-loop “tadpole” correction to the scalar propagator in $\phi^4$ theory with $\mathcal{L}_{\text{int}} = -\tfrac{\lambda}{4!}\phi^4$:</p>
 
-<p>Consider the simplest example, the one-loop self-energy of a scalar in $\phi^4$ theory (interaction $-\tfrac{\lambda}{4!}\phi^4$). The “tadpole” correction to the propagator is</p>
+\[-iM^2_{\text{1-loop}} = \frac{-i\lambda}{2}\int\frac{d^4k}{(2\pi)^4}\,\frac{i}{k^2 - m^2 + i\varepsilon} \quad\xrightarrow{\text{Wick rotate}}\quad M^2_{\text{1-loop}} = \frac{\lambda}{2}\int\frac{d^4k_E}{(2\pi)^4}\,\frac{1}{k_E^2 + m^2}.\]
 
-\[\Sigma = \frac{\lambda}{2} \int \frac{d^4k}{(2\pi)^4} \frac{i}{k^2 - m^2 + i\varepsilon}.\]
+<p>At large $k_E$ the integrand falls as $1/k_E^2$ while the measure grows as $k_E^3\,dk_E$. With a cutoff $\Lambda$ on $k_E$, the integral grows as $\Lambda^2$: the correction to the mass is <strong>quadratically divergent</strong>.</p>
 
-<table>
-  <tbody>
-    <tr>
-      <td>For large $</td>
-      <td>k</td>
-      <td>$ the integrand falls only as $1/k^2$, while the measure grows as $d^4k \sim k^3\,dk$, so the integral behaves like $\int^\Lambda k\,dk \sim \Lambda^2$. It diverges <em>quadratically</em> in the ultraviolet (UV).</td>
-    </tr>
-  </tbody>
-</table>
+<p><strong>UV and IR divergences are different problems.</strong> Ultraviolet divergences come from large loop momenta and are dealt with by renormalization. <strong>Infrared</strong> divergences arise in theories with massless particles, from soft (low-energy) or collinear emissions. They are not removed by renormalization. They cancel in any physically measurable quantity once real emission of unresolved soft photons or gluons is included together with the virtual corrections (the Bloch-Nordsieck and Kinoshita-Lee-Nauenberg theorems). The rest of this page is about UV divergences.</p>
 
-<h3 id="power-counting-which-diagrams-diverge">Power counting: which diagrams diverge</h3>
+<h3 id="power-counting">Power counting</h3>
 
-<p>Whether a diagram diverges, and how badly, is fixed by simple dimensional bookkeeping. The <strong>superficial degree of divergence</strong> $D$ of a diagram in $d$ spacetime dimensions counts powers of loop momentum in the numerator minus the denominator:</p>
+<p>The <strong>superficial degree of divergence</strong> $D$ of a diagram is the number of powers of loop momentum in the numerator minus the number in the denominator. The integral goes as $\Lambda^D$ for $D &gt; 0$, as $\ln\Lambda$ for $D = 0$, and converges superficially for $D &lt; 0$. Dimensional analysis gives $D$ without drawing the diagram. In $d$ spacetime dimensions, a diagram with external fields of mass dimensions $[\phi_e]$ and vertices with couplings $g_v$ has</p>
 
-\[D = d L - \sum_i (\text{powers of } k \text{ in denominator of propagator } i),\]
+\[D = d - \sum_{\text{external}}[\phi_e] - \sum_{\text{vertices}}[g_v].\]
 
-<p>where $L$ is the number of independent loops. The integral diverges as $\Lambda^D$ ($\Lambda^0$ meaning a logarithm). For a scalar diagram with $L$ loops and $I$ internal lines, $L = I - V + 1$ ($V$ vertices), and each scalar propagator contributes $k^{-2}$, giving</p>
-
-\[D = 4L - 2I \quad (\text{in } d=4).\]
-
-<p>The three qualitative outcomes:</p>
+<p>For $\phi^4$ theory in four dimensions ($[\phi] = 1$, $[\lambda] = 0$) this gives $D = 4 - E$. Only the 2-point function (quadratic) and the 4-point function (logarithmic) diverge. For QED ($[\psi] = 3/2$, $[A] = 1$, $[e] = 0$), $D = 4 - \tfrac{3}{2}E_\psi - E_\gamma$. Symmetries reduce the actual divergence below the superficial one:</p>
 
 <table>
   <thead>
     <tr>
+      <th>QED amplitude</th>
+      <th>External legs</th>
       <th>$D$</th>
-      <th>Behavior as $\Lambda \to \infty$</th>
-      <th>Name</th>
+      <th>Actual behaviour</th>
+      <th>Reason</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>$D &gt; 0$</td>
-      <td>$\sim \Lambda^D$</td>
-      <td>power divergence (quadratic, quartic, …)</td>
-    </tr>
-    <tr>
-      <td>$D = 0$</td>
-      <td>$\sim \ln \Lambda$</td>
+      <td>Electron self-energy</td>
+      <td>$2\psi$</td>
+      <td>1</td>
       <td>logarithmic</td>
+      <td>chiral symmetry: $\delta m \propto m$</td>
     </tr>
     <tr>
-      <td>$D &lt; 0$</td>
-      <td>finite (superficially)</td>
-      <td>convergent</td>
+      <td>Photon self-energy (vacuum polarization)</td>
+      <td>$2\gamma$</td>
+      <td>2</td>
+      <td>logarithmic</td>
+      <td>Ward identity forces $\Pi^{\mu\nu} \propto q^2g^{\mu\nu} - q^\mu q^\nu$</td>
+    </tr>
+    <tr>
+      <td>Electron-photon vertex</td>
+      <td>$2\psi + 1\gamma$</td>
+      <td>0</td>
+      <td>logarithmic</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Three-photon amplitude</td>
+      <td>$3\gamma$</td>
+      <td>1</td>
+      <td>vanishes</td>
+      <td>Furry’s theorem (charge conjugation)</td>
+    </tr>
+    <tr>
+      <td>Light-by-light scattering</td>
+      <td>$4\gamma$</td>
+      <td>0</td>
+      <td>finite</td>
+      <td>gauge invariance</td>
     </tr>
   </tbody>
 </table>
 
-<p>The qualitative menu of UV behaviors:</p>
+<p>So QED has three independent divergent quantities. They are absorbed into three renormalization constants, fixing the mass, the charge and the field normalization.</p>
 
-<ul>
-  <li><strong>Logarithmic:</strong> $\displaystyle \int^{\Lambda} \frac{d^4k}{k^4} \sim \ln\Lambda$</li>
-  <li><strong>Quadratic:</strong> $\displaystyle \int^{\Lambda} \frac{d^4k}{k^2} \sim \Lambda^2$</li>
-  <li><strong>Quartic:</strong> $\displaystyle \int^{\Lambda} d^4k \sim \Lambda^4$</li>
-</ul>
+<h3 id="renormalizability-and-the-dimension-of-couplings">Renormalizability and the dimension of couplings</h3>
 
-<h3 id="renormalizability-from-power-counting">Renormalizability from power counting</h3>
+<p>Power counting also classifies theories. If every coupling has mass dimension $[g] \ge 0$, only finitely many amplitudes diverge, and a finite set of counterterms absorbs all divergences to all orders: the theory is <strong>renormalizable</strong>. A coupling with $[g] &lt; 0$ makes $D$ grow with the number of vertices. New divergent amplitudes then appear at every order, and each needs a new parameter, which in the old terminology makes the theory <strong>non-renormalizable</strong>. The Wilsonian terms for the same classification are:</p>
 
-<p>The same counting tells you <em>which theories are renormalizable</em>. Write the coupling’s mass dimension $[g]$. In $d = 4$ a coupling with $[g] \ge 0$ generates only a finite set of divergent amplitude types — the theory is <strong>renormalizable</strong> (or super-renormalizable). A coupling with $[g] &lt; 0$ (e.g. a four-fermion contact term, or Newton’s constant $G_N$) generates divergences in ever more amplitudes as the loop order grows: <strong>non-renormalizable</strong> in the old language. Classifying interactions by the dimension of their couplings:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Class</th>
+      <th>Coupling dimension in $d = 4$</th>
+      <th>Operator dimension</th>
+      <th>Low-energy behaviour</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Relevant</td>
+      <td>$[g] &gt; 0$</td>
+      <td>$&lt; 4$</td>
+      <td>grows toward the IR</td>
+      <td>mass terms $m^2\phi^2$, the cosmological constant</td>
+    </tr>
+    <tr>
+      <td>Marginal</td>
+      <td>$[g] = 0$</td>
+      <td>$= 4$</td>
+      <td>runs logarithmically</td>
+      <td>gauge couplings, Yukawa couplings, $\lambda\phi^4$</td>
+    </tr>
+    <tr>
+      <td>Irrelevant</td>
+      <td>$[g] &lt; 0$</td>
+      <td>$&gt; 4$</td>
+      <td>suppressed by $(E/\Lambda)^{\dim - 4}$</td>
+      <td>Fermi’s $G_F$, Newton’s $G_N$, the Weinberg operator</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>Relevant</strong> ($[g] &gt; 0$): grow in importance toward low energy (e.g. a mass term).</li>
-  <li><strong>Marginal</strong> ($[g] = 0$): the gauge and Yukawa couplings of the Standard Model.</li>
-  <li><strong>Irrelevant</strong> ($[g] &lt; 0$): die off as a power of $E/\Lambda$ at low energy — the hallmark of an <a href="#effective-field-theory-the-modern-viewpoint">effective field theory</a>.</li>
-</ul>
-
-<p>This relevant/marginal/irrelevant language is the Wilsonian reorganization of “renormalizable,” and we return to it below.</p>
+<p>Every coupling in the Standard Model Lagrangian is relevant or marginal. The <a href="#the-wilsonian-renormalization-group">Wilsonian section</a> below explains why this is to be expected and is not a coincidence.</p>
 
 <h2 id="regularization">Regularization</h2>
 
-<p>Before we can subtract an infinity we must first make it finite and bookkeep it. <strong>Regularization</strong> introduces a parameter that renders every integral finite; physical answers must be independent of that parameter once renormalization is done. Several schemes are in common use, each with different virtues.</p>
+<p>Before a divergence can be subtracted it has to be made finite in a controlled way. A <strong>regulator</strong> introduces a parameter that makes every integral finite. Physical predictions must not depend on it once renormalization is complete.</p>
 
-<h3 id="momentum-cutoff">Momentum cutoff</h3>
-
-<p>The most intuitive: simply forbid loop momenta above a scale $\Lambda$,</p>
-
-\[\int d^4k \;\to\; \int_{|k| &lt; \Lambda} d^4k.\]
-
-<p>This makes the Wilsonian picture transparent — $\Lambda$ is literally “the energy above which we stop trusting the theory” — but it breaks Lorentz invariance and gauge invariance, which makes it awkward for gauge theories.</p>
-
-<h3 id="paulivillars">Pauli–Villars</h3>
-
-<p>Subtract a heavy fictitious partner from each propagator,</p>
-
-\[\frac{1}{k^2 - m^2} \;\to\; \frac{1}{k^2 - m^2} - \frac{1}{k^2 - \Lambda^2}.\]
-
-<p>At large $k$ the two terms cancel the leading $1/k^2$, softening the UV behavior; the regulator mass $\Lambda \to \infty$ at the end. It preserves Lorentz invariance and is convenient for QED.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Scheme</th>
+      <th>Prescription</th>
+      <th>Preserves</th>
+      <th>Breaks or obscures</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Momentum cutoff</td>
+      <td>restrict $\lvert k_E\rvert &lt; \Lambda$</td>
+      <td>intuition: $\Lambda$ is where the theory stops being trusted</td>
+      <td>Lorentz and gauge invariance</td>
+      <td>Wilsonian RG, condensed matter</td>
+    </tr>
+    <tr>
+      <td>Pauli-Villars</td>
+      <td>$\dfrac{1}{k^2 - m^2} \to \dfrac{1}{k^2 - m^2} - \dfrac{1}{k^2 - M^2}$, then $M \to \infty$</td>
+      <td>Lorentz invariance; gauge invariance in QED</td>
+      <td>non-abelian gauge invariance</td>
+      <td>QED, anomaly calculations</td>
+    </tr>
+    <tr>
+      <td>Dimensional regularization</td>
+      <td>continue to $d = 4 - \epsilon$ dimensions</td>
+      <td>Lorentz and gauge invariance</td>
+      <td>power divergences are invisible; $\gamma^5$ is ambiguous</td>
+      <td>essentially all Standard Model loop calculations</td>
+    </tr>
+    <tr>
+      <td>Lattice</td>
+      <td>discretize spacetime with spacing $a$, so $\Lambda \sim \pi/a$</td>
+      <td>gauge invariance (Wilson’s formulation), non-perturbative</td>
+      <td>Lorentz invariance (recovered as $a \to 0$); chiral fermions need special care</td>
+      <td>lattice QCD</td>
+    </tr>
+  </tbody>
+</table>
 
 <h3 id="dimensional-regularization">Dimensional regularization</h3>
 
-<p>By far the most widely used in modern work. Analytically continue the loop integrals to $d = 4 - \varepsilon$ spacetime dimensions, where they converge, and expose the divergence as a pole in $\varepsilon$. The master one-loop integral is</p>
+<p>Loop integrals converge in low enough dimension. Evaluate them for general $d$ and continue analytically to $d = 4 - \epsilon$. The basic one-loop integral in Minkowski signature is</p>
 
-\[\int \frac{d^d k}{(2\pi)^d} \frac{1}{(k^2 - m^2)^n} = \frac{i(-1)^n}{(4\pi)^{d/2}} \frac{\Gamma\!\left(n - d/2\right)}{\Gamma(n)} \, (m^2)^{d/2 - n}.\]
+\[\int\frac{d^d\ell}{(2\pi)^d}\,\frac{1}{(\ell^2 - \Delta + i\varepsilon)^n} = \frac{(-1)^n\,i}{(4\pi)^{d/2}}\,\frac{\Gamma\!\left(n - \frac{d}{2}\right)}{\Gamma(n)}\left(\frac{1}{\Delta}\right)^{n - d/2}.\]
 
-<p>A logarithmic divergence ($n = 2$, $d = 4$) appears as a pole of the Gamma function:</p>
+<p>For $n = 2$, which is the log-divergent case in four dimensions, the divergence shows up as a pole of the Gamma function:</p>
 
-\[\Gamma\!\left(\frac{\varepsilon}{2}\right) = \frac{2}{\varepsilon} - \gamma_E + O(\varepsilon),\]
+\[\Gamma\!\left(\frac{\epsilon}{2}\right)\left(\frac{4\pi}{\Delta}\right)^{\epsilon/2} = \frac{2}{\epsilon} - \gamma_E + \ln 4\pi - \ln\Delta + O(\epsilon).\]
 
-<p>so divergences show up as $1/\varepsilon$ terms rather than powers of $\Lambda$. Dimensional regularization’s great advantage is that it <strong>respects Lorentz and gauge invariance automatically</strong>, which is why it dominates Standard Model calculations. Its subtlety is that it sets power divergences to zero (a scaleless integral vanishes), so quadratic divergences are invisible — fine for renormalization, but it obscures the <a href="#open-questions-and-connections">hierarchy problem</a>.</p>
+<p>In $d$ dimensions a four-dimensional coupling acquires a mass dimension. To keep it dimensionless one writes $\lambda \to \lambda\,\mu^{\epsilon}$, which introduces an arbitrary <strong>renormalization scale</strong> $\mu$. Physical results cannot depend on $\mu$, and that requirement is the origin of the renormalization group. Dimensional regularization sets scaleless integrals such as $\int d^d\ell/\ell^2$ to zero, so power divergences never appear. This is technically convenient. It also hides the sensitivity of scalar masses to heavy scales that underlies the <a href="#open-problems">hierarchy problem</a>.</p>
 
-<p>Because $d$ is no longer $4$, the coupling acquires a mass dimension; one introduces an arbitrary mass scale $\mu$ to keep the renormalized coupling dimensionless, e.g. $\lambda \to \lambda\,\mu^{\varepsilon}$. <strong>This arbitrary $\mu$ is the seed of the entire renormalization group</strong> — the physics cannot depend on it, and demanding so is the Callan–Symanzik equation below.</p>
+<h2 id="renormalized-perturbation-theory">Renormalized Perturbation Theory</h2>
 
-<h2 id="the-renormalization-procedure">The Renormalization Procedure</h2>
+<p>The <em>bare</em> parameters in the Lagrangian are never measured directly. Rewrite them as <em>renormalized</em> (finite, measured) parameters plus <strong>counterterms</strong>, and fix the counterterms order by order so that divergences cancel.</p>
 
-<p>The key conceptual move: split every parameter in the Lagrangian into a <em>bare</em> piece (formally infinite, never measured) and a <em>renormalized</em> piece (finite, measured), arranged so the divergences cancel order by order.</p>
+<h3 id="counterterms">Counterterms</h3>
 
-<h3 id="multiplicative-renormalization-and-counterterms">Multiplicative renormalization and counterterms</h3>
+<p>For $\phi^4$ theory, rescale the bare field and parameters (subscript 0) by renormalization constants:</p>
 
-<p>Rescale the field and parameters by renormalization constants $Z$:</p>
+\[\phi_0 = \sqrt{Z_\phi}\,\phi, \qquad Z_\phi m_0^2 = m^2 + \delta_m, \qquad Z_\phi^2\lambda_0 = \lambda\mu^{\epsilon} + \delta_\lambda\mu^{\epsilon}, \qquad Z_\phi = 1 + \delta_Z.\]
 
-\[\phi = \sqrt{Z_\phi}\,\phi_r, \qquad m^2 = \frac{Z_m\,m_r^2}{Z_\phi}, \qquad \lambda = \frac{Z_\lambda\,\lambda_r}{Z_\phi^2}.\]
+<p>The bare Lagrangian then splits into the original form with renormalized parameters plus a counterterm Lagrangian:</p>
 
-<p>Substituting into the bare Lagrangian splits it into a renormalized Lagrangian (same form, finite parameters) plus a <strong>counterterm Lagrangian</strong> whose job is to cancel loop divergences:</p>
+\[\mathcal{L} = \frac{1}{2}(\partial_\mu\phi)^2 - \frac{1}{2}m^2\phi^2 - \frac{\lambda\mu^{\epsilon}}{4!}\phi^4 + \frac{1}{2}\delta_Z(\partial_\mu\phi)^2 - \frac{1}{2}\delta_m\phi^2 - \frac{\delta_\lambda\mu^{\epsilon}}{4!}\phi^4.\]
 
-\[\mathcal{L}_{ct} = (Z_\phi - 1)\tfrac{1}{2}(\partial_\mu\phi)^2 - (Z_m - 1)\tfrac{1}{2}m^2\phi^2 - (Z_\lambda - 1)\tfrac{\lambda}{4!}\phi^4.\]
+<p>The counterterms are treated as additional vertices. For example, $\delta_\lambda$ gives a vertex $-i\delta_\lambda$. A theory is renormalizable when a finite set of such terms (three in this case) is enough at every order.</p>
 
-<p>Each $Z_i = 1 + \delta_i$ with a divergent $\delta_i$ chosen, order by order in perturbation theory, to absorb the corresponding loop divergence. A theory is renormalizable precisely when a <em>finite</em> set of such counterterms — here three — suffices to all orders.</p>
+<h3 id="worked-example-the-one-loop-beta-function-of-phi4">Worked example: the one-loop beta function of $\phi^4$</h3>
 
-<h3 id="renormalization-conditions-and-schemes">Renormalization conditions and schemes</h3>
+<p>At one loop the four-point amplitude receives the “fish” diagram in the $s$, $t$ and $u$ channels. Each has symmetry factor $\tfrac12$. With Feynman parameters and the master integral above,</p>
 
-<p>The finite part left after subtraction is a matter of convention. Different <strong>schemes</strong> define the renormalized parameters differently; all give identical predictions for physical observables, but intermediate quantities (and the meaning of “the mass” or “the coupling”) differ.</p>
+\[\frac{(-i\lambda)^2}{2}\int\frac{d^d\ell}{(2\pi)^d}\,\frac{i}{\ell^2 - m^2}\,\frac{i}{(\ell + p)^2 - m^2} = \frac{i\lambda^2}{32\pi^2}\int_0^1 dx\left[\frac{2}{\epsilon} - \gamma_E + \ln 4\pi - \ln\frac{m^2 - x(1-x)p^2}{\mu^2}\right].\]
 
-<p><strong>On-shell scheme.</strong> Define parameters by physical, measurable conditions:</p>
+<p>The full amplitude at this order is $i\mathcal{M} = -i\lambda - i\delta_\lambda + (\text{fish})_s + (\text{fish})_t + (\text{fish})_u$. In the $\overline{\text{MS}}$ scheme the counterterm removes exactly the pole together with its $-\gamma_E + \ln 4\pi$ companion:</p>
 
-<ol>
-  <li>The propagator has its pole at the physical mass: $\Sigma(m^2) = 0$.</li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td>The pole has unit residue: $\dfrac{d\Sigma}{dp^2}\bigg</td>
-          <td>_{p^2 = m^2} = 0$.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li>The coupling is fixed by a scattering amplitude at a chosen kinematic point.</li>
-</ol>
+\[\delta_\lambda = \frac{3\lambda^2}{32\pi^2}\left(\frac{2}{\epsilon} - \gamma_E + \ln 4\pi\right), \qquad \mathcal{M} = -\lambda - \frac{\lambda^2}{32\pi^2}\sum_{p^2 = s,t,u}\int_0^1 dx\,\ln\frac{m^2 - x(1-x)p^2}{\mu^2}.\]
 
-<p>This is the most physical scheme — $m$ really is the particle’s rest mass — and is natural in QED.</p>
+<p>$\mathcal{M}$ is finite and is a physical amplitude, so it cannot depend on the arbitrary $\mu$. Its explicit $\ln\mu^2$ dependence must be cancelled by $\mu$-dependence of $\lambda$. Setting $\mu\,d\mathcal{M}/d\mu = 0$ at this order gives</p>
 
-<p><strong>Minimal Subtraction (MS).</strong> In dimensional regularization, simply drop the pole pieces:</p>
+\[\beta(\lambda) \equiv \mu\frac{d\lambda}{d\mu} = \frac{3\lambda^2}{16\pi^2} + O(\lambda^3).\]
 
-\[Z = 1 + \sum_n \frac{a_n}{\varepsilon^n}.\]
+<p>The coupling grows at high energy. At one loop the tadpole does not depend on momentum, so $\delta_Z = 0$ at this order and wavefunction renormalization first appears at two loops.</p>
 
-<p><strong>Modified Minimal Subtraction ($\overline{\text{MS}}$).</strong> Also remove the ubiquitous $\ln(4\pi) - \gamma_E$ that always rides along with the $1/\varepsilon$ pole. The $\overline{\text{MS}}$ scheme is the standard for QCD and the Standard Model; the famous “$\overline{\text{MS}}$ mass” of the top quark or the strong coupling $\alpha_s(M_Z)$ are quoted in it.</p>
+<h3 id="renormalization-schemes">Renormalization schemes</h3>
 
-<p>The price of the mathematically clean MS/$\overline{\text{MS}}$ schemes is that the renormalized mass and coupling become $\mu$-dependent — they <em>run</em>. That running is the renormalization group.</p>
+<p>The divergent part of each counterterm is fixed, but its finite part is a convention. The choice of convention is the <strong>scheme</strong>. Different schemes give different values for “the mass” or “the coupling”, but relations between physical observables are the same in all of them (up to higher-order terms not yet computed).</p>
 
-<h3 id="one-loop-qed-examples">One-loop QED examples</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Scheme</th>
+      <th>Definition</th>
+      <th>Pros</th>
+      <th>Cons</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>On-shell (physical)</td>
+      <td>pole of the propagator at the physical mass with unit residue; coupling fixed by an amplitude at a physical point (e.g. Thomson scattering, $q^2 = 0$, for $\alpha$)</td>
+      <td>parameters are directly measurable</td>
+      <td>awkward for quarks (no physical pole mass for confined particles) and at high energy (large logarithms)</td>
+    </tr>
+    <tr>
+      <td>MS</td>
+      <td>subtract only the $1/\epsilon$ poles</td>
+      <td>simplest algebra</td>
+      <td>leaves $\ln 4\pi - \gamma_E$ everywhere</td>
+    </tr>
+    <tr>
+      <td>$\overline{\text{MS}}$</td>
+      <td>subtract $\frac{2}{\epsilon} - \gamma_E + \ln 4\pi$</td>
+      <td>standard for QCD and electroweak; mass-independent RG</td>
+      <td>parameters such as $\alpha_s(\mu)$ and $\overline{m}_t(\mu)$ depend on $\mu$ and are not directly observable</td>
+    </tr>
+    <tr>
+      <td>Momentum subtraction (MOM)</td>
+      <td>conditions imposed at a Euclidean point $p^2 = -\mu^2$</td>
+      <td>natural for the lattice and Wilsonian intuition</td>
+      <td>gauge dependent</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The three primitive one-loop divergences of QED, the textbook worked examples:</p>
+<p>Top-quark mass determinations illustrate the point: the $\overline{\text{MS}}$ mass $\overline{m}_t(\overline{m}_t)$ and the pole mass differ by roughly 10 GeV, so a quoted top mass is only meaningful together with its scheme.</p>
 
-<p><strong>Electron self-energy</strong> (correction to the propagator):</p>
+<h2 id="qed-at-one-loop">QED at One Loop</h2>
 
-\[\Sigma(p) = -ie^2 \int \frac{d^4k}{(2\pi)^4} \frac{\gamma^\mu(\not{p}-\not{k}+m)\gamma_\mu}{[(p-k)^2 - m^2 + i\varepsilon]\,[k^2 + i\varepsilon]}.\]
+<p>The three primitively divergent QED amplitudes are the standard textbook calculations. The counterterms $\delta_2$ (electron field), $\delta_m$ (mass), $\delta_3$ (photon field) and $\delta_1$ (vertex) absorb their divergences.</p>
 
-<p><strong>Vacuum polarization</strong> (correction to the photon propagator) — this is what makes the electric charge run.</p>
+<p><strong>Electron self-energy.</strong></p>
 
-<p><strong>Vertex correction</strong> (correction to the electron–photon vertex):</p>
+\[-i\Sigma_2(p) = (-ie)^2\int\frac{d^4k}{(2\pi)^4}\,\gamma^\mu\,\frac{i(\not{p} - \not{k} + m)}{(p - k)^2 - m^2 + i\varepsilon}\,\gamma_\mu\,\frac{-i}{k^2 + i\varepsilon}.\]
 
-\[\Lambda^\mu(p',p) = -ie^2 \int \frac{d^4k}{(2\pi)^4} \frac{\gamma^\nu(\not{p}'-\not{k}+m)\gamma^\mu(\not{p}-\not{k}+m)\gamma_\nu}{[(p'-k)^2 - m^2]\,[(p-k)^2 - m^2]\,[k^2]}.\]
+<p>The resulting mass shift is proportional to $m$ itself, $\delta m \approx \frac{3\alpha}{4\pi}\,m\ln(\Lambda^2/m^2)$. A massless electron would have an extra chiral symmetry that forbids a mass from being generated, so fermion masses are <em>technically natural</em>. Scalar masses have no such protection.</p>
 
-<p>The finite remainder of the vertex correction is one of the triumphs of QFT: it predicts the electron’s anomalous magnetic moment, the celebrated $g-2 = \alpha/\pi + \cdots$, now confirmed to better than 12 significant figures. The Ward identity $Z_1 = Z_2$ guarantees the self-energy and vertex divergences conspire so that charge renormalization comes <em>only</em> from vacuum polarization — which is why charge universality survives.</p>
+<p><strong>Vacuum polarization.</strong> The Ward identity forces $\Pi^{\mu\nu}(q) = (q^2g^{\mu\nu} - q^\mu q^\nu)\,\Pi(q^2)$, so the photon remains massless. In dimensional regularization,</p>
 
-<h2 id="the-renormalization-group">The Renormalization Group</h2>
+\[\Pi_2(q^2) = -\frac{2\alpha}{\pi}\int_0^1 dx\;x(1-x)\left[\frac{2}{\epsilon} - \gamma_E + \ln 4\pi - \ln\frac{m^2 - x(1-x)q^2}{\mu^2}\right].\]
 
-<p>The renormalization group (RG) is the statement that physics is invariant under changing the arbitrary reference scale $\mu$, plus the machinery that turns that invariance into predictive <em>running</em>.</p>
+<p>After on-shell subtraction ($\hat\Pi_2(q^2) = \Pi_2(q^2) - \Pi_2(0)$) the effective coupling is $\alpha_{\text{eff}}(q^2) = \alpha/[1 - \hat\Pi_2(q^2)]$. At large spacelike momentum transfer this becomes</p>
 
-<h3 id="the-callansymanzik-equation">The Callan–Symanzik equation</h3>
+\[\alpha_{\text{eff}}(q^2) \approx \frac{\alpha}{1 - \dfrac{\alpha}{3\pi}\ln\dfrac{-q^2}{A\,m^2}}, \qquad A = e^{5/3}, \qquad -q^2 \gg m^2.\]
 
-<p>A bare $n$-point Green’s function cannot know about the arbitrary scale $\mu$ we introduced. The renormalized Green’s function $G^{(n)}$ therefore obeys</p>
+<p>Virtual pairs screen the bare charge, so the effective charge increases as the probe gets closer. At atomic distances the same effect gives the Uehling potential, which contributes about $-27$ MHz to the hydrogen $2S_{1/2}$-$2P_{1/2}$ Lamb shift of about 1058 MHz.</p>
 
-\[\left[\mu\frac{\partial}{\partial\mu} + \beta(g)\frac{\partial}{\partial g} + \gamma_m\, m\frac{\partial}{\partial m} - n\,\gamma_\phi\right] G^{(n)}(x_i;\, g, m, \mu) = 0.\]
+<p><strong>Vertex correction and $g-2$.</strong> The one-loop vertex gives a finite correction to the magnetic form factor, $F_2(0) = \alpha/2\pi$ (Schwinger, 1948). This is the leading term of the anomalous magnetic moment $a = (g-2)/2$. The Ward-Takahashi identity implies $\delta_1 = \delta_2$, so charge renormalization comes only from $\delta_3$ (vacuum polarization). That is why electrons, muons and protons, despite very different interactions, carry exactly the same renormalized charge.</p>
 
-<p>This says: any explicit $\mu$-dependence must be compensated by the implicit $\mu$-dependence of the running coupling $g(\mu)$, running mass, and field rescaling. The three RG functions encode that compensation.</p>
+<h3 id="precision-status-2026">Precision status (2026)</h3>
 
-<h3 id="beta-function-and-anomalous-dimensions">Beta function and anomalous dimensions</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Quantity</th>
+      <th>Experiment</th>
+      <th>Theory</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Electron $a_e$</td>
+      <td>$g/2 = 1.001\,159\,652\,180\,59(13)$, 0.13 ppt (Northwestern, 2023)</td>
+      <td>QED through five loops (12,672 five-loop diagrams), plus small hadronic and electroweak terms</td>
+      <td>Agreement, limited by the input value of $\alpha$. The Cs (2018) and Rb (2020) atom-recoil measurements of $\alpha$ disagree by more than $5\sigma$.</td>
+    </tr>
+    <tr>
+      <td>Fine-structure constant</td>
+      <td>$\alpha^{-1} = 137.035\,999\,166(15)$ inferred from $a_e$ (2023)</td>
+      <td>not applicable</td>
+      <td>The most precise determination of $\alpha$, obtained by assuming QED is correct.</td>
+    </tr>
+    <tr>
+      <td>Muon $a_\mu$</td>
+      <td>127 ppb, Fermilab final result (June 2025)</td>
+      <td>$116\,592\,033(62)\times 10^{-11}$, Theory Initiative 2025 (lattice hadronic vacuum polarization)</td>
+      <td>Difference $38(63)\times 10^{-11}$: no significant tension. The lattice and $e^+e^-$ data-driven hadronic evaluations still disagree with each other.</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The <strong>beta function</strong> governs how the coupling runs with scale:</p>
+<h2 id="the-renormalization-group-equation">The Renormalization Group Equation</h2>
 
-\[\beta(g) = \mu \frac{dg}{d\mu}\bigg|_{g_0, m_0 \text{ fixed}}.\]
+<p>Because bare quantities do not know about $\mu$, renormalized Green’s functions must change with $\mu$ in a compensating way. For $G^{(n)} = \langle\phi\cdots\phi\rangle$ with $n$ renormalized fields, this is expressed by the <strong>renormalization group equation</strong> (the Callan-Symanzik equation in its modern, mass-independent form):</p>
 
-<p>The <strong>anomalous dimension</strong> of the field tracks how its normalization runs:</p>
+\[\left[\mu\frac{\partial}{\partial\mu} + \beta(g)\frac{\partial}{\partial g} + \gamma_m\,m\frac{\partial}{\partial m} + n\,\gamma_\phi\right]G^{(n)}(x_i;\,g, m, \mu) = 0,\]
 
-\[\gamma_\phi = \frac{\mu}{2 Z_\phi}\frac{dZ_\phi}{d\mu},\]
+<p>with</p>
 
-<p>with an analogous $\gamma_m$ for the mass. Integrating the beta function gives the running coupling:</p>
+\[\beta(g) = \mu\frac{dg}{d\mu}, \qquad \gamma_m = \frac{\mu}{m}\frac{dm}{d\mu}, \qquad \gamma_\phi = \frac{1}{2}\,\mu\frac{d\ln Z_\phi}{d\mu},\]
 
-\[g(\mu) = g(\mu_0) + \int_{\mu_0}^{\mu} \frac{\beta(g)}{\mu'}\, d\mu'.\]
+<p>where all derivatives are taken at fixed bare parameters. The <strong>beta function</strong> gives the running of the coupling. The <strong>anomalous dimension</strong> $\gamma_\phi$ shifts the scaling dimension of the field away from its classical value, so that at a fixed point $\langle\phi(x)\phi(0)\rangle \propto 1/\lvert x\rvert^{2(\Delta_0 + \gamma_\phi)}$. (Sign conventions for $\gamma_\phi$ and $\gamma_m$ differ between textbooks.)</p>
 
-<h3 id="fixed-points-and-the-flow">Fixed points and the flow</h3>
+<p>Solving the equation replaces $g$ by the <strong>running coupling</strong> $\bar g(\mu)$, defined by $d\bar g/d\ln\mu = \beta(\bar g)$. In practice this means choosing $\mu$ close to the physical scale $Q$ of the process, which prevents large logarithms $\ln(Q/\mu_0)$ from spoiling perturbation theory. For a gauge coupling at one loop, $\mu\,d\alpha/d\mu = -\frac{b_0}{2\pi}\alpha^2$, and the solution resums all leading logarithms:</p>
 
-<p>The sign of $\beta$ is everything. Zeros of the beta function, $\beta(g_*) = 0$, are <strong>fixed points</strong> where the theory becomes scale-invariant:</p>
+\[\alpha(\mu) = \frac{\alpha(\mu_0)}{1 + \dfrac{b_0}{2\pi}\,\alpha(\mu_0)\ln\dfrac{\mu}{\mu_0}}, \qquad b_0 = \frac{11}{3}C_A - \frac{4}{3}\sum_{\text{Dirac}}T_F - \frac{1}{3}\sum_{\text{complex scalars}}T_S.\]
+
+<p>Here $C_A$ is the adjoint Casimir ($N$ for $SU(N)$, 0 for $U(1)$) and $T$ is the index of each matter representation ($\tfrac{1}{2}$ for the fundamental of $SU(N)$, $Q^2$ for a $U(1)$ charge $Q$). The $\tfrac{11}{3}C_A$ term comes from gauge-boson self-interactions and is anti-screening. Matter fields screen.</p>
+
+<h3 id="one-loop-beta-functions">One-loop beta functions</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Theory</th>
+      <th>$\beta$ at one loop</th>
+      <th>Sign</th>
+      <th>Consequence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\phi^4$ in $d = 4$</td>
+      <td>$\dfrac{3\lambda^2}{16\pi^2}$</td>
+      <td>$+$</td>
+      <td>Landau pole; “trivial” as a continuum theory</td>
+    </tr>
+    <tr>
+      <td>QED (one Dirac fermion)</td>
+      <td>$\beta(e) = \dfrac{e^3}{12\pi^2}$, i.e. $b_0 = -\tfrac{4}{3}$</td>
+      <td>$+$</td>
+      <td>screening; Landau pole near $10^{277}$ GeV</td>
+    </tr>
+    <tr>
+      <td>$SU(N)$ Yang-Mills with $n_f$ fundamental Dirac fermions</td>
+      <td>$b_0 = \tfrac{11}{3}N - \tfrac{2}{3}n_f$</td>
+      <td>$-$ for $n_f &lt; \tfrac{11}{2}N$</td>
+      <td>asymptotic freedom</td>
+    </tr>
+    <tr>
+      <td>QCD ($N = 3$)</td>
+      <td>$b_0 = 11 - \tfrac{2}{3}n_f$</td>
+      <td>$-$ for $n_f \le 16$</td>
+      <td>asymptotic freedom, confinement in the IR</td>
+    </tr>
+    <tr>
+      <td>$\mathcal{N} = 4$ super-Yang-Mills</td>
+      <td>$\beta = 0$ to all orders</td>
+      <td>none</td>
+      <td>exactly conformal</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fixed-points-and-flows">Fixed points and flows</h3>
+
+<p>Zeros of the beta function, $\beta(g_\ast) = 0$, are <strong>fixed points</strong>, where the theory is scale invariant (and in practice conformally invariant). The sign of $\beta$ nearby determines the direction of the flow:</p>
 
 <ul>
-  <li>$\beta &lt; 0$ at small $g$ ⇒ the coupling shrinks at high energy ⇒ <strong>asymptotic freedom</strong> (QCD).</li>
-  <li>$\beta &gt; 0$ ⇒ the coupling grows at high energy, possibly hitting a <strong>Landau pole</strong> (QED, $\phi^4$).</li>
-  <li>A nontrivial UV fixed point $g_* \ne 0$ ⇒ <strong>asymptotic safety</strong>, a candidate UV completion (conjectured for gravity).</li>
+  <li><strong>Asymptotic freedom.</strong> $g_\ast = 0$ is approached in the UV ($\beta &lt; 0$ near zero). This is the behaviour of QCD and of non-abelian theories with few enough fermions.</li>
+  <li><strong>IR freedom, or triviality.</strong> $\beta &gt; 0$ near zero. The coupling vanishes in the IR and grows in the UV toward a Landau pole. This is the behaviour of QED and $\phi^4$ in four dimensions.</li>
+  <li><strong>Interacting fixed points.</strong> $g_\ast \ne 0$. In the IR, these are the critical points of statistical mechanics, such as the Wilson-Fisher point below, and the conformal window of gauge theories with many flavours (Banks-Zaks). In the UV, a non-trivial fixed point gives <strong>asymptotic safety</strong>, proposed as a UV completion of <a href="qft-frontiers.html#candidate-completions-and-constraints">gravity</a>.</li>
 </ul>
-
-<pre><code class="language-mermaid">graph LR
-    UV["High energy (UV)"] --&gt;|"QCD: alpha_s decreases"| AF["Asymptotic freedom"]
-    UV --&gt;|"QED: alpha grows"| LP["Landau pole"]
-    IR["Low energy (IR)"] --&gt;|"QCD: alpha_s grows"| CONF["Confinement"]
-    FP["beta(g*) = 0"] --&gt; SI["Scale invariance (fixed point)"]
-    style AF fill:#38ef7d,color:#222
-    style CONF fill:#11998e,color:#fff
-    style SI fill:#ccf,color:#222
-</code></pre>
 
 <h2 id="running-couplings-in-practice">Running Couplings in Practice</h2>
 
-<h3 id="qed-charge-that-grows-with-energy">QED: charge that grows with energy</h3>
+<h3 id="qed">QED</h3>
 
-<p>Vacuum polarization screens charge: virtual $e^+e^-$ pairs polarize the vacuum around a bare charge, so the effective charge you see <em>increases</em> as you probe closer (higher energy). The one-loop QED beta function is positive,</p>
+<p>From $1/\alpha(Q) = 1/\alpha(\mu) - \frac{2}{3\pi}\sum_f Q_f^2 N_c^f\ln(Q/\mu)$, including every charged fermion lighter than $Q$, the fine-structure constant rises from $\alpha(0) \approx 1/137.036$ to $\alpha(M_Z) \approx 1/128$. This rise was measured at LEP. The hadronic part of the running cannot be computed perturbatively. It is taken from $e^+e^- \to$ hadrons data, the same input that enters the muon $g-2$. For a single electron the one-loop Landau pole lies at $m_e\,e^{3\pi/2\alpha} \sim 10^{277}$ GeV. That is far beyond the Planck scale, so in practice QED is part of the electroweak theory long before the pole matters.</p>
 
-\[\beta(e) = \frac{e^3}{12\pi^2} + O(e^5),\]
+<h3 id="qcd">QCD</h3>
 
-<p>equivalently for $\alpha = e^2/4\pi$,</p>
+\[\alpha_s(Q^2) = \frac{\alpha_s(\mu^2)}{1 + \dfrac{b_0}{4\pi}\,\alpha_s(\mu^2)\ln\dfrac{Q^2}{\mu^2}} = \frac{4\pi}{b_0\ln\left(Q^2/\Lambda_{\text{QCD}}^2\right)}, \qquad b_0 = 11 - \frac{2}{3}n_f.\]
 
-\[\frac{1}{\alpha(Q)} = \frac{1}{\alpha(\mu)} - \frac{1}{3\pi}\ln\frac{Q^2}{\mu^2}.\]
+<p>The second form shows <strong>dimensional transmutation</strong>. Classical massless QCD has no scale, but the quantum theory generates one, $\Lambda_{\text{QCD}}$, which is a few hundred MeV (about 0.2 GeV for five flavours in $\overline{\text{MS}}$). Almost all of the mass of ordinary matter (proton and neutron masses) comes from this scale and not from the Higgs mechanism. At short distances $\alpha_s \to 0$. This <strong>asymptotic freedom</strong> (Gross, Wilczek and Politzer, 1973; Nobel Prize 2004) explains the nearly free quarks seen in deep inelastic scattering. At long distances the coupling becomes strong and quarks are confined. Confinement shows up as a linear potential $V(r) \approx \sigma r$, with string tension $\sigma \approx (0.44\ \text{GeV})^2$ from lattice QCD. It has not been derived analytically; proving a mass gap in Yang-Mills theory is one of the Clay Millennium Prize problems.</p>
 
-<p>So $\alpha \approx 1/137$ at low energy grows to $\approx 1/128$ at the $Z$ pole ($Q = M_Z$), a measured effect. Extrapolated naively, $1/\alpha$ hits zero at the <strong>Landau pole</strong> — a sign QED is incomplete in isolation (it is, of course, embedded in the electroweak theory long before then).</p>
-
-<h3 id="qcd-asymptotic-freedom-and-confinement">QCD: asymptotic freedom and confinement</h3>
-
-<p>Non-abelian gauge theories have an extra ingredient: gluons carry color and <em>anti</em>-screen the charge. When anti-screening wins, the beta function turns negative. The running of the strong coupling is</p>
-
-\[\alpha_s(Q^2) = \frac{\alpha_s(\mu^2)}{1 + \dfrac{\alpha_s(\mu^2)}{4\pi}\,\beta_0 \ln\!\big(Q^2/\mu^2\big)},\]
-
-<p>with one-loop coefficient</p>
-
-\[\beta_0 = 11 - \frac{2}{3}\,n_f,\]
-
-<p>where $n_f$ is the number of active quark flavors. For $n_f \le 16$ we have $\beta_0 &gt; 0$, so $\alpha_s \to 0$ as $Q \to \infty$: <strong>asymptotic freedom</strong>, the 2004 Nobel discovery of Gross, Wilczek, and Politzer. Quarks behave almost freely at short distances (deep inelastic scattering) but the coupling blows up at low energy near the scale $\Lambda_{\text{QCD}} \approx 0.2$ GeV, driving <strong>confinement</strong> — the potential between a quark and antiquark grows linearly,</p>
-
-\[V(r) \approx k\,r,\]
-
-<p>so an infinite energy would be needed to separate them. The “11” comes from the gluon self-interaction (the non-abelian heart of QCD); the “$-2n_f/3$” is ordinary fermion screening as in QED. Anti-screening wins.</p>
+<p>The QCD beta function is known to five loops (2016-2017). The world average in the 2025 PDG review is $\alpha_s(M_Z) = 0.1180 \pm 0.0009$, with lattice QCD the single most precise input.</p>
 
 <h3 id="coupling-unification">Coupling unification</h3>
 
-<p>Run all three Standard Model gauge couplings up together and the screening/anti-screening rates make them converge toward a common value near $10^{16}$ GeV — strikingly close in the supersymmetric Standard Model. This near-meeting is one of the central hints for <strong>grand unification</strong> and is a direct, quantitative payoff of the renormalization group.</p>
+<p>With the three gauge couplings in GUT normalization, running them upward brings them close together near $10^{15}$-$10^{16}$ GeV. In the Standard Model alone they do not meet at a single point. In the minimal supersymmetric Standard Model they meet near $2\times 10^{16}$ GeV to within uncertainties. This near-meeting is a quantitative hint of grand unification. Current proton-decay limits and the LHC’s failure so far to find superpartners constrain the simplest versions.</p>
+
+<h2 id="the-wilsonian-renormalization-group">The Wilsonian Renormalization Group</h2>
+
+<p>Wilson (Nobel Prize 1982) gave renormalization a physical interpretation that does not rely on infinities. Suppose the theory is defined with a cutoff $\Lambda$. To describe physics at lower energies:</p>
+
+<ol>
+  <li><strong>Coarse-grain.</strong> Split the field into slow and fast modes, $\phi = \phi_&lt; + \phi_&gt;$, where $\phi_&gt;$ contains the momenta $\Lambda/b &lt; \lvert k\rvert &lt; \Lambda$. Integrate out $\phi_&gt;$ in the path integral. The result is a new action for $\phi_&lt;$ that contains every interaction allowed by symmetry.</li>
+  <li><strong>Rescale.</strong> Rescale momenta by $k \to bk$ and the fields to restore the original cutoff and kinetic term.</li>
+  <li><strong>Repeat.</strong> Each step maps the couplings to new values, ${g_i} \to {g_i’}$. Repeating the step generates a flow in the space of all possible theories.</li>
+</ol>
+
+<p>Near a fixed point, an operator with scaling dimension $\Delta_i$ has a coupling that scales as $g_i \to b^{\,d - \Delta_i}\,g_i$. <strong>Relevant</strong> operators ($\Delta_i &lt; d$) grow under the flow, and a finite number of them must be tuned to reach the critical point. <strong>Irrelevant</strong> operators ($\Delta_i &gt; d$) shrink and are forgotten. Many different microscopic theories therefore flow to the same long-distance theory. This is <strong>universality</strong>: water at its critical point and a uniaxial magnet have the same critical exponents because they flow to the same fixed point.</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 520 250" role="img" aria-labelledby="renorm-wf-title" style="max-width:520px;width:100%;color:inherit;">
+<title id="renorm-wf-title">Beta function of phi^4 theory in 4 - epsilon dimensions: negative between the Gaussian fixed point at zero and the Wilson-Fisher fixed point, positive beyond it. Flow toward the infrared converges on the Wilson-Fisher point from both sides.</title>
+<defs><marker id="renorm-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="currentColor" /></marker></defs>
+<g stroke="currentColor" fill="none">
+<line x1="40" y1="130" x2="470" y2="130" stroke-width="1" opacity="0.6" marker-end="url(#renorm-arr)" />
+<line x1="60" y1="235" x2="60" y2="15" stroke-width="1" opacity="0.6" marker-end="url(#renorm-arr)" />
+<path d="M60,130 Q220,290 380,23.3" stroke-width="2.2" />
+<line x1="95" y1="150" x2="245" y2="150" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#renorm-arr)" />
+<line x1="440" y1="150" x2="330" y2="150" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#renorm-arr)" />
+</g>
+<circle cx="60" cy="130" r="5" fill="none" stroke="currentColor" stroke-width="2" />
+<circle cx="300" cy="130" r="5" fill="currentColor" />
+<g fill="currentColor" font-size="13" font-family="sans-serif">
+<text x="470" y="122" text-anchor="end">λ</text>
+<text x="68" y="24">β(λ)</text>
+<text x="66" y="118">Gaussian</text>
+<text x="300" y="118" text-anchor="middle">Wilson–Fisher λ*</text>
+<text x="170" y="170" text-anchor="middle" font-size="12">IR flow</text>
+<text x="390" y="170" text-anchor="middle" font-size="12">IR flow</text>
+<text x="250" y="232" text-anchor="middle" font-size="12">β(λ) = −ελ + 3λ²/16π²  in d = 4 − ε</text>
+</g>
+</svg>
+<figcaption>In $d = 4 - \epsilon$ dimensions the $\phi^4$ beta function acquires a classical term $-\epsilon\lambda$. The Gaussian fixed point $\lambda = 0$ becomes IR-unstable, and couplings flow at long distances to the interacting Wilson-Fisher fixed point, which describes the Ising critical point.</figcaption>
+</figure>
+
+<p><strong>The Wilson-Fisher fixed point.</strong> Below four dimensions $\lambda$ has positive mass dimension, and the dimensionless coupling obeys $\beta = -\epsilon\lambda + 3\lambda^2/16\pi^2$. This has a non-trivial IR fixed point at $\lambda_\ast = 16\pi^2\epsilon/3$. Expanding around it gives critical exponents as series in $\epsilon$, for example $\nu = \tfrac12 + \tfrac{\epsilon}{12} + O(\epsilon^2)$ for the Ising class. The $\epsilon$-expansion is now known to high order. Setting $\epsilon = 1$ and resumming gives $\nu \approx 0.630$ for the 3D Ising model, which agrees with Monte Carlo and with the numerical conformal bootstrap. The bootstrap currently gives the most precise values ($\nu = 0.62997$, $\eta = 0.0363$).</p>
+
+<p><strong>Exact (functional) RG.</strong> Polchinski’s equation (1984) and Wetterich’s equation (1993) turn Wilson’s step into a differential equation for the full effective action. Wetterich’s version for the scale-dependent effective action $\Gamma_k$, with infrared regulator $R_k$, is</p>
+
+\[\partial_t\Gamma_k = \frac{1}{2}\,\mathrm{Tr}\left[\left(\Gamma_k^{(2)} + R_k\right)^{-1}\partial_t R_k\right], \qquad t = \ln k.\]
+
+<p>It is exact but has to be truncated in practice. It is the main tool of the asymptotic-safety program and is widely used in condensed matter.</p>
+
+<p>In this language, the continuum limit of a QFT is a flow that starts arbitrarily close to a UV fixed point, and “renormalizable” means the flow is controlled by a fixed point with finitely many relevant directions. The same mathematics governs <a href="statistical-mechanics/phase-transitions-and-advanced.html">phase transitions and critical phenomena</a> and <a href="condensed-matter/">condensed-matter systems</a>, where Wilson first developed it.</p>
 
 <h2 id="effective-field-theory-the-modern-viewpoint">Effective Field Theory: The Modern Viewpoint</h2>
 
-<p>Wilson’s reframing turned renormalization from an embarrassing infinity-removal trick into the organizing principle of physics. The idea: you never need the theory at infinitely high energy. You need it only up to some cutoff $\Lambda$, above which new physics (heavier particles, finer structure) takes over. <strong>Integrate out</strong> everything heavier than $\Lambda$ and you are left with an effective Lagrangian for the light fields,</p>
+<p>The Wilsonian flow shows that a quantum field theory never has to be valid at arbitrarily high energy. It only has to describe physics below some scale $\Lambda$ where new degrees of freedom appear. Integrating out everything above $\Lambda$ leaves</p>
 
-\[\mathcal{L}_{\text{eff}} = \mathcal{L}_{\text{renormalizable}} + \sum_i \frac{c_i}{\Lambda^{n_i}}\, \mathcal{O}_i,\]
+\[\mathcal{L}_{\text{eff}} = \mathcal{L}_{d \le 4} + \sum_i\frac{c_i}{\Lambda^{d_i - 4}}\,\mathcal{O}_i,\]
 
-<p>an infinite tower of operators $\mathcal{O}_i$ of increasing mass dimension, suppressed by powers of $1/\Lambda$.</p>
+<p>an infinite set of operators $\mathcal{O}_i$ of dimension $d_i$ with dimensionless Wilson coefficients $c_i$.</p>
 
-<div class="principle-card">
-  <h4>Why nature looks renormalizable</h4>
-  <p>At an energy $E \ll \Lambda$, each higher-dimension operator contributes a factor $(E/\Lambda)^{n_i}$ — these are the <em>irrelevant</em> operators, and they are tiny. What survives at low energy are precisely the relevant and marginal operators: the renormalizable interactions. So renormalizability is not a deep law imposed on nature; it is an automatic consequence of looking at physics from far below the scale of whatever completes it. The Standard Model is best read this way: a renormalizable EFT whose tiny non-renormalizable corrections (neutrino masses via the dimension-5 Weinberg operator, proton decay via dimension-6 operators) are our windows onto the next scale $\Lambda$.</p>
-</div>
+<p><strong>Why nature looks renormalizable.</strong> At energy $E \ll \Lambda$, an operator of dimension $d_i &gt; 4$ contributes at relative order $(E/\Lambda)^{d_i - 4}$. At low energies only the relevant and marginal interactions are visible, and these are exactly the renormalizable ones. Renormalizability is therefore not a law of nature. It is what any theory looks like when observed far below the scale of its UV completion. The <strong>decoupling theorem</strong> (Appelquist-Carazzone, 1975) makes this precise for heavy particles: their effects are either absorbed into renormalized low-energy couplings or suppressed by powers of $1/M$.</p>
 
-<h3 id="the-eft-recipe">The EFT recipe</h3>
+<p><strong>Non-renormalizable interactions point to new scales.</strong> Fermi’s $G_F \approx 1.17\times 10^{-5}\ \text{GeV}^{-2}$ pointed to $m_W$. Newton’s $G_N = 1/M_{\text{Pl}}^2$ points to quantum gravity near $10^{19}$ GeV. The Weinberg operator $(LH)(LH)/\Lambda$, the leading dimension-5 correction to the Standard Model, gives neutrino masses $m_\nu \sim v^2/\Lambda$. Observed masses below about 0.1 eV correspond to $\Lambda \sim 10^{14}$-$10^{15}$ GeV, a hint of a seesaw scale. Dimension-6 operators mediate proton decay and are probed in SMEFT fits at the LHC.</p>
 
-<ol>
-  <li><strong>Identify the scales.</strong> Light fields below $\Lambda$, heavy physics above.</li>
-  <li><strong>Write every operator</strong> consistent with the symmetries, organized by mass dimension.</li>
-  <li><strong>Match</strong> the Wilson coefficients $c_i$ to the full theory (or measure them).</li>
-  <li><strong>Run</strong> them with the RG down to the energy of interest, resumming large logarithms.</li>
-  <li><strong>Predict</strong>, with errors controlled by the neglected $(E/\Lambda)^{n}$ terms.</li>
-</ol>
+<p><strong>Non-renormalizable theories are predictive at low energy.</strong> General relativity quantized as an EFT gives a calculable, finite one-loop quantum correction to the Newtonian potential. It is a genuine prediction, although far too small to measure. The practical steps (matching, running and power counting), the worked Fermi-theory example, and a catalogue of the effective theories in use are on the <a href="qft-methods.html#effective-field-theory-in-practice">methods page</a>.</p>
 
-<h3 id="worked-examples-of-efts">Worked examples of EFTs</h3>
+<h2 id="open-problems">Open Problems</h2>
 
 <ul>
-  <li><strong>Fermi theory of weak decays.</strong> Before the $W$ boson was known, $\beta$ decay was described by a four-fermion contact interaction with coupling $G_F \sim 1/\Lambda^2$. The non-renormalizable $G_F$ was a <em>signal</em>: $\Lambda \sim m_W$ was the scale of the missing physics. Integrating out the heavy $W$ from the Standard Model reproduces Fermi theory exactly, with $G_F/\sqrt{2} = g^2/(8 m_W^2)$.</li>
-  <li><strong>Chiral perturbation theory.</strong> The EFT of pions as the (pseudo-)Goldstone bosons of broken chiral symmetry, valid below $\Lambda_\chi \sim 1$ GeV — QCD’s low-energy face.</li>
-  <li><strong>Heavy quark effective theory (HQET).</strong> Expands in $1/m_Q$ for $b$ and $c$ quarks, exploiting their near-static heavy core.</li>
-  <li><strong>The Standard Model itself</strong>, viewed as an EFT whose leading irrelevant operators (Weinberg dimension-5 for neutrino mass) point toward new high-scale physics.</li>
-</ul>
-
-<h2 id="open-questions-and-connections">Open Questions and Connections</h2>
-
-<ol>
-  <li><strong>Hierarchy problem.</strong> The Higgs mass receives quadratically divergent corrections $\sim \Lambda^2$. If $\Lambda$ is near the Planck scale, why is the Higgs so light? Supersymmetry, compositeness, and naturalness arguments all respond to this RG puzzle.</li>
-  <li><strong>Triviality.</strong> Pure $\phi^4$ and QED appear to have Landau poles, suggesting they may only exist as effective theories with a finite cutoff.</li>
-  <li><strong>Asymptotic safety.</strong> Could gravity be UV-complete via a nontrivial fixed point of the gravitational RG flow?</li>
-  <li><strong>Strong CP and the running $\theta$ angle</strong>, and the precise value of $\alpha_s(M_Z)$ from multi-loop QCD.</li>
-</ol>
-
-<p>The renormalization group also reaches far beyond particle physics: it is the same mathematics that governs critical phenomena and phase transitions in <a href="statistical-mechanics/">statistical mechanics</a> and <a href="condensed-matter/">condensed matter</a>, where Wilson’s ideas were forged. Universality — the fact that wildly different microscopic systems share critical exponents — is RG fixed-point physics.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Divergences are about high energy.</strong> Loop integrals over arbitrarily energetic virtual particles produce UV infinities; power counting predicts which diagrams diverge and how badly.</li>
-  <li><strong>Regularization, then renormalization.</strong> A regulator (cutoff, Pauli–Villars, or dimensional) makes integrals finite; counterterms absorb the divergences into bare parameters we never measure.</li>
-  <li><strong>Schemes differ, physics doesn’t.</strong> On-shell, MS, and $\overline{\text{MS}}$ define renormalized parameters differently but agree on every observable.</li>
-  <li><strong>Couplings run.</strong> The beta function makes couplings scale-dependent: QED grows toward the UV (Landau pole), QCD shrinks (asymptotic freedom) and confines in the IR.</li>
-  <li><strong>The RG is invariance under rescaling.</strong> The Callan–Symanzik equation enforces independence from the arbitrary scale $\mu$; fixed points are scale-invariant theories.</li>
-  <li><strong>Renormalizability is emergent.</strong> In the Wilsonian/EFT picture, irrelevant operators die as $(E/\Lambda)^n$ — so low-energy physics automatically looks renormalizable.</li>
+  <li><strong>Hierarchy problem.</strong> Scalar masses are not protected by any symmetry, so the Higgs mass parameter receives corrections of order the heaviest scale it couples to. With a cutoff, the top-quark loop alone gives $\delta m_H^2 \approx -\frac{3y_t^2}{8\pi^2}\Lambda^2$. If $\Lambda$ is near the Planck or GUT scale, a Higgs at 125 GeV requires tuning to many decimal places. Proposed solutions include supersymmetry, compositeness, extra dimensions, and cosmological relaxation of the Higgs mass. Anthropic selection is also invoked. None has been confirmed, and LHC null results have pushed natural solutions into increasingly tuned corners.</li>
+  <li><strong>Cosmological constant problem.</strong> Vacuum energy is the most relevant operator of all, of dimension 0. Naive estimates of its size exceed the observed dark-energy density by roughly 60 to 120 orders of magnitude, depending on the cutoff assumed.</li>
+  <li><strong>Triviality.</strong> $\phi^4$ theory in four dimensions has no interacting continuum limit. Aizenman and Duminil-Copin proved this rigorously for the Ising-type lattice scalar field in 2021. QED is expected to behave the same way. Both make sense only as effective theories with a finite cutoff. The Higgs sector inherits this, which gives upper bounds on the Higgs mass as a function of the cutoff.</li>
+  <li><strong>Asymptotic safety of gravity.</strong> Functional RG truncations consistently find a non-trivial UV fixed point for gravity, but control of the truncations and unitarity in Lorentzian signature are still open questions.</li>
+  <li><strong>Mathematical foundations.</strong> No interacting QFT in four dimensions has been constructed rigorously. The Yang-Mills existence and mass-gap problem remains open.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="quantum-field-theory.html">Quantum Field Theory</a> — the full framework: fields, gauge symmetry, the Standard Model, and path integrals.</li>
-  <li><a href="quantum-mechanics/">Quantum Mechanics</a> — the non-relativistic foundation that QFT generalizes.</li>
-  <li><a href="statistical-mechanics/">Statistical Mechanics</a> — critical phenomena and the origin of Wilson’s renormalization group.</li>
-  <li><a href="condensed-matter/">Condensed Matter Physics</a> — universality and RG flows in many-body systems.</li>
-  <li><a href="string-theory/">String Theory</a> — one proposed UV completion that sidesteps QFT’s infinities.</li>
-  <li><a href="index.html">Physics Hub</a> — browse all physics topics.</li>
+  <li><a href="quantum-field-theory.html">Quantum Field Theory</a>: the overview hub and reading order.</li>
+  <li><a href="qft-methods.html">Path Integrals &amp; Methods</a>: Feynman rules, loop techniques and EFT matching in practice.</li>
+  <li><a href="gauge-and-standard-model.html">Gauge Theories &amp; the Standard Model</a>: the theories whose couplings run, including asymptotic freedom in QCD.</li>
+  <li><a href="qft-frontiers.html">QFT: Modern Frontiers</a>: anomalies, asymptotic safety and gravity as an EFT.</li>
+  <li><a href="statistical-mechanics/phase-transitions-and-advanced.html">Statistical Mechanics: Phase Transitions</a>: critical phenomena and universality, where Wilson’s RG began.</li>
+  <li><a href="condensed-matter/">Condensed Matter Physics</a>: RG flows in many-body systems.</li>
+  <li><a href="string-theory/">String Theory</a>: a UV completion in which the loop divergences of gravity do not arise.</li>
+  <li><a href="index.html">Physics Hub</a>: all physics topics.</li>
 </ul>
 
       </section>

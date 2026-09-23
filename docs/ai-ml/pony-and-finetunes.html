@@ -3133,21 +3133,11 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI/ML Documentation</a> » <a href="base-models-comparison.html">Base Models Comparison</a> » Pony &amp; Community Fine-Tunes</p>
 
-<p>A deep dive into the most popular community fine-tunes of SDXL — Pony Diffusion, Illustrious, NoobAI, and Animagine — including the <code class="language-plaintext highlighter-rouge">score_*</code> scoring system, danbooru tag conventions, and a decision guide for choosing a fine-tune over a stock base model.</p>
+<p>The most widely used stylized-art checkpoints are not base models but <strong>community fine-tunes of SDXL</strong>: Pony Diffusion V6 XL, Illustrious XL, NoobAI XL, and Animagine XL. They share SDXL’s architecture and add-on ecosystem but each expects its own prompting dialect. This page covers what fine-tuning changes, each family’s tag conventions and recommended settings, how the families relate, and when to choose one over a base model. It also notes the 2025-2026 move of some of these projects off SDXL, such as Pony V7 on AuraFlow.</p>
 
 <h2 id="fine-tunes-vs-base-models">Fine-Tunes vs. Base Models</h2>
 
-<p>A <strong>base model</strong> (sometimes called a <em>foundation</em> checkpoint) is trained from scratch or near-scratch by a well-resourced lab on a broad, general dataset — SD 1.5, SDXL, SD3, and FLUX are all base models. A <strong>fine-tune</strong> takes one of those base checkpoints and continues training it on a narrower, curated dataset to push the model toward a particular domain, aesthetic, or prompting convention.</p>
-
-<p>Pony Diffusion and its peers are all <strong>fine-tunes of SDXL</strong>. That single fact carries enormous practical consequences: because the underlying architecture, VAE, and latent space are unchanged, every Pony-family model shares SDXL’s LoRAs, ControlNets, IP-Adapters, and tooling. You are not adopting a new ecosystem — you are adopting a new <em>dialect</em> of prompting on top of one you already have.</p>
-
-<ul>
-  <li><strong>Same Engine, New Dialect.</strong> Pony, Illustrious, and NoobAI are SDXL underneath — they share its LoRAs and ControlNets but expect very different prompts.</li>
-  <li><strong>Quality as a Tag.</strong> Pony bakes a learned quality ladder (<code class="language-plaintext highlighter-rouge">score_9</code> … <code class="language-plaintext highlighter-rouge">score_4</code>) into the prompt; you steer aesthetics by naming a rating.</li>
-  <li><strong>Booru Tagging.</strong> These models think in danbooru tags, not sentences. Tag order, underscores, and known character names matter.</li>
-</ul>
-
-<h3 id="what-fine-tuning-changes-and-what-it-doesnt">What Fine-Tuning Changes (and What It Doesn’t)</h3>
+<p>A <strong>base model</strong> is trained from scratch (or near it) by a well-resourced lab on a broad dataset: SD 1.5, SDXL, SD3.5, and FLUX are base models. A <strong>fine-tune</strong> continues training a base checkpoint on a narrower, curated dataset to shift its domain, default aesthetic, and prompting convention. The large anime fine-tunes are unusually heavy: millions of images and hundreds to thousands of GPU-hours. That is enough to overwrite much of SDXL’s prior, but the architecture is untouched.</p>
 
 <table>
   <thead>
@@ -3158,37 +3148,65 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>Architecture (enlarged U-Net, dual text encoders)</td>
-      <td>Aesthetic “default look” and bias</td>
+      <td>U-Net architecture, dual CLIP text encoders</td>
+      <td>Default look and content bias</td>
     </tr>
     <tr>
-      <td>Latent space / VAE compatibility</td>
-      <td>Vocabulary the model responds to (tags, characters)</td>
+      <td>VAE and latent space</td>
+      <td>Vocabulary (booru tags, character and artist names)</td>
     </tr>
     <tr>
-      <td>LoRA, ControlNet, IP-Adapter compatibility</td>
-      <td>Prompting convention (e.g. <code class="language-plaintext highlighter-rouge">score_*</code> prefixes)</td>
+      <td>ControlNet / IP-Adapter compatibility</td>
+      <td>Prompting convention (score, quality, date tags)</td>
     </tr>
     <tr>
-      <td>Native 1024×1024 resolution</td>
-      <td>Content distribution (anime/furry vs. photo)</td>
+      <td>~1 MP native resolution and aspect buckets</td>
+      <td>Recommended CFG, sampler, and CLIP skip</td>
     </tr>
     <tr>
-      <td>Sampler/scheduler behavior</td>
-      <td>Recommended CFG and CLIP-skip values</td>
+      <td>Attention-weighting syntax <code class="language-plaintext highlighter-rouge">(tag:1.2)</code></td>
+      <td>Sometimes the <strong>prediction type</strong> (eps vs. v-prediction)</td>
     </tr>
   </tbody>
 </table>
 
-<p>Because the latent space is preserved, you can mix and match: an SDXL LoRA trained on the stock base will <em>usually</em> work on Pony, though the result is often slightly off-aesthetic because the fine-tune shifted the model’s priors. LoRAs trained <strong>on Pony itself</strong> are the safe choice for Pony, and similarly for Illustrious/NoobAI.</p>
+<p>The last row is a newer wrinkle. Some recent fine-tunes (NoobAI V-Pred, some Illustrious releases) were converted to <strong>v-prediction with zero-terminal-SNR</strong>, which fixes SDXL’s inability to produce truly dark or truly bright images but requires matching sampler settings. Loading a v-pred checkpoint as a normal eps model produces washed-out, noisy output.</p>
+
+<p>Because the latent space is shared, SDXL add-ons <em>load</em> on any fine-tune. Whether they <em>look right</em> depends on how far the fine-tune has drifted, which is why LoRAs are usually trained per family (see <a href="#cross-compatibility">Cross-Compatibility</a>).</p>
+
+<h2 id="booru-tag-conventions">Booru Tag Conventions</h2>
+
+<p>All four families learned their vocabulary from <strong>Danbooru-style image boards</strong> (plus e621 for Pony and NoobAI), so tag-based prompting is the core skill. Base SDXL and FLUX, by contrast, respond best to sentences.</p>
+
+<h3 id="tag-syntax">Tag Syntax</h3>
+
+<ul>
+  <li><strong>Spaces, not underscores.</strong> Booru tags are stored as <code class="language-plaintext highlighter-rouge">long_hair</code>, but these models were trained with underscores converted to spaces, so write <code class="language-plaintext highlighter-rouge">long hair</code>. Most UIs do <em>not</em> convert between the two for you, and an underscore splits differently in the CLIP tokenizer. Short tags like <code class="language-plaintext highlighter-rouge">1girl</code> are written as-is.</li>
+  <li><strong>Escape parentheses.</strong> Qualified tags such as <code class="language-plaintext highlighter-rouge">hatsune miku \(cosplay\)</code> or <code class="language-plaintext highlighter-rouge">horror \(theme\)</code> need backslash-escaped parentheses, because bare parentheses are attention-weighting syntax in A1111/Forge/ComfyUI.</li>
+  <li><strong>Count tags anchor composition.</strong> <code class="language-plaintext highlighter-rouge">1girl</code>, <code class="language-plaintext highlighter-rouge">2girls</code>, <code class="language-plaintext highlighter-rouge">1boy</code>, <code class="language-plaintext highlighter-rouge">solo</code>, <code class="language-plaintext highlighter-rouge">multiple girls</code>, <code class="language-plaintext highlighter-rouge">no humans</code>.</li>
+  <li><strong>Character and series tags.</strong> Named characters use the booru form <code class="language-plaintext highlighter-rouge">name \(series\)</code> plus a separate series tag. A known tag recalls the canonical design far more reliably than a description.</li>
+  <li><strong>Artist tags</strong> act as strong style controls on Illustrious and NoobAI (NoobAI’s card uses the form <code class="language-plaintext highlighter-rouge">artist:name</code>). Pony V6 deliberately obfuscated artist names during training, so they have little effect there.</li>
+  <li><strong>Attention weighting</strong> is standard SDXL syntax: <code class="language-plaintext highlighter-rouge">(twintails:1.2)</code> strengthens a tag and <code class="language-plaintext highlighter-rouge">(background:0.8)</code> weakens it.</li>
+</ul>
+
+<h3 id="tag-order">Tag Order</h3>
+
+<p>CLIP gives earlier tokens somewhat more influence, and most of these datasets were captioned in a fixed order. Match that order:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["Quality / score&lt;br/&gt;(Pony: prefix)"] --&gt; B["Count&lt;br/&gt;1girl, solo"]
+    B --&gt; C["Character,&lt;br/&gt;series"]
+    C --&gt; D["Artist /&lt;br/&gt;style"]
+    D --&gt; E["Rating"]
+    E --&gt; F["General tags:&lt;br/&gt;appearance, clothing,&lt;br/&gt;pose, setting"]
+    F --&gt; G["Quality suffix&lt;br/&gt;(Animagine)"]
+</code></pre>
+
+<p>Where the quality tags go differs by family: Pony wants its score string first, while Animagine 4.0 was trained with quality tags at the <em>end</em>.</p>
 
 <h2 id="pony-diffusion-v6-xl">Pony Diffusion V6 XL</h2>
 
-<h3 id="overview">Overview</h3>
-
-<p>Pony Diffusion V6 XL (commonly just “Pony” or “PDXL”) is the most influential SDXL fine-tune for anime, cartoon, and furry content. It was trained on a large, heavily curated booru-style dataset with a custom aesthetic-scoring pipeline, and it reshaped how a generation of users prompt for stylized art.</p>
-
-<h3 id="technical-profile">Technical Profile</h3>
+<p>Pony Diffusion V6 XL (PDXL), released by PurpleSmartAI in early 2024, is the most influential SDXL fine-tune for anime, cartoon, furry, and pony content. Its LoRA library on Civitai is still one of the largest for any checkpoint.</p>
 
 <table>
   <thead>
@@ -3200,60 +3218,45 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td>Base</td>
-      <td>SDXL (a fine-tune, not a from-scratch model)</td>
-    </tr>
-    <tr>
-      <td>Specialization</td>
-      <td>Anime / cartoon / furry</td>
+      <td>SDXL 1.0</td>
     </tr>
     <tr>
       <td>Training data</td>
-      <td>Curated booru datasets with aesthetic scoring</td>
+      <td>~2.6M images, balanced roughly 1:1 across anime / cartoon / furry / pony sources and across safe / questionable / explicit ratings</td>
+    </tr>
+    <tr>
+      <td>Captions</td>
+      <td>Booru tags; about half the images also have natural-language captions</td>
     </tr>
     <tr>
       <td>Prompt system</td>
-      <td><code class="language-plaintext highlighter-rouge">score_*</code> quality tags + danbooru tags</td>
+      <td><code class="language-plaintext highlighter-rouge">score_*</code> aesthetic tags + <code class="language-plaintext highlighter-rouge">source_*</code> + <code class="language-plaintext highlighter-rouge">rating_*</code></td>
     </tr>
     <tr>
-      <td>Native resolution</td>
-      <td>1024×1024</td>
+      <td>CLIP skip</td>
+      <td><strong>2</strong> (required for good output)</td>
     </tr>
     <tr>
-      <td>File size</td>
-      <td>~6.5 GB</td>
-    </tr>
-    <tr>
-      <td>Ecosystem</td>
-      <td>Full SDXL LoRA / ControlNet compatibility</td>
+      <td>License</td>
+      <td>Custom Pony license: generated images may be used commercially; commercial hosting of the model is restricted</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="the-score_-scoring-system">The <code class="language-plaintext highlighter-rouge">score_*</code> Scoring System</h3>
+<h3 id="the-score_-system">The <code class="language-plaintext highlighter-rouge">score_*</code> System</h3>
 
-<p>Pony’s defining quirk is <strong>score-based prompting</strong>. During training, every image was assigned an aesthetic rating, and that rating was injected into the caption as a <code class="language-plaintext highlighter-rouge">score_N</code> tag. The model therefore learned to associate the literal strings <code class="language-plaintext highlighter-rouge">score_9</code>, <code class="language-plaintext highlighter-rouge">score_8_up</code>, and so on with quality tiers. At inference time you <em>prepend</em> these tags to steer the model toward (or away from) higher-rated output.</p>
+<p>Every training image was rated by an aesthetic classifier trained on human preference data, and the rating was written into the caption. At inference you prepend the score tags to request high-rated output.</p>
 
-<p>The scale runs from <code class="language-plaintext highlighter-rouge">score_9</code> (the highest tier) down to <code class="language-plaintext highlighter-rouge">score_4</code> and below. Two related tag forms exist:</p>
+<p>The model author’s recommended prefix is the <strong>full string</strong>:</p>
 
-<ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">score_N</code></strong> — names a single tier (e.g. <code class="language-plaintext highlighter-rouge">score_9</code> = the top bucket).</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">score_N_up</code></strong> — names that tier <em>and everything above it</em> (e.g. <code class="language-plaintext highlighter-rouge">score_7_up</code> = tiers 7, 8, and 9).</li>
-</ul>
-
-<p>In practice the community converged on a “quality stack” prefix that lists several <code class="language-plaintext highlighter-rouge">_up</code> tags together, which empirically produces the cleanest output:</p>
-
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>score_9, score_8_up, score_7_up
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>score_9, score_8_up, score_7_up, score_6_up, score_5_up, score_4_up
 </code></pre></div></div>
 
-<p>This is not redundant superstition in the way SD 1.5’s <code class="language-plaintext highlighter-rouge">masterpiece, best quality</code> spam often was — the tags were genuinely present in Pony’s training captions, so they carry real signal. The leading <code class="language-plaintext highlighter-rouge">score_*</code> tags act as a <strong>quality dial</strong>: include high tiers in the positive prompt, and push low tiers (<code class="language-plaintext highlighter-rouge">score_4</code>, <code class="language-plaintext highlighter-rouge">score_5</code>, <code class="language-plaintext highlighter-rouge">score_6</code>) into the <strong>negative</strong> prompt to suppress low-rated aesthetics.</p>
+<p>This looks redundant, but it reflects how captions were written during training: the high-score captions contained that whole sequence, so it is the string the model actually associated with quality. <code class="language-plaintext highlighter-rouge">score_9</code> alone works but has a weaker effect. Many users shorten it to <code class="language-plaintext highlighter-rouge">score_9, score_8_up, score_7_up</code>, which is usually close enough.</p>
 
-<blockquote>
-  <p><strong>Why three tags and not one?</strong> Each tier was a slightly different slice of the data. Stacking <code class="language-plaintext highlighter-rouge">score_9, score_8_up, score_7_up</code> blends the top buckets and avoids over-committing to the narrow, sometimes-overcooked <code class="language-plaintext highlighter-rouge">score_9</code>-only look. Treat it as the default and adjust to taste.</p>
-</blockquote>
+<p>Pony’s card also notes that negative prompts are rarely needed and that generic quality words (<code class="language-plaintext highlighter-rouge">masterpiece</code>, <code class="language-plaintext highlighter-rouge">hd</code>) do nothing useful. A common optional practice is to put <code class="language-plaintext highlighter-rouge">score_4, score_5, score_6</code> in the negative prompt.</p>
 
-<h3 id="source-tags">Source Tags</h3>
-
-<p>Pony also learned <strong>rating/source tags</strong> that act as a coarse content and style switch. These are part of why a single Pony checkpoint can swing between very different looks:</p>
+<h3 id="source-and-rating-tags">Source and Rating Tags</h3>
 
 <table>
   <thead>
@@ -3265,7 +3268,7 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">source_anime</code></td>
-      <td>Pushes toward 2D anime styling</td>
+      <td>2D anime styling</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">source_cartoon</code></td>
@@ -3277,16 +3280,16 @@ document.addEventListener('DOMContentLoaded', function () {
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">source_pony</code></td>
-      <td>The MLP-derived content the model was originally named for</td>
+      <td>My Little Pony-derived content</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">rating_safe</code> / <code class="language-plaintext highlighter-rouge">rating_questionable</code> / <code class="language-plaintext highlighter-rouge">rating_explicit</code></td>
-      <td>Coarse content-safety steering</td>
+      <td><code class="language-plaintext highlighter-rouge">rating_safe</code>, <code class="language-plaintext highlighter-rouge">rating_questionable</code>, <code class="language-plaintext highlighter-rouge">rating_explicit</code></td>
+      <td>Content rating</td>
     </tr>
   </tbody>
 </table>
 
-<p>Including <code class="language-plaintext highlighter-rouge">rating_safe</code> and pushing explicit ratings into the negative prompt is the standard way to keep Pony output SFW, since the model otherwise drifts toward NSFW without careful prompting.</p>
+<p>The dataset is balanced across ratings, so the model does not default to SFW output. Put <code class="language-plaintext highlighter-rouge">rating_safe</code> in the positive prompt and the other rating tags in the negative prompt when you need safe results.</p>
 
 <h3 id="recommended-settings">Recommended Settings</h3>
 
@@ -3300,293 +3303,369 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td>Resolution</td>
-      <td>1024×1024 (SDXL aspect buckets)</td>
+      <td>SDXL buckets, e.g. 1024×1024, 832×1216, 1216×832</td>
     </tr>
     <tr>
       <td>Steps</td>
-      <td>25-30</td>
+      <td>~25</td>
     </tr>
     <tr>
-      <td>CFG scale</td>
-      <td>6-8</td>
+      <td>CFG</td>
+      <td>6-8 (5-7 with many LoRAs stacked)</td>
     </tr>
     <tr>
       <td>Sampler</td>
-      <td><code class="language-plaintext highlighter-rouge">euler_a</code> or <code class="language-plaintext highlighter-rouge">dpmpp_2m_sde</code></td>
+      <td>Euler a (author’s recommendation); DPM++ 2M Karras also common</td>
     </tr>
     <tr>
       <td>CLIP skip</td>
-      <td>2 (important for anime fine-tunes)</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>Positive prefix</td>
-      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, score_7_up</code></td>
-    </tr>
-    <tr>
-      <td>Negative prefix</td>
-      <td><code class="language-plaintext highlighter-rouge">score_6, score_5, score_4</code></td>
+      <td>VAE</td>
+      <td>Baked in (standard SDXL VAE)</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="prompt-structure">Prompt Structure</h3>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Positive: score_9, score_8_up, score_7_up, score_6_up, score_5_up, score_4_up,
+          source_anime, rating_safe, 1girl, solo, long hair, blue eyes,
+          school uniform, sitting, classroom, window, soft lighting
 
-<p>A workable Pony prompt follows a consistent left-to-right ordering — quality and source tags first, then subject, then descriptive booru tags:</p>
-
-<ul>
-  <li><strong>Positive:</strong> <code class="language-plaintext highlighter-rouge">score_9, score_8_up, score_7_up, source_anime, rating_safe, 1girl, [character name], [outfit], [pose], [expression], [setting], [lighting], [style tags]</code></li>
-  <li><strong>Negative:</strong> <code class="language-plaintext highlighter-rouge">score_6, score_5, score_4, source_furry, rating_explicit, worst quality, low quality, bad anatomy, bad hands, extra digits</code></li>
-</ul>
-
-<p>The leading <code class="language-plaintext highlighter-rouge">score_*</code> and <code class="language-plaintext highlighter-rouge">source_*</code> tags do the heavy lifting; everything after them is ordinary danbooru tagging, where tags earlier in the prompt carry slightly more weight.</p>
-
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Example
-Positive: score_9, score_8_up, score_7_up, source_anime, rating_safe,
-          1girl, solo, long hair, blue eyes, school uniform, sitting,
-          classroom, window, soft lighting, detailed background
-
-Negative: score_6, score_5, score_4, source_furry, rating_explicit,
-          worst quality, low quality, blurry, bad anatomy, bad hands,
-          extra digits, watermark, signature
+Negative: score_4, score_5, score_6, rating_explicit, rating_questionable
 </code></pre></div></div>
 
-<h2 id="booru-tag-conventions">Booru Tag Conventions</h2>
+<h3 id="pony-v7">Pony V7</h3>
 
-<p>All of the anime fine-tunes — Pony included — inherit their vocabulary from <strong>danbooru-style image boards</strong>, so understanding booru tagging is the key skill for prompting them. This is the single biggest difference from prompting a base SDXL or FLUX model, which prefer natural-language descriptions.</p>
+<p>Pony Diffusion V7 (October 2025) is <strong>not</strong> an SDXL model. It is a ~7B-parameter model on the <strong>AuraFlow</strong> architecture, a flow-matching transformer, trained on about 10M images selected from a pool of over 30M. Its model card recommends a structured natural-language template (special tags, then a factual description, then a stylistic description, then extra content tags), 768-1536 px resolutions, and at least 30 steps. It also cautions that V7 prompting can be inconsistent and that <code class="language-plaintext highlighter-rouge">score_*</code> tags have much weaker effect than in V6. Because the architecture differs, <strong>no SDXL LoRA, ControlNet, or IP-Adapter works on V7</strong>, and V6’s ecosystem does not carry over. At the time of writing V6 remains the more widely used Pony checkpoint.</p>
 
-<h3 id="tag-syntax">Tag Syntax</h3>
+<h2 id="illustrious-xl">Illustrious XL</h2>
+
+<p><strong>Illustrious XL</strong> (OnomaAI Research, first released September 2024 with an accompanying arXiv paper) is trained on a large, carefully labeled Danbooru dataset. It is valued for accurate native recall of characters, artists, and tags without a score prefix.</p>
 
 <ul>
-  <li><strong>Underscores in training, spaces in prompts.</strong> Booru tags are stored with underscores (<code class="language-plaintext highlighter-rouge">blue_eyes</code>), but most UIs convert spaces to underscores internally, so you can write <code class="language-plaintext highlighter-rouge">blue eyes</code> and it resolves correctly. When a tag is genuinely a single token (<code class="language-plaintext highlighter-rouge">1girl</code>), write it as-is.</li>
-  <li><strong>Count tags.</strong> <code class="language-plaintext highlighter-rouge">1girl</code>, <code class="language-plaintext highlighter-rouge">2girls</code>, <code class="language-plaintext highlighter-rouge">1boy</code>, <code class="language-plaintext highlighter-rouge">multiple_girls</code>, <code class="language-plaintext highlighter-rouge">solo</code> are first-class tags that strongly anchor composition. Lead with them.</li>
-  <li><strong>Character tags.</strong> The model knows many characters by their booru tag, often in the form <code class="language-plaintext highlighter-rouge">character_name_(series_name)</code>. Naming a known character recalls its canonical design far more reliably than describing it.</li>
-  <li><strong>Attribute tags.</strong> Hair (<code class="language-plaintext highlighter-rouge">long_hair</code>, <code class="language-plaintext highlighter-rouge">twintails</code>), eyes (<code class="language-plaintext highlighter-rouge">red_eyes</code>), clothing (<code class="language-plaintext highlighter-rouge">thigh-highs</code>, <code class="language-plaintext highlighter-rouge">hoodie</code>), and pose (<code class="language-plaintext highlighter-rouge">looking_at_viewer</code>, <code class="language-plaintext highlighter-rouge">arms_up</code>) tags compose freely.</li>
-  <li><strong>Meta/quality tags.</strong> <code class="language-plaintext highlighter-rouge">masterpiece</code>, <code class="language-plaintext highlighter-rouge">best_quality</code>, <code class="language-plaintext highlighter-rouge">highres</code>, <code class="language-plaintext highlighter-rouge">absurdres</code> exist as separate signals from the <code class="language-plaintext highlighter-rouge">score_*</code> system; on Pony the <code class="language-plaintext highlighter-rouge">score_*</code> tags dominate, but meta tags still nudge.</li>
+  <li><strong>Prompting:</strong> plain Danbooru tags with conventional quality tags (<code class="language-plaintext highlighter-rouge">masterpiece, best quality</code>) and negatives such as <code class="language-plaintext highlighter-rouge">worst quality, low quality</code>.</li>
+  <li><strong>Versions:</strong> v0.1 (itself trained on top of Kohaku-XL beta, an earlier SDXL anime fine-tune) is the openly released checkpoint that most community merges (and NoobAI) build on. Later releases raised native resolution: v1.0 targets up to 1536×1536, v2.0 supports 512-1536 px with more natural-language captions, and v3.x (with v-prediction variants) targets up to 2048×2048 on data through late 2024. Availability and licensing of the later versions have differed from v0.1, so check each release’s model page.</li>
+  <li><strong>Settings:</strong> CFG ~4-7, 20-30 steps, Euler a or DPM++ 2M; CLIP skip 1 or 2 depending on the derivative (check the card).</li>
 </ul>
 
-<h3 id="tag-order-and-weighting">Tag Order and Weighting</h3>
+<p>Since 2025, “Illustrious” is effectively an ecosystem label on Civitai: many popular anime checkpoints are Illustrious or NoobAI merges, and LoRAs are tagged against that base.</p>
 
-<p>Booru models read prompts roughly left-to-right with decreasing emphasis, so the convention is:</p>
+<h2 id="noobai-xl">NoobAI XL</h2>
 
-<ol>
-  <li>Quality / score tags</li>
-  <li>Source / rating tags</li>
-  <li>Subject count + character</li>
-  <li>Major attributes (hair, eyes, body)</li>
-  <li>Clothing</li>
-  <li>Pose / action</li>
-  <li>Setting / background</li>
-  <li>Style / lighting modifiers</li>
-</ol>
+<p><strong>NoobAI XL</strong> (Laxhar Lab) continues training from the Illustrious early-release base on the <strong>full Danbooru dataset (up to late October 2024) plus e621</strong>, with native tags and natural-language captions. It ships in two lines:</p>
 
-<p>You can also use the standard SDXL attention-weighting syntax to emphasize a tag — <code class="language-plaintext highlighter-rouge">(twintails:1.2)</code> increases its strength, <code class="language-plaintext highlighter-rouge">(background:0.8)</code> decreases it. This is identical to base SDXL because the attention mechanism is unchanged by the fine-tune.</p>
+<ul>
+  <li><strong>Epsilon-prediction</strong> (standard SDXL behavior).</li>
+  <li><strong>V-prediction</strong> (<code class="language-plaintext highlighter-rouge">noobai-XL-Vpred-1.0</code>), which the card flags prominently: it <strong>requires v-prediction sampling with zero-terminal-SNR</strong> and the Euler sampler. In ComfyUI, add a <code class="language-plaintext highlighter-rouge">ModelSamplingDiscrete</code> node set to <code class="language-plaintext highlighter-rouge">v_prediction</code> with <code class="language-plaintext highlighter-rouge">zsnr</code> enabled, unless the checkpoint carries that metadata and your frontend applies it automatically. In diffusers, configure the scheduler with <code class="language-plaintext highlighter-rouge">prediction_type="v_prediction"</code> and <code class="language-plaintext highlighter-rouge">rescale_betas_zero_snr=True</code>.</li>
+</ul>
 
-<h2 id="the-major-fine-tunes-compared">The Major Fine-Tunes Compared</h2>
-
-<p>Pony is the most famous, but it is one of several major SDXL anime fine-tunes, and the others differ chiefly in their <strong>tag conventions</strong> and <strong>training freshness</strong>. All of them are SDXL underneath and therefore share its LoRA/ControlNet ecosystem.</p>
+<p>NoobAI’s card documents its conditioning tags precisely, and the scheme is worth knowing because many derivatives inherit it:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Fine-tune</th>
-      <th>Prompt convention</th>
-      <th>Notable for</th>
+      <th>Tag type</th>
+      <th>Tags</th>
+      <th>Meaning</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Pony Diffusion V6 XL</td>
-      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, ...</code> prefix + <code class="language-plaintext highlighter-rouge">source_*</code></td>
-      <td>Huge community, strong style control, deep LoRA library</td>
+      <td>Quality (popularity percentile)</td>
+      <td><code class="language-plaintext highlighter-rouge">masterpiece</code> &gt; 95th, <code class="language-plaintext highlighter-rouge">best quality</code> 85-95th, <code class="language-plaintext highlighter-rouge">good quality</code> 60-85th, <code class="language-plaintext highlighter-rouge">normal quality</code> 30-60th, <code class="language-plaintext highlighter-rouge">worst quality</code> ≤30th</td>
+      <td>Popularity rank, time-decayed so recent preferences dominate</td>
     </tr>
     <tr>
-      <td>Illustrious XL</td>
-      <td>Plain danbooru tags (no <code class="language-plaintext highlighter-rouge">score_*</code>)</td>
-      <td>Accurate native character/tag recall</td>
+      <td>Aesthetic</td>
+      <td><code class="language-plaintext highlighter-rouge">very awa</code> (top 5% by aesthetic scorer), <code class="language-plaintext highlighter-rouge">worst aesthetic</code> (bottom 5%)</td>
+      <td>Classifier-based aesthetic score</td>
     </tr>
     <tr>
-      <td>NoobAI XL</td>
-      <td>Plain danbooru tags + optional quality tags</td>
-      <td>Recent training data; refined Illustrious lineage</td>
+      <td>Period</td>
+      <td><code class="language-plaintext highlighter-rouge">old</code> 2005-2010, <code class="language-plaintext highlighter-rouge">early</code> 2011-2014, <code class="language-plaintext highlighter-rouge">mid</code> 2014-2017, <code class="language-plaintext highlighter-rouge">recent</code> 2018-2020, <code class="language-plaintext highlighter-rouge">newest</code> 2021-2024</td>
+      <td>Era of the art style</td>
     </tr>
     <tr>
-      <td>Animagine XL</td>
-      <td>Plain danbooru tags + quality/year tags</td>
-      <td>Clean anime aesthetic, structured quality tags</td>
+      <td>Year</td>
+      <td><code class="language-plaintext highlighter-rouge">year 2023</code> etc.</td>
+      <td>Specific year</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="how-they-relate">How They Relate</h3>
+<p>Recommended V-Pred 1.0 settings from the card:</p>
 
-<p>These models form a small family tree branching off SDXL, with Illustrious and its descendants forming one branch and Pony forming another:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Resolution</td>
+      <td>~1 MP; 832×1216 preferred (also 768×1344, 896×1152, 1024×1024, and landscape equivalents)</td>
+    </tr>
+    <tr>
+      <td>Steps</td>
+      <td>28-35</td>
+    </tr>
+    <tr>
+      <td>CFG</td>
+      <td>4-5</td>
+    </tr>
+    <tr>
+      <td>Sampler</td>
+      <td>Euler (other samplers “will not work properly”)</td>
+    </tr>
+    <tr>
+      <td>Positive prefix</td>
+      <td><code class="language-plaintext highlighter-rouge">masterpiece, best quality, newest, absurdres, highres, safe,</code></td>
+    </tr>
+    <tr>
+      <td>Negative</td>
+      <td><code class="language-plaintext highlighter-rouge">nsfw, worst quality, old, early, low quality, lowres, signature, username, logo, bad hands, mutated hands, mammal, anthro, furry, ambiguous form, feral, semi-anthro</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The negative prompt’s furry terms exist because the e621 data otherwise pulls outputs toward anthro characters. Caption order on the card is: count, character, series, artists, special tags, general tags.</p>
+
+<h2 id="animagine-xl">Animagine XL</h2>
+
+<p><strong>Animagine XL</strong> (Cagliostro Research Lab) is a long-running anime series. <strong>Animagine XL 4.0</strong> (January 2025, with a refined “4.0 Opt” in February 2025) was retrained from SDXL 1.0 rather than continued from 3.x, and is released under CreativeML Open RAIL++-M, the most permissive license of the four families.</p>
+
+<ul>
+  <li><strong>Structure:</strong> <code class="language-plaintext highlighter-rouge">1girl/1boy/1other, character, series, rating, general tags..., quality tags</code> with <strong>quality tags at the end</strong>.</li>
+  <li><strong>Quality tags:</strong> <code class="language-plaintext highlighter-rouge">masterpiece, high score, great score, absurdres</code>; negatives include <code class="language-plaintext highlighter-rouge">low score, bad score, average score</code> alongside the usual <code class="language-plaintext highlighter-rouge">worst quality, low quality, lowres, bad anatomy, bad hands</code>.</li>
+  <li><strong>Settings:</strong> CFG 4-7 (5 recommended), 25-28 steps, Euler a, standard SDXL resolutions from 1024×1024 to 1536×640.</li>
+</ul>
+
+<h2 id="comparing-the-families">Comparing the Families</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Pony V6 XL</th>
+      <th>Illustrious XL</th>
+      <th>NoobAI XL</th>
+      <th>Animagine XL 4.0</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Base</td>
+      <td>SDXL</td>
+      <td>SDXL (via Kohaku-XL)</td>
+      <td>Illustrious v0.1</td>
+      <td>SDXL (retrained)</td>
+    </tr>
+    <tr>
+      <td>Data</td>
+      <td>Booru + e621 + others, ~2.6M</td>
+      <td>Danbooru</td>
+      <td>Full Danbooru + e621</td>
+      <td>Danbooru-style, curated</td>
+    </tr>
+    <tr>
+      <td>Prediction</td>
+      <td>eps</td>
+      <td>eps (v-pred variants exist)</td>
+      <td>eps and v-pred lines</td>
+      <td>eps</td>
+    </tr>
+    <tr>
+      <td>Quality convention</td>
+      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, ...</code> prefix</td>
+      <td><code class="language-plaintext highlighter-rouge">masterpiece, best quality</code></td>
+      <td>Percentile + <code class="language-plaintext highlighter-rouge">very awa</code> + period tags</td>
+      <td>Suffix: <code class="language-plaintext highlighter-rouge">masterpiece, high score, great score, absurdres</code></td>
+    </tr>
+    <tr>
+      <td>Artist tags</td>
+      <td>Obfuscated (weak)</td>
+      <td>Strong</td>
+      <td>Strong</td>
+      <td>Supported</td>
+    </tr>
+    <tr>
+      <td>CLIP skip</td>
+      <td>2</td>
+      <td>1-2</td>
+      <td>1-2</td>
+      <td>Default</td>
+    </tr>
+    <tr>
+      <td>Typical CFG</td>
+      <td>6-8</td>
+      <td>4-7</td>
+      <td>4-5</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <td>License</td>
+      <td>Custom (hosting restricted)</td>
+      <td>Fair AI Public License 1.0-SD (v0.1); later versions vary</td>
+      <td>Fair AI Public License 1.0-SD</td>
+      <td>Open RAIL++-M</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="lineage">Lineage</h3>
 
 <pre><code class="language-mermaid">flowchart TD
-    SDXL["SDXL base&lt;br/&gt;(dual CLIP, 1024px)"] --&gt; Pony["Pony Diffusion V6 XL&lt;br/&gt;score_* convention"]
-    SDXL --&gt; Anima["Animagine XL&lt;br/&gt;danbooru + quality tags"]
-    SDXL --&gt; Illu["Illustrious XL&lt;br/&gt;plain danbooru tags"]
-    Illu --&gt; Noob["NoobAI XL&lt;br/&gt;refined, recent data"]
-    Pony --&gt; PonyLoRA["Pony-trained LoRAs"]
-    Illu --&gt; IlluLoRA["Illustrious/NoobAI LoRAs"]
-    classDef base fill:#e3f2fd,stroke:#1976d2;
-    classDef ft fill:#f3e5f5,stroke:#7b1fa2;
-    class SDXL base;
-    class Pony,Anima,Illu,Noob,PonyLoRA,IlluLoRA ft;
+    SDXL["SDXL 1.0 base"] --&gt; Pony6["Pony Diffusion V6 XL&lt;br/&gt;score_* convention"]
+    SDXL --&gt; Anim["Animagine XL 4.0&lt;br/&gt;quality-suffix tags"]
+    SDXL --&gt; Kohaku["Kohaku-XL beta"]
+    Kohaku --&gt; Illu0["Illustrious XL v0.1"]
+    Illu0 --&gt; IlluN["Illustrious XL&lt;br/&gt;v1.0 - v3.x"]
+    Illu0 --&gt; Noob["NoobAI XL&lt;br/&gt;eps and v-pred"]
+    Illu0 --&gt; Merges["Community Illustrious /&lt;br/&gt;NoobAI merges"]
+    Noob --&gt; Merges
+    Aura["AuraFlow base&lt;br/&gt;(flow-matching DiT)"] --&gt; Pony7["Pony V7&lt;br/&gt;not SDXL-compatible"]
 </code></pre>
 
-<p>The key practical takeaway: <strong>LoRAs follow the branch they were trained on.</strong> A LoRA trained on Pony assumes Pony’s shifted priors and <code class="language-plaintext highlighter-rouge">score_*</code> context; one trained on Illustrious/NoobAI assumes plain-tag context. Mixing across branches works but usually costs some fidelity.</p>
+<p><strong>LoRAs follow the branch they were trained on.</strong> A Pony LoRA assumes Pony’s priors and score context; an Illustrious LoRA assumes plain-tag priors and generally works across NoobAI and Illustrious merges, since they share the v0.1 root.</p>
 
-<h3 id="illustrious-xl-and-noobai-xl">Illustrious XL and NoobAI XL</h3>
-
-<p><strong>Illustrious XL</strong> trained directly on a large, well-labeled booru dataset and is prized for <strong>accurate native tag and character recognition</strong> — you often get the right character design from a plain <code class="language-plaintext highlighter-rouge">character_name_(series)</code> tag without any quality-prefix gymnastics. It deliberately drops Pony’s <code class="language-plaintext highlighter-rouge">score_*</code> convention in favor of plain danbooru tags, which many users find cleaner.</p>
-
-<p><strong>NoobAI XL</strong> is a further refinement built on the Illustrious lineage, trained on more recent data. It keeps the plain-tag convention but reintroduces optional quality tags (e.g. <code class="language-plaintext highlighter-rouge">masterpiece</code>, <code class="language-plaintext highlighter-rouge">best quality</code>, and sometimes a <code class="language-plaintext highlighter-rouge">very awa</code> / <code class="language-plaintext highlighter-rouge">worst quality</code> style ladder) for users who want a quality dial without Pony’s full <code class="language-plaintext highlighter-rouge">score_*</code> stack.</p>
-
-<h3 id="animagine-xl">Animagine XL</h3>
-
-<p><strong>Animagine XL</strong> is another SDXL anime fine-tune known for a clean, consistent anime aesthetic. It uses plain danbooru tags augmented with structured <strong>quality tags</strong> (<code class="language-plaintext highlighter-rouge">masterpiece</code>, <code class="language-plaintext highlighter-rouge">best quality</code>) and sometimes <strong>year tags</strong> (e.g. <code class="language-plaintext highlighter-rouge">newest</code>, <code class="language-plaintext highlighter-rouge">recent</code>) that bias toward a particular era of art style. Like the others, it is fully SDXL-compatible.</p>
-
-<h3 id="prompting-the-same-image-across-fine-tunes">Prompting the Same Image Across Fine-Tunes</h3>
-
-<p>The same intent translates differently depending on the model’s convention:</p>
+<h3 id="the-same-intent-five-dialects">The Same Intent, Five Dialects</h3>
 
 <table>
   <thead>
     <tr>
       <th>Model</th>
-      <th>Equivalent prompt</th>
+      <th>Prompt</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>SDXL base</td>
-      <td>“anime illustration of a girl with long blue hair, school uniform, masterpiece”</td>
+      <td><code class="language-plaintext highlighter-rouge">anime illustration of a girl with long blue hair in a school uniform, clean line art</code></td>
     </tr>
     <tr>
       <td>Pony V6</td>
-      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, source_anime, 1girl, long hair, blue hair, school uniform</code></td>
+      <td><code class="language-plaintext highlighter-rouge">score_9, score_8_up, score_7_up, source_anime, rating_safe, 1girl, solo, long hair, blue hair, school uniform</code></td>
     </tr>
     <tr>
       <td>Illustrious XL</td>
-      <td><code class="language-plaintext highlighter-rouge">1girl, long hair, blue hair, school uniform</code></td>
+      <td><code class="language-plaintext highlighter-rouge">masterpiece, best quality, 1girl, solo, long hair, blue hair, school uniform</code></td>
     </tr>
     <tr>
       <td>NoobAI XL</td>
-      <td><code class="language-plaintext highlighter-rouge">masterpiece, best quality, 1girl, long hair, blue hair, school uniform</code></td>
+      <td><code class="language-plaintext highlighter-rouge">masterpiece, best quality, newest, absurdres, highres, safe, 1girl, solo, long hair, blue hair, school uniform</code></td>
     </tr>
     <tr>
-      <td>Animagine XL</td>
-      <td><code class="language-plaintext highlighter-rouge">masterpiece, best quality, newest, 1girl, long hair, blue hair, school uniform</code></td>
+      <td>Animagine XL 4.0</td>
+      <td><code class="language-plaintext highlighter-rouge">1girl, solo, safe, long hair, blue hair, school uniform, masterpiece, high score, great score, absurdres</code></td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="when-to-choose-a-fine-tune-over-a-base-model">When to Choose a Fine-Tune Over a Base Model</h2>
+<h2 id="choosing-a-fine-tune">Choosing a Fine-Tune</h2>
 
-<p>The decision is almost entirely about <strong>domain fit</strong> and <strong>prompting style</strong>, not raw capability. A fine-tune trades generality for excellence within its niche.</p>
-
-<h3 id="reach-for-a-fine-tune-when">Reach for a Fine-Tune When</h3>
-
-<ul>
-  <li><strong>Your target is anime, cartoon, or furry art.</strong> These fine-tunes massively outperform stock SDXL on stylized content, with better line quality, character coherence, and style consistency.</li>
-  <li><strong>You want strong character recall.</strong> Booru-trained models know thousands of characters by tag; describing them on base SDXL is far less reliable.</li>
-  <li><strong>You already think in tags.</strong> If booru tagging is natural to you, Pony/Illustrious/NoobAI will feel intuitive and precise.</li>
-  <li><strong>You want a quality dial.</strong> Pony’s <code class="language-plaintext highlighter-rouge">score_*</code> system (or NoobAI/Animagine’s quality tags) gives a direct, learned lever on aesthetics.</li>
-</ul>
-
-<h3 id="stay-on-the-base-model-when">Stay on the Base Model When</h3>
-
-<ul>
-  <li><strong>You need photorealism.</strong> Anime fine-tunes are biased away from photographic output; stock SDXL or FLUX is the right call.</li>
-  <li><strong>You want long natural-language prompts.</strong> Base SDXL’s dual encoders — and especially SD3/FLUX’s T5 encoder — reward sentences. Booru fine-tunes want tags.</li>
-  <li><strong>You need legible text in the image.</strong> That is an SD3/FLUX strength; the SDXL fine-tunes inherit SDXL’s weak text rendering.</li>
-  <li><strong>You want maximum subject generality.</strong> A base model has not been pulled toward any single content distribution.</li>
-</ul>
-
-<h3 id="decision-flow">Decision Flow</h3>
+<p>A fine-tune trades generality for strength in its niche. The choice depends mostly on domain fit and prompting style, not raw capability.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    Q1{"Target style is&lt;br/&gt;anime / cartoon / furry?"}
-    Q1 --&gt;|No| Base["Use a base model&lt;br/&gt;(SDXL / SD3 / FLUX)"]
-    Q1 --&gt;|Yes| Q2{"Comfortable with&lt;br/&gt;booru tagging?"}
-    Q2 --&gt;|No| Base2["Base SDXL with&lt;br/&gt;natural-language prompt"]
-    Q2 --&gt;|Yes| Q3{"Want a built-in&lt;br/&gt;quality dial / score system?"}
-    Q3 --&gt;|Yes| Pony["Pony Diffusion V6 XL"]
-    Q3 --&gt;|No| Q4{"Prioritize accurate&lt;br/&gt;character/tag recall?"}
-    Q4 --&gt;|Yes| Illu["Illustrious / NoobAI XL"]
-    Q4 --&gt;|No| Anima["Animagine XL"]
+    Q1{"Anime, cartoon,&lt;br/&gt;or furry style?"}
+    Q1 --&gt;|No| Base["Base model:&lt;br/&gt;SDXL, SD3.5, or FLUX"]
+    Q1 --&gt;|Yes| Q2{"Need a specific&lt;br/&gt;character or artist style?"}
+    Q2 --&gt;|Yes| Q3{"Furry / e621&lt;br/&gt;content too?"}
+    Q3 --&gt;|Yes| Noob["NoobAI XL"]
+    Q3 --&gt;|No| Illu["Illustrious XL&lt;br/&gt;or an Illustrious merge"]
+    Q2 --&gt;|No| Q4{"Need a specific&lt;br/&gt;Pony LoRA?"}
+    Q4 --&gt;|Yes| Pony["Pony V6 XL"]
+    Q4 --&gt;|No| Q5{"Permissive license&lt;br/&gt;important?"}
+    Q5 --&gt;|Yes| Anim["Animagine XL 4.0"]
+    Q5 --&gt;|No| Illu
 </code></pre>
 
-<h3 id="cross-compatibility-cheat-sheet">Cross-Compatibility Cheat Sheet</h3>
+<p><strong>Choose a fine-tune when:</strong></p>
+
+<ul>
+  <li>The target is anime, cartoon, or furry art. These models far outperform stock SDXL on line quality, character coherence, and style consistency.</li>
+  <li>You need <strong>character or artist recall</strong>. Booru-trained models know thousands of characters by tag.</li>
+  <li>You want a learned <strong>quality control</strong>: Pony’s score tags, NoobAI’s percentile and aesthetic tags.</li>
+</ul>
+
+<p><strong>Stay on a base model when:</strong></p>
+
+<ul>
+  <li>You need <strong>photorealism</strong>. Anime fine-tunes are biased away from photographic output.</li>
+  <li>You want to write <strong>long natural-language prompts</strong>. SD3.5 and FLUX, with their T5 or LLM text encoders, reward sentences.</li>
+  <li>You need <strong>legible text in the image</strong>. The SDXL fine-tunes inherit SDXL’s weak text rendering.</li>
+  <li>You need <strong>licensing clarity</strong> for commercial work. Check each fine-tune’s license; Pony’s and NoobAI’s include use restrictions beyond Open RAIL++-M.</li>
+</ul>
+
+<h2 id="cross-compatibility">Cross-Compatibility</h2>
 
 <table>
   <thead>
     <tr>
       <th>You have…</th>
-      <th>Works on Pony?</th>
-      <th>Works on Illustrious/NoobAI?</th>
+      <th>On Pony V6</th>
+      <th>On Illustrious / NoobAI</th>
+      <th>On Pony V7</th>
       <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>An SDXL ControlNet</td>
+      <td>SDXL ControlNet / IP-Adapter</td>
       <td>Yes</td>
       <td>Yes</td>
-      <td>Architecture is shared</td>
+      <td>No</td>
+      <td>Shared SDXL latent space; anime-specific ControlNets often work better</td>
     </tr>
     <tr>
-      <td>An SDXL IP-Adapter</td>
-      <td>Yes</td>
-      <td>Yes</td>
-      <td>Latent space unchanged</td>
-    </tr>
-    <tr>
-      <td>A LoRA trained on stock SDXL</td>
+      <td>LoRA trained on stock SDXL</td>
       <td>Usually</td>
       <td>Usually</td>
-      <td>May be slightly off-aesthetic</td>
+      <td>No</td>
+      <td>Often off-style because the priors have shifted</td>
     </tr>
     <tr>
-      <td>A LoRA trained on Pony</td>
-      <td>Best on Pony</td>
+      <td>LoRA trained on Pony V6</td>
+      <td>Best</td>
       <td>Often degraded</td>
-      <td>Assumes <code class="language-plaintext highlighter-rouge">score_*</code> priors</td>
+      <td>No</td>
+      <td>Assumes score-tag context</td>
     </tr>
     <tr>
-      <td>A LoRA trained on Illustrious</td>
+      <td>LoRA trained on Illustrious / NoobAI</td>
       <td>Often degraded</td>
-      <td>Best on Illustrious/NoobAI</td>
+      <td>Best</td>
+      <td>No</td>
       <td>Plain-tag priors</td>
     </tr>
     <tr>
-      <td>A FLUX or SD 1.5 add-on</td>
+      <td>eps LoRA on a v-pred checkpoint</td>
+      <td>—</td>
+      <td>Usually works</td>
+      <td>—</td>
+      <td>LoRA weights load; sampling settings follow the checkpoint</td>
+    </tr>
+    <tr>
+      <td>SD 1.5, SD3.5, or FLUX add-ons</td>
       <td>No</td>
       <td>No</td>
-      <td>Wrong architecture/lineage entirely</td>
+      <td>No</td>
+      <td>Different architecture</td>
     </tr>
   </tbody>
 </table>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Pony, Illustrious, NoobAI, and Animagine are all SDXL fine-tunes</strong> — same architecture, same LoRA/ControlNet ecosystem, different prompting dialects.</li>
-  <li><strong>Pony’s <code class="language-plaintext highlighter-rouge">score_*</code> system is a learned quality dial.</strong> Lead with <code class="language-plaintext highlighter-rouge">score_9, score_8_up, score_7_up</code> and push <code class="language-plaintext highlighter-rouge">score_4/5/6</code> into the negative prompt.</li>
-  <li><strong>Booru tagging is the core skill</strong> for these models: count tags first, then character, attributes, clothing, pose, setting, style — order matters.</li>
-  <li><strong>Illustrious/NoobAI/Animagine drop the <code class="language-plaintext highlighter-rouge">score_*</code> prefix</strong> for plain danbooru tags, trading Pony’s quality dial for cleaner native tag recall.</li>
-  <li><strong>Choose a fine-tune for anime/stylized work and tag-based prompting; stay on a base model for photorealism, natural-language prompts, or in-image text.</strong></li>
-  <li><strong>LoRAs follow the branch they were trained on</strong> — Pony LoRAs assume Pony priors, Illustrious LoRAs assume plain-tag priors.</li>
-</ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li><a href="base-models-comparison.html">Base Models Comparison</a> - SD 1.5, SDXL, SD3, FLUX, and Pony side by side</li>
-  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Core concepts explained</li>
-  <li><a href="model-types.html">Model Types</a> - Understanding checkpoints, LoRAs, VAEs, embeddings</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Train custom models for these fine-tunes</li>
-  <li><a href="controlnet.html">ControlNet</a> - Precise control that works across the SDXL family</li>
+  <li><a href="sdxl-guide.html">SDXL Guide</a> - The architecture all four families share</li>
+  <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - Noise prediction, v-prediction, and samplers</li>
+  <li><a href="model-types.html">Model Types</a> - Checkpoints, LoRAs, VAEs, and embeddings</li>
+  <li><a href="lora-training.html">LoRA Training</a> - Training LoRAs against a fine-tune base</li>
+  <li><a href="controlnet.html">ControlNet</a> - Structural control across the SDXL family</li>
   <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Visual workflow creation</li>
   <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
 </ul>

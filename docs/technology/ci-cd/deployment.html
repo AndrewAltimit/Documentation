@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Recreate, rolling, blue-green, canary, and feature-flag releases; progressive delivery with Argo Rollouts and the Kubernetes Gateway API; schema migrations a...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="CI/CD: Deployment Strategies">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Recreate, rolling, blue-green, canary, and feature-flag releases; progressive delivery with Argo Rollouts and the Kubernetes Gateway API; schema migrations a...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/ci-cd/deployment.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="CI/CD: Deployment Strategies">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Recreate, rolling, blue-green, canary, and feature-flag releases; progressive delivery with Argo Rollouts and the Kubernetes Gateway API; schema migrations a...">
 
 <title>CI/CD: Deployment Strategies | Andrews Notebook</title>
 
@@ -3135,111 +3135,355 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">CI/CD</a> ›</p>
 
-<p>Blue-green, canary, rolling, and feature-flag deployments release changes without taking the system down. Each strategy below trades speed for safety in a different way. Pair any of them with automated rollback so a bad release is always reversible.</p>
+<p>A <strong>deployment strategy</strong> determines how a new version replaces the old one in a running system: whether both versions ever run at once, how much traffic the new version sees before it is trusted, and how quickly a bad release can be reversed. This page compares the standard strategies, shows how each is implemented on Kubernetes, covers <strong>progressive delivery</strong> (automated, metric-driven promotion), and deals with the part that most often breaks rollbacks: database schema changes.</p>
 
-<h2 id="1-blue-green-deployment">1. Blue-Green Deployment</h2>
+<p>Two terms are worth separating first. <strong>Deploying</strong> puts new code on production infrastructure. <strong>Releasing</strong> exposes its behavior to users. Rolling and blue-green strategies couple the two. Canaries and feature flags deliberately decouple them, which is where most of the risk reduction comes from.</p>
 
-<p>Run two identical environments (“blue” and “green”); deploy to the inactive one, verify it, then switch traffic over. The old environment stays available as an instant rollback target.</p>
+<h2 id="strategy-comparison">Strategy Comparison</h2>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">deploy-blue-green</span><span class="pi">:</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="c1"># Deploy to inactive environment</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to Blue</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">kubectl set image deployment/app app=myapp:$VERSION -n blue</span>
-        <span class="s">kubectl wait --for=condition=ready pod -l app=myapp -n blue</span>
+<table>
+  <thead>
+    <tr>
+      <th>Strategy</th>
+      <th>Mechanism</th>
+      <th>Downtime</th>
+      <th>Extra capacity</th>
+      <th>Mixed versions live?</th>
+      <th>Rollback speed</th>
+      <th>Blast radius of a bad release</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Recreate</strong></td>
+      <td>Stop all old instances, start new ones</td>
+      <td>Yes</td>
+      <td>None</td>
+      <td>No</td>
+      <td>Redeploy (minutes)</td>
+      <td>All users, until fixed</td>
+    </tr>
+    <tr>
+      <td><strong>Rolling</strong></td>
+      <td>Replace instances in batches</td>
+      <td>No</td>
+      <td>Small (<code class="language-plaintext highlighter-rouge">maxSurge</code>)</td>
+      <td>Yes, during rollout</td>
+      <td>Roll back through batches (minutes)</td>
+      <td>Grows as the rollout proceeds</td>
+    </tr>
+    <tr>
+      <td><strong>Blue-green</strong></td>
+      <td>Stand up full new environment, switch traffic at once</td>
+      <td>No</td>
+      <td>2× during switch</td>
+      <td>No (atomic cutover)</td>
+      <td>Switch back (seconds)</td>
+      <td>All users, but briefly</td>
+    </tr>
+    <tr>
+      <td><strong>Canary</strong></td>
+      <td>Route a small, growing share of traffic to the new version, gated on metrics</td>
+      <td>No</td>
+      <td>Small</td>
+      <td>Yes, deliberately</td>
+      <td>Shift weight to 0 (seconds)</td>
+      <td>The canary percentage</td>
+    </tr>
+    <tr>
+      <td><strong>Feature flag</strong></td>
+      <td>Ship code dark; enable per user or cohort at runtime</td>
+      <td>No</td>
+      <td>None</td>
+      <td>Yes (by flag)</td>
+      <td>Toggle off (seconds, no deploy)</td>
+      <td>The targeted cohort</td>
+    </tr>
+    <tr>
+      <td><strong>Shadow (dark launch)</strong></td>
+      <td>Mirror real traffic to the new version and discard its responses</td>
+      <td>No</td>
+      <td>Up to 2×</td>
+      <td>Yes, invisible to users</td>
+      <td>Not needed</td>
+      <td>None (read paths only)</td>
+    </tr>
+  </tbody>
+</table>
 
-    <span class="c1"># Test new version</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Smoke Test Blue</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">./smoke-test.sh https://blue.example.com</span>
+<p>These strategies combine. A common production setup is a <strong>canary rollout</strong> of every build, with <strong>feature flags</strong> controlling risky new behavior inside it, and the whole thing driven by <strong>GitOps</strong>.</p>
 
-    <span class="c1"># Switch traffic</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Switch to Blue</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl patch service app -p '{"spec":{"selector":{"env":"blue"}}}'</span>
+<h2 id="recreate">Recreate</h2>
 
-    <span class="c1"># Keep green as rollback option</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Tag Green for Rollback</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl label deployment/app version=previous -n green</span>
+<p>The simplest strategy: terminate the old version, then start the new one (<code class="language-plaintext highlighter-rouge">strategy.type: Recreate</code> on a Kubernetes Deployment). There is an outage between the two, but the versions never overlap. That matters for workloads that cannot tolerate two versions writing to the same resource, such as singleton consumers, some stateful apps, and GPU jobs pinned to scarce hardware. It is acceptable for dev environments and batch systems, and rarely right for user-facing services.</p>
+
+<h2 id="rolling-update">Rolling Update</h2>
+
+<p>The default for Kubernetes Deployments. The controller creates new pods and removes old ones in increments bounded by two parameters:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">maxSurge</code>: how many pods <em>above</em> the desired count may exist during the rollout (extra capacity).</li>
+  <li><code class="language-plaintext highlighter-rouge">maxUnavailable</code>: how many pods <em>below</em> the desired count are tolerated (reduced capacity).</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">maxSurge: 25%, maxUnavailable: 0</code> never drops capacity. <code class="language-plaintext highlighter-rouge">maxSurge: 0, maxUnavailable: 1</code> needs no extra capacity but runs one pod short. A rolling update is only as safe as its <strong>readiness probe</strong>. Traffic shifts to a new pod as soon as the probe passes, so a probe that returns 200 before the app can actually serve requests turns a rolling update into a rolling outage.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">6</span>
+  <span class="na">progressDeadlineSeconds</span><span class="pi">:</span> <span class="m">600</span>     <span class="c1"># mark the rollout failed if stuck this long</span>
+  <span class="na">strategy</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">RollingUpdate</span>
+    <span class="na">rollingUpdate</span><span class="pi">:</span>
+      <span class="na">maxSurge</span><span class="pi">:</span> <span class="s">25%</span>
+      <span class="na">maxUnavailable</span><span class="pi">:</span> <span class="m">0</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">app</span><span class="pi">:</span> <span class="nv">web</span> <span class="pi">}</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">app</span><span class="pi">:</span> <span class="nv">web</span> <span class="pi">}</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+          <span class="na">image</span><span class="pi">:</span> <span class="s">ghcr.io/example/web@sha256:3f1c...</span>   <span class="c1"># deploy by digest</span>
+          <span class="na">readinessProbe</span><span class="pi">:</span>
+            <span class="na">httpGet</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">path</span><span class="pi">:</span> <span class="nv">/healthz/ready</span><span class="pi">,</span> <span class="nv">port</span><span class="pi">:</span> <span class="nv">8080</span> <span class="pi">}</span>
+            <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">5</span>
 </code></pre></div></div>
 
-<p><strong>Use when</strong>: Zero-downtime deployments are critical and you can afford to run two full environments.</p>
-
-<h2 id="2-canary-deployment">2. Canary Deployment</h2>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">canary-deploy</span><span class="pi">:</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="c1"># Deploy canary (10% traffic)</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy Canary</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">kubectl apply -f canary-deployment.yaml</span>
-        <span class="s">kubectl set image deployment/app-canary app=myapp:$VERSION</span>
-
-    <span class="c1"># Monitor metrics</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Monitor Canary</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">for i in {1..10}; do</span>
-          <span class="s">ERROR_RATE=$(curl -s https://metrics.api/error-rate)</span>
-          <span class="s">if [ $ERROR_RATE -gt 5 ]; then</span>
-            <span class="s">echo "High error rate detected!"</span>
-            <span class="s">exit 1</span>
-          <span class="s">fi</span>
-          <span class="s">sleep 60</span>
-        <span class="s">done</span>
-
-    <span class="c1"># Promote canary</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Promote Canary</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl set image deployment/app app=myapp:$VERSION</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># In the pipeline: apply, wait for success, and roll back automatically if it fails</span>
+kubectl apply <span class="nt">-f</span> web-deployment.yaml
+<span class="k">if</span> <span class="o">!</span> kubectl rollout status deployment/web <span class="nt">--timeout</span><span class="o">=</span>10m<span class="p">;</span> <span class="k">then
+  </span>kubectl rollout undo deployment/web
+  <span class="nb">exit </span>1
+<span class="k">fi</span>
 </code></pre></div></div>
 
-<h2 id="3-rolling-deployment">3. Rolling Deployment</h2>
+<p><code class="language-plaintext highlighter-rouge">kubectl rollout status</code> only tells you that pods became <em>ready</em>. It does not tell you whether the new version is <em>correct</em>. That gap is what canary analysis fills.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">rolling-deploy</span><span class="pi">:</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Configure Rolling Update</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">kubectl patch deployment app -p '{</span>
-          <span class="s">"spec": {</span>
-            <span class="s">"strategy": {</span>
-              <span class="s">"type": "RollingUpdate",</span>
-              <span class="s">"rollingUpdate": {</span>
-                <span class="s">"maxSurge": 1,</span>
-                <span class="s">"maxUnavailable": 0</span>
-              <span class="s">}</span>
-            <span class="s">}</span>
-          <span class="s">}</span>
-        <span class="s">}'</span>
+<h2 id="blue-green">Blue-Green</h2>
 
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Update Image</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl set image deployment/app app=myapp:$VERSION</span>
+<p>Two complete environments exist side by side. <strong>Blue</strong> serves production while <strong>green</strong> receives the new version. Green is verified out of band (smoke tests, synthetic traffic), and then the router is switched so all traffic moves at once. Blue stays up, untouched, as an instant rollback target until the release is trusted.</p>
 
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Monitor Rollout</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">kubectl rollout status deployment/app --timeout=10m</span>
+<pre><code class="language-mermaid">flowchart LR
+    U["Users"] --&gt; R{"Router / Service selector"}
+    R ==&gt;|"100% (live)"| B["Blue: v1"]
+    R -.-&gt;|"0% (idle)"| G["Green: v2"]
+    T["Smoke tests"] --&gt; G
+</code></pre>
+
+<p>On Kubernetes the “router” can be as simple as a Service whose selector names the active slot:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># 1. Deploy v2 to the idle (green) slot and wait for it to become ready</span>
+kubectl <span class="nb">set </span>image deployment/web-green <span class="nv">web</span><span class="o">=</span>ghcr.io/example/web@<span class="s2">"</span><span class="nv">$DIGEST</span><span class="s2">"</span>
+kubectl rollout status deployment/web-green <span class="nt">--timeout</span><span class="o">=</span>5m
+
+<span class="c"># 2. Verify green through its own internal Service before it gets real traffic</span>
+./smoke-test.sh http://web-green.internal
+
+<span class="c"># 3. Cut over: point the public Service at the green pods</span>
+kubectl patch service web <span class="nt">-p</span> <span class="s1">'{"spec":{"selector":{"app":"web","slot":"green"}}}'</span>
+
+<span class="c"># Rollback is the same patch with slot=blue. It takes seconds because blue never stopped.</span>
 </code></pre></div></div>
 
-<h2 id="4-feature-flags-deployment">4. Feature Flags Deployment</h2>
+<p>Trade-offs:</p>
 
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Deploy code but control feature activation</span>
-<span class="k">if </span><span class="p">(</span><span class="nx">featureFlag</span><span class="p">.</span><span class="nf">isEnabled</span><span class="p">(</span><span class="dl">'</span><span class="s1">new-checkout-flow</span><span class="dl">'</span><span class="p">))</span> <span class="p">{</span>
-  <span class="k">return</span> <span class="nf">renderNewCheckout</span><span class="p">();</span>
-<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
-  <span class="k">return</span> <span class="nf">renderOldCheckout</span><span class="p">();</span>
+<ul>
+  <li><strong>Cost.</strong> You pay for 2× capacity during the release window. With autoscaling, the idle slot can be kept small and scaled up just before cutover.</li>
+  <li><strong>State.</strong> Both slots usually share one database, so the schema must work for both versions at once (see <a href="#database-migrations">Database Migrations</a>). Long-lived connections (WebSockets, gRPC streams) do not follow a selector change and must be drained.</li>
+  <li><strong>All-or-nothing.</strong> A bug that smoke tests miss hits 100% of users at cutover. Blue-green reduces <em>time to recover</em>, not <em>exposure</em>.</li>
+</ul>
+
+<h2 id="canary-releases">Canary Releases</h2>
+
+<p>A canary sends a small fraction of real production traffic to the new version, compares its health against the stable version, and increases the fraction in steps only while the metrics stay healthy. A bad release reaches, say, 5% of requests for a few minutes instead of everyone.</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; W5: deploy canary
+    W5: 5% traffic
+    W25: 25% traffic
+    W50: 50% traffic
+    Full: 100% (promote)
+    Abort: 0% (rollback)
+    W5 --&gt; W25: analysis passes
+    W25 --&gt; W50: analysis passes
+    W50 --&gt; Full: analysis passes
+    W5 --&gt; Abort: SLO breach
+    W25 --&gt; Abort: SLO breach
+    W50 --&gt; Abort: SLO breach
+    Full --&gt; [*]
+    Abort --&gt; [*]
+</code></pre>
+
+<p>Canarying needs two capabilities: <strong>weighted traffic splitting</strong> and <strong>automated analysis</strong>.</p>
+
+<p><strong>Traffic splitting.</strong> Simply running 1 canary pod next to 19 stable pods behind one Service gives roughly 5% of connections, but the ratio is coarse and depends on the replica count. Precise weights come from the routing layer: a service mesh (Istio, Linkerd), an ingress controller, or the Kubernetes <strong>Gateway API</strong>, whose <code class="language-plaintext highlighter-rouge">HTTPRoute</code> supports weighted <code class="language-plaintext highlighter-rouge">backendRefs</code> in a vendor-neutral way:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">gateway.networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HTTPRoute</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">parentRefs</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">public-gateway</span>
+  <span class="na">rules</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">backendRefs</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web-stable</span>
+          <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+          <span class="na">weight</span><span class="pi">:</span> <span class="m">95</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web-canary</span>
+          <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+          <span class="na">weight</span><span class="pi">:</span> <span class="m">5</span>
+</code></pre></div></div>
+
+<p><strong>Analysis.</strong> A shell loop that polls an error rate works as an illustration but does not hold up in production. It ignores latency, has no statistical baseline, and leaves partial state behind when it fails. Use a progressive-delivery controller instead.</p>
+
+<h3 id="progressive-delivery-with-argo-rollouts">Progressive Delivery with Argo Rollouts</h3>
+
+<p><strong>Argo Rollouts</strong> (and the similar <strong>Flagger</strong>) replaces the Deployment with a controller that runs the canary steps, adjusts the traffic router’s weights, queries a metrics provider at each step, and aborts and reverts automatically on failure. The pipeline’s only job is to update the image. Promotion and rollback happen in the cluster.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">argoproj.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Rollout</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">app</span><span class="pi">:</span> <span class="nv">web</span> <span class="pi">}</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">app</span><span class="pi">:</span> <span class="nv">web</span> <span class="pi">}</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+          <span class="na">image</span><span class="pi">:</span> <span class="s">ghcr.io/example/web@sha256:3f1c...</span>
+  <span class="na">strategy</span><span class="pi">:</span>
+    <span class="na">canary</span><span class="pi">:</span>
+      <span class="na">stableService</span><span class="pi">:</span> <span class="s">web-stable</span>
+      <span class="na">canaryService</span><span class="pi">:</span> <span class="s">web-canary</span>
+      <span class="na">trafficRouting</span><span class="pi">:</span>
+        <span class="na">plugins</span><span class="pi">:</span>
+          <span class="na">argoproj-labs/gatewayAPI</span><span class="pi">:</span>      <span class="c1"># Gateway API traffic-router plugin</span>
+            <span class="na">httpRoute</span><span class="pi">:</span> <span class="s">web</span>
+            <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+      <span class="na">analysis</span><span class="pi">:</span>                          <span class="c1"># background analysis for the whole rollout</span>
+        <span class="na">templates</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">templateName</span><span class="pi">:</span> <span class="s">success-rate</span>
+        <span class="na">startingStep</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">steps</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">setWeight</span><span class="pi">:</span> <span class="m">5</span>
+        <span class="pi">-</span> <span class="na">pause</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">duration</span><span class="pi">:</span> <span class="nv">10m</span> <span class="pi">}</span>
+        <span class="pi">-</span> <span class="na">setWeight</span><span class="pi">:</span> <span class="m">25</span>
+        <span class="pi">-</span> <span class="na">pause</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">duration</span><span class="pi">:</span> <span class="nv">10m</span> <span class="pi">}</span>
+        <span class="pi">-</span> <span class="na">setWeight</span><span class="pi">:</span> <span class="m">50</span>
+        <span class="pi">-</span> <span class="na">pause</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">duration</span><span class="pi">:</span> <span class="nv">10m</span> <span class="pi">}</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">argoproj.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">AnalysisTemplate</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">success-rate</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">metrics</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">success-rate</span>
+      <span class="na">interval</span><span class="pi">:</span> <span class="s">1m</span>
+      <span class="na">failureLimit</span><span class="pi">:</span> <span class="m">2</span>                    <span class="c1"># abort after 2 failed measurements</span>
+      <span class="na">successCondition</span><span class="pi">:</span> <span class="s">result[0] &gt;= </span><span class="m">0.99</span>
+      <span class="na">provider</span><span class="pi">:</span>
+        <span class="na">prometheus</span><span class="pi">:</span>
+          <span class="na">address</span><span class="pi">:</span> <span class="s">http://prometheus.monitoring:9090</span>
+          <span class="na">query</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">sum(rate(http_requests_total{service="web-canary",code!~"5.."}[2m]))</span>
+            <span class="s">/</span>
+            <span class="s">sum(rate(http_requests_total{service="web-canary"}[2m]))</span>
+</code></pre></div></div>
+
+<p>Good canary metrics are the service’s <strong>SLIs</strong> (error rate, p95/p99 latency, saturation), compared against the stable version over the same window rather than against a fixed number, so that a traffic spike affecting both versions does not abort the release. Low-traffic services may not produce enough requests at 5% for a meaningful signal. Such services need longer steps, synthetic load, or a switch to blue-green.</p>
+
+<h2 id="feature-flags">Feature Flags</h2>
+
+<p>Feature flags decouple <strong>deploy</strong> from <strong>release</strong>. New code ships to production turned off, and a runtime flag service decides per request whether each user sees it. Flags allow percentage rollouts, targeting (internal staff first, then a region, then everyone), and a kill switch that works in seconds without a deployment. They are also what makes trunk-based development workable, because unfinished features can merge to <code class="language-plaintext highlighter-rouge">main</code> behind a flag.</p>
+
+<p><strong>OpenFeature</strong> (a CNCF project) standardizes the flag-evaluation API so application code is not tied to a vendor. The provider (LaunchDarkly, Flagsmith, Unleash, flagd, a cloud provider’s service, and others) is chosen at startup:</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">OpenFeature</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@openfeature/server-sdk</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="c1">// At startup: OpenFeature.setProvider(new SomeVendorProvider(...));</span>
+<span class="kd">const</span> <span class="nx">flags</span> <span class="o">=</span> <span class="nx">OpenFeature</span><span class="p">.</span><span class="nf">getClient</span><span class="p">();</span>
+
+<span class="k">export</span> <span class="k">async</span> <span class="kd">function</span> <span class="nf">checkoutHandler</span><span class="p">(</span><span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">useNewFlow</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">flags</span><span class="p">.</span><span class="nf">getBooleanValue</span><span class="p">(</span>
+    <span class="dl">'</span><span class="s1">new-checkout-flow</span><span class="dl">'</span><span class="p">,</span>            <span class="c1">// flag key</span>
+    <span class="kc">false</span><span class="p">,</span>                          <span class="c1">// default if the provider is unavailable</span>
+    <span class="p">{</span> <span class="na">targetingKey</span><span class="p">:</span> <span class="nx">req</span><span class="p">.</span><span class="nx">user</span><span class="p">.</span><span class="nx">id</span> <span class="p">},</span>  <span class="c1">// consistent bucketing per user</span>
+  <span class="p">);</span>
+  <span class="k">return</span> <span class="nx">useNewFlow</span> <span class="p">?</span> <span class="nf">renderNewCheckout</span><span class="p">(</span><span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">)</span> <span class="p">:</span> <span class="nf">renderOldCheckout</span><span class="p">(</span><span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">feature-flag-deploy</span><span class="pi">:</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy with Feature Off</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">FEATURE_FLAGS='{"new-checkout-flow": false}' \</span>
-        <span class="s">npm run deploy</span>
+<p>The rollout then happens in the flag service (1% → 10% → 50% → 100%) and not in the pipeline. Two cautions:</p>
 
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Gradual Rollout</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">for percentage in 10 25 50 100; do</span>
-          <span class="s">./set-feature-flag.sh new-checkout-flow $percentage</span>
-          <span class="s">sleep 3600  # Monitor for 1 hour</span>
-        <span class="s">done</span>
-</code></pre></div></div>
+<ul>
+  <li><strong>Flags are debt.</strong> Every flag doubles the code paths to test. Give each release flag an owner and an expiry date, and delete it once it reaches 100%. Long-lived <em>operational</em> flags (kill switches, load shedding) are a separate, deliberate category.</li>
+  <li><strong>Safe defaults.</strong> The default value is what users get when the flag service is unreachable, so it should almost always be the old, known-good behavior.</li>
+</ul>
+
+<h2 id="database-migrations">Database Migrations</h2>
+
+<p>Most rollback failures come from the schema, not the code. During any zero-downtime strategy, old and new application versions run against <strong>the same database</strong> at the same time, and after a rollback the old version must still work against whatever schema the new version left behind. The standard technique is <strong>expand/contract</strong> (also called <em>parallel change</em>): every schema change is split into backward-compatible steps shipped in separate releases.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    E["1. Expand&lt;br/&gt;add new column/table&lt;br/&gt;(nullable, unused)"] --&gt; D["2. Dual-write&lt;br/&gt;app writes old + new;&lt;br/&gt;backfill history"]
+    D --&gt; R["3. Switch reads&lt;br/&gt;app reads new;&lt;br/&gt;still writes both"]
+    R --&gt; C["4. Contract&lt;br/&gt;stop writing old;&lt;br/&gt;drop old column"]
+</code></pre>
+
+<p>Each arrow is a separate deployment, and each intermediate state is compatible with the release before it, so any single step can be rolled back. Only the final <strong>contract</strong> step is destructive, and it ships after the new code has proven itself. Practical rules:</p>
+
+<ul>
+  <li>Migrations run as their own pipeline step (or a pre-deploy job) <em>before</em> the new code rolls out, never lazily at application startup across many replicas.</li>
+  <li>Avoid locking DDL on large tables. Use online schema-change tooling (<code class="language-plaintext highlighter-rouge">gh-ost</code>/<code class="language-plaintext highlighter-rouge">pt-online-schema-change</code> for MySQL, <code class="language-plaintext highlighter-rouge">CREATE INDEX CONCURRENTLY</code> in PostgreSQL).</li>
+  <li>Renaming a column is not one migration but four (add, dual-write, switch reads, drop).</li>
+</ul>
+
+<h2 id="rollback-and-roll-forward">Rollback and Roll-Forward</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>How</th>
+      <th>When</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Automated rollback</strong></td>
+      <td>Controller aborts (Argo Rollouts, <code class="language-plaintext highlighter-rouge">rollout undo</code>, blue-green switch-back) when health checks or SLOs fail</td>
+      <td>Default for any detectable regression</td>
+    </tr>
+    <tr>
+      <td><strong>Git revert (GitOps)</strong></td>
+      <td>Revert the commit that bumped the image; the GitOps operator reconciles the cluster back</td>
+      <td>Keeps Git as the source of truth; see <a href="security-and-operations.html#gitops">GitOps</a></td>
+    </tr>
+    <tr>
+      <td><strong>Flag off</strong></td>
+      <td>Disable the feature flag</td>
+      <td>Behavioral bugs in flagged code; fastest option</td>
+    </tr>
+    <tr>
+      <td><strong>Roll forward</strong></td>
+      <td>Ship a fix through the normal pipeline</td>
+      <td>When rollback is impossible (irreversible migration, external side effects) or the fix is trivial</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A rollback path that has never been exercised should be assumed broken. Rehearse it in staging, keep previous artifacts available (never garbage-collect the last <em>N</em> released digests), and track <strong>failed deployment recovery time</strong> as a first-class metric (see <a href="security-and-operations.html#measuring-delivery-dora-metrics">DORA metrics</a>).</p>
 
 <hr />
 
@@ -3251,9 +3495,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="platforms-and-pipelines.html">Platforms &amp; Pipeline Design</a> — the blue-green pipeline pattern</li>
-  <li><a href="security-and-operations.html">Security, GitOps &amp; Operations</a> — monitoring rollouts and GitOps</li>
-  <li><a href="../kubernetes/">Kubernetes</a> — the orchestration behind these rollout patterns</li>
+  <li><a href="platforms-and-pipelines.html">Platforms &amp; Pipeline Design</a> — building the artifact these strategies deploy</li>
+  <li><a href="security-and-operations.html">Security, GitOps &amp; Operations</a> — GitOps, observability, and DORA metrics</li>
+  <li><a href="../kubernetes/">Kubernetes</a> — Deployments, Services, and probes behind these rollout patterns</li>
+  <li><a href="../kubernetes/workloads.html">Kubernetes Workloads</a> — health probes and autoscaling</li>
+  <li><a href="../database-design/">Database Design</a> — schema design and migrations</li>
 </ul>
 
       </section>

@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Quality assurance for games: playtesting, automated unit/integration/replay tests, performance and soak testing, bug triage, console certification, and live ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Game Dev: Testing & QA">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Quality assurance for games: playtesting, automated unit/integration/replay tests, performance and soak testing, bug triage, console certification, and live ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/gamedev/testing-qa.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Game Dev: Testing & QA">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Quality assurance for games: playtesting, automated unit/integration/replay tests, performance and soak testing, bug triage, console certification, and live ...">
 
 <title>Game Dev: Testing & QA | Andrews Notebook</title>
 
@@ -3135,56 +3135,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Game Development</a> » Testing &amp; QA</p>
 
-<p>Games are among the hardest software to test: they are large, stateful, real-time, non-deterministic, and judged on <em>feel</em> as much as correctness. A regression in a spreadsheet app is a wrong number; a regression in a game can be a soft-lock that traps a player forever, a physics edge case that launches the avatar into orbit, or a memory leak that crashes the console after six hours — a class of bug a unit test almost never catches. This page covers the full quality stack: human <strong>playtesting</strong> for fun and usability, <strong>automated testing</strong> (unit, integration, and replay/determinism) for correctness, <strong>performance and soak testing</strong> for stability under load and over time, <strong>bug triage</strong> to turn a flood of reports into a prioritized work queue, console <strong>certification</strong> (TRC/TCR/lotcheck), and <strong>telemetry</strong> to close the loop with live data from real players.</p>
+<p><strong>Game quality assurance</strong> combines human judgment with automation to find defects in software that is large, stateful, real-time, frequently non-deterministic, and judged as much on feel as on correctness. A regression in a business application produces a wrong number; a regression in a game can be a soft-lock that traps a player, a physics edge case that launches the character out of the level, or a slow memory leak that crashes a console after six hours of play — failures that ordinary unit tests rarely catch.</p>
 
-<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
-
-<ol id="markdown-toc">
-  <li><a href="#testing--qa" id="markdown-toc-testing--qa">Testing &amp; QA</a>    <ol>
-      <li><a href="#why-game-testing-is-different" id="markdown-toc-why-game-testing-is-different">Why Game Testing Is Different</a></li>
-      <li><a href="#playtesting" id="markdown-toc-playtesting">Playtesting</a>        <ol>
-          <li><a href="#kinds-of-playtesting" id="markdown-toc-kinds-of-playtesting">Kinds of Playtesting</a></li>
-          <li><a href="#running-a-usability-test" id="markdown-toc-running-a-usability-test">Running a Usability Test</a></li>
-          <li><a href="#quantitative-playtest-metrics" id="markdown-toc-quantitative-playtest-metrics">Quantitative Playtest Metrics</a></li>
-        </ol>
-      </li>
-      <li><a href="#automated-testing" id="markdown-toc-automated-testing">Automated Testing</a>        <ol>
-          <li><a href="#unit-tests" id="markdown-toc-unit-tests">Unit Tests</a></li>
-          <li><a href="#integration-play-mode-tests" id="markdown-toc-integration-play-mode-tests">Integration (“Play Mode”) Tests</a></li>
-          <li><a href="#replay-and-determinism-tests" id="markdown-toc-replay-and-determinism-tests">Replay and Determinism Tests</a></li>
-          <li><a href="#other-automated-techniques" id="markdown-toc-other-automated-techniques">Other Automated Techniques</a></li>
-        </ol>
-      </li>
-      <li><a href="#performance-and-soak-testing" id="markdown-toc-performance-and-soak-testing">Performance and Soak Testing</a>        <ol>
-          <li><a href="#performance-testing" id="markdown-toc-performance-testing">Performance Testing</a></li>
-          <li><a href="#soak-stabilityendurance-testing" id="markdown-toc-soak-stabilityendurance-testing">Soak (Stability/Endurance) Testing</a></li>
-          <li><a href="#stress-and-load-testing" id="markdown-toc-stress-and-load-testing">Stress and Load Testing</a></li>
-        </ol>
-      </li>
-      <li><a href="#bug-triage" id="markdown-toc-bug-triage">Bug Triage</a>        <ol>
-          <li><a href="#a-good-bug-report" id="markdown-toc-a-good-bug-report">A Good Bug Report</a></li>
-          <li><a href="#severity-vs-priority" id="markdown-toc-severity-vs-priority">Severity vs. Priority</a></li>
-          <li><a href="#the-triage-workflow" id="markdown-toc-the-triage-workflow">The Triage Workflow</a></li>
-        </ol>
-      </li>
-      <li><a href="#certification-console-trctcr" id="markdown-toc-certification-console-trctcr">Certification (Console TRC/TCR)</a></li>
-      <li><a href="#telemetry" id="markdown-toc-telemetry">Telemetry</a>        <ol>
-          <li><a href="#what-to-collect" id="markdown-toc-what-to-collect">What to Collect</a></li>
-          <li><a href="#the-telemetry-pipeline" id="markdown-toc-the-telemetry-pipeline">The Telemetry Pipeline</a></li>
-          <li><a href="#closing-the-loop" id="markdown-toc-closing-the-loop">Closing the Loop</a></li>
-        </ol>
-      </li>
-      <li><a href="#putting-it-together-a-qa-pipeline" id="markdown-toc-putting-it-together-a-qa-pipeline">Putting It Together: A QA Pipeline</a></li>
-      <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
-    </ol>
-  </li>
-</ol>
-
-<hr />
+<p>This page covers the layers of a game QA system: <strong>playtesting</strong> for usability and fun; <strong>automated testing</strong> (unit, integration, smoke, and replay/determinism) for correctness; <strong>performance and soak testing</strong> for stability over time; <strong>bug triage</strong>; platform <strong>certification</strong>; and <strong>telemetry</strong> from live players.</p>
 
 <h2 id="why-game-testing-is-different">Why Game Testing Is Different</h2>
 
-<p>Traditional software QA assumes you can pin down inputs and assert on outputs. Games violate every part of that assumption:</p>
+<p>Conventional QA assumes inputs can be pinned down and outputs asserted. Games strain every part of that assumption:</p>
 
 <table>
   <thead>
@@ -3196,223 +3153,324 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><strong>Real-time</strong></td>
-      <td>Bugs are timing-dependent; a frame hitch can change behavior. You must test at frame rate, not at your own pace.</td>
+      <td>Bugs depend on timing; a single slow frame can change behavior. Tests must run the game loop, not just call functions.</td>
     </tr>
     <tr>
       <td><strong>Stateful</strong></td>
-      <td>The bug may only appear after 40 hours of specific play. State space is effectively infinite.</td>
+      <td>A bug may appear only after many hours of a particular play history. The state space is effectively unbounded.</td>
     </tr>
     <tr>
       <td><strong>Non-deterministic</strong></td>
-      <td>Floating-point, threading, and input timing make “repro steps” unreliable. Reproducibility is itself an engineering goal.</td>
+      <td>Floating-point differences, threading, and input timing make repro steps unreliable. Reproducibility has to be engineered.</td>
     </tr>
     <tr>
       <td><strong>Subjective</strong></td>
-      <td>“Is it fun?” and “does this feel responsive?” cannot be asserted in code. Humans are required.</td>
+      <td>“Is it fun?” and “does the jump feel responsive?” cannot be asserted in code.</td>
     </tr>
     <tr>
       <td><strong>Content-heavy</strong></td>
-      <td>Thousands of assets, levels, and quests, each a potential failure point. Coverage is a content problem, not just a code problem.</td>
+      <td>Thousands of levels, assets, and quests, each a failure point. Coverage is a content problem as much as a code problem.</td>
     </tr>
     <tr>
       <td><strong>Platform-fragmented</strong></td>
-      <td>The same build must pass on PC, multiple consoles, and a range of GPUs. A bug may exist on exactly one SKU.</td>
+      <td>One build must work across PC hardware, several consoles, handhelds, and sometimes mobile. A bug may exist on exactly one SKU.</td>
     </tr>
   </tbody>
 </table>
 
-<p>The practical takeaway: no single technique is sufficient. Effective game QA is a <strong>layered defense</strong> — cheap automated checks catch the many shallow bugs continuously, while expensive human playtesting and soak runs catch the few deep ones. The layers, ordered from fastest/cheapest to slowest/most-expensive:</p>
+<p>No single technique suffices. Effective QA is <strong>layered</strong>: cheap automated checks run constantly and catch many shallow bugs, while expensive human testing and long-running soak tests catch the few deep ones. Each layer should catch what the next, more expensive layer would otherwise find later.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        Telemetry (live, real players)        &lt;- millions of sessions
-      ┌─────────────────────────────────┐
-      │   Certification / Cert passes    │     &lt;- days, per submission
-      │   Soak &amp; performance testing     │     &lt;- hours, nightly
-      │   Manual / structured playtesting│     &lt;- humans, per build
-      │   Replay / determinism tests     │     &lt;- minutes, per commit
-      │   Integration / smoke tests      │     &lt;- minutes, per commit
-      │   Unit tests                     │     &lt;- seconds, per commit
-      └─────────────────────────────────┘
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    U["Unit tests&lt;br/&gt;seconds, per commit"] --&gt; I["Integration and smoke&lt;br/&gt;minutes, per commit"]
+    I --&gt; R["Replay / determinism&lt;br/&gt;minutes, per commit"]
+    R --&gt; P["Performance and soak&lt;br/&gt;hours, nightly"]
+    P --&gt; H["Playtests and functional QA&lt;br/&gt;days, per build"]
+    H --&gt; C["Certification&lt;br/&gt;days to weeks, per submission"]
+    C --&gt; T["Telemetry&lt;br/&gt;continuous, live players"]
+</code></pre>
 
-<p>Each layer should catch what the layer above it would have caught more expensively. A determinism bug found by a replay test in CI costs minutes; the same bug found in cert costs a failed submission and a slipped ship date.</p>
+<p>A determinism bug found by a replay test in CI costs minutes. The same bug found during certification costs a failed submission and possibly a missed release date.</p>
 
 <h2 id="playtesting">Playtesting</h2>
 
-<p>Playtesting is the irreplaceable human layer. It answers questions automation cannot: <em>Is the tutorial clear? Is the difficulty curve fair? Is the core loop fun? Did the player even find the door?</em> There are several distinct kinds, often confused.</p>
+<p>Playtesting is the human layer. It answers questions automation cannot: whether the tutorial is understandable, whether the difficulty curve is fair, whether the core loop is enjoyable, and whether players can find the exit at all.</p>
 
-<h3 id="kinds-of-playtesting">Kinds of Playtesting</h3>
+<h3 id="kinds-of-playtesting">Kinds of playtesting</h3>
 
 <table>
   <thead>
     <tr>
       <th>Type</th>
       <th>Question answered</th>
-      <th>Who tests</th>
+      <th>Testers</th>
       <th>When</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Usability / UX</strong></td>
-      <td>Can players understand the controls and UI without being told?</td>
-      <td>Fresh, representative players</td>
+      <td>Can players understand controls and UI without help?</td>
+      <td>New players representative of the audience</td>
       <td>Early and continuously</td>
     </tr>
     <tr>
-      <td><strong>Fun / design</strong></td>
-      <td>Is the core loop engaging? Is pacing right?</td>
+      <td><strong>Design / fun</strong></td>
+      <td>Is the core loop engaging; is pacing right?</td>
       <td>Target-audience players</td>
       <td>Throughout production</td>
     </tr>
     <tr>
       <td><strong>Balance</strong></td>
       <td>Are difficulty, economy, and power curves tuned?</td>
-      <td>Skilled and novice players</td>
-      <td>Mid-to-late</td>
+      <td>Mixed skill levels</td>
+      <td>Mid to late production</td>
     </tr>
     <tr>
-      <td><strong>Functional / QA</strong></td>
-      <td>Does it work? Find bugs and break things.</td>
+      <td><strong>Functional QA</strong></td>
+      <td>Does it work? Find and document defects.</td>
       <td>Professional testers</td>
       <td>Continuously</td>
     </tr>
     <tr>
-      <td><strong>Compliance / cert</strong></td>
-      <td>Does it meet platform requirements?</td>
+      <td><strong>Compliance</strong></td>
+      <td>Does the build meet platform requirements?</td>
       <td>Specialist testers</td>
-      <td>Pre-submission</td>
+      <td>Before each submission</td>
     </tr>
     <tr>
       <td><strong>Compatibility</strong></td>
       <td>Does it run across the hardware matrix?</td>
-      <td>Test lab with device farm</td>
-      <td>Late</td>
+      <td>Test lab or device farm</td>
+      <td>Late production and per patch</td>
+    </tr>
+    <tr>
+      <td><strong>Accessibility</strong></td>
+      <td>Can players with disabilities complete the game with the provided options?</td>
+      <td>Players with relevant disabilities, accessibility consultants</td>
+      <td>Mid production onward</td>
     </tr>
   </tbody>
 </table>
 
-<p>A common mistake is using developers or friends for usability testing. People who built the game (or know the builder) cannot un-know how it works; they will subconsciously avoid the dead end a first-time player walks straight into.</p>
+<p>Developers, and friends of developers, are poor usability testers: they already know how the game works and unconsciously avoid the dead ends that new players walk into.</p>
 
-<h3 id="running-a-usability-test">Running a Usability Test</h3>
+<h3 id="running-a-usability-test">Running a usability test</h3>
 
-<p>The gold-standard technique is <strong>think-aloud, no-help observation</strong>:</p>
+<p>The standard method is <strong>think-aloud observation without assistance</strong>:</p>
 
 <ol>
-  <li><strong>Recruit representative players</strong> — match your target audience, and critically, people who have never seen the game.</li>
-  <li><strong>Set a task, not a script</strong> — “Get to the first save point,” not “Press X to open the door.”</li>
-  <li><strong>Say nothing.</strong> The single hardest and most valuable rule. When a tester is stuck, the designer’s instinct is to help. Resist it — that stuck moment <em>is the data</em>. If you have to explain it in the room, you have to explain it in the shipped game, and you cannot sit next to every player.</li>
-  <li><strong>Ask them to think aloud</strong> — narrate what they believe, expect, and are confused by.</li>
-  <li><strong>Record</strong> screen + face + audio. Watch for the gap between what players <em>say</em> afterward and what they <em>did</em> in the moment; behavior is more reliable than self-report.</li>
-  <li><strong>Look for patterns across testers</strong>, not single opinions. One person disliking the jump is noise; five people failing the same jump is a design bug.</li>
+  <li><strong>Recruit representative players</strong> who have never seen the game.</li>
+  <li><strong>Give goals, not instructions</strong> — “reach the first save point,” not “press X to open the door.”</li>
+  <li><strong>Do not help.</strong> When a tester is stuck, the stuck moment is the data. Anything that must be explained in the room will have to be explained by the shipped game.</li>
+  <li><strong>Ask testers to think aloud</strong>, narrating what they expect and what confuses them.</li>
+  <li><strong>Record</strong> gameplay, face, and audio. What players did is more reliable than what they say afterward.</li>
+  <li><strong>Look for patterns across sessions.</strong> One tester disliking a jump is an opinion; five testers failing the same jump is a design defect.</li>
 </ol>
 
-<h3 id="quantitative-playtest-metrics">Quantitative Playtest Metrics</h3>
+<p>Many studios run these sessions through a dedicated games user research (GUR) function, and increasingly supplement lab sessions with remote unmoderated tests using recorded builds.</p>
 
-<p>Even “soft” playtesting can be instrumented. Useful per-session metrics:</p>
+<h3 id="playtest-metrics">Playtest metrics</h3>
+
+<p>Even qualitative playtests benefit from instrumentation:</p>
 
 <ul>
-  <li><strong>Time-to-first-action</strong> and <strong>time-to-completion</strong> per objective (spikes reveal confusion).</li>
-  <li><strong>Failure/retry counts</strong> per encounter (difficulty spikes).</li>
-  <li><strong>Drop-off point</strong> — where players quit (the most important retention signal).</li>
-  <li><strong>Path heatmaps</strong> — where players actually go vs. where you intended.</li>
+  <li><strong>Time to first action</strong> and <strong>time to complete</strong> each objective — spikes indicate confusion.</li>
+  <li><strong>Failure and retry counts</strong> per encounter — spikes indicate difficulty problems.</li>
+  <li><strong>Drop-off point</strong> — where players stop, the strongest retention signal.</li>
+  <li><strong>Path heatmaps</strong> — where players actually go compared with the intended route.</li>
 </ul>
 
-<p>These feed directly into the <a href="#telemetry">telemetry</a> systems used post-launch; the same instrumentation built for playtests scales to millions of live players.</p>
+<p>The same instrumentation later becomes the live <a href="#telemetry">telemetry</a> system.</p>
 
 <h2 id="automated-testing">Automated Testing</h2>
 
-<p>Automated tests are the cheap, continuous layer that runs on every commit and frees humans to do work only humans can do. Three families matter for games: <strong>unit</strong>, <strong>integration</strong>, and <strong>replay/determinism</strong>.</p>
+<p>Automated tests are the inexpensive, continuous layer that runs on every change. For games the important families are unit tests, integration and smoke tests, and replay/determinism tests, supported by bots, image comparison, and property-based testing.</p>
 
-<h3 id="unit-tests">Unit Tests</h3>
+<h3 id="engine-test-frameworks">Engine test frameworks</h3>
 
-<p>Unit tests target pure, deterministic logic in isolation: damage formulas, inventory math, save serialization, pathfinding cost functions, state-machine transitions. They are fast, hermetic, and the backbone of CI. The key to making game code unit-testable is <strong>separating logic from the engine</strong> — extract the rules into plain classes with no dependency on rendering, time, or input.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Engine</th>
+      <th>Frameworks</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Unity</strong></td>
+      <td>Unity Test Framework (NUnit-based)</td>
+      <td><em>Edit Mode</em> tests run without entering Play Mode; <em>Play Mode</em> tests run the real player loop and can yield across frames. Runs from the command line with <code class="language-plaintext highlighter-rouge">-runTests</code> for CI.</td>
+    </tr>
+    <tr>
+      <td><strong>Unreal Engine</strong></td>
+      <td>Automation Test Framework: simple/complex automation tests, <strong>Automation Spec</strong> (BDD style), <strong>CQTest</strong> (fixtures and simplified async tests), <strong>Functional Tests</strong> (level-based, authored in Blueprint), <strong>Automation Driver</strong> (simulated user input), screenshot comparison, Editor tests in Python; <strong>Low-Level Tests</strong> (Catch2-based) for pure unit tests; <strong>Gauntlet</strong> for orchestrating multi-process sessions on devices</td>
+      <td>Session Frontend runs tests interactively; <code class="language-plaintext highlighter-rouge">RunUAT</code> / Horde automate them in CI.</td>
+    </tr>
+    <tr>
+      <td><strong>Godot 4</strong></td>
+      <td>GUT (Godot Unit Test), GdUnit4</td>
+      <td>Both run headless from the command line; GdUnit4 also supports C#.</td>
+    </tr>
+    <tr>
+      <td><strong>Custom engines</strong></td>
+      <td>GoogleTest, Catch2, doctest</td>
+      <td>Keep simulation code in libraries that link without the renderer.</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Pure logic, no MonoBehaviour, no engine — fully unit-testable.</span>
+<h3 id="unit-tests">Unit tests</h3>
+
+<p>Unit tests exercise pure logic in isolation: damage formulas, inventory rules, serialization, pathfinding costs, state-machine transitions. They are fast and hermetic. The prerequisite is <strong>separating rules from the engine</strong>: extract logic into plain classes that do not depend on rendering, frame time, or input devices.</p>
+
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Pure logic: no MonoBehaviour, no scene, fully unit-testable.</span>
 <span class="k">public</span> <span class="k">static</span> <span class="k">class</span> <span class="nc">DamageCalculator</span>
 <span class="p">{</span>
     <span class="k">public</span> <span class="k">static</span> <span class="kt">int</span> <span class="nf">Resolve</span><span class="p">(</span><span class="kt">int</span> <span class="n">baseDamage</span><span class="p">,</span> <span class="kt">int</span> <span class="n">armor</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">isCrit</span><span class="p">)</span>
     <span class="p">{</span>
-        <span class="kt">int</span> <span class="n">mitigated</span> <span class="p">=</span> <span class="n">Mathf</span><span class="p">.</span><span class="nf">Max</span><span class="p">(</span><span class="m">1</span><span class="p">,</span> <span class="n">baseDamage</span> <span class="p">-</span> <span class="n">armor</span><span class="p">);</span>   <span class="c1">// never below 1</span>
+        <span class="kt">int</span> <span class="n">mitigated</span> <span class="p">=</span> <span class="n">Math</span><span class="p">.</span><span class="nf">Max</span><span class="p">(</span><span class="m">1</span><span class="p">,</span> <span class="n">baseDamage</span> <span class="p">-</span> <span class="n">armor</span><span class="p">);</span>   <span class="c1">// never below 1</span>
         <span class="k">return</span> <span class="n">isCrit</span> <span class="p">?</span> <span class="n">mitigated</span> <span class="p">*</span> <span class="m">2</span> <span class="p">:</span> <span class="n">mitigated</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">}</span>
 
-<span class="p">[</span><span class="n">Test</span><span class="p">]</span>
-<span class="k">public</span> <span class="k">void</span> <span class="nf">Armor_Reduces_Damage_But_Never_Below_One</span><span class="p">()</span>
+<span class="k">public</span> <span class="k">class</span> <span class="nc">DamageCalculatorTests</span>
 <span class="p">{</span>
-    <span class="n">Assert</span><span class="p">.</span><span class="nf">AreEqual</span><span class="p">(</span><span class="m">1</span><span class="p">,</span> <span class="n">DamageCalculator</span><span class="p">.</span><span class="nf">Resolve</span><span class="p">(</span><span class="n">baseDamage</span><span class="p">:</span> <span class="m">5</span><span class="p">,</span> <span class="n">armor</span><span class="p">:</span> <span class="m">100</span><span class="p">,</span> <span class="n">isCrit</span><span class="p">:</span> <span class="k">false</span><span class="p">));</span>
-    <span class="n">Assert</span><span class="p">.</span><span class="nf">AreEqual</span><span class="p">(</span><span class="m">7</span><span class="p">,</span> <span class="n">DamageCalculator</span><span class="p">.</span><span class="nf">Resolve</span><span class="p">(</span><span class="n">baseDamage</span><span class="p">:</span> <span class="m">10</span><span class="p">,</span> <span class="n">armor</span><span class="p">:</span> <span class="m">3</span><span class="p">,</span> <span class="n">isCrit</span><span class="p">:</span> <span class="k">false</span><span class="p">));</span>
-    <span class="n">Assert</span><span class="p">.</span><span class="nf">AreEqual</span><span class="p">(</span><span class="m">14</span><span class="p">,</span> <span class="n">DamageCalculator</span><span class="p">.</span><span class="nf">Resolve</span><span class="p">(</span><span class="n">baseDamage</span><span class="p">:</span> <span class="m">10</span><span class="p">,</span> <span class="n">armor</span><span class="p">:</span> <span class="m">3</span><span class="p">,</span> <span class="n">isCrit</span><span class="p">:</span> <span class="k">true</span><span class="p">));</span>
+    <span class="p">[</span><span class="nf">TestCase</span><span class="p">(</span><span class="m">5</span><span class="p">,</span> <span class="m">100</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">ExpectedResult</span> <span class="p">=</span> <span class="m">1</span><span class="p">)]</span>    <span class="c1">// armor cannot reduce below 1</span>
+    <span class="p">[</span><span class="nf">TestCase</span><span class="p">(</span><span class="m">10</span><span class="p">,</span> <span class="m">3</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">ExpectedResult</span> <span class="p">=</span> <span class="m">7</span><span class="p">)]</span>
+    <span class="p">[</span><span class="nf">TestCase</span><span class="p">(</span><span class="m">10</span><span class="p">,</span> <span class="m">3</span><span class="p">,</span> <span class="k">true</span><span class="p">,</span>  <span class="n">ExpectedResult</span> <span class="p">=</span> <span class="m">14</span><span class="p">)]</span>    <span class="c1">// crit doubles mitigated damage</span>
+    <span class="k">public</span> <span class="kt">int</span> <span class="nf">Resolve_AppliesArmorThenCrit</span><span class="p">(</span><span class="kt">int</span> <span class="n">dmg</span><span class="p">,</span> <span class="kt">int</span> <span class="n">armor</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">crit</span><span class="p">)</span>
+        <span class="p">=&gt;</span> <span class="n">DamageCalculator</span><span class="p">.</span><span class="nf">Resolve</span><span class="p">(</span><span class="n">dmg</span><span class="p">,</span> <span class="n">armor</span><span class="p">,</span> <span class="n">crit</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>Most engines ship a unit-test framework: <strong>Unity Test Framework</strong> (NUnit-based, “Edit Mode” tests run without entering play), <strong>Unreal Automation</strong> (<code class="language-plaintext highlighter-rouge">IMPLEMENT_SIMPLE_AUTOMATION_TEST</code>), and <strong>GUT</strong> / <strong>GdUnit</strong> for Godot.</p>
+<h3 id="integration-and-play-mode-tests">Integration and Play Mode tests</h3>
 
-<h3 id="integration-play-mode-tests">Integration (“Play Mode”) Tests</h3>
+<p>Integration tests run part of the real game — a scene, the physics world, several systems together — and assert on behavior over multiple frames:</p>
 
-<p>Integration tests spin up part of the real game — a scene, the physics world, a few systems wired together — and assert on emergent behavior over several frames. In Unity these are “Play Mode” tests that can yield across frames:</p>
+<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">using</span> <span class="nn">System.Collections</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">NUnit.Framework</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">UnityEngine</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">UnityEngine.SceneManagement</span><span class="p">;</span>
+<span class="k">using</span> <span class="nn">UnityEngine.TestTools</span><span class="p">;</span>
 
-<div class="language-csharp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="n">UnityTest</span><span class="p">]</span>
-<span class="k">public</span> <span class="n">IEnumerator</span> <span class="nf">Player_Lands_On_Ground_Within_Two_Seconds</span><span class="p">()</span>
+<span class="k">public</span> <span class="k">class</span> <span class="nc">PlayerPhysicsTests</span>
 <span class="p">{</span>
-    <span class="kt">var</span> <span class="n">scene</span> <span class="p">=</span> <span class="n">SceneManager</span><span class="p">.</span><span class="nf">LoadScene</span><span class="p">(</span><span class="s">"TestArena"</span><span class="p">,</span> <span class="n">LoadSceneMode</span><span class="p">.</span><span class="n">Single</span><span class="p">);</span>
-    <span class="k">yield</span> <span class="k">return</span> <span class="k">null</span><span class="p">;</span>                       <span class="c1">// let one frame run</span>
-    <span class="kt">var</span> <span class="n">player</span> <span class="p">=</span> <span class="n">Object</span><span class="p">.</span><span class="n">FindObjectOfType</span><span class="p">&lt;</span><span class="n">PlayerController</span><span class="p">&gt;();</span>
-    <span class="n">player</span><span class="p">.</span><span class="n">transform</span><span class="p">.</span><span class="n">position</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">Vector3</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="m">10</span><span class="p">,</span> <span class="m">0</span><span class="p">);</span>
-
-    <span class="kt">float</span> <span class="n">t</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
-    <span class="k">while</span> <span class="p">(!</span><span class="n">player</span><span class="p">.</span><span class="n">IsGrounded</span> <span class="p">&amp;&amp;</span> <span class="n">t</span> <span class="p">&lt;</span> <span class="m">2f</span><span class="p">)</span>
+    <span class="p">[</span><span class="n">UnityTest</span><span class="p">]</span>
+    <span class="k">public</span> <span class="n">IEnumerator</span> <span class="nf">Player_LandsOnGround_WithinTwoSeconds</span><span class="p">()</span>
     <span class="p">{</span>
-        <span class="n">t</span> <span class="p">+=</span> <span class="n">Time</span><span class="p">.</span><span class="n">deltaTime</span><span class="p">;</span>
-        <span class="k">yield</span> <span class="k">return</span> <span class="k">null</span><span class="p">;</span>                   <span class="c1">// advance the real game loop</span>
+        <span class="k">yield</span> <span class="k">return</span> <span class="n">SceneManager</span><span class="p">.</span><span class="nf">LoadSceneAsync</span><span class="p">(</span><span class="s">"TestArena"</span><span class="p">,</span> <span class="n">LoadSceneMode</span><span class="p">.</span><span class="n">Single</span><span class="p">);</span>
+
+        <span class="kt">var</span> <span class="n">player</span> <span class="p">=</span> <span class="n">Object</span><span class="p">.</span><span class="n">FindFirstObjectByType</span><span class="p">&lt;</span><span class="n">PlayerController</span><span class="p">&gt;();</span>
+        <span class="n">Assert</span><span class="p">.</span><span class="nf">IsNotNull</span><span class="p">(</span><span class="n">player</span><span class="p">,</span> <span class="s">"TestArena has no PlayerController"</span><span class="p">);</span>
+        <span class="n">player</span><span class="p">.</span><span class="n">transform</span><span class="p">.</span><span class="n">position</span> <span class="p">=</span> <span class="k">new</span> <span class="nf">Vector3</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="m">10</span><span class="p">,</span> <span class="m">0</span><span class="p">);</span>
+
+        <span class="kt">float</span> <span class="n">elapsed</span> <span class="p">=</span> <span class="m">0f</span><span class="p">;</span>
+        <span class="k">while</span> <span class="p">(!</span><span class="n">player</span><span class="p">.</span><span class="n">IsGrounded</span> <span class="p">&amp;&amp;</span> <span class="n">elapsed</span> <span class="p">&lt;</span> <span class="m">2f</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">elapsed</span> <span class="p">+=</span> <span class="n">Time</span><span class="p">.</span><span class="n">deltaTime</span><span class="p">;</span>
+            <span class="k">yield</span> <span class="k">return</span> <span class="k">null</span><span class="p">;</span>                 <span class="c1">// advance one real frame</span>
+        <span class="p">}</span>
+        <span class="n">Assert</span><span class="p">.</span><span class="nf">IsTrue</span><span class="p">(</span><span class="n">player</span><span class="p">.</span><span class="n">IsGrounded</span><span class="p">,</span> <span class="s">"Player never landed: gravity or collision broken"</span><span class="p">);</span>
     <span class="p">}</span>
-    <span class="n">Assert</span><span class="p">.</span><span class="nf">IsTrue</span><span class="p">(</span><span class="n">player</span><span class="p">.</span><span class="n">IsGrounded</span><span class="p">,</span> <span class="s">"Player never landed — gravity or collision broken."</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p><strong>Smoke tests</strong> are the most valuable integration tests: load every level, spawn the player, run for N frames, assert “no exceptions, no NaN transforms, no missing-reference errors.” This catches the catastrophic, content-driven breakages (a level that crashes on load because an artist deleted a prefab) that no unit test can. A nightly job that boots every map is one of the highest-ROI tests a studio can own.</p>
+<p>(<code class="language-plaintext highlighter-rouge">Object.FindObjectOfType</code> is deprecated in current Unity versions; use <code class="language-plaintext highlighter-rouge">FindFirstObjectByType</code> or <code class="language-plaintext highlighter-rouge">FindAnyObjectByType</code>.)</p>
 
-<h3 id="replay-and-determinism-tests">Replay and Determinism Tests</h3>
+<p><strong>Smoke tests</strong> are the highest-value integration tests: load every level, spawn the player, run a few hundred frames, and assert no exceptions, no error logs, no NaN transforms, and no missing references. They catch catastrophic content breakage — a level that crashes because a referenced asset was deleted — that no unit test sees. Pair them with <strong>content validation</strong>: automated checks over assets (missing references, oversized textures, invalid collision, localization strings that overflow their UI) run on import or in CI.</p>
 
-<p>The most powerful game-specific automated test records a session as a <strong>stream of inputs</strong> plus an initial seed, then replays those inputs and asserts the simulation reproduces an identical end state (often via a checksum of game state per frame). This requires — and enforces — a <strong>deterministic simulation</strong>.</p>
+<h3 id="replay-and-determinism-tests">Replay and determinism tests</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Record:   seed + [frame 0: jump] [frame 12: shoot] [frame 30: move-left] ...
-Replay:   feed identical inputs into a fresh sim with the same seed
-Assert:   state_checksum(frame N) == recorded_checksum(frame N)   for all N
-</code></pre></div></div>
+<p>A replay test records a session as an <strong>initial seed plus a stream of inputs</strong>, replays the inputs into a fresh simulation, and asserts that the simulation reaches identical state, usually by comparing a per-frame checksum of game state.</p>
 
-<p>Replay tests deliver three big wins:</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant Rec as Recording run
+    participant Log as Replay file
+    participant Rep as Replay run (CI)
+    Rec-&gt;&gt;Log: seed, build ID
+    loop every simulation tick
+        Rec-&gt;&gt;Log: inputs for tick N, checksum(state N)
+    end
+    Log-&gt;&gt;Rep: seed, inputs
+    loop every simulation tick
+        Rep-&gt;&gt;Rep: step(inputs N)
+        Rep-&gt;&gt;Rep: compare checksum(state N) with recorded value
+    end
+    Note over Rep: first mismatch = exact tick of divergence
+</code></pre>
+
+<p>Replay tests provide:</p>
 
 <ol>
-  <li><strong>Regression detection.</strong> Any change that alters simulation output — even a one-tick physics difference — fails immediately, with the exact frame of divergence.</li>
-  <li><strong>Free repros.</strong> Record a tester’s crash, and the input log <em>is</em> a perfectly reproducible repro the moment determinism holds.</li>
-  <li><strong>Lockstep multiplayer validation.</strong> Deterministic lockstep netcode (RTS, fighting games) is literally a replay system across machines; replay tests are the same machinery and catch desyncs.</li>
+  <li><strong>Regression detection.</strong> Any change that alters simulation output fails, and the failure reports the exact tick of divergence.</li>
+  <li><strong>Reproducible bug reports.</strong> When determinism holds, a tester’s input log is a perfect repro.</li>
+  <li><strong>Lockstep validation.</strong> Deterministic lockstep netcode (common in RTS and fighting games) is a replay system running across machines; the same machinery catches desyncs. See <a href="multiplayer-networking.html">Multiplayer Networking</a>.</li>
 </ol>
 
-<p>Determinism is hard to retrofit. The usual culprits, all of which a checksum-diffing replay test will surface:</p>
+<p>Determinism is hard to retrofit. Common sources of divergence, all of which checksum diffing exposes:</p>
 
 <ul>
-  <li><strong>Floating-point</strong> differences across compilers/architectures — use fixed-point or carefully constrained float math for the authoritative sim.</li>
-  <li><strong>Iteration order</strong> of hash maps and unordered sets — sort or use ordered containers in sim code.</li>
-  <li><strong>Uninitialized memory</strong> and per-machine RNG seeding.</li>
-  <li><strong>Frame-rate-coupled logic</strong> — the sim must advance on a fixed timestep, decoupled from render rate (see <a href="./#game-loop-architecture">Game Loop Architecture</a>).</li>
+  <li><strong>Floating-point differences</strong> between compilers, instruction sets (x87, SSE, FMA contraction), and platforms. Use fixed-point arithmetic or strictly controlled float settings for authoritative simulation.</li>
+  <li><strong>Unordered iteration</strong> over hash maps and sets; sort or use ordered containers in simulation code.</li>
+  <li><strong>Uninitialized memory</strong> and RNG seeded from time or per machine; use explicit, seeded RNG streams per system.</li>
+  <li><strong>Frame-rate-coupled logic</strong>; the simulation must advance on a fixed timestep independent of rendering (see <a href="./#game-loop-architecture">Game Loop Architecture</a>).</li>
+  <li><strong>Multithreaded jobs</strong> whose results are combined in completion order rather than a fixed order.</li>
 </ul>
 
-<h3 id="other-automated-techniques">Other Automated Techniques</h3>
+<h3 id="other-automated-techniques">Other automated techniques</h3>
 
 <ul>
-  <li><strong>AI/monkey testing</strong> — bots that wander, mash inputs, and try to escape the level mesh. Excellent at finding holes in collision and “out of bounds” exploits no human would think to try.</li>
-  <li><strong>Snapshot/golden-image testing</strong> — render a known scene and diff the framebuffer against an approved reference (with a tolerance) to catch unintended graphics regressions.</li>
-  <li><strong>Property-based testing</strong> — generate thousands of random valid inputs to a system (e.g., random inventories) and assert invariants (“total item count is conserved”) rather than specific cases.</li>
+  <li><strong>Bots and monkey testing.</strong> Scripted or navmesh-driven bots wander levels, mash inputs, and try to leave the playable area. They find collision holes and out-of-bounds exploits and double as soak-test drivers. Studios are also using reinforcement-learning and other learned agents to explore levels and exercise balance at scale; see <a href="../ai-ml/game-ai.html">Game AI</a>.</li>
+  <li><strong>Screenshot (golden-image) tests.</strong> Render a fixed scene and compare against an approved reference with a tolerance, catching rendering regressions. Pin GPU, driver, and quality settings, or tolerances become meaningless.</li>
+  <li><strong>Property-based testing.</strong> Generate many random valid inputs (inventories, item combinations) and assert invariants such as “total item count is conserved” instead of hand-picked cases.</li>
+  <li><strong>Save/load round-trips and migration tests</strong> over a corpus of real saves from previous versions; see <a href="save-systems.html#testing-a-save-system">Save Systems</a>.</li>
 </ul>
+
+<h3 id="flaky-tests">Flaky tests</h3>
+
+<p>Frame-based tests are prone to flakiness: they depend on load times, frame rate, and physics timing. Treat flakiness as a defect in the test or the game, not noise. Useful practices: wait on conditions with timeouts rather than fixed frame counts; run tests with a fixed timestep and fixed seeds; quarantine a flaky test (tracked, with an owner) rather than letting it train the team to ignore red builds.</p>
 
 <h2 id="performance-and-soak-testing">Performance and Soak Testing</h2>
 
-<p>Functional correctness is necessary but not sufficient: a game that is correct but stutters, or correct but crashes after four hours, fails. Two related disciplines cover this.</p>
+<p>A game that is functionally correct but stutters, or correct but crashes after four hours, has still failed.</p>
 
-<h3 id="performance-testing">Performance Testing</h3>
+<h3 id="performance-testing">Performance testing</h3>
 
-<p>The goal is to verify the game holds its <strong>frame budget</strong> under worst-case load and to catch performance <em>regressions</em> before they compound. A 60 FPS target is a <strong>16.67 ms</strong> frame budget; 30 FPS is <strong>33.3 ms</strong>. The headline number is the budget, but the metric that matters is the <strong>tail</strong>, not the average.</p>
+<p>Performance testing verifies that the game holds its <strong>frame budget</strong> in worst-case scenes and catches regressions before they accumulate.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Target</th>
+      <th style="text-align: right">Frame budget</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>30 FPS</td>
+      <td style="text-align: right">33.3 ms</td>
+    </tr>
+    <tr>
+      <td>40 FPS (common 120 Hz console / handheld mode)</td>
+      <td style="text-align: right">25.0 ms</td>
+    </tr>
+    <tr>
+      <td>60 FPS</td>
+      <td style="text-align: right">16.7 ms</td>
+    </tr>
+    <tr>
+      <td>90 FPS (typical VR minimum)</td>
+      <td style="text-align: right">11.1 ms</td>
+    </tr>
+    <tr>
+      <td>120 FPS</td>
+      <td style="text-align: right">8.3 ms</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The average frame time is the least informative number. Players perceive the <strong>tail</strong>:</p>
 
 <table>
   <thead>
@@ -3423,206 +3481,266 @@ Assert:   state_checksum(frame N) == recorded_checksum(frame N)   for all N
   </thead>
   <tbody>
     <tr>
-      <td><strong>Average frame time</strong></td>
-      <td>Coarse health check; hides stutter.</td>
+      <td>Average frame time</td>
+      <td>Coarse health check; hides stutter entirely</td>
     </tr>
     <tr>
-      <td><strong>95th/99th-percentile frame time</strong></td>
-      <td>One bad frame in a hundred is still visible as a hitch. Tails are what players feel.</td>
+      <td>95th / 99th percentile frame time</td>
+      <td>One slow frame in a hundred is a visible hitch</td>
     </tr>
     <tr>
-      <td><strong>1% and 0.1% lows</strong> (FPS)</td>
-      <td>Standard reporting for the worst frames; directly correlates to perceived smoothness.</td>
+      <td>1% and 0.1% lows</td>
+      <td>Common reporting form for the worst frames</td>
     </tr>
     <tr>
-      <td><strong>Frame-time variance / hitch count</strong></td>
-      <td>Consistency beats peak; a steady 45 FPS often feels better than 60 FPS that drops to 20.</td>
+      <td>Hitch count (frames over budget by a threshold)</td>
+      <td>Directly counts what players notice; also catches shader-compilation and streaming stalls</td>
+    </tr>
+    <tr>
+      <td>Memory high-water mark</td>
+      <td>Fixed-memory platforms crash rather than slow down</td>
     </tr>
   </tbody>
 </table>
 
-<p>Build <strong>automated performance tests</strong> that run a fixed camera path or scripted scenario in CI and fail the build if frame time, draw calls, or memory exceed a threshold. Capturing this per-commit turns a slow “the game got worse over the last month” into “commit <code class="language-plaintext highlighter-rouge">a1b2c3</code> added 4 ms — revert it.”</p>
+<p>Automated performance tests run a fixed camera path or scripted scenario on dedicated, stable hardware in CI, record these metrics per build, and fail or flag the build when thresholds regress. Tracking per commit turns “the game got slower this month” into “commit <code class="language-plaintext highlighter-rouge">a1b2c3</code> added 4 ms to the market scene.” Shader-compilation stutter on PC deserves its own test: play through with an empty shader/PSO cache and count hitches.</p>
 
-<p>Profiling tools are platform-specific and essential: in-engine profilers (Unity Profiler, Unreal Insights/<code class="language-plaintext highlighter-rouge">stat unit</code>), GPU tools (RenderDoc, PIX, Nsight), and platform SDK profilers on console. For the full discipline of finding and fixing the bottlenecks these tests reveal, see the <a href="../optimization/">Performance Optimization</a> section, in particular <a href="../optimization/gpu-optimization.html">GPU</a> and <a href="../optimization/cpu-optimization.html">CPU</a> optimization.</p>
+<p>Profilers are platform-specific: Unity Profiler and Profile Analyzer; Unreal Insights and <code class="language-plaintext highlighter-rouge">stat unit</code> / <code class="language-plaintext highlighter-rouge">stat gpu</code>; RenderDoc, PIX, NVIDIA Nsight, AMD Radeon GPU Profiler; Tracy and Superluminal for custom engines; and the platform-holder profilers on consoles. For fixing what the tests find, see <a href="../optimization/">Performance Optimization</a>, particularly <a href="../optimization/gpu-optimization.html">GPU</a> and <a href="../optimization/cpu-optimization.html">CPU</a> optimization.</p>
 
-<h3 id="soak-stabilityendurance-testing">Soak (Stability/Endurance) Testing</h3>
+<h3 id="soak-testing">Soak testing</h3>
 
-<p>A <strong>soak test</strong> leaves the game running — often <em>for days</em> — to surface bugs that only manifest over time and are nearly impossible to find by hand. Soak testing is frequently a hard <strong>certification requirement</strong> (e.g., “must survive N hours idle at the title screen and N hours in gameplay without crashing”).</p>
+<p>A <strong>soak test</strong> (endurance or stability test) leaves the game running for hours or days to surface faults that only appear over time. Platform holders require stability over extended sessions, so soak testing directly supports <a href="#certification">certification</a>.</p>
 
-<p>What soak tests catch that nothing else does:</p>
+<p>Soak tests catch:</p>
 
 <ul>
-  <li><strong>Memory leaks</strong> — a few KB leaked per spawn is invisible in a 5-minute test but exhausts a console’s fixed RAM after hours and crashes.</li>
-  <li><strong>Memory fragmentation</strong> — even without a true leak, allocation churn fragments the heap until a large allocation fails. Brutal on consoles with no virtual-memory safety net.</li>
-  <li><strong>Accumulator overflow / precision drift</strong> — a <code class="language-plaintext highlighter-rouge">float</code> game-time counter loses precision after hours; an <code class="language-plaintext highlighter-rouge">int</code> frame counter can overflow. Physics far from the origin degrades (the classic “far lands” floating-point jitter).</li>
-  <li><strong>Resource handle leaks</strong> — file handles, audio voices, GPU resources slowly exhausted.</li>
-  <li><strong>Heat/throttle behavior</strong> on mobile and console (covered in <a href="../optimization/platform-tuning.html">Platform-Specific Tuning</a>).</li>
+  <li><strong>Memory leaks</strong> — a few kilobytes per spawn is invisible in a five-minute test and fatal after hours on fixed-memory hardware.</li>
+  <li><strong>Heap fragmentation</strong> — without any true leak, allocation churn fragments memory until a large allocation fails.</li>
+  <li><strong>Precision and overflow</strong> — a <code class="language-plaintext highlighter-rouge">float</code> game clock loses precision after hours; 32-bit frame counters wrap; physics far from the world origin jitters.</li>
+  <li><strong>Handle exhaustion</strong> — file handles, audio voices, GPU descriptors, and network sockets slowly running out.</li>
+  <li><strong>Thermal behavior</strong> — throttling on mobile devices and handhelds (see <a href="../optimization/platform-tuning.html">Platform-Specific Tuning</a>).</li>
 </ul>
 
-<p>Practical soak setups: an <strong>idle soak</strong> (sit at a menu or pause screen for 24-72 h), a <strong>gameplay soak</strong> (an AI bot or replay loop playing continuously), and a <strong>fast-forward soak</strong> (run the sim at high speed to simulate long sessions quickly, when the engine supports decoupled timestep). Always monitor a memory graph over the whole run — a steadily rising line with no plateau is a leak, full stop.</p>
+<p>Typical setups are an <strong>idle soak</strong> (title screen or pause menu for 24–72 hours), a <strong>gameplay soak</strong> (bots or looping replays playing continuously), and a <strong>suspend/resume soak</strong> on consoles and mobile. Always graph memory over the whole run; a line that rises without plateauing is a leak.</p>
 
-<h3 id="stress-and-load-testing">Stress and Load Testing</h3>
+<h3 id="load-testing">Load testing</h3>
 
-<p>For multiplayer, <strong>load testing</strong> simulates many concurrent clients (often hundreds of headless bot clients) against the server to find the player-count cliff, validate matchmaking, and size the backend before a launch spike melts it. This is the netcode analogue of soak testing and pairs with the architecture concerns in <a href="multiplayer-networking.html">Networking and Multiplayer</a>.</p>
+<p>For online games, <strong>load testing</strong> drives hundreds or thousands of headless bot clients against the servers to find the concurrency limit, validate matchmaking and backend services, and size infrastructure before launch traffic arrives. See <a href="multiplayer-networking.html">Multiplayer Networking</a>.</p>
 
 <h2 id="bug-triage">Bug Triage</h2>
 
-<p>Testing produces bugs; triage turns an unmanageable pile into an ordered work queue. Without triage a team drowns: a thousand open bugs with no priority is functionally the same as no bug database at all.</p>
+<p>Testing produces bugs; triage turns them into an ordered queue of work. A database of a thousand unprioritized bugs is functionally no better than none.</p>
 
-<h3 id="a-good-bug-report">A Good Bug Report</h3>
-
-<p>The single biggest lever on QA throughput is report quality. A complete report contains:</p>
+<h3 id="a-useful-bug-report">A useful bug report</h3>
 
 <ul>
-  <li><strong>Repro steps</strong> — numbered, minimal, deterministic where possible.</li>
-  <li><strong>Expected vs. actual</strong> behavior.</li>
-  <li><strong>Build/version</strong>, platform, and hardware SKU.</li>
-  <li><strong>Evidence</strong> — screenshot, video, and crucially the <strong>input replay log</strong> (if the engine supports it) and a <strong>crash dump / call stack</strong>.</li>
-  <li><strong>Frequency</strong> — always, intermittent, or once.</li>
+  <li><strong>Title</strong> that states the symptom and location.</li>
+  <li><strong>Repro steps</strong>, numbered and minimal.</li>
+  <li><strong>Expected and actual</strong> behavior.</li>
+  <li><strong>Build number, platform, and hardware SKU.</strong></li>
+  <li><strong>Evidence</strong>: video, screenshot, crash dump and call stack, and a replay file or save file where available.</li>
+  <li><strong>Repro rate</strong>: always, intermittent (with an estimate such as 3 in 10), or once.</li>
 </ul>
 
-<p>“Sometimes the game crashes” is nearly worthless; “100% repro: on build 4471/PS5, mash dodge during the boss intro cutscene — call stack attached” is actionable immediately.</p>
+<p>“Sometimes the game crashes” cannot be acted on. “Build 4471, PS5: crash when dodging during the boss intro cutscene, 10/10, dump and video attached” can be assigned immediately. In-game bug reporters that capture build, position, recent log lines, a screenshot, and the current save with one key press dramatically improve report quality.</p>
 
-<h3 id="severity-vs-priority">Severity vs. Priority</h3>
+<h3 id="severity-and-priority">Severity and priority</h3>
 
-<p>These are independent axes and conflating them is a classic triage error:</p>
+<p>These are separate axes, and conflating them is a classic triage error:</p>
 
 <ul>
-  <li><strong>Severity</strong> = impact <em>if it happens</em> (objective: cosmetic / minor / major / crash / data-loss / cert-blocker).</li>
-  <li><strong>Priority</strong> = <em>order to fix</em> (a decision: blocker / high / medium / low), a function of severity <strong>and</strong> frequency <strong>and</strong> cost-to-fix <strong>and</strong> proximity to ship.</li>
+  <li><strong>Severity</strong> describes impact if the bug occurs: cosmetic, minor, major, crash, data loss, certification blocker.</li>
+  <li><strong>Priority</strong> is the decision about fix order, combining severity, frequency, cost to fix, risk of the fix, and time to ship.</li>
 </ul>
 
-<p>A rare crash in an unreachable debug menu is high severity but low priority. A common, ugly UI flicker on the main menu is low severity but high priority because every player sees it on launch. Triage is the meeting where the team assigns priority by weighing all of these.</p>
+<p>A rare crash reachable only through a debug menu is high severity and low priority. A flicker on the main menu is low severity but may be high priority because every player sees it.</p>
 
-<p>A simple priority heuristic:</p>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Frequent</th>
+      <th>Rare</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>High severity</strong></td>
+      <td>P0 — fix now</td>
+      <td>P1 — fix this milestone</td>
+    </tr>
+    <tr>
+      <td><strong>Low severity</strong></td>
+      <td>P2 — fix when convenient</td>
+      <td>P3 — backlog or won’t fix</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                 High frequency        Low frequency
-High severity    P0 — fix now          P1 — fix this sprint
-Low severity     P2 — fix when near    P3 — backlog / won't-fix
-</code></pre></div></div>
+<h3 id="bug-lifecycle">Bug lifecycle</h3>
 
-<h3 id="the-triage-workflow">The Triage Workflow</h3>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; New
+    New --&gt; Triaged: priority and owner assigned
+    New --&gt; Closed: duplicate / not a bug
+    Triaged --&gt; InProgress
+    InProgress --&gt; Fixed: change submitted
+    Fixed --&gt; Verified: QA confirms on a new build
+    Fixed --&gt; Reopened: fix fails verification
+    Verified --&gt; Closed
+    Closed --&gt; Reopened: regression found
+    Reopened --&gt; Triaged
+</code></pre>
 
-<p>A typical bug lifecycle and the states a tracker (Jira, our <a href="../technology/git/">version-control workflows</a>, etc.) models:</p>
+<p>Hold triage regularly (daily near a milestone), keep a separate <strong>certification-blocker</strong> lane that overrides normal priority before submission, and enforce verification: a bug is closed when QA confirms the fix on a fresh build on the target platform, not when a developer says it is fixed. Link fixes to changes in version control (see <a href="../technology/git/">Git</a>) so regressions can be traced.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>New → Triaged(priority+owner assigned) → In Progress → Fixed
-    → Verified(QA confirms on a new build) → Closed
-                              │
-                              └→ Reopened (regression / not actually fixed)
-</code></pre></div></div>
+<h2 id="certification">Certification</h2>
 
-<p>Key triage practices: hold a <strong>regular triage</strong> (often daily near ship), maintain a <strong>“cert blocker” lane</strong> that supersedes everything before submission, and track <strong>fix-then-verify</strong> discipline — a bug is not closed when a developer says “fixed,” it is closed when <strong>QA verifies</strong> the fix on a fresh build. The “Verified” step exists precisely because “works on my machine” fixes routinely fail to reproduce on the actual target hardware.</p>
-
-<h2 id="certification-console-trctcr">Certification (Console TRC/TCR)</h2>
-
-<p>To ship on a console (or some closed platforms), the build must pass the platform holder’s <strong>certification</strong> — a formal test pass against a published requirements checklist. Naming varies by platform but the concept is identical:</p>
+<p>To release on a console, and on some storefronts, a build must pass the platform holder’s <strong>certification</strong>: a formal test pass against a published requirements list.</p>
 
 <table>
   <thead>
     <tr>
       <th>Platform holder</th>
-      <th>Term</th>
+      <th>Requirements</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Sony (PlayStation)</td>
       <td><strong>TRC</strong> — Technical Requirements Checklist</td>
+      <td>Submitted through Sony’s partner portal</td>
     </tr>
     <tr>
-      <td>Microsoft (Xbox)</td>
-      <td><strong>XR / TCR</strong> — Xbox Requirements / Technical Certification Requirements</td>
+      <td>Microsoft (Xbox, including PC via Microsoft Store)</td>
+      <td><strong>XR</strong> — Xbox Requirements (successor to the older TCR)</td>
+      <td>Covers areas such as Game Saves behavior, suspend/resume, and user handling</td>
     </tr>
     <tr>
-      <td>Nintendo (Switch)</td>
-      <td><strong>Lotcheck</strong> (guideline-based check)</td>
+      <td>Nintendo (Switch, Switch 2)</td>
+      <td><strong>Lotcheck</strong> against Nintendo’s guidelines</td>
+      <td> </td>
     </tr>
     <tr>
       <td>Valve (Steam Deck)</td>
-      <td><strong>Verified</strong> program (a lighter compatibility review, not gated cert)</td>
+      <td><strong>Steam Deck compatibility</strong> review</td>
+      <td>Performed by Valve on released games; results are Verified, Playable, Unsupported, or Unknown. It is a compatibility rating, not a release gate.</td>
     </tr>
   </tbody>
 </table>
 
-<p>Certification is <strong>not</strong> a fun, balance, or quality judgment — the platform holder does not care whether your game is good. It is a strict, often pedantic compliance pass on platform consistency and user-experience standards. Typical requirement categories:</p>
+<p>Certification does not judge whether a game is good; it enforces platform consistency and user-experience standards. Typical requirement areas:</p>
 
 <ul>
-  <li><strong>Terminology</strong> — correct, exact names for hardware and UI elements (e.g., the controller button or account terminology spelled and capitalized exactly as the platform mandates).</li>
-  <li><strong>Suspend/resume</strong> — the game must correctly handle the console sleeping and waking mid-session.</li>
-  <li><strong>Controller disconnect</strong> — pause and present the right prompt when a controller’s battery dies or it disconnects.</li>
-  <li><strong>Account/profile changes, sign-out, and multi-user</strong> handling.</li>
-  <li><strong>Storage</strong> — graceful handling of a full or removed storage device mid-save; save-corruption resilience.</li>
-  <li><strong>Network loss</strong> — correct messaging and recovery when connectivity drops.</li>
-  <li><strong>Stability</strong> — must pass extended <strong>soak</strong> with no crashes (the <a href="#soak-stabilityendurance-testing">soak testing</a> above exists largely to pass this).</li>
-  <li><strong>Performance and rating</strong> floors, age-rating display, and trophy/achievement correctness.</li>
+  <li><strong>Terminology</strong> — exact platform names for hardware, buttons, accounts, and services.</li>
+  <li><strong>Suspend and resume</strong> — correct behavior when the console sleeps and wakes mid-session, including network reconnection.</li>
+  <li><strong>Controller disconnection</strong> — pause and show the correct prompt; handle controller re-pairing to a different user.</li>
+  <li><strong>User and account changes</strong> — sign-out, user switching, and multiple local users.</li>
+  <li><strong>Storage</strong> — full or unavailable storage, corrupted saves, and save indicators (see <a href="save-systems.html">Save Systems</a>).</li>
+  <li><strong>Network loss</strong> — correct messaging and recovery.</li>
+  <li><strong>Stability</strong> — no crashes or hangs across extended play (supported by <a href="#soak-testing">soak testing</a>).</li>
+  <li><strong>Online features and safety</strong> — parental controls, privilege checks, blocking and reporting, and text/voice chat requirements.</li>
+  <li><strong>Achievements / trophies, age-rating display, and required system UI.</strong></li>
 </ul>
 
-<p>Strategic realities of cert:</p>
+<p>Practical consequences:</p>
 
 <ul>
-  <li><strong>Certification can fail</strong>, and a failed submission means a fix, a re-submission, and lost days or weeks — directly threatening a fixed launch date and any coordinated marketing.</li>
-  <li>Treat the <strong>TRC/TCR as a test suite from day one.</strong> Many requirements (suspend/resume, controller disconnect) are architectural — bolting them on at the end is far more expensive than designing for them.</li>
-  <li>Many studios maintain an <strong>internal “pre-cert” pass</strong> that runs the platform checklist before official submission, so the expensive external cert is a formality, not a gamble.</li>
+  <li>A failed submission costs a fix, a resubmission, and days or weeks — directly threatening a fixed launch date and any coordinated marketing.</li>
+  <li>Many requirements are architectural (suspend/resume, user switching, save handling). Treat the requirement lists as a test suite from the start of production.</li>
+  <li>Studios run an <strong>internal pre-certification pass</strong> against the checklist before submitting, so the external pass becomes a formality. Patches also go through certification, usually with a lighter process.</li>
 </ul>
 
 <h2 id="telemetry">Telemetry</h2>
 
-<p>Pre-launch testing samples a few hundred players at most; <strong>telemetry</strong> instruments the game to report data from <em>every</em> live session, turning your entire player base into a continuous, massive QA and design feedback loop. It is how modern (especially live-service) games are tuned and stabilized after release.</p>
+<p>Pre-launch testing reaches hundreds of players at most. <strong>Telemetry</strong> instruments the shipped game to report from every consenting session, turning the live audience into a continuous source of QA and design data.</p>
 
-<h3 id="what-to-collect">What to Collect</h3>
-
-<ul>
-  <li><strong>Stability</strong> — crash reports with call stacks and minidumps (the highest-value telemetry; tools like Sentry/Backtrace/Crashlytics aggregate them).</li>
-  <li><strong>Performance</strong> — frame-time distributions and hardware specs sampled in the wild, revealing the long tail of GPUs you could never test in the lab.</li>
-  <li><strong>Progression</strong> — where players quit (drop-off / funnel), completion rates, time-per-level.</li>
-  <li><strong>Balance/economy</strong> — weapon pick/win rates, currency sources and sinks, difficulty spikes (encounters with abnormal death rates).</li>
-  <li><strong>Behavior</strong> — heatmaps of where players go, die, and get stuck.</li>
-</ul>
-
-<h3 id="the-telemetry-pipeline">The Telemetry Pipeline</h3>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Game client → batch events → ingest endpoint → event store / warehouse
-            → dashboards &amp; alerts → design + engineering decisions
-                                  → balance patch / hotfix → back to client
-</code></pre></div></div>
-
-<p>Practical engineering considerations:</p>
+<h3 id="what-to-collect">What to collect</h3>
 
 <ul>
-  <li><strong>Batch and send asynchronously</strong> off the main thread; telemetry must never cost frame time or block gameplay.</li>
-  <li><strong>Sample</strong> high-frequency events (you rarely need every player’s every position at 60 Hz — aggregate or sample).</li>
-  <li><strong>Version every event</strong> so you can interpret data across patches.</li>
-  <li><strong>Respect privacy and law</strong> — disclose collection, honor opt-outs, and comply with regulations like GDPR/CCPA. Telemetry handling is a real compliance obligation, related to the broader concerns in <a href="../technology/cybersecurity/">Cybersecurity</a>.</li>
+  <li><strong>Crashes and hangs</strong> — call stacks and minidumps, deduplicated by signature. Services such as Sentry, Backtrace, BugSplat, and Firebase Crashlytics aggregate reports; engines provide their own crash reporters.</li>
+  <li><strong>Performance</strong> — frame-time distributions and hardware configuration sampled in the wild, exposing the long tail of GPUs and drivers no lab can cover.</li>
+  <li><strong>Progression</strong> — funnels, completion rates, and where players stop.</li>
+  <li><strong>Balance and economy</strong> — weapon pick and win rates, currency sources and sinks, encounters with abnormal death rates.</li>
+  <li><strong>Behavior</strong> — heatmaps of movement, deaths, and stuck positions.</li>
 </ul>
 
-<h3 id="closing-the-loop">Closing the Loop</h3>
+<h3 id="pipeline">Pipeline</h3>
 
-<p>The point of telemetry is action. A drop-off cliff at level 3 sends designers to fix pacing; a weapon with a 70% win rate triggers a balance patch; a crash spike on one GPU driver triggers a hotfix. This is the same instrumentation discipline begun in <a href="#quantitative-playtest-metrics">quantitative playtesting</a> — scaled from a focus group of ten to a live audience of millions, and feeding directly back into the next build.</p>
+<pre><code class="language-mermaid">flowchart LR
+    G["Game client&lt;br/&gt;(batched, sampled, versioned events)"] --&gt; ING["Ingest endpoint"]
+    ING --&gt; ST["Event store / data warehouse"]
+    ST --&gt; DASH["Dashboards and alerts"]
+    DASH --&gt; DEC["Design and engineering decisions"]
+    DEC --&gt; PATCH["Balance patch or hotfix"]
+    PATCH --&gt; G
+</code></pre>
 
-<h2 id="putting-it-together-a-qa-pipeline">Putting It Together: A QA Pipeline</h2>
+<p>Engineering practices:</p>
 
-<p>A mature studio runs these layers continuously rather than as a final phase:</p>
+<ul>
+  <li><strong>Send asynchronously and in batches</strong> off the main thread; telemetry must never cost frame time or block play when the network is down.</li>
+  <li><strong>Sample</strong> high-frequency data; per-frame positions for every player are rarely needed.</li>
+  <li><strong>Version every event schema</strong> so data remains interpretable across patches.</li>
+  <li><strong>Treat it as personal data.</strong> Disclose collection, obtain consent where required, honor opt-outs, minimize and pseudonymize identifiers, and set retention limits, in line with GDPR, CCPA/CPRA, and children’s-privacy rules such as COPPA. See <a href="../technology/cybersecurity/privacy-engineering.html">Privacy Engineering</a>.</li>
+</ul>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Per commit (CI):   unit + smoke + replay/determinism + perf-threshold tests
-Nightly:           full smoke across all levels + automated perf run + short soak
-Per build:         structured playtest + QA functional pass + bug triage
-Weekly/milestone:  balance playtest + compatibility/device-farm pass
-Pre-submission:    internal pre-cert pass + extended soak + load test
-Live:              telemetry, crash aggregation, hotfix loop
-</code></pre></div></div>
+<h3 id="closing-the-loop">Closing the loop</h3>
 
-<p>The throughline of this entire page: <strong>testing is not a phase at the end, it is a layered, continuous system.</strong> Shift detection as far left (and as automated) as you can afford — every bug caught by a unit test in seconds is a bug that did not cost a playtester an afternoon, a failed cert submission a week, or a launch-day refund a customer.</p>
+<p>Telemetry is only useful when it drives action: a drop-off cliff at level 3 sends designers to fix pacing, a weapon with an outlying win rate triggers a balance change, and a crash spike on one driver version triggers a hotfix or a driver-specific workaround. It is the playtest metrics described above, scaled from a room of ten to an audience of millions.</p>
+
+<h2 id="a-continuous-qa-pipeline">A Continuous QA Pipeline</h2>
+
+<p>Mature teams run all of these layers continuously rather than as a final phase:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Cadence</th>
+      <th>Activities</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Every change (CI)</td>
+      <td>Unit tests, content validation, smoke tests, replay/determinism tests, quick performance check</td>
+    </tr>
+    <tr>
+      <td>Nightly</td>
+      <td>All-levels smoke, full performance run on reference hardware, short soak, screenshot tests</td>
+    </tr>
+    <tr>
+      <td>Per build</td>
+      <td>Functional QA pass, structured playtest, bug triage</td>
+    </tr>
+    <tr>
+      <td>Per milestone</td>
+      <td>Balance playtest, compatibility / device-farm pass, accessibility review</td>
+    </tr>
+    <tr>
+      <td>Before submission</td>
+      <td>Internal pre-certification, extended soak, load test</td>
+    </tr>
+    <tr>
+      <td>Live</td>
+      <td>Crash aggregation, telemetry dashboards, hotfix process</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The underlying principle is to <strong>shift detection left</strong>: move each class of bug to the earliest and most automated layer that can catch it. A defect caught by a unit test in seconds does not cost a playtester an afternoon, a failed certification a week, or a player a refund. For CI infrastructure itself, see <a href="../technology/ci-cd/">CI/CD</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li><a href="./">Game Development</a> — engines, core systems, the game loop, and design principles</li>
-  <li><a href="../optimization/">Performance Optimization</a> — profiling and fixing the bottlenecks performance tests reveal</li>
-  <li><a href="../optimization/gpu-optimization.html">GPU Optimization</a> — frame-budget and rendering performance</li>
-  <li><a href="../optimization/cpu-optimization.html">CPU Optimization</a> — simulation and main-thread cost</li>
-  <li><a href="../optimization/platform-tuning.html">Platform-Specific Tuning</a> — mobile thermals, console fixed-hardware, and PC scalability</li>
-  <li><a href="multiplayer-networking.html">Networking and Multiplayer</a> — load testing and deterministic lockstep netcode</li>
-  <li><a href="../ai-ml/game-ai.html">Game AI</a> — the AI/bot agents used for monkey and soak testing</li>
+  <li><a href="save-systems.html">Save Systems &amp; Persistence</a> — save corruption resistance and migration testing</li>
+  <li><a href="multiplayer-networking.html">Multiplayer Networking</a> — deterministic lockstep and load testing</li>
+  <li><a href="../optimization/">Performance Optimization</a> — profiling and fixing what performance tests reveal</li>
+  <li><a href="../optimization/platform-tuning.html">Platform-Specific Tuning</a> — thermals, fixed console hardware, and PC scalability</li>
+  <li><a href="../ai-ml/game-ai.html">Game AI</a> — agents used for automated play, soak, and balance testing</li>
+  <li><a href="../technology/ci-cd/">CI/CD</a> — build pipelines that run automated test layers</li>
 </ul>
 
       </section>

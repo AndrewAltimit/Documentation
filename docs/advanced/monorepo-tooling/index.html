@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="The monorepo build-tool landscape — Bazel, Nx, Turborepo, Rush, Lerna, Pants — with a feature comparison, remote caching internals, and selection guidance">
+<meta name="description" content="The monorepo build-tool landscape as of 2026: Nx, Turborepo, moon, Lerna, Rush, Bazel, Buck2, and Pants, plus language-native workspaces. Covers current conf...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Monorepos: Tooling & Build Systems">
-<meta property="og:description" content="The monorepo build-tool landscape — Bazel, Nx, Turborepo, Rush, Lerna, Pants — with a feature comparison, remote caching internals, and selection guidance">
+<meta property="og:description" content="The monorepo build-tool landscape as of 2026: Nx, Turborepo, moon, Lerna, Rush, Bazel, Buck2, and Pants, plus language-native workspaces. Covers current conf...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/advanced/monorepo-tooling/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Monorepos: Tooling & Build Systems">
-<meta name="twitter:description" content="The monorepo build-tool landscape — Bazel, Nx, Turborepo, Rush, Lerna, Pants — with a feature comparison, remote caching internals, and selection guidance">
+<meta name="twitter:description" content="The monorepo build-tool landscape as of 2026: Nx, Turborepo, moon, Lerna, Rush, Bazel, Buck2, and Pants, plus language-native workspaces. Covers current conf...">
 
 <title>Monorepos: Tooling & Build Systems | Andrews Notebook</title>
 
@@ -3136,265 +3136,327 @@ document.addEventListener('DOMContentLoaded', function () {
 <p><a href="../monorepo/">Monorepo Strategies</a> » Tooling &amp; Build Systems</p>
 
 <div class="advanced-note">
-  <p><strong>Advanced engineering deep-dive.</strong> This page surveys the build-tool ecosystem that makes monorepos scale: the affected-graph runners (Nx, Turborepo), the publishing-oriented managers (Lerna, Rush), and the hermetic polyglot build systems (Bazel, Buck2, Pants). <strong>Helpful background:</strong> dependency graphs, content-addressed caching, and CI/CD pipelines. For the broader architecture and trade-offs see <a href="../monorepo/">Monorepo Strategies and Management</a>.</p>
+  <p><strong>Advanced engineering deep-dive.</strong> This page covers the tools that turn a large repository into a working monorepo. It explains the three tiers of tooling, gives current (2026) configuration for each major tool, compares them feature by feature, and ends with selection guidance. The concepts behind them (the monorepo model, trade-offs, when to adopt one) are on <a href="../monorepo/">Monorepo Strategies</a>. How affected-target analysis, caching, and remote execution behave at fleet scale is on <a href="../monorepo-scaling/">Scaling &amp; Engineering</a>.</p>
 </div>
 
-<h2 id="why-tooling-is-the-whole-game">Why Tooling Is the Whole Game</h2>
+<h2 id="why-tooling-matters">Why Tooling Matters</h2>
 
-<p>A monorepo without a graph-aware build tool is just a large folder. The value of a monorepo — atomic cross-project changes, frictionless code reuse, fast CI even at thousands of projects — is unlocked entirely by tools that <strong>model the project dependency graph</strong> and answer one question efficiently: <em>given this change, what is the minimal set of projects I must rebuild, retest, and redeploy?</em></p>
+<p>Without a graph-aware build tool, a monorepo is just a large folder. Every CI run rebuilds and retests everything, and developers can’t tell what a change will break. Monorepo tools do three things:</p>
 
-<ul>
-  <li><strong>The graph is the API.</strong> Every modern tool builds a project DAG, then derives affected sets, build ordering, and parallelism from it. Pick a tool by how well it discovers and trusts that graph.</li>
-  <li><strong>Caching is content-addressed.</strong> Each task’s inputs are hashed; the hash keys a cache of outputs. A given input is built once, ever — locally and, with remote caching, across the whole team and CI fleet.</li>
-  <li><strong>Language mix decides the tier.</strong> JS/TS-only teams stay in the lightweight tier (Turborepo, Nx). Polyglot, hermetic, massive-scale builds push you to Bazel, Buck2, or Pants.</li>
-  <li><strong>Power costs configuration.</strong> Zero-config tools trade away correctness guarantees for ergonomics; hermetic tools trade ergonomics for reproducibility. Choose the point on that curve that matches your scale.</li>
-</ul>
+<ol>
+  <li><strong>Build the project graph.</strong> They find projects and the dependencies between them, either from explicit build files or by reading manifests and imports.</li>
+  <li><strong>Schedule tasks over the graph.</strong> They run <code class="language-plaintext highlighter-rouge">build</code>, <code class="language-plaintext highlighter-rouge">test</code>, and <code class="language-plaintext highlighter-rouge">lint</code> in dependency order, run independent tasks in parallel, and run only the projects a change affects.</li>
+  <li><strong>Cache results by content.</strong> They hash each task’s inputs and reuse the stored outputs when the hash matches, locally or from a cache shared by the whole team and CI fleet.</li>
+</ol>
+
+<p>The tools differ in how much of this they do and how much they trust the graph they build. That difference is the most useful way to compare them.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    SRC["Source tree&lt;br/&gt;+ manifests / BUILD files"] --&gt; G["Project graph&lt;br/&gt;(DAG)"]
+    DIFF["git diff vs base"] --&gt; AFF["Affected set"]
+    G --&gt; AFF
+    AFF --&gt; TG["Task graph&lt;br/&gt;build → test → lint"]
+    TG --&gt; H{"Hash inputs;&lt;br/&gt;cache hit?"}
+    H -- hit --&gt; R["Replay outputs + logs"]
+    H -- miss --&gt; X["Execute&lt;br/&gt;(local or remote)"]
+    X --&gt; W["Store outputs&lt;br/&gt;under hash"]
+</code></pre>
 
 <h2 id="the-tool-landscape">The Tool Landscape</h2>
 
-<p>The ecosystem splits into three overlapping tiers:</p>
+<p>Monorepo tools fall into three tiers that overlap:</p>
 
 <table>
   <thead>
     <tr>
       <th>Tier</th>
       <th>Tools</th>
-      <th>Core promise</th>
+      <th>What it gives you</th>
+      <th>How it gets the graph</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Task runners / affected-graph</td>
-      <td>Nx, Turborepo</td>
-      <td>Run only what changed; cache task outputs</td>
+      <td>Workspace managers</td>
+      <td>npm/pnpm/Yarn/Bun workspaces, Cargo, Go, uv, Gradle</td>
+      <td>Linking, one lockfile, shared installs</td>
+      <td>Package manifests</td>
     </tr>
     <tr>
-      <td>Workspace managers / publishers</td>
-      <td>Lerna, Rush, native workspaces</td>
-      <td>Install, version, and publish many packages</td>
+      <td>Task orchestrators</td>
+      <td>Nx, Turborepo, moon, Lerna, Rush</td>
+      <td>Affected runs, parallel scheduling, task caching</td>
+      <td>Manifests + config (+ imports for Nx)</td>
     </tr>
     <tr>
       <td>Hermetic build systems</td>
       <td>Bazel, Buck2, Pants</td>
-      <td>Reproducible, sandboxed, polyglot builds with remote execution</td>
+      <td>Sandboxed, reproducible, polyglot builds with remote execution</td>
+      <td>Explicit BUILD files (Pants infers most of them)</td>
     </tr>
   </tbody>
 </table>
 
-<p>The tiers are not mutually exclusive — Nx can drive Bazel-like graph builds for JS, and Rush can sit atop pnpm workspaces — but they describe where each tool’s center of gravity lies.</p>
+<p>The tiers stack. A typical JavaScript/TypeScript monorepo runs pnpm workspaces with Turborepo or Nx on top. Rush wraps pnpm. Bazel’s <code class="language-plaintext highlighter-rouge">rules_js</code> reads the pnpm lockfile. In practice you choose a workspace manager and then decide whether to add an orchestrator or move to a hermetic system.</p>
+
+<h2 id="task-orchestrators">Task Orchestrators</h2>
 
 <h3 id="nx">Nx</h3>
 
-<p>Nx is a smart, extensible build framework designed for monorepos. It infers a project graph from your config and source imports, then runs cacheable targets only on affected projects.</p>
+<p>Nx is a build platform from Nrwl, the company that also maintains Lerna. It builds the project graph from <code class="language-plaintext highlighter-rouge">package.json</code>/<code class="language-plaintext highlighter-rouge">project.json</code> files and <strong>plugins</strong> that infer targets from tool configs. For example, <code class="language-plaintext highlighter-rouge">@nx/vite/plugin</code> sees a <code class="language-plaintext highlighter-rouge">vite.config.ts</code> and creates <code class="language-plaintext highlighter-rouge">build</code>, <code class="language-plaintext highlighter-rouge">test</code>, and <code class="language-plaintext highlighter-rouge">serve</code> targets without any per-project configuration. It then runs cacheable targets on affected projects only.</p>
 
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">nx.json</span><span class="w">
-</span><span class="p">{</span><span class="w">
-  </span><span class="nl">"npmScope"</span><span class="p">:</span><span class="w"> </span><span class="s2">"myorg"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"affected"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-    </span><span class="nl">"defaultBase"</span><span class="p">:</span><span class="w"> </span><span class="s2">"main"</span><span class="w">
+<p>Recent versions (Nx 20–23, 2024–2026) removed the old <code class="language-plaintext highlighter-rouge">tasksRunnerOptions</code>/<code class="language-plaintext highlighter-rouge">cacheableOperations</code> model. Caching is now set per target with <code class="language-plaintext highlighter-rouge">cache: true</code>, and <strong>named inputs</strong> define what gets hashed. Nx 22.7 added task sandboxing, which checks the files a task actually reads and writes against its declared inputs and outputs. Nx 23 (June 2026) extended that sandboxing and raised the minimum Node.js version to 22.</p>
+
+<p><code class="language-plaintext highlighter-rouge">nx.json</code>:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"$schema"</span><span class="p">:</span><span class="w"> </span><span class="s2">"./node_modules/nx/schemas/nx-schema.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"defaultBase"</span><span class="p">:</span><span class="w"> </span><span class="s2">"main"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"namedInputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"default"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"{projectRoot}/**/*"</span><span class="p">,</span><span class="w"> </span><span class="s2">"sharedGlobals"</span><span class="p">],</span><span class="w">
+    </span><span class="nl">"production"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"default"</span><span class="p">,</span><span class="w"> </span><span class="s2">"!{projectRoot}/**/*.spec.ts"</span><span class="p">],</span><span class="w">
+    </span><span class="nl">"sharedGlobals"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"{workspaceRoot}/tsconfig.base.json"</span><span class="p">]</span><span class="w">
   </span><span class="p">},</span><span class="w">
-  </span><span class="nl">"tasksRunnerOptions"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-    </span><span class="nl">"default"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"runner"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@nrwl/nx-cloud"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"options"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-        </span><span class="nl">"cacheableOperations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"build"</span><span class="p">,</span><span class="w"> </span><span class="s2">"test"</span><span class="p">,</span><span class="w"> </span><span class="s2">"lint"</span><span class="p">]</span><span class="w">
-      </span><span class="p">}</span><span class="w">
-    </span><span class="p">}</span><span class="w">
-  </span><span class="p">}</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
-
-<blockquote>
-  <p><strong>Note:</strong> This config reflects older Nx versions (<code class="language-plaintext highlighter-rouge">npmScope</code>, the <code class="language-plaintext highlighter-rouge">@nrwl/nx-cloud</code> runner). Modern Nx centers on <code class="language-plaintext highlighter-rouge">nx.json</code> with <code class="language-plaintext highlighter-rouge">namedInputs</code> and <code class="language-plaintext highlighter-rouge">targetDefaults</code> instead, and the cache/distribution runner is configured via Nx Cloud or the built-in default runner.</p>
-</blockquote>
-
-<p><strong>Key Features:</strong></p>
-<ul>
-  <li>Intelligent build system with computation caching</li>
-  <li>Affected commands run only on changed projects</li>
-  <li>Rich plugin ecosystem (generators, executors, language plugins)</li>
-  <li>Distributed task execution (DTE) across CI agents</li>
-  <li>First-class support for JS/TS, with plugins for other ecosystems</li>
-</ul>
-
-<p><strong>Best for:</strong> JS/TS-heavy organizations that want code generation, enforced module boundaries, and a managed distributed-cache/agent solution out of the box.</p>
-
-<h3 id="turborepo">Turborepo</h3>
-
-<p>Turborepo is a high-performance build system for JavaScript and TypeScript monorepos, emphasizing near-zero configuration on top of existing package-manager workspaces.</p>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">turbo.json</span><span class="w">
-</span><span class="p">{</span><span class="w">
-  </span><span class="nl">"$schema"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://turbo.build/schema.json"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"pipeline"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+  </span><span class="nl">"targetDefaults"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
     </span><span class="nl">"build"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
       </span><span class="nl">"dependsOn"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"^build"</span><span class="p">],</span><span class="w">
-      </span><span class="nl">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"dist/**"</span><span class="p">]</span><span class="w">
+      </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"production"</span><span class="p">,</span><span class="w"> </span><span class="s2">"^production"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"{projectRoot}/dist"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
     </span><span class="p">},</span><span class="w">
     </span><span class="nl">"test"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"dependsOn"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"build"</span><span class="p">],</span><span class="w">
-      </span><span class="nl">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w">
-    </span><span class="p">},</span><span class="w">
-    </span><span class="nl">"dev"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
+      </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"default"</span><span class="p">,</span><span class="w"> </span><span class="s2">"^production"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
     </span><span class="p">}</span><span class="w">
-  </span><span class="p">}</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
-
-<p>The <code class="language-plaintext highlighter-rouge">dependsOn</code> syntax is the heart of Turborepo: <code class="language-plaintext highlighter-rouge">^build</code> means “the <code class="language-plaintext highlighter-rouge">build</code> target of all upstream dependencies must finish first,” which is how the tool derives task ordering from the package graph.</p>
-
-<p><strong>Key Features:</strong></p>
-<ul>
-  <li>Incremental builds keyed on hashed inputs</li>
-  <li>Remote caching (Vercel-hosted or self-hosted)</li>
-  <li>Parallel execution constrained by the task graph</li>
-  <li>Near zero-config: reads <code class="language-plaintext highlighter-rouge">package.json</code> workspaces directly</li>
-</ul>
-
-<p><strong>Best for:</strong> JS/TS teams that want fast affected builds and remote caching without adopting a heavyweight framework or new project model.</p>
-
-<h3 id="lerna">Lerna</h3>
-
-<p>Lerna optimizes the workflow around managing and publishing multi-package repositories. Historically the original JS monorepo tool; it is now maintained by the Nx team and can delegate task running to Nx’s cache.</p>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">lerna.json</span><span class="w">
-</span><span class="p">{</span><span class="w">
-  </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"independent"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"npmClient"</span><span class="p">:</span><span class="w"> </span><span class="s2">"yarn"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"useWorkspaces"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"command"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-    </span><span class="nl">"publish"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"conventionalCommits"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"chore(release): publish"</span><span class="w">
-    </span><span class="p">},</span><span class="w">
-    </span><span class="nl">"bootstrap"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"hoist"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
-    </span><span class="p">}</span><span class="w">
-  </span><span class="p">}</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
-
-<p><strong>Key Features:</strong></p>
-<ul>
-  <li>Independent or fixed versioning modes</li>
-  <li>Automated publishing to npm with changelog generation</li>
-  <li>Conventional-commits-driven version bumps</li>
-  <li>Optional Nx-powered task caching for <code class="language-plaintext highlighter-rouge">lerna run</code></li>
-</ul>
-
-<p><strong>Best for:</strong> Libraries and SDK monorepos whose primary job is <strong>versioning and publishing many packages</strong> to a registry, rather than building large applications.</p>
-
-<h3 id="rush">Rush</h3>
-
-<p>Rush is a scalable monorepo manager for the web, built by Microsoft, with a strong emphasis on dependency hygiene and deterministic installs.</p>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">rush.json</span><span class="w">
-</span><span class="p">{</span><span class="w">
-  </span><span class="nl">"rushVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5.100.0"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"pnpmVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"8.6.0"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"projects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
-    </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"packageName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@myorg/core"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"projectFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">"libraries/core"</span><span class="w">
-    </span><span class="p">},</span><span class="w">
-    </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"packageName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@myorg/app"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"projectFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">"apps/main-app"</span><span class="w">
-    </span><span class="p">}</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"plugins"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"plugin"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@nx/vite/plugin"</span><span class="p">,</span><span class="w"> </span><span class="nl">"options"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"buildTargetName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"build"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
   </span><span class="p">]</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p><strong>Key Features:</strong></p>
+<p><code class="language-plaintext highlighter-rouge">^production</code> means “the <code class="language-plaintext highlighter-rouge">production</code> inputs of every upstream dependency”. This is how a change to a library’s source invalidates the cached builds of its consumers.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nx affected <span class="nt">-t</span> <span class="nb">test </span>lint          <span class="c"># only projects affected by the diff vs defaultBase</span>
+nx run-many <span class="nt">-t</span> build <span class="nt">--parallel</span><span class="o">=</span>4 <span class="c"># every project</span>
+nx graph                          <span class="c"># interactive project-graph viewer</span>
+npx nx connect                    <span class="c"># attach the workspace to Nx Cloud (remote cache, Nx Agents)</span>
+</code></pre></div></div>
+
+<p>Nx Cloud provides the remote cache. <strong>Nx Agents</strong> (the successor to “Distributed Task Execution”) spread tasks across CI machines. Nx also enforces <strong>module boundaries</strong>: a lint rule rejects imports that break tag-based dependency constraints.</p>
+
+<p><strong>Best for:</strong> JS/TS-centered organizations that want code generators, inferred configuration, enforced boundaries, and managed CI distribution. Nx also has plugins for Gradle, Maven, .NET, Go, and Rust.</p>
+
+<h3 id="turborepo">Turborepo</h3>
+
+<p>Turborepo is Vercel’s task runner for JS/TS workspaces. It is now written in Rust, and its docs are at turborepo.dev. It adds almost no project model of its own: packages come from the package manager’s workspaces and tasks come from <code class="language-plaintext highlighter-rouge">package.json</code> scripts. <code class="language-plaintext highlighter-rouge">turbo.json</code> only declares how tasks relate to each other and what they produce.</p>
+
+<p>Turborepo 2.0 (2024) renamed the top-level <code class="language-plaintext highlighter-rouge">pipeline</code> key to <code class="language-plaintext highlighter-rouge">tasks</code>. Configs that still use <code class="language-plaintext highlighter-rouge">pipeline</code> are v1 syntax. Later 2.x releases added <code class="language-plaintext highlighter-rouge">--affected</code> (2.1), more composable configuration (2.7), and a stable <code class="language-plaintext highlighter-rouge">turbo query</code> (2.9). <code class="language-plaintext highlighter-rouge">turbo query</code> exposes the package and task graph and replaces the deprecated <code class="language-plaintext highlighter-rouge">turbo-ignore</code>.</p>
+
+<p><code class="language-plaintext highlighter-rouge">turbo.json</code>:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"$schema"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://turborepo.dev/schema.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"tasks"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"build"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"dependsOn"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"^build"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"outputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"dist/**"</span><span class="p">,</span><span class="w"> </span><span class="s2">".next/**"</span><span class="p">,</span><span class="w"> </span><span class="s2">"!.next/cache/**"</span><span class="p">]</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"test"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"dependsOn"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"build"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"$TURBO_DEFAULT$"</span><span class="p">,</span><span class="w"> </span><span class="s2">"!README.md"</span><span class="p">]</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"lint"</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span><span class="w">
+    </span><span class="nl">"dev"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"cache"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nl">"persistent"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">^build</code> means “the <code class="language-plaintext highlighter-rouge">build</code> task of every workspace dependency must finish first”. <code class="language-plaintext highlighter-rouge">$TURBO_DEFAULT$</code> is the default input set (all git-tracked files in the package), and the other entries adjust it.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>turbo run build <span class="nb">test</span>                   <span class="c"># whole repo, cached</span>
+turbo run <span class="nb">test</span> <span class="nt">--affected</span>              <span class="c"># packages changed vs the base branch, plus dependents</span>
+turbo run <span class="nb">test</span> <span class="nt">--filter</span><span class="o">=</span>...[origin/main]  <span class="c"># same idea with explicit filter syntax</span>
+turbo query affected                   <span class="c"># JSON list of affected packages/tasks for CI scripting</span>
+</code></pre></div></div>
+
+<p><strong>Best for:</strong> JS/TS teams that want fast affected builds and remote caching with minimal configuration and no new project model.</p>
+
+<h3 id="moon">moon</h3>
+
+<p><a href="https://moonrepo.dev">moon</a> is a Rust-based orchestrator. It sits between Turborepo’s minimalism and Bazel’s rigor. Projects and tasks are declared in <code class="language-plaintext highlighter-rouge">moon.yml</code> files. Its distinguishing feature is <strong>toolchain management</strong>: moon pins and installs the exact Node.js, Bun, Rust, Python, or Go version each project uses, so every laptop and CI agent runs the same toolchain. moon 2.0 (May 2026) moved toolchains into WASM plugins.</p>
+
+<p><strong>Best for:</strong> multi-language web-ecosystem repos that want reproducible toolchains without adopting a hermetic build system.</p>
+
+<h3 id="lerna">Lerna</h3>
+
+<p>Lerna was the original JS monorepo tool. Its focus is <strong>versioning and publishing</strong> many packages to a registry. Nrwl maintains it, and it delegates task running and caching to Nx. v7 (2023) removed <code class="language-plaintext highlighter-rouge">lerna bootstrap</code> and <code class="language-plaintext highlighter-rouge">useWorkspaces</code>, so linking is now always the package manager’s job. v9 was released in September 2025.</p>
+
+<p><code class="language-plaintext highlighter-rouge">lerna.json</code>:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"$schema"</span><span class="p">:</span><span class="w"> </span><span class="s2">"node_modules/lerna/schemas/lerna-schema.json"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"independent"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"npmClient"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pnpm"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"command"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"conventionalCommits"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"chore(release): publish"</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>lerna run <span class="nb">test</span> <span class="nt">--since</span> origin/main   <span class="c"># affected run (Nx-powered)</span>
+lerna version <span class="o">&amp;&amp;</span> lerna publish from-git
+</code></pre></div></div>
+
+<p><strong>Best for:</strong> library and SDK repositories whose main job is publishing packages. For publishing alone, <a href="https://github.com/changesets/changesets">Changesets</a> is a widely used lighter-weight option that works with any orchestrator.</p>
+
+<h3 id="rush">Rush</h3>
+
+<p>Rush is Microsoft’s monorepo manager (part of Rush Stack). It emphasizes <strong>dependency hygiene</strong> and governance for large JS/TS repositories:</p>
+
 <ul>
-  <li>Phantom-dependency detection (catches imports of packages you never declared)</li>
-  <li>Strict, deterministic installs with a single shared lockfile</li>
-  <li>Incremental builds via the Rush build cache</li>
-  <li>Rush plugins and policy enforcement for large, governed repos</li>
+  <li>It installs with pnpm into a single shared lockfile and blocks <strong>phantom dependencies</strong>, where code imports a package it never declared.</li>
+  <li><strong>Subspaces</strong> split one huge lockfile into several, so teams can upgrade dependencies independently.</li>
+  <li><strong>Cobuilds</strong> share an incremental build across multiple CI machines.</li>
+  <li>A build cache, policy plugins, and approved-package lists support governance.</li>
 </ul>
 
-<p><strong>Best for:</strong> Large organizations that prioritize <strong>strict dependency validation, policy enforcement, and reproducibility</strong> over zero-config convenience.</p>
+<p><code class="language-plaintext highlighter-rouge">rush.json</code> (excerpt; pin the Rush and pnpm versions your repository actually uses):</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"rushVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5.179.0"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"pnpmVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"10.x.x"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"projects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"packageName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@myorg/core"</span><span class="p">,</span><span class="w"> </span><span class="nl">"projectFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">"libraries/core"</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"packageName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"@myorg/app"</span><span class="p">,</span><span class="w">  </span><span class="nl">"projectFolder"</span><span class="p">:</span><span class="w"> </span><span class="s2">"apps/main-app"</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Best for:</strong> large, governed JS/TS repositories where strict dependency validation and deterministic installs matter more than zero-config convenience.</p>
+
+<h2 id="hermetic-build-systems">Hermetic Build Systems</h2>
+
+<p>Hermetic build systems require every <strong>action</strong> to declare its exact inputs and outputs, and they run it in a sandbox where nothing else is visible. An action is a single compiler or test invocation, which is much smaller than a whole task. Undeclared inputs can’t leak in, so a cache key built from declared inputs is correct by construction. That property is what makes it safe to share caches between machines and to run actions on remote workers. See <a href="../monorepo-scaling/#remote-execution-reapi">Remote Execution</a>.</p>
 
 <h3 id="bazel">Bazel</h3>
 
-<p>Bazel is Google’s open-source build tool (the public sibling of internal Blaze), designed for hermetic, language-agnostic builds at massive scale.</p>
+<p>Bazel is the open-source version of Google’s internal Blaze. It supports Go, Java/Kotlin, C++, Python, JS/TS, Rust, and more through rule sets. <strong>Bazel 9 (January 2026, LTS)</strong> removed the legacy <code class="language-plaintext highlighter-rouge">WORKSPACE</code> mechanism entirely: external dependencies are declared only in <code class="language-plaintext highlighter-rouge">MODULE.bazel</code> (Bzlmod) and resolved from the <a href="https://registry.bazel.build">Bazel Central Registry</a>. Bazel 9 also finished moving the built-in language rules out of the core binary. The C++ rules, for example, now live in <code class="language-plaintext highlighter-rouge">rules_cc</code>. JavaScript now uses Aspect’s <code class="language-plaintext highlighter-rouge">rules_js</code>, which replaced the older <code class="language-plaintext highlighter-rouge">rules_nodejs</code> and its <code class="language-plaintext highlighter-rouge">@npm//lodash</code>-style labels.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># WORKSPACE
-</span><span class="nf">workspace</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">my_monorepo</span><span class="sh">"</span><span class="p">)</span>
+<p><code class="language-plaintext highlighter-rouge">MODULE.bazel</code>:</p>
 
-<span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">@bazel_tools//tools/build_defs/repo:http.bzl</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">http_archive</span><span class="sh">"</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">module</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">my_monorepo</span><span class="sh">"</span><span class="p">)</span>
 
-<span class="c1"># BUILD file
-</span><span class="nf">js_library</span><span class="p">(</span>
+<span class="nf">bazel_dep</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">aspect_rules_js</span><span class="sh">"</span><span class="p">,</span> <span class="n">version</span> <span class="o">=</span> <span class="sh">"</span><span class="s">3.4.1</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">npm</span> <span class="o">=</span> <span class="nf">use_extension</span><span class="p">(</span><span class="sh">"</span><span class="s">@aspect_rules_js//npm:extensions.bzl</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">npm</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">npm</span><span class="p">.</span><span class="nf">npm_translate_lock</span><span class="p">(</span><span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">npm</span><span class="sh">"</span><span class="p">,</span> <span class="n">pnpm_lock</span> <span class="o">=</span> <span class="sh">"</span><span class="s">//:pnpm-lock.yaml</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">use_repo</span><span class="p">(</span><span class="n">npm</span><span class="p">,</span> <span class="sh">"</span><span class="s">npm</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">packages/core/BUILD.bazel</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">load</span><span class="p">(</span><span class="sh">"</span><span class="s">@aspect_rules_js//js:defs.bzl</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">js_library</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="nf">js_library</span><span class="p">(</span>
     <span class="n">name</span> <span class="o">=</span> <span class="sh">"</span><span class="s">core</span><span class="sh">"</span><span class="p">,</span>
     <span class="n">srcs</span> <span class="o">=</span> <span class="nf">glob</span><span class="p">([</span><span class="sh">"</span><span class="s">src/**/*.js</span><span class="sh">"</span><span class="p">]),</span>
     <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span>
         <span class="sh">"</span><span class="s">//packages/utils</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">@npm//lodash</span><span class="sh">"</span><span class="p">,</span>
-    <span class="p">],</span>
+        <span class="sh">"</span><span class="s">//:node_modules/lodash</span><span class="sh">"</span><span class="p">,</span>   <span class="c1"># linked by npm_link_all_packages in the root BUILD
+</span>    <span class="p">],</span>
+    <span class="n">visibility</span> <span class="o">=</span> <span class="p">[</span><span class="sh">"</span><span class="s">//apps:__subpackages__</span><span class="sh">"</span><span class="p">],</span>
 <span class="p">)</span>
 </code></pre></div></div>
 
-<p><strong>Key Features:</strong></p>
-<ul>
-  <li>Language-agnostic (Go, Java, C++, Python, JS, Rust, and more)</li>
-  <li>Hermetic builds: every action declares its exact inputs and runs sandboxed</li>
-  <li>Remote caching <strong>and</strong> remote execution across a build farm</li>
-  <li>Proven at billion-line scale with fine-grained, reproducible incrementality</li>
-</ul>
+<p><code class="language-plaintext highlighter-rouge">visibility</code> is enforced at build time. A target outside <code class="language-plaintext highlighter-rouge">//apps/...</code> that depends on <code class="language-plaintext highlighter-rouge">core</code> fails to build. This is Bazel’s form of the module boundaries Nx enforces with lint rules.</p>
 
-<p><strong>Best for:</strong> Polyglot organizations needing reproducible builds, remote execution, and correctness guarantees that justify a steep configuration cost.</p>
-
-<h3 id="buck2-and-pants">Buck2 and Pants</h3>
-
-<p>Two further hermetic systems round out the polyglot tier:</p>
-
-<ul>
-  <li><strong>Buck2</strong> (Meta) is a Rust rewrite of the original Buck. It uses a similar BUILD-file model to Bazel but with a more aggressive, fully parallel execution engine and a Starlark-based rule API. It targets the same large-scale, polyglot, remote-execution use case as Bazel, with an emphasis on build-engine performance.</li>
-  <li><strong>Pants</strong> (v2) is a Python-first hermetic build system that auto-infers much of the dependency graph from source imports — significantly reducing the BUILD-file boilerplate that Bazel demands. It has strong support for Python, Go, Java/Scala/Kotlin, and shell, and ships remote caching/execution.</li>
-</ul>
-
-<p><strong>Best for:</strong> Buck2 — teams wanting Bazel-class hermeticity with a faster engine; Pants — Python-centric or mixed-language teams that want hermetic builds without hand-writing the whole graph.</p>
-
-<h3 id="native-workspaces-bun-and-pnpm-catalogs">Native Workspaces, Bun, and pnpm Catalogs</h3>
-
-<p>Not every monorepo needs a dedicated build tool. Package managers ship workspace primitives that handle linking and hoisting, and you can layer a task runner on top later.</p>
-
-<p><strong>Bun Workspaces</strong> — Bun’s built-in workspace support:</p>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">package.json</span><span class="w">
-</span><span class="p">{</span><span class="w">
-  </span><span class="nl">"workspaces"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"packages/*"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps/*"</span><span class="p">]</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
-
-<ul>
-  <li>Native workspace support with very fast dependency installation</li>
-  <li>Built-in TypeScript and bundler support</li>
-  <li>Compatible with existing tooling conventions</li>
-</ul>
-
-<p><strong>pnpm Catalogs</strong> — centralized version pinning across a workspace:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># pnpm-workspace.yaml</span>
-<span class="na">catalog</span><span class="pi">:</span>
-  <span class="na">react</span><span class="pi">:</span> <span class="s">^18.2.0</span>
-  <span class="na">typescript</span><span class="pi">:</span> <span class="s">^5.3.0</span>
-  <span class="na">vite</span><span class="pi">:</span> <span class="s">^5.0.0</span>
-
-<span class="na">packages</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">packages/*'</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">apps/*'</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bazel build //...                                        <span class="c"># everything</span>
+bazel <span class="nb">test</span> //packages/...                                <span class="c"># a subtree</span>
+bazel query <span class="s1">'rdeps(//..., //packages/utils:utils)'</span>       <span class="c"># reverse deps = affected set</span>
 </code></pre></div></div>
 
-<p>Catalogs let every package reference <code class="language-plaintext highlighter-rouge">catalog:</code> for a shared dependency, so the version is pinned in exactly one place — eliminating drift across dozens of <code class="language-plaintext highlighter-rouge">package.json</code> files.</p>
+<p><strong>Best for:</strong> polyglot organizations that need reproducible builds, remote execution, and correctness guarantees worth a steep configuration and learning cost.</p>
 
-<p><strong>Best for:</strong> Smaller or early-stage monorepos that want workspace linking and a single lockfile without committing to a graph-aware build tool yet. Turborepo or Nx can be added on top later without restructuring.</p>
+<h3 id="buck2">Buck2</h3>
+
+<p>Buck2 is Meta’s build system. It was written from scratch in Rust and open-sourced in 2023. Like Bazel it uses BUILD files and Starlark rules, but all rules, including the language rules, are written in Starlark rather than built into the core. Its execution engine is a single incremental computation graph designed for parallelism, and it was built from the start for remote execution over the same REAPI protocol Bazel uses.</p>
+
+<p><strong>Best for:</strong> teams that want Bazel-class hermeticity with a faster engine and are comfortable with a smaller ecosystem of open-source rules.</p>
+
+<h3 id="pants">Pants</h3>
+
+<p>Pants (v2) is a hermetic build system written in Rust and Python. Its main advantage is <strong>dependency inference</strong>: it reads <code class="language-plaintext highlighter-rouge">import</code> statements to build most of the graph, so BUILD files stay small. <code class="language-plaintext highlighter-rouge">pants tailor</code> generates them. It has strong support for Python, and also supports Go, JVM languages, Shell, Docker, and Helm, with remote caching and execution over REAPI.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pants tailor ::                                              <span class="c"># generate BUILD targets</span>
+pants <span class="nt">--changed-since</span><span class="o">=</span>origin/main <span class="nt">--changed-dependents</span><span class="o">=</span>transitive <span class="nb">test</span>
+</code></pre></div></div>
+
+<p><strong>Best for:</strong> Python-heavy or mixed-language teams that want hermetic builds without writing the whole graph by hand.</p>
+
+<h2 id="language-native-workspaces">Language-Native Workspaces</h2>
+
+<p>Every major ecosystem ships a workspace feature. Workspaces link local packages together and share one lockfile, which is enough for a small monorepo. Orchestrators like Turborepo and Nx are built on top of them.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Ecosystem</th>
+      <th>Mechanism</th>
+      <th>Declared in</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>npm / Yarn / Bun</td>
+      <td><code class="language-plaintext highlighter-rouge">workspaces</code> array</td>
+      <td>root <code class="language-plaintext highlighter-rouge">package.json</code></td>
+    </tr>
+    <tr>
+      <td>pnpm</td>
+      <td><code class="language-plaintext highlighter-rouge">packages</code> list, <code class="language-plaintext highlighter-rouge">workspace:</code> protocol</td>
+      <td><code class="language-plaintext highlighter-rouge">pnpm-workspace.yaml</code></td>
+    </tr>
+    <tr>
+      <td>Rust</td>
+      <td><code class="language-plaintext highlighter-rouge">[workspace] members</code></td>
+      <td>root <code class="language-plaintext highlighter-rouge">Cargo.toml</code></td>
+    </tr>
+    <tr>
+      <td>Go</td>
+      <td>multi-module workspace (Go 1.18+)</td>
+      <td><code class="language-plaintext highlighter-rouge">go.work</code></td>
+    </tr>
+    <tr>
+      <td>Python (uv)</td>
+      <td><code class="language-plaintext highlighter-rouge">[tool.uv.workspace] members</code></td>
+      <td>root <code class="language-plaintext highlighter-rouge">pyproject.toml</code></td>
+    </tr>
+    <tr>
+      <td>JVM</td>
+      <td>multi-project / multi-module builds</td>
+      <td><code class="language-plaintext highlighter-rouge">settings.gradle(.kts)</code> / parent <code class="language-plaintext highlighter-rouge">pom.xml</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Catalogs</strong> address version drift in JS workspaces: dozens of <code class="language-plaintext highlighter-rouge">package.json</code> files each pinning a slightly different version of the same package. pnpm (since 9.5) and Bun (since 1.2.14) let you declare a version once and refer to it with <code class="language-plaintext highlighter-rouge">catalog:</code>:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># pnpm-workspace.yaml</span>
+<span class="na">packages</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s2">"</span><span class="s">packages/*"</span>
+  <span class="pi">-</span> <span class="s2">"</span><span class="s">apps/*"</span>
+<span class="na">catalog</span><span class="pi">:</span>
+  <span class="na">react</span><span class="pi">:</span> <span class="s">^19.0.0</span>
+  <span class="na">typescript</span><span class="pi">:</span> <span class="s">^5.9.0</span>
+</code></pre></div></div>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w"> </span><span class="nl">"dependencies"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"react"</span><span class="p">:</span><span class="w"> </span><span class="s2">"catalog:"</span><span class="p">,</span><span class="w"> </span><span class="nl">"@org/utils"</span><span class="p">:</span><span class="w"> </span><span class="s2">"workspace:*"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">workspace:*</code> resolves an internal dependency to the source in the tree. When the package is published, pnpm rewrites it to a real version range.</p>
 
 <h2 id="feature-comparison">Feature Comparison</h2>
-
-<p>The tools differ most along four axes: language scope, how they discover the graph, what kind of caching they offer, and how hermetic/reproducible their builds are.</p>
 
 <table>
   <thead>
@@ -3402,9 +3464,8 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Tool</th>
       <th>Languages</th>
       <th>Graph source</th>
-      <th>Local cache</th>
       <th>Remote cache</th>
-      <th>Remote execution</th>
+      <th>Distributed / remote execution</th>
       <th>Hermetic</th>
     </tr>
   </thead>
@@ -3412,253 +3473,217 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td>Turborepo</td>
       <td>JS/TS</td>
-      <td><code class="language-plaintext highlighter-rouge">package.json</code> workspaces + <code class="language-plaintext highlighter-rouge">dependsOn</code></td>
-      <td>Yes</td>
-      <td>Yes</td>
+      <td>Workspaces + <code class="language-plaintext highlighter-rouge">turbo.json</code></td>
+      <td>Yes (Vercel or self-hosted API)</td>
       <td>No</td>
       <td>No</td>
     </tr>
     <tr>
       <td>Nx</td>
-      <td>JS/TS (plugins for more)</td>
-      <td>Inferred from imports + project config</td>
-      <td>Yes</td>
+      <td>JS/TS first; Gradle, Maven, .NET, Go, Rust plugins</td>
+      <td>Manifests + plugin inference + imports</td>
       <td>Yes (Nx Cloud)</td>
-      <td>Yes (DTE agents)</td>
+      <td>Task-level (Nx Agents)</td>
+      <td>No (sandbox <em>checks</em> declared I/O)</td>
+    </tr>
+    <tr>
+      <td>moon</td>
+      <td>JS/TS, Rust, Python, Go, Bun, more</td>
+      <td><code class="language-plaintext highlighter-rouge">moon.yml</code> + manifests</td>
+      <td>Yes (REAPI-compatible)</td>
       <td>No</td>
+      <td>No (pinned toolchains)</td>
     </tr>
     <tr>
       <td>Lerna</td>
       <td>JS/TS</td>
-      <td>Workspaces (+ Nx for caching)</td>
+      <td>Workspaces (via Nx)</td>
       <td>Via Nx</td>
       <td>Via Nx</td>
-      <td>No</td>
       <td>No</td>
     </tr>
     <tr>
       <td>Rush</td>
       <td>JS/TS</td>
-      <td><code class="language-plaintext highlighter-rouge">rush.json</code> project list</td>
-      <td>Yes</td>
-      <td>Yes</td>
-      <td>No</td>
-      <td>Partial (phantom-dep checks)</td>
+      <td><code class="language-plaintext highlighter-rouge">rush.json</code></td>
+      <td>Yes (cloud storage)</td>
+      <td>Cobuilds (task-level)</td>
+      <td>No (strict installs)</td>
     </tr>
     <tr>
       <td>Bazel</td>
       <td>Polyglot</td>
       <td>Explicit BUILD files</td>
-      <td>Yes</td>
-      <td>Yes</td>
-      <td>Yes</td>
+      <td>Yes (REAPI)</td>
+      <td>Action-level (REAPI)</td>
       <td>Yes</td>
     </tr>
     <tr>
       <td>Buck2</td>
       <td>Polyglot</td>
       <td>Explicit BUILD files</td>
-      <td>Yes</td>
-      <td>Yes</td>
-      <td>Yes</td>
+      <td>Yes (REAPI)</td>
+      <td>Action-level (REAPI)</td>
       <td>Yes</td>
     </tr>
     <tr>
       <td>Pants</td>
-      <td>Polyglot (Python-first)</td>
-      <td>Auto-inferred from imports</td>
-      <td>Yes</td>
-      <td>Yes</td>
-      <td>Yes</td>
+      <td>Polyglot, Python-first</td>
+      <td>Inferred from imports</td>
+      <td>Yes (REAPI)</td>
+      <td>Action-level (REAPI)</td>
       <td>Yes</td>
     </tr>
   </tbody>
 </table>
 
-<p>A few practical reads of this table:</p>
+<p>How to read the table:</p>
 
 <ul>
-  <li><strong>Graph trust.</strong> Turborepo and Nx infer the graph cheaply, which is ergonomic but means caching correctness depends on you declaring <code class="language-plaintext highlighter-rouge">inputs</code>/<code class="language-plaintext highlighter-rouge">outputs</code> accurately. Bazel/Buck2 demand an explicit, complete graph, which is more work but makes the cache provably correct. Pants splits the difference by inferring the graph from real imports.</li>
-  <li><strong>Hermeticity vs convenience.</strong> Only the Bazel-family tools sandbox each action so that undeclared inputs cannot leak in. That is what makes their remote cache safe to share blindly across machines; the JS tools rely on you keeping <code class="language-plaintext highlighter-rouge">inputs</code> honest.</li>
-  <li><strong>Remote execution</strong> (offloading build actions to a farm, not just sharing cache artifacts) is exclusive to the hermetic tier plus Nx’s distributed task execution.</li>
+  <li><strong>Graph trust.</strong> Orchestrators infer the graph cheaply. Their cache is correct only if you declare <code class="language-plaintext highlighter-rouge">inputs</code> and <code class="language-plaintext highlighter-rouge">outputs</code> accurately. Nx’s sandboxing now detects mismatches but doesn’t prevent them. Hermetic tools make an undeclared input a build error, so the cache is correct by construction.</li>
+  <li><strong>Granularity.</strong> Task-level distribution (Nx Agents, Rush cobuilds) sends whole <code class="language-plaintext highlighter-rouge">build</code>/<code class="language-plaintext highlighter-rouge">test</code> tasks to CI machines. Action-level remote execution (Bazel, Buck2, Pants) sends individual compiler and test invocations to a worker farm, which is finer-grained and scales further but needs a hermetic graph.</li>
+  <li><strong>Language scope.</strong> Only the hermetic tier treats every language as a peer. The JS orchestrators have added other languages through plugins, but their model still centers on <code class="language-plaintext highlighter-rouge">package.json</code>.</li>
 </ul>
 
-<h3 id="affected--incremental-commands">Affected / Incremental Commands</h3>
+<h3 id="equivalent-commands">Equivalent Commands</h3>
 
-<p>All graph-aware tools expose an “only do what changed” command, computed by diffing against a base ref and walking the DAG:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Run tests only for changed code and their dependents</span>
-nx affected:test <span class="nt">--base</span><span class="o">=</span>main
-turbo run <span class="nb">test</span> <span class="nt">--filter</span><span class="o">=</span>...[origin/main]
-lerna run <span class="nb">test</span> <span class="nt">--since</span> origin/main
-
-<span class="c"># Bazel queries the reverse-dependency set explicitly</span>
-bazel query <span class="s1">'rdeps(//..., set(//packages/utils:lib))'</span>
-</code></pre></div></div>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Run targets across many projects in parallel</span>
-nx run-many <span class="nt">--target</span><span class="o">=</span><span class="nb">test</span> <span class="nt">--parallel</span><span class="o">=</span>3
-turbo run <span class="nb">test</span> <span class="nt">--concurrency</span><span class="o">=</span>4
-</code></pre></div></div>
+<table>
+  <thead>
+    <tr>
+      <th>Intent</th>
+      <th>Nx</th>
+      <th>Turborepo</th>
+      <th>Bazel</th>
+      <th>Pants</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Test what changed</td>
+      <td><code class="language-plaintext highlighter-rouge">nx affected -t test</code></td>
+      <td><code class="language-plaintext highlighter-rouge">turbo run test --affected</code></td>
+      <td><code class="language-plaintext highlighter-rouge">bazel query 'rdeps(...)'</code> then <code class="language-plaintext highlighter-rouge">bazel test</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pants --changed-since=main --changed-dependents=transitive test</code></td>
+    </tr>
+    <tr>
+      <td>Run everywhere</td>
+      <td><code class="language-plaintext highlighter-rouge">nx run-many -t test</code></td>
+      <td><code class="language-plaintext highlighter-rouge">turbo run test</code></td>
+      <td><code class="language-plaintext highlighter-rouge">bazel test //...</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pants test ::</code></td>
+    </tr>
+    <tr>
+      <td>Visualize graph</td>
+      <td><code class="language-plaintext highlighter-rouge">nx graph</code></td>
+      <td><code class="language-plaintext highlighter-rouge">turbo query</code> / <code class="language-plaintext highlighter-rouge">--graph</code></td>
+      <td><code class="language-plaintext highlighter-rouge">bazel query --output=graph</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pants dependencies</code></td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="remote-caching">Remote Caching</h2>
 
-<p>Remote caching is the single feature that lets a monorepo scale a team and a CI fleet without rebuilding the same artifacts repeatedly. The mechanism is the same across tools, even though the configuration differs.</p>
+<p>Remote caching lets a team and its CI fleet avoid rebuilding the same artifact twice. It works the same way in every tool. The task’s inputs are hashed: source files, resolved dependency versions, the command, relevant environment variables, and the hashes of upstream tasks. That hash is the cache key. On a hit, the outputs and logs are replayed. On a miss, the task runs and uploads its outputs under the key. The full mechanism, and how to measure hit rates, is covered in <a href="../monorepo-scaling/#computation-caching-build-once-ever">Computation Caching</a>.</p>
 
-<h3 id="how-it-works">How It Works</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Turborepo: Vercel-hosted</span>
+turbo login <span class="o">&amp;&amp;</span> turbo <span class="nb">link</span>
+<span class="c"># Turborepo: self-hosted server implementing the Remote Cache API</span>
+<span class="nb">export </span><span class="nv">TURBO_API</span><span class="o">=</span><span class="s2">"https://cache.internal.example.com"</span> <span class="nv">TURBO_TEAM</span><span class="o">=</span><span class="s2">"myteam"</span> <span class="nv">TURBO_TOKEN</span><span class="o">=</span><span class="s2">"..."</span>
 
-<ol>
-  <li><strong>Hash the inputs.</strong> For a task, the tool computes a hash over everything that can affect the output: source files in the task’s declared <code class="language-plaintext highlighter-rouge">inputs</code>, the resolved versions of its dependencies, the task’s own configuration/command, environment variables it reads, and the hashes of upstream tasks it <code class="language-plaintext highlighter-rouge">dependsOn</code>.</li>
-  <li><strong>Look up the hash.</strong> That hash is the cache key. The tool checks the local cache, then a shared remote cache, for an entry under that key.</li>
-  <li><strong>Hit or miss.</strong> On a <strong>hit</strong>, the cached outputs (build artifacts, logs, exit code) are replayed instantly — the task never runs. On a <strong>miss</strong>, the task runs, and its outputs are written back under the key for everyone else.</li>
-</ol>
-
-<p>Because the key is <strong>content-addressed</strong>, the same inputs always map to the same key. The first machine in the world to build a given input populates the cache; every other machine — laptop or CI agent — gets a hit. This is why a well-cached monorepo CI run can be dominated by “FULL TURBO” / “cache hit” lines rather than actual compilation.</p>
-
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>input files + deps + config + env  --hash--&gt;  cache key
-                                                  |
-                              local cache  &lt;------+------&gt;  remote cache
-                                  |                              |
-                                 hit? --no--&gt; run task --&gt; write outputs to both
-                                  |                              ^
-                                 yes --&gt; replay outputs ---------+
+<span class="c"># Nx: Nx Cloud</span>
+npx nx connect
 </code></pre></div></div>
 
-<h3 id="configuring-remote-caching">Configuring Remote Caching</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Turborepo: log in and link the repo to a remote cache (Vercel-hosted)</span>
-turbo login
-turbo <span class="nb">link</span>
-
-<span class="c"># Self-hosted Turborepo cache via a custom endpoint</span>
-turbo run build <span class="nt">--api</span><span class="o">=</span><span class="s2">"https://cache.internal.example.com"</span> <span class="nt">--token</span><span class="o">=</span><span class="s2">"</span><span class="nv">$TURBO_TOKEN</span><span class="s2">"</span>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code># .bazelrc: any REAPI-compatible cache or build farm
+build --remote_cache=grpcs://cache.internal.example.com
+build --remote_upload_local_results=false       # developers read only
+build:ci --remote_upload_local_results=true     # trusted CI writes
+build:rbe --remote_executor=grpcs://rbe.internal.example.com
 </code></pre></div></div>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Nx Cloud: connect the workspace to a remote cache + distributed execution</span>
-nx g @nrwl/nx-cloud:init
-</code></pre></div></div>
+<h3 id="correctness-and-security-pitfalls">Correctness and Security Pitfalls</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Bazel: point at a remote cache (any HTTP/gRPC cache or build farm)
-# .bazelrc
-</span><span class="n">build</span> <span class="o">--</span><span class="n">remote_cache</span><span class="o">=</span><span class="n">grpc</span><span class="p">:</span><span class="o">//</span><span class="n">cache</span><span class="p">.</span><span class="n">internal</span><span class="p">.</span><span class="n">example</span><span class="p">.</span><span class="n">com</span><span class="p">:</span><span class="mi">9092</span>
-<span class="n">build</span> <span class="o">--</span><span class="n">remote_upload_local_results</span><span class="o">=</span><span class="n">true</span>
-<span class="c1"># Add remote execution by also setting --remote_executor
-</span><span class="n">build</span> <span class="o">--</span><span class="n">remote_executor</span><span class="o">=</span><span class="n">grpc</span><span class="p">:</span><span class="o">//</span><span class="n">rbe</span><span class="p">.</span><span class="n">internal</span><span class="p">.</span><span class="n">example</span><span class="p">.</span><span class="n">com</span><span class="p">:</span><span class="mi">8980</span>
-</code></pre></div></div>
-
-<h3 id="correctness-pitfalls">Correctness Pitfalls</h3>
-
-<p>A remote cache is only as trustworthy as its keys. The classic failure modes:</p>
+<p>A shared cache is only as trustworthy as its keys and its write path:</p>
 
 <ul>
-  <li><strong>Undeclared inputs.</strong> If a task reads a file not in its <code class="language-plaintext highlighter-rouge">inputs</code> (a config file, a generated header, an env var), two different real inputs can collide on one key, serving a stale artifact. Hermetic tools (Bazel/Buck2/Pants) prevent this by sandboxing; JS tools rely on you listing <code class="language-plaintext highlighter-rouge">inputs</code> completely.</li>
-  <li><strong>Non-deterministic outputs.</strong> Embedding timestamps, absolute paths, or build hostnames in artifacts makes outputs differ even when inputs match, which poisons cross-machine cache validation. Strip non-determinism (e.g. <code class="language-plaintext highlighter-rouge">SOURCE_DATE_EPOCH</code>, deterministic module IDs) to keep the cache useful.</li>
-  <li><strong>Environment skew.</strong> A cache shared between machines with different toolchain versions can replay artifacts built by a different compiler. Pin toolchains (and include them in the hash) so the key reflects the real build environment.</li>
+  <li><strong>Undeclared inputs.</strong> If a task reads a file or environment variable that isn’t in its inputs, two different builds can hash to the same key and a stale artifact gets served. Hermetic tools prevent this. Orchestrators rely on complete <code class="language-plaintext highlighter-rouge">inputs</code> declarations. Turborepo’s strict environment mode and Nx’s sandbox checks help.</li>
+  <li><strong>Non-deterministic outputs.</strong> Timestamps, absolute paths, or hostnames embedded in artifacts make otherwise identical builds differ. Use <code class="language-plaintext highlighter-rouge">SOURCE_DATE_EPOCH</code> and deterministic bundler settings.</li>
+  <li><strong>Toolchain skew.</strong> Artifacts from a different compiler or Node.js version can be replayed unless the toolchain is part of the key. Pin toolchains (Bazel toolchains, moon, <code class="language-plaintext highlighter-rouge">.nvmrc</code> plus Corepack) and hash them.</li>
+  <li><strong>Cache poisoning.</strong> If every CI job, including jobs on untrusted pull-request branches, can write to one shared cache, an attacker can upload a malicious artifact under a legitimate key. The CI workflow itself usually isn’t part of the key. This class of attack was disclosed as <strong>CVE-2025-36852 (“CREEP”)</strong>. In May 2026 Nx deprecated its bucket-backed self-hosted cache packages (<code class="language-plaintext highlighter-rouge">@nx/s3-cache</code>, <code class="language-plaintext highlighter-rouge">@nx/gcs-cache</code>, <code class="language-plaintext highlighter-rouge">@nx/azure-cache</code>, <code class="language-plaintext highlighter-rouge">@nx/shared-fs-cache</code>) because of it. The mitigations are to give writes only to trusted branches (PR builds read only), sign artifacts (Turborepo’s <code class="language-plaintext highlighter-rouge">remoteCache.signature</code> with <code class="language-plaintext highlighter-rouge">TURBO_REMOTE_CACHE_SIGNATURE_KEY</code>), and scope cache namespaces per branch.</li>
 </ul>
 
-<h3 id="computation-caching-config-examples">Computation Caching Config Examples</h3>
+<h2 id="choosing-a-tool">Choosing a Tool</h2>
 
-<div class="language-typescript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// nx.json — declare which targets are cacheable and where the cache lives</span>
-<span class="p">{</span>
-  <span class="dl">"</span><span class="s2">tasksRunnerOptions</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
-    <span class="dl">"</span><span class="s2">default</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
-      <span class="dl">"</span><span class="s2">runner</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">@nrwl/workspace/tasks-runners/default</span><span class="dl">"</span><span class="p">,</span>
-      <span class="dl">"</span><span class="s2">options</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
-        <span class="dl">"</span><span class="s2">cacheableOperations</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">build</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">test</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">lint</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">e2e</span><span class="dl">"</span><span class="p">],</span>
-        <span class="dl">"</span><span class="s2">cacheDirectory</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">.cache/nx</span><span class="dl">"</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// turbo.json — inputs/outputs scope what is hashed and what is cached</span>
-<span class="p">{</span>
-  <span class="dl">"</span><span class="s2">pipeline</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
-    <span class="dl">"</span><span class="s2">build</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
-      <span class="dl">"</span><span class="s2">dependsOn</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">^build</span><span class="dl">"</span><span class="p">],</span>
-      <span class="dl">"</span><span class="s2">outputs</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">dist/**</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">.next/**</span><span class="dl">"</span><span class="p">]</span>
-    <span class="p">},</span>
-    <span class="dl">"</span><span class="s2">test</span><span class="dl">"</span><span class="p">:</span> <span class="p">{</span>
-      <span class="dl">"</span><span class="s2">dependsOn</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">build</span><span class="dl">"</span><span class="p">],</span>
-      <span class="dl">"</span><span class="s2">inputs</span><span class="dl">"</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">src/**</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">tests/**</span><span class="dl">"</span><span class="p">]</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span><span class="w"> </span><span class="err">tsconfig.json</span><span class="w"> </span><span class="err">—</span><span class="w"> </span><span class="err">TypeScript's</span><span class="w"> </span><span class="err">own</span><span class="w"> </span><span class="err">incremental</span><span class="w"> </span><span class="err">cache</span><span class="w"> </span><span class="err">complements</span><span class="w"> </span><span class="err">task</span><span class="w"> </span><span class="err">caching</span><span class="w">
-</span><span class="p">{</span><span class="w">
-  </span><span class="nl">"compilerOptions"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-    </span><span class="nl">"incremental"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"tsBuildInfoFile"</span><span class="p">:</span><span class="w"> </span><span class="s2">".tsbuildinfo"</span><span class="w">
-  </span><span class="p">}</span><span class="w">
-</span><span class="p">}</span><span class="w">
-</span></code></pre></div></div>
-
-<h2 id="remote-execution-vs-remote-caching">Remote Execution vs Remote Caching</h2>
-
-<p>The two are often conflated but solve different problems:</p>
-
-<ul>
-  <li><strong>Remote caching</strong> shares <em>results</em>. The build still runs on whichever machine has a cache miss; the network only transfers artifacts.</li>
-  <li><strong>Remote execution</strong> shares <em>compute</em>. Individual build actions are dispatched to a farm of workers, so a single developer machine can drive a build that uses hundreds of remote cores, with results streamed back. This is how Bazel/Buck2 make a clean build of an enormous repo finish in minutes.</li>
-</ul>
-
-<p>Nx approximates the compute-sharing benefit with <strong>Distributed Task Execution (DTE)</strong>: it shards whole tasks (not sub-actions) across CI agents and merges the results. It is coarser-grained than Bazel’s action-level remote execution but requires far less setup and no hermetic graph.</p>
-
-<h2 id="selection-guidance">Selection Guidance</h2>
-
-<p>The decision hinges on two variables: <strong>language mix</strong> and <strong>scale</strong>. Single-language teams rarely need Bazel’s complexity; polyglot organizations at scale rarely escape it.</p>
-
-<div class="tip-card">
-  <h4 id="quick-tool-selection-guide">Quick Tool Selection Guide</h4>
-  <ul>
-    <li><strong>JS/TS only, want zero-config speed</strong> → Turborepo</li>
-    <li><strong>JS/TS with rich plugins, generators, and affected graph</strong> → Nx</li>
-    <li><strong>JS/TS, primary job is versioning + publishing packages</strong> → Lerna (or native workspaces)</li>
-    <li><strong>Large governed JS/TS repo needing strict dependency validation</strong> → Rush</li>
-    <li><strong>Polyglot (Go, Java, C++, Python) at large scale, hermetic builds</strong> → Bazel or Buck2</li>
-    <li><strong>Python-first or mixed-language, want hermeticity with less boilerplate</strong> → Pants</li>
-    <li><strong>Small/early monorepo, not ready for a build tool</strong> → npm/yarn/pnpm/Bun workspaces, add Turborepo/Nx later</li>
-  </ul>
-</div>
-
-<h3 id="a-decision-flow">A Decision Flow</h3>
+<p>The decision depends mostly on <strong>language mix</strong> and <strong>scale</strong>, and then on whether your main job is building applications or publishing packages.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    start{"Multiple languages\nbeyond JS/TS?"} --&gt;|No| js{"Need generators,\nplugins, enforced\nboundaries?"}
-    start --&gt;|Yes| poly{"Python-centric and\nwant low BUILD-file\nboilerplate?"}
-    js --&gt;|Yes| nx["Nx"]
-    js --&gt;|No| pub{"Primary job is\npublishing packages?"}
-    pub --&gt;|Yes| lerna["Lerna /\nnative workspaces"]
-    pub --&gt;|No| strict{"Need strict dep\nvalidation + policy?"}
-    strict --&gt;|Yes| rush["Rush"]
-    strict --&gt;|No| turbo["Turborepo"]
-    poly --&gt;|Yes| pants["Pants"]
-    poly --&gt;|No| eng{"Need fastest\nbuild engine?"}
-    eng --&gt;|Yes| buck["Buck2"]
-    eng --&gt;|No| bazel["Bazel"]
+    start{"Languages beyond&lt;br/&gt;JS/TS in the&lt;br/&gt;same build graph?"}
+    start -- No --&gt; size{"Early-stage or&lt;br/&gt;few packages?"}
+    size -- Yes --&gt; ws["Workspaces only&lt;br/&gt;(add an orchestrator later)"]
+    size -- No --&gt; pub{"Main job is&lt;br/&gt;publishing packages?"}
+    pub -- Yes --&gt; lerna["Lerna or Changesets&lt;br/&gt;+ an orchestrator"]
+    pub -- No --&gt; gov{"Strict dependency&lt;br/&gt;governance at&lt;br/&gt;very large scale?"}
+    gov -- Yes --&gt; rush["Rush"]
+    gov -- No --&gt; gen{"Want generators,&lt;br/&gt;boundaries, managed&lt;br/&gt;CI distribution?"}
+    gen -- Yes --&gt; nx["Nx"]
+    gen -- No --&gt; turbo["Turborepo"]
+    start -- Yes --&gt; herm{"Need hermetic builds&lt;br/&gt;/ remote execution?"}
+    herm -- No --&gt; moonnx["moon, or Nx&lt;br/&gt;with language plugins"]
+    herm -- Yes --&gt; py{"Python-heavy,&lt;br/&gt;want inferred graph?"}
+    py -- Yes --&gt; pants["Pants"]
+    py -- No --&gt; bb["Bazel&lt;br/&gt;(or Buck2)"]
 </code></pre>
 
-<h3 id="cost-of-adoption-considerations">Cost-of-Adoption Considerations</h3>
+<h3 id="cost-of-adoption">Cost of Adoption</h3>
 
-<ul>
-  <li><strong>Migration effort.</strong> Turborepo and native workspaces drop onto an existing repo in an afternoon. Nx and Rush impose more structure. Bazel/Buck2/Pants require writing (or generating) BUILD files for every target — a multi-month effort for a large existing codebase.</li>
-  <li><strong>Operational surface.</strong> Remote execution farms (Bazel/Buck2) and self-hosted caches are infrastructure you must run and secure. Hosted options (Nx Cloud, Turborepo’s Vercel cache) trade that operational burden for a vendor dependency and per-seat cost.</li>
-  <li><strong>Team familiarity.</strong> Starlark (Bazel/Buck2) and the hermetic mindset have a real learning curve. If your engineers already think in <code class="language-plaintext highlighter-rouge">package.json</code> scripts, staying in the JS tier preserves velocity.</li>
-  <li><strong>Reversibility.</strong> Workspaces + Turborepo is the most reversible choice; you can always layer more tooling on. Committing to Bazel is a large, sticky investment that is hard to unwind.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Factor</th>
+      <th>Workspaces / Turborepo</th>
+      <th>Nx / moon / Rush</th>
+      <th>Bazel / Buck2 / Pants</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Migration effort</td>
+      <td>An afternoon</td>
+      <td>Days to weeks</td>
+      <td>Months for a large codebase (every target needs BUILD rules; Pants infers most of them)</td>
+    </tr>
+    <tr>
+      <td>Operational surface</td>
+      <td>Optional hosted cache</td>
+      <td>Hosted cache/agents or self-hosted</td>
+      <td>Remote cache and execution farm you run and secure, or a commercial provider</td>
+    </tr>
+    <tr>
+      <td>Learning curve</td>
+      <td><code class="language-plaintext highlighter-rouge">package.json</code> scripts</td>
+      <td>A tool-specific project model</td>
+      <td>Starlark, hermeticity, toolchain rules</td>
+    </tr>
+    <tr>
+      <td>Reversibility</td>
+      <td>High</td>
+      <td>Moderate</td>
+      <td>Low: a large, sticky investment</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Start with the most reversible step that solves today’s problem. Workspaces plus Turborepo or Nx covers most JS/TS repositories. Move to a hermetic system when language mix, cache correctness, or build scale forces it. Hermetic migrations are usually done incrementally, one language or subtree at a time.</p>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
 <ul>
-  <li><strong>The graph is the product.</strong> Every tool’s value comes from modeling the project DAG; choose by how it discovers the graph and how much it trusts it.</li>
-  <li><strong>Caching is content-addressed.</strong> Hash inputs to a key, look it up locally then remotely, replay on a hit. Correct keys make the cache safe to share fleet-wide.</li>
-  <li><strong>Hermeticity buys correctness.</strong> Bazel/Buck2/Pants sandbox actions so undeclared inputs cannot leak — the price is explicit graphs and a steeper curve.</li>
-  <li><strong>Remote execution ≠ remote caching.</strong> Caching shares results; remote execution shares compute. Only the hermetic tier (and Nx DTE, coarsely) does the latter.</li>
-  <li><strong>Match tool to language &amp; scale.</strong> JS/TS → Turborepo/Nx; publishing → Lerna; governed JS → Rush; polyglot at scale → Bazel/Buck2/Pants.</li>
-  <li><strong>Favor reversible first steps.</strong> Start with workspaces + Turborepo; escalate to heavier tooling only when scale and language mix force the issue.</li>
+  <li><strong>The graph is the product.</strong> Every tool works by modeling the project DAG. Compare them by how they discover that graph and how far they trust it.</li>
+  <li><strong>Configurations from before 2024 are stale.</strong> Turborepo’s <code class="language-plaintext highlighter-rouge">pipeline</code>, Nx’s <code class="language-plaintext highlighter-rouge">tasksRunnerOptions</code>, Lerna’s <code class="language-plaintext highlighter-rouge">bootstrap</code>, and Bazel’s <code class="language-plaintext highlighter-rouge">WORKSPACE</code> have all been removed or replaced.</li>
+  <li><strong>Hermeticity buys correctness.</strong> Only Bazel, Buck2, and Pants make undeclared inputs impossible. Orchestrators depend on accurate <code class="language-plaintext highlighter-rouge">inputs</code> declarations.</li>
+  <li><strong>Remote caching needs a security design.</strong> Restrict writes to trusted CI, keep PR builds read-only, and sign artifacts where the tool supports it.</li>
+  <li><strong>Match the tool to language mix and scale.</strong> JS/TS: Turborepo or Nx. Publishing: Lerna or Changesets. Governed JS at very large scale: Rush. Polyglot at scale: Bazel, Buck2, or Pants.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
@@ -3666,24 +3691,24 @@ nx g @nrwl/nx-cloud:init
 <div class="see-also-card">
   <h4 id="see-also">See Also</h4>
 
-  <p><strong>Related Advanced Topics</strong></p>
+  <p><strong>Monorepo Pages</strong></p>
   <ul>
-    <li><a href="../monorepo/">Monorepo Strategies and Management</a> — Architecture, structure, dependency management, and migration</li>
-    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> — Distributed and remote build execution</li>
-    <li><a href="../ai-mathematics/">AI Mathematics</a> — Managing large ML research codebases</li>
+    <li><a href="../monorepo/">Monorepo Strategies and Management</a>: concepts, trade-offs, adoption, and migration</li>
+    <li><a href="../monorepo-scaling/">Monorepos: Scaling &amp; Engineering</a>: affected analysis, caching, remote execution, ownership, CI, and VCS scaling</li>
   </ul>
 
-  <p><strong>Applied Technology</strong></p>
+  <p><strong>Related Topics</strong></p>
   <ul>
-    <li><a href="../../technology/git-reference.html">Git Reference</a> — Sparse checkout, LFS, and large-repo workflows</li>
-    <li><a href="../../technology/ci-cd/">CI/CD Pipelines</a> — Affected-only builds in continuous integration</li>
-    <li><a href="../../technology/docker/">Docker</a> — Containerizing monorepo builds</li>
-    <li><a href="../../optimization/">Performance Optimization</a> — Build-time and caching optimization</li>
+    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a>: background for distributed and remote build execution</li>
+    <li><a href="../../technology/git-reference.html">Git Reference</a>: sparse checkout, worktrees, and large-repo workflows</li>
+    <li><a href="../../technology/ci-cd/">CI/CD Pipelines</a>: affected-only builds in continuous integration</li>
+    <li><a href="../../technology/docker/">Docker</a>: containerizing monorepo builds</li>
+    <li><a href="../../optimization/">Performance Optimization</a>: build-time and caching optimization</li>
   </ul>
 
   <p><strong>External Documentation</strong></p>
   <ul>
-    <li><a href="https://nx.dev">Nx</a> · <a href="https://turbo.build">Turborepo</a> · <a href="https://lerna.js.org">Lerna</a> · <a href="https://rushjs.io">Rush</a> · <a href="https://bazel.build">Bazel</a> · <a href="https://buck2.build">Buck2</a> · <a href="https://www.pantsbuild.org">Pants</a> · <a href="https://monorepo.tools">Monorepo.tools</a></li>
+    <li><a href="https://nx.dev">Nx</a> · <a href="https://turborepo.dev">Turborepo</a> · <a href="https://moonrepo.dev">moon</a> · <a href="https://lerna.js.org">Lerna</a> · <a href="https://rushjs.io">Rush</a> · <a href="https://bazel.build">Bazel</a> · <a href="https://buck2.build">Buck2</a> · <a href="https://www.pantsbuild.org">Pants</a> · <a href="https://monorepo.tools">monorepo.tools</a></li>
   </ul>
 </div>
 

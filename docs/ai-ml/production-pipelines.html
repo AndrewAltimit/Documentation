@@ -3135,75 +3135,86 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI/ML Documentation</a> » Production Pipelines &amp; Automation</p>
 
-<p>A workflow that produces one good image by hand is a prototype. A production pipeline turns that workflow into a service: it accepts parameters, runs unattended, sweeps variations, recovers from failures, and files every output with the metadata needed to reproduce it. This guide covers the automation layer that sits on top of the generation techniques you already know.</p>
+<p>A workflow that produces one good image by hand is a prototype. A <strong>production pipeline</strong> turns it into a service: it accepts parameters, runs unattended, sweeps variations, survives failures, and files every output with enough metadata to reproduce it. This page covers that automation layer for ComfyUI: the API-format workflow, the HTTP and WebSocket interface, batch and sweep patterns, queue control, error handling, asset management, and scaling to several GPUs. It assumes you can build workflows in the <a href="comfyui-guide.html">ComfyUI Guide</a> and know the sampling parameters from <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>.</p>
 
-<ul>
-  <li><strong>Headless First.</strong> Export a workflow as API JSON, parameterize the nodes you care about, and submit it over HTTP — no browser, no clicking, fully scriptable.</li>
-  <li><strong>Sweep, Don’t Guess.</strong> Cartesian grids over prompts, seeds, CFG, and samplers turn tuning into a systematic search you can compare side by side.</li>
-  <li><strong>Queue &amp; Recover.</strong> A durable queue, WebSocket progress, retries, and structured outputs let a pipeline run for hours and survive failures.</li>
-</ul>
+<h2 id="architecture-overview">Architecture Overview</h2>
 
-<h2 id="who-this-is-for-and-what-it-covers">Who This Is For and What It Covers</h2>
+<p>Every pipeline on this page has the same shape: a client holds a workflow template, fills in parameters per job, submits the job to a ComfyUI server, follows its progress, and post-processes the results.</p>
 
-<p>This is a reference for taking generation from interactive use to <strong>unattended production</strong>. It assumes you can already build workflows in the <a href="comfyui-guide.html">ComfyUI Guide</a> and understand the parameters from <a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a>. Here we focus on the automation around generation: running batches, sweeping parameters into grids, driving ComfyUI headlessly through its API, managing the job queue, and organizing the resulting assets so they stay reproducible.</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Client["Pipeline client"]
+        Src["Job source&lt;br/&gt;CSV / sweep / API"] --&gt; Fill["Fill template&lt;br/&gt;(prompt, seed, cfg...)"]
+        Fill --&gt; Sub["Submit with retry&lt;br/&gt;(bounded in-flight)"]
+        Res["Fetch outputs"] --&gt; Post["Sidecar, derivatives,&lt;br/&gt;manifest"]
+    end
+    subgraph Server["ComfyUI server"]
+        Q["FIFO queue"] --&gt; Exec["Graph executor&lt;br/&gt;(with cache)"]
+        Exec --&gt; Hist["History"]
+        Exec --&gt; Files["output/ folder"]
+    end
+    Sub --&gt;|POST /prompt| Q
+    Exec -.-&gt;|WebSocket events| Res
+    Hist --&gt;|GET /history/id| Res
+    Files --&gt;|GET /view| Res
+</code></pre>
 
-<p>The <a href="comfyui-guide.html">ComfyUI Guide</a> introduces the API in a few lines; this page is the full treatment — the endpoints, the WebSocket protocol, queue control, error handling, and the pipeline patterns that wrap them.</p>
+<p>ComfyUI is the most common execution engine for this because the same graph you design interactively is the thing you deploy. A pipeline built directly on the Hugging Face <strong>diffusers</strong> library is the main alternative. It is easier to embed in an existing Python service and to unit-test, but you rebuild each workflow in code instead of exporting it.</p>
 
-<h2 id="from-interactive-to-headless">From Interactive to Headless</h2>
+<h2 id="the-api-format-workflow">The API-Format Workflow</h2>
 
-<p>Interactive generation hides a request/response loop behind the UI. When you click <strong>Queue Prompt</strong>, the browser POSTs your graph to the ComfyUI server, polls for progress over a WebSocket, and downloads the result. Automation reproduces that loop in code.</p>
+<p>The ComfyUI UI saves workflows in a <strong>UI format</strong> that records node positions, links, groups, and widget layout. The <code class="language-plaintext highlighter-rouge">/prompt</code> endpoint accepts a different <strong>API format</strong>: a flat JSON object keyed by node id, where each node lists its <code class="language-plaintext highlighter-rouge">class_type</code> and <code class="language-plaintext highlighter-rouge">inputs</code>.</p>
 
-<p>The single most important step is exporting the workflow in <strong>API format</strong>. The normal “Save” format describes the visual graph (node positions, links, widget layout); the API format is a flat JSON object keyed by node id, with each node’s <code class="language-plaintext highlighter-rouge">class_type</code> and <code class="language-plaintext highlighter-rouge">inputs</code>. That is the format the <code class="language-plaintext highlighter-rouge">/prompt</code> endpoint accepts.</p>
-
-<p>To export it, enable <strong>Dev mode</strong> in ComfyUI settings, then use <strong>Save (API Format)</strong>. You get something like:</p>
+<p>To export it in the current frontend, choose <strong>Export (API)</strong> from the top-left workflow menu (labelled File in some frontend versions). Older builds hid this behind a “dev mode” setting; it is now a standard menu entry. The result looks like this:</p>
 
 <div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
   </span><span class="nl">"3"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
     </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"KSampler"</span><span class="p">,</span><span class="w">
     </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"seed"</span><span class="p">:</span><span class="w"> </span><span class="mi">12345</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"cfg"</span><span class="p">:</span><span class="w"> </span><span class="mf">7.0</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"sampler_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dpmpp_2m"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"scheduler"</span><span class="p">:</span><span class="w"> </span><span class="s2">"karras"</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"denoise"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w">
-      </span><span class="nl">"model"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"4"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span><span class="w">
-      </span><span class="nl">"positive"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"6"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span><span class="w">
-      </span><span class="nl">"negative"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"7"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span><span class="w">
-      </span><span class="nl">"latent_image"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"5"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w">
-    </span><span class="p">}</span><span class="w">
+      </span><span class="nl">"seed"</span><span class="p">:</span><span class="w"> </span><span class="mi">12345</span><span class="p">,</span><span class="w"> </span><span class="nl">"steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="nl">"cfg"</span><span class="p">:</span><span class="w"> </span><span class="mf">7.0</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"sampler_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dpmpp_2m"</span><span class="p">,</span><span class="w"> </span><span class="nl">"scheduler"</span><span class="p">:</span><span class="w"> </span><span class="s2">"karras"</span><span class="p">,</span><span class="w"> </span><span class="nl">"denoise"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"model"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"4"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="nl">"positive"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"6"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"negative"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"7"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="nl">"latent_image"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"5"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"_meta"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"KSampler"</span><span class="w"> </span><span class="p">}</span><span class="w">
   </span><span class="p">},</span><span class="w">
-  </span><span class="nl">"4"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CheckpointLoaderSimple"</span><span class="p">,</span><span class="w"> </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"ckpt_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sdxl_base.safetensors"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
-  </span><span class="nl">"5"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"EmptyLatentImage"</span><span class="p">,</span><span class="w"> </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="nl">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="nl">"batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
-  </span><span class="nl">"6"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CLIPTextEncode"</span><span class="p">,</span><span class="w"> </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a serene mountain lake at dawn"</span><span class="p">,</span><span class="w"> </span><span class="nl">"clip"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"4"</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
-  </span><span class="nl">"7"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CLIPTextEncode"</span><span class="p">,</span><span class="w"> </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blurry, low quality"</span><span class="p">,</span><span class="w"> </span><span class="nl">"clip"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"4"</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"4"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CheckpointLoaderSimple"</span><span class="p">,</span><span class="w">
+         </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"ckpt_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sdxl_base.safetensors"</span><span class="w"> </span><span class="p">},</span><span class="w">
+         </span><span class="nl">"_meta"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Load Checkpoint"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"5"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"EmptyLatentImage"</span><span class="p">,</span><span class="w">
+         </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="nl">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="nl">"batch_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"6"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CLIPTextEncode"</span><span class="p">,</span><span class="w">
+         </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a serene mountain lake at dawn"</span><span class="p">,</span><span class="w"> </span><span class="nl">"clip"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"4"</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w">
+         </span><span class="nl">"_meta"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Positive"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"7"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CLIPTextEncode"</span><span class="p">,</span><span class="w">
+         </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"blurry, low quality"</span><span class="p">,</span><span class="w"> </span><span class="nl">"clip"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"4"</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w">
+         </span><span class="nl">"_meta"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Negative"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
   </span><span class="nl">"8"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"VAEDecode"</span><span class="p">,</span><span class="w"> </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"samples"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"3"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="nl">"vae"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"4"</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">},</span><span class="w">
-  </span><span class="nl">"9"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SaveImage"</span><span class="p">,</span><span class="w"> </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"filename_prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"prod"</span><span class="p">,</span><span class="w"> </span><span class="nl">"images"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"8"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="nl">"9"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"class_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"SaveImage"</span><span class="p">,</span><span class="w">
+         </span><span class="nl">"inputs"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"filename_prefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">"prod"</span><span class="p">,</span><span class="w"> </span><span class="nl">"images"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"8"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
 </span><span class="p">}</span><span class="w">
 </span></code></pre></div></div>
 
-<p>Two structural facts make this format scriptable:</p>
+<p>Three properties make the format scriptable:</p>
 
 <ul>
-  <li><strong>Inputs are either literal values or connections.</strong> A literal (<code class="language-plaintext highlighter-rouge">"steps": 30</code>) is what you parameterize. A connection (<code class="language-plaintext highlighter-rouge">"model": ["4", 0]</code>) is a <code class="language-plaintext highlighter-rouge">[node_id, output_index]</code> pair — leave those alone unless you are rewiring the graph.</li>
-  <li><strong>Node ids are stable strings.</strong> Once you know that node <code class="language-plaintext highlighter-rouge">"6"</code> is your positive prompt and <code class="language-plaintext highlighter-rouge">"3"</code> is the sampler, you can mutate exactly those fields and resubmit.</li>
+  <li><strong>Inputs are either literals or links.</strong> A literal (<code class="language-plaintext highlighter-rouge">"steps": 30</code>) is what you parameterize. A link (<code class="language-plaintext highlighter-rouge">"model": ["4", 0]</code>) is a <code class="language-plaintext highlighter-rouge">[node_id, output_index]</code> pair; leave links alone unless you are rewiring the graph.</li>
+  <li><strong>Node ids are stable strings</strong> within an exported file, so you can address the positive prompt as node <code class="language-plaintext highlighter-rouge">"6"</code>.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">_meta.title</code> carries the node’s display title.</strong> Renaming nodes in the UI (“Positive”, “Main Sampler”) and looking them up by title makes scripts survive re-exports that renumber nodes.</li>
 </ul>
 
-<p>The headless loop, then, is: load the API JSON, overwrite the inputs you want to vary, POST it, and collect the output. Everything else in this guide builds on that loop.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">node_by_title</span><span class="p">(</span><span class="n">workflow</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Return the node whose _meta.title matches; raise if missing or ambiguous.</span><span class="sh">"""</span>
+    <span class="n">hits</span> <span class="o">=</span> <span class="p">[</span><span class="n">n</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">workflow</span><span class="p">.</span><span class="nf">values</span><span class="p">()</span> <span class="k">if</span> <span class="n">n</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">_meta</span><span class="sh">"</span><span class="p">,</span> <span class="p">{}).</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">title</span><span class="sh">"</span><span class="p">)</span> <span class="o">==</span> <span class="n">title</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">hits</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">expected one node titled </span><span class="si">{</span><span class="n">title</span><span class="si">!r}</span><span class="s">, found </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">hits</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">hits</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</code></pre></div></div>
 
-<pre><code class="language-mermaid">flowchart LR
-    Tmpl["API workflow JSON&lt;br/&gt;(template)"] --&gt; Param["Parameterize&lt;br/&gt;(set prompt, seed, CFG…)"]
-    Param --&gt; Post["POST /prompt"]
-    Post --&gt; Queue["Server queue"]
-    Queue --&gt; Exec["Execute graph"]
-    Exec --&gt; WS["WebSocket progress"]
-    Exec --&gt; Hist["/history → outputs"]
-    Hist --&gt; Save["Save + metadata sidecar"]
-</code></pre>
+<p>The rest of this page uses literal ids for brevity. In real pipelines, prefer title lookup.</p>
 
-<h2 id="the-comfyui-api">The ComfyUI API</h2>
+<h2 id="the-comfyui-server-api">The ComfyUI Server API</h2>
 
-<p>ComfyUI serves an HTTP + WebSocket API on the same port as the UI (default <code class="language-plaintext highlighter-rouge">8188</code>). These are the endpoints a pipeline actually uses.</p>
+<p>ComfyUI serves HTTP and WebSocket on the same port as the UI (default <code class="language-plaintext highlighter-rouge">8188</code>). Every route is also available under an <code class="language-plaintext highlighter-rouge">/api</code> prefix (for example <code class="language-plaintext highlighter-rouge">/api/prompt</code>), which is convenient when a reverse proxy routes by path.</p>
 
 <table>
   <thead>
@@ -3217,113 +3228,177 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td><code class="language-plaintext highlighter-rouge">/prompt</code></td>
       <td>POST</td>
-      <td>Enqueue a workflow; returns a <code class="language-plaintext highlighter-rouge">prompt_id</code></td>
+      <td>Enqueue a workflow; returns <code class="language-plaintext highlighter-rouge">prompt_id</code>, queue <code class="language-plaintext highlighter-rouge">number</code>, and <code class="language-plaintext highlighter-rouge">node_errors</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">/prompt</code></td>
       <td>GET</td>
-      <td>Current queue state and exec info</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">/history</code></td>
-      <td>GET</td>
-      <td>Completed runs, keyed by <code class="language-plaintext highlighter-rouge">prompt_id</code></td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">/history/{prompt_id}</code></td>
-      <td>GET</td>
-      <td>Outputs for one run</td>
+      <td>Queue size and exec info</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">/queue</code></td>
       <td>GET</td>
-      <td>Pending and running items</td>
+      <td>Running and pending items</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">/queue</code></td>
       <td>POST</td>
-      <td>Clear or delete queued items</td>
+      <td><code class="language-plaintext highlighter-rouge">{"clear": true}</code> or <code class="language-plaintext highlighter-rouge">{"delete": [prompt_id, ...]}</code> for pending items</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">/interrupt</code></td>
       <td>POST</td>
-      <td>Stop the currently executing prompt</td>
+      <td>Stop execution; optional <code class="language-plaintext highlighter-rouge">{"prompt_id": ...}</code> interrupts only if that prompt is running</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/history</code></td>
+      <td>GET</td>
+      <td>Completed runs keyed by <code class="language-plaintext highlighter-rouge">prompt_id</code> (supports <code class="language-plaintext highlighter-rouge">max_items</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/history/{prompt_id}</code></td>
+      <td>GET</td>
+      <td>Outputs and status for one run</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/history</code></td>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">{"clear": true}</code> or <code class="language-plaintext highlighter-rouge">{"delete": [...]}</code> to prune history</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">/view</code></td>
       <td>GET</td>
-      <td>Download an output file (<code class="language-plaintext highlighter-rouge">filename</code>, <code class="language-plaintext highlighter-rouge">subfolder</code>, <code class="language-plaintext highlighter-rouge">type</code>)</td>
+      <td>Download an output (<code class="language-plaintext highlighter-rouge">filename</code>, <code class="language-plaintext highlighter-rouge">subfolder</code>, <code class="language-plaintext highlighter-rouge">type</code>)</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">/upload/image</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/upload/image</code>, <code class="language-plaintext highlighter-rouge">/upload/mask</code></td>
       <td>POST</td>
-      <td>Upload an input image (for img2img / ControlNet)</td>
+      <td>Upload inputs for img2img, inpainting, ControlNet</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">/object_info</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/object_info</code>, <code class="language-plaintext highlighter-rouge">/object_info/{class}</code></td>
       <td>GET</td>
-      <td>Schema of every node type (inputs, defaults, enums)</td>
+      <td>Node schemas: inputs, types, defaults, enum values</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/models</code>, <code class="language-plaintext highlighter-rouge">/models/{folder}</code></td>
+      <td>GET</td>
+      <td>Installed model files per folder</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">/system_stats</code></td>
       <td>GET</td>
-      <td>VRAM, device, and queue diagnostics</td>
+      <td>Python/ComfyUI versions, devices, VRAM</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">/ws</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/free</code></td>
+      <td>POST</td>
+      <td><code class="language-plaintext highlighter-rouge">{"unload_models": true, "free_memory": true}</code> to release VRAM</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">/ws?clientId=...</code></td>
       <td>WebSocket</td>
-      <td>Live execution + progress events</td>
+      <td>Execution and progress events</td>
     </tr>
   </tbody>
 </table>
 
+<p>Recent releases also add a <strong>jobs API</strong> (<code class="language-plaintext highlighter-rouge">GET /api/jobs</code> with status filtering and pagination, <code class="language-plaintext highlighter-rouge">GET /api/jobs/{id}</code>, <code class="language-plaintext highlighter-rouge">POST /api/jobs/{id}/cancel</code>) that unifies the queue and history into one job view. Check <code class="language-plaintext highlighter-rouge">/system_stats</code> for the server version before depending on it.</p>
+
+<h3 id="request-lifecycle">Request Lifecycle</h3>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant S as ComfyUI server
+    C-&gt;&gt;S: WebSocket connect /ws?clientId=C1
+    C-&gt;&gt;S: POST /prompt {prompt, client_id: C1}
+    S--&gt;&gt;C: 200 {prompt_id, number, node_errors: {}}
+    S--&gt;&gt;C: ws: execution_start
+    S--&gt;&gt;C: ws: execution_cached (nodes reused)
+    loop each node
+        S--&gt;&gt;C: ws: executing {node}
+        S--&gt;&gt;C: ws: progress {value, max}
+        S--&gt;&gt;C: ws: executed {node, output}
+    end
+    S--&gt;&gt;C: ws: execution_success
+    C-&gt;&gt;S: GET /history/{prompt_id}
+    S--&gt;&gt;C: outputs (filenames, subfolders)
+    C-&gt;&gt;S: GET /view?filename=...
+    S--&gt;&gt;C: image bytes
+</code></pre>
+
 <h3 id="submitting-a-prompt">Submitting a Prompt</h3>
 
-<p>A POST to <code class="language-plaintext highlighter-rouge">/prompt</code> carries the workflow plus a <code class="language-plaintext highlighter-rouge">client_id</code> (so the server tags your WebSocket events) and returns a <code class="language-plaintext highlighter-rouge">prompt_id</code> you use to correlate progress and results:</p>
+<p>The POST body carries the workflow and a <code class="language-plaintext highlighter-rouge">client_id</code>, which tags WebSocket events for this client. It also accepts several optional fields:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Effect</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">client_id</code></td>
+      <td>Routes execution events to your WebSocket</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">prompt_id</code></td>
+      <td>Client-chosen id (canonical lowercase UUID); lets you record the id <em>before</em> submitting, which makes retries idempotent</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">front</code></td>
+      <td><code class="language-plaintext highlighter-rouge">true</code> places the job at the front of the queue</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">number</code></td>
+      <td>Explicit queue priority (lower runs first)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">extra_data</code></td>
+      <td>Passed through to execution (for example, workflow metadata to embed in outputs)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">partial_execution_targets</code></td>
+      <td>Run only the listed output nodes</td>
+    </tr>
+  </tbody>
+</table>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
 <span class="kn">import</span> <span class="n">uuid</span>
+<span class="kn">import</span> <span class="n">urllib.error</span>
 <span class="kn">import</span> <span class="n">urllib.request</span>
 
-<span class="n">SERVER</span> <span class="o">=</span> <span class="sh">"</span><span class="s">http://localhost:8188</span><span class="sh">"</span>
+<span class="n">SERVER</span> <span class="o">=</span> <span class="sh">"</span><span class="s">http://127.0.0.1:8188</span><span class="sh">"</span>
 <span class="n">CLIENT_ID</span> <span class="o">=</span> <span class="nf">str</span><span class="p">(</span><span class="n">uuid</span><span class="p">.</span><span class="nf">uuid4</span><span class="p">())</span>
 
-<span class="k">def</span> <span class="nf">queue_prompt</span><span class="p">(</span><span class="n">workflow</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-    <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">workflow</span><span class="p">,</span> <span class="sh">"</span><span class="s">client_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">CLIENT_ID</span><span class="p">}</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">payload</span><span class="p">).</span><span class="nf">encode</span><span class="p">(</span><span class="sh">"</span><span class="s">utf-8</span><span class="sh">"</span><span class="p">)</span>
-    <span class="n">req</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nc">Request</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/prompt</span><span class="sh">"</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
-                                 <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">Content-Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">application/json</span><span class="sh">"</span><span class="p">})</span>
-    <span class="n">resp</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">).</span><span class="nf">read</span><span class="p">())</span>
-    <span class="k">return</span> <span class="n">resp</span><span class="p">[</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">]</span>
+<span class="k">class</span> <span class="nc">GraphError</span><span class="p">(</span><span class="nb">Exception</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">The server rejected the workflow (HTTP 400 with node_errors).</span><span class="sh">"""</span>
+
+<span class="k">def</span> <span class="nf">queue_prompt</span><span class="p">(</span><span class="n">workflow</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">prompt_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+                 <span class="n">front</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">workflow</span><span class="p">,</span> <span class="sh">"</span><span class="s">client_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">CLIENT_ID</span><span class="p">,</span> <span class="sh">"</span><span class="s">front</span><span class="sh">"</span><span class="p">:</span> <span class="n">front</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">prompt_id</span><span class="p">:</span>
+        <span class="n">payload</span><span class="p">[</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">prompt_id</span>
+    <span class="n">req</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nc">Request</span><span class="p">(</span>
+        <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/prompt</span><span class="sh">"</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">payload</span><span class="p">).</span><span class="nf">encode</span><span class="p">(),</span>
+        <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">Content-Type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">application/json</span><span class="sh">"</span><span class="p">})</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="n">req</span><span class="p">)</span> <span class="k">as</span> <span class="n">resp</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">json</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">resp</span><span class="p">)[</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">]</span>
+    <span class="k">except</span> <span class="n">urllib</span><span class="p">.</span><span class="n">error</span><span class="p">.</span><span class="n">HTTPError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">e</span><span class="p">.</span><span class="n">code</span> <span class="o">==</span> <span class="mi">400</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">GraphError</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="nf">read</span><span class="p">().</span><span class="nf">decode</span><span class="p">())</span> <span class="k">from</span> <span class="n">e</span>
+        <span class="k">raise</span>
 </code></pre></div></div>
 
-<p>If the graph is invalid (a missing connection, an out-of-range value, an unknown node), the server responds <strong>400</strong> with a <code class="language-plaintext highlighter-rouge">node_errors</code> object naming the offending node and field. Surface that message verbatim — it is far more actionable than a generic failure.</p>
+<p>A <strong>400</strong> response means validation failed: a missing link, an out-of-range value, an unknown node class, or a model file that does not exist. The body contains an <code class="language-plaintext highlighter-rouge">error</code> object and a <code class="language-plaintext highlighter-rouge">node_errors</code> map naming the offending node and input. Surface it verbatim, and do not retry, since the same graph will fail the same way.</p>
 
-<h3 id="tracking-progress-over-websocket">Tracking Progress over WebSocket</h3>
+<h3 id="tracking-progress">Tracking Progress</h3>
 
-<p>Polling <code class="language-plaintext highlighter-rouge">/history</code> works but is laggy. The WebSocket gives live events: which node is executing, sampler step progress, and a terminal “executing → null” signal when the prompt for your <code class="language-plaintext highlighter-rouge">client_id</code> finishes.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
-<span class="kn">import</span> <span class="n">websocket</span>  <span class="c1"># websocket-client
-</span>
-<span class="k">def</span> <span class="nf">wait_for_completion</span><span class="p">(</span><span class="n">prompt_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-    <span class="n">ws</span> <span class="o">=</span> <span class="n">websocket</span><span class="p">.</span><span class="nc">WebSocket</span><span class="p">()</span>
-    <span class="n">ws</span><span class="p">.</span><span class="nf">connect</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">ws://localhost:8188/ws?clientId=</span><span class="si">{</span><span class="n">CLIENT_ID</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
-        <span class="n">msg</span> <span class="o">=</span> <span class="n">ws</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">continue</span>  <span class="c1"># binary frames are preview images; skip
-</span>        <span class="n">event</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-        <span class="n">etype</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">],</span> <span class="n">event</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span>
-        <span class="k">if</span> <span class="n">etype</span> <span class="o">==</span> <span class="sh">"</span><span class="s">progress</span><span class="sh">"</span><span class="p">:</span>
-            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">  step </span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">value</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">max</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">etype</span> <span class="o">==</span> <span class="sh">"</span><span class="s">executing</span><span class="sh">"</span> <span class="ow">and</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">node</span><span class="sh">"</span><span class="p">)</span> <span class="ow">is</span> <span class="bp">None</span> \
-                <span class="ow">and</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">)</span> <span class="o">==</span> <span class="n">prompt_id</span><span class="p">:</span>
-            <span class="n">ws</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
-            <span class="k">return</span>  <span class="c1"># this prompt is done
-</span></code></pre></div></div>
-
-<p>The key event types:</p>
+<p>Polling <code class="language-plaintext highlighter-rouge">/history</code> works but adds latency and load. The WebSocket streams events for your <code class="language-plaintext highlighter-rouge">client_id</code>:</p>
 
 <table>
   <thead>
@@ -3335,151 +3410,211 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">status</code></td>
-      <td>Queue size changed (<code class="language-plaintext highlighter-rouge">exec_info.queue_remaining</code>)</td>
+      <td>Queue length changed (<code class="language-plaintext highlighter-rouge">exec_info.queue_remaining</code>)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">execution_start</code></td>
-      <td>The server picked up your prompt</td>
+      <td>Your prompt began executing</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">execution_cached</code></td>
+      <td>Nodes whose outputs were reused from cache</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">executing</code></td>
-      <td>A node started; <code class="language-plaintext highlighter-rouge">node: null</code> with your <code class="language-plaintext highlighter-rouge">prompt_id</code> means done</td>
+      <td>A node started; <code class="language-plaintext highlighter-rouge">node: null</code> is the legacy “prompt finished” signal</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">progress</code></td>
-      <td>Sampler step <code class="language-plaintext highlighter-rouge">value</code>/<code class="language-plaintext highlighter-rouge">max</code> for the active node</td>
+      <td>Step <code class="language-plaintext highlighter-rouge">value</code>/<code class="language-plaintext highlighter-rouge">max</code> for the active node (samplers)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">executed</code></td>
-      <td>A node produced outputs (images appear here)</td>
+      <td>A node produced UI output (image filenames appear here)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">execution_success</code></td>
+      <td>All nodes finished successfully</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">execution_error</code></td>
-      <td>A node raised; carries the traceback</td>
+      <td>A node raised; includes node id, exception type and message, traceback</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">execution_interrupted</code></td>
+      <td>Stopped by <code class="language-plaintext highlighter-rouge">/interrupt</code> or a cancel</td>
     </tr>
     <tr>
       <td>binary frame</td>
-      <td>A live preview image (when preview is enabled)</td>
+      <td>Live preview image (when previews are enabled)</td>
     </tr>
   </tbody>
 </table>
 
+<p>Wait for one of the three terminal events rather than <code class="language-plaintext highlighter-rouge">executing</code> with <code class="language-plaintext highlighter-rouge">node: null</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">websocket</span>  <span class="c1"># pip install websocket-client
+</span>
+<span class="n">TERMINAL</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">execution_success</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">execution_error</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">execution_interrupted</span><span class="sh">"</span><span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">wait_for</span><span class="p">(</span><span class="n">prompt_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ws</span><span class="p">:</span> <span class="n">websocket</span><span class="p">.</span><span class="n">WebSocket</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Block until prompt_id finishes; return the terminal event.</span><span class="sh">"""</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">ws</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">continue</span>  <span class="c1"># binary preview frame
+</span>        <span class="n">event</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">event</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span>
+        <span class="k">if</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">)</span> <span class="o">!=</span> <span class="n">prompt_id</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="o">==</span> <span class="sh">"</span><span class="s">progress</span><span class="sh">"</span><span class="p">:</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">  node </span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">node</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s">: </span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">value</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="sh">'</span><span class="s">max</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="ow">in</span> <span class="n">TERMINAL</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">event</span>
+
+<span class="n">ws</span> <span class="o">=</span> <span class="n">websocket</span><span class="p">.</span><span class="nc">WebSocket</span><span class="p">()</span>
+<span class="n">ws</span><span class="p">.</span><span class="nf">connect</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">ws://127.0.0.1:8188/ws?clientId=</span><span class="si">{</span><span class="n">CLIENT_ID</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Open the WebSocket <strong>before</strong> submitting, or a fast (fully cached) prompt can finish before you are listening. For robustness, treat the WebSocket as a latency optimization and fall back to polling <code class="language-plaintext highlighter-rouge">/history/{prompt_id}</code> if the connection drops.</p>
+
 <h3 id="retrieving-outputs">Retrieving Outputs</h3>
 
-<p>After completion, <code class="language-plaintext highlighter-rouge">/history/{prompt_id}</code> returns each output node’s results. <code class="language-plaintext highlighter-rouge">SaveImage</code> nodes list filenames, subfolders, and a <code class="language-plaintext highlighter-rouge">type</code> (<code class="language-plaintext highlighter-rouge">output</code>/<code class="language-plaintext highlighter-rouge">temp</code>); fetch the bytes from <code class="language-plaintext highlighter-rouge">/view</code>:</p>
+<p><code class="language-plaintext highlighter-rouge">/history/{prompt_id}</code> lists each output node’s files; download them from <code class="language-plaintext highlighter-rouge">/view</code>:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">fetch_images</span><span class="p">(</span><span class="n">prompt_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
-    <span class="n">hist</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span>
-        <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/history/</span><span class="si">{</span><span class="n">prompt_id</span><span class="si">}</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">())[</span><span class="n">prompt_id</span><span class="p">]</span>
-    <span class="n">images</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">node_out</span> <span class="ow">in</span> <span class="n">hist</span><span class="p">[</span><span class="sh">"</span><span class="s">outputs</span><span class="sh">"</span><span class="p">].</span><span class="nf">values</span><span class="p">():</span>
-        <span class="k">for</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">node_out</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">images</span><span class="sh">"</span><span class="p">,</span> <span class="p">[]):</span>
-            <span class="n">url</span> <span class="o">=</span> <span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/view?filename=</span><span class="si">{</span><span class="n">img</span><span class="p">[</span><span class="sh">'</span><span class="s">filename</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span>
-                   <span class="sa">f</span><span class="sh">"</span><span class="s">&amp;subfolder=</span><span class="si">{</span><span class="n">img</span><span class="p">[</span><span class="sh">'</span><span class="s">subfolder</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="s">&amp;type=</span><span class="si">{</span><span class="n">img</span><span class="p">[</span><span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-            <span class="n">images</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="n">url</span><span class="p">).</span><span class="nf">read</span><span class="p">())</span>
-    <span class="k">return</span> <span class="n">images</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">urllib.parse</span> <span class="kn">import</span> <span class="n">urlencode</span>
+
+<span class="k">def</span> <span class="nf">fetch_outputs</span><span class="p">(</span><span class="n">prompt_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]]:</span>
+    <span class="k">with</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/history/</span><span class="si">{</span><span class="n">prompt_id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">r</span><span class="p">:</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">r</span><span class="p">)[</span><span class="n">prompt_id</span><span class="p">]</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">node_out</span> <span class="ow">in</span> <span class="n">entry</span><span class="p">[</span><span class="sh">"</span><span class="s">outputs</span><span class="sh">"</span><span class="p">].</span><span class="nf">values</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">node_out</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">images</span><span class="sh">"</span><span class="p">,</span> <span class="p">[]):</span>  <span class="c1"># video/audio nodes use other keys
+</span>            <span class="n">qs</span> <span class="o">=</span> <span class="nf">urlencode</span><span class="p">({</span><span class="sh">"</span><span class="s">filename</span><span class="sh">"</span><span class="p">:</span> <span class="n">f</span><span class="p">[</span><span class="sh">"</span><span class="s">filename</span><span class="sh">"</span><span class="p">],</span>
+                            <span class="sh">"</span><span class="s">subfolder</span><span class="sh">"</span><span class="p">:</span> <span class="n">f</span><span class="p">[</span><span class="sh">"</span><span class="s">subfolder</span><span class="sh">"</span><span class="p">],</span> <span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">:</span> <span class="n">f</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]})</span>
+            <span class="k">with</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/view?</span><span class="si">{</span><span class="n">qs</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">r</span><span class="p">:</span>
+                <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">f</span><span class="p">,</span> <span class="n">r</span><span class="p">.</span><span class="nf">read</span><span class="p">()))</span>
+    <span class="k">return</span> <span class="n">results</span>
 </code></pre></div></div>
 
-<h3 id="discovering-node-schemas">Discovering Node Schemas</h3>
+<p>Use <code class="language-plaintext highlighter-rouge">urlencode</code> rather than string concatenation: filenames and subfolders can contain spaces and other characters that must be escaped. The history entry’s <code class="language-plaintext highlighter-rouge">status</code> field also records whether the run completed and the messages it produced, which is useful when reconciling after a client crash.</p>
 
-<p><code class="language-plaintext highlighter-rouge">/object_info</code> returns the full schema of every installed node — required and optional inputs, their types, defaults, and the valid enum values (e.g. the exact list of installed checkpoints, samplers, and schedulers). A robust pipeline reads this once at startup to <strong>validate parameters before submitting</strong>, so a typo in a sampler name fails locally instead of after the job hits the queue:</p>
+<h3 id="validating-against-node-schemas">Validating Against Node Schemas</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">info</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/object_info</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">())</span>
-<span class="n">samplers</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">KSampler</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">input</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">required</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># list of valid names
-</span><span class="n">checkpoints</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">CheckpointLoaderSimple</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">input</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">required</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">ckpt_name</span><span class="sh">"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<p><code class="language-plaintext highlighter-rouge">/object_info</code> returns every installed node’s inputs, types, defaults, and valid enum values, including the actual list of installed checkpoints, samplers, and schedulers. Read it once at startup and validate jobs locally, so a typo fails immediately rather than after queueing:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">with</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/object_info</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">r</span><span class="p">:</span>
+    <span class="n">info</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<span class="n">ks</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">KSampler</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">input</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">required</span><span class="sh">"</span><span class="p">]</span>
+<span class="n">VALID</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span><span class="p">:</span> <span class="nf">set</span><span class="p">(</span><span class="n">ks</span><span class="p">[</span><span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span>
+    <span class="sh">"</span><span class="s">scheduler</span><span class="sh">"</span><span class="p">:</span> <span class="nf">set</span><span class="p">(</span><span class="n">ks</span><span class="p">[</span><span class="sh">"</span><span class="s">scheduler</span><span class="sh">"</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span>
+    <span class="sh">"</span><span class="s">ckpt_name</span><span class="sh">"</span><span class="p">:</span> <span class="nf">set</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="sh">"</span><span class="s">CheckpointLoaderSimple</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">input</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">required</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">ckpt_name</span><span class="sh">"</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="n">job</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s">=</span><span class="si">{</span><span class="n">job</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="si">!r}</span><span class="s"> not installed/valid</span><span class="sh">"</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">allowed</span> <span class="ow">in</span> <span class="n">VALID</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">job</span> <span class="ow">and</span> <span class="n">job</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">allowed</span><span class="p">]</span>
 </code></pre></div></div>
 
-<h2 id="batch-generation-workflows">Batch Generation Workflows</h2>
+<h2 id="batch-generation">Batch Generation</h2>
 
-<p>The simplest production task is generating many images from one template — varying only the seed, or running a list of prompts. Because ComfyUI caches by input, changing only the seed reuses the loaded model and text encoding, so a batch of seeds is cheap after the first.</p>
+<p>ComfyUI caches node outputs by their inputs. When only the seed changes between jobs, the loaded model and the encoded prompts are reused, so everything after the first job costs only sampling and decoding.</p>
 
-<p>There are two batching levels, and they compose:</p>
+<p>There are two levels of batching, and they compose:</p>
 
-<ul>
-  <li><strong>In-graph batch</strong> — set <code class="language-plaintext highlighter-rouge">EmptyLatentImage.batch_size</code> to N to denoise N latents in one pass. Fastest per image, but every image shares one prompt and the whole batch must fit in VRAM.</li>
-  <li><strong>Job-level batch</strong> — submit N separate prompts, each with its own parameters. Slower (more passes) but each can differ completely, and the queue serializes them so VRAM use stays flat.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Mechanism</th>
+      <th>Pros</th>
+      <th>Cons</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>In-graph</td>
+      <td><code class="language-plaintext highlighter-rouge">EmptyLatentImage.batch_size = N</code></td>
+      <td>Best GPU utilization per image</td>
+      <td>One prompt for all N; whole batch must fit in VRAM</td>
+    </tr>
+    <tr>
+      <td>Job-level</td>
+      <td>N separate <code class="language-plaintext highlighter-rouge">/prompt</code> submissions</td>
+      <td>Every job can differ; flat VRAM use</td>
+      <td>More per-job overhead</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>A clean pattern wraps the template in a small helper that deep-copies it per job, sets the fields, and submits:</p>
+<p>A small helper deep-copies the template per job and sets only the fields that vary:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">copy</span>
 <span class="kn">import</span> <span class="n">random</span>
 
-<span class="k">def</span> <span class="nf">run_batch</span><span class="p">(</span><span class="n">template</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">jobs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-    <span class="sh">"""</span><span class="s">Each job dict names the fields to override. Returns prompt_ids.</span><span class="sh">"""</span>
-    <span class="n">prompt_ids</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">:</span>
-        <span class="n">wf</span> <span class="o">=</span> <span class="n">copy</span><span class="p">.</span><span class="nf">deepcopy</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
-        <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">6</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">job</span><span class="p">[</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">]</span>
-        <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">job</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">,</span> <span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
-        <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">]</span>  <span class="o">=</span> <span class="n">job</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">)</span>
-        <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">9</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">filename_prefix</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">job</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">batch</span><span class="sh">"</span><span class="p">)</span>
-        <span class="n">prompt_ids</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nf">queue_prompt</span><span class="p">(</span><span class="n">wf</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">prompt_ids</span>
-
-<span class="n">jobs</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="p">{</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">a red fox in snow</span><span class="sh">"</span><span class="p">,</span>   <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">fox</span><span class="sh">"</span><span class="p">,</span>   <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
-    <span class="p">{</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">a blue jay on a branch</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">jay</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
-    <span class="p">{</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">a green frog on a leaf</span><span class="sh">"</span><span class="p">,</span>  <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">frog</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="mi">3</span><span class="p">},</span>
-<span class="p">]</span>
-<span class="n">ids</span> <span class="o">=</span> <span class="nf">run_batch</span><span class="p">(</span><span class="n">workflow_template</span><span class="p">,</span> <span class="n">jobs</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">build_job</span><span class="p">(</span><span class="n">template</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">job</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="n">wf</span> <span class="o">=</span> <span class="n">copy</span><span class="p">.</span><span class="nf">deepcopy</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>  <span class="c1"># never mutate the shared template
+</span>    <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">6</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">job</span><span class="p">[</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">]</span>
+    <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">job</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">63</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">job</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">)</span>
+    <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">9</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">filename_prefix</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">job</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">project</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">batch</span><span class="sh">'</span><span class="p">)</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">job</span><span class="p">[</span><span class="sh">'</span><span class="s">name</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="n">wf</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">deepcopy</code> matters: mutating a shared template would leak the previous job’s values into the next. For seeds, an explicit seed makes a job reproducible; <code class="language-plaintext highlighter-rouge">-1</code>/random is for exploration, but record the seed the server actually used (from <code class="language-plaintext highlighter-rouge">/history</code>) so you can reproduce a favorite later.</p>
+<p>Always <strong>record the seed you actually sent</strong>. A random seed chosen client-side is reproducible only if it is logged; <code class="language-plaintext highlighter-rouge">-1</code> or “randomize” widgets in the UI do not apply to the API, where the literal value in the JSON is used.</p>
 
-<h3 id="reading-jobs-from-a-file">Reading Jobs from a File</h3>
-
-<p>For real batches the job list comes from data, not code — a CSV of prompts, a JSONL of parameter dicts, or a spreadsheet export. Keep the template and the job list separate so non-programmers can edit the latter:</p>
+<p>Job lists should come from data, not code, so that non-programmers can edit them:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">csv</span>
 
 <span class="k">def</span> <span class="nf">jobs_from_csv</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
     <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="sh">""</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
         <span class="k">return</span> <span class="p">[</span>
-            <span class="p">{</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">],</span>
+            <span class="p">{</span><span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">],</span>
+             <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">],</span>
              <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="nf">int</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">])</span> <span class="k">if</span> <span class="n">row</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">)</span> <span class="k">else</span> <span class="bp">None</span><span class="p">,</span>
-             <span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">row</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">)),</span>
-             <span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">:</span> <span class="n">row</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">batch</span><span class="sh">"</span><span class="p">)}</span>
+             <span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">])</span> <span class="k">if</span> <span class="n">row</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">)</span> <span class="k">else</span> <span class="mf">7.0</span><span class="p">}</span>
             <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">csv</span><span class="p">.</span><span class="nc">DictReader</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
         <span class="p">]</span>
 </code></pre></div></div>
 
 <h2 id="parameter-sweeps-and-grids">Parameter Sweeps and Grids</h2>
 
-<p>Tuning by hand — change CFG, regenerate, squint — does not scale. A <strong>sweep</strong> systematically generates every combination of a set of parameter values so you can compare them side by side. This is the same idea as an XY plot in Automatic1111, generalized to any axes and run headlessly.</p>
-
-<p>A sweep is a <strong>Cartesian product</strong> of the axes you choose. If you vary M values of CFG and N samplers and K seeds, you get M·N·K images. That product grows fast, so pick axes deliberately.</p>
+<p>A <strong>sweep</strong> generates every combination of chosen parameter values so the differences can be compared side by side. It is the headless, arbitrary-axis version of Automatic1111’s XY plot. With M CFG values, N samplers, and K seeds, a sweep produces $M \cdot N \cdot K$ images, so choose axes deliberately.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">itertools</span> <span class="kn">import</span> <span class="n">product</span>
 
+<span class="n">FIELD_MAP</span> <span class="o">=</span> <span class="p">{</span>  <span class="c1"># sweep axis -&gt; (node id, input name)
+</span>    <span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">),</span> <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">),</span>
+    <span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span><span class="p">),</span> <span class="sh">"</span><span class="s">scheduler</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">scheduler</span><span class="sh">"</span><span class="p">),</span>
+    <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">),</span> <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">:</span> <span class="p">(</span><span class="sh">"</span><span class="s">6</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">),</span>
+<span class="p">}</span>
+
 <span class="k">def</span> <span class="nf">sweep</span><span class="p">(</span><span class="n">template</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">axes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]:</span>
-    <span class="sh">"""</span><span class="s">axes: {field_name: [values]}. Returns (combo, workflow) per cell.</span><span class="sh">"""</span>
-    <span class="n">names</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">axes</span><span class="p">.</span><span class="nf">keys</span><span class="p">())</span>
-    <span class="n">runs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">axes</span><span class="p">)</span>
+    <span class="n">cells</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">values</span> <span class="ow">in</span> <span class="nf">product</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">axes</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">names</span><span class="p">)):</span>
         <span class="n">combo</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">(</span><span class="nf">zip</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">values</span><span class="p">))</span>
         <span class="n">wf</span> <span class="o">=</span> <span class="n">copy</span><span class="p">.</span><span class="nf">deepcopy</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
-        <span class="k">if</span> <span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">combo</span><span class="p">:</span>          <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">combo</span><span class="p">[</span><span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">]</span>
-        <span class="k">if</span> <span class="sh">"</span><span class="s">steps</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">combo</span><span class="p">:</span>        <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">combo</span><span class="p">[</span><span class="sh">"</span><span class="s">steps</span><span class="sh">"</span><span class="p">]</span>
-        <span class="k">if</span> <span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">combo</span><span class="p">:</span> <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">combo</span><span class="p">[</span><span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span><span class="p">]</span>
-        <span class="k">if</span> <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">combo</span><span class="p">:</span>         <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">3</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">combo</span><span class="p">[</span><span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">]</span>
-        <span class="k">if</span> <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">combo</span><span class="p">:</span>       <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">6</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">text</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">combo</span><span class="p">[</span><span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">]</span>
-        <span class="c1"># Encode the combo in the filename so cells are identifiable on disk
-</span>        <span class="n">tag</span> <span class="o">=</span> <span class="sh">"</span><span class="s">_</span><span class="sh">"</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s">-</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="sh">"</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">combo</span><span class="p">.</span><span class="nf">items</span><span class="p">())</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">combo</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+            <span class="n">node</span><span class="p">,</span> <span class="n">field</span> <span class="o">=</span> <span class="n">FIELD_MAP</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="n">wf</span><span class="p">[</span><span class="n">node</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="n">field</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="n">tag</span> <span class="o">=</span> <span class="sh">"</span><span class="s">_</span><span class="sh">"</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s">-</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="sh">"</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">combo</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">prompt</span><span class="sh">"</span><span class="p">)</span>
         <span class="n">wf</span><span class="p">[</span><span class="sh">"</span><span class="s">9</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">inputs</span><span class="sh">"</span><span class="p">][</span><span class="sh">"</span><span class="s">filename_prefix</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">sweep/</span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="sh">"</span>
-        <span class="n">runs</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">combo</span><span class="p">,</span> <span class="n">wf</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">runs</span>
+        <span class="n">cells</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">combo</span><span class="p">,</span> <span class="n">wf</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">cells</span>
 
-<span class="n">cells</span> <span class="o">=</span> <span class="nf">sweep</span><span class="p">(</span><span class="n">workflow_template</span><span class="p">,</span> <span class="p">{</span>
+<span class="n">cells</span> <span class="o">=</span> <span class="nf">sweep</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="p">{</span>
     <span class="sh">"</span><span class="s">cfg</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span>
     <span class="sh">"</span><span class="s">sampler_name</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">euler</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">dpmpp_2m</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">dpmpp_3m_sde</span><span class="sh">"</span><span class="p">],</span>
-    <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">42</span><span class="p">],</span>   <span class="c1"># fix the seed so CFG/sampler differences are the only variable
+    <span class="sh">"</span><span class="s">seed</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mi">42</span><span class="p">],</span>  <span class="c1"># fixed: CFG and sampler are the only variables
 </span><span class="p">})</span>
 </code></pre></div></div>
 
-<h3 id="designing-a-useful-sweep">Designing a Useful Sweep</h3>
+<h3 id="designing-a-sweep">Designing a Sweep</h3>
 
-<p>The discipline is <strong>isolate one thing at a time</strong>. Fixing the seed across a CFG sweep means every difference you see comes from CFG, not from a different random starting point. The table below is a practical starting set of axes and ranges.</p>
+<p>Change one thing at a time. Fixing the seed across a CFG sweep means every visible difference comes from CFG, not from a different starting noise. Then repeat the winning settings across several seeds to confirm the result is not one lucky roll.</p>
 
 <table>
   <thead>
@@ -3491,258 +3626,293 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td>CFG / guidance</td>
-      <td>3–11 (FLUX: fix cfg=1, sweep FluxGuidance 2–5)</td>
-      <td>Prompt adherence vs. over-saturation</td>
+      <td>CFG</td>
+      <td>3-11 for SD 1.5/SDXL; 3-5 for SD3.5</td>
+      <td>Prompt adherence vs. oversaturation</td>
+    </tr>
+    <tr>
+      <td>FLUX guidance</td>
+      <td>2-5 via <code class="language-plaintext highlighter-rouge">FluxGuidance</code>, with KSampler cfg fixed at 1</td>
+      <td>Same trade-off for guidance-distilled models</td>
     </tr>
     <tr>
       <td>Steps</td>
       <td>10, 20, 30, 50</td>
-      <td>The point of diminishing returns</td>
+      <td>Point of diminishing returns</td>
     </tr>
     <tr>
       <td>Sampler</td>
-      <td>euler, dpmpp_2m, dpmpp_3m_sde, ddim</td>
-      <td>Texture and convergence character</td>
+      <td>euler, dpmpp_2m, dpmpp_3m_sde, uni_pc</td>
+      <td>Texture and convergence behavior</td>
     </tr>
     <tr>
       <td>Scheduler</td>
-      <td>normal, karras, sgm_uniform</td>
-      <td>Noise-schedule effect on detail</td>
+      <td>normal, karras, exponential, sgm_uniform, beta</td>
+      <td>Effect of noise schedule on detail</td>
     </tr>
     <tr>
       <td>Seed</td>
-      <td>4–8 fixed seeds</td>
-      <td>Variance — separates “the prompt” from “a lucky roll”</td>
+      <td>4-8 fixed seeds</td>
+      <td>Variance: separates the settings from luck</td>
     </tr>
     <tr>
       <td>LoRA strength</td>
-      <td>0.4–1.0 in 0.2 steps</td>
-      <td>The strength that applies style without artifacts</td>
+      <td>0.4-1.0 in 0.2 steps</td>
+      <td>Style strength vs. artifacts</td>
     </tr>
     <tr>
       <td>Denoise (img2img)</td>
-      <td>0.3–0.8</td>
-      <td>Fidelity to source vs. creative freedom</td>
+      <td>0.3-0.8</td>
+      <td>Fidelity to source vs. freedom</td>
     </tr>
   </tbody>
 </table>
 
-<blockquote>
-  <p><strong>Combinatorics bite.</strong> Four CFG values × three samplers × five seeds is already 60 images. Sweep two axes at a time, fix the rest, and only expand the axis that looked promising. A coarse pass (wide range, few points) followed by a fine pass (narrow range, more points) around the winner finds the sweet spot in a fraction of the renders.</p>
-</blockquote>
+<p>A coarse pass (wide range, few points) followed by a fine pass around the best cell finds the optimum with far fewer renders than a dense grid. Four CFG values × three samplers × five seeds is already 60 images.</p>
 
-<h3 id="assembling-a-contact-sheet">Assembling a Contact Sheet</h3>
+<h3 id="contact-sheets">Contact Sheets</h3>
 
-<p>A sweep is only useful if you can see all cells at once. After the runs complete, tile the outputs into a labeled grid (a “contact sheet” / XY plot) with row and column headers:</p>
+<p>A sweep is useful only when all its cells are visible at once. Tile outputs into a labeled grid:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">PIL</span> <span class="kn">import</span> <span class="n">Image</span><span class="p">,</span> <span class="n">ImageDraw</span>
 
 <span class="k">def</span> <span class="nf">contact_sheet</span><span class="p">(</span><span class="n">images</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Image</span><span class="p">.</span><span class="n">Image</span><span class="p">],</span> <span class="n">cols</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-                  <span class="n">labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Image</span><span class="p">.</span><span class="n">Image</span><span class="p">:</span>
+                  <span class="n">labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">pad</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">28</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Image</span><span class="p">.</span><span class="n">Image</span><span class="p">:</span>
     <span class="n">w</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">images</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">size</span>
-    <span class="n">rows</span> <span class="o">=</span> <span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">images</span><span class="p">)</span> <span class="o">+</span> <span class="n">cols</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">cols</span>
-    <span class="n">sheet</span> <span class="o">=</span> <span class="n">Image</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="sh">"</span><span class="s">RGB</span><span class="sh">"</span><span class="p">,</span> <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">cols</span><span class="p">,</span> <span class="n">h</span> <span class="o">*</span> <span class="n">rows</span> <span class="o">+</span> <span class="mi">24</span><span class="p">),</span> <span class="sh">"</span><span class="s">white</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="o">-</span><span class="nf">len</span><span class="p">(</span><span class="n">images</span><span class="p">)</span> <span class="o">//</span> <span class="n">cols</span><span class="p">)</span>  <span class="c1"># ceiling division
+</span>    <span class="n">sheet</span> <span class="o">=</span> <span class="n">Image</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="sh">"</span><span class="s">RGB</span><span class="sh">"</span><span class="p">,</span> <span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">cols</span><span class="p">,</span> <span class="p">(</span><span class="n">h</span> <span class="o">+</span> <span class="n">pad</span><span class="p">)</span> <span class="o">*</span> <span class="n">rows</span><span class="p">),</span> <span class="sh">"</span><span class="s">white</span><span class="sh">"</span><span class="p">)</span>
     <span class="n">draw</span> <span class="o">=</span> <span class="n">ImageDraw</span><span class="p">.</span><span class="nc">Draw</span><span class="p">(</span><span class="n">sheet</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">img</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">images</span><span class="p">):</span>
-        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">%</span> <span class="n">cols</span><span class="p">)</span> <span class="o">*</span> <span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">//</span> <span class="n">cols</span><span class="p">)</span> <span class="o">*</span> <span class="n">h</span> <span class="o">+</span> <span class="mi">24</span>
-        <span class="n">sheet</span><span class="p">.</span><span class="nf">paste</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
-        <span class="n">draw</span><span class="p">.</span><span class="nf">text</span><span class="p">((</span><span class="n">x</span> <span class="o">+</span> <span class="mi">4</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="mi">4</span><span class="p">),</span> <span class="n">labels</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">fill</span><span class="o">=</span><span class="sh">"</span><span class="s">yellow</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="nf">zip</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">labels</span><span class="p">)):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">%</span> <span class="n">cols</span><span class="p">)</span> <span class="o">*</span> <span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">//</span> <span class="n">cols</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">h</span> <span class="o">+</span> <span class="n">pad</span><span class="p">)</span>
+        <span class="n">draw</span><span class="p">.</span><span class="nf">text</span><span class="p">((</span><span class="n">x</span> <span class="o">+</span> <span class="mi">4</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="mi">6</span><span class="p">),</span> <span class="n">label</span><span class="p">,</span> <span class="n">fill</span><span class="o">=</span><span class="sh">"</span><span class="s">black</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">sheet</span><span class="p">.</span><span class="nf">paste</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">pad</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">sheet</span>
 </code></pre></div></div>
 
-<p>This is the payoff of sweeping over guessing: differences that are invisible one-at-a-time become obvious when the whole grid is in front of you.</p>
-
 <h2 id="queue-management">Queue Management</h2>
 
-<p>ComfyUI runs a <strong>single execution queue</strong> — prompts run one at a time, in submission order, on one GPU. A pipeline that submits hundreds of jobs has to think about that queue deliberately rather than firing and forgetting.</p>
-
-<h3 id="submission-strategies">Submission Strategies</h3>
+<p>ComfyUI runs <strong>one execution queue per server process</strong>: prompts execute one at a time on one GPU, ordered by queue number. A pipeline submitting hundreds of jobs should control that queue deliberately.</p>
 
 <table>
   <thead>
     <tr>
       <th>Strategy</th>
       <th>How it works</th>
-      <th>When to use</th>
+      <th>Use when</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Fire-and-track</td>
-      <td>Submit all jobs up front, collect by <code class="language-plaintext highlighter-rouge">prompt_id</code> later</td>
-      <td>Small/medium batches that comfortably fit the queue</td>
+      <td>Submit everything, collect by <code class="language-plaintext highlighter-rouge">prompt_id</code></td>
+      <td>Small and medium batches</td>
     </tr>
     <tr>
-      <td>Bounded pipeline</td>
-      <td>Keep at most K prompts in flight; submit the next when one finishes</td>
-      <td>Large sweeps; bounds memory and lets you cancel cleanly</td>
+      <td>Bounded in-flight</td>
+      <td>Keep at most K jobs queued; submit more as jobs finish</td>
+      <td>Large sweeps; clean cancellation; sharing the server</td>
     </tr>
     <tr>
-      <td>Throttled drip</td>
-      <td>Submit one, await completion, repeat</td>
-      <td>When you need outputs in order or are sharing the GPU</td>
+      <td>Drip</td>
+      <td>Submit one, wait, repeat</td>
+      <td>Strict ordering or a GPU shared with interactive users</td>
     </tr>
   </tbody>
 </table>
 
-<p>For large jobs the <strong>bounded</strong> strategy is the right default. Watch the queue depth from the <code class="language-plaintext highlighter-rouge">status</code> WebSocket event (<code class="language-plaintext highlighter-rouge">exec_info.queue_remaining</code>) or by polling <code class="language-plaintext highlighter-rouge">/queue</code>, and only submit when there is room:</p>
+<p>The bounded strategy is the right default. A small K (2-4) keeps the GPU busy while leaving the queue short enough that other users, urgent jobs, and cancellations are not stuck behind hundreds of items:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">queue_depth</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="n">q</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">SERVER</span><span class="si">}</span><span class="s">/queue</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">())</span>
-    <span class="k">return</span> <span class="nf">len</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="sh">"</span><span class="s">queue_running</span><span class="sh">"</span><span class="p">])</span> <span class="o">+</span> <span class="nf">len</span><span class="p">(</span><span class="n">q</span><span class="p">[</span><span class="sh">"</span><span class="s">queue_pending</span><span class="sh">"</span><span class="p">])</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">deque</span>
 
-<span class="k">def</span> <span class="nf">run_bounded</span><span class="p">(</span><span class="n">workflows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">max_in_flight</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">):</span>
-    <span class="n">pending</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">workflows</span><span class="p">)</span>
-    <span class="k">while</span> <span class="n">pending</span> <span class="ow">or</span> <span class="nf">queue_depth</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">while</span> <span class="n">pending</span> <span class="ow">and</span> <span class="nf">queue_depth</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">max_in_flight</span><span class="p">:</span>
-            <span class="nf">queue_prompt</span><span class="p">(</span><span class="n">pending</span><span class="p">.</span><span class="nf">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
-        <span class="c1"># ...await a completion event, then loop...
-</span></code></pre></div></div>
+<span class="k">def</span> <span class="nf">run_bounded</span><span class="p">(</span><span class="n">workflows</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">ws</span><span class="p">,</span> <span class="n">max_in_flight</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="n">pending</span> <span class="o">=</span> <span class="nf">deque</span><span class="p">(</span><span class="n">workflows</span><span class="p">)</span>
+    <span class="n">in_flight</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+    <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">while</span> <span class="n">pending</span> <span class="ow">or</span> <span class="n">in_flight</span><span class="p">:</span>
+        <span class="k">while</span> <span class="n">pending</span> <span class="ow">and</span> <span class="nf">len</span><span class="p">(</span><span class="n">in_flight</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">max_in_flight</span><span class="p">:</span>
+            <span class="n">in_flight</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="nf">queue_prompt</span><span class="p">(</span><span class="n">pending</span><span class="p">.</span><span class="nf">popleft</span><span class="p">()))</span>
+        <span class="n">event</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="nf">recv_text</span><span class="p">(</span><span class="n">ws</span><span class="p">))</span>  <span class="c1"># next text frame
+</span>        <span class="n">pid</span> <span class="o">=</span> <span class="n">event</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">,</span> <span class="p">{}).</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pid</span> <span class="ow">in</span> <span class="n">in_flight</span> <span class="ow">and</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span> <span class="ow">in</span> <span class="n">TERMINAL</span><span class="p">:</span>
+            <span class="n">in_flight</span><span class="p">.</span><span class="nf">discard</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+            <span class="n">results</span><span class="p">[</span><span class="n">pid</span><span class="p">]</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">"</span><span class="s">type</span><span class="sh">"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">results</span>
+
+<span class="k">def</span> <span class="nf">recv_text</span><span class="p">(</span><span class="n">ws</span><span class="p">):</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">ws</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">msg</span>
+</code></pre></div></div>
 
 <h3 id="controlling-the-queue">Controlling the Queue</h3>
 
 <ul>
-  <li><strong>Cancel the running prompt:</strong> <code class="language-plaintext highlighter-rouge">POST /interrupt</code>. Execution stops at the next node boundary; partial outputs may or may not be saved.</li>
-  <li><strong>Clear pending:</strong> <code class="language-plaintext highlighter-rouge">POST /queue</code> with <code class="language-plaintext highlighter-rouge">{"clear": true}</code> empties everything not yet started.</li>
-  <li><strong>Delete one item:</strong> <code class="language-plaintext highlighter-rouge">POST /queue</code> with <code class="language-plaintext highlighter-rouge">{"delete": [prompt_id]}</code> removes a specific queued prompt.</li>
-  <li><strong>Priority:</strong> the queue is FIFO; there is no priority field, so order your submissions accordingly or use a bounded loop to interleave urgent jobs.</li>
+  <li><strong>Cancel the running job:</strong> <code class="language-plaintext highlighter-rouge">POST /interrupt</code> with <code class="language-plaintext highlighter-rouge">{"prompt_id": id}</code>. Execution stops at the next interruptible point and emits <code class="language-plaintext highlighter-rouge">execution_interrupted</code>. Without a <code class="language-plaintext highlighter-rouge">prompt_id</code> it interrupts whatever is running.</li>
+  <li><strong>Remove pending jobs:</strong> <code class="language-plaintext highlighter-rouge">POST /queue</code> with <code class="language-plaintext highlighter-rouge">{"delete": [id, ...]}</code>, or <code class="language-plaintext highlighter-rouge">{"clear": true}</code> to empty the pending queue.</li>
+  <li><strong>Priority:</strong> submit with <code class="language-plaintext highlighter-rouge">"front": true</code> to jump the queue, or pass an explicit <code class="language-plaintext highlighter-rouge">number</code>.</li>
+  <li><strong>Free VRAM</strong> between phases that use different models: <code class="language-plaintext highlighter-rouge">POST /free</code> with <code class="language-plaintext highlighter-rouge">{"unload_models": true, "free_memory": true}</code>.</li>
 </ul>
 
 <h3 id="model-loading-and-vram">Model Loading and VRAM</h3>
 
-<p>The dominant cost in a batch is often <strong>model loading</strong>, not denoising. Group jobs that share a checkpoint so the model stays resident — ComfyUI’s caching keeps a loaded model in VRAM until a different one is needed, at which point it swaps (and may offload to system RAM with <code class="language-plaintext highlighter-rouge">--normalvram</code>/<code class="language-plaintext highlighter-rouge">--lowvram</code>). Sorting a mixed batch by checkpoint can cut wall-clock time dramatically by avoiding repeated reloads.</p>
-
-<p>If you have multiple GPUs, run <strong>one ComfyUI server per GPU</strong> (each pinned with <code class="language-plaintext highlighter-rouge">CUDA_VISIBLE_DEVICES</code>) and put a small dispatcher in front that round-robins prompts across them. There is no built-in multi-GPU queue, so horizontal scaling is “more servers behind a load balancer,” covered below.</p>
+<p>In mixed batches, <strong>model loading</strong> often costs more than denoising. ComfyUI keeps loaded models resident until memory pressure forces an unload, so <strong>sort jobs by checkpoint (and LoRA set)</strong> so that each model loads once. Launch flags such as <code class="language-plaintext highlighter-rouge">--highvram</code>, <code class="language-plaintext highlighter-rouge">--normalvram</code>, and <code class="language-plaintext highlighter-rouge">--lowvram</code> control how aggressively models are offloaded to system RAM, and <code class="language-plaintext highlighter-rouge">--reserve-vram</code> holds back headroom for other processes.</p>
 
 <h2 id="error-handling-and-reliability">Error Handling and Reliability</h2>
 
-<p>An unattended run will hit failures — an out-of-memory on a large latent, a missing model after a server restart, a transient network blip. Production pipelines treat these as expected, not exceptional.</p>
+<p>An unattended run will hit failures. Classify them, because the right response differs:</p>
 
 <table>
   <thead>
     <tr>
       <th>Failure</th>
       <th>Symptom</th>
-      <th>Handling</th>
+      <th>Response</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Invalid graph</td>
-      <td><code class="language-plaintext highlighter-rouge">400</code> with <code class="language-plaintext highlighter-rouge">node_errors</code> on submit</td>
-      <td>Validate against <code class="language-plaintext highlighter-rouge">/object_info</code> first; log and skip the job</td>
+      <td>HTTP 400 with <code class="language-plaintext highlighter-rouge">node_errors</code></td>
+      <td>Do not retry; fix the job; validate against <code class="language-plaintext highlighter-rouge">/object_info</code> first</td>
     </tr>
     <tr>
-      <td>Node raised</td>
-      <td><code class="language-plaintext highlighter-rouge">execution_error</code> WS event with traceback</td>
-      <td>Capture traceback, mark job failed, continue the batch</td>
+      <td>Node exception</td>
+      <td><code class="language-plaintext highlighter-rouge">execution_error</code> event</td>
+      <td>Log the traceback, mark failed, continue the batch</td>
     </tr>
     <tr>
       <td>Out of memory</td>
-      <td>CUDA OOM in the error event</td>
-      <td>Lower <code class="language-plaintext highlighter-rouge">batch_size</code>/resolution; retry once at reduced size</td>
+      <td><code class="language-plaintext highlighter-rouge">execution_error</code> with an OOM exception type</td>
+      <td>Retry once at a smaller batch or resolution, or after <code class="language-plaintext highlighter-rouge">/free</code></td>
     </tr>
     <tr>
       <td>Server unreachable</td>
-      <td>Connection refused / WS drop</td>
-      <td>Exponential-backoff retry on the HTTP/WS connection</td>
+      <td>Connection refused, WebSocket drop</td>
+      <td>Retry with exponential backoff and jitter</td>
     </tr>
     <tr>
-      <td>Lost result</td>
-      <td><code class="language-plaintext highlighter-rouge">/history</code> missing the <code class="language-plaintext highlighter-rouge">prompt_id</code></td>
-      <td>Re-submit the (deterministic, seeded) job</td>
+      <td>Server restarted mid-job</td>
+      <td>Job missing from queue and history</td>
+      <td>Resubmit (safe if the job is idempotent)</td>
     </tr>
   </tbody>
 </table>
 
-<p>The two reliability primitives are <strong>idempotent jobs</strong> and <strong>bounded retries</strong>. A job is idempotent when it carries an explicit seed and a deterministic filename — resubmitting it reproduces the same output, so a retry is safe. Wrap submission in a retry with backoff, and cap attempts so one poison job cannot stall the batch:</p>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Pending: job created (id, seed fixed)
+    Pending --&gt; Submitted: POST /prompt OK
+    Pending --&gt; Rejected: 400 node_errors
+    Submitted --&gt; Running: execution_start
+    Running --&gt; Succeeded: execution_success
+    Running --&gt; Failed: execution_error
+    Running --&gt; Cancelled: execution_interrupted
+    Failed --&gt; Pending: retryable (OOM, transient) and attempts left
+    Submitted --&gt; Pending: server lost job
+    Succeeded --&gt; Archived: outputs fetched, sidecar and manifest written
+    Rejected --&gt; [*]
+    Cancelled --&gt; [*]
+    Archived --&gt; [*]
+</code></pre>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">time</span>
+<p>The two reliability primitives are <strong>idempotent jobs</strong> and <strong>bounded retries</strong>:</p>
 
-<span class="k">def</span> <span class="nf">submit_with_retry</span><span class="p">(</span><span class="n">workflow</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">attempts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="bp">None</span><span class="p">:</span>
+<ul>
+  <li>A job is idempotent when its parameters, including the seed, are fixed before submission, and its output path is deterministic. Submitting with a client-generated <code class="language-plaintext highlighter-rouge">prompt_id</code> also lets you check <code class="language-plaintext highlighter-rouge">/history/{prompt_id}</code> after a crash to see whether the job already ran.</li>
+  <li>Retries use exponential backoff with jitter and a cap, so one poison job cannot stall the batch.</li>
+</ul>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">random</span>
+<span class="kn">import</span> <span class="n">time</span>
+
+<span class="k">def</span> <span class="nf">submit_with_retry</span><span class="p">(</span><span class="n">workflow</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">prompt_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">attempts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="bp">None</span><span class="p">:</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">attempts</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nf">queue_prompt</span><span class="p">(</span><span class="n">workflow</span><span class="p">)</span>
-        <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>  <span class="c1"># connection or 4xx/5xx
-</span>            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">attempts</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="nf">log_failure</span><span class="p">(</span><span class="n">workflow</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nf">queue_prompt</span><span class="p">(</span><span class="n">workflow</span><span class="p">,</span> <span class="n">prompt_id</span><span class="o">=</span><span class="n">prompt_id</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">GraphError</span><span class="p">:</span>
+            <span class="k">raise</span>                      <span class="c1"># permanent: do not retry
+</span>        <span class="nf">except </span><span class="p">(</span><span class="n">urllib</span><span class="p">.</span><span class="n">error</span><span class="p">.</span><span class="n">URLError</span><span class="p">,</span> <span class="nb">ConnectionError</span><span class="p">,</span> <span class="nb">TimeoutError</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">attempts</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">return</span> <span class="bp">None</span>
-            <span class="n">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="n">i</span><span class="p">)</span>  <span class="c1"># 1s, 2s, 4s backoff
+            <span class="n">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="nf">min</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">i</span><span class="p">)</span> <span class="o">+</span> <span class="n">random</span><span class="p">.</span><span class="nf">random</span><span class="p">())</span>  <span class="c1"># backoff + jitter
 </span></code></pre></div></div>
 
-<p>Always <strong>checkpoint progress</strong> to disk: write a manifest row as each job completes so a crashed run resumes from where it stopped instead of regenerating everything. Make completion idempotent by skipping any job whose deterministic output file already exists.</p>
+<p>Checkpoint progress to disk: append a manifest row as each job completes, and on restart skip any job whose output already exists. A crashed overnight run then resumes instead of starting over.</p>
 
-<h2 id="asset-pipelines">Asset Pipelines</h2>
+<h2 id="asset-management">Asset Management</h2>
 
-<p>The last mile is what separates a pile of PNGs from a usable asset library: consistent naming, embedded provenance, derivative formats, and an index you can query. Every output should answer “how was this made?” on its own — see <a href="output-formats.html">Output Formats</a> for the format and metadata details this section builds on.</p>
+<p>The last step turns a folder of PNGs into a usable library: consistent naming, embedded provenance, derived delivery formats, and a queryable index. For file formats and metadata standards in more depth, see <a href="output-formats.html">Output Formats</a>.</p>
 
-<h3 id="naming-and-foldering">Naming and Foldering</h3>
+<h3 id="naming-and-folders">Naming and Folders</h3>
 
-<p>A flat <code class="language-plaintext highlighter-rouge">output/</code> directory becomes unusable within a day. Encode the structure in paths via <code class="language-plaintext highlighter-rouge">SaveImage.filename_prefix</code>, which accepts subfolders and date/counter tokens:</p>
+<p><code class="language-plaintext highlighter-rouge">SaveImage.filename_prefix</code> accepts subfolders, so structure can be encoded directly. The <code class="language-plaintext highlighter-rouge">%date:yyyy-MM-dd%</code> style tokens you may use in the UI are expanded by the browser frontend, not the server, so an API client should build the date and other path parts itself:</p>
 
 <div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>output/
-  2026-06-06/
-    portraits/
+  catalog-q3/
+    2026-09-22/
       portrait_cfg-7_euler_seed-42_00001_.png
-    landscapes/
-      landscape_cfg-9_dpmpp_seed-7_00001_.png
+      portrait_cfg-7_euler_seed-42_00001_.json
 </code></pre></div></div>
 
 <p>A scheme like <code class="language-plaintext highlighter-rouge">{project}/{date}/{variant}_{key-params}_{counter}</code> makes outputs sortable, greppable, and self-describing without opening a database.</p>
 
-<h3 id="provenance-and-sidecars">Provenance and Sidecars</h3>
+<h3 id="provenance">Provenance</h3>
 
-<p>ComfyUI embeds the <strong>full workflow graph</strong> in saved PNGs by default — dragging such a PNG back into ComfyUI restores the exact graph. Preserve that (avoid lossy re-encoding the master), and also write a <strong>JSON sidecar</strong> as a durable, queryable backup that survives format conversion:</p>
+<p>By default ComfyUI embeds both the API prompt and the UI workflow as PNG text chunks. Dragging such a PNG back into ComfyUI restores the graph. That metadata is lost on re-encoding to JPEG or WebP and is stripped by most social platforms, so also write a <strong>JSON sidecar</strong>:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span><span class="p">,</span> <span class="n">hashlib</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">hashlib</span>
+<span class="kn">import</span> <span class="n">json</span>
+<span class="kn">from</span> <span class="n">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 
-<span class="k">def</span> <span class="nf">write_sidecar</span><span class="p">(</span><span class="n">image_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">combo</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">prompt_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">write_sidecar</span><span class="p">(</span><span class="n">image_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">job</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">prompt_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">server_version</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
     <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
         <span class="sh">"</span><span class="s">prompt_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">prompt_id</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">parameters</span><span class="sh">"</span><span class="p">:</span> <span class="n">combo</span><span class="p">,</span>                 <span class="c1"># prompt, seed, cfg, sampler…
-</span>        <span class="sh">"</span><span class="s">model</span><span class="sh">"</span><span class="p">:</span> <span class="n">combo</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">checkpoint</span><span class="sh">"</span><span class="p">),</span>
-        <span class="sh">"</span><span class="s">tool</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">ComfyUI</span><span class="sh">"</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">sha256</span><span class="sh">"</span><span class="p">:</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="nf">open</span><span class="p">(</span><span class="n">image_path</span><span class="p">,</span> <span class="sh">"</span><span class="s">rb</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">()).</span><span class="nf">hexdigest</span><span class="p">(),</span>
+        <span class="sh">"</span><span class="s">parameters</span><span class="sh">"</span><span class="p">:</span> <span class="n">job</span><span class="p">,</span>        <span class="c1"># prompt, negative, seed, cfg, sampler, scheduler, size
+</span>        <span class="sh">"</span><span class="s">workflow_sha256</span><span class="sh">"</span><span class="p">:</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span>
+            <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">job</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">workflow</span><span class="sh">"</span><span class="p">,</span> <span class="p">{}),</span> <span class="n">sort_keys</span><span class="o">=</span><span class="bp">True</span><span class="p">).</span><span class="nf">encode</span><span class="p">()).</span><span class="nf">hexdigest</span><span class="p">(),</span>
+        <span class="sh">"</span><span class="s">tool</span><span class="sh">"</span><span class="p">:</span> <span class="sa">f</span><span class="sh">"</span><span class="s">ComfyUI </span><span class="si">{</span><span class="n">server_version</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">sha256</span><span class="sh">"</span><span class="p">:</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha256</span><span class="p">(</span><span class="n">image_path</span><span class="p">.</span><span class="nf">read_bytes</span><span class="p">()).</span><span class="nf">hexdigest</span><span class="p">(),</span>
     <span class="p">}</span>
-    <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">image_path</span><span class="p">.</span><span class="nf">rsplit</span><span class="p">(</span><span class="sh">"</span><span class="s">.</span><span class="sh">"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="sh">"</span><span class="s">.json</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">w</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">json</span><span class="p">.</span><span class="nf">dump</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">image_path</span><span class="p">.</span><span class="nf">with_suffix</span><span class="p">(</span><span class="sh">"</span><span class="s">.json</span><span class="sh">"</span><span class="p">).</span><span class="nf">write_text</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
 </code></pre></div></div>
 
-<p>Record at minimum: prompt and negative prompt; model name and hash plus any LoRAs/VAE; sampler, scheduler, steps, CFG/guidance, seed, and resolution; and the tool/version (plus the workflow file itself). With that, any output is reproducible months later.</p>
+<p>Record at minimum the prompt and negative prompt; the model, LoRAs, and VAE with their hashes; sampler, scheduler, steps, CFG or guidance, seed, and resolution; and the tool version, plus the workflow itself. If outputs are published, also consider signed <strong>C2PA Content Credentials</strong>. The EU AI Act’s transparency obligations for providers of generative systems (machine-readable marking of AI-generated content) apply from August 2026; see <a href="output-formats.html#provenance-and-ai-disclosure">Output Formats</a>.</p>
 
-<h3 id="derivative-formats-and-indexing">Derivative Formats and Indexing</h3>
+<h3 id="derivatives-and-indexing">Derivatives and Indexing</h3>
 
-<p>Keep one <strong>lossless master</strong> (PNG-16/TIFF) and derive every delivery format from it on demand rather than regenerating — resize, re-encode to WebP/AVIF/JPEG, and build responsive <code class="language-plaintext highlighter-rouge">srcset</code> sets from the same source. A small post-step turns each master into its web, social, and thumbnail variants and appends a row to a manifest:</p>
+<p>Keep one <strong>lossless master</strong> and derive every delivery format from it rather than regenerating:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">index_output</span><span class="p">(</span><span class="n">master</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">manifest</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">manifest.jsonl</span><span class="sh">"</span><span class="p">):</span>
-    <span class="nf">derive_webp</span><span class="p">(</span><span class="n">master</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">90</span><span class="p">)</span>         <span class="c1"># web delivery
-</span>    <span class="nf">derive_jpeg</span><span class="p">(</span><span class="n">master</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">85</span><span class="p">)</span>         <span class="c1"># social
-</span>    <span class="nf">derive_thumbnail</span><span class="p">(</span><span class="n">master</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>      <span class="c1"># gallery index
-</span>    <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">f</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">master</span><span class="sh">"</span><span class="p">:</span> <span class="n">master</span><span class="p">,</span> <span class="o">**</span><span class="n">meta</span><span class="p">})</span> <span class="o">+</span> <span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+
+<span class="k">def</span> <span class="nf">derive</span><span class="p">(</span><span class="n">master</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">manifest</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">master</span><span class="p">)</span>
+    <span class="n">img</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">master</span><span class="p">.</span><span class="nf">with_suffix</span><span class="p">(</span><span class="sh">"</span><span class="s">.webp</span><span class="sh">"</span><span class="p">),</span> <span class="n">quality</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+    <span class="n">img</span><span class="p">.</span><span class="nf">convert</span><span class="p">(</span><span class="sh">"</span><span class="s">RGB</span><span class="sh">"</span><span class="p">).</span><span class="nf">save</span><span class="p">(</span><span class="n">master</span><span class="p">.</span><span class="nf">with_suffix</span><span class="p">(</span><span class="sh">"</span><span class="s">.jpg</span><span class="sh">"</span><span class="p">),</span> <span class="n">quality</span><span class="o">=</span><span class="mi">85</span><span class="p">,</span> <span class="n">progressive</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">thumb</span> <span class="o">=</span> <span class="n">img</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+    <span class="n">thumb</span><span class="p">.</span><span class="nf">thumbnail</span><span class="p">((</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">))</span>
+    <span class="n">thumb</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">master</span><span class="p">.</span><span class="nf">with_name</span><span class="p">(</span><span class="n">master</span><span class="p">.</span><span class="n">stem</span> <span class="o">+</span> <span class="sh">"</span><span class="s">_thumb.webp</span><span class="sh">"</span><span class="p">),</span> <span class="n">quality</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">manifest</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">master</span><span class="sh">"</span><span class="p">:</span> <span class="nf">str</span><span class="p">(</span><span class="n">master</span><span class="p">),</span> <span class="o">**</span><span class="n">meta</span><span class="p">})</span> <span class="o">+</span> <span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>A JSONL manifest (one record per line) is enough to power search, dedup by hash, and a gallery — and it is trivial to load into a database later. The principle is <strong>format-agnostic pipelines</strong>: archive the master, generate targets on demand, and a new format slots in without reworking anything upstream.</p>
-
-<h3 id="the-end-to-end-pipeline">The End-to-End Pipeline</h3>
-
-<p>Putting the pieces together, a production run is a loop over a job source that submits with retries, tracks via WebSocket, fetches outputs, writes provenance, derives formats, and records a manifest:</p>
-
-<pre><code class="language-mermaid">flowchart LR
-    Src["Job source&lt;br/&gt;(CSV / sweep / queue)"] --&gt; Val["Validate vs&lt;br/&gt;/object_info"]
-    Val --&gt; Sub["Submit (bounded,&lt;br/&gt;with retry)"]
-    Sub --&gt; Track["Track via&lt;br/&gt;WebSocket"]
-    Track --&gt; Out["Fetch outputs&lt;br/&gt;/history + /view"]
-    Out --&gt; Prov["Write metadata&lt;br/&gt;sidecar"]
-    Prov --&gt; Der["Derive web/social/&lt;br/&gt;thumbnail"]
-    Der --&gt; Man["Append to&lt;br/&gt;manifest.jsonl"]
-    Man --&gt; Src
-</code></pre>
+<p>A JSONL manifest (one record per line) is enough to power search, deduplication by hash, and a gallery, and loads easily into a database later.</p>
 
 <h2 id="scaling-and-deployment">Scaling and Deployment</h2>
 
-<p>A single ComfyUI process is a single GPU. To raise throughput, run <strong>N identical servers</strong> (containers, one GPU each via <code class="language-plaintext highlighter-rouge">CUDA_VISIBLE_DEVICES</code>) behind a dispatcher that load-balances prompts and aggregates their WebSockets. Because each server is stateless between prompts and jobs are idempotent (seeded, deterministic filenames), this scales horizontally without coordination beyond the dispatcher.</p>
+<p>One ComfyUI process drives one GPU. To scale out, run <strong>one server per GPU</strong> (each pinned with <code class="language-plaintext highlighter-rouge">CUDA_VISIBLE_DEVICES</code> or <code class="language-plaintext highlighter-rouge">--cuda-device</code>) behind a dispatcher that assigns jobs and tracks each server’s WebSocket. Because jobs are idempotent and servers keep no state between prompts beyond caches, this needs no coordination beyond the dispatcher.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    API["Job API /&lt;br/&gt;message queue"] --&gt; D["Dispatcher&lt;br/&gt;(bounded per worker,&lt;br/&gt;model-affinity routing)"]
+    D --&gt; W1["ComfyUI :8188&lt;br/&gt;GPU 0"]
+    D --&gt; W2["ComfyUI :8189&lt;br/&gt;GPU 1"]
+    D --&gt; W3["ComfyUI :8190&lt;br/&gt;GPU 2"]
+    M[("Shared models&lt;br/&gt;read-only volume")] --- W1
+    M --- W2
+    M --- W3
+    W1 --&gt; O[("Object storage&lt;br/&gt;masters + sidecars")]
+    W2 --&gt; O
+    W3 --&gt; O
+</code></pre>
 
 <table>
   <thead>
@@ -3756,48 +3926,51 @@ document.addEventListener('DOMContentLoaded', function () {
     <tr>
       <td>Throughput</td>
       <td>One prompt at a time</td>
-      <td>N prompts across N GPUs</td>
+      <td>N prompts on N GPUs</td>
     </tr>
     <tr>
       <td>Dispatch</td>
-      <td>Built-in FIFO queue</td>
-      <td>External dispatcher round-robins</td>
+      <td>Built-in queue</td>
+      <td>External dispatcher; route jobs to the worker that already has the model loaded</td>
     </tr>
     <tr>
       <td>Failure isolation</td>
-      <td>One crash stops the batch</td>
-      <td>Reschedule failed job to another server</td>
+      <td>A crash stops the batch</td>
+      <td>Reschedule to another worker</td>
     </tr>
     <tr>
-      <td>Model storage</td>
-      <td>Local</td>
-      <td>Shared volume so all servers see the same models</td>
+      <td>Models</td>
+      <td>Local disk</td>
+      <td>Shared read-only volume, or pre-baked into the image</td>
+    </tr>
+    <tr>
+      <td>Custom nodes</td>
+      <td>Installed by hand</td>
+      <td>Pinned versions in the container image (for example with <code class="language-plaintext highlighter-rouge">comfy-cli</code>)</td>
     </tr>
   </tbody>
 </table>
 
-<p>For a managed setup, put the dispatcher and servers in containers (the <a href="comfyui-guide.html">ComfyUI Guide</a> shows the <code class="language-plaintext highlighter-rouge">docker compose up -d comfyui-server</code> entry point), mount models from a shared volume, and expose only the dispatcher. The same retry, bounded-queue, and manifest logic from the single-server pipeline applies unchanged — you are just spreading the queue across more workers.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<p>Operational notes:</p>
 
 <ul>
-  <li><strong>API format is the foundation.</strong> Export the workflow as API JSON, mutate only literal inputs (never connection <code class="language-plaintext highlighter-rouge">[id, index]</code> pairs), and POST to <code class="language-plaintext highlighter-rouge">/prompt</code>. Everything else is a loop around that.</li>
-  <li><strong>Track over WebSocket, fetch from history.</strong> <code class="language-plaintext highlighter-rouge">client_id</code> ties events to your jobs; <code class="language-plaintext highlighter-rouge">executing</code> with <code class="language-plaintext highlighter-rouge">node: null</code> signals done; <code class="language-plaintext highlighter-rouge">/history</code> + <code class="language-plaintext highlighter-rouge">/view</code> retrieve the bytes.</li>
-  <li><strong>Sweep one axis at a time.</strong> Fix the seed, vary one parameter, assemble a contact sheet — and remember the Cartesian product grows fast, so go coarse then fine.</li>
-  <li><strong>Bound the queue and make jobs idempotent.</strong> Seeded, deterministically-named jobs are safe to retry; a manifest checkpoint lets a crashed run resume instead of restart.</li>
-  <li><strong>Provenance is non-negotiable.</strong> Embed the workflow in the PNG, write a JSON sidecar, keep a lossless master, and derive delivery formats on demand.</li>
+  <li><strong>Security.</strong> ComfyUI has no authentication and custom nodes execute arbitrary Python. Bind workers to localhost or a private network (the default <code class="language-plaintext highlighter-rouge">--listen 127.0.0.1</code>), expose only your dispatcher, and install custom nodes only from sources you trust, pinned to reviewed versions.</li>
+  <li><strong>Reproducibility across workers.</strong> Pin the ComfyUI version, custom-node commits, PyTorch/CUDA versions, and model hashes. Identical seeds can still produce slightly different pixels across GPU models or driver versions because of non-deterministic kernels, so reproduce critical assets on the same hardware class.</li>
+  <li><strong>Managed options.</strong> If you would rather not run GPUs yourself, serverless GPU platforms and hosted ComfyUI services accept the same API-format workflow; the retry, sidecar, and manifest logic above still applies.</li>
 </ul>
+
+<p>For a containerized single-node setup, the <a href="comfyui-guide.html">ComfyUI Guide</a> shows the <code class="language-plaintext highlighter-rouge">docker compose</code> entry point. For model serving and monitoring beyond image generation, see <a href="mlops-production.html">MLOps in Production</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li><a href="comfyui-guide.html">ComfyUI Guide</a> - Build the workflows this pipeline automates</li>
+  <li><a href="output-formats.html">Output Formats</a> - Export formats, metadata, and provenance</li>
   <li><a href="stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a> - The parameters you sweep over</li>
+  <li><a href="optimization-guide.html">Optimization Guide</a> - Speed and VRAM tuning per job</li>
   <li><a href="advanced-techniques.html">Advanced Techniques</a> - Multi-stage and few-step methods worth automating</li>
-  <li><a href="output-formats.html">Output Formats</a> - Export formats, metadata, and reproducibility</li>
-  <li><a href="base-models-comparison.html">Base Models Comparison</a> - Per-model settings that change your sweep ranges</li>
-  <li><a href="controlnet.html">ControlNet</a> - Conditioning inputs you upload via the API</li>
-  <li><a href="lora-training.html">LoRA Training</a> - Produce the custom models your pipeline serves</li>
+  <li><a href="base-models-comparison.html">Base Models Comparison</a> - Per-model settings that change sweep ranges</li>
+  <li><a href="mlops-production.html">MLOps in Production</a> - Serving, monitoring, and deployment practices</li>
   <li><a href="./">AI/ML Documentation Hub</a> - Complete AI/ML documentation index</li>
 </ul>
 

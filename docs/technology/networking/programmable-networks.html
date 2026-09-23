@@ -8,17 +8,17 @@
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
-<meta property="og:title" content="Networking: Programmable Networks (SDN/NFV/P4)">
+<meta property="og:title" content="Networking: Programmable Networks (SDN, P4, eBPF, SRv6)">
 <meta property="og:description" content="Technology and Physics notes">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/networking/programmable-networks.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Networking: Programmable Networks (SDN/NFV/P4)">
+<meta name="twitter:title" content="Networking: Programmable Networks (SDN, P4, eBPF, SRv6)">
 <meta name="twitter:description" content="Technology and Physics notes">
 
-<title>Networking: Programmable Networks (SDN/NFV/P4) | Andrews Notebook</title>
+<title>Networking: Programmable Networks (SDN, P4, eBPF, SRv6) | Andrews Notebook</title>
 
 
   <link href="/Documentation/feed.xml" type="application/atom+xml" rel="alternate" title="Andrews Notebook Feed">
@@ -3128,22 +3128,16 @@ document.addEventListener('DOMContentLoaded', function () {
     <div class="page__inner-wrap">
       <header>
         
-          <h1 id="page-title" class="page__title">Networking: Programmable Networks (SDN/NFV/P4)</h1>
+          <h1 id="page-title" class="page__title">Networking: Programmable Networks (SDN, P4, eBPF, SRv6)</h1>
         
       </header>
 
       <section id="page-content" class="page__content">
         <p><a href="./">Networking</a> » Programmable Networks</p>
 
-<!-- Custom styles are now loaded via main.scss -->
+<p>A traditional router or switch bundles three things in one closed box: the <strong>data plane</strong> that forwards packets, the <strong>control plane</strong> that decides where they go, and fixed silicon that determines which protocols the box can understand. Programmable networking separates these and exposes each through an open interface. This page covers the main technologies in that shift: software-defined networking (SDN) for the control plane, P4 for switch pipelines, eBPF and XDP for the host data plane, network function virtualization (NFV) for middleboxes, and label- and segment-based forwarding (MPLS, Segment Routing, SRv6) with the overlays and IPv6 transition mechanisms that carry modern traffic.</p>
 
-<p>For decades a network device bundled three things in one box: the <strong>data plane</strong> that forwards packets, the <strong>control plane</strong> that decides where they go, and fixed silicon that dictated which protocols it understood. The defining trend of modern networking is pulling those apart and turning each into software you can program. This page traces that shift — separating the control and data planes with SDN, replacing hardware appliances with software in NFV, defining packet processing itself with P4, and the label- and segment-based forwarding fabrics (MPLS, SR, SRv6) that carry this traffic at scale — and closes with the IPv6 transition that underpins much of it.</p>
-
-<p>The Python listings throughout this page are <em>illustrative</em> — compact models that show the logic of each idea rather than production code.</p>
-
-<h2 id="networks-become-software">Networks Become Software</h2>
-
-<p>A traditional router or switch is a vertically integrated, closed appliance: the vendor ships the forwarding silicon, the routing software, and the management interface as one unit, and you take what you are given. Programmable networking decomposes that monolith along three axes:</p>
+<h2 id="from-appliances-to-software">From Appliances to Software</h2>
 
 <table>
   <thead>
@@ -3151,569 +3145,747 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Layer</th>
       <th>Traditional</th>
       <th>Programmable</th>
-      <th>Technology</th>
+      <th>Technologies</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Control plane</td>
-      <td>Distributed, per-device, vendor firmware</td>
-      <td>Centralized, open, software</td>
-      <td>SDN (OpenFlow, P4Runtime)</td>
+      <td>Distributed routing protocols in vendor firmware on every box</td>
+      <td>Logically centralized controller, or open routing stacks</td>
+      <td>SDN controllers, OpenFlow, P4Runtime, gNMI; FRRouting</td>
+    </tr>
+    <tr>
+      <td>Network operating system</td>
+      <td>Vendor-integrated</td>
+      <td>Open NOS on merchant silicon (“white box”)</td>
+      <td>SONiC, Linux-based NOSes</td>
+    </tr>
+    <tr>
+      <td>Switch data plane</td>
+      <td>Fixed-function ASIC</td>
+      <td>Reconfigurable match-action pipeline</td>
+      <td>P4</td>
+    </tr>
+    <tr>
+      <td>Host data plane</td>
+      <td>Kernel network stack</td>
+      <td>Verified programs attached to kernel hooks, or kernel bypass</td>
+      <td>eBPF/XDP, DPDK</td>
     </tr>
     <tr>
       <td>Network functions</td>
       <td>Dedicated hardware appliances</td>
-      <td>Software on commodity servers</td>
-      <td>NFV (VNFs, service chains)</td>
-    </tr>
-    <tr>
-      <td>Data plane</td>
-      <td>Fixed-function ASIC</td>
-      <td>Reconfigurable pipeline</td>
-      <td>P4</td>
+      <td>Software on commodity servers or Kubernetes</td>
+      <td>NFV (VNFs, CNFs), service chaining</td>
     </tr>
     <tr>
       <td>Forwarding fabric</td>
-      <td>Per-hop IP lookup</td>
-      <td>Label / segment forwarding</td>
-      <td>MPLS, SR, SRv6</td>
+      <td>Independent IP lookup at every hop</td>
+      <td>Path or service encoded in the packet</td>
+      <td>MPLS, Segment Routing, SRv6</td>
     </tr>
   </tbody>
 </table>
 
-<p>The recurring theme is <strong>disaggregation</strong>: separate the thing that decides from the thing that forwards, separate the function from the box, and expose each through an open, programmable interface.</p>
+<p>The recurring idea is <strong>disaggregation</strong>: separate the component that decides from the component that forwards, separate the function from the box, and put an open, programmable interface between them.</p>
 
-<h2 id="sdn-programming-the-control-plane">SDN: Programming the Control Plane</h2>
+<h2 id="software-defined-networking">Software-Defined Networking</h2>
 
-<p>Traditional networks are like city streets with fixed traffic lights. <strong>Software-Defined Networking (SDN)</strong> makes networks programmable, like having smart traffic lights that adapt to real-time conditions. It does this by separating the control plane from the data plane: a centralized controller computes forwarding decisions and pushes them down to simple switches. SDN has evolved well beyond data centers to enable 5G network slicing, edge-computing orchestration, and AI-driven network optimization.</p>
+<p><strong>Software-defined networking</strong> (SDN) moves the control plane out of individual devices into a logically centralized controller that has a global view of the network, computes forwarding state, and installs it in comparatively simple switches.</p>
 
-<h3 id="the-three-plane-model">The Three-Plane Model</h3>
+<h3 id="architecture">Architecture</h3>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>         +-----------------------------------------+
-         |          Application Plane              |
-         |  (traffic engineering, firewall apps,   |
-         |   load balancing, network monitoring)   |
-         +-----------------------------------------+
-                  ^                       |
-   Northbound API |  (REST / gRPC)        v
-         +-----------------------------------------+
-         |            Control Plane                |
-         |   SDN controller (ONOS, OpenDaylight)   |
-         |   topology, path computation, policy    |
-         +-----------------------------------------+
-                  ^                       |
-   Southbound API | (OpenFlow / P4Runtime / NETCONF)
-         +-----------------------------------------+
-         |             Data Plane                  |
-         |   "dumb" switches that match-and-act    |
-         |   on flow rules pushed from above       |
-         +-----------------------------------------+
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph APP["Application plane"]
+        TE["Traffic engineering"]
+        SEC["Access policy / firewall"]
+        MON["Monitoring"]
+    end
+    subgraph CTRL["Control plane"]
+        C["SDN controller cluster&lt;br/&gt;topology, path computation, policy"]
+    end
+    subgraph DP["Data plane"]
+        S1["Switch"]
+        S2["Switch"]
+        S3["Switch"]
+    end
+    APP &lt;--&gt;|"Northbound API (REST, gRPC)"| CTRL
+    CTRL &lt;--&gt;|"Southbound API (OpenFlow, P4Runtime, gNMI, NETCONF)"| DP
+</code></pre>
 
-<p><strong>Components</strong>:</p>
 <ul>
-  <li><strong>Controller</strong>: Centralized management (ONOS, OpenDaylight, Ryu, Faucet). Maintains a global view of the topology and computes forwarding decisions.</li>
-  <li><strong>Southbound API</strong>: Controller to switches (OpenFlow 1.5+, P4Runtime, NETCONF/YANG, gNMI).</li>
-  <li><strong>Northbound API</strong>: Applications to controller (REST, gRPC). Lets a traffic-engineering or security app express intent without touching individual devices.</li>
-  <li><strong>Intent-based networking</strong>: Declarative network management — describe <em>what</em> you want (“tenant A must never reach tenant B”), not <em>how</em> to wire the flow rules.</li>
+  <li>The <strong>controller</strong> (historically ONOS, OpenDaylight, Ryu, Faucet) maintains the topology and computes forwarding decisions.</li>
+  <li>The <strong>southbound API</strong> programs devices: OpenFlow for flow tables, P4Runtime for P4 pipelines, and NETCONF or gNMI with YANG models for configuration and telemetry.</li>
+  <li>The <strong>northbound API</strong> lets applications express what they want (a path with a latency bound, isolation between tenants) without touching individual devices. <strong>Intent-based networking</strong> pushes this further: operators declare an outcome and the system derives, applies, and continuously verifies the configuration.</li>
 </ul>
 
 <h3 id="openflow-and-the-match-action-abstraction">OpenFlow and the Match-Action Abstraction</h3>
 
-<p>OpenFlow was the protocol that launched SDN (McKeown et al., 2008). Its core abstraction is the <strong>flow table</strong>: an ordered list of entries, each consisting of</p>
+<p>OpenFlow (McKeown et al., 2008) launched SDN. Its abstraction is the <strong>flow table</strong>, an ordered list of entries, each with:</p>
 
 <ul>
-  <li>a <strong>match</strong> over packet header fields (Ethernet src/dst, VLAN, IP src/dst, TCP/UDP ports, ingress port, …),</li>
-  <li>a set of <strong>actions</strong> (forward to a port, drop, rewrite a field, push/pop a tag, send to controller),</li>
-  <li>a <strong>priority</strong> (highest-priority matching entry wins),</li>
-  <li><strong>counters</strong> (packets/bytes), and <strong>timeouts</strong> (idle and hard).</li>
+  <li>a <strong>match</strong> over header fields (ingress port, Ethernet addresses, VLAN, IP addresses, TCP/UDP ports, and so on),</li>
+  <li><strong>actions</strong> (output to a port, drop, rewrite a field, push or pop a tag, send to the controller),</li>
+  <li>a <strong>priority</strong> (the highest-priority matching entry wins),</li>
+  <li><strong>counters</strong> and <strong>timeouts</strong> (idle and hard).</li>
 </ul>
 
-<p>A packet entering a switch is matched against the table top-down. If it matches an entry, the actions execute. If it matches nothing, the default behavior (in modern OpenFlow, an explicit table-miss entry) usually sends it to the controller as a <strong>packet-in</strong> message. The controller decides what to do, optionally installs a new flow entry via a <strong>flow-mod</strong> message so future packets of that flow are handled in hardware at line rate, and emits a <strong>packet-out</strong> for the current packet. This “first packet to the controller, rest in the fast path” pattern is the heart of reactive SDN.</p>
+<p>A packet that matches no entry hits the <strong>table-miss</strong> entry, which usually sends it to the controller in a <strong>packet-in</strong> message. The controller decides what to do, installs a rule with a <strong>flow-mod</strong> so later packets of the flow stay in the hardware fast path, and releases the current packet with a <strong>packet-out</strong>:</p>
 
-<p>OpenFlow 1.1+ generalized the single table into a <strong>multi-table pipeline</strong> with a metadata register carried between tables and a <strong>group table</strong> for multipath, multicast, and fast failover. The cost of the centralized model is the controller’s reachability and scale — production deployments run controller clusters and pre-install proactive flows to avoid a packet-in storm.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant H1 as Host A
+    participant SW as Switch
+    participant C as Controller
+    H1-&gt;&gt;SW: First packet of a new flow
+    Note over SW: No matching entry (table miss)
+    SW-&gt;&gt;C: packet-in (headers, ingress port)
+    C-&gt;&gt;SW: flow-mod (match, actions, idle timeout)
+    C-&gt;&gt;SW: packet-out (forward this packet)
+    SW-&gt;&gt;SW: Later packets match the new entry at line rate
+</code></pre>
 
-<p>In practice, an SDN controller learns the topology, installs flow rules into switches, and handles the packets that don’t yet match any rule. The following model implements that core loop — MAC learning, flow installation, and shortest-path computation with a backup path:</p>
+<p>OpenFlow 1.1 and later generalized the single table into a <strong>multi-table pipeline</strong> with metadata passed between tables, and added <strong>group tables</strong> for multipath, multicast, and fast failover. The last specification, OpenFlow 1.5.1, dates from 2015.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SDNController</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Software-Defined Network Controller</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">switches</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">topology</span> <span class="o">=</span> <span class="n">nx</span><span class="p">.</span><span class="nc">Graph</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">flow_tables</span> <span class="o">=</span> <span class="nf">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">packet_in_handlers</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">statistics</span> <span class="o">=</span> <span class="nf">defaultdict</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">packets</span><span class="sh">'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="sh">'</span><span class="s">bytes</span><span class="sh">'</span><span class="p">:</span> <span class="mi">0</span><span class="p">})</span>
-        
-    <span class="k">def</span> <span class="nf">handle_switch_connect</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">switch_id</span><span class="p">,</span> <span class="n">features</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Handle switch connection</span><span class="sh">"""</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">switches</span><span class="p">[</span><span class="n">switch_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">features</span><span class="sh">'</span><span class="p">:</span> <span class="n">features</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">ports</span><span class="sh">'</span><span class="p">:</span> <span class="n">features</span><span class="p">[</span><span class="sh">'</span><span class="s">ports</span><span class="sh">'</span><span class="p">],</span>
-            <span class="sh">'</span><span class="s">flow_table_size</span><span class="sh">'</span><span class="p">:</span> <span class="mi">0</span>
-        <span class="p">}</span>
-        
-        <span class="c1"># Install default flows
-</span>        <span class="n">self</span><span class="p">.</span><span class="nf">install_default_flows</span><span class="p">(</span><span class="n">switch_id</span><span class="p">)</span>
-        
-    <span class="k">def</span> <span class="nf">install_flow</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">switch_id</span><span class="p">,</span> <span class="n">match</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">idle_timeout</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Install OpenFlow rule</span><span class="sh">"""</span>
-        <span class="n">flow_mod</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">match</span><span class="sh">'</span><span class="p">:</span> <span class="n">match</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">actions</span><span class="sh">'</span><span class="p">:</span> <span class="n">actions</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">priority</span><span class="sh">'</span><span class="p">:</span> <span class="n">priority</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">idle_timeout</span><span class="sh">'</span><span class="p">:</span> <span class="n">idle_timeout</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">cookie</span><span class="sh">'</span><span class="p">:</span> <span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">)</span>
-        <span class="p">}</span>
-        
-        <span class="n">self</span><span class="p">.</span><span class="n">flow_tables</span><span class="p">[</span><span class="n">switch_id</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">flow_mod</span><span class="p">)</span>
-        
-        <span class="c1"># Send to switch
-</span>        <span class="n">self</span><span class="p">.</span><span class="nf">send_flow_mod</span><span class="p">(</span><span class="n">switch_id</span><span class="p">,</span> <span class="n">flow_mod</span><span class="p">)</span>
-        
-    <span class="k">def</span> <span class="nf">handle_packet_in</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">switch_id</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">packet_data</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Handle packet not matching any flow</span><span class="sh">"""</span>
-        <span class="c1"># Parse packet
-</span>        <span class="n">packet</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">parse_packet</span><span class="p">(</span><span class="n">packet_data</span><span class="p">)</span>
-        
-        <span class="c1"># Learn source MAC
-</span>        <span class="n">self</span><span class="p">.</span><span class="nf">mac_learning</span><span class="p">(</span><span class="n">switch_id</span><span class="p">,</span> <span class="n">packet</span><span class="p">[</span><span class="sh">'</span><span class="s">src_mac</span><span class="sh">'</span><span class="p">],</span> <span class="n">port</span><span class="p">)</span>
-        
-        <span class="c1"># Find destination
-</span>        <span class="n">out_port</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">find_destination</span><span class="p">(</span><span class="n">switch_id</span><span class="p">,</span> <span class="n">packet</span><span class="p">[</span><span class="sh">'</span><span class="s">dst_mac</span><span class="sh">'</span><span class="p">])</span>
-        
-        <span class="k">if</span> <span class="n">out_port</span><span class="p">:</span>
-            <span class="c1"># Install flow for future packets
-</span>            <span class="n">match</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="sh">'</span><span class="s">eth_dst</span><span class="sh">'</span><span class="p">:</span> <span class="n">packet</span><span class="p">[</span><span class="sh">'</span><span class="s">dst_mac</span><span class="sh">'</span><span class="p">],</span>
-                <span class="sh">'</span><span class="s">eth_src</span><span class="sh">'</span><span class="p">:</span> <span class="n">packet</span><span class="p">[</span><span class="sh">'</span><span class="s">src_mac</span><span class="sh">'</span><span class="p">]</span>
-            <span class="p">}</span>
-            <span class="n">actions</span> <span class="o">=</span> <span class="p">[{</span><span class="sh">'</span><span class="s">type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">output</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">port</span><span class="sh">'</span><span class="p">:</span> <span class="n">out_port</span><span class="p">}]</span>
-            
-            <span class="n">self</span><span class="p">.</span><span class="nf">install_flow</span><span class="p">(</span><span class="n">switch_id</span><span class="p">,</span> <span class="n">match</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
-                            <span class="n">idle_timeout</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
-            
-            <span class="c1"># Send current packet
-</span>            <span class="n">self</span><span class="p">.</span><span class="nf">packet_out</span><span class="p">(</span><span class="n">switch_id</span><span class="p">,</span> <span class="n">packet_data</span><span class="p">,</span> <span class="n">out_port</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># Flood
-</span>            <span class="n">self</span><span class="p">.</span><span class="nf">packet_out</span><span class="p">(</span><span class="n">switch_id</span><span class="p">,</span> <span class="n">packet_data</span><span class="p">,</span> <span class="sh">'</span><span class="s">FLOOD</span><span class="sh">'</span><span class="p">)</span>
-            
-    <span class="k">def</span> <span class="nf">calculate_paths</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate all shortest paths in topology</span><span class="sh">"""</span>
-        <span class="n">paths</span> <span class="o">=</span> <span class="p">{}</span>
-        
-        <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">topology</span><span class="p">.</span><span class="nf">nodes</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">dst</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">topology</span><span class="p">.</span><span class="nf">nodes</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">src</span> <span class="o">!=</span> <span class="n">dst</span><span class="p">:</span>
-                    <span class="k">try</span><span class="p">:</span>
-                        <span class="c1"># Primary path
-</span>                        <span class="n">path</span> <span class="o">=</span> <span class="n">nx</span><span class="p">.</span><span class="nf">shortest_path</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">topology</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> 
-                                              <span class="n">weight</span><span class="o">=</span><span class="sh">'</span><span class="s">weight</span><span class="sh">'</span><span class="p">)</span>
-                        
-                        <span class="c1"># Backup path (node-disjoint)
-</span>                        <span class="n">temp_graph</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">topology</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
-                        <span class="c1"># Remove intermediate nodes from primary path
-</span>                        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
-                            <span class="n">temp_graph</span><span class="p">.</span><span class="nf">remove_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
-                            
-                        <span class="n">backup_path</span> <span class="o">=</span> <span class="bp">None</span>
-                        <span class="k">try</span><span class="p">:</span>
-                            <span class="n">backup_path</span> <span class="o">=</span> <span class="n">nx</span><span class="p">.</span><span class="nf">shortest_path</span><span class="p">(</span><span class="n">temp_graph</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span>
-                                                         <span class="n">weight</span><span class="o">=</span><span class="sh">'</span><span class="s">weight</span><span class="sh">'</span><span class="p">)</span>
-                        <span class="k">except</span> <span class="n">nx</span><span class="p">.</span><span class="n">NetworkXNoPath</span><span class="p">:</span>
-                            <span class="k">pass</span>
-                            
-                        <span class="n">paths</span><span class="p">[(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{</span>
-                            <span class="sh">'</span><span class="s">primary</span><span class="sh">'</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span>
-                            <span class="sh">'</span><span class="s">backup</span><span class="sh">'</span><span class="p">:</span> <span class="n">backup_path</span>
-                        <span class="p">}</span>
-                    <span class="k">except</span> <span class="n">nx</span><span class="p">.</span><span class="n">NetworkXNoPath</span><span class="p">:</span>
-                        <span class="n">paths</span><span class="p">[(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{</span><span class="sh">'</span><span class="s">primary</span><span class="sh">'</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span> <span class="sh">'</span><span class="s">backup</span><span class="sh">'</span><span class="p">:</span> <span class="bp">None</span><span class="p">}</span>
-                        
-        <span class="k">return</span> <span class="n">paths</span>
+<p>A reactive learning switch shows the controller’s side of the loop:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+
+<span class="k">class</span> <span class="nc">LearningSwitchApp</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Reactive L2 learning switch, the </span><span class="sh">'</span><span class="s">hello world</span><span class="sh">'</span><span class="s"> of SDN controllers.
+
+    The controller sees only table misses (packet-in). It learns which port
+    each source MAC is behind and, once the destination is known, installs
+    a flow so the switch forwards the rest of the traffic itself.</span><span class="sh">"""</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">channel</span> <span class="o">=</span> <span class="n">channel</span>                  <span class="c1"># sends flow-mod / packet-out
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">mac_to_port</span> <span class="o">=</span> <span class="nf">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>    <span class="c1"># switch id -&gt; {mac: port}
+</span>
+    <span class="k">def</span> <span class="nf">on_switch_connect</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">dpid</span><span class="p">):</span>
+        <span class="c1"># Table-miss entry: lowest priority, match everything, punt to controller
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">channel</span><span class="p">.</span><span class="nf">flow_mod</span><span class="p">(</span><span class="n">dpid</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="p">{},</span> <span class="n">actions</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">CONTROLLER</span><span class="sh">"</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">on_packet_in</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">dpid</span><span class="p">,</span> <span class="n">in_port</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">frame</span><span class="p">):</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">mac_to_port</span><span class="p">[</span><span class="n">dpid</span><span class="p">]</span>
+        <span class="n">table</span><span class="p">[</span><span class="n">src</span><span class="p">]</span> <span class="o">=</span> <span class="n">in_port</span>                    <span class="c1"># learn where src lives
+</span>        <span class="n">out_port</span> <span class="o">=</span> <span class="n">table</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out_port</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>                    <span class="c1"># unknown destination: flood
+</span>            <span class="n">self</span><span class="p">.</span><span class="n">channel</span><span class="p">.</span><span class="nf">packet_out</span><span class="p">(</span><span class="n">dpid</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">actions</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">FLOOD</span><span class="sh">"</span><span class="p">])</span>
+            <span class="k">return</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">channel</span><span class="p">.</span><span class="nf">flow_mod</span><span class="p">(</span><span class="n">dpid</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                              <span class="n">match</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">in_port</span><span class="sh">"</span><span class="p">:</span> <span class="n">in_port</span><span class="p">,</span> <span class="sh">"</span><span class="s">eth_dst</span><span class="sh">"</span><span class="p">:</span> <span class="n">dst</span><span class="p">},</span>
+                              <span class="n">actions</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">OUTPUT:</span><span class="si">{</span><span class="n">out_port</span><span class="si">}</span><span class="sh">"</span><span class="p">],</span> <span class="n">idle_timeout</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">channel</span><span class="p">.</span><span class="nf">packet_out</span><span class="p">(</span><span class="n">dpid</span><span class="p">,</span> <span class="n">frame</span><span class="p">,</span> <span class="n">actions</span><span class="o">=</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">OUTPUT:</span><span class="si">{</span><span class="n">out_port</span><span class="si">}</span><span class="sh">"</span><span class="p">])</span>
 </code></pre></div></div>
 
-<h3 id="reactive-vs-proactive-centralized-vs-distributed">Reactive vs. Proactive, Centralized vs. Distributed</h3>
+<h3 id="design-choices">Design Choices</h3>
 
-<p>Two design choices dominate real SDN deployments:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Choice</th>
+      <th>Option A</th>
+      <th>Option B</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Flow installation</td>
+      <td><strong>Reactive</strong>: first packet of each flow goes to the controller. Economical with table space; adds setup latency and makes the controller a bottleneck under churn.</td>
+      <td><strong>Proactive</strong>: rules computed and pushed before traffic arrives. No per-flow round trips; needs larger tables and full knowledge of expected traffic.</td>
+    </tr>
+    <tr>
+      <td>Controller placement</td>
+      <td><strong>Centralized</strong> view, implemented as a replicated cluster (ONOS uses Raft-based distributed stores) so the view survives failures</td>
+      <td><strong>Hybrid</strong>: distributed routing protocols keep basic reachability; the controller only overrides selected paths</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Production networks overwhelmingly choose proactive installation and hybrid control, because a data plane that depends on a reachable controller for every new flow is fragile.</p>
+
+<h3 id="sdn-in-practice">SDN in Practice</h3>
+
+<p>Pure OpenFlow networks, with dumb switches and a central brain, remained a niche. The SDN idea succeeded in other forms:</p>
 
 <ul>
-  <li><strong>Reactive flow installation</strong> sends the first packet of every new flow to the controller, which installs a rule on demand. It uses table space efficiently but adds latency to flow setup and makes the controller a bottleneck under churn.</li>
-  <li><strong>Proactive flow installation</strong> pre-computes and pushes rules before traffic arrives (e.g. full-mesh forwarding in a data-center fabric). It avoids per-flow controller round-trips at the cost of larger flow tables.</li>
+  <li><strong>Wide-area traffic engineering.</strong> Google’s B4 (2013) and Microsoft’s SWAN (2013) use central controllers to allocate inter-data-centre WAN capacity, running links far hotter than distributed routing would allow.</li>
+  <li><strong>Overlay and cloud networking.</strong> Cloud VPCs and platforms such as VMware NSX implement tenant networks in software on the hosts, with a controller programming virtual switches; see <a href="cloud-networking.html">Cloud Networking</a>.</li>
+  <li><strong>SD-WAN.</strong> Enterprise branch networks steer traffic across broadband, LTE, and MPLS links under central policy.</li>
+  <li><strong>Controllers speaking routing protocols.</strong> In provider networks the “controller” is often a path computation element (PCE) that learns topology through BGP-LS and programs Segment Routing policies with PCEP or BGP, leaving the distributed IGP in place.</li>
+  <li><strong>Model-driven management.</strong> gNMI, gNOI, and OpenConfig YANG models give a vendor-neutral, programmable interface for configuration and streaming telemetry.</li>
+  <li><strong>Open network operating systems.</strong> SONiC, originally from Microsoft and now a Linux Foundation project, runs on switches from many vendors and is widely deployed in hyperscale data centres.</li>
 </ul>
 
-<p>Likewise, the “centralized” controller is logically central but physically a <strong>cluster</strong> — controllers like ONOS use a distributed store (Raft/Atomix) so the global view survives a controller failure. This is the modern reconciliation between SDN’s logically-centralized model and the fault tolerance that distributed routing protocols gave you for free.</p>
+<p>Institutionally, the Open Networking Foundation, which stewarded OpenFlow, ONOS, and P4, merged into the Linux Foundation in December 2023.</p>
 
 <blockquote>
-  <p>For the distributed routing protocols SDN replaces — OSPF, BGP, and per-hop shortest-path forwarding — see <a href="routing.html">Routing &amp; Switching</a>.</p>
+  <p>The distributed routing protocols that SDN complements or replaces (OSPF, BGP, per-hop shortest-path forwarding) are covered in <a href="routing.html">Routing &amp; Switching</a>.</p>
 </blockquote>
 
-<h2 id="p4-programming-the-data-plane">P4: Programming the Data Plane</h2>
+<h2 id="p4-programming-the-switch-pipeline">P4: Programming the Switch Pipeline</h2>
 
-<p>SDN lets us program the <em>control</em> plane, but the switches themselves still only understand protocols baked into their silicon — an OpenFlow switch can only match the header fields its ASIC was built to parse. <strong>P4</strong> (Programming Protocol-independent Packet Processors) goes further: it lets us define how switches parse and process packets. Imagine customizing not just traffic rules, but how traffic is <em>understood</em>. This makes it possible to deploy new protocols without new hardware, do in-network computing (processing data as it flows), and build advanced telemetry.</p>
+<p>OpenFlow can only match the header fields its switch ASIC was built to parse. <strong>P4</strong> (Programming Protocol-independent Packet Processors; Bosshart et al., 2014) goes a level lower: the program defines which headers exist, how they are parsed, and what tables process them. New protocols can then be deployed without new silicon.</p>
 
 <h3 id="the-pisa-pipeline">The PISA Pipeline</h3>
 
-<p>P4 targets the <strong>Protocol-Independent Switch Architecture (PISA)</strong>, a reconfigurable pipeline with four stages:</p>
+<p>P4 programs target the <strong>Protocol-Independent Switch Architecture</strong> (PISA) or a variation of it:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    IN["Packet in"] --&gt; PA["Programmable parser&lt;br/&gt;(state machine)"]
+    PA --&gt; IG["Ingress match-action stages"]
+    IG --&gt; TM["Traffic manager&lt;br/&gt;(queues, replication)"]
+    TM --&gt; EG["Egress match-action stages"]
+    EG --&gt; DP["Deparser"]
+    DP --&gt; OUT["Packet out"]
+    CP["Control plane via P4Runtime"] -.-&gt;|"populate tables"| IG
+    CP -.-&gt; EG
+</code></pre>
 
 <ol>
-  <li><strong>Parser</strong> — a programmable state machine that walks the packet header-by-header, extracting fields into typed headers. You declare the grammar; the parser is protocol-agnostic.</li>
-  <li><strong>Ingress match-action</strong> — a series of tables, each matching extracted fields and invoking actions (modify headers, set metadata, choose an egress port, drop).</li>
-  <li><strong>Egress match-action</strong> — a second set of tables applied after the switch’s queueing/replication, useful for per-output-port rewrites and multicast.</li>
-  <li><strong>Deparser</strong> — reassembles the (possibly modified) headers back onto the wire.</li>
+  <li>The <strong>parser</strong> is a state machine that extracts headers into typed structures; the programmer defines the protocol graph.</li>
+  <li><strong>Ingress match-action</strong> stages look up extracted fields in tables and run actions (rewrite headers, set metadata, choose an egress port, drop).</li>
+  <li>The <strong>traffic manager</strong> queues, schedules, and replicates packets (fixed function).</li>
+  <li><strong>Egress match-action</strong> stages apply per-output-port processing.</li>
+  <li>The <strong>deparser</strong> serializes the possibly modified headers back onto the wire.</li>
 </ol>
 
-<p>The compiler maps your P4 program onto the target (a Tofino ASIC, a SmartNIC, BMv2 software switch, or an FPGA). The control plane populates the tables at runtime over <strong>P4Runtime</strong> (a gRPC API), giving you the same controller/data-plane split as OpenFlow, but with a data plane whose very structure you defined.</p>
+<p>The P4 compiler maps the program onto a target (a switch ASIC, SmartNIC or DPU, FPGA, or a software switch such as BMv2), and the control plane fills tables at runtime through <strong>P4Runtime</strong>, a gRPC API.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">P4DataPlane</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Define custom packet processing behavior in switches.
-    
-    Use cases:
-    - New protocols without hardware changes
-    - In-network computing (processing data as it flows)
-    - Advanced telemetry and monitoring
-    </span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">tables</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">actions</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">parsers</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="p">{}</span>
-        
-    <span class="k">def</span> <span class="nf">define_parser</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Define packet parser in P4 style</span><span class="sh">"""</span>
-        <span class="n">parser_def</span> <span class="o">=</span> <span class="sh">'''</span><span class="s">
-        parser MyParser(packet_in packet,
-                       out headers hdr,
-                       inout metadata meta,
-                       inout standard_metadata_t standard_metadata) {
-            
-            state start {
-                transition parse_ethernet;
-            }
-            
-            state parse_ethernet {
-                packet.extract(hdr.ethernet);
-                transition select(hdr.ethernet.etherType) {
-                    0x0800: parse_ipv4;
-                    0x86DD: parse_ipv6;
-                    default: accept;
-                }
-            }
-            
-            state parse_ipv4 {
-                packet.extract(hdr.ipv4);
-                transition select(hdr.ipv4.protocol) {
-                    6: parse_tcp;
-                    17: parse_udp;
-                    default: accept;
-                }
-            }
-            
-            state parse_tcp {
-                packet.extract(hdr.tcp);
-                transition accept;
-            }
+<h3 id="a-minimal-p4-program">A Minimal P4 Program</h3>
+
+<p>The program below, written against the <code class="language-plaintext highlighter-rouge">v1model</code> architecture used by the BMv2 reference software switch, parses Ethernet and IPv4 and forwards by longest-prefix match on the destination address, decrementing the TTL and recomputing the header checksum:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>#include &lt;core.p4&gt;
+#include &lt;v1model.p4&gt;
+
+const bit&lt;16&gt; TYPE_IPV4 = 0x0800;
+
+header ethernet_t {
+    bit&lt;48&gt; dstAddr;
+    bit&lt;48&gt; srcAddr;
+    bit&lt;16&gt; etherType;
+}
+
+header ipv4_t {
+    bit&lt;4&gt;  version;    bit&lt;4&gt;  ihl;       bit&lt;8&gt;  diffserv;
+    bit&lt;16&gt; totalLen;   bit&lt;16&gt; identification;
+    bit&lt;3&gt;  flags;      bit&lt;13&gt; fragOffset;
+    bit&lt;8&gt;  ttl;        bit&lt;8&gt;  protocol;  bit&lt;16&gt; hdrChecksum;
+    bit&lt;32&gt; srcAddr;    bit&lt;32&gt; dstAddr;
+}
+
+struct headers_t  { ethernet_t ethernet; ipv4_t ipv4; }
+struct metadata_t { }
+
+parser MyParser(packet_in pkt, out headers_t hdr,
+                inout metadata_t meta, inout standard_metadata_t std) {
+    state start {
+        pkt.extract(hdr.ethernet);
+        transition select(hdr.ethernet.etherType) {
+            TYPE_IPV4: parse_ipv4;
+            default:   accept;
         }
-        </span><span class="sh">'''</span>
-        <span class="k">return</span> <span class="n">parser_def</span>
-        
-    <span class="k">def</span> <span class="nf">define_match_action_table</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">match_fields</span><span class="p">,</span> <span class="n">actions</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">1024</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Define match-action table</span><span class="sh">"""</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">tables</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">match_fields</span><span class="sh">'</span><span class="p">:</span> <span class="n">match_fields</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">actions</span><span class="sh">'</span><span class="p">:</span> <span class="n">actions</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">entries</span><span class="sh">'</span><span class="p">:</span> <span class="p">{},</span>
-            <span class="sh">'</span><span class="s">default_action</span><span class="sh">'</span><span class="p">:</span> <span class="bp">None</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">size</span><span class="sh">'</span><span class="p">:</span> <span class="n">size</span>
-        <span class="p">}</span>
-        
-    <span class="k">def</span> <span class="nf">add_table_entry</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">match_values</span><span class="p">,</span> <span class="n">action_name</span><span class="p">,</span> <span class="n">action_params</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Add entry to match-action table</span><span class="sh">"""</span>
-        <span class="k">if</span> <span class="n">table_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">tables</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Table </span><span class="si">{</span><span class="n">table_name</span><span class="si">}</span><span class="s"> not found</span><span class="sh">"</span><span class="p">)</span>
-            
-        <span class="c1"># Create match key
-</span>        <span class="n">match_key</span> <span class="o">=</span> <span class="nf">tuple</span><span class="p">(</span><span class="n">match_values</span><span class="p">)</span>
-        
-        <span class="c1"># Add entry
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">tables</span><span class="p">[</span><span class="n">table_name</span><span class="p">][</span><span class="sh">'</span><span class="s">entries</span><span class="sh">'</span><span class="p">][</span><span class="n">match_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">action</span><span class="sh">'</span><span class="p">:</span> <span class="n">action_name</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">params</span><span class="sh">'</span><span class="p">:</span> <span class="n">action_params</span>
-        <span class="p">}</span>
-        
-    <span class="k">def</span> <span class="nf">process_packet</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">packet</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Process packet through P4 pipeline</span><span class="sh">"""</span>
-        <span class="c1"># Parse packet
-</span>        <span class="n">headers</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">parse_packet</span><span class="p">(</span><span class="n">packet</span><span class="p">)</span>
-        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span><span class="sh">'</span><span class="s">ingress_port</span><span class="sh">'</span><span class="p">:</span> <span class="n">packet</span><span class="p">.</span><span class="n">ingress_port</span><span class="p">}</span>
-        
-        <span class="c1"># Ingress pipeline
-</span>        <span class="n">headers</span><span class="p">,</span> <span class="n">metadata</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">ingress_pipeline</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
-        
-        <span class="c1"># Egress decision
-</span>        <span class="k">if</span> <span class="n">metadata</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">drop</span><span class="sh">'</span><span class="p">,</span> <span class="bp">False</span><span class="p">):</span>
-            <span class="k">return</span> <span class="bp">None</span>
-            
-        <span class="c1"># Egress pipeline
-</span>        <span class="n">headers</span><span class="p">,</span> <span class="n">metadata</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">egress_pipeline</span><span class="p">(</span><span class="n">headers</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
-        
-        <span class="c1"># Deparse
-</span>        <span class="n">output_packet</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">deparse_packet</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">output_packet</span><span class="p">,</span> <span class="n">metadata</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">egress_port</span><span class="sh">'</span><span class="p">)</span>
+    }
+    state parse_ipv4 {
+        pkt.extract(hdr.ipv4);
+        transition accept;
+    }
+}
+
+control MyIngress(inout headers_t hdr, inout metadata_t meta,
+                  inout standard_metadata_t std) {
+    action drop() { mark_to_drop(std); }
+
+    action ipv4_forward(bit&lt;48&gt; nextHopMac, bit&lt;9&gt; port) {
+        std.egress_spec      = port;
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+        hdr.ethernet.dstAddr = nextHopMac;
+        hdr.ipv4.ttl         = hdr.ipv4.ttl - 1;
+    }
+
+    table ipv4_lpm {
+        key            = { hdr.ipv4.dstAddr: lpm; }
+        actions        = { ipv4_forward; drop; }
+        size           = 1024;
+        default_action = drop();
+    }
+
+    apply {
+        if (hdr.ipv4.isValid() &amp;&amp; hdr.ipv4.ttl &gt; 1) {
+            ipv4_lpm.apply();
+        } else {
+            drop();
+        }
+    }
+}
+
+control MyVerifyChecksum(inout headers_t hdr, inout metadata_t meta) { apply { } }
+control MyEgress(inout headers_t hdr, inout metadata_t meta,
+                 inout standard_metadata_t std) { apply { } }
+
+control MyComputeChecksum(inout headers_t hdr, inout metadata_t meta) {
+    apply {
+        update_checksum(hdr.ipv4.isValid(),
+            { hdr.ipv4.version, hdr.ipv4.ihl, hdr.ipv4.diffserv,
+              hdr.ipv4.totalLen, hdr.ipv4.identification, hdr.ipv4.flags,
+              hdr.ipv4.fragOffset, hdr.ipv4.ttl, hdr.ipv4.protocol,
+              hdr.ipv4.srcAddr, hdr.ipv4.dstAddr },
+            hdr.ipv4.hdrChecksum, HashAlgorithm.csum16);
+    }
+}
+
+control MyDeparser(packet_out pkt, in headers_t hdr) {
+    apply { pkt.emit(hdr.ethernet); pkt.emit(hdr.ipv4); }
+}
+
+V1Switch(MyParser(), MyVerifyChecksum(), MyIngress(), MyEgress(),
+         MyComputeChecksum(), MyDeparser()) main;
 </code></pre></div></div>
 
-<h3 id="match-kinds-and-what-the-data-plane-can-do">Match Kinds and What the Data Plane Can Do</h3>
+<p>The program defines the <em>shape</em> of the <code class="language-plaintext highlighter-rouge">ipv4_lpm</code> table but none of its entries; a controller installs routes at runtime over P4Runtime, exactly as a routing daemon would program a conventional FIB.</p>
 
-<p>P4 tables match on different <strong>match kinds</strong> that map to different silicon:</p>
+<h3 id="match-kinds">Match Kinds</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Match kind</th>
+      <th>Semantics</th>
+      <th>Typical hardware</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">exact</code></td>
+      <td>Key equals value</td>
+      <td>Hash table in SRAM</td>
+      <td>MAC tables, tunnel IDs, flow state</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">lpm</code></td>
+      <td>Longest matching prefix wins</td>
+      <td>TCAM or algorithmic LPM</td>
+      <td>IP routing</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ternary</code></td>
+      <td>Value and mask, with priority</td>
+      <td>TCAM</td>
+      <td>ACLs, firewall rules, classification</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">range</code></td>
+      <td>Key within an interval</td>
+      <td>TCAM (expanded)</td>
+      <td>Port ranges</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="what-a-programmable-data-plane-enables">What a Programmable Data Plane Enables</h3>
 
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">exact</code> — hash table lookup (e.g. exact destination MAC).</li>
-  <li><code class="language-plaintext highlighter-rouge">lpm</code> — longest-prefix match, the IP-routing primitive (a TCAM or algorithmic LPM).</li>
-  <li><code class="language-plaintext highlighter-rouge">ternary</code> — masked match for ACLs and firewall rules (TCAM).</li>
-  <li><code class="language-plaintext highlighter-rouge">range</code> — port-range matching.</li>
+  <li><strong>In-band Network Telemetry (INT).</strong> Each switch appends its identity, queue depth, and timestamps to packets as they pass, giving per-packet, per-hop visibility of where latency accumulates, far beyond what sampled counters can show.</li>
+  <li><strong>In-network computing.</strong> Stateful registers let switches keep per-flow state and run algorithms at line rate: count-min sketches for heavy-hitter detection, load balancing, key-value caching (NetCache), and aggregation of gradients for distributed training (SwitchML).</li>
+  <li><strong>Custom protocols and encapsulations</strong> deployed as software updates rather than hardware refreshes.</li>
 </ul>
 
-<p>Beyond simple forwarding, the programmable data plane enables <strong>in-network computing</strong>: stateful registers and counters let a switch maintain per-flow state, implement load-balancing or caching, run sketches for heavy-hitter detection, or aggregate data for distributed training — all at terabit line rate. A flagship application is <strong>In-band Network Telemetry (INT)</strong>, where each switch on the path appends its queue depth, timestamp, and hop latency into a metadata stack, giving per-packet, per-hop visibility impossible with traditional sampling.</p>
+<p>The constraints are what make line rate possible: a hardware pipeline has a fixed number of stages, each table is applied at most once per packet, memory per stage is small, and there are no unbounded loops. Software targets remove these limits at orders of magnitude lower throughput.</p>
 
-<p>The limits are real, though: a hardware P4 pipeline runs each table at most once per packet, has bounded stages and memory, and offers no loops — it trades generality for line-rate determinism. Software targets (BMv2) lift these limits but at orders-of-magnitude lower throughput.</p>
+<h3 id="status-in-2026">Status in 2026</h3>
 
-<h2 id="nfv-network-functions-become-software">NFV: Network Functions Become Software</h2>
+<p>The language is stable: the current P4<sub>16</sub> specification is version 1.2.5 (October 2024), and P4Runtime reached version 1.5.0 in February 2026. The hardware landscape has shifted. Intel’s Tofino line was the flagship programmable switch ASIC, but Intel stopped developing new Tofino generations in 2023; its software development kit has since been released as open source (<code class="language-plaintext highlighter-rouge">open-p4studio</code>). P4 activity has moved toward SmartNICs and DPUs (with the <strong>Portable NIC Architecture</strong>, PNA), FPGAs, and software targets, including backends of the reference compiler <code class="language-plaintext highlighter-rouge">p4c</code> that generate DPDK and eBPF code. The P4 project is now hosted by the Linux Foundation.</p>
 
-<p>Why buy expensive hardware firewalls, routers, and load balancers when software can do the job? <strong>Network Function Virtualization (NFV)</strong> transforms these appliances into software (Virtual Network Functions, or VNFs) running on standard servers. The payoff is deploying new services in minutes instead of months, scaling them up and down on demand, cutting hardware costs, and chaining functions together (firewall → IDS → load balancer) as a <strong>service function chain</strong>.</p>
+<h2 id="ebpf-and-xdp-the-programmable-host">eBPF and XDP: The Programmable Host</h2>
 
-<h3 id="the-nfv-architecture-etsi">The NFV Architecture (ETSI)</h3>
+<p><strong>eBPF</strong> lets verified programs run inside the Linux kernel, attached to hooks throughout the network stack, without writing kernel modules. The kernel’s <strong>verifier</strong> proves each program terminates and only accesses memory it is allowed to, then a JIT compiles it to native code. Programs keep state and communicate with user space through <strong>maps</strong> (hash tables, arrays, ring buffers).</p>
 
-<p>The ETSI NFV reference architecture separates three concerns:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Hook</th>
+      <th>Runs</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>XDP (eXpress Data Path)</td>
+      <td>In the NIC driver, before the kernel allocates a socket buffer</td>
+      <td>DDoS dropping, L4 load balancing, fast forwarding (<code class="language-plaintext highlighter-rouge">XDP_DROP</code>, <code class="language-plaintext highlighter-rouge">XDP_TX</code>, <code class="language-plaintext highlighter-rouge">XDP_REDIRECT</code>)</td>
+    </tr>
+    <tr>
+      <td>tc (traffic control) ingress/egress</td>
+      <td>After the socket buffer exists, with full packet metadata</td>
+      <td>Container networking, policy enforcement, NAT, shaping</td>
+    </tr>
+    <tr>
+      <td>Socket and cgroup hooks</td>
+      <td>At <code class="language-plaintext highlighter-rouge">connect()</code>, <code class="language-plaintext highlighter-rouge">sendmsg()</code>, and socket operations</td>
+      <td>Service load balancing without per-packet NAT, per-workload policy</td>
+    </tr>
+    <tr>
+      <td>kprobes, tracepoints</td>
+      <td>Anywhere in the kernel</td>
+      <td>Observability: per-connection RTT, retransmissions, drops with reasons</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>NFVI (Infrastructure)</strong> — the compute, storage, and network (often a cloud/OpenStack/Kubernetes substrate) on which functions run.</li>
-  <li><strong>VNFs</strong> — the virtualized functions themselves (a virtual firewall, vRouter, vBNG, 5G UPF, …), packaged as VMs or, increasingly, containers (then called CNFs — Cloud-native Network Functions).</li>
-  <li><strong>MANO (Management and Orchestration)</strong> — the orchestrator, VNF managers, and Virtualized Infrastructure Manager that instantiate, scale, heal, and chain VNFs according to descriptors.</li>
-</ul>
+<p>A complete XDP program that drops UDP traffic to port 9999 before it reaches the kernel stack:</p>
 
-<p>NFV and SDN are complementary: NFV virtualizes <em>what</em> the function is, while SDN programs <em>how</em> traffic is steered between functions. Together they enable <strong>Service Function Chaining (SFC)</strong> — pushing a packet through an ordered list of VNFs (encoded with NSH, the Network Service Header, or with SRv6) regardless of where each VNF physically runs.</p>
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// SPDX-License-Identifier: GPL-2.0</span>
+<span class="cp">#include</span> <span class="cpf">&lt;linux/bpf.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;linux/if_ether.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;linux/in.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;linux/ip.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;linux/udp.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;bpf/bpf_helpers.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;bpf/bpf_endian.h&gt;</span><span class="cp">
+</span>
+<span class="n">SEC</span><span class="p">(</span><span class="s">"xdp"</span><span class="p">)</span>
+<span class="kt">int</span> <span class="nf">drop_udp_9999</span><span class="p">(</span><span class="k">struct</span> <span class="n">xdp_md</span> <span class="o">*</span><span class="n">ctx</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">data</span>     <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)(</span><span class="kt">long</span><span class="p">)</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">data</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">data_end</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)(</span><span class="kt">long</span><span class="p">)</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">data_end</span><span class="p">;</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">VirtualNetworkFunction</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Transform hardware network appliances into flexible software.
-    
-    Benefits:
-    - Deploy new services in minutes, not months
-    - Scale up/down based on demand
-    - Reduce hardware costs
-    - Enable service chaining (firewall → IDS → load balancer)
-    </span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">cpu_cores</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">memory_mb</span><span class="o">=</span><span class="mi">1024</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">cpu_cores</span> <span class="o">=</span> <span class="n">cpu_cores</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">memory_mb</span> <span class="o">=</span> <span class="n">memory_mb</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">rx_queue</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="nc">Queue</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">tx_queue</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="nc">Queue</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">statistics</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="sh">'</span><span class="s">packets_processed</span><span class="sh">'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">packets_dropped</span><span class="sh">'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">processing_time_ms</span><span class="sh">'</span><span class="p">:</span> <span class="p">[]</span>
-        <span class="p">}</span>
-        
-    <span class="k">def</span> <span class="nf">process_packet</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">packet</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Override in subclasses</span><span class="sh">"""</span>
-        <span class="k">raise</span> <span class="nb">NotImplementedError</span>
-        
-    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Main processing loop</span><span class="sh">"""</span>
-        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">packet</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">rx_queue</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
-                <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
-                
-                <span class="c1"># Process packet
-</span>                <span class="n">result</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">process_packet</span><span class="p">(</span><span class="n">packet</span><span class="p">)</span>
-                
-                <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
-                    <span class="n">self</span><span class="p">.</span><span class="n">tx_queue</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-                    <span class="n">self</span><span class="p">.</span><span class="n">statistics</span><span class="p">[</span><span class="sh">'</span><span class="s">packets_processed</span><span class="sh">'</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">self</span><span class="p">.</span><span class="n">statistics</span><span class="p">[</span><span class="sh">'</span><span class="s">packets_dropped</span><span class="sh">'</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-                    
-                <span class="c1"># Record processing time
-</span>                <span class="n">proc_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span>
-                <span class="n">self</span><span class="p">.</span><span class="n">statistics</span><span class="p">[</span><span class="sh">'</span><span class="s">processing_time_ms</span><span class="sh">'</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">proc_time</span><span class="p">)</span>
-                
-            <span class="k">except</span> <span class="n">queue</span><span class="p">.</span><span class="n">Empty</span><span class="p">:</span>
-                <span class="k">continue</span>
+    <span class="cm">/* Every pointer must be bounds-checked, or the verifier rejects the program */</span>
+    <span class="k">struct</span> <span class="n">ethhdr</span> <span class="o">*</span><span class="n">eth</span> <span class="o">=</span> <span class="n">data</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">((</span><span class="kt">void</span> <span class="o">*</span><span class="p">)(</span><span class="n">eth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">data_end</span> <span class="o">||</span> <span class="n">eth</span><span class="o">-&gt;</span><span class="n">h_proto</span> <span class="o">!=</span> <span class="n">bpf_htons</span><span class="p">(</span><span class="n">ETH_P_IP</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">XDP_PASS</span><span class="p">;</span>
 
-<span class="k">class</span> <span class="nc">VirtualFirewall</span><span class="p">(</span><span class="n">VirtualNetworkFunction</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Stateful firewall VNF</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">rules_file</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nf">super</span><span class="p">().</span><span class="nf">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">rules</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">load_rules</span><span class="p">(</span><span class="n">rules_file</span><span class="p">)</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">connection_table</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">connection_timeout</span> <span class="o">=</span> <span class="mi">300</span>  <span class="c1"># seconds
-</span>        
-    <span class="k">def</span> <span class="nf">process_packet</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">packet</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Apply firewall rules</span><span class="sh">"""</span>
-        <span class="c1"># Check established connections
-</span>        <span class="n">conn_key</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">get_connection_key</span><span class="p">(</span><span class="n">packet</span><span class="p">)</span>
-        
-        <span class="k">if</span> <span class="n">conn_key</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">connection_table</span><span class="p">:</span>
-            <span class="c1"># Update timestamp
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">connection_table</span><span class="p">[</span><span class="n">conn_key</span><span class="p">][</span><span class="sh">'</span><span class="s">last_seen</span><span class="sh">'</span><span class="p">]</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
-            <span class="k">return</span> <span class="n">packet</span>
-            
-        <span class="c1"># Check rules
-</span>        <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">rules</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="nf">match_rule</span><span class="p">(</span><span class="n">packet</span><span class="p">,</span> <span class="n">rule</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">rule</span><span class="p">[</span><span class="sh">'</span><span class="s">action</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">allow</span><span class="sh">'</span><span class="p">:</span>
-                    <span class="c1"># Add to connection table
-</span>                    <span class="n">self</span><span class="p">.</span><span class="n">connection_table</span><span class="p">[</span><span class="n">conn_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                        <span class="sh">'</span><span class="s">created</span><span class="sh">'</span><span class="p">:</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">(),</span>
-                        <span class="sh">'</span><span class="s">last_seen</span><span class="sh">'</span><span class="p">:</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">(),</span>
-                        <span class="sh">'</span><span class="s">packets</span><span class="sh">'</span><span class="p">:</span> <span class="mi">1</span>
-                    <span class="p">}</span>
-                    <span class="k">return</span> <span class="n">packet</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="bp">None</span>  <span class="c1"># Drop
-</span>                    
-        <span class="c1"># Default deny
-</span>        <span class="k">return</span> <span class="bp">None</span>
+    <span class="k">struct</span> <span class="n">iphdr</span> <span class="o">*</span><span class="n">ip</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)(</span><span class="n">eth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">((</span><span class="kt">void</span> <span class="o">*</span><span class="p">)(</span><span class="n">ip</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">data_end</span> <span class="o">||</span> <span class="n">ip</span><span class="o">-&gt;</span><span class="n">protocol</span> <span class="o">!=</span> <span class="n">IPPROTO_UDP</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">XDP_PASS</span><span class="p">;</span>
 
-<span class="k">class</span> <span class="nc">ServiceFunctionChain</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Chain multiple VNFs</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">vnfs</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">links</span> <span class="o">=</span> <span class="p">[]</span>
-        
-    <span class="k">def</span> <span class="nf">add_vnf</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">vnf</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Add VNF to chain</span><span class="sh">"""</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">vnfs</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">vnf</span><span class="p">)</span>
-        
-        <span class="c1"># Create link queues
-</span>        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">vnfs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">link_queue</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="nc">Queue</span><span class="p">()</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">links</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">link_queue</span><span class="p">)</span>
-            
-            <span class="c1"># Connect previous VNF output to current input
-</span>            <span class="n">self</span><span class="p">.</span><span class="n">vnfs</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">].</span><span class="n">tx_queue</span> <span class="o">=</span> <span class="n">link_queue</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">vnfs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">rx_queue</span> <span class="o">=</span> <span class="n">link_queue</span>
-            
-    <span class="k">def</span> <span class="nf">deploy</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Deploy service chain</span><span class="sh">"""</span>
-        <span class="n">threads</span> <span class="o">=</span> <span class="p">[]</span>
-        
-        <span class="k">for</span> <span class="n">vnf</span> <span class="ow">in</span> <span class="n">self</span><span class="p">.</span><span class="n">vnfs</span><span class="p">:</span>
-            <span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="p">.</span><span class="nc">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">vnf</span><span class="p">.</span><span class="n">run</span><span class="p">)</span>
-            <span class="n">thread</span><span class="p">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="bp">True</span>
-            <span class="n">thread</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
-            <span class="n">threads</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">thread</span><span class="p">)</span>
-            
-        <span class="k">return</span> <span class="n">threads</span>
+    <span class="k">struct</span> <span class="n">udphdr</span> <span class="o">*</span><span class="n">udp</span> <span class="o">=</span> <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="n">ip</span> <span class="o">+</span> <span class="n">ip</span><span class="o">-&gt;</span><span class="n">ihl</span> <span class="o">*</span> <span class="mi">4</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">((</span><span class="kt">void</span> <span class="o">*</span><span class="p">)(</span><span class="n">udp</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">data_end</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">XDP_PASS</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">udp</span><span class="o">-&gt;</span><span class="n">dest</span> <span class="o">==</span> <span class="n">bpf_htons</span><span class="p">(</span><span class="mi">9999</span><span class="p">)</span> <span class="o">?</span> <span class="n">XDP_DROP</span> <span class="o">:</span> <span class="n">XDP_PASS</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">char</span> <span class="n">LICENSE</span><span class="p">[]</span> <span class="n">SEC</span><span class="p">(</span><span class="s">"license"</span><span class="p">)</span> <span class="o">=</span> <span class="s">"GPL"</span><span class="p">;</span>
 </code></pre></div></div>
 
-<h3 id="making-software-forwarding-fast">Making Software Forwarding Fast</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>clang <span class="nt">-O2</span> <span class="nt">-g</span> <span class="nt">-target</span> bpf <span class="nt">-c</span> xdp_drop.c <span class="nt">-o</span> xdp_drop.o
+ip <span class="nb">link set </span>dev eth0 xdp obj xdp_drop.o sec xdp     <span class="c"># attach (native mode)</span>
+ip <span class="nb">link set </span>dev eth0 xdp off                        <span class="c"># detach</span>
+</code></pre></div></div>
 
-<p>A naive VNF that copies every packet through the kernel networking stack cannot keep up with a 10/40/100 GbE NIC. NFV in production leans on <strong>fast-path</strong> techniques:</p>
+<p>eBPF is now a mainstream data plane in its own right. <strong>Cilium</strong>, a CNCF graduated project, implements Kubernetes networking, network policy, load balancing, and observability entirely in eBPF; Meta’s <strong>Katran</strong> is an XDP-based L4 load balancer; large CDNs drop DDoS traffic with XDP; and the <code class="language-plaintext highlighter-rouge">netkit</code> device (Linux 6.7) gives containers an eBPF-programmable interface with host-level performance. See <a href="../kubernetes/">Kubernetes</a> for the CNI context.</p>
+
+<h2 id="network-function-virtualization">Network Function Virtualization</h2>
+
+<p><strong>Network function virtualization</strong> (NFV) replaces dedicated appliances (firewalls, load balancers, broadband gateways, mobile packet cores) with software running on commodity servers. Functions can be deployed in minutes, scaled with demand, and chained together.</p>
+
+<h3 id="the-etsi-reference-architecture">The ETSI Reference Architecture</h3>
+
+<pre><code class="language-mermaid">flowchart TB
+    subgraph MANO["Management and orchestration (MANO)"]
+        NFVO["NFV orchestrator"]
+        VNFM["VNF manager"]
+        VIM["Virtualized infrastructure manager&lt;br/&gt;(OpenStack, Kubernetes)"]
+        NFVO --&gt; VNFM --&gt; VIM
+    end
+    subgraph FUNCS["Network functions"]
+        V1["vFirewall"]
+        V2["vRouter"]
+        V3["5G UPF"]
+    end
+    NFVI["NFV infrastructure: compute, storage, network"]
+    FUNCS --&gt; NFVI
+    VNFM -.-&gt;|lifecycle| FUNCS
+    VIM -.-&gt;|resources| NFVI
+</code></pre>
 
 <ul>
-  <li><strong>DPDK (Data Plane Development Kit)</strong> — poll-mode drivers that bypass the kernel, pin packet processing to dedicated cores, and use hugepages and lockless ring buffers to push tens of millions of packets per second from userspace.</li>
-  <li><strong>eBPF / XDP</strong> — run a verified program in the kernel at the earliest receive hook (the driver), dropping or redirecting packets before the stack touches them. Projects like Cilium and Katran build L3/L4 load balancers and firewalls this way.</li>
-  <li><strong>SR-IOV</strong> — hardware partitions one physical NIC into many virtual functions, giving each VNF near-native I/O without a software switch in the path.</li>
+  <li><strong>NFVI</strong> is the compute, storage, and network substrate.</li>
+  <li><strong>VNFs</strong> are the functions themselves, originally packaged as virtual machines. The industry has largely moved to <strong>CNFs</strong> (cloud-native network functions) packaged as containers and managed by Kubernetes, with projects such as Nephio automating their deployment.</li>
+  <li><strong>MANO</strong> instantiates, scales, heals, and chains functions from declarative descriptors.</li>
 </ul>
 
-<p>These are the same ideas that let a P4 SmartNIC or a kernel eBPF program do “in-network” work — the boundary between “the network” and “the server” has largely dissolved.</p>
+<p>The 5G core is NFV’s largest success: its functions (AMF, SMF, UPF, and others) are specified as services and are typically deployed as CNFs; see <a href="wireless-and-mobile.html">Wireless &amp; Mobile</a>.</p>
 
-<h2 id="label-and-segment-forwarding-mpls-sr-and-srv6">Label and Segment Forwarding: MPLS, SR, and SRv6</h2>
+<p>NFV and SDN are complementary. NFV virtualizes <em>what</em> a function is; SDN or segment routing steers <em>how</em> traffic reaches it. <strong>Service function chaining</strong> (SFC) sends a flow through an ordered list of functions (for example firewall, then IDS, then load balancer) regardless of where each runs, encoding the chain with the Network Service Header (NSH, RFC 8300) or an SRv6 segment list.</p>
 
-<p>Per-hop IP forwarding makes an independent longest-prefix-match decision at every router, which is flexible but offers little control over <em>which</em> path a flow takes. Label- and segment-based forwarding instead encode the path (or a service) into the packet, so the network’s interior just follows instructions.</p>
+<h3 id="fast-packet-processing">Fast Packet Processing</h3>
 
-<h3 id="mpls-multiprotocol-label-switching">MPLS (Multiprotocol Label Switching)</h3>
+<p>A function that moves every packet through the general-purpose kernel stack cannot keep up with a 100 Gb/s NIC (about 148 million minimum-size packets per second). Production NFV relies on:</p>
 
-<p><strong>MPLS</strong> forwards packets based on short, fixed-length <strong>labels</strong> rather than full routing-table lookups. An ingress router (the <strong>Label Edge Router</strong>, LER) classifies a packet into a <strong>Forwarding Equivalence Class</strong> and pushes a 4-byte label header (the “shim”) between L2 and L3. Interior routers (<strong>Label Switch Routers</strong>, LSRs) do a fast exact-match lookup on the label, <strong>swap</strong> it for the next-hop label, and forward — never re-examining the IP header. The egress LER <strong>pops</strong> the label and forwards normally.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>How it works</th>
+      <th>Trade-off</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DPDK</td>
+      <td>Poll-mode user-space drivers bypass the kernel; dedicated cores, hugepages, lockless rings</td>
+      <td>Very high throughput; cores spin at 100% and the kernel’s tools and stack are bypassed</td>
+    </tr>
+    <tr>
+      <td>eBPF/XDP</td>
+      <td>Processing in the driver, inside the kernel</td>
+      <td>Keeps kernel integration and tooling; constrained programming model</td>
+    </tr>
+    <tr>
+      <td>SR-IOV</td>
+      <td>NIC exposes many virtual functions assigned directly to VMs or containers</td>
+      <td>Near-native I/O; live migration and policy enforcement become harder</td>
+    </tr>
+    <tr>
+      <td>SmartNICs and DPUs</td>
+      <td>Offload switching, encryption, storage, and whole virtual switches to the NIC’s own processors (NVIDIA BlueField, AMD Pensando, Intel IPU, AWS Nitro)</td>
+      <td>Frees host CPUs and isolates the infrastructure from tenants; vendor-specific programming models</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The label header carries a 20-bit label, a 3-bit traffic-class (QoS) field, a bottom-of-stack bit (labels can be stacked), and a TTL. Stacking enables hierarchy: an outer label selects the tunnel, an inner label selects the VPN or service.</p>
+<h2 id="label-and-segment-forwarding">Label and Segment Forwarding</h2>
 
-<p>Benefits:</p>
+<p>Plain IP forwarding makes an independent longest-prefix-match decision at every router. That is robust but gives little control over <em>which</em> path a flow takes. Label and segment forwarding encode a path or a service into the packet so the core simply follows instructions.</p>
+
+<h3 id="mpls">MPLS</h3>
+
+<p><strong>Multiprotocol Label Switching</strong> forwards on short labels rather than IP addresses. A 32-bit label stack entry sits between the layer-2 and layer-3 headers:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Bits</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Label</td>
+      <td>20</td>
+      <td>Forwarding identifier, meaningful only to the receiving router</td>
+    </tr>
+    <tr>
+      <td>Traffic Class (TC)</td>
+      <td>3</td>
+      <td>QoS class (formerly “EXP”)</td>
+    </tr>
+    <tr>
+      <td>Bottom of Stack (S)</td>
+      <td>1</td>
+      <td>Set on the last entry; labels can be stacked</td>
+    </tr>
+    <tr>
+      <td>TTL</td>
+      <td>8</td>
+      <td>Loop protection, copied from or to the IP TTL</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart LR
+    CE1["Customer&lt;br/&gt;site A"] --&gt; PE1["Ingress PE&lt;br/&gt;push label 100"]
+    PE1 --&gt;|"100"| P1["P router&lt;br/&gt;swap 100 to 200"]
+    P1 --&gt;|"200"| P2["Penultimate P&lt;br/&gt;pop"]
+    P2 --&gt;|"IP"| PE2["Egress PE&lt;br/&gt;IP lookup"]
+    PE2 --&gt; CE2["Customer&lt;br/&gt;site B"]
+</code></pre>
+
+<p>The ingress <strong>label edge router</strong> classifies a packet into a forwarding equivalence class and <strong>pushes</strong> a label; each <strong>label switching router</strong> <strong>swaps</strong> it with an exact-match lookup; the label is <strong>popped</strong> at or just before the egress (penultimate-hop popping). Labels are distributed by LDP, or by RSVP-TE for explicitly routed traffic-engineering tunnels.</p>
+
+<p>MPLS remains the backbone of service-provider networks because of what the label stack enables:</p>
+
 <ul>
-  <li><strong>Traffic engineering</strong> — explicit <strong>Label-Switched Paths (LSPs)</strong> can be pinned along non-shortest routes (via RSVP-TE) to balance load or honor latency constraints.</li>
-  <li><strong>QoS</strong> — the traffic-class field lets each hop apply per-class queueing without deep inspection.</li>
-  <li><strong>VPN services</strong> — <strong>L3VPN</strong> (BGP/MPLS, RFC 4364) and <strong>L2VPN/VPLS</strong> let a provider carry many customers’ overlapping address spaces over one core using the label stack.</li>
-  <li><strong>Reduced lookups</strong> — exact-match label swap is simpler and faster than recursive IP LPM (less relevant on modern hardware, but historically the point).</li>
+  <li><strong>Traffic engineering</strong>: explicit label-switched paths pinned along non-shortest routes to balance load or meet latency constraints.</li>
+  <li><strong>VPNs</strong>: BGP/MPLS <strong>L3VPN</strong> (RFC 4364) carries many customers’ overlapping address spaces across one core, with an outer transport label and an inner VPN label. For layer-2 services, <strong>EVPN</strong> (RFC 7432) has largely replaced VPLS.</li>
+  <li><strong>Fast reroute</strong>: precomputed backup paths restore traffic within about 50 ms of a link failure.</li>
 </ul>
 
-<h3 id="segment-routing-sr">Segment Routing (SR)</h3>
+<h3 id="segment-routing">Segment Routing</h3>
 
-<p><strong>Segment Routing</strong> keeps the label/forwarding idea but removes MPLS’s signaling baggage (no RSVP-TE or LDP state in the core). The source encodes the path as an ordered list of <strong>segments</strong> — instructions like “go to node X” (a <em>node</em> segment) or “traverse link L” (an <em>adjacency</em> segment). Interior routers hold no per-flow tunnel state; they just execute the segment on top of the stack and pop it. This <strong>source routing</strong> model scales because the network state lives in the packet, not in the routers.</p>
+<p><strong>Segment Routing</strong> (SR, RFC 8402) keeps source routing through labels but removes the per-tunnel signalling state of LDP and RSVP-TE. The ingress node encodes a path as an ordered list of <strong>segments</strong>; transit routers execute the top segment and move to the next, holding no per-flow state.</p>
 
-<p>Segments are advertised as <strong>SIDs (Segment IDs)</strong> in the IGP (OSPF/IS-IS extensions), so a controller or the ingress node can compute and impose an explicit path with nothing more than the existing link-state database.</p>
+<ul>
+  <li>A <strong>prefix (node) segment</strong> means “go to node X by the shortest path” (loose routing).</li>
+  <li>An <strong>adjacency segment</strong> means “leave through this specific link” (strict routing).</li>
+  <li>Segments are advertised as <strong>segment identifiers</strong> (SIDs) by IS-IS or OSPF extensions, so any head end or controller can build explicit paths from the link-state database. Prefix SIDs are indices into a network-wide label block (the SRGB); adjacency SIDs are local to one router.</li>
+</ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">build_sr_label_stack</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sid_map</span><span class="p">,</span> <span class="n">node_sids</span><span class="p">,</span> <span class="n">adj_sids</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Translate an explicit hop list into an SR-MPLS label stack.
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">sr_mpls_label_stack</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">prefix_sid</span><span class="p">,</span> <span class="n">adj_sid</span><span class="p">,</span> <span class="n">srgb_base</span><span class="o">=</span><span class="mi">16000</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Turn an explicit hop list into an SR-MPLS label stack (top label first).
 
-    node_sids: {node -&gt; prefix-SID label}
-    adj_sids:  {(a, b) -&gt; adjacency-SID label}  (link-local)
-    A node-SID routes by shortest path to that node; an adjacency-SID
-    pins a specific link. Mixing them gives loose or strict source routes.
+    prefix_sid: {node: index}  -&gt; label srgb_base + index, shortest path to node
+    adj_sid:    {(a, b): label} -&gt; local label that forces the a-&gt;b link
+    Hops listed in adj_sid are pinned (strict); others use shortest paths (loose).
     </span><span class="sh">"""</span>
     <span class="n">stack</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">path</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">path</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
-        <span class="nf">if </span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="n">adj_sids</span><span class="p">:</span>
-            <span class="n">stack</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">adj_sids</span><span class="p">[(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)])</span>   <span class="c1"># strict: this exact link
-</span>        <span class="k">else</span><span class="p">:</span>
-            <span class="n">stack</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">node_sids</span><span class="p">[</span><span class="n">b</span><span class="p">])</span>       <span class="c1"># loose: shortest path to b
-</span>    <span class="c1"># Stack is imposed top-to-bottom; top label is the first instruction.
-</span>    <span class="k">return</span> <span class="n">stack</span>
-</code></pre></div></div>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">path</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+        <span class="nf">if </span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="n">adj_sid</span><span class="p">:</span>
+            <span class="n">stack</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">adj_sid</span><span class="p">[(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">stack</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">srgb_base</span> <span class="o">+</span> <span class="n">prefix_sid</span><span class="p">[</span><span class="n">b</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">stack</span>
 
-<p>Segment Routing has two data planes:</p>
+<span class="c1"># Force the R2-&gt;R3 link, then reach R5 by shortest path
+</span><span class="nf">print</span><span class="p">(</span><span class="nf">sr_mpls_label_stack</span><span class="p">([</span><span class="sh">"</span><span class="s">R1</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">R2</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">R3</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">R5</span><span class="sh">"</span><span class="p">],</span>
+                          <span class="n">prefix_sid</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">R2</span><span class="sh">"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">R3</span><span class="sh">"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="sh">"</span><span class="s">R5</span><span class="sh">"</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
+                          <span class="n">adj_sid</span><span class="o">=</span><span class="p">{(</span><span class="sh">"</span><span class="s">R2</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">R3</span><span class="sh">"</span><span class="p">):</span> <span class="mi">24023</span><span class="p">}))</span>
+<span class="c1"># [16002, 24023, 16005]
+</span></code></pre></div></div>
 
-<ul>
-  <li><strong>SR-MPLS</strong> — segments are MPLS labels, reusing existing MPLS hardware with a much simpler control plane.</li>
-  <li><strong>SRv6</strong> — segments are full IPv6 addresses carried in an IPv6 extension header (the <strong>Segment Routing Header</strong>, SRH). Because each SID is a 128-bit IPv6 address, a SID can encode not just “where” but “what to do” — a <strong>network program</strong> (RFC 8986 “SRv6 Network Programming”): forwarding, VPN decapsulation, service-chaining a packet through a VNF, and more. SRv6 unifies overlay (VPN), underlay (TE), and service chaining into one IPv6-native mechanism, which is why it has become a centerpiece of 5G transport and modern provider cores.</li>
-</ul>
+<p>A real head end compresses this further, emitting a prefix SID only where the shortest path would diverge from the intended one. Because paths are just lists, SR also enables <strong>TI-LFA</strong> (topology-independent loop-free alternate) fast reroute, where each router precomputes a repair segment list that protects against any single link or node failure.</p>
 
-<blockquote>
-  <p>SRv6 builds directly on IPv6 extension headers — see the IPv6 section below for the header machinery it depends on.</p>
-</blockquote>
-
-<h2 id="ipv6-transition">IPv6 Transition</h2>
-
-<p>IPv6 is the substrate SRv6 and much of modern transport assume, but the world still runs enormous amounts of IPv4. <strong>Transition mechanisms</strong> let the two coexist during the long migration. They fall into three families:</p>
+<p>SR has two data planes:</p>
 
 <ul>
-  <li><strong>Dual stack</strong> — hosts and routers run IPv4 and IPv6 simultaneously, choosing per-destination (typically via <em>Happy Eyeballs</em>, RFC 8305, racing A and AAAA). Conceptually the cleanest approach, but it doubles the addressing/operational burden and does nothing to relieve IPv4 exhaustion.</li>
-  <li><strong>Tunneling</strong> — carry IPv6 over an IPv4 network (or vice versa) by encapsulation: <strong>6to4</strong> and <strong>6rd</strong> (auto-derive an IPv6 prefix from an IPv4 address), <strong>Teredo</strong> (IPv6 through IPv4 NAT via UDP), and <strong>GRE / manual tunnels</strong> in provider cores. Useful to bridge IPv6 islands across legacy IPv4 transit.</li>
-  <li><strong>Translation</strong> — rewrite headers between families: <strong>NAT64</strong> + <strong>DNS64</strong> let IPv6-only clients reach IPv4-only servers (DNS64 synthesizes a AAAA record inside a well-known prefix <code class="language-plaintext highlighter-rouge">64:ff9b::/96</code>; NAT64 translates the resulting IPv6 flow to IPv4). <strong>464XLAT</strong> combines a stateless client-side translator with a stateful provider NAT64 so IPv6-only mobile networks can still carry IPv4-only applications.</li>
+  <li><strong>SR-MPLS</strong>: segments are MPLS labels, reusing existing MPLS hardware with a simpler control plane.</li>
+  <li><strong>SRv6</strong>: segments are IPv6 addresses carried in a <strong>Segment Routing Header</strong> (SRH, RFC 8754).</li>
 </ul>
 
-<p>The IPv6 header itself simplifies the data plane in ways that complement programmable networking: a fixed 40-byte base header, no in-network fragmentation (PMTUD is mandatory), no header checksum, and a chain of <strong>extension headers</strong> for options. That extension-header chain is exactly what SRv6 reuses to carry its segment list — making IPv6 not just the next addressing scheme but the programmable transport layer beneath SR.</p>
+<h3 id="srv6-network-programming">SRv6 Network Programming</h3>
 
-<h2 id="srv6-ebpf-and-the-convergence">SRv6, eBPF, and the Convergence</h2>
+<p>In SRv6 a SID is a 128-bit IPv6 address structured as <strong>locator:function:argument</strong>. The locator is a routable prefix that brings the packet to a node; the function tells that node what to do with it. RFC 8986 defines the standard behaviours:</p>
 
-<p>Several of the threads above are converging in production today:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Behaviour</th>
+      <th>Action at the node owning the SID</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>End</td>
+      <td>Endpoint: advance to the next segment in the SRH and forward</td>
+    </tr>
+    <tr>
+      <td>End.X</td>
+      <td>Advance and send out a specific adjacency (the SRv6 adjacency SID)</td>
+    </tr>
+    <tr>
+      <td>End.DT4 / End.DT6 / End.DT46</td>
+      <td>Decapsulate and look up the inner packet in a VRF table (L3VPN)</td>
+    </tr>
+    <tr>
+      <td>End.DX2</td>
+      <td>Decapsulate and send the inner Ethernet frame out an interface (L2VPN)</td>
+    </tr>
+    <tr>
+      <td>H.Encaps</td>
+      <td>Head end: wrap the packet in an outer IPv6 header with an SRH</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Because a SID can mean “deliver to VPN 42” or “send through this firewall”, SRv6 unifies the underlay (traffic engineering), overlay (VPN), and service chaining in one IPv6-native mechanism with no MPLS in the core, which has made it attractive for 5G transport. Its main cost was header size: a list of full 128-bit SIDs is large. <strong>Compressed SIDs</strong> (RFC 9800, June 2025) pack several short micro-SIDs into one 128-bit container, bringing overhead close to that of MPLS.</p>
+
+<h3 id="overlays-vxlan-geneve-and-evpn">Overlays: VXLAN, Geneve, and EVPN</h3>
+
+<p>Data-centre and cloud networks carry tenant layer-2 and layer-3 networks over a routed IP fabric using encapsulation:</p>
 
 <ul>
-  <li><strong>SRv6 (Segment Routing over IPv6)</strong> — simplified network programming, source-routed traffic engineering, and IPv6-native service chaining in one mechanism, increasingly the default for 5G transport.</li>
-  <li><strong>eBPF</strong> — programmable kernel networking without modules, powering load balancers, firewalls, and observability (Cilium, Katran, Pixie). The server’s kernel has become a programmable data plane in its own right.</li>
-  <li><strong>In-network computing</strong> — P4-programmable switches and SmartNICs that offload caching, load balancing, telemetry, and aggregation into the fabric.</li>
-  <li><strong>AI/ML in networking</strong> — controllers that predict congestion, auto-tune paths, and detect anomalies on top of the global view SDN exposes.</li>
+  <li><strong>VXLAN</strong> (RFC 7348) wraps Ethernet frames in UDP (port 4789) with a 24-bit network identifier, allowing about 16 million segments instead of 4,094 VLANs.</li>
+  <li><strong>Geneve</strong> (RFC 8926) generalizes this with extensible option fields and is used by several cloud and virtual-switch implementations.</li>
+  <li><strong>BGP EVPN</strong> is the control plane: instead of flooding to learn MAC addresses, tunnel endpoints advertise MAC and IP bindings through BGP, enabling distributed gateways and multi-homing.</li>
 </ul>
 
-<p>The common thread is the one this page opened with: every layer of the network — control plane, data plane, network function, and forwarding fabric — is becoming software you can change.</p>
+<h2 id="the-ipv6-transition">The IPv6 Transition</h2>
+
+<p>SRv6 and much modern infrastructure assume IPv6, yet the internet still runs both protocols. Close to half of Google’s users now reach it over IPv6, with mobile networks and some national markets well above that, while many enterprise and legacy networks remain IPv4-only. Transition mechanisms fall into three families:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Family</th>
+      <th>Mechanism</th>
+      <th>How it works</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Dual stack</td>
+      <td>Hosts run both protocols</td>
+      <td>Clients race IPv6 and IPv4 connections and prefer IPv6 (Happy Eyeballs, RFC 8305)</td>
+      <td>The default for most networks; does not relieve IPv4 address scarcity</td>
+    </tr>
+    <tr>
+      <td>Tunnelling</td>
+      <td>6in4, GRE</td>
+      <td>IPv6 carried inside IPv4 across legacy segments</td>
+      <td>Still used for manual tunnels</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>6to4, Teredo</td>
+      <td>Automatic tunnels derived from IPv4 addresses</td>
+      <td>Obsolete; 6to4 anycast deprecated (RFC 7526), Teredo disabled by default</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>DS-Lite (RFC 6333)</td>
+      <td>IPv4 carried over an IPv6-only access network to a provider NAT</td>
+      <td>Used by some broadband ISPs</td>
+    </tr>
+    <tr>
+      <td>Translation</td>
+      <td>NAT64 + DNS64 (RFC 6146, 6147)</td>
+      <td>IPv6-only clients reach IPv4-only servers through a stateful translator</td>
+      <td>Standard on IPv6-only mobile networks</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>464XLAT (RFC 6877)</td>
+      <td>Client-side stateless translator plus provider NAT64, so IPv4-only applications work on IPv6-only networks</td>
+      <td>Deployed by major mobile carriers; built into Android</td>
+    </tr>
+    <tr>
+      <td> </td>
+      <td>MAP-E / MAP-T</td>
+      <td>Stateless sharing of IPv4 addresses across subscribers</td>
+      <td>Used by some ISPs</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>NAT64 with DNS64 is the core of IPv6-only access:</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as IPv6-only client
+    participant D as DNS64 resolver
+    participant N as NAT64 gateway
+    participant S as IPv4-only server 192.0.2.33
+    C-&gt;&gt;D: AAAA? legacy.example
+    Note over D: No AAAA record exists, only A 192.0.2.33
+    D--&gt;&gt;C: AAAA 64:ff9b::c000:221 (synthesized)
+    C-&gt;&gt;N: IPv6 packet to 64:ff9b::c000:221
+    N-&gt;&gt;S: IPv4 packet from pool address to 192.0.2.33
+    S--&gt;&gt;N: IPv4 reply
+    N--&gt;&gt;C: IPv6 reply
+</code></pre>
+
+<p>The trend is toward <strong>IPv6-only</strong> networks with translation at the edge. The <strong>IPv6-mostly</strong> pattern lets dual-stack-capable clients signal (via DHCPv4 option 108, RFC 8925) that they can operate without IPv4, so the network assigns IPv4 addresses only to devices that still need them.</p>
+
+<p>The IPv6 header also suits programmable forwarding: a fixed 40-byte base header, no router fragmentation (sources rely on path-MTU discovery), no header checksum, and a chain of <strong>extension headers</strong>. SRv6 uses exactly that extension-header mechanism to carry its segment list.</p>
+
+<h2 id="convergence">Convergence</h2>
+
+<p>The technologies on this page are converging on one model. Switch pipelines are programmed in P4, host data planes in eBPF, NICs run their own programmable offloads, network functions run as containers, and paths and services are expressed as SRv6 segment lists computed by controllers from streaming telemetry. Every layer of the network, from control plane to NIC, has become software that can be versioned, tested, and rolled back, which is why network verification and safe automated change are now among the field’s most active areas (see <a href="modern-architecture.html#other-active-areas">Modern Architecture &amp; Frontiers</a>).</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="routing.html">Routing &amp; Switching</a> — the classical distributed control plane SDN replaces, plus OSPF and BGP.</li>
-  <li><a href="transport-and-protocols.html">Transport &amp; Protocols</a> — QUIC, TCP, and the protocols riding over these fabrics.</li>
-  <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — the metrics, queueing, and defenses these architectures build on.</li>
-  <li><a href="modern-architecture.html">Modern &amp; Future Networking</a> — cloud-networking primitives and the research frontier built on programmable networks.</li>
-  <li><a href="../aws/">AWS</a> — VPC, Direct Connect, and managed load balancers in a real cloud.</li>
-  <li><a href="../kubernetes/">Kubernetes</a> — cluster networking, CNI plugins, and eBPF-based dataplanes.</li>
+  <li><a href="routing.html">Routing &amp; Switching</a> — the distributed control plane: OSPF, BGP, and per-hop forwarding</li>
+  <li><a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> — TCP, QUIC, and the protocols carried over these fabrics</li>
+  <li><a href="performance-and-security.html">Performance, QoS &amp; Security</a> — queueing, QoS, and the telemetry that programmable data planes extend</li>
+  <li><a href="modern-architecture.html">Modern Architecture &amp; Frontiers</a> — traffic models, AI-cluster fabrics, and the research frontier</li>
+  <li><a href="cloud-networking.html">Cloud Networking</a> — VPCs and load balancers built on these ideas</li>
+  <li><a href="../kubernetes/">Kubernetes</a> — cluster networking, CNI plugins, and eBPF data planes</li>
 </ul>
 
       </section>

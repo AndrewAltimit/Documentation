@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How Git authenticates to remotes (SSH keys, deploy keys, tokens, credential helpers), how commits are signed with GPG, SSH or Sigstore, how forges authorize ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Git: Authentication & Access Control">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How Git authenticates to remotes (SSH keys, deploy keys, tokens, credential helpers), how commits are signed with GPG, SSH or Sigstore, how forges authorize ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/git/auth-and-access-control.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Git: Authentication & Access Control">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How Git authenticates to remotes (SSH keys, deploy keys, tokens, credential helpers), how commits are signed with GPG, SSH or Sigstore, how forges authorize ...">
 
 <title>Git: Authentication & Access Control | Andrews Notebook</title>
 
@@ -3135,15 +3135,99 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Git Internals</a> ›</p>
 
-<p>Git itself stores no credentials and enforces no permissions: it is a content-addressable store that any clone can read or rewrite. <strong>Authentication</strong> (proving <em>who is connecting</em>) and <strong>access control</strong> (deciding <em>what they may do</em>) live in the <strong>transport layer</strong> and the <strong>hosting platform</strong> — SSH, HTTPS, the credential helper, and the server-side policy of GitHub/GitLab/Bitbucket/Gitea. A separate, independent layer — <strong>commit and tag signing</strong> — proves <em>who authored a change</em> and that it has not been altered, regardless of how it was transported.</p>
+<p>Git has no user accounts and enforces no permissions of its own: anyone with a copy of a repository can read and rewrite it. <strong>Authentication</strong> (who is connecting) and <strong>authorization</strong> (what they may do) are handled by the transport, SSH or HTTPS, and by the hosting server or forge. A separate layer, <strong>commit and tag signing</strong>, records who created an object in a way anyone can verify later, independently of how it was transported. This page covers both layers, Git’s own local trust settings, and how to contain a leaked credential.</p>
 
-<p>This page covers all four: how you authenticate to a remote (SSH keys, deploy keys, personal-access tokens, credential helpers), how you cryptographically vouch for your own commits (GPG and SSH signing), how organizations centralize identity (SAML/OAuth SSO), and how to revoke, audit, and contain credentials when they leak.</p>
+<h2 id="three-separate-questions">Three separate questions</h2>
 
-<p><strong>Two orthogonal questions:</strong> <em>transport auth</em> answers “may this connection fetch or push?” and is checked by the server at clone/fetch/push time. <em>Signing</em> answers “who really wrote this commit?” and is verified by anyone, any time, long after the push. A pushed commit can be authentic-by-transport but unsigned, or signed but pushed by a leaked token. You generally want both.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Mechanism</th>
+      <th>Checked by</th>
+      <th>When</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>May this connection fetch or push?</td>
+      <td>SSH key, token, OAuth, SSO</td>
+      <td>The server</td>
+      <td>At each fetch, clone and push</td>
+    </tr>
+    <tr>
+      <td>What may this identity do to this repository and ref?</td>
+      <td>Roles, branch protection, rulesets, server hooks</td>
+      <td>The server</td>
+      <td>At each push (and in the web UI)</td>
+    </tr>
+    <tr>
+      <td>Who created this commit or tag, and is it unaltered?</td>
+      <td>GPG, SSH or X.509 signature</td>
+      <td>Anyone</td>
+      <td>At any time after creation</td>
+    </tr>
+  </tbody>
+</table>
 
-<h2 id="the-transport-landscape">The Transport Landscape</h2>
+<p>The answers are independent. A commit can be pushed by an authenticated user but be unsigned, or be validly signed but pushed with a stolen token. Author and committer names in a commit are plain text that anyone can set (<code class="language-plaintext highlighter-rouge">git -c user.email=ceo@example.com commit</code>), so only a signature says anything about authorship.</p>
 
-<p>A remote URL’s scheme selects the transport and therefore the auth mechanism:</p>
+<pre><code class="language-mermaid">flowchart LR
+    Dev["Developer"] -- "SSH key or token" --&gt; Auth["Transport authentication"]
+    Auth --&gt; SSO["Organisation policy&lt;br/&gt;SSO, 2FA, IP allow list"]
+    SSO --&gt; Authz["Authorization&lt;br/&gt;roles, rulesets, CODEOWNERS"]
+    Authz --&gt; Hooks["Push checks&lt;br/&gt;pre-receive hooks, secret scanning,&lt;br/&gt;required signatures"]
+    Hooks --&gt; Repo[("Repository")]
+    Repo -. "anyone can verify later" .-&gt; Verify["Signature verification"]
+</code></pre>
+
+<h2 id="choosing-a-credential">Choosing a credential</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Consumer</th>
+      <th>Recommended credential</th>
+      <th>Why</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Developer workstation</td>
+      <td>SSH key (hardware-backed if possible) or HTTPS through Git Credential Manager with OAuth</td>
+      <td>No long-lived secret to paste; keys can require a touch per use</td>
+    </tr>
+    <tr>
+      <td>CI job on the forge’s own runners</td>
+      <td>The job’s built-in, per-run token (for example GitHub Actions’ <code class="language-plaintext highlighter-rouge">GITHUB_TOKEN</code>)</td>
+      <td>Minted per job, scoped to the repository, expires automatically</td>
+    </tr>
+    <tr>
+      <td>Automation across several repositories</td>
+      <td>App installation token (GitHub App, GitLab group or project access token)</td>
+      <td>Short-lived, scoped, not tied to a person, individually revocable</td>
+    </tr>
+    <tr>
+      <td>A single server that pulls one repository</td>
+      <td>Read-only deploy key</td>
+      <td>Blast radius of one repository</td>
+    </tr>
+    <tr>
+      <td>Ad-hoc scripts using the API</td>
+      <td>Fine-grained personal access token with an expiry</td>
+      <td>Scoped to specific repositories and permissions</td>
+    </tr>
+    <tr>
+      <td>Anything else</td>
+      <td>Avoid classic tokens and shared human accounts</td>
+      <td>Account-wide scope and poor attribution</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="transports">Transports</h2>
+
+<p>The remote URL’s scheme selects the transport and therefore the authentication method:</p>
 
 <table>
   <thead>
@@ -3155,108 +3239,120 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">git@github.com:org/repo.git</code></td>
+      <td><code class="language-plaintext highlighter-rouge">git@github.com:org/repo.git</code> (scp-like)</td>
       <td>SSH</td>
-      <td>SSH key pair (user or deploy key)</td>
+      <td>Key pair</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">ssh://git@host:22/org/repo.git</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ssh://git@host:2222/org/repo.git</code></td>
       <td>SSH</td>
-      <td>SSH key pair</td>
+      <td>Key pair</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">https://github.com/org/repo.git</code></td>
       <td>HTTPS</td>
-      <td>Username + token/password via credential helper</td>
+      <td>Username plus token or OAuth token, via a credential helper</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">git://host/repo.git</code></td>
-      <td>Git protocol</td>
-      <td><strong>None</strong> — anonymous, read-only, unauthenticated</td>
+      <td>Git daemon</td>
+      <td>Nothing: anonymous, unencrypted, read-only</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">/path/to/repo.git</code> or <code class="language-plaintext highlighter-rouge">file://</code></td>
-      <td>Local filesystem</td>
-      <td>OS filesystem permissions</td>
+      <td><code class="language-plaintext highlighter-rouge">/srv/repo.git</code>, <code class="language-plaintext highlighter-rouge">file://</code></td>
+      <td>Local</td>
+      <td>Filesystem permissions</td>
     </tr>
   </tbody>
 </table>
 
-<p>The legacy <code class="language-plaintext highlighter-rouge">git://</code> protocol is unauthenticated and unencrypted; major hosts have disabled it. In practice you choose between <strong>SSH</strong> and <strong>HTTPS</strong>, and the rest of this page is about doing each securely.</p>
+<p>The unauthenticated <code class="language-plaintext highlighter-rouge">git://</code> protocol offers no integrity protection against network attackers, and GitHub disabled it in 2022. In practice the choice is between SSH and HTTPS.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git remote <span class="nt">-v</span>                         <span class="c"># inspect current remote URLs</span>
-git remote set-url origin git@github.com:org/repo.git   <span class="c"># switch to SSH</span>
-git remote set-url origin https://github.com/org/repo.git  <span class="c"># switch to HTTPS</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git remote <span class="nt">-v</span>
+git remote set-url origin git@github.com:org/repo.git       <span class="c"># switch to SSH</span>
+git remote set-url origin https://github.com/org/repo.git   <span class="c"># switch to HTTPS</span>
 </code></pre></div></div>
 
-<h2 id="ssh-keys">SSH Keys</h2>
+<p><strong>SSH or HTTPS?</strong> SSH suits developer machines (a key plus an agent, nothing to paste) and fixed hosts with deploy keys. HTTPS passes more easily through corporate proxies on port 443 and fits OAuth, SSO and short-lived tokens. Both are secure when configured as below. <code class="language-plaintext highlighter-rouge">url.&lt;base&gt;.insteadOf</code> rewrites URLs transparently, so you can use SSH even when a project’s submodules or scripts use HTTPS URLs:</p>
 
-<p>SSH authenticates with <strong>public-key cryptography</strong>: you hold a private key, the server holds your public key, and a challenge-response handshake proves you possess the private key without ever transmitting it. No secret crosses the wire on every push the way a token does.</p>
-
-<h3 id="generating-a-key">Generating a Key</h3>
-
-<p>Prefer <strong>Ed25519</strong> (small, fast, modern). Use RSA only where you must interoperate with old servers, and then at 4096 bits.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Modern default — Ed25519</span>
-ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-C</span> <span class="s2">"you@example.com"</span> <span class="nt">-f</span> ~/.ssh/id_ed25519
-
-<span class="c"># Hardware-backed (FIDO2 security key) — private key cannot be exfiltrated</span>
-ssh-keygen <span class="nt">-t</span> ed25519-sk <span class="nt">-C</span> <span class="s2">"you@example.com"</span> <span class="nt">-f</span> ~/.ssh/id_ed25519_sk
-
-<span class="c"># Legacy interop only</span>
-ssh-keygen <span class="nt">-t</span> rsa <span class="nt">-b</span> 4096 <span class="nt">-C</span> <span class="s2">"you@example.com"</span> <span class="nt">-f</span> ~/.ssh/id_rsa
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> url.<span class="s2">"git@github.com:"</span>.insteadOf <span class="s2">"https://github.com/"</span>
 </code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">-sk</code> variants (<code class="language-plaintext highlighter-rouge">ed25519-sk</code>, <code class="language-plaintext highlighter-rouge">ecdsa-sk</code>) bind the key to a FIDO2 authenticator (YubiKey, Touch ID via a resident credential). The private key material lives in the hardware and a touch/PIN is required per use, so a compromised laptop cannot push on its own.</p>
+<h2 id="ssh-keys">SSH keys</h2>
 
-<p><strong>Always set a passphrase</strong> on a software key. The on-disk key is then encrypted; an attacker who copies <code class="language-plaintext highlighter-rouge">~/.ssh/id_ed25519</code> still needs the passphrase. Combine the passphrase with <code class="language-plaintext highlighter-rouge">ssh-agent</code> so you type it once per session.</p>
+<p>SSH uses public-key authentication: the server holds your public key and challenges the client to prove possession of the matching private key, which never leaves your machine.</p>
+
+<h3 id="generating-a-key">Generating a key</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Default choice</span>
+ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-C</span> <span class="s2">"you@example.com"</span>
+
+<span class="c"># FIDO2 hardware key (OpenSSH 8.2+): the private key never leaves the device</span>
+ssh-keygen <span class="nt">-t</span> ed25519-sk <span class="nt">-O</span> resident <span class="nt">-O</span> verify-required <span class="nt">-C</span> <span class="s2">"you@example.com"</span>
+
+<span class="c"># Only for servers that cannot use Ed25519</span>
+ssh-keygen <span class="nt">-t</span> rsa <span class="nt">-b</span> 4096 <span class="nt">-C</span> <span class="s2">"you@example.com"</span>
+</code></pre></div></div>
+
+<p>With <code class="language-plaintext highlighter-rouge">-sk</code> key types the file on disk is only a handle; signing requires the physical authenticator and a touch (plus a PIN with <code class="language-plaintext highlighter-rouge">verify-required</code>). A stolen laptop or a copied <code class="language-plaintext highlighter-rouge">~/.ssh</code> directory is then not enough to push. <code class="language-plaintext highlighter-rouge">-O resident</code> stores the handle on the device so <code class="language-plaintext highlighter-rouge">ssh-keygen -K</code> can recreate it on another machine.</p>
+
+<p>Protect software keys with a passphrase and let <code class="language-plaintext highlighter-rouge">ssh-agent</code> (or the OS keychain) cache the decrypted key:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">eval</span> <span class="s2">"</span><span class="si">$(</span>ssh-agent <span class="nt">-s</span><span class="si">)</span><span class="s2">"</span>
-ssh-add ~/.ssh/id_ed25519          <span class="c"># add key; agent caches the decrypted key</span>
-ssh-add <span class="nt">-t</span> 8h ~/.ssh/id_ed25519    <span class="c"># auto-forget after 8 hours</span>
-ssh-add <span class="nt">-l</span>                         <span class="c"># list loaded identities</span>
+ssh-add <span class="nt">-t</span> 8h ~/.ssh/id_ed25519    <span class="c"># forget it after 8 hours</span>
+ssh-add <span class="nt">-l</span>                         <span class="c"># list loaded keys</span>
 </code></pre></div></div>
 
-<h3 id="registering-and-testing">Registering and Testing</h3>
+<h3 id="registering-and-testing">Registering and testing</h3>
 
-<p>Copy the <strong>public</strong> half (<code class="language-plaintext highlighter-rouge">~/.ssh/id_ed25519.pub</code>, never the file without <code class="language-plaintext highlighter-rouge">.pub</code>) into your account’s SSH keys page on the host, then verify:</p>
+<p>Upload the public half (<code class="language-plaintext highlighter-rouge">~/.ssh/id_ed25519.pub</code>) to your account, then test:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh <span class="nt">-T</span> git@github.com      <span class="c"># GitHub greets you by username on success</span>
-ssh <span class="nt">-Tv</span> git@github.com     <span class="c"># verbose — shows which key was offered and accepted</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh <span class="nt">-T</span> git@github.com              <span class="c"># greets you by username</span>
+ssh <span class="nt">-vT</span> git@github.com             <span class="c"># shows which keys were offered and accepted</span>
 </code></pre></div></div>
 
-<h3 id="per-host-configuration">Per-Host Configuration</h3>
+<h3 id="several-identities-on-one-host">Several identities on one host</h3>
 
-<p><code class="language-plaintext highlighter-rouge">~/.ssh/config</code> pins which key, user, and options apply to each host. This is essential when you have multiple identities (work and personal accounts on the same host) — SSH cannot distinguish them by URL alone.</p>
+<p>A host such as <code class="language-plaintext highlighter-rouge">github.com</code> identifies you by the key you present, so work and personal accounts need separate keys and a way to select them. Define host aliases in <code class="language-plaintext highlighter-rouge">~/.ssh/config</code>:</p>
 
-<pre><code class="language-sshconfig"># ~/.ssh/config
-Host github-personal
-    HostName github.com
-    User git
-    IdentityFile ~/.ssh/id_ed25519_personal
-    IdentitiesOnly yes          # offer ONLY this key, do not spray all keys
-
-Host github-work
+<pre><code class="language-sshconfig">Host github-work
     HostName github.com
     User git
     IdentityFile ~/.ssh/id_ed25519_work
     IdentitiesOnly yes
+
+Host github.com
+    IdentityFile ~/.ssh/id_ed25519_personal
+    IdentitiesOnly yes
 </code></pre>
 
-<p>Then clone with the alias: <code class="language-plaintext highlighter-rouge">git clone git@github-work:org/repo.git</code>. <code class="language-plaintext highlighter-rouge">IdentitiesOnly yes</code> prevents the agent from offering every loaded key in turn, which both leaks key fingerprints and can trip “too many authentication failures” lockouts.</p>
+<p>Clone work repositories as <code class="language-plaintext highlighter-rouge">git@github-work:org/repo.git</code>. <code class="language-plaintext highlighter-rouge">IdentitiesOnly yes</code> stops the client from offering every key the agent holds, which otherwise can pick the wrong account or hit the server’s limit on authentication attempts. An alternative that avoids aliases is Git’s <code class="language-plaintext highlighter-rouge">core.sshCommand</code>, set per repository or through a conditional include:</p>
 
-<h3 id="verifying-the-servers-host-key">Verifying the Server’s Host Key</h3>
+<div class="language-ini highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># ~/.gitconfig
+</span><span class="nn">[includeIf "gitdir:~/work/"]</span>
+    <span class="py">path</span> <span class="p">=</span> <span class="s">~/.gitconfig-work</span>
 
-<p>SSH auth is mutual: the <em>server</em> also presents a host key, and trusting the wrong one enables a man-in-the-middle. The first connection records the host key in <code class="language-plaintext highlighter-rouge">~/.ssh/known_hosts</code>. Verify it against the host’s <strong>published</strong> fingerprints before accepting, rather than blindly typing “yes”. Hosts publish their key fingerprints (GitHub, for instance, documents its Ed25519/RSA/ECDSA fingerprints); compare with:</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh-keygen <span class="nt">-lf</span> ~/.ssh/known_hosts <span class="nt">-F</span> github.com
+<span class="c"># ~/.gitconfig-work
+</span><span class="nn">[core]</span>
+    <span class="py">sshCommand</span> <span class="p">=</span> <span class="s">ssh -i ~/.ssh/id_ed25519_work -o IdentitiesOnly=yes</span>
+<span class="nn">[user]</span>
+    <span class="py">email</span> <span class="p">=</span> <span class="s">you@company.example</span>
 </code></pre></div></div>
 
-<p>A sudden host-key-changed warning on an established host is a red flag, not noise to suppress.</p>
+<h3 id="verifying-the-server">Verifying the server</h3>
 
-<h2 id="deploy-keys">Deploy Keys</h2>
+<p>Authentication is mutual: the server presents a host key, and trusting the wrong one allows a man-in-the-middle. On first connection compare the fingerprint with the one the host publishes (GitHub lists its keys in its documentation and at <code class="language-plaintext highlighter-rouge">https://api.github.com/meta</code>) rather than accepting blindly:</p>
 
-<p>A <strong>deploy key</strong> is an SSH public key attached to a <strong>single repository</strong> rather than to a user account. It is the right credential for CI servers, deployment hosts, and automation that needs exactly one repo.</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh-keygen <span class="nt">-lF</span> github.com          <span class="c"># fingerprint(s) already in known_hosts</span>
+</code></pre></div></div>
+
+<p>A “REMOTE HOST IDENTIFICATION HAS CHANGED” warning for an established host deserves investigation. It can be legitimate (GitHub replaced its RSA host key in March 2023 after the private key was briefly exposed), but confirm against the host’s announcement before editing <code class="language-plaintext highlighter-rouge">known_hosts</code>.</p>
+
+<p>Some forges (GitHub Enterprise, GitLab self-managed) also accept <strong>SSH certificates</strong> signed by an organisation’s certificate authority, which lets an organisation issue short-lived SSH credentials centrally instead of collecting individual public keys.</p>
+
+<h2 id="deploy-keys">Deploy keys</h2>
+
+<p>A deploy key is an SSH public key attached to one repository rather than to a user.</p>
 
 <table>
   <thead>
@@ -3269,78 +3365,92 @@ Host github-work
   <tbody>
     <tr>
       <td>Scope</td>
-      <td>All repos the user can access</td>
+      <td>Every repository the user can access</td>
       <td>One repository</td>
     </tr>
     <tr>
-      <td>Default access</td>
-      <td>Read/write per user role</td>
-      <td><strong>Read-only</strong> unless write explicitly enabled</td>
+      <td>Access</td>
+      <td>Follows the user’s role</td>
+      <td>Read-only unless write is explicitly granted</td>
     </tr>
     <tr>
       <td>Tied to</td>
-      <td>A human account</td>
-      <td>A repo + a key pair</td>
+      <td>A person</td>
+      <td>A repository</td>
     </tr>
     <tr>
-      <td>Reused across repos</td>
-      <td>Yes</td>
-      <td>A given key may be registered to only one repo</td>
+      <td>Reuse</td>
+      <td>One key, many repositories</td>
+      <td>A key can be registered on only one repository</td>
     </tr>
     <tr>
-      <td>Blast radius if leaked</td>
-      <td>Everything the user can touch</td>
-      <td>That one repo</td>
+      <td>Leak impact</td>
+      <td>Everything the user can reach</td>
+      <td>That repository</td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># On the CI/deploy host, generate a key with NO passphrase (unattended use)</span>
-ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-C</span> <span class="s2">"ci-deploy: example-service"</span> <span class="nt">-f</span> ~/.ssh/deploy_example <span class="nt">-N</span> <span class="s2">""</span>
-<span class="c"># Register deploy_example.pub on the repository's "Deploy keys" page,</span>
-<span class="c"># granting write access only if the pipeline must push (e.g. tags, gh-pages).</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-C</span> <span class="s2">"deploy: example-service"</span> <span class="nt">-f</span> ~/.ssh/deploy_example <span class="nt">-N</span> <span class="s2">""</span>
+<span class="c"># Register deploy_example.pub under the repository's Deploy keys;</span>
+<span class="c"># enable write access only if the job must push (tags, a gh-pages branch).</span>
 </code></pre></div></div>
 
-<p><strong>Principle of least privilege:</strong> add the deploy key read-only unless the pipeline genuinely pushes. A read-only deploy key that leaks cannot corrupt the repository. Because a deploy key with a passphrase cannot be used unattended, compensate with tight scope (one repo, read-only) and rotation rather than relying on the missing passphrase.</p>
+<p>Unattended keys have no passphrase, so compensate with narrow scope and rotation. When one server needs several repositories, a machine identity (a GitHub App, or GitLab group or project access tokens) scales better than many deploy keys.</p>
 
-<p>For automation that must span <em>several</em> repositories, prefer a <strong>machine/bot account</strong> with its own SSH key, or a host-native machine identity (GitHub Apps / installation tokens, GitLab project access tokens) over reusing one human’s key — those issue short-lived, scoped, individually-revocable credentials and keep the audit trail attributable.</p>
+<h2 id="https-tokens-and-credential-helpers">HTTPS, tokens and credential helpers</h2>
 
-<h2 id="https-tokens-and-credential-helpers">HTTPS, Tokens, and Credential Helpers</h2>
+<h3 id="tokens-instead-of-passwords">Tokens instead of passwords</h3>
 
-<p>Over HTTPS, Git authenticates with a username and a <strong>secret</strong> on every request. Plain account passwords for Git operations are deprecated or removed on the major hosts; you use a <strong>token</strong> instead.</p>
+<p>Major forges no longer accept account passwords for Git over HTTPS; you authenticate with a token that can be scoped, given an expiry, and revoked individually.</p>
 
-<h3 id="personal-access-tokens-pats">Personal Access Tokens (PATs)</h3>
+<p>On GitHub:</p>
 
-<p>A PAT is a long random string that stands in for your password for Git (and API) operations. The point of a token over a password is that it can be <strong>scoped</strong> (limited to specific permissions), <strong>time-boxed</strong> (expires), and <strong>revoked individually</strong> without touching your password or other tokens.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Token</th>
+      <th>Scope</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Fine-grained personal access token</strong></td>
+      <td>One user or organisation; selected repositories; per-permission read or write</td>
+      <td>Recommended by GitHub where possible. Cannot span multiple organisations or act as an outside collaborator; at most 50 per user. Organisations can require approval.</td>
+    </tr>
+    <tr>
+      <td><strong>Classic personal access token</strong></td>
+      <td>Coarse scopes such as <code class="language-plaintext highlighter-rouge">repo</code>, which covers every repository you can access</td>
+      <td>Needed only for the cases fine-grained tokens do not support. Unused classic tokens are removed automatically after a year.</td>
+    </tr>
+    <tr>
+      <td><strong>GitHub App installation token</strong></td>
+      <td>The repositories and permissions the App was granted</td>
+      <td>Expires after one hour; the App’s identity, not a person’s, appears in audit logs</td>
+    </tr>
+    <tr>
+      <td><strong><code class="language-plaintext highlighter-rouge">GITHUB_TOKEN</code> in Actions</strong></td>
+      <td>The workflow’s repository, with permissions set by the workflow’s <code class="language-plaintext highlighter-rouge">permissions:</code> block</td>
+      <td>Created per job and revoked when the job ends</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Two generations exist on GitHub, and the distinction matters:</p>
+<p>GitLab offers the equivalent personal, project and group access tokens plus CI job tokens; Bitbucket uses API tokens and repository or workspace access tokens.</p>
+
+<p>Good practice for any token:</p>
 
 <ul>
-  <li><strong>Classic PATs</strong> carry coarse, account-wide scopes (<code class="language-plaintext highlighter-rouge">repo</code>, <code class="language-plaintext highlighter-rouge">read:org</code>, <code class="language-plaintext highlighter-rouge">write:packages</code>, …). The <code class="language-plaintext highlighter-rouge">repo</code> scope grants access to <em>every</em> repository you can reach — broad blast radius.</li>
-  <li><strong>Fine-grained PATs</strong> are scoped to <strong>specific repositories</strong> (or a single org) with <strong>per-resource permissions</strong> (e.g. Contents: read-only, Pull requests: read/write) and a <strong>mandatory expiry</strong>. Prefer these.</li>
+  <li>Grant the minimum permissions and repositories, and set the shortest workable expiry.</li>
+  <li>Use one token per consumer so a revocation affects one thing and audit logs show which consumer acted.</li>
+  <li>Never put a token in a remote URL (<code class="language-plaintext highlighter-rouge">https://user:TOKEN@host/...</code>). It is written to <code class="language-plaintext highlighter-rouge">.git/config</code>, printed by <code class="language-plaintext highlighter-rouge">git remote -v</code>, and easily ends up in shell history and CI logs. Use a credential helper.</li>
 </ul>
 
-<p>Best practices for any token:</p>
+<h3 id="credential-helpers">Credential helpers</h3>
 
-<ul>
-  <li><strong>Scope to the minimum</strong> permissions and repositories the task needs.</li>
-  <li><strong>Set the shortest practical expiry</strong> (e.g. 30–90 days, or hours for ephemeral CI).</li>
-  <li><strong>One token per consumer</strong> (per machine, per pipeline) so revocation is surgical and the audit log shows which consumer did what.</li>
-  <li><strong>Never</strong> embed a token in a remote URL (<code class="language-plaintext highlighter-rouge">https://user:TOKEN@host/...</code>) — it lands in <code class="language-plaintext highlighter-rouge">.git/config</code>, in <code class="language-plaintext highlighter-rouge">git remote -v</code> output, in shell history, and in CI logs. Use a credential helper instead.</li>
-</ul>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/org/repo.git
-<span class="c"># Username: your-username</span>
-<span class="c"># Password: paste the PAT (NOT your account password)</span>
-</code></pre></div></div>
-
-<h3 id="github-app-installation-tokens">GitHub App Installation Tokens</h3>
-
-<p>For server-to-server automation at scale, an <strong>installation access token</strong> minted by a GitHub App is superior to a PAT: it is <strong>short-lived</strong> (about an hour), <strong>scoped</strong> to the App’s installed repositories and permissions, and <strong>not</strong> tied to any human’s account. CI systems mint one per job and discard it. This is the modern replacement for “service account with a long-lived PAT.”</p>
-
-<h3 id="credential-helpers">Credential Helpers</h3>
-
-<p>A <strong>credential helper</strong> stores and supplies your HTTPS secret so you are not prompted every push. Configure one — never the bare <code class="language-plaintext highlighter-rouge">store</code> helper, which writes the token to a <strong>plaintext</strong> file (<code class="language-plaintext highlighter-rouge">~/.git-credentials</code>, mode 600 but still cleartext).</p>
+<p>A credential helper supplies HTTPS credentials to Git so you are not prompted on every operation.</p>
 
 <table>
   <thead>
@@ -3352,327 +3462,411 @@ ssh-keygen <span class="nt">-t</span> ed25519 <span class="nt">-C</span> <span c
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">cache</code></td>
-      <td>RAM, time-limited</td>
-      <td><code class="language-plaintext highlighter-rouge">--timeout</code> seconds; nothing hits disk</td>
-    </tr>
-    <tr>
-      <td><code class="language-plaintext highlighter-rouge">store</code></td>
-      <td><strong>Plaintext file</strong></td>
-      <td>Avoid; cleartext on disk</td>
+      <td><code class="language-plaintext highlighter-rouge">manager</code> (Git Credential Manager)</td>
+      <td>OS keystore</td>
+      <td>Cross-platform; performs OAuth in the browser, including device-code flow, and refreshes tokens; handles GitHub, GitLab, Bitbucket and Azure Repos</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">osxkeychain</code></td>
       <td>macOS Keychain</td>
-      <td>OS-encrypted</td>
+      <td>Ships with Git on macOS</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">manager</code> (GCM)</td>
-      <td>OS keystore (Keychain / libsecret / Windows Credential Manager)</td>
-      <td>Cross-platform; supports OAuth device flow</td>
+      <td><code class="language-plaintext highlighter-rouge">wincred</code></td>
+      <td>Windows Credential Manager</td>
+      <td>Superseded by GCM, which Git for Windows installs</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">libsecret</code></td>
-      <td>Linux Secret Service (GNOME Keyring / KWallet)</td>
-      <td>OS-encrypted</td>
+      <td>Secret Service (GNOME Keyring, KWallet)</td>
+      <td>Linux; often packaged separately</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cache</code></td>
+      <td>Memory of a background daemon</td>
+      <td>Nothing on disk; expires after <code class="language-plaintext highlighter-rouge">--timeout</code> seconds</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">store</code></td>
+      <td>Plaintext file <code class="language-plaintext highlighter-rouge">~/.git-credentials</code></td>
+      <td>Avoid: the secret is stored unencrypted</td>
     </tr>
   </tbody>
 </table>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># In-memory only, forget after 1 hour</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> credential.helper manager
 git config <span class="nt">--global</span> credential.helper <span class="s1">'cache --timeout=3600'</span>
 
-<span class="c"># OS-native secure storage (recommended)</span>
-git config <span class="nt">--global</span> credential.helper manager          <span class="c"># Git Credential Manager</span>
-git config <span class="nt">--global</span> credential.helper osxkeychain       <span class="c"># macOS</span>
-git config <span class="nt">--global</span> credential.helper libsecret         <span class="c"># Linux Secret Service</span>
-
-<span class="c"># Scope a helper to one host (useful for split work/personal identities)</span>
-git config <span class="nt">--global</span> credential.https://github.com.helper manager
+<span class="c"># Different settings per host</span>
+git config <span class="nt">--global</span> credential.https://git.example.com.username alice
+git config <span class="nt">--global</span> credential.https://dev.azure.com.useHttpPath <span class="nb">true</span>   <span class="c"># one credential per repository path</span>
 </code></pre></div></div>
 
-<p>The helper protocol is simple text on stdin/stdout (<code class="language-plaintext highlighter-rouge">protocol</code>, <code class="language-plaintext highlighter-rouge">host</code>, <code class="language-plaintext highlighter-rouge">username</code>, <code class="language-plaintext highlighter-rouge">password</code> key/value lines terminated by a blank line). Git calls <code class="language-plaintext highlighter-rouge">get</code> before a request and <code class="language-plaintext highlighter-rouge">store</code>/<code class="language-plaintext highlighter-rouge">erase</code> after, so any program implementing those three verbs can broker credentials — including ones that fetch a fresh short-lived token on demand. <strong>Git Credential Manager</strong> can run a full OAuth device-code flow, so you authenticate in a browser and GCM transparently caches and refreshes the OAuth token; you never handle a long-lived PAT at all, which is the most secure HTTPS option for interactive use.</p>
+<p>The helper protocol is plain key/value text on standard input and output. Git asks a helper to <code class="language-plaintext highlighter-rouge">get</code> a credential before a request, then tells it to <code class="language-plaintext highlighter-rouge">store</code> it after success or <code class="language-plaintext highlighter-rouge">erase</code> it after rejection. Any program implementing those verbs can act as a helper, including one that mints a short-lived token on demand. Recent Git versions also pass the credential’s expiry (<code class="language-plaintext highlighter-rouge">password_expiry_utc</code>) and an OAuth refresh token (<code class="language-plaintext highlighter-rouge">oauth_refresh_token</code>) through this protocol, so helpers can discard expired tokens and refresh them. You can see what Git would send with:</p>
 
-<p><strong>SSH or HTTPS — which to choose?</strong> SSH shines for interactive developer use (key + agent + passphrase, nothing to paste) and for fixed automation hosts (deploy keys). HTTPS is friendlier behind restrictive corporate proxies/firewalls (port 443) and pairs naturally with OAuth/SSO and short-lived App tokens in CI. Both are secure when configured per this page; pick per environment, and you can even mix them per host via <code class="language-plaintext highlighter-rouge">~/.ssh/config</code> and per-host credential helpers.</p>
-
-<h2 id="commit-and-tag-signing">Commit and Tag Signing</h2>
-
-<p>Transport auth says nothing about <em>authorship</em>. Git records the author/committer fields as <strong>plain, unverified strings</strong> — anyone can <code class="language-plaintext highlighter-rouge">git -c user.email=ceo@example.com commit</code>. <strong>Signing</strong> attaches a cryptographic signature to a commit or tag so that anyone can later verify it was created by the holder of a specific key and has not been altered.</p>
-
-<h3 id="what-a-signature-actually-covers">What a signature actually covers</h3>
-
-<p>A commit object is a small text blob: tree hash, parent hash(es), author, committer, and message. Signing computes a digital signature over <strong>the exact bytes of that object</strong> and stores it in the commit’s <code class="language-plaintext highlighter-rouge">gpgsig</code> header. Because the object includes the <strong>parent hash</strong>, and the parent’s hash transitively commits to all ancestor content (the Merkle/DAG property of Git’s object model), a valid signature on a commit certifies the <strong>entire history reachable from it</strong> is byte-for-byte unchanged. Tamper with any ancestor and every descendant hash changes, breaking the signature.</p>
-
-<blockquote>
-  <p>See <a href="object-model.html">Object Model &amp; Storage</a> for why every object is named by the hash of its content, which is exactly the property signing leans on.</p>
-</blockquote>
-
-<h3 id="signing-with-gpg">Signing with GPG</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Generate a signing key (Ed25519 or RSA-4096)</span>
-gpg <span class="nt">--full-generate-key</span>
-
-<span class="c"># Find its long key id</span>
-gpg <span class="nt">--list-secret-keys</span> <span class="nt">--keyid-format</span><span class="o">=</span>long
-<span class="c">#   sec   ed25519/3AA5C34371567BD2 ...</span>
-
-<span class="c"># Tell Git to use it and sign by default</span>
-git config <span class="nt">--global</span> user.signingkey 3AA5C34371567BD2
-git config <span class="nt">--global</span> commit.gpgsign <span class="nb">true
-</span>git config <span class="nt">--global</span> tag.gpgsign <span class="nb">true</span>
-
-<span class="c"># Export the PUBLIC key to register on the host (GitHub "GPG keys" page)</span>
-gpg <span class="nt">--armor</span> <span class="nt">--export</span> 3AA5C34371567BD2
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s1">'protocol=https\nhost=github.com\n\n'</span> | git credential fill
 </code></pre></div></div>
 
-<p>The email in the GPG key’s user ID must match <code class="language-plaintext highlighter-rouge">git config user.email</code> (and a verified email on the host) for the host to show the commit as <strong>Verified</strong>.</p>
+<p>With GCM or the forge’s CLI acting as helper (<code class="language-plaintext highlighter-rouge">gh auth setup-git</code> configures the GitHub CLI this way), you never handle a long-lived token for interactive work.</p>
 
-<h3 id="signing-with-ssh-simpler-key-reuse">Signing with SSH (simpler, key reuse)</h3>
+<h2 id="commit-and-tag-signing">Commit and tag signing</h2>
 
-<p>Since Git 2.34 you can sign with your <strong>SSH</strong> key — no GPG keyring to manage, and you can reuse the same key family you already use for auth (use a <em>separate</em> key in practice; see below).</p>
+<h3 id="what-a-signature-covers">What a signature covers</h3>
+
+<p>A commit object is a short text record: tree hash, parent hash(es), author, committer and message. Signing produces a signature over exactly those bytes and stores it in the commit’s <code class="language-plaintext highlighter-rouge">gpgsig</code> header (<code class="language-plaintext highlighter-rouge">gpgsig-sha256</code> in SHA-256 repositories). Because the commit includes its tree and parent hashes, and each of those commits to its own contents (the Merkle property described in <a href="object-model.html">Object Model &amp; Storage</a>), a valid signature fixes the entire tree and history reachable from that commit. Changing any ancestor changes every descendant hash and invalidates the signature. Annotated tags are signed the same way, which is how release tags are usually vouched for.</p>
+
+<p>A signature proves that the key holder signed <em>these bytes</em>. It does not prove the key holder wrote the code, and any rewrite (rebase, amend, <code class="language-plaintext highlighter-rouge">filter-repo</code>, a forge’s “rebase and merge” button) produces new commits that are unsigned or signed by whoever rewrote them.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant D as Developer
+    participant G as git
+    participant K as Signer (gpg, ssh-keygen, gitsign)
+    participant V as Verifier (forge, CI, git log)
+    D-&gt;&gt;G: git commit -S
+    G-&gt;&gt;K: commit bytes without signature
+    K--&gt;&gt;G: detached signature
+    G-&gt;&gt;G: store signature in gpgsig header, hash the object
+    V-&gt;&gt;G: git verify-commit
+    G-&gt;&gt;K: bytes + signature + trusted keys
+    K--&gt;&gt;V: good / bad / unknown key
+</code></pre>
+
+<h3 id="signing-formats">Signing formats</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Format (<code class="language-plaintext highlighter-rouge">gpg.format</code>)</th>
+      <th>Keys</th>
+      <th>Trust model</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">openpgp</code> (default)</td>
+      <td>GnuPG keys</td>
+      <td>Web of trust or keys registered on the forge</td>
+      <td>Mature; key management is the main burden</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ssh</code> (Git 2.34+)</td>
+      <td>Any SSH key, including <code class="language-plaintext highlighter-rouge">-sk</code> hardware keys</td>
+      <td>An <code class="language-plaintext highlighter-rouge">allowed_signers</code> file, or keys registered on the forge</td>
+      <td>Simplest to adopt; the forge must know the key as a <em>signing</em> key</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">x509</code></td>
+      <td>X.509 certificates (S/MIME via <code class="language-plaintext highlighter-rouge">gpgsm</code>, or Sigstore’s <code class="language-plaintext highlighter-rouge">gitsign</code>)</td>
+      <td>Certificate authorities</td>
+      <td><code class="language-plaintext highlighter-rouge">gitsign</code> issues short-lived certificates bound to an OIDC identity and logs signatures in the public Rekor transparency log</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="ssh-signing">SSH signing</h3>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> gpg.format ssh
-git config <span class="nt">--global</span> user.signingkey ~/.ssh/id_ed25519.pub
-git config <span class="nt">--global</span> commit.gpgsign <span class="nb">true</span>
+git config <span class="nt">--global</span> user.signingkey ~/.ssh/id_ed25519_signing.pub
+git config <span class="nt">--global</span> commit.gpgSign <span class="nb">true
+</span>git config <span class="nt">--global</span> tag.gpgSign <span class="nb">true</span>
 </code></pre></div></div>
 
-<p>To <strong>verify</strong> SSH-signed commits locally, Git needs an <code class="language-plaintext highlighter-rouge">allowed_signers</code> file mapping identities to public keys:</p>
+<p>Local verification needs an allowed-signers file mapping identities to keys:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># ~/.config/git/allowed_signers</span>
-you@example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... you@example.com
+you@example.com <span class="nv">namespaces</span><span class="o">=</span><span class="s2">"git"</span> ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...
 </code></pre></div></div>
+
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--global</span> gpg.ssh.allowedSignersFile ~/.config/git/allowed_signers
 </code></pre></div></div>
 
-<p>Hosts let you register the same SSH public key as a <strong>signing key</strong> (distinct from an authentication key, even if the bytes match).</p>
+<p>For a team, a tracked <code class="language-plaintext highlighter-rouge">allowed_signers</code> file in the repository gives every clone the same verification policy. Forges verify against the signing keys registered on each user’s account.</p>
 
-<p><strong>Separate auth keys from signing keys:</strong> an authentication key is exercised against many servers and may be forwarded by the agent; a signing key vouches for your identity in perpetuity. Keep them <strong>distinct</strong> so that compromise or rotation of one does not force the other, and so a forwarded auth key cannot be coaxed into signing. Hardware-backed keys (<code class="language-plaintext highlighter-rouge">-sk</code> / smartcard) are ideal for signing.</p>
+<h3 id="gpg-signing">GPG signing</h3>
 
-<h3 id="verifying-signatures">Verifying Signatures</h3>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log <span class="nt">--show-signature</span>                 <span class="c"># show verification status per commit</span>
-git verify-commit &lt;commit&gt;               <span class="c"># verify a specific commit</span>
-git verify-tag v1.2.0                     <span class="c"># verify a signed tag</span>
-git log <span class="nt">--pretty</span><span class="o">=</span><span class="s2">"%h %G? %an %s"</span>          <span class="c"># %G? =&gt; G good, B bad, U unknown, N none</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gpg <span class="nt">--quick-generate-key</span> <span class="s2">"Your Name &lt;you@example.com&gt;"</span> ed25519 sign 2y
+gpg <span class="nt">--list-secret-keys</span> <span class="nt">--keyid-format</span><span class="o">=</span>long      <span class="c"># find the key ID</span>
+git config <span class="nt">--global</span> user.signingkey 3AA5C34371567BD2
+git config <span class="nt">--global</span> commit.gpgSign <span class="nb">true
+</span>gpg <span class="nt">--armor</span> <span class="nt">--export</span> 3AA5C34371567BD2           <span class="c"># public key to upload to the forge</span>
 </code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">%G?</code> placeholder yields <strong>G</strong> (good signature), <strong>B</strong> (bad — content altered), <strong>U</strong> (good but untrusted key), <strong>E</strong> (cannot check), or <strong>N</strong> (no signature). CI can gate merges on this.</p>
+<p>The email in the key’s user ID must match the commit’s committer email and a verified email on the forge account for the commit to be shown as verified. GnuPG 2.1 and later write a revocation certificate to <code class="language-plaintext highlighter-rouge">~/.gnupg/openpgp-revocs.d/</code> when a key is created; keep a copy offline.</p>
 
-<h3 id="enforcing-signing-in-ci">Enforcing Signing in CI</h3>
+<h3 id="sigstore-gitsign">Sigstore gitsign</h3>
 
-<p>Local config is advisory; enforcement happens on the server or in CI. Hosts offer <strong>branch protection / rulesets</strong> requiring signed commits, and you can additionally verify in a pipeline:</p>
+<p><code class="language-plaintext highlighter-rouge">gitsign</code> removes long-lived signing keys entirely: at signing time it opens an OIDC login (or uses a CI workload identity), obtains a certificate valid for minutes from the Fulcio CA, signs, and records the signature in the Rekor transparency log.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Fail the build if any commit on the branch is unsigned or has a bad signature</span>
-<span class="nb">set</span> <span class="nt">-e</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git config <span class="nt">--local</span> gpg.format x509
+git config <span class="nt">--local</span> gpg.x509.program gitsign
+git config <span class="nt">--local</span> commit.gpgSign <span class="nb">true</span>
+</code></pre></div></div>
+
+<p>Verification checks the identity and issuer embedded in the certificate (<code class="language-plaintext highlighter-rouge">gitsign verify --certificate-identity=... --certificate-oidc-issuer=...</code>) rather than a key. Forge support for displaying such commits as verified varies.</p>
+
+<h3 id="separate-authentication-and-signing-keys">Separate authentication and signing keys</h3>
+
+<p>An authentication key is used against many servers and may be forwarded through agents; a signing key makes durable statements that others rely on long after the fact. Keeping them distinct means one can be rotated without the other, and a forwarded authentication key cannot be used to sign. Forges register the two roles separately even when the key bytes are the same. Hardware-backed keys are well suited to signing.</p>
+
+<h3 id="verifying-signatures">Verifying signatures</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git log <span class="nt">--show-signature</span> <span class="nt">-3</span>
+git verify-commit HEAD
+git verify-tag v1.2.0
+git log <span class="nt">--format</span><span class="o">=</span><span class="s1">'%h %G? %GS %s'</span>
+</code></pre></div></div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center"><code class="language-plaintext highlighter-rouge">%G?</code></th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">G</code></td>
+      <td>Good signature from a trusted key</td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">U</code></td>
+      <td>Good signature, key of unknown or undefined trust</td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">X</code></td>
+      <td>Good signature that has expired</td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">Y</code></td>
+      <td>Good signature made by a key that has since expired</td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">R</code></td>
+      <td>Good signature made by a key that has since been revoked</td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">B</code></td>
+      <td>Bad signature: the content does not match</td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">E</code></td>
+      <td>Cannot be checked, for example the key is missing</td>
+    </tr>
+    <tr>
+      <td style="text-align: center"><code class="language-plaintext highlighter-rouge">N</code></td>
+      <td>No signature</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="enforcing-signatures">Enforcing signatures</h3>
+
+<p>Local configuration is advisory. Enforcement belongs on the server: forge rulesets and branch protection can require signed commits, and GitHub’s <em>vigilant mode</em> marks a user’s unsigned commits as unverified. A CI check adds defence in depth:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Fail if any commit on this branch is unsigned or has a bad signature</span>
+<span class="nb">set</span> <span class="nt">-eu</span>
 <span class="k">for </span>c <span class="k">in</span> <span class="si">$(</span>git rev-list origin/main..HEAD<span class="si">)</span><span class="p">;</span> <span class="k">do
-  </span><span class="nv">status</span><span class="o">=</span><span class="si">$(</span>git log <span class="nt">-1</span> <span class="nt">--pretty</span><span class="o">=</span><span class="s2">"%G?"</span> <span class="s2">"</span><span class="nv">$c</span><span class="s2">"</span><span class="si">)</span>
-  <span class="k">case</span> <span class="s2">"</span><span class="nv">$status</span><span class="s2">"</span> <span class="k">in
-    </span>G|U<span class="p">)</span> <span class="p">;;</span>                                   <span class="c"># good (U = good but untrusted key)</span>
-    <span class="k">*</span><span class="p">)</span> <span class="nb">echo</span> <span class="s2">"Unsigned/invalid commit: </span><span class="nv">$c</span><span class="s2"> (</span><span class="nv">$status</span><span class="s2">)"</span><span class="p">;</span> <span class="nb">exit </span>1 <span class="p">;;</span>
+  case</span> <span class="s2">"</span><span class="si">$(</span>git log <span class="nt">-1</span> <span class="nt">--format</span><span class="o">=</span>%G? <span class="s2">"</span><span class="nv">$c</span><span class="s2">"</span><span class="si">)</span><span class="s2">"</span> <span class="k">in
+    </span>G<span class="p">)</span> <span class="p">;;</span>                                   <span class="c"># accept only fully trusted signatures</span>
+    <span class="k">*</span><span class="p">)</span> <span class="nb">echo</span> <span class="s2">"Unverified commit: </span><span class="nv">$c</span><span class="s2">"</span> <span class="o">&gt;</span>&amp;2<span class="p">;</span> <span class="nb">exit </span>1 <span class="p">;;</span>
   <span class="k">esac</span>
 <span class="k">done</span>
 </code></pre></div></div>
 
-<blockquote>
-  <p>The platform’s signed-commit branch rule is the real gate; the script above is a defense-in-depth check inside the same self-hosted runners that build this site (see <a href="../ci-cd/">CI/CD</a>).</p>
-</blockquote>
+<p>For this to pass with SSH signing, the CI job must configure <code class="language-plaintext highlighter-rouge">gpg.ssh.allowedSignersFile</code> with the team’s keys; otherwise every signature is reported as unverifiable.</p>
 
-<h2 id="server-side-access-control-sso-saml-and-oauth">Server-Side Access Control: SSO, SAML, and OAuth</h2>
+<h2 id="authorization-on-the-server">Authorization on the server</h2>
 
-<p>Everything above proves <em>who you are at the transport</em>. <strong>Authorization</strong> — which repos you may read/write, who can force-push, who can change settings — is the host’s responsibility and is layered on top.</p>
+<h3 id="organisation-identity-sso">Organisation identity: SSO</h3>
 
-<h3 id="how-the-layers-stack">How the layers stack</h3>
+<p>Enterprises connect the forge to an identity provider (Okta, Microsoft Entra ID, Google Workspace) with <strong>SAML</strong> or <strong>OpenID Connect</strong>, making it the single source of truth for who exists, which groups they belong to, and when access ends. Offboarding a person in the identity provider then removes their forge access.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                       ┌─────────────────────────────┐
-   You ──auth──▶       │  Identity (who you are)      │  SSH key / PAT / OAuth / SAML
-                       ├─────────────────────────────┤
-                       │  Org / SSO policy gate       │  SAML SSO, IP allowlist, 2FA req.
-                       ├─────────────────────────────┤
-                       │  Authorization (what you may │  roles, teams, branch protection,
-                       │  do on this repo/ref)        │  CODEOWNERS, ruleset required reviews
-                       └─────────────────────────────┘
-</code></pre></div></div>
+<p>SSO governs web sessions, but Git operations use keys and tokens. Under GitHub’s SAML enforcement, an existing personal access token or SSH key must be explicitly authorized for the organisation before it works against that organisation’s repositories; until then a push or fetch fails with a message saying the organisation has enabled or enforced SAML SSO. The fix is to open the token or key in account settings and authorize it for the organisation. With Enterprise Managed Users, accounts are created and controlled by the identity provider itself.</p>
 
-<h3 id="saml--oidc-single-sign-on">SAML / OIDC Single Sign-On</h3>
+<h3 id="oauth-and-app-grants">OAuth and App grants</h3>
 
-<p>Enterprises federate Git-host identity to a central <strong>Identity Provider</strong> (Okta, Entra ID/Azure AD, Google Workspace) via <strong>SAML</strong> or <strong>OpenID Connect</strong>. The IdP becomes the single source of truth for who exists and what groups they belong to, enabling central onboarding/offboarding, mandatory 2FA, and conditional-access policies.</p>
+<p>Third-party tools (CI services, review bots, editor integrations) receive access through an OAuth consent screen or by being installed as an App. Grant the narrowest scopes offered, review grants periodically in account and organisation settings, and treat an integration asking for organisation-admin or all-repository write access without an obvious need as a risk.</p>
 
-<p>A subtlety that trips everyone: <strong>SAML applies to the web session, but Git operations use a key/token.</strong> When SSO is enforced on an org, your existing <strong>PAT or SSH key must be explicitly <em>authorized</em> for that org</strong> before it works against the org’s repos — even though the credential is valid in general. You authorize each credential once (a one-click “Configure SSO” / “Authorize” on the token or key), and a fresh SSO web login may be required periodically to keep it active.</p>
+<h3 id="repository-and-ref-rules">Repository and ref rules</h3>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Symptom of an un-authorized credential under SAML SSO:</span>
-git push
-<span class="c"># remote: ... SAML enforcement ... your credential is not authorized for org X</span>
-<span class="c"># Fix: open the token/SSH-key settings page and "Authorize" it for org X.</span>
-</code></pre></div></div>
-
-<h3 id="oauth-apps-and-scopes">OAuth Apps and Scopes</h3>
-
-<p>Third-party tools (CI, code-review bots, IDE integrations) connect via <strong>OAuth</strong>: you grant a named application a set of <strong>scopes</strong> through a browser consent screen, and it receives an access token (often with a refresh token) — your password is never shared. Audit and <strong>revoke</strong> these grants from your account’s “Applications / Authorized OAuth Apps” page. Grant the narrowest scopes a tool asks for, and be suspicious of any integration requesting <code class="language-plaintext highlighter-rouge">repo</code>-wide or org-admin scope it does not obviously need.</p>
-
-<h3 id="repository-level-authorization">Repository-Level Authorization</h3>
-
-<p>Independent of how you signed in, the host enforces per-repo and per-ref policy:</p>
+<p>Independently of how a user signed in, the forge enforces:</p>
 
 <ul>
-  <li><strong>Roles / teams</strong>: read, triage, write, maintain, admin — assigned to users and teams.</li>
-  <li><strong>Branch protection / rulesets</strong>: require pull requests, required reviewers, required status checks, <strong>required signed commits</strong>, linear history, and restrictions on <strong>force-push</strong> and deletion of protected branches.</li>
-  <li><strong>CODEOWNERS</strong>: route required reviews to the owners of touched paths.</li>
-  <li><strong>Server-side hooks</strong>: <code class="language-plaintext highlighter-rouge">pre-receive</code>/<code class="language-plaintext highlighter-rouge">update</code> hooks reject pushes that violate policy (e.g. secret-scanning, commit-message format) — see <a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a> for the hook model.</li>
+  <li><strong>Roles and teams</strong>, for example read, triage, write, maintain and admin on GitHub, or guest through owner on GitLab.</li>
+  <li><strong>Branch protection and rulesets</strong>: required pull requests and reviews, required status checks, required signed commits, linear history, and blocking force-pushes and deletions on protected branches and tags.</li>
+  <li><strong>CODEOWNERS</strong>: required review from the owners of the paths a change touches.</li>
+  <li><strong>Push checks</strong>: secret-scanning push protection, file-size and path restrictions, and on self-hosted servers <code class="language-plaintext highlighter-rouge">pre-receive</code> and <code class="language-plaintext highlighter-rouge">update</code> hooks (see <a href="algorithms-and-operations.html#hooks">Hooks</a>).</li>
 </ul>
 
-<h2 id="revocation-rotation-and-audit">Revocation, Rotation, and Audit</h2>
+<h2 id="gits-own-local-trust-boundaries">Git’s own local trust boundaries</h2>
 
-<p>Credentials are liabilities; assume any of them will eventually leak. The defense is <strong>fast revocation</strong>, <strong>routine rotation</strong>, and <strong>audit trails</strong> that let you answer “what could this credential do, and what did it do?”</p>
+<p>Although Git has no access control, it does decide which repositories it trusts on the local machine, because a repository’s configuration and hooks can run arbitrary commands.</p>
 
-<h3 id="revocation">Revocation</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Default</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">safe.directory</code></td>
+      <td>Only repositories owned by the current user</td>
+      <td>Refuses to operate on a repository owned by another user (for example in a shared <code class="language-plaintext highlighter-rouge">/tmp</code> or a mounted volume), since its config could run code as you. Add trusted paths explicitly; container builds often need <code class="language-plaintext highlighter-rouge">git config --global --add safe.directory /workspace</code>.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">safe.bareRepository</code></td>
+      <td><code class="language-plaintext highlighter-rouge">all</code> (planned to become <code class="language-plaintext highlighter-rouge">explicit</code> in Git 3.0)</td>
+      <td>With <code class="language-plaintext highlighter-rouge">explicit</code>, Git ignores bare repositories it discovers inside a working tree, closing an attack where a cloned project embeds a bare repository with malicious hooks.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">protocol.allow</code>, <code class="language-plaintext highlighter-rouge">protocol.&lt;name&gt;.allow</code></td>
+      <td><code class="language-plaintext highlighter-rouge">file</code> is limited to user-initiated operations</td>
+      <td>Restricts which transports submodules and other indirect operations may use.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">transfer.fsckObjects</code></td>
+      <td><code class="language-plaintext highlighter-rouge">false</code></td>
+      <td>Validate every object received on fetch and push.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Hooks in <code class="language-plaintext highlighter-rouge">.git/hooks</code> are never cloned, but project-provided tooling such as pre-commit configurations runs code from the repository once installed, so install it only for repositories you trust.</p>
+
+<h2 id="revocation-rotation-and-audit">Revocation, rotation and audit</h2>
+
+<p>Assume every credential will eventually leak and plan for fast revocation, routine rotation and useful audit trails.</p>
 
 <table>
   <thead>
     <tr>
       <th>Credential</th>
-      <th>How to revoke</th>
+      <th>Revoke by</th>
       <th>Effect</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>SSH user key</td>
-      <td>Delete the public key from the account</td>
-      <td>All hosts using it lose access immediately</td>
+      <td>User SSH key</td>
+      <td>Deleting it from the account</td>
+      <td>Every connection using it fails immediately</td>
     </tr>
     <tr>
       <td>Deploy key</td>
-      <td>Remove from the repo’s Deploy keys</td>
-      <td>That repo only</td>
+      <td>Removing it from the repository</td>
+      <td>That repository only</td>
     </tr>
     <tr>
-      <td>PAT</td>
-      <td>Delete/revoke the token</td>
-      <td>That token only; other tokens unaffected</td>
+      <td>Personal access token</td>
+      <td>Revoking it</td>
+      <td>That token only</td>
     </tr>
     <tr>
       <td>OAuth grant</td>
-      <td>Revoke the app authorization</td>
-      <td>That application loses its token</td>
+      <td>Revoking the application’s authorization</td>
+      <td>That application’s tokens</td>
     </tr>
     <tr>
-      <td>App installation</td>
-      <td>Uninstall / rotate the App’s private key</td>
+      <td>App</td>
+      <td>Rotating its private key or uninstalling it</td>
       <td>All tokens it could mint</td>
     </tr>
     <tr>
-      <td>GPG/SSH signing key</td>
-      <td>Publish a <strong>revocation certificate</strong> (GPG) / remove the key</td>
-      <td>Future signatures distrusted; past ones flagged</td>
+      <td>GPG signing key</td>
+      <td>Publishing the revocation certificate</td>
+      <td>Signatures verify as <code class="language-plaintext highlighter-rouge">R</code> (revoked key)</td>
+    </tr>
+    <tr>
+      <td>SSH signing key</td>
+      <td>Removing it from the account and <code class="language-plaintext highlighter-rouge">allowed_signers</code>, or marking it revoked (<code class="language-plaintext highlighter-rouge">gpg.ssh.revocationFile</code>)</td>
+      <td>Signatures no longer verify</td>
     </tr>
   </tbody>
 </table>
 
-<p>Generate a <strong>GPG revocation certificate at key-creation time</strong> and store it offline — you will need it if the key is lost or compromised and you no longer control the secret:</p>
+<p><strong>Rotation.</strong> Prefer credentials that expire on their own (fine-grained tokens, App and job tokens). For long-lived keys, rotate without downtime by adding the new key, switching the consumer, then removing the old one.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gpg <span class="nt">--output</span> revoke-3AA5C34371567BD2.asc <span class="nt">--gen-revoke</span> 3AA5C34371567BD2
-</code></pre></div></div>
+<p><strong>Audit.</strong> Forge audit logs record key and token creation, SSO events, permission changes and pushes, including force-pushes; stream them to a SIEM. Signatures provide a separate, cryptographic record of authorship. Reflogs of a local or mirror clone help reconstruct what a force-push replaced.</p>
 
-<h3 id="rotation">Rotation</h3>
+<h2 id="leaked-secrets">Leaked secrets</h2>
 
-<p>Rotate on a schedule and on every suspicion:</p>
-
-<ul>
-  <li>Prefer <strong>expiring</strong> credentials (fine-grained PATs, App tokens) so rotation is automatic.</li>
-  <li>Keep <strong>one credential per consumer</strong> so rotating one does not break others.</li>
-  <li>For shared deploy keys, rotate by adding the new key, switching the consumer, then removing the old — zero downtime.</li>
-</ul>
-
-<h3 id="audit">Audit</h3>
-
-<ul>
-  <li><strong>Host audit logs</strong> record key/token creation, pushes, force-pushes, permission changes, and SSO events — review them and ship them to your SIEM.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">git log --show-signature</code></strong> and required-signed-commit rules give you a cryptographic audit of <em>authorship</em>, complementing the host’s transport audit of <em>who pushed</em>.</li>
-  <li>The <strong>reflog</strong> (<code class="language-plaintext highlighter-rouge">git reflog</code>) records local ref movements and is invaluable when investigating an unexpected force-push.</li>
-</ul>
-
-<h2 id="protecting-against-credential-leaks">Protecting Against Credential Leaks</h2>
-
-<p>The most common Git security incident is not a broken crypto primitive — it is a <strong>secret committed into the repository</strong> (an API key, a <code class="language-plaintext highlighter-rouge">.env</code>, a private key) and pushed where it is now in history forever and possibly public.</p>
+<p>The most common Git security incident is not a broken credential but a secret (an API key, a <code class="language-plaintext highlighter-rouge">.env</code> file, a private key) committed to a repository and pushed, after which it lives in history and possibly on a public server.</p>
 
 <h3 id="prevention">Prevention</h3>
 
-<pre><code class="language-gitignore"># .gitignore — keep secrets out in the first place
-.env
+<pre><code class="language-gitignore">.env
 .env.*
+!.env.example
 *.pem
 *.key
+*.p12
 id_rsa
 id_ed25519
-**/secrets/**
-*.p12
 credentials.json
+**/secrets/
 </code></pre>
 
 <ul>
-  <li><strong>Never commit secrets.</strong> Use environment variables, a secrets manager (Vault, cloud KMS/Secrets Manager), or CI secret stores — see <a href="../cybersecurity/">Cybersecurity</a>.</li>
-  <li><strong>Pre-commit secret scanning</strong> stops leaks before they enter history. Install a hook that runs a scanner (<code class="language-plaintext highlighter-rouge">gitleaks</code>, <code class="language-plaintext highlighter-rouge">detect-secrets</code>, <code class="language-plaintext highlighter-rouge">trufflehog</code>) on staged content:</li>
+  <li>Keep secrets in environment variables, a secrets manager (Vault, a cloud secrets service) or the CI system’s secret store; see <a href="../cybersecurity/">Cybersecurity</a>.</li>
+  <li>Scan staged changes before each commit. With the pre-commit framework, add the <code class="language-plaintext highlighter-rouge">gitleaks</code> hook; as a plain hook (gitleaks 8.19 and later replaced <code class="language-plaintext highlighter-rouge">protect --staged</code> with <code class="language-plaintext highlighter-rouge">git --pre-commit --staged</code>):</li>
 </ul>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># .git/hooks/pre-commit (or via the pre-commit framework)</span>
-<span class="c">#!/usr/bin/env bash</span>
-<span class="k">if</span> <span class="o">!</span> gitleaks protect <span class="nt">--staged</span> <span class="nt">--redact</span> <span class="nt">-v</span><span class="p">;</span> <span class="k">then
-  </span><span class="nb">echo</span> <span class="s2">"Potential secret detected in staged changes — commit aborted."</span>
-  <span class="nb">exit </span>1
-<span class="k">fi</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh</span>
+<span class="c"># .git/hooks/pre-commit</span>
+<span class="nb">exec </span>gitleaks git <span class="nt">--pre-commit</span> <span class="nt">--staged</span> <span class="nt">--redact</span> <span class="nt">--verbose</span>
 </code></pre></div></div>
 
 <ul>
-  <li><strong>Enable host-side secret scanning / push protection</strong> so the server itself rejects a push containing a recognizable secret pattern, catching what local hooks miss.</li>
+  <li>Turn on server-side secret scanning and <strong>push protection</strong>, which rejects pushes containing recognisable credentials. GitHub enables push protection by default for public repositories; other forges offer equivalents.</li>
 </ul>
 
-<h3 id="containment-after-a-leak">Containment after a leak</h3>
+<h3 id="response">Response</h3>
 
-<p>A leaked secret in history is <strong>compromised the instant it was pushed</strong>, especially on a public repo where bots scrape commits within seconds. The order of operations matters:</p>
+<p>A secret must be considered compromised from the moment it was pushed; automated scanners harvest public commits within minutes.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    A["1. Revoke and rotate&lt;br/&gt;the secret at its source"] --&gt; B["2. Check audit logs&lt;br/&gt;for use during exposure"]
+    B --&gt; C["3. Purge from history&lt;br/&gt;git filter-repo"]
+    C --&gt; D["4. Force-push, have&lt;br/&gt;collaborators re-clone"]
+    D --&gt; E["5. Ask the forge to purge&lt;br/&gt;cached views if needed"]
+</code></pre>
 
 <ol>
-  <li><strong>Revoke and rotate the secret first.</strong> Removing it from history does nothing if it is already harvested — invalidate it at the source (regenerate the key/token, disable the credential). This is the single most important step.</li>
-  <li><strong>Then purge it from history</strong> so it does not leak again. Rewriting history changes every descendant commit’s hash:</li>
+  <li><strong>Revoke and rotate first.</strong> Removing a secret from history does nothing about copies already taken. Invalidate it at the issuing service.</li>
+  <li><strong>Audit</strong> the issuing service’s logs for use during the exposure window.</li>
+  <li><strong>Purge it from history</strong> with <code class="language-plaintext highlighter-rouge">git filter-repo</code>, the tool the Git project recommends in place of <code class="language-plaintext highlighter-rouge">git filter-branch</code>:</li>
 </ol>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Preferred modern tool: git-filter-repo</span>
-git filter-repo <span class="nt">--invert-paths</span> <span class="nt">--path</span> config/secrets.yml      <span class="c"># drop a file from all history</span>
-git filter-repo <span class="nt">--replace-text</span> expressions.txt                <span class="c"># redact matched strings</span>
-
-<span class="c"># Force-push the rewritten history (coordinate with collaborators!)</span>
-git push <span class="nt">--force-with-lease</span> <span class="nt">--all</span>
-git push <span class="nt">--force-with-lease</span> <span class="nt">--tags</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git filter-repo <span class="nt">--invert-paths</span> <span class="nt">--path</span> config/secrets.yml   <span class="c"># remove a file from all history</span>
+git filter-repo <span class="nt">--replace-text</span> expressions.txt             <span class="c"># redact matching strings</span>
+git remote add origin &lt;url&gt;                                <span class="c"># filter-repo removes the remote as a safety measure</span>
+git push origin <span class="nt">--force</span> <span class="nt">--all</span> <span class="o">&amp;&amp;</span> git push origin <span class="nt">--force</span> <span class="nt">--tags</span>
 </code></pre></div></div>
 
 <ol>
-  <li><strong>Coordinate the rewrite.</strong> History rewriting changes commit hashes; every collaborator must re-clone or hard-reset, and any fork/PR may still retain the old objects. On a public host, cached views and forks may keep copies — which is exactly why step 1 (revocation) is non-negotiable.</li>
-  <li><strong>Audit usage.</strong> Check host and cloud audit logs for any use of the leaked credential during the exposure window.</li>
+  <li><strong>Coordinate.</strong> Every commit hash after the first affected commit changes. Collaborators must re-clone or hard-reset, and forks, open pull requests and existing clones retain the old objects.</li>
+  <li><strong>Clean up the host.</strong> Forges may keep unreferenced commits reachable by SHA and in pull-request views; GitHub’s documentation on removing sensitive data describes contacting support to purge them.</li>
 </ol>
 
-<p><strong>Why revoke before you scrub:</strong> history rewriting is slow, disruptive, and never perfectly complete (forks, mirrors, caches, backups, the attacker’s local copy). Revocation is instant and total. Always invalidate the credential first; treat the history purge as cleanup, not as the fix.</p>
+<p>Revocation is immediate and complete; history rewriting is slow, disruptive and never reaches every copy. Treat the purge as cleanup, not as the fix.</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Auth lives in the transport</strong> — Git stores no credentials. SSH keys, tokens, and the credential helper authenticate the connection; the host enforces permissions.</li>
-  <li><strong>Signing is independent of transport</strong> — GPG/SSH signing proves authorship and integrity of a commit, verifiable by anyone long after the push, separate from who pushed it.</li>
-  <li><strong>Least privilege, narrowest scope</strong> — deploy keys per repo, fine-grained expiring tokens per consumer, OAuth scopes minimized; shrink the blast radius of every credential.</li>
-  <li><strong>Prefer short-lived credentials</strong> — App installation tokens and OAuth flows beat long-lived PATs; expiry makes rotation automatic and limits exposure.</li>
-  <li><strong>SSO gates the credential too</strong> — under SAML SSO, a valid key or token must still be explicitly authorized for the org before Git operations succeed.</li>
-  <li><strong>Revoke first, scrub second</strong> — a leaked secret is compromised on push. Rotate/revoke it immediately; rewriting history is cleanup, not the fix.</li>
-</ul>
-
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="object-model.html">Object Model &amp; Storage</a> — why content-addressing makes a single commit signature certify all reachable history.</li>
-  <li><a href="algorithms-and-operations.html">Algorithms &amp; Advanced Operations</a> — server-side hooks that enforce push policy, and the reflog for auditing ref movement.</li>
-  <li><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a> — the SSH/HTTPS wire protocols these credentials authenticate.</li>
-  <li><a href="../branching.html">Branching Strategies</a> — branch protection and required reviews in team workflow context.</li>
-  <li><a href="../cybersecurity/">Cybersecurity</a> — secrets management, leak prevention, and defense in depth.</li>
-  <li><a href="../ci-cd/">CI/CD</a> — using scoped, short-lived tokens and deploy keys safely in pipelines.</li>
-  <li><a href="../git-reference.html">Git Command Reference</a> — <code class="language-plaintext highlighter-rouge">remote</code>, <code class="language-plaintext highlighter-rouge">config</code>, <code class="language-plaintext highlighter-rouge">verify-commit</code>, and signing command syntax.</li>
+  <li><a href="object-model.html">Object Model &amp; Storage</a>: why one signature covers all reachable history</li>
+  <li><a href="algorithms-and-operations.html#hooks">Algorithms &amp; Advanced Operations</a>: client and server hooks</li>
+  <li><a href="protocols-and-performance.html">Protocols, Packs &amp; Performance</a>: the SSH and HTTPS wire protocol these credentials authenticate</li>
+  <li><a href="../git-reference.html#signing-commits-and-tags">Git Command Reference</a>: signing and <a href="../git-reference.html#removing-sensitive-data">removing sensitive data</a> command syntax</li>
+  <li><a href="../branching.html">Branching Strategies</a>: branch protection and review in team workflows</li>
+  <li><a href="../cybersecurity/">Cybersecurity</a>: secrets management and defence in depth</li>
+  <li><a href="../ci-cd/">CI/CD</a>: short-lived credentials in pipelines</li>
 </ul>
+
+<p><strong>Previous:</strong> <a href="conflict-and-recovery.html">Conflict Resolution &amp; Recovery</a> · <strong>Back to</strong> <a href="./">Git Internals</a></p>
 
       </section>
     </div>

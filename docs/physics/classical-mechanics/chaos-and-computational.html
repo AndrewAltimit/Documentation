@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Deterministic chaos in classical systems: Lyapunov exponents, Poincaré sections, KAM theory and the standard map, strange attractors, bifurcations and routes...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Classical Mechanics: Chaos & Nonlinear Dynamics">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Deterministic chaos in classical systems: Lyapunov exponents, Poincaré sections, KAM theory and the standard map, strange attractors, bifurcations and routes...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/classical-mechanics/chaos-and-computational.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Classical Mechanics: Chaos & Nonlinear Dynamics">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Deterministic chaos in classical systems: Lyapunov exponents, Poincaré sections, KAM theory and the standard map, strange attractors, bifurcations and routes...">
 
 <title>Classical Mechanics: Chaos & Nonlinear Dynamics | Andrews Notebook</title>
 
@@ -3133,395 +3133,595 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Classical Mechanics</a> » Chaos &amp; Nonlinear Dynamics</p>
 
-<p>Sensitive dependence, Lyapunov exponents, Poincaré sections, bifurcations, KAM theory, strange attractors, and the routes to chaos. The related geometric machinery lives in <a href="geometric-mechanics.html">Geometric Formalism</a>, and the numerical machinery in <a href="computational-classical-mechanics.html">Computational Methods</a>.</p>
+<p><strong>Deterministic chaos</strong> is irregular, effectively unpredictable motion produced by equations with no randomness in them. This page covers how chaos is defined and measured (Lyapunov exponents, Poincaré sections), how it appears in conservative systems (KAM theory, the standard map, Arnold diffusion) and in dissipative ones (strange attractors), the bifurcation routes by which regular motion turns chaotic, the diagnostics used on real data, and recent data-driven forecasting methods. The symplectic geometry that underlies Hamiltonian chaos is developed in <a href="geometric-mechanics.html">Geometric Formalism</a>; the integrators needed to simulate chaotic systems faithfully are in <a href="computational-classical-mechanics.html">Computational Methods</a>.</p>
 
-<h2 id="when-predictability-breaks-down">When Predictability Breaks Down</h2>
+<h2 id="determinism-without-predictability">Determinism without predictability</h2>
 
-<h3 id="the-end-of-the-clockwork-universe">The End of the Clockwork Universe</h3>
+<p>Laplace’s demon expressed the eighteenth-century view that exact knowledge of the present fixes the entire future. Poincaré’s work on the gravitational three-body problem in the 1890s showed where this breaks down in practice: near certain unstable orbits the three-body dynamics produces a tangle of trajectories “so complicated that I cannot even attempt to draw it.” The equations remain deterministic, but any error in the initial state, however small, is amplified until it dominates the prediction.</p>
 
-<p>For centuries after Newton, physicists believed the universe was a clockwork: fix the initial positions and momenta exactly, and the entire future and past follow from the equations of motion. Laplace gave this its sharpest expression — a sufficiently powerful intellect, knowing every particle’s state, “would embrace in the same formula the movements of the greatest bodies of the universe and those of the tiniest atom.”</p>
-
-<p>The discovery that demolished this picture came not from new forces but from old ones examined carefully. Poincaré, attacking the gravitational three-body problem in the 1890s, found that even this simple deterministic system could behave in a way “so complicated that I cannot even attempt to draw it.” The system is perfectly deterministic — there is no randomness in the equations — yet its trajectories are so sensitive to initial conditions that any uncertainty, however small, is amplified until prediction becomes worthless. This is <strong>deterministic chaos</strong>: lawful but unpredictable.</p>
-
-<p>The crucial enabler is <strong>nonlinearity</strong>. A linear system’s response is proportional to its input, so small errors stay small. A nonlinear system can feed its output back on itself, stretching and folding nearby trajectories until they diverge exponentially. Chaos is impossible in a linear autonomous system; it requires either nonlinearity or, in driven systems, at least three effective dimensions of phase space (the Poincaré–Bendixson theorem forbids chaos in a continuous autonomous flow on the plane).</p>
-
-<h3 id="sensitive-dependence-on-initial-conditions">Sensitive Dependence on Initial Conditions</h3>
-
-<p>The defining signature of chaos is <strong>sensitive dependence on initial conditions</strong> — popularly, the <em>butterfly effect</em>. Two trajectories that start a distance $\delta_0$ apart separate, on average, exponentially:</p>
-
-\[|\delta(t)| \approx |\delta_0|\, e^{\lambda t},\]
-
-<p>with $\lambda &gt; 0$. Because the divergence is exponential, the time over which prediction remains useful grows only <strong>logarithmically</strong> with the precision of your initial data. Improving your measurement of the initial state by a factor of ten buys you only a fixed additional increment $\tau \sim \lambda^{-1}\ln 10$ of predictability — never a proportional one. This is why long-range weather forecasting hits a hard horizon (roughly two weeks) no matter how good the instruments become.</p>
-
-<p>Sensitive dependence is not mere instability: a freely expanding gas is unstable but not chaotic. Chaos requires the stretching to be combined with <strong>folding</strong> that keeps the motion bounded — trajectories diverge locally yet remain confined to a finite region of phase space, repeatedly brought back near one another. The combination of stretching and folding is what manufactures the fractal geometry of strange attractors discussed below.</p>
-
-<h2 id="quantifying-chaos-lyapunov-exponents">Quantifying Chaos: Lyapunov Exponents</h2>
-
-<p>The <strong>Lyapunov exponent</strong> makes “exponential divergence” precise. For a trajectory $Z(t)$ and an infinitesimal perturbation $\delta Z(t)$, the largest (maximal) Lyapunov exponent is</p>
-
-\[\lambda = \lim_{t \to \infty} \lim_{|\delta Z_0| \to 0} \frac{1}{t} \ln\!\left(\frac{|\delta Z(t)|}{|\delta Z_0|}\right).\]
+<p>Two ingredients are needed:</p>
 
 <ul>
-  <li><strong>$\lambda &gt; 0$</strong> — neighboring trajectories diverge exponentially: the system is <strong>chaotic</strong>.</li>
-  <li><strong>$\lambda = 0$</strong> — marginal separation, characteristic of regular (quasi-periodic) motion and the boundaries between behaviors.</li>
-  <li><strong>$\lambda &lt; 0$</strong> — perturbations decay: the trajectory is attracted to a fixed point or limit cycle.</li>
+  <li><strong>Nonlinearity.</strong> In a linear system, the difference between two solutions is itself a solution of the same linear equation, so errors can grow at most at the rate of the fastest normal mode, and there is no mechanism for folding a growing error back into a bounded region. Linear systems cannot be chaotic.</li>
+  <li><strong>Enough dimensions.</strong> For a continuous-time autonomous flow, the Poincaré–Bendixson theorem rules out chaos in a two-dimensional phase space: bounded trajectories must approach a fixed point or a periodic orbit. Chaos needs a phase space of at least three dimensions. A periodically driven one-degree-of-freedom oscillator qualifies, because the drive phase acts as a third coordinate. Discrete-time maps have no such restriction: the one-dimensional logistic map is chaotic.</li>
 </ul>
 
-<p>An $n$-dimensional system has a full <strong>Lyapunov spectrum</strong> $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_n$, one exponent for each independent direction in which a small ball of initial conditions is stretched or compressed. The volume of that ball evolves as $e^{(\sum_i \lambda_i) t}$, so:</p>
+<h3 id="sensitive-dependence-and-the-predictability-horizon">Sensitive dependence and the predictability horizon</h3>
 
-<ul>
-  <li>For a <strong>Hamiltonian (conservative) system</strong>, Liouville’s theorem forces phase-space volume to be conserved, hence $\sum_i \lambda_i = 0$. The exponents come in pairs $\pm\lambda$ (symplectic symmetry): every stretching direction is matched by an equal compression.</li>
-  <li>For a <strong>dissipative system</strong>, $\sum_i \lambda_i &lt; 0$ — volumes contract onto an attractor — yet one $\lambda_i$ can still be positive, producing a <em>strange attractor</em> (contraction overall, but stretching in at least one direction).</li>
-</ul>
+<p>Two trajectories that start a small distance $\delta_0$ apart in a chaotic system separate, on average, exponentially:</p>
 
-<p>The reciprocal $1/\lambda_1$ is the <strong>Lyapunov time</strong>, the characteristic timescale on which prediction degrades. For the inner Solar System it is roughly 5 million years; for a typical turbulent flow, a fraction of a second.</p>
+\[|\delta(t)| \approx |\delta_0|\, e^{\lambda t}, \qquad \lambda &gt; 0 .\]
 
-<p><strong>Computing the maximal exponent in practice.</strong> Integrate two trajectories started a tiny distance $\delta_0$ apart, let them evolve for a short time, measure the new separation $\delta_1$, accumulate $\ln(\delta_1/\delta_0)$, then <em>renormalize</em> — pull the second trajectory back to distance $\delta_0$ along the separation direction — and repeat. Averaging the logarithms over many such steps gives $\lambda_1$ without the perturbation saturating at the attractor’s size. The double-pendulum script below uses the simpler (un-renormalized) version, valid only in the early exponential-growth window before saturation.</p>
+<p>If a forecast is useful only while the error stays below a tolerance $\Delta$, the <strong>predictability horizon</strong> is</p>
 
-<h2 id="poincaré-sections">Poincaré Sections</h2>
+\[t_{\text{pred}} \approx \frac{1}{\lambda} \ln\frac{\Delta}{\delta_0} .\]
 
-<p>A continuous flow in $n$-dimensional phase space is hard to visualize. The <strong>Poincaré section</strong> (or first-return map) reduces it to a discrete map in one fewer dimension by recording only where the trajectory pierces a chosen surface:</p>
+<p>The horizon grows only logarithmically with the precision of the initial data: a tenfold better measurement buys a fixed extra $\lambda^{-1}\ln 10$ of forecast time, never a proportional one. This is why midlatitude weather has an intrinsic predictability limit of roughly two weeks regardless of instrument quality.</p>
 
-<ol>
-  <li>Choose a <strong>surface of section</strong> $\Sigma$ transverse to the flow (for a driven oscillator, often “stroboscopic” sampling once per drive period; for an autonomous system, a hyperplane such as $q_2 = 0$ with $\dot q_2 &gt; 0$).</li>
-  <li>Record each successive intersection $x_0, x_1, x_2, \dots$ of the trajectory with $\Sigma$.</li>
-  <li>Study the resulting <strong>return map</strong> $x_{k+1} = P(x_k)$.</li>
-</ol>
+<p>Exponential separation alone is not chaos: trajectories in a linear saddle also diverge exponentially, but they simply run off to infinity. Chaos combines <strong>stretching</strong> (local divergence) with <strong>folding</strong> that keeps the motion bounded, so nearby trajectories are repeatedly separated and re-mixed within a finite region. Stretching and folding are what build the fractal structure of strange attractors and the chaotic seas of Hamiltonian systems.</p>
 
-<p>The return map $P$ inherits the key dynamical properties of the flow but is far easier to analyze and plot. The structure that appears on the section diagnoses the motion at a glance:</p>
+<h2 id="lyapunov-exponents">Lyapunov exponents</h2>
+
+<p>The <strong>maximal Lyapunov exponent</strong> makes exponential divergence precise. For a trajectory $Z(t)$ and an infinitesimal perturbation $\delta Z(t)$ evolved by the linearized equations,</p>
+
+\[\lambda_1 = \lim_{t \to \infty} \frac{1}{t} \ln\frac{|\delta Z(t)|}{|\delta Z(0)|} .\]
 
 <table>
   <thead>
     <tr>
-      <th>What you see on $\Sigma$</th>
-      <th>What the motion is</th>
+      <th>Sign of $\lambda_1$</th>
+      <th>Behavior</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\lambda_1 &gt; 0$</td>
+      <td>Chaotic: nearby trajectories diverge exponentially</td>
+    </tr>
+    <tr>
+      <td>$\lambda_1 = 0$</td>
+      <td>Marginal: periodic or quasi-periodic motion (separation grows at most polynomially)</td>
+    </tr>
+    <tr>
+      <td>$\lambda_1 &lt; 0$</td>
+      <td>Stable: perturbations decay onto a fixed point or limit cycle</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>An $n$-dimensional system has a full <strong>Lyapunov spectrum</strong> $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_n$, one exponent per independent direction in which a small ball of initial conditions is stretched or squeezed. Phase-space volume evolves as $e^{(\sum_i \lambda_i)t}$, which constrains the spectrum:</p>
+
+<ul>
+  <li><strong>Hamiltonian systems</strong> preserve phase-space volume (Liouville’s theorem), so $\sum_i \lambda_i = 0$. More strongly, symplecticity forces the exponents to come in pairs $\pm\lambda_i$. For an autonomous Hamiltonian flow, the direction along the trajectory and the direction across energy surfaces together contribute one pair of zero exponents, and each additional independent conserved quantity contributes another pair.</li>
+  <li><strong>Dissipative systems</strong> contract volume, so $\sum_i \lambda_i &lt; 0$, yet $\lambda_1$ can still be positive. Contraction in some directions combined with stretching in another is the signature of a strange attractor.</li>
+  <li>Every bounded trajectory of an autonomous flow that does not settle to a fixed point has at least one zero exponent, for perturbations along the trajectory itself.</li>
+</ul>
+
+<p>The reciprocal $1/\lambda_1$ is the <strong>Lyapunov time</strong>. Representative values:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>System</th>
+      <th>Lyapunov time or exponent</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Lorenz system ($\sigma=10$, $\rho=28$, $\beta=8/3$)</td>
+      <td>spectrum $\approx (0.906,\ 0,\ -14.57)$ per time unit</td>
+    </tr>
+    <tr>
+      <td>Inner Solar System (Laskar’s secular integrations)</td>
+      <td>about 5 million years</td>
+    </tr>
+    <tr>
+      <td>Double pendulum released from horizontal ($m = l = 1$)</td>
+      <td>$\lambda_1 \approx 0.85\ \text{s}^{-1}$ (computed below)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="computing-the-spectrum">Computing the spectrum</h3>
+
+<table>
+  <tbody>
+    <tr>
+      <td>Direct integration of two nearby trajectories fails after a few Lyapunov times because their separation saturates at the size of the attractor. The standard fix is the <strong>Benettin algorithm</strong>: integrate the reference trajectory together with a perturbation (either a second nearby trajectory or, better, the tangent-space variational equations), and every interval $\tau$ record $\ln(</td>
+      <td>\delta_k</td>
+      <td>/</td>
+      <td>\delta_0</td>
+      <td>)$ and rescale the perturbation back to size $\delta_0$ along its current direction. The average of the logged growth rates converges to $\lambda_1$. For the full spectrum, evolve $n$ tangent vectors and re-orthonormalize them with a QR decomposition at each step; the logarithms of the diagonal of $R$ give the individual exponents.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Finite-time Lyapunov exponents (FTLEs), computed over a fixed window rather than in the long-time limit, are also useful on their own. Their ridges in a fluid flow mark <strong>Lagrangian coherent structures</strong>, the moving barriers that organize transport in ocean currents and atmospheric flows.</p>
+
+<h2 id="poincaré-sections">Poincaré sections</h2>
+
+<p>A continuous flow in a high-dimensional phase space is hard to visualize. A <strong>Poincaré section</strong> reduces it to a discrete map in one fewer dimension:</p>
+
+<ol>
+  <li>Choose a <strong>surface of section</strong> $\Sigma$ that the flow crosses transversally. For a periodically driven oscillator, sample once per drive period (a stroboscopic map). For an autonomous system, use a hyperplane such as $q_2 = 0$ with $\dot q_2 &gt; 0$.</li>
+  <li>Record each successive intersection $x_0, x_1, x_2, \ldots$ with $\Sigma$.</li>
+  <li>Study the <strong>return map</strong> $x_{k+1} = P(x_k)$.</li>
+</ol>
+
+<p>For a two-degree-of-freedom Hamiltonian system, fixing the energy leaves a three-dimensional energy surface, and the section is a two-dimensional plane that can be plotted directly. The pattern on it diagnoses the motion:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Pattern on $\Sigma$</th>
+      <th>Motion</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>A single point</td>
-      <td>Periodic orbit (period = section spacing)</td>
+      <td>Periodic orbit</td>
     </tr>
     <tr>
       <td>A finite set of points</td>
-      <td>Periodic orbit of higher period / subharmonic</td>
+      <td>Periodic orbit of higher period</td>
     </tr>
     <tr>
-      <td>A closed curve</td>
-      <td>Quasi-periodic motion on an invariant torus (KAM)</td>
+      <td>A smooth closed curve</td>
+      <td>Quasi-periodic motion on an invariant torus</td>
     </tr>
     <tr>
-      <td>A scattered “cloud” filling an area</td>
-      <td>Chaotic motion (a chaotic sea)</td>
+      <td>A chain of small closed curves</td>
+      <td>Motion on an island around a stable resonant orbit</td>
+    </tr>
+    <tr>
+      <td>A scattered cloud filling an area</td>
+      <td>Chaotic motion</td>
     </tr>
   </tbody>
 </table>
 
-<p>For a Hamiltonian system the Poincaré map is <strong>area-preserving</strong> (a consequence of the symplectic structure), which strongly constrains what can appear: islands of regular curves embedded in a chaotic sea, with no attractors. This is the canvas on which KAM theory is read.</p>
+<p>For Hamiltonian flows the return map is <strong>area-preserving</strong>, a consequence of the symplectic structure. It therefore has no attractors: regular islands and chaotic regions coexist indefinitely, which is the picture KAM theory explains.</p>
 
-<h2 id="kam-theory-order-inside-chaos">KAM Theory: Order Inside Chaos</h2>
+<h2 id="hamiltonian-chaos-and-kam-theory">Hamiltonian chaos and KAM theory</h2>
 
-<p>Just when chaos seems to dissolve all hope of understanding, the <strong>Kolmogorov–Arnold–Moser (KAM) theorem</strong> restores a remarkable amount of order. It addresses a sharp question: when you perturb an <em>integrable</em> system (one with as many conserved quantities as degrees of freedom, whose motion winds around invariant tori), does the regular motion survive, or does it shatter into chaos?</p>
+<h3 id="integrable-systems-and-invariant-tori">Integrable systems and invariant tori</h3>
 
-<p>An integrable Hamiltonian written in <strong>action–angle variables</strong> $H_0(I)$ has motion confined to nested tori, each labeled by its actions $I$ and traversed with frequencies $\omega(I) = \partial H_0/\partial I$. KAM concerns the perturbed system</p>
+<p>A Hamiltonian system with $n$ degrees of freedom is <strong>integrable</strong> if it has $n$ independent conserved quantities in involution (mutually Poisson-commuting). By the Arnold–Liouville theorem, bounded motion then lies on $n$-dimensional invariant tori, and <strong>action–angle variables</strong> $(I, \theta)$ exist in which $H = H_0(I)$ and each angle advances uniformly at frequency $\omega(I) = \partial H_0/\partial I$. Motion on a torus is periodic when the frequencies are commensurate and quasi-periodic otherwise. The Kepler problem, the free rigid body, and any one-degree-of-freedom conservative system are integrable. Generic systems are not.</p>
 
-\[H(I, \theta) = H_0(I) + \varepsilon H_1(I, \theta).\]
+<h3 id="the-kam-theorem">The KAM theorem</h3>
 
-<p><strong>KAM theorem (informal).</strong> If</p>
+<p>The <strong>Kolmogorov–Arnold–Moser theorem</strong> (Kolmogorov 1954; proofs by Arnold 1963 and Moser 1962) answers what happens to the tori under a small non-integrable perturbation</p>
+
+\[H(I, \theta) = H_0(I) + \varepsilon H_1(I, \theta) .\]
+
+<p><strong>Theorem (informal).</strong> Suppose</p>
 
 <ol>
-  <li>the frequency map is <strong>non-degenerate</strong>, $\det!\left(\partial^2 H_0 / \partial I^2\right) \neq 0$ (frequencies genuinely vary with the actions);</li>
-  <li>the perturbation $\varepsilon$ is <strong>sufficiently small</strong>; and</li>
+  <li>the unperturbed system is <strong>non-degenerate</strong>, $\det\left(\partial^2 H_0 / \partial I^2\right) \neq 0$, so that the frequencies genuinely vary with the actions;</li>
+  <li>the perturbation is small enough, $\varepsilon &lt; \varepsilon_0$; and</li>
   <li>
     <table>
       <tbody>
         <tr>
-          <td>the frequencies are <strong>sufficiently irrational</strong>, satisfying a <strong>Diophantine condition</strong> $</td>
-          <td>\omega \cdot k</td>
+          <td>the torus frequencies satisfy a <strong>Diophantine condition</strong> $</td>
+          <td>k \cdot \omega</td>
           <td>\geq \gamma\,</td>
           <td>k</td>
-          <td>^{-\tau}$ for all integer vectors $k \neq 0$,</td>
+          <td>^{-\tau}$ for every nonzero integer vector $k$.</td>
         </tr>
       </tbody>
     </table>
   </li>
 </ol>
 
-<p>then <strong>most</strong> invariant tori survive — they are merely deformed slightly, not destroyed. The motion on them remains quasi-periodic.</p>
+<p>Then the Diophantine tori survive, slightly deformed, and carry quasi-periodic motion. They fill a set whose relative measure tends to 1 as $\varepsilon \to 0$ (the excluded fraction shrinks roughly like $\sqrt{\varepsilon}$).</p>
 
-<p>The reason rational-frequency tori are the fragile ones is <strong>resonance</strong>. When the frequencies are commensurate ($\omega \cdot k = 0$ for some integer $k$), the perturbation drives the system in step with its own motion, and the resulting <strong>small denominators</strong> $1/(\omega \cdot k)$ in the perturbation series blow up. KAM’s deep technical achievement (a super-convergent Newton-type iteration) is to show that the Diophantine “very irrational” tori are protected from these resonances and persist. Between the surviving tori, near each resonance, lies a thin chaotic layer; as $\varepsilon$ grows these layers widen and merge, and the last KAM tori break down — the <strong>transition to global chaos</strong> (governed quantitatively by Chirikov’s resonance-overlap criterion and, for the most robust “golden-ratio” torus, Greene’s residue method).</p>
+<p>The resonant tori, where $k \cdot \omega = 0$ for some integer $k$, are the fragile ones. Perturbation theory for them produces <strong>small denominators</strong> $1/(k \cdot \omega)$ that make the series diverge. KAM circumvents this with a rapidly converging Newton-type iteration that works only on sufficiently irrational tori. What happens at the resonances is described by the <strong>Poincaré–Birkhoff theorem</strong>: a resonant torus breaks into an alternating chain of stable (elliptic) and unstable (hyperbolic) periodic orbits. The elliptic orbits are surrounded by small islands, and the stable and unstable manifolds of the hyperbolic orbits intersect transversally in a <strong>homoclinic tangle</strong>, which generates a thin chaotic layer. As $\varepsilon$ grows, these layers widen and merge.</p>
 
-<p><strong>Why the Solar System survives.</strong> The Solar System is mildly chaotic — the planets’ positions have a Lyapunov time of only a few million years — yet it has not flown apart in 4.6 billion years. KAM theory explains why: most of the planetary tori are protected, so the chaos is confined to thin resonant layers rather than spreading globally. Regular and chaotic motion coexist, and the regular majority keeps the system bounded.</p>
+<h3 id="the-standard-map">The standard map</h3>
 
-<p><strong>Applications of KAM and resonance theory:</strong></p>
+<p>The <strong>Chirikov standard map</strong> is the simplest model of this whole story. It is the stroboscopic map of a rotor kicked periodically with strength $K$:</p>
 
-<ul>
-  <li><strong>Asteroid belt structure</strong> — the <strong>Kirkwood gaps</strong> are emptied at mean-motion resonances with Jupiter (e.g. the 3:1 gap), exactly where KAM tori are destroyed and chaotic transport flings asteroids onto planet-crossing orbits.</li>
-  <li><strong>Particle accelerators and storage rings</strong> — long-term beam stability is the survival of KAM tori in the transverse phase space; the <em>dynamic aperture</em> is set by where they break.</li>
-  <li><strong>Magnetic confinement fusion</strong> — nested magnetic flux surfaces in a tokamak/stellarator are KAM tori of the field-line “flow”; their destruction at resonant surfaces causes the field lines (and heat) to wander out.</li>
-</ul>
+\[I_{n+1} = I_n + K \sin\theta_n, \qquad \theta_{n+1} = \theta_n + I_{n+1} \pmod{2\pi} .\]
 
-<h2 id="strange-attractors">Strange Attractors</h2>
-
-<p>In a <strong>dissipative</strong> system, phase-space volumes contract, so long-term motion collapses onto an <strong>attractor</strong>. The familiar attractors are simple — a fixed point (a damped pendulum coming to rest) or a limit cycle (a clock’s steady tick). But when the dynamics is chaotic, the attractor becomes a <strong>strange attractor</strong>: a bounded set on which motion is aperiodic, exhibits sensitive dependence ($\lambda_1 &gt; 0$), and has a <strong>fractal</strong> (non-integer) dimension.</p>
-
-<p>The strangeness reconciles two apparently contradictory facts. Dissipation contracts volumes, so the attractor has zero volume; yet sensitive dependence stretches trajectories apart, so it cannot be a smooth low-dimensional surface. The resolution is the <strong>stretch-and-fold</strong> mechanism: the flow repeatedly stretches the attracting set in the unstable direction and folds it back to stay bounded, building an infinitely layered, self-similar (fractal) structure — like dough kneaded forever.</p>
-
-<p>The canonical example is the <strong>Lorenz system</strong>, distilled by Edward Lorenz in 1963 from a model of atmospheric convection:</p>
-
-\[\dot{x} = \sigma(y - x), \qquad \dot{y} = x(\rho - z) - y, \qquad \dot{z} = xy - \beta z,\]
-
-<p>with classic parameters $\sigma = 10$, $\beta = 8/3$, $\rho = 28$. Its trajectory traces the famous two-lobed “butterfly,” orbiting one wing an unpredictable number of times before crossing to the other.</p>
-
-<p><strong>Hallmarks of a strange attractor:</strong></p>
+<figure class="diagram">
+<svg viewBox="0 0 440 440" role="img" aria-labelledby="sm-title" style="max-width:460px;width:100%;height:auto">
+<title id="sm-title">Phase portrait of the Chirikov standard map at K = 0.9716: a large central island of invariant curves, chains of smaller islands, and a chaotic sea between them</title>
+<image href="/Documentation/images/chaos-and-computational-standard-map.png" x="40" y="10" width="390" height="390" />
+<rect x="40" y="10" width="390" height="390" fill="none" stroke="currentColor" stroke-width="1.2" />
+<text x="40" y="416" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">0</text>
+<text x="430" y="416" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">2&#960;</text>
+<text x="235" y="432" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle">&#952; (angle)</text>
+<text x="34" y="404" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">&#8722;&#960;</text>
+<text x="34" y="18" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">&#960;</text>
+<text x="16" y="205" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle" transform="rotate(-90 16 205)">I (action)</text>
+</svg>
+<figcaption>Standard map at $K \approx K_c = 0.9716$, 160 orbits of 1500 iterations each. Closed curves are surviving KAM tori and island chains around stable resonances; the speckled region is a single connected chaotic sea. At this value the last rotational invariant circle is just breaking.</figcaption>
+</figure>
 
 <ul>
-  <li><strong>Bounded but non-periodic</strong> — the trajectory never repeats and never escapes to infinity.</li>
-  <li><strong>Sensitive dependence</strong> — a positive maximal Lyapunov exponent (for the Lorenz attractor, $\lambda_1 \approx 0.9\,\text{bit/time}$).</li>
-  <li>
-    <table>
-      <tbody>
-        <tr>
-          <td><strong>Fractal dimension</strong> — the Lorenz attractor’s correlation/Kaplan–Yorke dimension is $\approx 2.06$, neither a 2D surface nor a 3D volume. The Kaplan–Yorke formula $D_{KY} = k + (\sum_{i=1}^{k}\lambda_i)/</td>
-          <td>\lambda_{k+1}</td>
-          <td>$ ties this dimension directly to the Lyapunov spectrum.</td>
-        </tr>
-      </tbody>
-    </table>
-  </li>
-  <li><strong>Self-similarity</strong> — magnifying a cross-section reveals the same layered Cantor-set structure at every scale.</li>
+  <li>For $K = 0$ the map is integrable: every horizontal line $I = \text{const}$ is an invariant circle.</li>
+  <li>For small $K$, most circles survive (KAM), with island chains at rational rotation numbers and thin chaotic layers around them.</li>
+  <li>Rotational invariant circles span the full angle range and act as barriers: while any survive, $I$ cannot grow without bound. Greene’s residue method places the breakup of the last one, the circle with golden-mean rotation number, at $K_c \approx 0.9716$.</li>
+  <li>For $K &gt; K_c$ the chaotic layers connect, and $I$ diffuses without bound. The <strong>Chirikov resonance-overlap criterion</strong> gives a quick estimate of this transition: global chaos sets in roughly when neighboring resonance widths exceed their spacing.</li>
 </ul>
 
-<p>Other touchstones include the <strong>Rössler attractor</strong> (a single fold, simpler than Lorenz) and the <strong>Hénon map</strong>, a 2D dissipative map whose attractor displays the fractal layering with crystal clarity.</p>
+<p>Chirikov’s criterion and the standard map are used as working models in accelerator physics, plasma confinement, and comet dynamics.</p>
 
-<h2 id="bifurcations-and-the-routes-to-chaos">Bifurcations and the Routes to Chaos</h2>
+<h3 id="arnold-diffusion">Arnold diffusion</h3>
 
-<p>Chaos rarely appears all at once. As a control parameter is tuned, a system passes through a sequence of <strong>bifurcations</strong> — qualitative changes in the structure of its attractors — and there are only a few universal <strong>routes</strong> by which regular motion gives way to chaos.</p>
+<p>With two degrees of freedom, the two-dimensional KAM tori divide each three-dimensional energy surface into separate regions. Chaotic orbits trapped between two surviving tori cannot escape. With three or more degrees of freedom the tori no longer divide the energy surface, and the resonance layers form a connected web. Orbits can drift along this web arbitrarily far in action space, however small $\varepsilon$ is. This is <strong>Arnold diffusion</strong>. It is extremely slow (typically exponentially slow in $1/\varepsilon$), so KAM gives practical but not absolute stability for systems with many degrees of freedom.</p>
 
-<h3 id="bifurcations">Bifurcations</h3>
+<h3 id="consequences-in-physical-systems">Consequences in physical systems</h3>
 
-<p>A <strong>bifurcation</strong> occurs where the number or stability of fixed points or periodic orbits changes as a parameter $\mu$ crosses a critical value. The elementary local bifurcations are:</p>
+<ul>
+  <li><strong>Solar System stability.</strong> The planetary orbits are chaotic, with a Lyapunov time of about 5 million years for the inner planets, so their precise positions cannot be computed beyond roughly 50 million years into the past or future. The chaos is nonetheless confined: in Laskar and Gastineau’s 2009 ensemble of 2,501 integrations, only about 1% led to Mercury’s eccentricity growing large enough for close encounters or collisions within the Sun’s remaining 5-billion-year main-sequence lifetime.</li>
+  <li><strong>Kirkwood gaps.</strong> The main asteroid belt is depleted at mean-motion resonances with Jupiter (3:1, 5:2, 7:3, 2:1). Chaotic transport in these resonances pumps asteroids onto planet-crossing orbits, which is also the main delivery route for meteorites.</li>
+  <li><strong>Chaotic rotation.</strong> Saturn’s moon Hyperion, irregularly shaped and on an eccentric orbit, tumbles chaotically. Spin–orbit resonance overlap predicted this, and Voyager and Cassini imaging confirmed it.</li>
+  <li><strong>Particle accelerators.</strong> The <em>dynamic aperture</em> of a storage ring, the region of transverse phase space where particles survive for millions of turns, is set by where KAM tori break down under the nonlinear fields of the magnets.</li>
+  <li><strong>Magnetic confinement fusion.</strong> Magnetic field lines in a tokamak or stellarator form a Hamiltonian system. Nested flux surfaces are its KAM tori, and resonant perturbations create magnetic islands and stochastic regions through which heat leaks out.</li>
+</ul>
+
+<h2 id="dissipative-chaos-strange-attractors">Dissipative chaos: strange attractors</h2>
+
+<p>In a dissipative system phase-space volume contracts, so long-term motion settles onto an <strong>attractor</strong> of lower dimension. A fixed point (a damped pendulum at rest) and a limit cycle (a clock’s steady tick) are regular attractors. When the dynamics on the attractor is chaotic, the attractor is <strong>strange</strong>: bounded, aperiodic, sensitive to initial conditions ($\lambda_1 &gt; 0$), and of <strong>fractal</strong> (non-integer) dimension.</p>
+
+<p>The fractal geometry resolves an apparent contradiction. Dissipation drives the attractor’s volume to zero, but stretching prevents it from being a smooth lower-dimensional surface. The flow repeatedly stretches the attracting set in the unstable direction and folds it back onto itself, producing an infinitely layered, Cantor-set-like cross-section.</p>
+
+<p>The canonical example is the <strong>Lorenz system</strong> (1963), a three-mode truncation of convection in a fluid layer heated from below:</p>
+
+\[\dot{x} = \sigma(y - x), \qquad \dot{y} = x(\rho - z) - y, \qquad \dot{z} = xy - \beta z .\]
+
+<p>At the classic parameters $\sigma = 10$, $\rho = 28$, $\beta = 8/3$, trajectories trace the two-lobed “butterfly,” circling one lobe an irregular number of times before switching to the other. The phase-space contraction rate is constant, $\nabla \cdot \dot{\mathbf{x}} = -(\sigma + 1 + \beta) \approx -13.67$, which matches the sum of the Lyapunov spectrum. In 2002 Warwick Tucker gave a computer-assisted proof that the Lorenz attractor exists and is genuinely strange, resolving Smale’s 14th problem.</p>
+
+<p>The <strong>Kaplan–Yorke dimension</strong> links fractal geometry to the Lyapunov spectrum. With $k$ the largest index for which $\lambda_1 + \cdots + \lambda_k \geq 0$,</p>
+
+\[D_{KY} = k + \frac{\sum_{i=1}^{k} \lambda_i}{|\lambda_{k+1}|} .\]
+
+<p>For Lorenz, $D_{KY} \approx 2 + 0.906/14.57 \approx 2.06$: slightly more than a surface, far less than a volume.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Attractor</th>
+      <th>Type</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Lorenz</td>
+      <td>3D flow</td>
+      <td>Two-lobed butterfly, $D \approx 2.06$</td>
+    </tr>
+    <tr>
+      <td>Rössler</td>
+      <td>3D flow</td>
+      <td>A single stretch-and-fold band, the simplest continuous-time strange attractor</td>
+    </tr>
+    <tr>
+      <td>Hénon map</td>
+      <td>2D map</td>
+      <td>$x_{n+1} = 1 - a x_n^2 + y_n$, $y_{n+1} = b x_n$; fractal layering visible directly, $D \approx 1.26$ at $a = 1.4$, $b = 0.3$</td>
+    </tr>
+    <tr>
+      <td>Duffing oscillator</td>
+      <td>Driven 2D (3D extended)</td>
+      <td>Forced nonlinear spring $\ddot x + \delta \dot x + \alpha x + \beta x^3 = \gamma\cos\omega t$</td>
+    </tr>
+    <tr>
+      <td>Chua circuit</td>
+      <td>Electronic</td>
+      <td>First strange attractor observed in a physical circuit built for the purpose</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="bifurcations-and-routes-to-chaos">Bifurcations and routes to chaos</h2>
+
+<p>Chaos rarely appears all at once. As a control parameter $\mu$ is varied, a system passes through <strong>bifurcations</strong>, parameter values where the number or stability of its fixed points and periodic orbits changes.</p>
 
 <table>
   <thead>
     <tr>
       <th>Bifurcation</th>
-      <th>What changes</th>
+      <th>What happens as $\mu$ crosses the critical value</th>
+      <th>Normal form</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Saddle-node (fold)</strong></td>
-      <td>A stable and an unstable fixed point collide and annihilate (motion suddenly has nowhere to settle).</td>
+      <td>Saddle-node (fold)</td>
+      <td>A stable and an unstable fixed point collide and annihilate</td>
+      <td>$\dot x = \mu - x^2$</td>
     </tr>
     <tr>
-      <td><strong>Transcritical</strong></td>
-      <td>Two fixed points cross and exchange stability.</td>
+      <td>Transcritical</td>
+      <td>Two fixed points pass through each other and exchange stability</td>
+      <td>$\dot x = \mu x - x^2$</td>
     </tr>
     <tr>
-      <td><strong>Pitchfork</strong></td>
-      <td>One fixed point loses stability and gives birth to two new stable ones (symmetry breaking).</td>
+      <td>Pitchfork (supercritical)</td>
+      <td>A symmetric fixed point goes unstable and two stable ones branch off</td>
+      <td>$\dot x = \mu x - x^3$</td>
     </tr>
     <tr>
-      <td><strong>Hopf</strong></td>
-      <td>A fixed point loses stability and spawns a limit cycle — onset of sustained oscillation.</td>
+      <td>Hopf (supercritical)</td>
+      <td>A stable focus goes unstable and a small limit cycle is born</td>
+      <td>$\dot r = \mu r - r^3$, $\dot\phi = \omega$</td>
     </tr>
     <tr>
-      <td><strong>Period-doubling (flip)</strong></td>
-      <td>A periodic orbit of period $T$ becomes unstable and is replaced by one of period $2T$.</td>
+      <td>Period-doubling (flip)</td>
+      <td>A periodic orbit of period $T$ goes unstable and one of period $2T$ appears</td>
+      <td>$x_{n+1} = -(1+\mu)x_n + x_n^3$</td>
     </tr>
   </tbody>
 </table>
 
-<p>The <strong>logistic map</strong> $x_{n+1} = r\,x_n(1 - x_n)$ is the canonical laboratory. As $r$ increases past $3$, the stable fixed point period-doubles to a 2-cycle, then a 4-cycle, 8-cycle, $\dots$, with successive doublings crowding together and accumulating at $r_\infty \approx 3.5699$, beyond which the orbit is chaotic (interrupted by periodic windows).</p>
+<p>Subcritical versions of the pitchfork and Hopf bifurcations produce sudden jumps and hysteresis instead of gradual onset.</p>
 
-<h3 id="universality-the-feigenbaum-constants">Universality: the Feigenbaum constants</h3>
+<h3 id="universality-the-logistic-map-and-feigenbaum-constants">Universality: the logistic map and Feigenbaum constants</h3>
 
-<p>The period-doubling cascade is <strong>universal</strong>. The ratio of successive parameter intervals between doublings converges to a number independent of the specific map:</p>
+<p>The <strong>logistic map</strong> $x_{n+1} = r x_n (1 - x_n)$ on $[0, 1]$ is the standard example of a period-doubling cascade:</p>
 
-\[\delta = \lim_{n \to \infty} \frac{r_{n} - r_{n-1}}{r_{n+1} - r_{n}} = 4.669201\ldots,\]
+<figure class="diagram">
+<svg viewBox="0 0 640 360" role="img" aria-labelledby="bif-title" style="max-width:700px;width:100%;height:auto">
+<title id="bif-title">Bifurcation diagram of the logistic map for r from 2.8 to 4: a single branch splits at r = 3, again near 3.449, cascades to chaos at about 3.5699, with a period-3 window near 3.83</title>
+<image href="/Documentation/images/chaos-and-computational-logistic-bifurcation.png" x="60" y="20" width="560" height="280" preserveAspectRatio="none" />
+<line x1="60" y1="300" x2="620" y2="300" stroke="currentColor" stroke-width="1.2" />
+<line x1="60" y1="20" x2="60" y2="300" stroke="currentColor" stroke-width="1.2" />
+<line x1="60" y1="300" x2="60" y2="305" stroke="currentColor" /><text x="60" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">2.8</text>
+<line x1="153" y1="300" x2="153" y2="305" stroke="currentColor" /><text x="153" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.0</text>
+<line x1="247" y1="300" x2="247" y2="305" stroke="currentColor" /><text x="247" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.2</text>
+<line x1="340" y1="300" x2="340" y2="305" stroke="currentColor" /><text x="340" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.4</text>
+<line x1="433" y1="300" x2="433" y2="305" stroke="currentColor" /><text x="433" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.6</text>
+<line x1="527" y1="300" x2="527" y2="305" stroke="currentColor" /><text x="527" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.8</text>
+<line x1="620" y1="300" x2="620" y2="305" stroke="currentColor" /><text x="620" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">4.0</text>
+<text x="52" y="304" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">0</text>
+<text x="52" y="24" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">1</text>
+<text x="340" y="345" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle">control parameter r</text>
+<text x="30" y="160" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle" transform="rotate(-90 30 160)">long-run x</text>
+<line x1="419" y1="20" x2="419" y2="300" stroke="currentColor" stroke-dasharray="4 4" opacity="0.6" />
+<text x="415" y="292" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">r&#8734; &#8776; 3.5699</text>
+<text x="541" y="14" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">period-3 window</text>
+</svg>
+<figcaption>Logistic map $x_{n+1} = r x_n (1 - x_n)$: each vertical slice shows the values visited after transients die out. Period doubling accumulates at $r_\infty$; beyond it, chaotic bands are punctuated by periodic windows.</figcaption>
+</figure>
 
-<p>the <strong>Feigenbaum constant</strong>, accompanied by a spatial scaling constant $\alpha = 2.502907\ldots$. These same numbers govern the period-doubling route in fluid convection, nonlinear circuits, and driven oscillators — physically unrelated systems share the <em>same</em> quantitative approach to chaos, a triumph of the renormalization-group idea applied to dynamics.</p>
+<p>The fixed point is stable for $1 &lt; r &lt; 3$. At $r = 3$ it gives way to a 2-cycle, at $r = 1 + \sqrt{6} \approx 3.449$ to a 4-cycle, then an 8-cycle, and so on. The doublings accumulate at $r_\infty \approx 3.5699$, beyond which the motion is chaotic for most $r$, interrupted by periodic windows such as the period-3 window starting at $r = 1 + \sqrt{8} \approx 3.828$. At $r = 4$ the map is conjugate to a shift and has $\lambda = \ln 2$ exactly.</p>
 
-<h3 id="the-principal-routes-to-chaos">The principal routes to chaos</h3>
+<p>Feigenbaum (1978) discovered that the cascade is <strong>universal</strong>. The spacing of successive doubling thresholds shrinks geometrically with ratio</p>
+
+\[\delta = \lim_{n \to \infty} \frac{r_n - r_{n-1}}{r_{n+1} - r_n} = 4.669201\ldots,\]
+
+<p>and the branch widths scale by $\alpha = 2.502907\ldots$. The same constants hold for any smooth one-dimensional map with a single quadratic maximum. Experiments in Rayleigh–Bénard convection, nonlinear electronic circuits, and driven lasers measure the same values. The explanation is a renormalization-group fixed point in the space of maps, the same idea that explains universality at continuous phase transitions.</p>
+
+<h3 id="the-principal-routes">The principal routes</h3>
+
+<pre><code class="language-mermaid">flowchart LR
+    R["Regular motion&lt;br/&gt;fixed point or periodic orbit"]
+    R --&gt;|"period-doubling cascade&lt;br/&gt;(Feigenbaum)"| C
+    R --&gt;|"Hopf, then second Hopf to a 2-torus,&lt;br/&gt;torus breakdown (Ruelle-Takens-Newhouse)"| C
+    R --&gt;|"saddle-node of a periodic orbit,&lt;br/&gt;laminar phases with bursts (Pomeau-Manneville)"| C
+    R --&gt;|"Hamiltonian: KAM tori break,&lt;br/&gt;chaotic layers merge"| H
+    C["Dissipative chaos&lt;br/&gt;strange attractor"]
+    H["Hamiltonian chaos&lt;br/&gt;chaotic sea, no attractor"]
+</code></pre>
 
 <ol>
-  <li><strong>Period-doubling (Feigenbaum) cascade</strong> — an infinite sequence of period-doublings accumulating at a finite parameter value; the most thoroughly understood route.</li>
-  <li><strong>Quasi-periodicity (Ruelle–Takens–Newhouse)</strong> — successive Hopf bifurcations add incommensurate frequencies; after typically two or three, the motion on the torus breaks into a strange attractor. This displaced the older Landau picture of turbulence as infinitely many superposed frequencies.</li>
-  <li><strong>Intermittency (Pomeau–Manneville)</strong> — long stretches of nearly regular (“laminar”) motion are interrupted by irregular bursts at unpredictable times; the bursts become more frequent as the parameter is pushed past a saddle-node bifurcation of the periodic orbit.</li>
+  <li><strong>Period doubling.</strong> An infinite sequence of period-doublings accumulating at a finite parameter value, governed by the Feigenbaum constants.</li>
+  <li><strong>Quasi-periodicity (Ruelle–Takens–Newhouse).</strong> Successive Hopf bifurcations add incommensurate frequencies, and after two or three of them the motion on the torus typically breaks up into a strange attractor. This replaced Landau’s older picture of turbulence as the superposition of ever more independent frequencies.</li>
+  <li><strong>Intermittency (Pomeau–Manneville).</strong> Just past a saddle-node bifurcation of a periodic orbit, long nearly periodic (“laminar”) phases are interrupted by irregular bursts. The mean laminar duration scales as $(\mu - \mu_c)^{-1/2}$ for the type-I case.</li>
+  <li><strong>Crises.</strong> A chaotic attractor collides with an unstable periodic orbit or its basin boundary and suddenly expands, merges with another attractor, or disappears, leaving long chaotic transients.</li>
 </ol>
 
-<p>In Hamiltonian systems the analogue is the <strong>KAM route</strong> described above: as the perturbation grows, the last invariant tori break, chaotic layers merge, and the regular sea is overtaken by a chaotic one.</p>
+<p>In Hamiltonian systems there are no attractors. The analogous route is the progressive breakup of KAM tori described above.</p>
 
-<h2 id="worked-example-the-double-pendulum">Worked Example: the Double Pendulum</h2>
+<h2 id="diagnosing-chaos-in-practice">Diagnosing chaos in practice</h2>
 
-<p>The double pendulum is the cleanest mechanical system that is chaotic at the kitchen table. Each rod alone is a regular pendulum; coupled, the four-dimensional phase space supports a positive Lyapunov exponent at moderate energy. The script below integrates two copies started $0.001$ rad apart and exhibits, in one figure, every diagnostic on this page: the phase-space portrait, a Poincaré section, the exponential divergence that measures the Lyapunov exponent, and an energy-conservation check confirming the dynamics is genuinely Hamiltonian (chaotic, not merely sloppy numerics).</p>
+<p>Real data rarely comes with equations. The standard toolkit:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Diagnostic</th>
+      <th>What it measures</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Largest Lyapunov exponent</td>
+      <td>Rate of divergence of nearby states</td>
+      <td>From equations (Benettin) or from data (Rosenstein and Kantz algorithms); noise biases it upward</td>
+    </tr>
+    <tr>
+      <td>Poincaré section or return map</td>
+      <td>Geometry of the recurrent dynamics</td>
+      <td>Needs a good choice of section</td>
+    </tr>
+    <tr>
+      <td>Power spectrum</td>
+      <td>Frequency content</td>
+      <td>Periodic: sharp lines. Quasi-periodic: lines at combination frequencies. Chaotic: broadband continuum. Noise is also broadband, so this is not conclusive alone</td>
+    </tr>
+    <tr>
+      <td>Correlation dimension (Grassberger–Procaccia)</td>
+      <td>Fractal dimension of the attractor</td>
+      <td>Needs long, clean time series; easily fooled by noise and short records</td>
+    </tr>
+    <tr>
+      <td>Delay embedding (Takens 1981)</td>
+      <td>Reconstructs the attractor from a single observable using the vectors $(s(t), s(t-\tau), \ldots)$</td>
+      <td>Embedding dimension $m &gt; 2D$ suffices generically</td>
+    </tr>
+    <tr>
+      <td>0–1 test (Gottwald–Melbourne 2004)</td>
+      <td>Growth of a derived 2D random-walk-like process</td>
+      <td>Returns about 0 for regular and about 1 for chaotic data; no embedding needed</td>
+    </tr>
+    <tr>
+      <td>Surrogate-data tests</td>
+      <td>Whether apparent structure exceeds that of a matched linear stochastic process</td>
+      <td>Guards against mistaking colored noise for chaos</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Chaos control.</strong> An unstable periodic orbit embedded in a strange attractor can be stabilized with tiny, well-timed parameter adjustments each time the trajectory passes near it (the Ott–Grebogi–Yorke method, 1990). Because a strange attractor contains infinitely many such orbits, a chaotic system can be switched among many behaviors with little control effort. The idea has been demonstrated in lasers, electronic circuits, chemical reactions, and cardiac tissue.</p>
+
+<h2 id="data-driven-modeling-and-forecasting">Data-driven modeling and forecasting</h2>
+
+<p>Machine learning now plays a large role in modeling chaotic systems. None of these methods escapes the Lyapunov horizon. What they can do is approach it more cheaply, or produce calibrated ensembles instead of a single forecast.</p>
+
+<ul>
+  <li><strong>Reservoir computing.</strong> A fixed random recurrent network with only a trained linear readout. Pathak, Ott and collaborators (2018) used it to forecast the spatiotemporally chaotic Kuramoto–Sivashinsky equation for several Lyapunov times and to reproduce the system’s long-term statistics and Lyapunov spectrum.</li>
+  <li><strong>Sparse identification of nonlinear dynamics (SINDy).</strong> Brunton, Proctor and Kutz (2016) fit $\dot x = \Theta(x)\,\Xi$ by sparse regression over a library of candidate terms $\Theta(x)$. The result is an interpretable model, and it recovers the Lorenz equations from simulated trajectories.</li>
+  <li><strong>Koopman and dynamic mode decomposition.</strong> These methods represent nonlinear dynamics by a linear operator acting on observables. They work well for quasi-periodic dynamics and less well once the spectrum becomes continuous, as it does under chaos.</li>
+  <li><strong>Machine-learned weather prediction.</strong> Weather is the most important chaotic forecasting problem. Google DeepMind’s GraphCast (<em>Science</em>, 2023) matched or beat the ECMWF deterministic forecast on most verification targets. Its ensemble successor GenCast (<em>Nature</em>, 2024) produces 15-day probabilistic forecasts that beat ECMWF’s operational ensemble on 97% of 1,320 evaluated targets. Operational centers now run such models alongside physics-based ones. They still show the familiar growth of forecast spread with lead time, because the atmosphere’s predictability limit belongs to the system, not to the model.</li>
+</ul>
+
+<p>Structure-preserving networks for conservative dynamics, such as Hamiltonian and Lagrangian neural networks, are covered in <a href="computational-classical-mechanics.html#structure-preserving-machine-learning">Computational Methods</a>.</p>
+
+<h2 id="worked-example-the-double-pendulum">Worked example: the double pendulum</h2>
+
+<p>The double pendulum is the simplest everyday mechanical system that becomes chaotic. At small amplitude it is nearly linear: two coupled normal modes with quasi-periodic motion. Released from horizontal, it has a positive Lyapunov exponent. The script below computes three diagnostics from this page for both regimes: the largest Lyapunov exponent (Benettin renormalization), a Poincaré section, and an energy-conservation check. The energy check confirms that the divergence comes from the dynamics and not from integration error.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 <span class="kn">from</span> <span class="n">scipy.integrate</span> <span class="kn">import</span> <span class="n">solve_ivp</span>
 <span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">from</span> <span class="n">matplotlib.animation</span> <span class="kn">import</span> <span class="n">FuncAnimation</span>
 
-<span class="k">def</span> <span class="nf">double_pendulum_derivatives</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">m1</span><span class="p">,</span> <span class="n">m2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">g</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Compute derivatives for the double pendulum.
+<span class="n">M1</span> <span class="o">=</span> <span class="n">M2</span> <span class="o">=</span> <span class="mf">1.0</span>          <span class="c1"># masses (kg)
+</span><span class="n">L1</span> <span class="o">=</span> <span class="n">L2</span> <span class="o">=</span> <span class="mf">1.0</span>          <span class="c1"># rod lengths (m)
+</span><span class="n">G</span> <span class="o">=</span> <span class="mf">9.81</span>               <span class="c1"># gravity (m/s^2)
+</span><span class="n">TOL</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="sh">"</span><span class="s">DOP853</span><span class="sh">"</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">)</span>
 
-    State convention: [theta1, z1, theta2, z2], where z_i = d(theta_i)/dt.
-    The explicit equations of motion below follow the canonical
-    double-pendulum Lagrangian derivation (see, e.g., the standard
-    Matplotlib double-pendulum example / Wikipedia formulas).
-    </span><span class="sh">"""</span>
-    <span class="n">theta1</span><span class="p">,</span> <span class="n">z1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">,</span> <span class="n">z2</span> <span class="o">=</span> <span class="n">state</span>
+<span class="k">def</span> <span class="nf">rhs</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Equations of motion; state s = (theta1, omega1, theta2, omega2).</span><span class="sh">"""</span>
+    <span class="n">th1</span><span class="p">,</span> <span class="n">w1</span><span class="p">,</span> <span class="n">th2</span><span class="p">,</span> <span class="n">w2</span> <span class="o">=</span> <span class="n">s</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">th2</span> <span class="o">-</span> <span class="n">th1</span>
+    <span class="n">c</span><span class="p">,</span> <span class="n">sn</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">d</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+    <span class="n">den1</span> <span class="o">=</span> <span class="p">(</span><span class="n">M1</span> <span class="o">+</span> <span class="n">M2</span><span class="p">)</span> <span class="o">*</span> <span class="n">L1</span> <span class="o">-</span> <span class="n">M2</span> <span class="o">*</span> <span class="n">L1</span> <span class="o">*</span> <span class="n">c</span> <span class="o">*</span> <span class="n">c</span>
+    <span class="n">den2</span> <span class="o">=</span> <span class="p">(</span><span class="n">L2</span> <span class="o">/</span> <span class="n">L1</span><span class="p">)</span> <span class="o">*</span> <span class="n">den1</span>
+    <span class="n">dw1</span> <span class="o">=</span> <span class="p">(</span><span class="n">M2</span> <span class="o">*</span> <span class="n">L1</span> <span class="o">*</span> <span class="n">w1</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sn</span> <span class="o">*</span> <span class="n">c</span> <span class="o">+</span> <span class="n">M2</span> <span class="o">*</span> <span class="n">G</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">th2</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span>
+           <span class="o">+</span> <span class="n">M2</span> <span class="o">*</span> <span class="n">L2</span> <span class="o">*</span> <span class="n">w2</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sn</span> <span class="o">-</span> <span class="p">(</span><span class="n">M1</span> <span class="o">+</span> <span class="n">M2</span><span class="p">)</span> <span class="o">*</span> <span class="n">G</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">th1</span><span class="p">))</span> <span class="o">/</span> <span class="n">den1</span>
+    <span class="n">dw2</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">M2</span> <span class="o">*</span> <span class="n">L2</span> <span class="o">*</span> <span class="n">w2</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sn</span> <span class="o">*</span> <span class="n">c</span>
+           <span class="o">+</span> <span class="p">(</span><span class="n">M1</span> <span class="o">+</span> <span class="n">M2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">G</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">th1</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="o">-</span> <span class="n">L1</span> <span class="o">*</span> <span class="n">w1</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sn</span> <span class="o">-</span> <span class="n">G</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">th2</span><span class="p">)))</span> <span class="o">/</span> <span class="n">den2</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">w1</span><span class="p">,</span> <span class="n">dw1</span><span class="p">,</span> <span class="n">w2</span><span class="p">,</span> <span class="n">dw2</span><span class="p">]</span>
 
-    <span class="c1"># Angle difference: theta2 - theta1
-</span>    <span class="n">delta</span> <span class="o">=</span> <span class="n">theta2</span> <span class="o">-</span> <span class="n">theta1</span>
-    <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">delta</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">energy</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">th1</span><span class="p">,</span> <span class="n">w1</span><span class="p">,</span> <span class="n">th2</span><span class="p">,</span> <span class="n">w2</span> <span class="o">=</span> <span class="n">s</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">M1</span> <span class="o">+</span> <span class="n">M2</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">L1</span> <span class="o">*</span> <span class="n">w1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">M2</span> <span class="o">*</span> <span class="p">(</span><span class="n">L2</span> <span class="o">*</span> <span class="n">w2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+         <span class="o">+</span> <span class="n">M2</span> <span class="o">*</span> <span class="n">L1</span> <span class="o">*</span> <span class="n">L2</span> <span class="o">*</span> <span class="n">w1</span> <span class="o">*</span> <span class="n">w2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">th1</span> <span class="o">-</span> <span class="n">th2</span><span class="p">))</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">M1</span> <span class="o">+</span> <span class="n">M2</span><span class="p">)</span> <span class="o">*</span> <span class="n">G</span> <span class="o">*</span> <span class="n">L1</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">th1</span><span class="p">)</span> <span class="o">-</span> <span class="n">M2</span> <span class="o">*</span> <span class="n">G</span> <span class="o">*</span> <span class="n">L2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">th2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">T</span> <span class="o">+</span> <span class="n">V</span>
 
-    <span class="n">dydt</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
-    <span class="n">dydt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">z1</span>  <span class="c1"># dtheta1/dt
-</span>    <span class="n">dydt</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">z2</span>  <span class="c1"># dtheta2/dt
-</span>
-    <span class="c1"># dz1/dt
-</span>    <span class="n">den1</span> <span class="o">=</span> <span class="p">(</span><span class="n">m1</span> <span class="o">+</span> <span class="n">m2</span><span class="p">)</span><span class="o">*</span><span class="n">l1</span> <span class="o">-</span> <span class="n">m2</span><span class="o">*</span><span class="n">l1</span><span class="o">*</span><span class="n">c</span><span class="o">*</span><span class="n">c</span>
-    <span class="n">dydt</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">m2</span><span class="o">*</span><span class="n">l1</span><span class="o">*</span><span class="n">z1</span><span class="o">*</span><span class="n">z1</span><span class="o">*</span><span class="n">s</span><span class="o">*</span><span class="n">c</span>
-               <span class="o">+</span> <span class="n">m2</span><span class="o">*</span><span class="n">g</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta2</span><span class="p">)</span><span class="o">*</span><span class="n">c</span>
-               <span class="o">+</span> <span class="n">m2</span><span class="o">*</span><span class="n">l2</span><span class="o">*</span><span class="n">z2</span><span class="o">*</span><span class="n">z2</span><span class="o">*</span><span class="n">s</span>
-               <span class="o">-</span> <span class="p">(</span><span class="n">m1</span> <span class="o">+</span> <span class="n">m2</span><span class="p">)</span><span class="o">*</span><span class="n">g</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta1</span><span class="p">))</span> <span class="o">/</span> <span class="n">den1</span>
+<span class="k">def</span> <span class="nf">max_lyapunov</span><span class="p">(</span><span class="n">s0</span><span class="p">,</span> <span class="n">d0</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">n_renorm</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Benettin two-trajectory estimate of the largest Lyapunov exponent (1/s).</span><span class="sh">"""</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">s0</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">).</span><span class="nf">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">*=</span> <span class="n">d0</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+    <span class="n">log_sum</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_renorm</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tau</span><span class="p">),</span> <span class="n">s</span><span class="p">,</span> <span class="o">**</span><span class="n">TOL</span><span class="p">).</span><span class="n">y</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tau</span><span class="p">),</span> <span class="n">s</span> <span class="o">+</span> <span class="n">v</span><span class="p">,</span> <span class="o">**</span><span class="n">TOL</span><span class="p">).</span><span class="n">y</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">sep</span> <span class="o">=</span> <span class="n">b</span> <span class="o">-</span> <span class="n">a</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">sep</span><span class="p">)</span>
+        <span class="n">log_sum</span> <span class="o">+=</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">dist</span> <span class="o">/</span> <span class="n">d0</span><span class="p">)</span>
+        <span class="n">s</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">a</span><span class="p">,</span> <span class="n">sep</span> <span class="o">*</span> <span class="p">(</span><span class="n">d0</span> <span class="o">/</span> <span class="n">dist</span><span class="p">)</span>      <span class="c1"># renormalize along the stretched direction
+</span>    <span class="k">return</span> <span class="n">log_sum</span> <span class="o">/</span> <span class="p">(</span><span class="n">n_renorm</span> <span class="o">*</span> <span class="n">tau</span><span class="p">)</span>
 
-    <span class="c1"># dz2/dt
-</span>    <span class="n">den2</span> <span class="o">=</span> <span class="p">(</span><span class="n">l2</span><span class="o">/</span><span class="n">l1</span><span class="p">)</span><span class="o">*</span><span class="n">den1</span>
-    <span class="n">dydt</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">m2</span><span class="o">*</span><span class="n">l2</span><span class="o">*</span><span class="n">z2</span><span class="o">*</span><span class="n">z2</span><span class="o">*</span><span class="n">s</span><span class="o">*</span><span class="n">c</span>
-               <span class="o">+</span> <span class="p">(</span><span class="n">m1</span> <span class="o">+</span> <span class="n">m2</span><span class="p">)</span><span class="o">*</span><span class="n">g</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta1</span><span class="p">)</span><span class="o">*</span><span class="n">c</span>
-               <span class="o">-</span> <span class="p">(</span><span class="n">m1</span> <span class="o">+</span> <span class="n">m2</span><span class="p">)</span><span class="o">*</span><span class="n">l1</span><span class="o">*</span><span class="n">z1</span><span class="o">*</span><span class="n">z1</span><span class="o">*</span><span class="n">s</span>
-               <span class="o">-</span> <span class="p">(</span><span class="n">m1</span> <span class="o">+</span> <span class="n">m2</span><span class="p">)</span><span class="o">*</span><span class="n">g</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta2</span><span class="p">))</span> <span class="o">/</span> <span class="n">den2</span>
+<span class="k">def</span> <span class="nf">poincare_section</span><span class="p">(</span><span class="n">s0</span><span class="p">,</span> <span class="n">t_max</span><span class="o">=</span><span class="mf">2000.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Record (theta2, omega2) each time theta1 passes 0 with omega1 &gt; 0.</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">cross</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">cross</span><span class="p">.</span><span class="n">direction</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">sol</span> <span class="o">=</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">t_max</span><span class="p">),</span> <span class="n">s0</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="n">cross</span><span class="p">,</span> <span class="o">**</span><span class="n">TOL</span><span class="p">)</span>
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">sol</span><span class="p">.</span><span class="n">y_events</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">pts</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>                  <span class="c1"># keep theta1 = 0, not pi
+</span>    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">mod</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">pts</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span>
 
-    <span class="k">return</span> <span class="n">dydt</span>
+<span class="n">cases</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">low energy (10 deg, 10 deg)</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">radians</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">radians</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="mi">0</span><span class="p">],</span>
+         <span class="sh">"</span><span class="s">high energy (90 deg, 90 deg)</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">]}</span>
 
-<span class="c1"># Parameters
-</span><span class="n">m1</span> <span class="o">=</span> <span class="n">m2</span> <span class="o">=</span> <span class="mf">1.0</span>
-<span class="n">l1</span> <span class="o">=</span> <span class="n">l2</span> <span class="o">=</span> <span class="mf">1.0</span>
-<span class="n">g</span> <span class="o">=</span> <span class="mf">9.81</span>
-
-<span class="c1"># Initial conditions - small perturbation shows chaos
-</span><span class="n">theta1_0</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span>
-<span class="n">theta2_0</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span>
-<span class="n">z1_0</span> <span class="o">=</span> <span class="mi">0</span>
-<span class="n">z2_0</span> <span class="o">=</span> <span class="mi">0</span>
-
-<span class="c1"># Solve for two slightly different initial conditions
-</span><span class="n">state0_1</span> <span class="o">=</span> <span class="p">[</span><span class="n">theta1_0</span><span class="p">,</span> <span class="n">z1_0</span><span class="p">,</span> <span class="n">theta2_0</span><span class="p">,</span> <span class="n">z2_0</span><span class="p">]</span>
-<span class="n">state0_2</span> <span class="o">=</span> <span class="p">[</span><span class="n">theta1_0</span> <span class="o">+</span> <span class="mf">0.001</span><span class="p">,</span> <span class="n">z1_0</span><span class="p">,</span> <span class="n">theta2_0</span><span class="p">,</span> <span class="n">z2_0</span><span class="p">]</span>  <span class="c1"># Small perturbation
-</span>
-<span class="n">t_span</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
-<span class="n">t_eval</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="o">*</span><span class="n">t_span</span><span class="p">,</span> <span class="mi">2000</span><span class="p">)</span>
-
-<span class="n">sol1</span> <span class="o">=</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="n">double_pendulum_derivatives</span><span class="p">,</span> <span class="n">t_span</span><span class="p">,</span> <span class="n">state0_1</span><span class="p">,</span> 
-                 <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">m1</span><span class="p">,</span> <span class="n">m2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">g</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span> 
-                 <span class="n">method</span><span class="o">=</span><span class="sh">'</span><span class="s">DOP853</span><span class="sh">'</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
-
-<span class="n">sol2</span> <span class="o">=</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="n">double_pendulum_derivatives</span><span class="p">,</span> <span class="n">t_span</span><span class="p">,</span> <span class="n">state0_2</span><span class="p">,</span> 
-                 <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">m1</span><span class="p">,</span> <span class="n">m2</span><span class="p">,</span> <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span><span class="p">,</span> <span class="n">g</span><span class="p">),</span> <span class="n">t_eval</span><span class="o">=</span><span class="n">t_eval</span><span class="p">,</span> 
-                 <span class="n">method</span><span class="o">=</span><span class="sh">'</span><span class="s">DOP853</span><span class="sh">'</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span>
-
-<span class="c1"># Plot phase space and divergence
-</span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
-
-<span class="c1"># Phase space trajectories
-</span><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">sol1</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sol1</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="sh">'</span><span class="s">b-</span><span class="sh">'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Original</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">sol2</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sol2</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="sh">'</span><span class="s">r-</span><span class="sh">'</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Perturbed</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$\theta_1$</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$\dot{\theta}_1$</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Phase Space: Pendulum 1</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-
-<span class="c1"># Poincaré section
-</span><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-<span class="c1"># Sample when theta2 crosses zero with positive velocity
-</span><span class="n">crossings</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sign</span><span class="p">(</span><span class="n">sol1</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">scatter</span><span class="p">(</span><span class="n">sol1</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">crossings</span><span class="p">],</span> <span class="n">sol1</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">crossings</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="sh">'</span><span class="s">b</span><span class="sh">'</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$\theta_1$</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="sh">'</span><span class="s">$\dot{\theta}_1$</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Poincaré Section</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-
-<span class="c1"># Lyapunov exponent estimation
-</span><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
-<span class="n">divergence</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">((</span><span class="n">sol1</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">sol2</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> 
-                    <span class="p">(</span><span class="n">sol1</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">sol2</span><span class="p">.</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-<span class="n">log_divergence</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">divergence</span> <span class="o">+</span> <span class="mf">1e-15</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">semilogy</span><span class="p">(</span><span class="n">sol1</span><span class="p">.</span><span class="n">t</span><span class="p">,</span> <span class="n">divergence</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Time (s)</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Phase Space Distance</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Sensitive Dependence on Initial Conditions</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-
-<span class="c1"># Energy conservation check
-</span><span class="n">ax</span> <span class="o">=</span> <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-<span class="c1"># Calculate total energy
-</span><span class="n">theta1</span><span class="p">,</span> <span class="n">z1</span><span class="p">,</span> <span class="n">theta2</span><span class="p">,</span> <span class="n">z2</span> <span class="o">=</span> <span class="n">sol1</span><span class="p">.</span><span class="n">y</span>
-<span class="n">c</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">theta1</span> <span class="o">-</span> <span class="n">theta2</span><span class="p">)</span>
-<span class="n">T</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">m1</span><span class="o">*</span><span class="p">(</span><span class="n">l1</span><span class="o">*</span><span class="n">z1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">m2</span><span class="o">*</span><span class="p">((</span><span class="n">l1</span><span class="o">*</span><span class="n">z1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">l2</span><span class="o">*</span><span class="n">z2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> 
-    <span class="mi">2</span><span class="o">*</span><span class="n">l1</span><span class="o">*</span><span class="n">l2</span><span class="o">*</span><span class="n">z1</span><span class="o">*</span><span class="n">z2</span><span class="o">*</span><span class="n">c</span><span class="p">)</span>
-<span class="n">V</span> <span class="o">=</span> <span class="o">-</span><span class="n">m1</span><span class="o">*</span><span class="n">g</span><span class="o">*</span><span class="n">l1</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">theta1</span><span class="p">)</span> <span class="o">-</span> <span class="n">m2</span><span class="o">*</span><span class="n">g</span><span class="o">*</span><span class="p">(</span><span class="n">l1</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">theta1</span><span class="p">)</span> <span class="o">+</span> 
-    <span class="n">l2</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">theta2</span><span class="p">))</span>
-<span class="n">E</span> <span class="o">=</span> <span class="n">T</span> <span class="o">+</span> <span class="n">V</span>
-
-<span class="n">ax</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">sol1</span><span class="p">.</span><span class="n">t</span><span class="p">,</span> <span class="n">E</span> <span class="o">-</span> <span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="sh">'</span><span class="s">g-</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Time (s)</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Energy Error</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">Energy Conservation</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-
+<span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">s0</span><span class="p">)</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">cases</span><span class="p">.</span><span class="nf">items</span><span class="p">()):</span>
+    <span class="n">lam</span> <span class="o">=</span> <span class="nf">max_lyapunov</span><span class="p">(</span><span class="n">s0</span><span class="p">)</span>
+    <span class="n">sol</span> <span class="o">=</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">200</span><span class="p">),</span> <span class="n">s0</span><span class="p">,</span> <span class="o">**</span><span class="n">TOL</span><span class="p">)</span>
+    <span class="n">drift</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="nf">energy</span><span class="p">(</span><span class="n">sol</span><span class="p">.</span><span class="n">y</span><span class="p">)</span> <span class="o">-</span> <span class="nf">energy</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">s0</span><span class="p">))))</span>
+    <span class="n">th2</span><span class="p">,</span> <span class="n">w2</span> <span class="o">=</span> <span class="nf">poincare_section</span><span class="p">(</span><span class="n">s0</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s">: lambda_max = </span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">f</span><span class="si">}</span><span class="s"> 1/s, max |dE| = </span><span class="si">{</span><span class="n">drift</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="s"> J</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">th2</span><span class="p">,</span> <span class="n">w2</span><span class="p">,</span> <span class="sh">"</span><span class="s">.</span><span class="sh">"</span><span class="p">,</span> <span class="n">ms</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">.</span><span class="nf">set</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="se">\n</span><span class="s">lambda_max = </span><span class="si">{</span><span class="n">lam</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> 1/s</span><span class="sh">"</span><span class="p">,</span>
+           <span class="n">xlabel</span><span class="o">=</span><span class="sa">r</span><span class="sh">"</span><span class="s">$\theta_2$ (rad)</span><span class="sh">"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="sa">r</span><span class="sh">"</span><span class="s">$\dot\theta_2$ (rad/s)</span><span class="sh">"</span><span class="p">)</span>
 <span class="n">plt</span><span class="p">.</span><span class="nf">tight_layout</span><span class="p">()</span>
 <span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-
-<span class="c1"># Estimate Lyapunov exponent
-</span><span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
-<span class="c1"># Linear fit to log divergence in growth region
-</span><span class="n">t_fit</span> <span class="o">=</span> <span class="n">sol1</span><span class="p">.</span><span class="n">t</span><span class="p">[</span><span class="mi">100</span><span class="p">:</span><span class="mi">500</span><span class="p">]</span>  <span class="c1"># Avoid initial transient and saturation
-</span><span class="n">log_div_fit</span> <span class="o">=</span> <span class="n">log_divergence</span><span class="p">[</span><span class="mi">100</span><span class="p">:</span><span class="mi">500</span><span class="p">]</span>
-<span class="n">slope</span><span class="p">,</span> <span class="n">intercept</span><span class="p">,</span> <span class="n">r_value</span><span class="p">,</span> <span class="n">p_value</span><span class="p">,</span> <span class="n">std_err</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="nf">linregress</span><span class="p">(</span><span class="n">t_fit</span><span class="p">,</span> <span class="n">log_div_fit</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Estimated Lyapunov exponent: </span><span class="si">{</span><span class="n">slope</span><span class="si">:</span><span class="p">.</span><span class="mi">4</span><span class="n">f</span><span class="si">}</span><span class="s"> s^-1</span><span class="sh">"</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">R-squared: </span><span class="si">{</span><span class="n">r_value</span><span class="o">**</span><span class="mi">2</span><span class="si">:</span><span class="p">.</span><span class="mi">4</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
 <details>
-<summary><b>Expected Output</b></summary>
+<summary><b>Expected output</b></summary>
 <br />
-The figure has four panels:
-<ol>
-<li><b>Phase space</b> — the original (blue) and perturbed (red) trajectories overlap at first, then visibly diverge as the chaos amplifies the tiny initial difference.</li>
-<li><b>Poincaré section</b> — the scattered cloud of crossing points (rather than a clean curve) signals chaotic, non-quasi-periodic motion.</li>
-<li><b>Sensitive dependence (log scale)</b> — the phase-space distance between the two runs grows roughly exponentially before saturating at the attractor's size; the slope of the early region is the maximal Lyapunov exponent.</li>
-<li><b>Energy conservation</b> — total energy stays flat, confirming the divergence is genuine chaos, not integration error.</li>
-</ol>
-The printed Lyapunov exponent is positive (its precise value depends on the fitting window), the quantitative signature of chaos.
+Printed values from a reference run (SciPy 1.18):
+<pre>
+low energy (10 deg, 10 deg): lambda_max = 0.006 1/s, max |dE| = 1.0e-10 J
+high energy (90 deg, 90 deg): lambda_max = 0.848 1/s, max |dE| = 2.3e-07 J
+</pre>
+The low-energy exponent is zero within the accuracy of a finite run, and its Poincaré section traces a closed curve (quasi-periodic motion on a torus). The high-energy case gives a clearly positive exponent, a Lyapunov time of about 1.2 s, and a section that scatters over an area (a chaotic sea). The energy error is many orders of magnitude smaller than the energy scale $mgl \approx 10$ J in both cases, so the divergence is not a numerical artifact.
 </details>
 
-<h2 id="applications">Applications</h2>
+<p>The script uses a high-order adaptive Runge–Kutta method at tight tolerance, which is appropriate for runs of a few thousand oscillations. For much longer integrations of conservative systems, a symplectic method keeps the energy error bounded instead of slowly drifting; see <a href="computational-classical-mechanics.html">Computational Methods</a>.</p>
 
-<p>Chaos and nonlinear dynamics are not a curiosity confined to textbook pendulums; the same mechanisms shape systems across science and engineering. A brief, non-exhaustive tour:</p>
+<h2 id="where-chaos-matters">Where chaos matters</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Celestial mechanics</td>
+      <td>Three-body problem, chaotic zones around resonances, long-term planetary stability, chaotic transport of asteroids and comets</td>
+    </tr>
+    <tr>
+      <td>Atmosphere and climate</td>
+      <td>Two-week weather predictability limit, ensemble forecasting, Lorenz-type low-order models</td>
+    </tr>
+    <tr>
+      <td>Fluid dynamics</td>
+      <td>Transition to turbulence, chaotic advection and mixing in laminar flows (stretch-and-fold at small scales)</td>
+    </tr>
+    <tr>
+      <td>Engineering</td>
+      <td>Nonlinear vibration and buckling, rattling in gear trains, chaotic Chua and Colpitts circuits, chaos control</td>
+    </tr>
+    <tr>
+      <td>Plasma and accelerator physics</td>
+      <td>Magnetic islands and stochastic field lines, dynamic aperture of storage rings</td>
+    </tr>
+    <tr>
+      <td>Biology and medicine</td>
+      <td>Cardiac arrhythmias, neuronal bursting, population dynamics (logistic and Ricker maps)</td>
+    </tr>
+    <tr>
+      <td>Statistical mechanics</td>
+      <td>Chaos as the microscopic justification for ergodicity and mixing; see <a href="../statistical-mechanics/">Statistical Mechanics</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><strong>Celestial mechanics</strong> — the three-body problem, the chaotic tumbling of Saturn’s moon Hyperion, the long-term (in)stability of planetary orbits, and the Lyapunov time of the Solar System.</li>
-  <li><strong>Weather and climate</strong> — Lorenz’s convection model is the origin of the field; the finite predictability horizon of weather is a direct consequence of a positive Lyapunov exponent.</li>
-  <li><strong>Fluid dynamics</strong> — the onset of turbulence via the quasi-periodic and period-doubling routes; mixing as the macroscopic face of stretch-and-fold.</li>
-  <li><strong>Engineering</strong> — buckling and vibration of nonlinear structures, chaos in driven electronic (Chua) circuits, and the deliberate exploitation of chaos for secure communication and for <strong>chaos control</strong> (stabilizing an unstable periodic orbit embedded in a strange attractor via tiny feedback, the OGY method).</li>
-  <li><strong>Biology and medicine</strong> — cardiac arrhythmias and neuronal firing as nonlinear oscillators; population dynamics described by the very logistic map whose bifurcation cascade defines a route to chaos.</li>
-</ul>
-
-<p>For the <em>numerical</em> tools needed to simulate these systems faithfully over long times — symplectic and variational integrators, and the analysis of energy drift — see the <a href="computational-classical-mechanics.html">Computational Methods</a> page. For the <em>geometric</em> structures (symplectic forms, phase-space flow, Liouville’s theorem) underlying area-preserving maps and KAM tori, see <a href="geometric-mechanics.html">Geometric Formalism</a>.</p>
-
-<h2 id="see-also">See Also</h2>
-
-<ul>
-  <li><a href="geometric-mechanics.html">Geometric Formalism</a> — symplectic geometry, phase-space flow, and Liouville’s theorem that make Hamiltonian Poincaré maps area-preserving and underpin KAM tori.</li>
-  <li><a href="computational-classical-mechanics.html">Computational Methods</a> — symplectic and variational integrators for simulating chaotic and Hamiltonian systems without spurious energy drift.</li>
-  <li><a href="lagrangian-hamiltonian.html">Lagrangian &amp; Hamiltonian Mechanics</a> — action-angle variables and phase space, the setting in which KAM theory and Poincaré sections are formulated.</li>
-  <li><a href="newtonian.html">Newtonian Mechanics</a> — the equations of motion (e.g. the double pendulum) that become chaotic once they are nonlinear.</li>
-  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — how chaotic microscopic dynamics underpins ergodicity and the approach to equilibrium.</li>
-  <li><a href="./">Classical Mechanics Hub</a> — back to the overview.</li>
+  <li><a href="geometric-mechanics.html">Geometric Formalism</a>: symplectic structure, Liouville’s theorem, and the Arnold–Liouville theorem behind invariant tori and area-preserving maps.</li>
+  <li><a href="computational-classical-mechanics.html">Computational Methods</a>: symplectic and variational integrators for long simulations of chaotic Hamiltonian systems.</li>
+  <li><a href="lagrangian-hamiltonian.html">Lagrangian &amp; Hamiltonian Mechanics</a>: phase space, canonical transformations, and action–angle variables.</li>
+  <li><a href="waves.html">Oscillations &amp; Waves</a>: the linear and weakly nonlinear oscillators that chaos theory generalizes.</li>
+  <li><a href="../statistical-mechanics/">Statistical Mechanics</a>: how chaotic microscopic dynamics underpins ergodicity and the approach to equilibrium.</li>
+  <li><a href="./">Classical Mechanics Hub</a>: back to the overview.</li>
 </ul>
 
       </section>

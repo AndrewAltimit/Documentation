@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Numerical methods for physics: discretization and error, quadrature, differentiation, root finding, ODE and PDE solvers, stability, and verification — with a...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Computational Physics">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Numerical methods for physics: discretization and error, quadrature, differentiation, root finding, ODE and PDE solvers, stability, and verification — with a...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/computational-physics/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Computational Physics">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Numerical methods for physics: discretization and error, quadrature, differentiation, root finding, ODE and PDE solvers, stability, and verification — with a...">
 
 <title>Computational Physics | Andrews Notebook</title>
 
@@ -3136,479 +3136,567 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Where physics meets computation, using numerical algorithms and simulations to solve problems beyond analytical reach.</p>
 </div>
 
-<p>Computational physics is the third pillar of modern physics, alongside theory and experiment. When equations are too hard to solve by hand — nonlinear dynamics, many interacting bodies, complex geometries — we turn the physics into algorithms and let computers do the work. This hub is a practical, code-first tour of the core numerical methods. Four ideas recur throughout:</p>
+<p><strong>Computational physics</strong> turns physical laws into algorithms and solves them numerically. It is used whenever the governing equations cannot be solved in closed form — nonlinear dynamics, many interacting particles, complicated geometries, long time evolution — and it sits alongside theory and experiment as a third way of doing physics: simulations test theories where experiments are impossible, and interpret experiments where theory is intractable.</p>
+
+<p>This hub introduces the numerical foundations shared by every simulation — discretization, error, stability, and verification — and then links to the specialized pages below. Code examples use Python with NumPy and SciPy and have been run as shown.</p>
+
+<h2 id="topics">Topics</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Page</th>
+      <th>Covers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a></td>
+      <td>Random sampling, Markov chain Monte Carlo, quantum Monte Carlo, classical MD, thermostats, Ewald sums</td>
+    </tr>
+    <tr>
+      <td><a href="quantum-methods.html">Quantum Computational Methods</a></td>
+      <td>Split-operator and Crank-Nicolson propagation of the Schrödinger equation, tunnelling, density functional theory</td>
+    </tr>
+    <tr>
+      <td><a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a></td>
+      <td>FEM from weak form to assembly, Navier-Stokes and the projection method, finite volumes, turbulence models, lattice Boltzmann</td>
+    </tr>
+    <tr>
+      <td><a href="electronic-structure-beyond-dft.html">Electronic Structure Beyond DFT</a></td>
+      <td>Hartree-Fock, MP2, coupled cluster, multireference methods, TD-DFT, EOM-CC, GW</td>
+    </tr>
+    <tr>
+      <td><a href="hpc-and-ml.html">Parallel &amp; High-Performance Computing</a></td>
+      <td>MPI, GPUs, the roofline model, Krylov solvers, multigrid, Lanczos</td>
+    </tr>
+    <tr>
+      <td><a href="ml-for-physics.html">Machine Learning for Physics</a></td>
+      <td>Physics-informed networks, equivariant models, neural-network potentials, neural operators</td>
+    </tr>
+    <tr>
+      <td><a href="tools-and-practices.html">Visualization, Libraries &amp; Best Practices</a></td>
+      <td>Scientific visualization, data analysis, the Python physics stack, validation practice</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart TD
+    HUB["Numerical foundations&lt;br/&gt;(this page)"] --&gt; MC["Monte Carlo and MD"]
+    HUB --&gt; QM["Quantum methods and DFT"]
+    HUB --&gt; FEM["FEM and CFD"]
+    QM --&gt; ES["Electronic structure&lt;br/&gt;beyond DFT"]
+    MC --&gt; HPC["Parallel and HPC"]
+    FEM --&gt; HPC
+    ES --&gt; HPC
+    HPC --&gt; ML["Machine learning&lt;br/&gt;for physics"]
+    MC -. "training data" .-&gt; ML
+    ES -. "training data" .-&gt; ML
+    TOOLS["Tools and best practices"] -.- HUB
+</code></pre>
+
+<p>The core-method pages (Monte Carlo and quantum methods) can be read in either order; the domain pages build on them; the HPC page explains how all of them scale; and the machine-learning page covers models trained on their output.</p>
+
+<h2 id="from-physical-law-to-trustworthy-numbers">From physical law to trustworthy numbers</h2>
+
+<p>Every simulation passes through the same chain of approximations, and each link introduces its own error:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    P["Physical system"] -- "modelling error" --&gt; M["Mathematical model&lt;br/&gt;(PDEs, Hamiltonian)"]
+    M -- "discretization error" --&gt; D["Discrete equations"]
+    D -- "solver and round-off error" --&gt; C["Computed solution"]
+    C -- "verification:&lt;br/&gt;solving the equations right?" --&gt; D
+    C -- "validation:&lt;br/&gt;solving the right equations?" --&gt; P
+</code></pre>
 
 <ul>
-  <li><strong>Discretize the continuum.</strong> Derivatives become finite differences, integrals become sums — turning calculus into arithmetic a computer can run.</li>
-  <li><strong>Sample what you can’t solve.</strong> Monte Carlo methods use randomness to evaluate high-dimensional integrals and explore huge state spaces.</li>
-  <li><strong>Respect the physics.</strong> Good algorithms preserve conservation laws and stability — a fast method that drifts in energy is worthless.</li>
-  <li><strong>Scale with hardware.</strong> Parallelism (MPI, GPUs) and machine learning push simulations to sizes no single processor could reach.</li>
+  <li><strong>Modelling error</strong> comes from the physics left out: neglected friction, a classical treatment of a quantum system, an approximate turbulence model.</li>
+  <li><strong>Discretization (truncation) error</strong> comes from replacing derivatives by differences and integrals by sums. It shrinks as a power of the step size $h$, and that power is the method’s <strong>order</strong>.</li>
+  <li><strong>Round-off error</strong> comes from finite-precision arithmetic. IEEE 754 double precision has machine epsilon $\epsilon \approx 2.2 \times 10^{-16}$, and round-off grows as steps shrink and operations multiply.</li>
+  <li><strong>Solver error</strong> comes from stopping iterative methods (linear solvers, nonlinear iterations, Monte Carlo sampling) before full convergence.</li>
 </ul>
 
-<h2 id="explore-the-topics">Explore the Topics</h2>
+<p><strong>Verification</strong> checks that the code solves the discrete equations correctly and that the discretization converges at its theoretical order — typically by comparing with exact solutions, including <em>manufactured</em> solutions chosen in advance and substituted into the equations to produce a source term. <strong>Validation</strong> compares the results with experiment. Neither can substitute for the other.</p>
 
-<p>The pages below are arranged as a reading order, from foundational <strong>methods</strong> that apply everywhere, through <strong>physical domains</strong> where those methods are specialized, to the <strong>HPC and machine-learning</strong> techniques that scale simulations up and learn the physics from data. Tooling and best practices sit at the end as a cross-cutting reference.</p>
+<h2 id="numerical-integration">Numerical integration</h2>
 
-<h3 id="core-methods">Core Methods</h3>
-
-<div class="command-grid">
-  <a href="monte-carlo-and-md.html" class="nav-card">
-    <h4><i class="fas fa-dice"></i> Monte Carlo &amp; Molecular Dynamics</h4>
-    <p>Random sampling, Markov chains, quantum Monte Carlo, and classical/advanced MD with thermostats and Ewald sums.</p>
-  </a>
-  <a href="quantum-methods.html" class="nav-card">
-    <h4><i class="fas fa-wave-square"></i> Quantum Computational Methods</h4>
-    <p>Split-operator and Crank-Nicolson time evolution, quantum tunneling, and density functional theory (DFT).</p>
-  </a>
-</div>
-
-<h3 id="physical-domains">Physical Domains</h3>
-
-<div class="command-grid">
-  <a href="fem-and-cfd.html" class="nav-card">
-    <h4><i class="fas fa-vector-square"></i> Finite Elements &amp; Fluid Dynamics</h4>
-    <p>1D/2D finite element methods, the Navier-Stokes projection method, and the Lattice Boltzmann scheme.</p>
-  </a>
-  <a href="electronic-structure-beyond-dft.html" class="nav-card">
-    <h4><i class="fas fa-atom"></i> Electronic Structure Beyond DFT</h4>
-    <p>The wavefunction hierarchy — Hartree-Fock, MP2, configuration interaction, coupled cluster — and excited states via TD-DFT.</p>
-  </a>
-</div>
-
-<h3 id="high-performance-computing--machine-learning">High-Performance Computing &amp; Machine Learning</h3>
-
-<div class="command-grid">
-  <a href="hpc-and-ml.html" class="nav-card">
-    <h4><i class="fas fa-microchip"></i> Parallel &amp; High-Performance Computing</h4>
-    <p>MPI domain decomposition, GPU kernels with CUDA/CuPy, and parallel sparse linear algebra for large-scale simulations.</p>
-  </a>
-  <a href="ml-for-physics.html" class="nav-card">
-    <h4><i class="fas fa-brain"></i> Machine Learning for Physics</h4>
-    <p>Physics-informed neural networks, equivariant architectures, neural-network potentials, and Fourier neural operators.</p>
-  </a>
-</div>
-
-<h3 id="tools--practices">Tools &amp; Practices</h3>
-
-<div class="command-grid">
-  <a href="tools-and-practices.html" class="nav-card">
-    <h4><i class="fas fa-toolbox"></i> Visualization, Libraries &amp; Best Practices</h4>
-    <p>Scientific visualization, data analysis, the core Python physics stack, and validation best practices.</p>
-  </a>
-</div>
-
-<h2 id="introduction-to-computational-physics">Introduction to Computational Physics</h2>
-
-<h3 id="what-is-computational-physics">What is Computational Physics?</h3>
-
-<p>Computational physics is the study and implementation of numerical analysis to solve physical problems. It forms the third pillar of modern physics, alongside experimental and theoretical physics:</p>
-
-<ul>
-  <li><strong>Theoretical Physics</strong>: Develops mathematical models and equations</li>
-  <li><strong>Experimental Physics</strong>: Tests predictions through observation</li>
-  <li><strong>Computational Physics</strong>: Bridges theory and experiment through simulation</li>
-</ul>
-
-<h3 id="why-do-we-need-it">Why Do We Need It?</h3>
-
-<p>Many physical systems involve equations that cannot be solved analytically:</p>
-
-<ol>
-  <li><strong>Nonlinear Systems</strong>: Most real-world physics is nonlinear</li>
-  <li><strong>Many-Body Problems</strong>: Systems with more than two interacting particles</li>
-  <li><strong>Complex Geometries</strong>: Real-world shapes rarely have simple mathematical forms</li>
-  <li><strong>Time Evolution</strong>: Following systems through long time periods</li>
-</ol>
-
-<h3 id="the-computational-approach">The Computational Approach</h3>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A simple example: projectile motion with air resistance
-</span><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-
-<span class="k">def</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">angle</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">drag</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Simulate projectile motion with optional quadratic air resistance</span><span class="sh">"""</span>
-    <span class="c1"># Constants
-</span>    <span class="n">g</span> <span class="o">=</span> <span class="mf">9.81</span>  <span class="c1"># gravity (m/s^2)
-</span>    <span class="n">rho</span> <span class="o">=</span> <span class="mf">1.225</span>  <span class="c1"># air density (kg/m^3)
-</span>    <span class="n">Cd</span> <span class="o">=</span> <span class="mf">0.47</span>  <span class="c1"># drag coefficient for sphere
-</span>    <span class="n">A</span> <span class="o">=</span> <span class="mf">0.045</span>  <span class="c1"># cross-sectional area (m^2)
-</span>    <span class="n">m</span> <span class="o">=</span> <span class="mf">0.145</span>  <span class="c1"># mass (kg)
-</span>    
-    <span class="c1"># Initial conditions
-</span>    <span class="n">vx</span> <span class="o">=</span> <span class="n">v0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">radians</span><span class="p">(</span><span class="n">angle</span><span class="p">))</span>
-    <span class="n">vy</span> <span class="o">=</span> <span class="n">v0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">radians</span><span class="p">(</span><span class="n">angle</span><span class="p">))</span>
-    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
-    
-    <span class="c1"># Store trajectory
-</span>    <span class="n">trajectory</span> <span class="o">=</span> <span class="p">[(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)]</span>
-    
-    <span class="k">while</span> <span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="c1"># Calculate drag force (zero if drag disabled)
-</span>        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">vx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">vy</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-        <span class="n">Fd</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">Cd</span> <span class="o">*</span> <span class="n">A</span> <span class="o">*</span> <span class="n">v</span><span class="o">**</span><span class="mi">2</span> <span class="k">if</span> <span class="n">drag</span> <span class="k">else</span> <span class="mf">0.0</span>
-        
-        <span class="c1"># Update velocities
-</span>        <span class="n">ax</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">Fd</span><span class="o">/</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">vx</span><span class="o">/</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
-        <span class="n">ay</span> <span class="o">=</span> <span class="o">-</span><span class="n">g</span> <span class="o">-</span> <span class="p">((</span><span class="n">Fd</span><span class="o">/</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">vy</span><span class="o">/</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">)</span>
-        
-        <span class="n">vx</span> <span class="o">+=</span> <span class="n">ax</span> <span class="o">*</span> <span class="n">dt</span>
-        <span class="n">vy</span> <span class="o">+=</span> <span class="n">ay</span> <span class="o">*</span> <span class="n">dt</span>
-        
-        <span class="c1"># Update position
-</span>        <span class="n">x</span> <span class="o">+=</span> <span class="n">vx</span> <span class="o">*</span> <span class="n">dt</span>
-        <span class="n">y</span> <span class="o">+=</span> <span class="n">vy</span> <span class="o">*</span> <span class="n">dt</span>
-        
-        <span class="n">trajectory</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
-    
-    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">trajectory</span><span class="p">)</span>
-
-<span class="c1"># Compare with and without air resistance
-</span><span class="n">trajectory_drag</span> <span class="o">=</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="n">drag</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="n">trajectory_no_drag</span> <span class="o">=</span> <span class="nf">projectile_with_drag</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="n">drag</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-
-<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">trajectory_drag</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">trajectory_drag</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">With air resistance</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">plot</span><span class="p">(</span><span class="n">trajectory_no_drag</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">trajectory_no_drag</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="sh">'</span><span class="s">--</span><span class="sh">'</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sh">'</span><span class="s">Vacuum (no drag)</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">xlabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Distance (m)</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">ylabel</span><span class="p">(</span><span class="sh">'</span><span class="s">Height (m)</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">legend</span><span class="p">()</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">grid</span><span class="p">(</span><span class="bp">True</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-</code></pre></div></div>
-
-<hr />
-
-<h2 id="fundamental-numerical-methods">Fundamental Numerical Methods</h2>
-
-<h3 id="numerical-integration">Numerical Integration</h3>
-
-<p>Numerical integration (quadrature) replaces an integral with a weighted sum of function values. The methods differ in how fast the error shrinks as you add sample points — captured by the <strong>order of convergence</strong>. Higher order means fewer evaluations for the same accuracy, which matters enormously when each evaluation is expensive.</p>
+<p>Numerical <strong>quadrature</strong> replaces an integral with a weighted sum of function values, $\int_a^b f(x)\,dx \approx \sum_i w_i f(x_i)$. Methods differ in how fast the error falls as points are added:</p>
 
 <table>
   <thead>
     <tr>
       <th>Method</th>
       <th>Idea</th>
-      <th>Error scaling</th>
+      <th>Error (smooth $f$, step $h$ or $n$ points)</th>
       <th>Best for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Midpoint / rectangle</td>
-      <td>flat-top strips</td>
+      <td>Midpoint</td>
+      <td>Constant on each strip</td>
       <td>$O(h^2)$</td>
-      <td>quick estimates</td>
+      <td>Quick estimates, open intervals</td>
     </tr>
     <tr>
       <td>Trapezoidal</td>
-      <td>straight-line tops</td>
-      <td>$O(h^2)$</td>
-      <td>smooth 1D functions</td>
+      <td>Linear on each strip</td>
+      <td>$O(h^2)$; exponentially accurate for smooth periodic $f$</td>
+      <td>Periodic integrands, tabulated data</td>
     </tr>
     <tr>
       <td>Simpson’s rule</td>
-      <td>parabolic tops</td>
+      <td>Quadratic on each pair of strips</td>
       <td>$O(h^4)$</td>
-      <td>smooth 1D functions, cheap accuracy</td>
+      <td>Smooth 1D integrands</td>
     </tr>
     <tr>
-      <td>Gaussian quadrature</td>
-      <td>optimal node placement</td>
-      <td>spectral (very fast)</td>
-      <td>smooth integrands, few points</td>
+      <td>Gauss-Legendre</td>
+      <td>Optimal nodes and weights</td>
+      <td>Exact for polynomials of degree $2n-1$; exponential convergence for analytic $f$</td>
+      <td>Smooth integrands with expensive evaluations</td>
+    </tr>
+    <tr>
+      <td>Adaptive (Gauss-Kronrod)</td>
+      <td>Subdivide where the error estimate is large</td>
+      <td>Controlled by tolerance</td>
+      <td>General-purpose (<code class="language-plaintext highlighter-rouge">scipy.integrate.quad</code>)</td>
     </tr>
     <tr>
       <td>Monte Carlo</td>
-      <td>random sampling</td>
-      <td>$O(N^{-1/2})$</td>
-      <td>high dimensions</td>
+      <td>Random samples</td>
+      <td>$O(N^{-1/2})$, independent of dimension</td>
+      <td>High-dimensional integrals</td>
     </tr>
   </tbody>
 </table>
 
-<p>Note the punchline of the last row: Monte Carlo’s error falls only as $N^{-1/2}$ regardless of dimension, while grid methods like Simpson’s degrade as $O(h^4) = O(N^{-4/d})$ in $d$ dimensions. So in low dimensions deterministic rules win easily, but above $d \approx 4$–$8$ Monte Carlo becomes the only practical choice — the reason it dominates statistical and quantum many-body physics. The <a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a> page explores these sampling methods in depth.</p>
+<p>The last row explains the importance of Monte Carlo in statistical and quantum many-body physics. A product grid rule with $N$ total points in $d$ dimensions has spacing $h \sim N^{-1/d}$, so Simpson’s error falls only as $N^{-4/d}$; for $d &gt; 8$ that is slower than Monte Carlo’s $N^{-1/2}$, and the number of grid points needed grows exponentially with $d$ (the <strong>curse of dimensionality</strong>). Quasi-Monte Carlo sequences (Sobol, Halton) improve the rate to nearly $N^{-1}$ for moderately smooth integrands. The <a href="monte-carlo-and-md.html">Monte Carlo &amp; Molecular Dynamics</a> page develops sampling methods further.</p>
 
-<h4 id="riemann-sums-to-sophisticated-quadrature">Riemann Sums to Sophisticated Quadrature</h4>
+<p>Composite Simpson’s rule in a few lines:</p>
 
-<p>The simplest integration methods approximate the area under a curve:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">integrate_simpson</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Simpson</span><span class="sh">'</span><span class="s">s rule for numerical integration</span><span class="sh">"""</span>
-    <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># Simpson's rule needs even intervals
-</span>    
-    <span class="n">h</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
+<span class="k">def</span> <span class="nf">simpson</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Composite Simpson</span><span class="sh">'</span><span class="s">s rule with n (even) subintervals.</span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="n">y</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-    
-    <span class="c1"># Simpson's rule: (h/3) * [y0 + 4(y1+y3+...) + 2(y2+y4+...) + yn]
-</span>    <span class="n">integral</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">integral</span> <span class="o">+=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">])</span>  <span class="c1"># odd indices
-</span>    <span class="n">integral</span> <span class="o">+=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">])</span>  <span class="c1"># even indices
-</span>    
-    <span class="k">return</span> <span class="n">integral</span> <span class="o">*</span> <span class="n">h</span> <span class="o">/</span> <span class="mi">3</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
+    <span class="k">return</span> <span class="n">h</span> <span class="o">/</span> <span class="mi">3</span> <span class="o">*</span> <span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">y</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">].</span><span class="nf">sum</span><span class="p">()</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">2</span><span class="p">].</span><span class="nf">sum</span><span class="p">())</span>
 
-<span class="c1"># Example: Calculate the integral of sin(x) from 0 to π
-</span><span class="n">result</span> <span class="o">=</span> <span class="nf">integrate_simpson</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">sin</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">∫sin(x)dx from 0 to π = </span><span class="si">{</span><span class="n">result</span><span class="si">:</span><span class="p">.</span><span class="mi">6</span><span class="n">f</span><span class="si">}</span><span class="s"> (exact: 2.0)</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="nf">simpson</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">sin</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span> <span class="o">-</span> <span class="mf">2.0</span><span class="p">)</span>   <span class="c1"># error ~ 1e-8: O(h^4)
+</span></code></pre></div></div>
+
+<p>In practice <code class="language-plaintext highlighter-rouge">scipy.integrate.quad</code> (adaptive Gauss-Kronrod, 1D), <code class="language-plaintext highlighter-rouge">scipy.integrate.cubature</code> (adaptive, multidimensional, SciPy 1.15 and later), and <code class="language-plaintext highlighter-rouge">scipy.integrate.qmc_quad</code> (quasi-Monte Carlo) cover most needs.</p>
+
+<h2 id="numerical-differentiation">Numerical differentiation</h2>
+
+<p>Taylor expansion gives finite-difference formulas and their truncation errors:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Formula</th>
+      <th>Expression</th>
+      <th>Truncation error</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Forward difference</td>
+      <td>$\dfrac{f(x+h) - f(x)}{h}$</td>
+      <td>$O(h)$</td>
+    </tr>
+    <tr>
+      <td>Central difference</td>
+      <td>$\dfrac{f(x+h) - f(x-h)}{2h}$</td>
+      <td>$O(h^2)$</td>
+    </tr>
+    <tr>
+      <td>Five-point stencil</td>
+      <td>$\dfrac{-f(x+2h) + 8f(x+h) - 8f(x-h) + f(x-2h)}{12h}$</td>
+      <td>$O(h^4)$</td>
+    </tr>
+    <tr>
+      <td>Second derivative</td>
+      <td>$\dfrac{f(x+h) - 2f(x) + f(x-h)}{h^2}$</td>
+      <td>$O(h^2)$</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <tbody>
+    <tr>
+      <td>Making $h$ smaller does not always help. Subtracting two nearly equal function values loses digits to round-off, contributing an error of about $\epsilon</td>
+      <td>f</td>
+      <td>/ h$. The total error of the central difference is therefore roughly</td>
+    </tr>
+  </tbody>
+</table>
+
+\[E(h) \approx \frac{h^2}{6}\left|f'''(x)\right| + \frac{\epsilon\,|f(x)|}{h}\]
+
+<p>which is minimized near $h \sim \epsilon^{1/3} \approx 10^{-5}$, giving an error of about $10^{-11}$ — not $10^{-16}$. For the forward difference the optimum is $h \sim \epsilon^{1/2} \approx 10^{-8}$. Differentiating $\sin x$ at $x = 1$:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="n">f</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">sin</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">cos</span><span class="p">,</span> <span class="mf">1.0</span>
+<span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="mf">10.0</span> <span class="o">**</span> <span class="o">-</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+    <span class="n">fwd</span> <span class="o">=</span> <span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="nf">f</span><span class="p">(</span><span class="n">x0</span><span class="p">))</span> <span class="o">/</span> <span class="n">h</span>
+    <span class="n">cen</span> <span class="o">=</span> <span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="nf">f</span><span class="p">(</span><span class="n">x0</span> <span class="o">-</span> <span class="n">h</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">h = </span><span class="si">{</span><span class="n">h</span><span class="si">:</span><span class="p">.</span><span class="mi">0</span><span class="n">e</span><span class="si">}</span><span class="s">   forward </span><span class="si">{</span><span class="nf">abs</span><span class="p">(</span><span class="n">fwd</span> <span class="o">-</span> <span class="nf">df</span><span class="p">(</span><span class="n">x0</span><span class="p">))</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="s">   central </span><span class="si">{</span><span class="nf">abs</span><span class="p">(</span><span class="n">cen</span> <span class="o">-</span> <span class="nf">df</span><span class="p">(</span><span class="n">x0</span><span class="p">))</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># h = 1e-01   forward 4.3e-02   central 9.0e-04
+# h = 1e-03   forward 4.2e-04   central 9.0e-08
+# h = 1e-05   forward 4.2e-06   central 1.1e-11   &lt;- central optimum
+# h = 1e-07   forward 4.2e-08   central 1.9e-10   &lt;- round-off now dominates
+# h = 1e-09   forward 5.3e-08   central 3.0e-09
+# h = 1e-11   forward 1.2e-06   central 1.2e-06
+</span></code></pre></div></div>
+
+<p>When derivatives of a <em>program</em> are needed — gradients for optimization, Jacobians for implicit solvers, forces from a learned potential — <strong>automatic differentiation</strong> (JAX, PyTorch) computes them exactly to machine precision at a small constant multiple of the function’s cost, avoiding the step-size dilemma entirely.</p>
+
+<h2 id="root-finding-and-nonlinear-equations">Root finding and nonlinear equations</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Requirements</th>
+      <th>Convergence</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Bisection</td>
+      <td>Bracket $[a, b]$ with a sign change</td>
+      <td>Linear (one bit per step)</td>
+      <td>Guaranteed; slow</td>
+    </tr>
+    <tr>
+      <td>Newton-Raphson</td>
+      <td>$f’$ and a good initial guess</td>
+      <td>Quadratic</td>
+      <td>Fast near the root; can diverge far from it</td>
+    </tr>
+    <tr>
+      <td>Secant</td>
+      <td>Two initial points</td>
+      <td>Superlinear (order about 1.618)</td>
+      <td>Newton without derivatives</td>
+    </tr>
+    <tr>
+      <td>Brent’s method</td>
+      <td>Bracket</td>
+      <td>Superlinear, never worse than bisection</td>
+      <td>The standard robust choice (<code class="language-plaintext highlighter-rouge">scipy.optimize.brentq</code>)</td>
+    </tr>
+    <tr>
+      <td>Newton-Krylov</td>
+      <td>Jacobian-vector products</td>
+      <td>Quadratic (inexact)</td>
+      <td>Large nonlinear systems from discretized PDEs</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Newton’s method, $x_{k+1} = x_k - f(x_k)/f’(x_k)$, generalizes to systems as $J(\mathbf{x}_k)\,\Delta\mathbf{x} = -\mathbf{F}(\mathbf{x}_k)$. Each step requires a linear solve with the Jacobian $J$; for large PDE systems this is done iteratively (see <a href="hpc-and-ml.html#krylov-methods-conjugate-gradient">Krylov methods</a>), and line searches or trust regions make the iteration robust far from the solution.</p>
+
+<h2 id="ordinary-differential-equations">Ordinary differential equations</h2>
+
+<p>Most of physics is expressed as differential equations: Newton’s laws, Maxwell’s equations, the Schrödinger equation. An initial-value problem $\dot{\mathbf{y}} = \mathbf{f}(t, \mathbf{y})$ is solved by stepping the state forward in time, and the choice of stepping scheme is governed by three concerns: <strong>accuracy</strong> (error per step), <strong>stability</strong> (whether errors grow over many steps), and <strong>structure</strong> (whether conserved quantities are respected).</p>
+
+<h3 id="runge-kutta-methods-and-adaptive-stepping">Runge-Kutta methods and adaptive stepping</h3>
+
+<p>The forward <strong>Euler</strong> method $\mathbf{y}_{n+1} = \mathbf{y}_n + h\,\mathbf{f}(t_n, \mathbf{y}_n)$ is first order: its global error is $O(h)$. The classical <strong>fourth-order Runge-Kutta</strong> method (RK4) samples $\mathbf{f}$ four times per step and combines the slopes so that errors cancel through fourth order:</p>
+
+\[\begin{aligned}
+\mathbf{k}_1 &amp;= \mathbf{f}(t_n, \mathbf{y}_n), &amp;
+\mathbf{k}_2 &amp;= \mathbf{f}\left(t_n + \tfrac{h}{2}, \mathbf{y}_n + \tfrac{h}{2}\mathbf{k}_1\right), \\
+\mathbf{k}_3 &amp;= \mathbf{f}\left(t_n + \tfrac{h}{2}, \mathbf{y}_n + \tfrac{h}{2}\mathbf{k}_2\right), &amp;
+\mathbf{k}_4 &amp;= \mathbf{f}(t_n + h, \mathbf{y}_n + h\mathbf{k}_3), \\
+\mathbf{y}_{n+1} &amp;= \mathbf{y}_n + \tfrac{h}{6}\left(\mathbf{k}_1 + 2\mathbf{k}_2 + 2\mathbf{k}_3 + \mathbf{k}_4\right)
+\end{aligned}\]
+
+<p>The local error is $O(h^5)$ and the global error $O(h^4)$: halving $h$ reduces the error about sixteenfold.</p>
+
+<p>A fixed step is wasteful when the solution changes pace. <strong>Embedded Runge-Kutta pairs</strong> compute two solutions of different order from the same function evaluations; their difference estimates the local error, and the step is enlarged or reduced to keep that estimate within a tolerance. The Dormand-Prince 5(4) pair is the default in SciPy’s <code class="language-plaintext highlighter-rouge">solve_ivp</code> (<code class="language-plaintext highlighter-rouge">method="RK45"</code>) and in MATLAB’s <code class="language-plaintext highlighter-rouge">ode45</code>; <code class="language-plaintext highlighter-rouge">DOP853</code> provides eighth order for tight tolerances. Solvers also support <strong>event detection</strong>, stopping the integration when a function of the state crosses zero:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy.integrate</span> <span class="kn">import</span> <span class="n">solve_ivp</span>
+
+<span class="k">def</span> <span class="nf">projectile</span><span class="p">(</span><span class="n">v0</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">angle_deg</span><span class="o">=</span><span class="mf">45.0</span><span class="p">,</span> <span class="n">drag</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Projectile with quadratic air drag (baseball-sized sphere).</span><span class="sh">"""</span>
+    <span class="n">g</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">cd</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="mf">9.81</span><span class="p">,</span> <span class="mf">1.225</span><span class="p">,</span> <span class="mf">0.47</span><span class="p">,</span> <span class="mf">0.0042</span><span class="p">,</span> <span class="mf">0.145</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">cd</span> <span class="o">*</span> <span class="n">area</span> <span class="o">/</span> <span class="n">m</span> <span class="k">if</span> <span class="n">drag</span> <span class="k">else</span> <span class="mf">0.0</span>
+
+    <span class="k">def</span> <span class="nf">rhs</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">vx</span><span class="p">,</span> <span class="n">vy</span> <span class="o">=</span> <span class="n">s</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">hypot</span><span class="p">(</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">,</span> <span class="o">-</span><span class="n">k</span> <span class="o">*</span> <span class="n">v</span> <span class="o">*</span> <span class="n">vx</span><span class="p">,</span> <span class="o">-</span><span class="n">g</span> <span class="o">-</span> <span class="n">k</span> <span class="o">*</span> <span class="n">v</span> <span class="o">*</span> <span class="n">vy</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">hit_ground</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>          <span class="c1"># event: height crosses zero going down
+</span>        <span class="k">return</span> <span class="n">s</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">hit_ground</span><span class="p">.</span><span class="n">terminal</span><span class="p">,</span> <span class="n">hit_ground</span><span class="p">.</span><span class="n">direction</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="n">th</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">radians</span><span class="p">(</span><span class="n">angle_deg</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">solve_ivp</span><span class="p">(</span><span class="n">rhs</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">v0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">th</span><span class="p">),</span> <span class="n">v0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">th</span><span class="p">)],</span>
+                     <span class="n">events</span><span class="o">=</span><span class="n">hit_ground</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">drag</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="bp">True</span><span class="p">):</span>
+    <span class="n">sol</span> <span class="o">=</span> <span class="nf">projectile</span><span class="p">(</span><span class="n">drag</span><span class="o">=</span><span class="n">drag</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">drag=</span><span class="si">{</span><span class="n">drag</span><span class="si">}</span><span class="s">: range </span><span class="si">{</span><span class="n">sol</span><span class="p">.</span><span class="n">y_events</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">f</span><span class="si">}</span><span class="s"> m, time </span><span class="si">{</span><span class="n">sol</span><span class="p">.</span><span class="n">t_events</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="n">f</span><span class="si">}</span><span class="s"> s</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># drag=False: range 254.8 m, time 7.21 s   (analytic: v0^2/g = 254.8 m)
+# drag=True:  range 107.2 m, time 5.46 s
+</span></code></pre></div></div>
+
+<p>The drag-free case reproduces the analytic range $v_0^2/g$, a basic verification before trusting the drag result.</p>
+
+<h3 id="stiff-equations">Stiff equations</h3>
+
+<p>A system is <strong>stiff</strong> when it contains processes on very different time scales — fast chemical reactions alongside slow ones, or the fine-grid modes of a discretized diffusion equation. Explicit methods must then take steps small enough to resolve the fastest scale for <em>stability</em>, even after that component has decayed and no longer matters for <em>accuracy</em>. Implicit methods, which solve an equation for $\mathbf{y}_{n+1}$ at each step, remain stable with far larger steps. On Robertson’s classic chemical-kinetics problem integrated to $t = 100$, SciPy’s explicit <code class="language-plaintext highlighter-rouge">RK45</code> needs about 730,000 function evaluations while the implicit <code class="language-plaintext highlighter-rouge">BDF</code> and <code class="language-plaintext highlighter-rouge">Radau</code> methods need a few hundred.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Solver (<code class="language-plaintext highlighter-rouge">solve_ivp</code>)</th>
+      <th>Type</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RK45</code>, <code class="language-plaintext highlighter-rouge">DOP853</code></td>
+      <td>Explicit Runge-Kutta</td>
+      <td>Non-stiff problems</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Radau</code></td>
+      <td>Implicit Runge-Kutta, order 5</td>
+      <td>Stiff problems, high accuracy</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">BDF</code></td>
+      <td>Backward differentiation formulas, variable order</td>
+      <td>Stiff problems, large systems</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">LSODA</code></td>
+      <td>Switches automatically between Adams and BDF</td>
+      <td>Unknown or changing stiffness</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A Jacobian (analytic, or with its sparsity pattern supplied through <code class="language-plaintext highlighter-rouge">jac_sparsity</code>) makes implicit solvers much faster for large systems. For demanding work, the SUNDIALS suite (CVODE, IDA, ARKODE) and Julia’s DifferentialEquations.jl provide wider choices of methods.</p>
+
+<h3 id="symplectic-integrators">Symplectic integrators</h3>
+
+<p>For Hamiltonian systems — planetary orbits, molecular dynamics, particle accelerators — the long-term behaviour matters more than the error at any single time. General-purpose methods such as RK4 do not preserve the geometric structure of Hamiltonian flow, so their energy error grows steadily. <strong>Symplectic integrators</strong> preserve phase-space volume exactly; they conserve a slightly perturbed “shadow” Hamiltonian, so the energy error stays bounded for exponentially long times. The most widely used is the second-order <strong>velocity Verlet</strong> (leapfrog) scheme, which needs one force evaluation per step:</p>
+
+\[\mathbf{v}_{n+1/2} = \mathbf{v}_n + \tfrac{h}{2}\mathbf{a}(\mathbf{x}_n), \qquad
+\mathbf{x}_{n+1} = \mathbf{x}_n + h\,\mathbf{v}_{n+1/2}, \qquad
+\mathbf{v}_{n+1} = \mathbf{v}_{n+1/2} + \tfrac{h}{2}\mathbf{a}(\mathbf{x}_{n+1})\]
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">accel</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">x</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">**</span> <span class="mi">3</span>          <span class="c1"># Kepler problem, GM = 1
+</span>
+<span class="k">def</span> <span class="nf">energy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">v</span> <span class="o">@</span> <span class="n">v</span> <span class="o">-</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">rk4_step</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">y</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">concatenate</span><span class="p">([</span><span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">:],</span> <span class="nf">accel</span><span class="p">(</span><span class="n">y</span><span class="p">[:</span><span class="mi">2</span><span class="p">])])</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">concatenate</span><span class="p">([</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">])</span>
+    <span class="n">k1</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">y</span><span class="p">);</span> <span class="n">k2</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">y</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k1</span><span class="p">);</span> <span class="n">k3</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">y</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k2</span><span class="p">);</span> <span class="n">k4</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">y</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">k3</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">/</span> <span class="mi">6</span> <span class="o">*</span> <span class="p">(</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">k3</span> <span class="o">+</span> <span class="n">k4</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">y</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>
+
+<span class="k">def</span> <span class="nf">verlet_step</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">accel</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>                 <span class="c1"># kick
+</span>    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">v</span>                              <span class="c1"># drift
+</span>    <span class="n">v</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">accel</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>                 <span class="c1"># kick
+</span>    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">v</span>
+
+<span class="n">x0</span><span class="p">,</span> <span class="n">v0</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]),</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">])</span>   <span class="c1"># eccentric orbit (e = 0.44)
+</span><span class="n">E0</span><span class="p">,</span> <span class="n">dt</span> <span class="o">=</span> <span class="nf">energy</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">v0</span><span class="p">),</span> <span class="mf">0.1</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">step</span> <span class="ow">in</span> <span class="p">((</span><span class="sh">"</span><span class="s">RK4</span><span class="sh">"</span><span class="p">,</span> <span class="n">rk4_step</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">Verlet</span><span class="sh">"</span><span class="p">,</span> <span class="n">verlet_step</span><span class="p">)):</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">x0</span><span class="p">.</span><span class="nf">copy</span><span class="p">(),</span> <span class="n">v0</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100_001</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="nf">step</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1_000</span><span class="p">,</span> <span class="mi">10_000</span><span class="p">,</span> <span class="mi">100_000</span><span class="p">):</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="mi">6</span><span class="n">s</span><span class="si">}</span><span class="s"> t = </span><span class="si">{</span><span class="n">n</span> <span class="o">*</span> <span class="n">dt</span><span class="si">:</span><span class="mf">6.0</span><span class="n">f</span><span class="si">}</span><span class="s">   |dE/E0| = </span><span class="si">{</span><span class="nf">abs</span><span class="p">(</span><span class="nf">energy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">-</span> <span class="n">E0</span><span class="p">)</span> <span class="o">/</span> <span class="nf">abs</span><span class="p">(</span><span class="n">E0</span><span class="p">)</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h4 id="advanced-integration-methods">Advanced Integration Methods</h4>
+<table>
+  <thead>
+    <tr>
+      <th>Integrator</th>
+      <th>Force evaluations per step</th>
+      <th>$\lvert\Delta E/E_0\rvert$ at $t = 10^2$</th>
+      <th>at $t = 10^3$</th>
+      <th>at $t = 10^4$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>RK4</td>
+      <td>4</td>
+      <td>$1.1 \times 10^{-5}$</td>
+      <td>$9.7 \times 10^{-5}$</td>
+      <td>$9.6 \times 10^{-4}$</td>
+    </tr>
+    <tr>
+      <td>Velocity Verlet</td>
+      <td>1</td>
+      <td>$2.8 \times 10^{-3}$</td>
+      <td>$2.8 \times 10^{-3}$</td>
+      <td>$2.8 \times 10^{-3}$</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>For higher dimensions and complex domains:</p>
+<p>RK4 is more accurate over short times, but its energy error grows linearly without bound; Verlet’s is larger but does not grow, at a quarter of the cost. Over the $10^9$ steps of a molecular-dynamics run or the billions of orbits of a solar-system integration, only the bounded behaviour is acceptable. Higher-order symplectic schemes (Yoshida, Forest-Ruth) and specialized integrators for nearly Keplerian motion (Wisdom-Holman) extend the idea.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">monte_carlo_integrate</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Monte Carlo integration for arbitrary dimensions</span><span class="sh">"""</span>
-    <span class="n">dim</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span>
-    <span class="n">volume</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">prod</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">])</span>
-    
-    <span class="c1"># Generate random points
-</span>    <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">)</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">bounds</span><span class="p">):</span>
-        <span class="n">points</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">points</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">high</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">+</span> <span class="n">low</span>
-    
-    <span class="c1"># Evaluate function at random points
-</span>    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">f</span><span class="p">(</span><span class="o">*</span><span class="n">point</span><span class="p">)</span> <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">points</span><span class="p">])</span>
-    
-    <span class="c1"># Monte Carlo estimate
-</span>    <span class="n">integral</span> <span class="o">=</span> <span class="n">volume</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
-    <span class="n">error</span> <span class="o">=</span> <span class="n">volume</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">std</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)</span>
-    
-    <span class="k">return</span> <span class="n">integral</span><span class="p">,</span> <span class="n">error</span>
-</code></pre></div></div>
+<h2 id="partial-differential-equations">Partial differential equations</h2>
 
-<h3 id="numerical-differentiation">Numerical Differentiation</h3>
+<p>PDEs are classified by the character of their solutions, which determines the appropriate numerical method:</p>
 
-<h4 id="finite-difference-methods">Finite Difference Methods</h4>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Prototype</th>
+      <th>Physics</th>
+      <th>Character</th>
+      <th>Typical numerics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Elliptic</td>
+      <td>Poisson $\nabla^2 u = f$</td>
+      <td>Electrostatics, steady heat flow, pressure in incompressible flow</td>
+      <td>Boundary-value problem; every point depends on all others</td>
+      <td>Sparse linear solve (multigrid, preconditioned CG), FFT on periodic domains</td>
+    </tr>
+    <tr>
+      <td>Parabolic</td>
+      <td>Heat $u_t = \alpha \nabla^2 u$</td>
+      <td>Diffusion, Schrödinger (with imaginary time)</td>
+      <td>Smoothing, infinite propagation speed</td>
+      <td>Implicit time stepping (Crank-Nicolson, BDF)</td>
+    </tr>
+    <tr>
+      <td>Hyperbolic</td>
+      <td>Wave $u_{tt} = c^2 \nabla^2 u$, advection $u_t + c\,u_x = 0$</td>
+      <td>Sound, electromagnetism, gas dynamics</td>
+      <td>Finite propagation speed, can form shocks</td>
+      <td>Explicit time stepping under a CFL limit; upwind and shock-capturing schemes</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">derivative_schemes</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">h</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Various finite difference schemes for derivatives</span><span class="sh">"""</span>
-    <span class="c1"># Forward difference: O(h)
-</span>    <span class="n">forward</span> <span class="o">=</span> <span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="o">/</span> <span class="n">h</span>
-    
-    <span class="c1"># Backward difference: O(h)
-</span>    <span class="n">backward</span> <span class="o">=</span> <span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">h</span><span class="p">))</span> <span class="o">/</span> <span class="n">h</span>
-    
-    <span class="c1"># Central difference: O(h²)
-</span>    <span class="n">central</span> <span class="o">=</span> <span class="p">(</span><span class="nf">f</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">h</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span>
-    
-    <span class="c1"># Five-point stencil: O(h⁴)
-</span>    <span class="n">five_point</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="nf">f</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">h</span><span class="p">)</span> <span class="o">+</span> <span class="mi">8</span><span class="o">*</span><span class="nf">f</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">h</span><span class="p">)</span> <span class="o">-</span> <span class="mi">8</span><span class="o">*</span><span class="nf">f</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">h</span><span class="p">)</span> <span class="o">+</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">h</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">12</span> <span class="o">*</span> <span class="n">h</span><span class="p">)</span>
-    
-    <span class="k">return</span> <span class="p">{</span>
-        <span class="sh">'</span><span class="s">forward</span><span class="sh">'</span><span class="p">:</span> <span class="n">forward</span><span class="p">,</span>
-        <span class="sh">'</span><span class="s">backward</span><span class="sh">'</span><span class="p">:</span> <span class="n">backward</span><span class="p">,</span>
-        <span class="sh">'</span><span class="s">central</span><span class="sh">'</span><span class="p">:</span> <span class="n">central</span><span class="p">,</span>
-        <span class="sh">'</span><span class="s">five_point</span><span class="sh">'</span><span class="p">:</span> <span class="n">five_point</span>
-    <span class="p">}</span>
-</code></pre></div></div>
+<h3 id="explicit-finite-differences-and-stability">Explicit finite differences and stability</h3>
 
-<hr />
+<p>The simplest scheme for the 2D heat equation is <strong>FTCS</strong> (forward in time, centred in space):</p>
 
-<h2 id="differential-equations">Differential Equations</h2>
+\[u_{i,j}^{n+1} = u_{i,j}^{n} + r\left(u_{i+1,j}^{n} + u_{i-1,j}^{n} + u_{i,j+1}^{n} + u_{i,j-1}^{n} - 4u_{i,j}^{n}\right), \qquad r = \frac{\alpha\,\Delta t}{\Delta x^2}\]
 
-<h3 id="ordinary-differential-equations-odes">Ordinary Differential Equations (ODEs)</h3>
+<table>
+  <tbody>
+    <tr>
+      <td><strong>Von Neumann stability analysis</strong> substitutes a Fourier mode $u_{i,j}^n = G^n e^{\mathrm{i}(k_x i + k_y j)\Delta x}$ and requires the amplification factor to satisfy $</td>
+      <td>G</td>
+      <td>\le 1$ for all wavenumbers. For FTCS,</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Most of physics is differential equations: Newton’s laws, Maxwell’s equations, the Schrödinger equation. Solving them numerically means stepping the state forward in small increments and accepting some error per step. The art is choosing a scheme that is <em>accurate</em> (small error per step), <em>stable</em> (errors don’t blow up over many steps), and <em>cheap</em> (few function evaluations).</p>
+\[G = 1 - 4r\left[\sin^2\left(\frac{k_x \Delta x}{2}\right) + \sin^2\left(\frac{k_y \Delta x}{2}\right)\right]\]
 
-<h4 id="the-runge-kutta-family">The Runge-Kutta Family</h4>
+<p>whose minimum is $1 - 8r$, so stability requires $r \le 1/4$ in 2D ($r \le 1/2$ in 1D). Halving $\Delta x$ forces a fourfold smaller time step — the parabolic stiffness that makes implicit schemes preferable on fine grids. The unconditionally stable <strong>Crank-Nicolson</strong> scheme averages the spatial operator between time levels, is second order in time, and requires one sparse linear solve per step.</p>
 
-<p>The workhorse explicit method is <strong>fourth-order Runge-Kutta (RK4)</strong>. Rather than using the slope only at the start of a step (as the crude Euler method does), it samples the derivative at four points across the step and takes a weighted average, cancelling error terms up to fourth order. The result: error per step of $O(h^5)$ and global error $O(h^4)$ — halving the step size cuts the error roughly sixteen-fold, for only four derivative evaluations.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">rk4_step</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Fourth-order Runge-Kutta step</span><span class="sh">"""</span>
-    <span class="n">k1</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">f</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-    <span class="n">k2</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">k1</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
-    <span class="n">k3</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">k2</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>
-    <span class="n">k4</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="nf">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">dt</span><span class="p">,</span> <span class="n">y</span> <span class="o">+</span> <span class="n">k3</span><span class="p">)</span>
-    
-    <span class="k">return</span> <span class="n">y</span> <span class="o">+</span> <span class="p">(</span><span class="n">k1</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">k2</span> <span class="o">+</span> <span class="mi">2</span><span class="o">*</span><span class="n">k3</span> <span class="o">+</span> <span class="n">k4</span><span class="p">)</span> <span class="o">/</span> <span class="mi">6</span>
+<span class="k">def</span> <span class="nf">heat_ftcs</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">101</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">t_end</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">r</span><span class="o">=</span><span class="mf">0.24</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">2D heat equation on the unit square, u = 0 on the boundary, FTCS scheme.</span><span class="sh">"""</span>
+    <span class="n">dx</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">dt</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">alpha</span>                          <span class="c1"># r &lt;= 1/4 for stability
+</span>    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">outer</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="p">))</span>   <span class="c1"># lowest Fourier mode
+</span>    <span class="n">steps</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="nf">round</span><span class="p">(</span><span class="n">t_end</span> <span class="o">/</span> <span class="n">dt</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">steps</span><span class="p">):</span>
+        <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">r</span> <span class="o">*</span> <span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:]</span>
+                              <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">exact</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">steps</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>    <span class="c1"># decay of the peak value
+</span>    <span class="k">return</span> <span class="n">u</span><span class="p">.</span><span class="nf">max</span><span class="p">(),</span> <span class="n">exact</span>
 
-<span class="k">def</span> <span class="nf">solve_ode</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">t_span</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Solve ODE using RK4</span><span class="sh">"""</span>
-    <span class="n">t_start</span><span class="p">,</span> <span class="n">t_end</span> <span class="o">=</span> <span class="n">t_span</span>
-    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">t_start</span><span class="p">,</span> <span class="n">t_end</span> <span class="o">+</span> <span class="n">dt</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">),</span> <span class="nf">len</span><span class="p">(</span><span class="n">y0</span><span class="p">)))</span>
-    <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">y0</span>
-    
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">)):</span>
-        <span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nf">rk4_step</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">t</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">dt</span><span class="p">)</span>
-    
-    <span class="k">return</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span>
+<span class="nf">print</span><span class="p">(</span><span class="nf">heat_ftcs</span><span class="p">())</span>            <span class="c1"># (0.37271, 0.37277): stable and accurate
+</span><span class="nf">print</span><span class="p">(</span><span class="nf">heat_ftcs</span><span class="p">(</span><span class="n">r</span><span class="o">=</span><span class="mf">0.26</span><span class="p">))</span>      <span class="c1"># (4.2e+46, 0.3727): round-off in the grid-scale
+</span>                              <span class="c1"># mode is amplified by |G| = 1.08 every step
+</span></code></pre></div></div>
 
-<span class="c1"># Example: Damped harmonic oscillator
-</span><span class="k">def</span> <span class="nf">harmonic_oscillator</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">dx/dt = v, dv/dt = -k*x - c*v</span><span class="sh">"""</span>
-    <span class="n">x</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">state</span>
-    <span class="n">k</span> <span class="o">=</span> <span class="mf">1.0</span>  <span class="c1"># spring constant
-</span>    <span class="n">c</span> <span class="o">=</span> <span class="mf">0.1</span>  <span class="c1"># damping coefficient
-</span>    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">v</span><span class="p">,</span> <span class="o">-</span><span class="n">k</span><span class="o">*</span><span class="n">x</span> <span class="o">-</span> <span class="n">c</span><span class="o">*</span><span class="n">v</span><span class="p">])</span>
+<p>For hyperbolic equations the analogous requirement is the <strong>Courant-Friedrichs-Lewy (CFL) condition</strong>: the numerical domain of dependence must contain the physical one, $c\,\Delta t / \Delta x \le C_{\max}$ with $C_{\max}$ of order 1 for explicit schemes. The CFL condition is necessary for stability but not sufficient: FTCS applied to the advection equation is unstable for every time step, which is why advection is discretized with upwind or Lax-Wendroff-type schemes. The <strong>Lax equivalence theorem</strong> ties these ideas together: for a consistent scheme for a well-posed linear problem, stability is equivalent to convergence.</p>
 
-<span class="n">t</span><span class="p">,</span> <span class="n">solution</span> <span class="o">=</span> <span class="nf">solve_ode</span><span class="p">(</span><span class="n">harmonic_oscillator</span><span class="p">,</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">])</span>
-</code></pre></div></div>
+<h3 id="spectral-methods">Spectral methods</h3>
 
-<h4 id="adaptive-step-size-methods">Adaptive Step Size Methods</h4>
+<table>
+  <tbody>
+    <tr>
+      <td>For smooth solutions on periodic domains, <strong>spectral methods</strong> expand the solution in Fourier modes, where derivatives become multiplications: $\partial_x \to \mathrm{i}k_x$ and $\nabla^2 \to -</td>
+      <td>\mathbf{k}</td>
+      <td>^2$. The error decreases faster than any power of $1/N$ for smooth solutions (spectral accuracy), and the FFT makes each transform $O(N \log N)$. Solving the periodic Poisson equation $\nabla^2 u = f$ becomes a division in Fourier space:</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">rk45_adaptive</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">t_span</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Adaptive Runge-Kutta-Fehlberg method</span><span class="sh">"""</span>
-    <span class="c1"># Butcher tableau coefficients
-</span>    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span>
-        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-        <span class="p">[</span><span class="mi">1</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-        <span class="p">[</span><span class="mi">3</span><span class="o">/</span><span class="mi">32</span><span class="p">,</span> <span class="mi">9</span><span class="o">/</span><span class="mi">32</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-        <span class="p">[</span><span class="mi">1932</span><span class="o">/</span><span class="mi">2197</span><span class="p">,</span> <span class="o">-</span><span class="mi">7200</span><span class="o">/</span><span class="mi">2197</span><span class="p">,</span> <span class="mi">7296</span><span class="o">/</span><span class="mi">2197</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-        <span class="p">[</span><span class="mi">439</span><span class="o">/</span><span class="mi">216</span><span class="p">,</span> <span class="o">-</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3680</span><span class="o">/</span><span class="mi">513</span><span class="p">,</span> <span class="o">-</span><span class="mi">845</span><span class="o">/</span><span class="mi">4104</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
-        <span class="p">[</span><span class="o">-</span><span class="mi">8</span><span class="o">/</span><span class="mi">27</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">3544</span><span class="o">/</span><span class="mi">2565</span><span class="p">,</span> <span class="mi">1859</span><span class="o">/</span><span class="mi">4104</span><span class="p">,</span> <span class="o">-</span><span class="mi">11</span><span class="o">/</span><span class="mi">40</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
-    <span class="p">])</span>
-    
-    <span class="n">b4</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mi">25</span><span class="o">/</span><span class="mi">216</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1408</span><span class="o">/</span><span class="mi">2565</span><span class="p">,</span> <span class="mi">2197</span><span class="o">/</span><span class="mi">4104</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
-    <span class="n">b5</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mi">16</span><span class="o">/</span><span class="mi">135</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">6656</span><span class="o">/</span><span class="mi">12825</span><span class="p">,</span> <span class="mi">28561</span><span class="o">/</span><span class="mi">56430</span><span class="p">,</span> <span class="o">-</span><span class="mi">9</span><span class="o">/</span><span class="mi">50</span><span class="p">,</span> <span class="mi">2</span><span class="o">/</span><span class="mi">55</span><span class="p">])</span>
-    
-    <span class="n">t</span><span class="p">,</span> <span class="n">t_end</span> <span class="o">=</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">t_span</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">y</span> <span class="o">=</span> <span class="n">y0</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
-    <span class="n">h</span> <span class="o">=</span> <span class="mf">0.01</span>  <span class="c1"># initial step size
-</span>    
-    <span class="n">t_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">]</span>
-    <span class="n">y_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">y</span><span class="p">.</span><span class="nf">copy</span><span class="p">()]</span>
-    
-    <span class="k">while</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="n">t_end</span><span class="p">:</span>
-        <span class="c1"># Calculate k values
-</span>        <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">y</span><span class="p">)))</span>
-        <span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">):</span>
-            <span class="n">y_temp</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">sum</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">k</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
-            <span class="n">k</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">t</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">sum</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:</span><span class="n">i</span><span class="p">]),</span> <span class="n">y_temp</span><span class="p">)</span>
-        
-        <span class="c1"># Calculate two different approximations
-</span>        <span class="n">y4</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">sum</span><span class="p">(</span><span class="n">b4</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">k</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
-        <span class="n">y5</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">sum</span><span class="p">(</span><span class="n">b5</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">k</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
-        
-        <span class="c1"># Estimate error
-</span>        <span class="n">error</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">y5</span> <span class="o">-</span> <span class="n">y4</span><span class="p">))</span>
-        
-        <span class="k">if</span> <span class="n">error</span> <span class="o">&lt;=</span> <span class="n">tol</span><span class="p">:</span>
-            <span class="c1"># Accept step
-</span>            <span class="n">t</span> <span class="o">+=</span> <span class="n">h</span>
-            <span class="n">y</span> <span class="o">=</span> <span class="n">y5</span>
-            <span class="n">t_values</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
-            <span class="n">y_values</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">y</span><span class="p">.</span><span class="nf">copy</span><span class="p">())</span>
-        
-        <span class="c1"># Adjust step size
-</span>        <span class="n">h</span> <span class="o">=</span> <span class="n">h</span> <span class="o">*</span> <span class="nf">min</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nf">max</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span> <span class="o">*</span> <span class="p">(</span><span class="n">tol</span> <span class="o">/</span> <span class="n">error</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.2</span><span class="p">))</span>
-        
-        <span class="c1"># Don't overshoot
-</span>        <span class="k">if</span> <span class="n">t</span> <span class="o">+</span> <span class="n">h</span> <span class="o">&gt;</span> <span class="n">t_end</span><span class="p">:</span>
-            <span class="n">h</span> <span class="o">=</span> <span class="n">t_end</span> <span class="o">-</span> <span class="n">t</span>
-    
-    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">t_values</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">y_values</span><span class="p">)</span>
-</code></pre></div></div>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<h3 id="partial-differential-equations-pdes">Partial Differential Equations (PDEs)</h3>
+<span class="k">def</span> <span class="nf">poisson_periodic</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Solve lap(u) = f on a periodic [0, L)^2 grid; f must have zero mean.</span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">f</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">L</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>      <span class="c1"># angular wavenumbers
+</span>    <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="sh">"</span><span class="s">ij</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">K2</span> <span class="o">=</span> <span class="n">KX</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">KY</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">K2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>                                  <span class="c1"># avoid division by zero
+</span>    <span class="n">u_hat</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft2</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">/</span> <span class="n">K2</span>
+    <span class="n">u_hat</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>                               <span class="c1"># fix the free constant: zero mean
+</span>    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft2</span><span class="p">(</span><span class="n">u_hat</span><span class="p">).</span><span class="n">real</span>
 
-<h4 id="finite-difference-methods-for-pdes">Finite Difference Methods for PDEs</h4>
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="sh">"</span><span class="s">ij</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">u_exact</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">Y</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="nf">poisson_periodic</span><span class="p">(</span><span class="o">-</span><span class="mi">10</span> <span class="o">*</span> <span class="n">u_exact</span><span class="p">)</span> <span class="o">-</span> <span class="n">u_exact</span><span class="p">).</span><span class="nf">max</span><span class="p">())</span>   <span class="c1"># ~3e-15
+</span></code></pre></div></div>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">heat_equation_2d</span><span class="p">(</span><span class="n">nx</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">ny</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">nt</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Solve 2D heat equation using finite differences</span><span class="sh">"""</span>
-    <span class="c1"># Grid setup
-</span>    <span class="n">dx</span> <span class="o">=</span> <span class="n">dy</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">nx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">dt</span> <span class="o">=</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">alpha</span>  <span class="c1"># Stability condition
-</span>    
-    <span class="c1"># Initial condition: hot spot in center
-</span>    <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">nx</span><span class="p">,</span> <span class="n">ny</span><span class="p">))</span>
-    <span class="n">u</span><span class="p">[</span><span class="n">nx</span><span class="o">//</span><span class="mi">2</span><span class="o">-</span><span class="mi">5</span><span class="p">:</span><span class="n">nx</span><span class="o">//</span><span class="mi">2</span><span class="o">+</span><span class="mi">5</span><span class="p">,</span> <span class="n">ny</span><span class="o">//</span><span class="mi">2</span><span class="o">-</span><span class="mi">5</span><span class="p">:</span><span class="n">ny</span><span class="o">//</span><span class="mi">2</span><span class="o">+</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100</span>
-    
-    <span class="c1"># Time evolution
-</span>    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">nt</span><span class="p">):</span>
-        <span class="n">un</span> <span class="o">=</span> <span class="n">u</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
-        
-        <span class="c1"># Update interior points
-</span>        <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">un</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="p">(</span>
-            <span class="p">(</span><span class="n">un</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">un</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">un</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span>
-            <span class="p">(</span><span class="n">un</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:]</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">un</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">un</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">/</span> <span class="n">dy</span><span class="o">**</span><span class="mi">2</span>
-        <span class="p">)</span>
-        
-        <span class="c1"># Boundary conditions (Dirichlet: u = 0 at boundaries)
-</span>        <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-        
-        <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">100</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">yield</span> <span class="n">u</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
+<p>Non-periodic problems use Chebyshev or Legendre polynomial expansions instead; the Dedalus framework and spectral-element codes (Nek5000/NekRS) apply these ideas to large problems. Finite element and finite volume methods for complex geometries are covered in <a href="fem-and-cfd.html">Finite Elements &amp; Fluid Dynamics</a>.</p>
 
-<span class="c1"># Visualize heat diffusion
-</span><span class="kn">import</span> <span class="n">matplotlib.pyplot</span> <span class="k">as</span> <span class="n">plt</span>
-<span class="kn">from</span> <span class="n">matplotlib.animation</span> <span class="kn">import</span> <span class="n">FuncAnimation</span>
-
-<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="p">.</span><span class="nf">subplots</span><span class="p">()</span>
-<span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="p">.</span><span class="nf">imshow</span><span class="p">(</span><span class="nf">next</span><span class="p">(</span><span class="nf">heat_equation_2d</span><span class="p">()),</span> <span class="n">cmap</span><span class="o">=</span><span class="sh">'</span><span class="s">hot</span><span class="sh">'</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="sh">'</span><span class="s">bilinear</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ax</span><span class="p">.</span><span class="nf">set_title</span><span class="p">(</span><span class="sh">'</span><span class="s">2D Heat Diffusion</span><span class="sh">'</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">animate</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
-    <span class="n">im</span><span class="p">.</span><span class="nf">set_array</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">[</span><span class="n">im</span><span class="p">]</span>
-
-<span class="c1"># Create animation
-</span><span class="n">heat_gen</span> <span class="o">=</span> <span class="nf">heat_equation_2d</span><span class="p">()</span>
-<span class="n">ani</span> <span class="o">=</span> <span class="nc">FuncAnimation</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">animate</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="n">heat_gen</span><span class="p">,</span> <span class="n">interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">blit</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="n">plt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
-</code></pre></div></div>
-
-<h4 id="spectral-methods">Spectral Methods</h4>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">solve_poisson_spectral</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">L</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="mi">64</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Solve Poisson equation using spectral methods</span><span class="sh">"""</span>
-    <span class="c1"># Create grid
-</span>    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-    <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-    
-    <span class="c1"># Right-hand side
-</span>    <span class="n">F</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
-    
-    <span class="c1"># Take FFT
-</span>    <span class="n">F_hat</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fft2</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
-    
-    <span class="c1"># Wave numbers
-</span>    <span class="n">kx</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">L</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">*</span><span class="n">N</span><span class="p">))</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span>
-    <span class="n">ky</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">fftfreq</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="n">L</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="o">*</span><span class="n">N</span><span class="p">))</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span>
-    <span class="n">KX</span><span class="p">,</span> <span class="n">KY</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="n">kx</span><span class="p">,</span> <span class="n">ky</span><span class="p">)</span>
-    
-    <span class="c1"># Solve in Fourier space (avoid division by zero)
-</span>    <span class="n">K2</span> <span class="o">=</span> <span class="n">KX</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">KY</span><span class="o">**</span><span class="mi">2</span>
-    <span class="n">K2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>  <span class="c1"># Set DC component
-</span>    <span class="n">U_hat</span> <span class="o">=</span> <span class="o">-</span><span class="n">F_hat</span> <span class="o">/</span> <span class="n">K2</span>
-    <span class="n">U_hat</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Set mean to zero
-</span>    
-    <span class="c1"># Transform back
-</span>    <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">real</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">ifft2</span><span class="p">(</span><span class="n">U_hat</span><span class="p">))</span>
-    
-    <span class="k">return</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">U</span>
-</code></pre></div></div>
-
-<hr />
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="practical-guidelines">Practical guidelines</h2>
 
 <ul>
-  <li><strong>Start simple.</strong> Master basic numerical methods (integration, ODE solvers, root finding) before reaching for complex algorithms.</li>
-  <li><strong>Validate constantly.</strong> Check results against known analytic solutions, conserved quantities, and convergence as step size shrinks.</li>
-  <li><strong>Optimize wisely.</strong> Profile first, then optimize the actual bottlenecks; premature optimization wastes effort and obscures bugs.</li>
-  <li><strong>Use the right tool.</strong> Match the algorithm to the problem: stiff ODEs need implicit solvers, high dimensions favor Monte Carlo.</li>
-  <li><strong>Mind numerical error.</strong> Round-off, truncation, and stability (e.g. the CFL condition) determine whether a simulation is trustworthy.</li>
-  <li><strong>Visualize for insight.</strong> Good visualization turns raw arrays into physical understanding and exposes errors a table of numbers hides.</li>
+  <li><strong>Use tested libraries for standard tasks.</strong> SciPy’s <code class="language-plaintext highlighter-rouge">solve_ivp</code>, <code class="language-plaintext highlighter-rouge">quad</code>, sparse solvers, and FFTs, or PETSc and SUNDIALS at scale, are faster and better tested than hand-written equivalents. Write your own to learn, or when the problem demands something special.</li>
+  <li><strong>Always run a convergence study.</strong> Halve the step size or mesh spacing and check that the error falls at the theoretical rate. Richardson extrapolation of two resolutions also gives an error estimate for the finer one.</li>
+  <li><strong>Test against exact solutions</strong>, including manufactured solutions, and monitor conserved quantities (energy, mass, momentum, norm) throughout a run.</li>
+  <li><strong>Match the method to the problem’s structure</strong>: implicit solvers for stiff problems, symplectic integrators for long Hamiltonian runs, conservative finite volumes for shocks, Monte Carlo for high dimensions.</li>
+  <li><strong>Make runs reproducible</strong>: fix and record random seeds, software versions, and input parameters, and keep the scripts that generated every figure.</li>
+  <li><strong>Profile before optimizing</strong>, then address the real bottleneck; see <a href="hpc-and-ml.html#performance-in-practice">Parallel &amp; High-Performance Computing</a>.</li>
 </ul>
 
-<hr />
-
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <ul>
-  <li><a href="../classical-mechanics/">Classical Mechanics</a> — symplectic integrators, $N$-body problems, and chaos.</li>
-  <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — numerical solutions of the Schrödinger equation.</li>
-  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — Monte Carlo sampling and molecular dynamics.</li>
-  <li><a href="../condensed-matter/">Condensed Matter Physics</a> — density-functional theory and band-structure calculations.</li>
+  <li><a href="../classical-mechanics/">Classical Mechanics</a> — Hamiltonian dynamics, $N$-body problems, and chaos.</li>
+  <li><a href="../quantum-mechanics/">Quantum Mechanics</a> — the Schrödinger equation and its numerical solution.</li>
+  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — the ensembles sampled by Monte Carlo and molecular dynamics.</li>
+  <li><a href="../condensed-matter/">Condensed Matter Physics</a> — band structure, DFT, and correlated electrons in solids.</li>
   <li><a href="../relativity/">Relativity</a> — numerical relativity and gravitational-wave simulations.</li>
-  <li><a href="../">Physics Hub</a> — browse all physics topics.</li>
+  <li><a href="../">Physics Hub</a> — all physics topics.</li>
 </ul>
 
       </section>

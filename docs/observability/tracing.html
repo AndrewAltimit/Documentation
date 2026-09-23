@@ -3133,20 +3133,18 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Observability</a> » Distributed Tracing</p>
 
-<p>Traces, spans, and context propagation — following one request across every service it touches.</p>
+<p><strong>Distributed tracing</strong> records the path of a single request through every service, queue, and datastore it touches, and reassembles that path into one timeline. This page covers the trace data model, context propagation (W3C Trace Context), OpenTelemetry and its Collector, the major open-source backends, head- and tail-based sampling, and how traces connect to metrics, logs, and profiles. It reflects OpenTelemetry and backend behavior as of late 2026.</p>
 
 <h2 id="why-distributed-tracing">Why Distributed Tracing</h2>
 
-<p>In a monolith, a stack trace tells you the whole story of a request: every function call on the path is on one stack, in one process. The moment you split that monolith into services, the stack trace fragments. A single user click now fans out across an API gateway, an auth service, a cart service, a payment service, and three databases — each on a different host, with its own logs and its own clock. When the request is slow, no single machine holds the answer; the <em>latency lives in the interaction between services</em>, and the interaction is exactly what a per-process stack trace cannot see.</p>
+<p>In a monolith, a stack trace tells the whole story of a request: every call on the path sits on one stack in one process. Split the monolith into services and that story fragments. A single click fans out across a gateway, an auth service, a cart service, a payment service, and several databases, each on a different host with its own logs and clock. When the request is slow, no single machine holds the answer, because the latency lives in the <em>interaction</em> between services.</p>
 
-<p><strong>Distributed tracing</strong> reconstructs that cross-service stack trace. It stitches together the work done across every service into a single, navigable picture of one request, answering the two questions metrics and logs alone cannot: <em>where did the time go?</em> and <em>where did the error happen?</em> — across process boundaries, for this specific request.</p>
-
-<p>Tracing is one of the <a href="./">three pillars of observability</a>, and it sits at the high-cardinality, per-request end of the spectrum:</p>
+<p>Tracing reconstructs a cross-service stack trace. For one specific request it answers the two questions that aggregated metrics and scattered logs cannot: <em>where did the time go?</em> and <em>where did the error originate?</em></p>
 
 <table>
   <thead>
     <tr>
-      <th>Pillar</th>
+      <th>Signal</th>
       <th>Question it answers</th>
       <th>Cardinality</th>
       <th>Cost profile</th>
@@ -3155,128 +3153,223 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><strong>Traces</strong></td>
-      <td><em>Where</em> did the time go / the error happen, across services, for one request?</td>
-      <td>High (per-request)</td>
+      <td>Where did the time go, or the error happen, across services, for one request?</td>
+      <td>High (per request)</td>
       <td>Sampled; storage-heavy</td>
     </tr>
     <tr>
       <td><a href="./metrics.html"><strong>Metrics</strong></a></td>
-      <td><em>How much / how often</em> is happening, aggregated over time?</td>
+      <td>How much and how often, aggregated over time?</td>
       <td>Low (aggregated)</td>
-      <td>Cheap, constant-size</td>
+      <td>Cheap, constant size</td>
     </tr>
     <tr>
       <td><a href="./logging.html"><strong>Logs</strong></a></td>
-      <td><em>What exactly</em> happened in this event, with full detail?</td>
+      <td>What exactly happened in this event?</td>
       <td>Very high</td>
       <td>Expensive at volume</td>
+    </tr>
+    <tr>
+      <td><strong>Profiles</strong></td>
+      <td>Which <em>code</em> consumed the CPU or memory?</td>
+      <td>High (per stack)</td>
+      <td>Sampled; continuous</td>
     </tr>
   </tbody>
 </table>
 
-<p>Metrics tell you <em>that</em> p99 latency spiked; a trace tells you <em>which</em> downstream call caused it; the logs on that span tell you <em>why</em>. The rest of this page is about producing, propagating, sampling, storing, and correlating traces well.</p>
+<p>Metrics tell you <em>that</em> p99 latency spiked; a trace tells you <em>which</em> downstream call caused it; the logs and profile attached to that span tell you <em>why</em>.</p>
+
+<p>The idea dates to Google’s <strong>Dapper</strong> paper (2010). Twitter’s <strong>Zipkin</strong> (open-sourced 2012) and Uber’s <strong>Jaeger</strong> (2016) brought it to open source, the competing OpenTracing and OpenCensus APIs merged into <strong>OpenTelemetry</strong> in 2019, and OpenTelemetry is now the default instrumentation layer for new systems.</p>
 
 <h2 id="traces-and-spans">Traces and Spans</h2>
 
-<p>A <strong>trace</strong> captures the full lifecycle of a single request as it propagates through a distributed system. It is a tree — more precisely a directed acyclic graph — of <strong>spans</strong>, where each span is one unit of work: an HTTP handler, a database query, a call to a downstream service, a publish to a message queue.</p>
+<p>A <strong>trace</strong> is the record of one request. It is a tree of <strong>spans</strong> (more generally a directed acyclic graph, once span links are included), where each span is one timed unit of work: an HTTP handler, a database query, an outgoing RPC, a message publish.</p>
 
 <h3 id="the-span-data-model">The Span Data Model</h3>
 
-<p>Every span carries, at minimum:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Trace ID</strong></td>
+      <td>16 bytes (32 hex chars), shared by every span in the trace. The join key for the whole request.</td>
+    </tr>
+    <tr>
+      <td><strong>Span ID</strong></td>
+      <td>8 bytes (16 hex chars), unique to this span.</td>
+    </tr>
+    <tr>
+      <td><strong>Parent span ID</strong></td>
+      <td>The span that caused this one; empty on the root span. Parent links turn a flat list into a tree.</td>
+    </tr>
+    <tr>
+      <td><strong>Name</strong></td>
+      <td>A low-cardinality operation label: <code class="language-plaintext highlighter-rouge">GET /orders/{id}</code>, <code class="language-plaintext highlighter-rouge">SELECT orders</code>. Never the raw URL with IDs in it.</td>
+    </tr>
+    <tr>
+      <td><strong>Start time, end time</strong></td>
+      <td>Wall-clock timestamps on the emitting host.</td>
+    </tr>
+    <tr>
+      <td><strong>Kind</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">SERVER</code>, <code class="language-plaintext highlighter-rouge">CLIENT</code>, <code class="language-plaintext highlighter-rouge">PRODUCER</code>, <code class="language-plaintext highlighter-rouge">CONSUMER</code>, or <code class="language-plaintext highlighter-rouge">INTERNAL</code>. A <code class="language-plaintext highlighter-rouge">CLIENT</code> span in one service pairs with a <code class="language-plaintext highlighter-rouge">SERVER</code> span in the next, which is how backends infer the service graph.</td>
+    </tr>
+    <tr>
+      <td><strong>Attributes</strong></td>
+      <td>Typed key/value pairs such as <code class="language-plaintext highlighter-rouge">http.request.method</code> or <code class="language-plaintext highlighter-rouge">db.system.name</code>, named by the <a href="#semantic-conventions">semantic conventions</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Events</strong></td>
+      <td>Timestamped annotations inside the span (“cache miss”, an exception). See the note on the <a href="#span-events-and-the-logs-api">Span Events API deprecation</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Links</strong></td>
+      <td>References to spans outside the parent chain, for example a batch consumer linking to each producer span.</td>
+    </tr>
+    <tr>
+      <td><strong>Status</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">UNSET</code>, <code class="language-plaintext highlighter-rouge">OK</code>, or <code class="language-plaintext highlighter-rouge">ERROR</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Resource</strong></td>
+      <td>Attributes describing the <em>emitter</em> (<code class="language-plaintext highlighter-rouge">service.name</code>, host, pod, cloud region), shared by all its spans.</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li>A <strong>trace ID</strong> — a globally unique identifier (16 bytes / 32 hex chars) shared by <em>every</em> span in the request. This is the join key that stitches the distributed picture together.</li>
-  <li>A <strong>span ID</strong> — unique to this span (8 bytes / 16 hex chars).</li>
-  <li>A <strong>parent span ID</strong> — the span that caused this one (empty for the root span). Parent links are what turn a flat list of spans into a tree.</li>
-  <li>A <strong>name</strong> — a low-cardinality operation label (<code class="language-plaintext highlighter-rouge">GET /orders/{id}</code>, <code class="language-plaintext highlighter-rouge">SELECT orders</code>), <em>not</em> the full templated URL with IDs.</li>
-  <li>A <strong>start time</strong> and <strong>duration</strong>.</li>
-  <li>A <strong>span kind</strong> — <code class="language-plaintext highlighter-rouge">SERVER</code>, <code class="language-plaintext highlighter-rouge">CLIENT</code>, <code class="language-plaintext highlighter-rouge">PRODUCER</code>, <code class="language-plaintext highlighter-rouge">CONSUMER</code>, or <code class="language-plaintext highlighter-rouge">INTERNAL</code>. Kinds let the backend infer the topology: a <code class="language-plaintext highlighter-rouge">CLIENT</code> span in one service pairs with a <code class="language-plaintext highlighter-rouge">SERVER</code> span in the next.</li>
-  <li><strong>Attributes</strong> (key/value tags) — <code class="language-plaintext highlighter-rouge">http.request.method</code>, <code class="language-plaintext highlighter-rouge">db.system</code>, <code class="language-plaintext highlighter-rouge">server.address</code>, etc.</li>
-  <li><strong>Events</strong> — timestamped log lines scoped to the span (“cache miss”, “retry 1 of 3”).</li>
-  <li><strong>Links</strong> — references to other spans not in the parent chain (e.g. a batch consumer span linking to each producing span).</li>
-  <li>A <strong>status</strong> — <code class="language-plaintext highlighter-rouge">UNSET</code>, <code class="language-plaintext highlighter-rouge">OK</code>, or <code class="language-plaintext highlighter-rouge">ERROR</code>.</li>
-</ul>
+<h3 id="reading-a-trace">Reading a Trace</h3>
 
-<p>Visualized, a trace becomes a waterfall (flame graph) where the horizontal axis is wall-clock time and nesting shows the call hierarchy:</p>
+<p>Backends render a trace as a <strong>waterfall</strong>: the horizontal axis is time, and nesting shows the call hierarchy.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>trace_id = 4bf92f3577b34da6
-[ frontend: GET /checkout ........................................ 220ms ]
-   [ auth: verify_token ...... 18ms ]
-   [ cart: get_items .......................... 95ms ]
-       [ db: SELECT items ........... 60ms ]
-       [ cache: GET cart:42 .. 5ms ]
-   [ payment: charge ........................... 90ms ]   &lt;-- critical path
-       [ stripe: POST /charges ............ 82ms ]
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>trace_id 4bf92f3577b34da6a3ce929d0e0e4736                     0ms        110ms       220ms
+frontend  GET /checkout            SERVER  |==========================================|
+auth        verify_token           CLIENT  |===|                                        18ms
+cart        get_items              SERVER      |===================|                    95ms
+db            SELECT items         CLIENT        |===========|                          60ms
+cache         GET cart:42          CLIENT                     |=|                        5ms
+payment     charge                 SERVER                          |=================|  90ms  &lt;- critical path
+stripe        POST /v1/charges     CLIENT                           |===============|   82ms
 </code></pre></div></div>
 
-<p>The <strong>critical path</strong> — the chain of spans whose durations sum to the total latency — is what you optimize. A span that runs in parallel and finishes early does not lengthen the request even if it is individually slow. Reading a trace is largely the discipline of finding the critical path and asking why the longest span on it took as long as it did.</p>
+<p>The <strong>critical path</strong> is the chain of spans whose durations determine end-to-end latency. A span that runs in parallel and finishes early does not lengthen the request, however slow it is individually. Reading a trace mostly means finding the critical path, then asking why the longest span on it took as long as it did. Gaps <em>between</em> child spans are also informative: they are time spent in the parent’s own code, in queues, or in un-instrumented calls.</p>
+
+<p>The same trace as a span tree:</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    Root["Span A — frontend GET /checkout&lt;br/&gt;(root, no parent)"]
-    Root --&gt; B["Span B — auth verify_token&lt;br/&gt;parent=A"]
-    Root --&gt; C["Span C — cart get_items&lt;br/&gt;parent=A"]
-    Root --&gt; D["Span D — payment charge&lt;br/&gt;parent=A"]
-    C --&gt; E["Span E — db SELECT items&lt;br/&gt;parent=C"]
-    C --&gt; F["Span F — cache GET&lt;br/&gt;parent=C"]
-    D --&gt; G["Span G — stripe POST /charges&lt;br/&gt;parent=D"]
+    A["A: frontend GET /checkout&lt;br/&gt;root span"]
+    A --&gt; B["B: auth verify_token"]
+    A --&gt; C["C: cart get_items"]
+    A --&gt; D["D: payment charge"]
+    C --&gt; E["E: db SELECT items"]
+    C --&gt; F["F: cache GET cart:42"]
+    D --&gt; G["G: stripe POST /v1/charges"]
 </code></pre>
 
-<h3 id="span-lifecycle-and-error-handling">Span Lifecycle and Error Handling</h3>
+<h3 id="span-lifecycle">Span Lifecycle</h3>
 
-<p>A span is <strong>started</strong> when work begins, <strong>ended</strong> when it completes, and its status set to <code class="language-plaintext highlighter-rouge">ERROR</code> if it failed. The cardinal rule is that <em>every started span must be ended</em> — a leaked span produces a trace that never finishes and may break tail-based sampling. Most SDKs solve this with scope guards (<code class="language-plaintext highlighter-rouge">with</code> blocks in Python, <code class="language-plaintext highlighter-rouge">defer</code> in Go, <code class="language-plaintext highlighter-rouge">using</code> in C#) so the span ends even when an exception unwinds the stack.</p>
+<p>A span is started when work begins and ended when it completes; its status is set to <code class="language-plaintext highlighter-rouge">ERROR</code> if the work failed. Every started span must be ended. A leaked span never reaches the exporter, leaves a hole in the trace, and can stall tail-based sampling while the collector waits for it. SDKs make this hard to get wrong with scope guards: <code class="language-plaintext highlighter-rouge">with</code> blocks in Python, <code class="language-plaintext highlighter-rouge">defer span.End()</code> in Go, <code class="language-plaintext highlighter-rouge">using</code> in C#, try-with-resources in Java.</p>
+
+<p>Because span timestamps come from different hosts, clock skew can make a child appear to start before its parent. Most backends apply skew adjustment in the UI; keep hosts NTP- or PTP-synchronized regardless.</p>
 
 <h2 id="context-propagation">Context Propagation</h2>
 
-<p>The single hardest part of tracing is <strong>context propagation</strong>: making the trace ID and the current span ID flow from one operation to the next, including across process and network boundaries. Get this wrong and your trace shatters into disconnected single-service fragments.</p>
-
-<p>There are two regimes:</p>
+<p><strong>Context propagation</strong> carries the trace ID and the current span ID from one operation to the next. It is the part of tracing most likely to break, and when it does the trace shatters into disconnected single-service fragments.</p>
 
 <ul>
-  <li><strong>In-process propagation.</strong> Within one service, the “current span” is stored in thread-local / async-local / goroutine-local storage so that any code can ask “what span am I in?” and parent its child spans correctly without passing the span explicitly down every function signature.</li>
-  <li><strong>Cross-process propagation.</strong> When a request crosses a network boundary, the context must be <strong>injected</strong> into the outgoing carrier (HTTP headers, gRPC metadata, message attributes) on the caller side and <strong>extracted</strong> on the callee side, where it becomes the parent of the next server span.</li>
+  <li><strong>In-process.</strong> The “current span” lives in a context object stored in thread-local, async-local (<code class="language-plaintext highlighter-rouge">contextvars</code> in Python, <code class="language-plaintext highlighter-rouge">AsyncLocalStorage</code> in Node.js), or explicitly passed storage (<code class="language-plaintext highlighter-rouge">context.Context</code> in Go). Any code can ask for the active span and parent new spans under it.</li>
+  <li><strong>Cross-process.</strong> At a network boundary the caller <strong>injects</strong> the context into the carrier (HTTP headers, gRPC metadata, message headers), and the callee <strong>extracts</strong> it and uses it as the parent of its server span.</li>
 </ul>
-
-<h3 id="w3c-trace-context">W3C Trace Context</h3>
-
-<p>The vendor-neutral standard — and OpenTelemetry’s default — is <strong>W3C Trace Context</strong>, which defines two HTTP headers:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
-             │  └── trace-id (16 bytes) ─────┘ └ parent-id (8B) ┘ │
-             version                                         trace-flags (01 = sampled)
-tracestate:  vendorA=opaque,vendorB=opaque   (per-vendor key/value continuation)
-</code></pre></div></div>
-
-<ul>
-  <li><strong><code class="language-plaintext highlighter-rouge">traceparent</code></strong> carries the version, trace ID, the parent (the caller’s span ID), and trace-flags. The low bit of trace-flags is the <strong>sampled flag</strong>, which propagates the head-sampling decision so every service in the trace agrees to keep or drop it consistently.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">tracestate</code></strong> is an ordered, vendor-specific key/value list that lets multiple tracing systems pass extra state without clobbering each other.</li>
-</ul>
-
-<p>Older systems may use <strong>B3</strong> headers (<code class="language-plaintext highlighter-rouge">b3</code> or <code class="language-plaintext highlighter-rouge">X-B3-TraceId</code> / <code class="language-plaintext highlighter-rouge">X-B3-SpanId</code> / <code class="language-plaintext highlighter-rouge">X-B3-Sampled</code>), popularized by Zipkin. OpenTelemetry can be configured to propagate B3 alongside or instead of W3C for interop with legacy Zipkin/Istio meshes. <strong>Baggage</strong> is a separate W3C standard (<code class="language-plaintext highlighter-rouge">baggage</code> header) for propagating arbitrary application key/values (e.g. <code class="language-plaintext highlighter-rouge">tenant.id</code>) alongside trace context — useful, but keep it small since it is copied onto every hop.</p>
-
-<h3 id="propagating-across-every-boundary">Propagating Across Every Boundary</h3>
-
-<p>For message queues the trace context is stamped into message headers/metadata so the consumer can continue the trace asynchronously (usually as a span with a <em>link</em> to the producer rather than a strict parent, since the consumer may process a batch). The golden rule: <strong>propagate context everywhere a request crosses a boundary</strong> — HTTP clients, gRPC, Kafka/RabbitMQ producers and consumers, background jobs, cron triggers — or the trace breaks into disconnected fragments.</p>
 
 <pre><code class="language-mermaid">sequenceDiagram
     participant C as Client
     participant F as Frontend
     participant P as Payment
-    C-&gt;&gt;F: GET /checkout
-    Note over F: extract context (none) -&gt; start root span&lt;br/&gt;trace_id=T, span=A
+    C-&gt;&gt;F: GET /checkout (no traceparent)
+    Note over F: no incoming context:&lt;br/&gt;start root span A in new trace T
     F-&gt;&gt;P: POST /charge&lt;br/&gt;traceparent: 00-T-A-01
-    Note over P: extract context -&gt; child span&lt;br/&gt;trace_id=T, span=B, parent=A
-    P--&gt;&gt;F: 200
-    F--&gt;&gt;C: 200
-    Note over F,P: both spans share trace_id=T -&gt; one trace
+    Note over P: extract context:&lt;br/&gt;start span B, parent = A, trace = T
+    P--&gt;&gt;F: 200 OK
+    F--&gt;&gt;C: 200 OK
+    Note over F,P: A and B share trace T, so the backend joins them
 </code></pre>
+
+<h3 id="w3c-trace-context">W3C Trace Context</h3>
+
+<p>The vendor-neutral standard, and OpenTelemetry’s default propagator, is <strong>W3C Trace Context</strong>. It defines two HTTP headers:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+             |  |                                |                |
+             |  trace-id (16 bytes)              parent-id (8 B)  trace-flags
+             version                                              (bit 0 = sampled)
+
+tracestate:  ot=th:c,vendorB=opaque-value
+</code></pre></div></div>
+
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">traceparent</code></strong> carries the version, trace ID, the caller’s span ID, and <strong>trace-flags</strong>. Bit 0 is the <strong>sampled</strong> flag: it carries the upstream keep/drop decision so downstream services agree.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">tracestate</code></strong> is an ordered list of vendor key/value entries that lets several tracing systems carry their own state without clobbering one another. OpenTelemetry uses the <code class="language-plaintext highlighter-rouge">ot</code> key.</li>
+</ul>
+
+<p><strong>Trace Context Level 2</strong> (a W3C Candidate Recommendation Draft) adds a <strong>random</strong> flag in bit 1 of trace-flags. When set, it guarantees that at least the rightmost 7 bytes of the trace ID are uniformly random, which lets any service make a consistent sampling decision from the trace ID alone (see <a href="#consistent-probability-sampling">consistent probability sampling</a>).</p>
+
+<p>Other formats you will meet:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Format</th>
+      <th>Headers</th>
+      <th>Where it appears</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>W3C Trace Context</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">traceparent</code>, <code class="language-plaintext highlighter-rouge">tracestate</code></td>
+      <td>OpenTelemetry default; most current tooling</td>
+    </tr>
+    <tr>
+      <td><strong>B3</strong> (Zipkin)</td>
+      <td><code class="language-plaintext highlighter-rouge">b3</code> single header, or <code class="language-plaintext highlighter-rouge">X-B3-TraceId</code> / <code class="language-plaintext highlighter-rouge">X-B3-SpanId</code> / <code class="language-plaintext highlighter-rouge">X-B3-Sampled</code></td>
+      <td>Zipkin, older Istio/Envoy meshes</td>
+    </tr>
+    <tr>
+      <td><strong>Jaeger</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">uber-trace-id</code></td>
+      <td>Legacy Jaeger client libraries (retired)</td>
+    </tr>
+    <tr>
+      <td><strong>AWS X-Ray</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">X-Amzn-Trace-Id</code></td>
+      <td>AWS load balancers, Lambda, API Gateway</td>
+    </tr>
+    <tr>
+      <td><strong>W3C Baggage</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">baggage</code></td>
+      <td>Application key/values (for example <code class="language-plaintext highlighter-rouge">tenant.id</code>) carried alongside the trace</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>OpenTelemetry can run several propagators at once (<code class="language-plaintext highlighter-rouge">OTEL_PROPAGATORS=tracecontext,baggage,b3multi</code>) to bridge legacy services. Keep baggage small: it is copied onto every downstream hop, and it is visible to any service (and any third party) you call, so never put secrets or PII in it.</p>
+
+<h3 id="propagating-across-every-boundary">Propagating Across Every Boundary</h3>
+
+<p>Propagate context everywhere a request crosses a boundary: HTTP and gRPC clients, message producers and consumers, background jobs, scheduled tasks, and thread pools or executors inside a process. Each one missed is a place the trace breaks.</p>
+
+<p>Messaging is the awkward case. The producer writes the context into message headers. A consumer that processes one message at a time can parent its span on the producer span; a consumer that processes a batch starts its own span and adds a <strong>link</strong> to each message’s producer span, because a span can have only one parent.</p>
 
 <h2 id="opentelemetry">OpenTelemetry</h2>
 
-<p><strong>OpenTelemetry (OTel)</strong> is the CNCF standard — the merger of the earlier OpenTracing and OpenCensus projects — that unifies the instrumentation layer across traces, metrics, and logs. Its central promise is <em>instrument once, export anywhere</em>: you write vendor-neutral instrumentation and choose (or change) your backend without touching application code. It is the de facto standard for new tracing work, so the rest of this page is OTel-centric.</p>
+<p><strong>OpenTelemetry (OTel)</strong> is the CNCF project that standardizes how telemetry is produced and shipped: traces, metrics, logs, and (in alpha) profiles. Its promise is <em>instrument once, export anywhere</em>. Application code depends only on the vendor-neutral API; the backend is chosen, and changed, in configuration.</p>
 
-<h3 id="the-components">The Components</h3>
-
-<p>OpenTelemetry is several pieces that are easy to conflate:</p>
+<h3 id="components">Components</h3>
 
 <table>
   <thead>
@@ -3288,42 +3381,70 @@ tracestate:  vendorA=opaque,vendorB=opaque   (per-vendor key/value continuation)
   <tbody>
     <tr>
       <td><strong>API</strong></td>
-      <td>The minimal surface application code calls (<code class="language-plaintext highlighter-rouge">start_span</code>, <code class="language-plaintext highlighter-rouge">set_attribute</code>). Stable, dependency-light; a no-op if no SDK is installed.</td>
+      <td>The surface application and library code calls (<code class="language-plaintext highlighter-rouge">start_span</code>, <code class="language-plaintext highlighter-rouge">set_attribute</code>). Dependency-light; a no-op unless an SDK is installed, so libraries can instrument themselves safely.</td>
     </tr>
     <tr>
       <td><strong>SDK</strong></td>
-      <td>The implementation behind the API: sampling, span processors, batching, exporters. Configured once at startup.</td>
+      <td>The implementation: samplers, span processors, batching, exporters. Configured once at process start.</td>
     </tr>
     <tr>
       <td><strong>Instrumentation libraries</strong></td>
-      <td>Auto-instrumentation for popular frameworks (Flask, Express, gRPC, SQLAlchemy, Kafka) that creates spans and propagates context with no manual code.</td>
+      <td>Plug-ins for frameworks and clients (Flask, Express, Spring, gRPC, SQLAlchemy, Kafka) that create spans and propagate context without manual code.</td>
+    </tr>
+    <tr>
+      <td><strong>Zero-code agents</strong></td>
+      <td>Attach instrumentation at startup (Java agent, <code class="language-plaintext highlighter-rouge">opentelemetry-instrument</code> for Python, the .NET and Node.js auto-instrumentation packages) or from the kernel via eBPF (below).</td>
     </tr>
     <tr>
       <td><strong>OTLP</strong></td>
-      <td>The <strong>OpenTelemetry Protocol</strong> — the wire format (gRPC or HTTP/protobuf) for shipping telemetry to a collector or backend.</td>
+      <td>The OpenTelemetry Protocol: protobuf over gRPC (port 4317) or HTTP (port 4318).</td>
     </tr>
     <tr>
       <td><strong>Collector</strong></td>
-      <td>A standalone process that receives, processes, and exports telemetry.</td>
+      <td>A standalone pipeline that receives, processes, and exports telemetry.</td>
     </tr>
     <tr>
       <td><strong>Semantic conventions</strong></td>
-      <td>A standardized attribute vocabulary (below) so data is portable across tools.</td>
+      <td>The shared vocabulary of attribute and span names.</td>
     </tr>
   </tbody>
 </table>
 
 <h3 id="the-collector">The Collector</h3>
 
-<p>The <strong>OpenTelemetry Collector</strong> is a vendor-agnostic proxy and pipeline for telemetry. Instead of every service knowing how to talk to Jaeger <em>and</em> Tempo <em>and</em> a SaaS, services emit OTLP to a local Collector, and the Collector fans the data out. Its pipeline has three stages:</p>
+<p>The <strong>OpenTelemetry Collector</strong> decouples applications from backends. Services send OTLP to a nearby Collector; the Collector batches, enriches, filters, samples, and fans out to one or more backends. A pipeline has three stage types:</p>
 
 <ul>
-  <li><strong>Receivers</strong> ingest data (OTLP, Jaeger, Zipkin, Prometheus scrape, …).</li>
-  <li><strong>Processors</strong> transform it in flight — <code class="language-plaintext highlighter-rouge">batch</code> (group for efficient export), <code class="language-plaintext highlighter-rouge">memory_limiter</code> (backpressure), <code class="language-plaintext highlighter-rouge">tail_sampling</code> (decide after the full trace arrives), <code class="language-plaintext highlighter-rouge">attributes</code>/<code class="language-plaintext highlighter-rouge">resource</code> (add or redact fields, e.g. strip PII).</li>
-  <li><strong>Exporters</strong> send it onward to one or more backends.</li>
+  <li><strong>Receivers</strong> ingest data: OTLP, Jaeger, Zipkin, Kafka, Prometheus scrape, host metrics.</li>
+  <li><strong>Processors</strong> transform it in flight: <code class="language-plaintext highlighter-rouge">memory_limiter</code> (backpressure), <code class="language-plaintext highlighter-rouge">batch</code>, <code class="language-plaintext highlighter-rouge">k8sattributes</code> (add pod and namespace metadata), <code class="language-plaintext highlighter-rouge">resource</code>/<code class="language-plaintext highlighter-rouge">attributes</code>/<code class="language-plaintext highlighter-rouge">transform</code> (add, rename, or redact fields such as PII), <code class="language-plaintext highlighter-rouge">filter</code>, and <code class="language-plaintext highlighter-rouge">tail_sampling</code>.</li>
+  <li><strong>Exporters</strong> send it on: OTLP to any OTLP-speaking backend, Kafka, files, vendor-specific exporters.</li>
 </ul>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># otel-collector-config.yaml — receive OTLP, batch, tail-sample, fan out</span>
+<p>Collectors are usually deployed in two tiers:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Node1["Node / pod"]
+        A1["Service A&lt;br/&gt;OTel SDK"] --&gt; AG1["Agent Collector&lt;br/&gt;(DaemonSet or sidecar)"]
+    end
+    subgraph Node2["Node / pod"]
+        B1["Service B&lt;br/&gt;OTel SDK"] --&gt; AG2["Agent Collector"]
+    end
+    AG1 --&gt; LB["loadbalancing exporter&lt;br/&gt;routes by trace ID"]
+    AG2 --&gt; LB
+    LB --&gt; G1["Gateway Collector 1&lt;br/&gt;tail_sampling"]
+    LB --&gt; G2["Gateway Collector 2&lt;br/&gt;tail_sampling"]
+    G1 --&gt; T[("Tempo / Jaeger /&lt;br/&gt;vendor backend")]
+    G2 --&gt; T
+</code></pre>
+
+<ul>
+  <li>The <strong>agent</strong> tier runs next to the application, adds host and Kubernetes metadata, and batches cheaply.</li>
+  <li>The <strong>gateway</strong> tier is a horizontally scaled pool that does expensive work such as tail sampling and export. Tail sampling needs every span of a trace on the same instance, so the agents use the <code class="language-plaintext highlighter-rouge">loadbalancing</code> exporter with trace ID as the routing key.</li>
+</ul>
+
+<p>A gateway configuration that receives OTLP, tail-samples, and fans out to two backends:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># otel-collector-gateway.yaml</span>
 <span class="na">receivers</span><span class="pi">:</span>
   <span class="na">otlp</span><span class="pi">:</span>
     <span class="na">protocols</span><span class="pi">:</span>
@@ -3331,13 +3452,13 @@ tracestate:  vendorA=opaque,vendorB=opaque   (per-vendor key/value continuation)
       <span class="na">http</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">endpoint</span><span class="pi">:</span> <span class="nv">0.0.0.0</span><span class="pi">:</span><span class="nv">4318</span> <span class="pi">}</span>
 
 <span class="na">processors</span><span class="pi">:</span>
-  <span class="na">memory_limiter</span><span class="pi">:</span>
+  <span class="na">memory_limiter</span><span class="pi">:</span>            <span class="c1"># first in the pipeline: refuse data before OOM</span>
     <span class="na">check_interval</span><span class="pi">:</span> <span class="s">1s</span>
     <span class="na">limit_percentage</span><span class="pi">:</span> <span class="m">80</span>
-  <span class="na">batch</span><span class="pi">:</span>
-    <span class="na">timeout</span><span class="pi">:</span> <span class="s">5s</span>
-  <span class="na">tail_sampling</span><span class="pi">:</span>                 <span class="c1"># decide AFTER the whole trace is buffered</span>
+    <span class="na">spike_limit_percentage</span><span class="pi">:</span> <span class="m">20</span>
+  <span class="na">tail_sampling</span><span class="pi">:</span>             <span class="c1"># decide after the whole trace has arrived</span>
     <span class="na">decision_wait</span><span class="pi">:</span> <span class="s">10s</span>
+    <span class="na">num_traces</span><span class="pi">:</span> <span class="m">100000</span>
     <span class="na">policies</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">keep-errors</span>
         <span class="na">type</span><span class="pi">:</span> <span class="s">status_code</span>
@@ -3345,15 +3466,17 @@ tracestate:  vendorA=opaque,vendorB=opaque   (per-vendor key/value continuation)
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">keep-slow</span>
         <span class="na">type</span><span class="pi">:</span> <span class="s">latency</span>
         <span class="na">latency</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">threshold_ms</span><span class="pi">:</span> <span class="nv">500</span> <span class="pi">}</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">sample-rest</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">baseline</span>
         <span class="na">type</span><span class="pi">:</span> <span class="s">probabilistic</span>
         <span class="na">probabilistic</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">sampling_percentage</span><span class="pi">:</span> <span class="nv">5</span> <span class="pi">}</span>
+  <span class="na">batch</span><span class="pi">:</span>
+    <span class="na">timeout</span><span class="pi">:</span> <span class="s">5s</span>
 
 <span class="na">exporters</span><span class="pi">:</span>
-  <span class="na">otlp/tempo</span><span class="pi">:</span>                    <span class="c1"># Grafana Tempo over OTLP</span>
+  <span class="na">otlp/tempo</span><span class="pi">:</span>
     <span class="na">endpoint</span><span class="pi">:</span> <span class="s">tempo:4317</span>
-    <span class="na">tls</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">insecure</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>
-  <span class="na">otlp/jaeger</span><span class="pi">:</span>                   <span class="c1"># Jaeger also speaks OTLP natively</span>
+    <span class="na">tls</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">insecure</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>  <span class="c1"># plaintext inside the cluster only</span>
+  <span class="na">otlp/jaeger</span><span class="pi">:</span>               <span class="c1"># Jaeger v2 accepts OTLP natively</span>
     <span class="na">endpoint</span><span class="pi">:</span> <span class="s">jaeger:4317</span>
     <span class="na">tls</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">insecure</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>
 
@@ -3365,123 +3488,172 @@ tracestate:  vendorA=opaque,vendorB=opaque   (per-vendor key/value continuation)
       <span class="na">exporters</span><span class="pi">:</span>  <span class="pi">[</span><span class="nv">otlp/tempo</span><span class="pi">,</span> <span class="nv">otlp/jaeger</span><span class="pi">]</span>
 </code></pre></div></div>
 
-<p>Run the Collector as an <strong>agent</strong> (a sidecar/DaemonSet next to each app, doing cheap local batching) and/or as a <strong>gateway</strong> (a central cluster doing tail sampling and export). Tail sampling must run in the gateway tier because it needs <em>all</em> spans of a trace in one place — which also means a trace’s spans must be routed to the same collector instance (<code class="language-plaintext highlighter-rouge">loadbalancing</code> exporter, keyed on trace ID).</p>
+<p>Tail-sampling policies are OR-ed: a trace is kept if any policy says keep. Here every error trace and every trace over 500 ms survives, plus a 5% baseline of everything else.</p>
 
 <h3 id="semantic-conventions">Semantic Conventions</h3>
 
-<p>The value of portable telemetry collapses if every team names the same attribute differently (<code class="language-plaintext highlighter-rouge">httpMethod</code> vs <code class="language-plaintext highlighter-rouge">http.method</code> vs <code class="language-plaintext highlighter-rouge">verb</code>). <strong>Semantic conventions</strong> are OpenTelemetry’s standardized, versioned dictionary of attribute names and span-naming rules for common operations, so backends and dashboards can rely on stable keys.</p>
-
-<p>A few stabilized examples (the conventions are still evolving — <code class="language-plaintext highlighter-rouge">http.method</code> was renamed to <code class="language-plaintext highlighter-rouge">http.request.method</code> in the 1.x stabilization, which is why you see both in the wild):</p>
+<p>Portable telemetry is worthless if every team spells the same attribute differently (<code class="language-plaintext highlighter-rouge">httpMethod</code>, <code class="language-plaintext highlighter-rouge">http.method</code>, <code class="language-plaintext highlighter-rouge">verb</code>). The <strong>semantic conventions</strong> are OpenTelemetry’s versioned dictionary of attribute names, span names, and span kinds for common operations.</p>
 
 <table>
   <thead>
     <tr>
       <th>Domain</th>
-      <th>Attribute</th>
-      <th>Example</th>
+      <th>Key attributes</th>
+      <th>Example values</th>
+      <th>Status (late 2026)</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>HTTP server</td>
-      <td><code class="language-plaintext highlighter-rouge">http.request.method</code>, <code class="language-plaintext highlighter-rouge">http.route</code>, <code class="language-plaintext highlighter-rouge">http.response.status_code</code>, <code class="language-plaintext highlighter-rouge">url.path</code></td>
+      <td>HTTP</td>
+      <td><code class="language-plaintext highlighter-rouge">http.request.method</code>, <code class="language-plaintext highlighter-rouge">http.route</code>, <code class="language-plaintext highlighter-rouge">http.response.status_code</code>, <code class="language-plaintext highlighter-rouge">url.path</code>, <code class="language-plaintext highlighter-rouge">server.address</code>, <code class="language-plaintext highlighter-rouge">error.type</code></td>
       <td><code class="language-plaintext highlighter-rouge">GET</code>, <code class="language-plaintext highlighter-rouge">/orders/{id}</code>, <code class="language-plaintext highlighter-rouge">200</code></td>
+      <td>Stable</td>
     </tr>
     <tr>
       <td>Database</td>
-      <td><code class="language-plaintext highlighter-rouge">db.system</code>, <code class="language-plaintext highlighter-rouge">db.namespace</code>, <code class="language-plaintext highlighter-rouge">db.query.text</code></td>
-      <td><code class="language-plaintext highlighter-rouge">postgresql</code>, <code class="language-plaintext highlighter-rouge">orders</code>, <code class="language-plaintext highlighter-rouge">SELECT ...</code></td>
+      <td><code class="language-plaintext highlighter-rouge">db.system.name</code>, <code class="language-plaintext highlighter-rouge">db.namespace</code>, <code class="language-plaintext highlighter-rouge">db.operation.name</code>, <code class="language-plaintext highlighter-rouge">db.collection.name</code>, <code class="language-plaintext highlighter-rouge">db.query.text</code></td>
+      <td><code class="language-plaintext highlighter-rouge">postgresql</code>, <code class="language-plaintext highlighter-rouge">orders</code>, <code class="language-plaintext highlighter-rouge">SELECT</code>, <code class="language-plaintext highlighter-rouge">items</code></td>
+      <td>Stable</td>
     </tr>
     <tr>
       <td>RPC</td>
       <td><code class="language-plaintext highlighter-rouge">rpc.system</code>, <code class="language-plaintext highlighter-rouge">rpc.service</code>, <code class="language-plaintext highlighter-rouge">rpc.method</code></td>
       <td><code class="language-plaintext highlighter-rouge">grpc</code>, <code class="language-plaintext highlighter-rouge">OrderService</code>, <code class="language-plaintext highlighter-rouge">Charge</code></td>
+      <td>Development</td>
     </tr>
     <tr>
       <td>Messaging</td>
-      <td><code class="language-plaintext highlighter-rouge">messaging.system</code>, <code class="language-plaintext highlighter-rouge">messaging.destination.name</code>, <code class="language-plaintext highlighter-rouge">messaging.operation</code></td>
-      <td><code class="language-plaintext highlighter-rouge">kafka</code>, <code class="language-plaintext highlighter-rouge">orders</code>, <code class="language-plaintext highlighter-rouge">publish</code></td>
+      <td><code class="language-plaintext highlighter-rouge">messaging.system</code>, <code class="language-plaintext highlighter-rouge">messaging.destination.name</code>, <code class="language-plaintext highlighter-rouge">messaging.operation.type</code></td>
+      <td><code class="language-plaintext highlighter-rouge">kafka</code>, <code class="language-plaintext highlighter-rouge">orders</code>, <code class="language-plaintext highlighter-rouge">send</code> / <code class="language-plaintext highlighter-rouge">process</code></td>
+      <td>Development</td>
     </tr>
     <tr>
       <td>Resource</td>
-      <td><code class="language-plaintext highlighter-rouge">service.name</code>, <code class="language-plaintext highlighter-rouge">service.version</code>, <code class="language-plaintext highlighter-rouge">deployment.environment</code></td>
-      <td><code class="language-plaintext highlighter-rouge">order-service</code>, <code class="language-plaintext highlighter-rouge">1.4.0</code>, <code class="language-plaintext highlighter-rouge">prod</code></td>
+      <td><code class="language-plaintext highlighter-rouge">service.name</code>, <code class="language-plaintext highlighter-rouge">service.version</code>, <code class="language-plaintext highlighter-rouge">deployment.environment.name</code></td>
+      <td><code class="language-plaintext highlighter-rouge">order-service</code>, <code class="language-plaintext highlighter-rouge">1.4.0</code>, <code class="language-plaintext highlighter-rouge">production</code></td>
+      <td>Stable</td>
     </tr>
   </tbody>
 </table>
 
-<p>The special <strong>Resource</strong> attributes (<code class="language-plaintext highlighter-rouge">service.name</code>, <code class="language-plaintext highlighter-rouge">service.version</code>, host/k8s/cloud identity) describe the <em>emitter</em> and are attached to every span it produces — they are how the backend attributes a span to a service.</p>
+<p>Several names changed on the way to stability, which is why older dashboards and instrumentations still emit the previous forms: <code class="language-plaintext highlighter-rouge">http.method</code> became <code class="language-plaintext highlighter-rouge">http.request.method</code>, <code class="language-plaintext highlighter-rouge">http.status_code</code> became <code class="language-plaintext highlighter-rouge">http.response.status_code</code>, <code class="language-plaintext highlighter-rouge">db.system</code> became <code class="language-plaintext highlighter-rouge">db.system.name</code>, <code class="language-plaintext highlighter-rouge">db.statement</code> became <code class="language-plaintext highlighter-rouge">db.query.text</code>, and <code class="language-plaintext highlighter-rouge">deployment.environment</code> became <code class="language-plaintext highlighter-rouge">deployment.environment.name</code>. Instrumentation libraries typically offer a transition setting (<code class="language-plaintext highlighter-rouge">OTEL_SEMCONV_STABILITY_OPT_IN</code>) to emit the old names, the new names, or both during migration.</p>
+
+<p><strong>Resource</strong> attributes describe the emitter rather than the operation and are attached to everything it produces. <code class="language-plaintext highlighter-rouge">service.name</code> is the one attribute every service must set; without it, backends group spans under <code class="language-plaintext highlighter-rouge">unknown_service</code>.</p>
 
 <h3 id="instrumenting-a-service">Instrumenting a Service</h3>
 
-<p>Wiring up OTel has three parts: configure the SDK once at startup, let auto-instrumentation handle the framework, and add manual spans on the business logic you care about.</p>
+<p>Instrumentation has three layers: configure the SDK once at startup, let instrumentation libraries cover frameworks and clients, and add manual spans only around business operations worth naming.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">opentelemetry</span> <span class="kn">import</span> <span class="n">trace</span>
-<span class="kn">from</span> <span class="n">opentelemetry.sdk.trace</span> <span class="kn">import</span> <span class="n">TracerProvider</span>
-<span class="kn">from</span> <span class="n">opentelemetry.sdk.trace.export</span> <span class="kn">import</span> <span class="n">BatchSpanProcessor</span>
-<span class="kn">from</span> <span class="n">opentelemetry.sdk.resources</span> <span class="kn">import</span> <span class="n">Resource</span>
-<span class="c1"># Modern OTel exports via OTLP to a Collector, which fans out to Jaeger/Tempo/etc.
-</span><span class="kn">from</span> <span class="n">opentelemetry.exporter.otlp.proto.grpc.trace_exporter</span> <span class="kn">import</span> <span class="n">OTLPSpanExporter</span>
+<p><strong>Configuration first.</strong> Most settings can come from the environment, so the same build runs everywhere:</p>
 
-<span class="c1"># Resource: identify this service so spans are attributed correctly in the backend
-</span><span class="n">resource</span> <span class="o">=</span> <span class="n">Resource</span><span class="p">.</span><span class="nf">create</span><span class="p">({</span>
-    <span class="sh">"</span><span class="s">service.name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">order-service</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">service.version</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1.4.0</span><span class="sh">"</span><span class="p">,</span>
-    <span class="sh">"</span><span class="s">deployment.environment</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">prod</span><span class="sh">"</span><span class="p">,</span>
-<span class="p">})</span>
-<span class="n">trace</span><span class="p">.</span><span class="nf">set_tracer_provider</span><span class="p">(</span><span class="nc">TracerProvider</span><span class="p">(</span><span class="n">resource</span><span class="o">=</span><span class="n">resource</span><span class="p">))</span>
-<span class="n">tracer</span> <span class="o">=</span> <span class="n">trace</span><span class="p">.</span><span class="nf">get_tracer</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">OTEL_SERVICE_NAME</span><span class="o">=</span>order-service
+<span class="nb">export </span><span class="nv">OTEL_RESOURCE_ATTRIBUTES</span><span class="o">=</span>service.version<span class="o">=</span>1.4.0,deployment.environment.name<span class="o">=</span>production
+<span class="nb">export </span><span class="nv">OTEL_EXPORTER_OTLP_ENDPOINT</span><span class="o">=</span>http://otel-collector:4317
+<span class="nb">export </span><span class="nv">OTEL_TRACES_SAMPLER</span><span class="o">=</span>parentbased_traceidratio
+<span class="nb">export </span><span class="nv">OTEL_TRACES_SAMPLER_ARG</span><span class="o">=</span>0.25
 
-<span class="c1"># BatchSpanProcessor buffers spans and exports them in batches over OTLP to the
-# local Collector (which forwards to Tempo/Jaeger). Never use SimpleSpanProcessor
-# in production — it exports synchronously and adds latency to every request.
-</span><span class="n">otlp_exporter</span> <span class="o">=</span> <span class="nc">OTLPSpanExporter</span><span class="p">(</span><span class="n">endpoint</span><span class="o">=</span><span class="sh">"</span><span class="s">http://otel-collector:4317</span><span class="sh">"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
-<span class="n">trace</span><span class="p">.</span><span class="nf">get_tracer_provider</span><span class="p">().</span><span class="nf">add_span_processor</span><span class="p">(</span><span class="nc">BatchSpanProcessor</span><span class="p">(</span><span class="n">otlp_exporter</span><span class="p">))</span>
-
-
-<span class="k">async</span> <span class="k">def</span> <span class="nf">process_request</span><span class="p">(</span><span class="n">request_id</span><span class="p">):</span>
-    <span class="c1"># start_as_current_span sets the active span; child spans auto-link as parent-&gt;child
-</span>    <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">process_request</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
-        <span class="n">span</span><span class="p">.</span><span class="nf">set_attribute</span><span class="p">(</span><span class="sh">"</span><span class="s">request.id</span><span class="sh">"</span><span class="p">,</span> <span class="n">request_id</span><span class="p">)</span>
-
-        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">validate</span><span class="sh">"</span><span class="p">):</span>
-            <span class="k">await</span> <span class="nf">validate_request</span><span class="p">(</span><span class="n">request_id</span><span class="p">)</span>
-
-        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">process</span><span class="sh">"</span><span class="p">):</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">process_data</span><span class="p">(</span><span class="n">request_id</span><span class="p">)</span>
-
-        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">persist</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">persist_span</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="k">await</span> <span class="nf">save_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-            <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-                <span class="c1"># Record the error on the span so it surfaces in the trace UI
-</span>                <span class="n">persist_span</span><span class="p">.</span><span class="nf">record_exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-                <span class="n">persist_span</span><span class="p">.</span><span class="nf">set_status</span><span class="p">(</span><span class="n">trace</span><span class="p">.</span><span class="nc">Status</span><span class="p">(</span><span class="n">trace</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ERROR</span><span class="p">))</span>
-                <span class="k">raise</span>
-
-        <span class="k">return</span> <span class="n">result</span>
+<span class="c"># Zero-code: instrument installed frameworks, HTTP clients, and DB drivers</span>
+pip <span class="nb">install </span>opentelemetry-distro opentelemetry-exporter-otlp
+opentelemetry-bootstrap <span class="nt">-a</span> <span class="nb">install</span>      <span class="c"># installs instrumentations for detected libraries</span>
+opentelemetry-instrument python app.py
 </code></pre></div></div>
 
-<p>Cross-service propagation uses OTel’s <code class="language-plaintext highlighter-rouge">inject</code>/<code class="language-plaintext highlighter-rouge">extract</code> on the configured propagator. Most HTTP and gRPC instrumentation libraries do this automatically once installed; the manual form makes the mechanism explicit:</p>
+<p>OpenTelemetry also defines a <strong>declarative configuration</strong> file format, whose schema is now stable (per-language SDK support is still maturing). It is selected with <code class="language-plaintext highlighter-rouge">OTEL_CONFIG_FILE</code> and expresses samplers, processors, and exporters as YAML instead of dozens of environment variables:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">file_format</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1.2"</span>
+<span class="na">tracer_provider</span><span class="pi">:</span>
+  <span class="na">sampler</span><span class="pi">:</span>
+    <span class="na">parent_based</span><span class="pi">:</span>
+      <span class="na">root</span><span class="pi">:</span>
+        <span class="na">always_on</span><span class="pi">:</span>
+  <span class="na">processors</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">batch</span><span class="pi">:</span>
+        <span class="na">exporter</span><span class="pi">:</span>
+          <span class="na">otlp_http</span><span class="pi">:</span>
+            <span class="na">endpoint</span><span class="pi">:</span> <span class="s">http://otel-collector:4318/v1/traces</span>
+</code></pre></div></div>
+
+<p><strong>Manual setup in code</strong>, for when you need programmatic control:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">opentelemetry</span> <span class="kn">import</span> <span class="n">trace</span>
+<span class="kn">from</span> <span class="n">opentelemetry.sdk.resources</span> <span class="kn">import</span> <span class="n">Resource</span>
+<span class="kn">from</span> <span class="n">opentelemetry.sdk.trace</span> <span class="kn">import</span> <span class="n">TracerProvider</span>
+<span class="kn">from</span> <span class="n">opentelemetry.sdk.trace.export</span> <span class="kn">import</span> <span class="n">BatchSpanProcessor</span>
+<span class="kn">from</span> <span class="n">opentelemetry.exporter.otlp.proto.grpc.trace_exporter</span> <span class="kn">import</span> <span class="n">OTLPSpanExporter</span>
+
+<span class="n">resource</span> <span class="o">=</span> <span class="n">Resource</span><span class="p">.</span><span class="nf">create</span><span class="p">({</span>
+    <span class="sh">"</span><span class="s">service.name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">order-service</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">service.version</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">1.4.0</span><span class="sh">"</span><span class="p">,</span>
+    <span class="sh">"</span><span class="s">deployment.environment.name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">production</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">})</span>
+<span class="n">provider</span> <span class="o">=</span> <span class="nc">TracerProvider</span><span class="p">(</span><span class="n">resource</span><span class="o">=</span><span class="n">resource</span><span class="p">)</span>
+<span class="c1"># BatchSpanProcessor exports asynchronously in batches. SimpleSpanProcessor
+# exports synchronously on span end and belongs only in tests.
+</span><span class="n">provider</span><span class="p">.</span><span class="nf">add_span_processor</span><span class="p">(</span>
+    <span class="nc">BatchSpanProcessor</span><span class="p">(</span><span class="nc">OTLPSpanExporter</span><span class="p">(</span><span class="n">endpoint</span><span class="o">=</span><span class="sh">"</span><span class="s">http://otel-collector:4317</span><span class="sh">"</span><span class="p">,</span> <span class="n">insecure</span><span class="o">=</span><span class="bp">True</span><span class="p">))</span>
+<span class="p">)</span>
+<span class="n">trace</span><span class="p">.</span><span class="nf">set_tracer_provider</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
+<span class="n">tracer</span> <span class="o">=</span> <span class="n">trace</span><span class="p">.</span><span class="nf">get_tracer</span><span class="p">(</span><span class="sh">"</span><span class="s">order-service</span><span class="sh">"</span><span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span> <span class="nf">process_order</span><span class="p">(</span><span class="n">order_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="c1"># start_as_current_span makes this the active span, so the child spans
+</span>    <span class="c1"># below (and any spans created by instrumented libraries) nest under it.
+</span>    <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">process_order</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+        <span class="n">span</span><span class="p">.</span><span class="nf">set_attribute</span><span class="p">(</span><span class="sh">"</span><span class="s">app.order.id</span><span class="sh">"</span><span class="p">,</span> <span class="n">order_id</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">validate</span><span class="sh">"</span><span class="p">):</span>
+            <span class="k">await</span> <span class="nf">validate</span><span class="p">(</span><span class="n">order_id</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">charge</span><span class="sh">"</span><span class="p">):</span>
+            <span class="n">receipt</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">charge</span><span class="p">(</span><span class="n">order_id</span><span class="p">)</span>
+
+        <span class="c1"># An exception escaping a start_as_current_span block is recorded on the
+</span>        <span class="c1"># span and sets status ERROR by default; set it explicitly only when you
+</span>        <span class="c1"># handle the error yourself and still want the span marked failed.
+</span>        <span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">persist</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">persist</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">await</span> <span class="nf">save</span><span class="p">(</span><span class="n">receipt</span><span class="p">)</span>
+            <span class="k">except</span> <span class="nb">TimeoutError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">persist</span><span class="p">.</span><span class="nf">set_status</span><span class="p">(</span><span class="n">trace</span><span class="p">.</span><span class="nc">Status</span><span class="p">(</span><span class="n">trace</span><span class="p">.</span><span class="n">StatusCode</span><span class="p">.</span><span class="n">ERROR</span><span class="p">,</span> <span class="sh">"</span><span class="s">save timed out</span><span class="sh">"</span><span class="p">))</span>
+                <span class="n">persist</span><span class="p">.</span><span class="nf">set_attribute</span><span class="p">(</span><span class="sh">"</span><span class="s">error.type</span><span class="sh">"</span><span class="p">,</span> <span class="nf">type</span><span class="p">(</span><span class="n">exc</span><span class="p">).</span><span class="n">__qualname__</span><span class="p">)</span>
+                <span class="k">await</span> <span class="nf">enqueue_retry</span><span class="p">(</span><span class="n">receipt</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">receipt</span>
+</code></pre></div></div>
+
+<p>Custom attributes should use your own namespace (<code class="language-plaintext highlighter-rouge">app.</code> or a company prefix) so they never collide with future semantic conventions.</p>
+
+<p><strong>Propagation by hand.</strong> Instrumented HTTP and gRPC clients inject and extract automatically; the manual form shows the mechanism, and is what you write for a custom transport:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">opentelemetry.propagate</span> <span class="kn">import</span> <span class="n">inject</span><span class="p">,</span> <span class="n">extract</span>
 
-<span class="c1"># --- Caller side: inject current context into outgoing headers ---
-</span><span class="n">headers</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="nf">inject</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>                       <span class="c1"># adds 'traceparent' / 'tracestate'
+<span class="c1"># Caller: write the active context into outgoing headers
+</span><span class="n">headers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="nf">inject</span><span class="p">(</span><span class="n">headers</span><span class="p">)</span>                        <span class="c1"># adds traceparent (and tracestate, baggage)
 </span><span class="k">await</span> <span class="n">http_client</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">payload</span><span class="p">)</span>
 
-<span class="c1"># --- Callee side: extract context, continue the same trace ---
-</span><span class="n">ctx</span> <span class="o">=</span> <span class="nf">extract</span><span class="p">(</span><span class="n">incoming_request</span><span class="p">.</span><span class="n">headers</span><span class="p">)</span>
-<span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">handle_charge</span><span class="sh">"</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">ctx</span><span class="p">):</span>
+<span class="c1"># Callee: read the context and continue the same trace
+</span><span class="n">ctx</span> <span class="o">=</span> <span class="nf">extract</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">headers</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">tracer</span><span class="p">.</span><span class="nf">start_as_current_span</span><span class="p">(</span><span class="sh">"</span><span class="s">handle_charge</span><span class="sh">"</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span>
+                                  <span class="n">kind</span><span class="o">=</span><span class="n">trace</span><span class="p">.</span><span class="n">SpanKind</span><span class="p">.</span><span class="n">SERVER</span><span class="p">):</span>
     <span class="bp">...</span>
 </code></pre></div></div>
 
-<p>For most services you do far less than this: <code class="language-plaintext highlighter-rouge">opentelemetry-instrument python app.py</code> (zero-code auto-instrumentation) wires up the framework, HTTP client, and DB driver, propagates context, and exports — and you add manual spans only on the business operations worth naming.</p>
+<h3 id="ebpf-based-instrumentation">eBPF-Based Instrumentation</h3>
 
-<h2 id="tracing-backends-jaeger-tempo-zipkin">Tracing Backends: Jaeger, Tempo, Zipkin</h2>
+<p><strong>OpenTelemetry eBPF Instrumentation (OBI)</strong> instruments processes from the Linux kernel instead of inside the application. It observes HTTP/S, HTTP/2, gRPC, Kafka, and common database protocols at the socket and runtime level, emits OTel spans and metrics, and can propagate trace context, with no code or image changes. It is useful for services you cannot modify or for a fast baseline across a fleet. The trade-off is depth: it sees protocol boundaries, not business operations, so SDK instrumentation remains the way to name the spans that matter.</p>
 
-<p>A tracing <strong>backend</strong> ingests spans, stores them, indexes them for search, and renders the waterfall UI. Three open-source options dominate; all three speak OTLP today.</p>
+<h3 id="span-events-and-the-logs-api">Span Events and the Logs API</h3>
+
+<p>OpenTelemetry has two ways to attach a timestamped event to a request: span events (<code class="language-plaintext highlighter-rouge">span.add_event</code>, <code class="language-plaintext highlighter-rouge">span.record_exception</code>) and log records emitted through the Logs API while a span is active. In 2026 the project announced the deprecation of the <strong>Span Events API</strong> in favor of <strong>log-based events</strong>, on the principle that “events are logs with names emitted via the Logs API, correlated with traces and metrics through context.”</p>
+
+<p>The change is gradual. Span events remain part of the OTLP trace data model, existing data stays valid, instrumentations migrate in their next major versions, and SDKs offer compatibility options that copy log-based events back onto spans for backends that expect them. For new code, prefer emitting events through the logging pipeline with trace context attached.</p>
+
+<h2 id="tracing-backends">Tracing Backends</h2>
+
+<p>A <strong>backend</strong> ingests spans, stores them, lets you find them, and renders the waterfall. All three open-source mainstays accept OTLP.</p>
 
 <table>
   <thead>
@@ -3495,159 +3667,232 @@ tracestate:  vendorA=opaque,vendorB=opaque   (per-vendor key/value continuation)
   <tbody>
     <tr>
       <td>Origin</td>
-      <td>Uber (CNCF graduated)</td>
-      <td>Grafana Labs</td>
-      <td>Twitter (the original, 2012)</td>
+      <td>Uber, 2016; CNCF graduated</td>
+      <td>Grafana Labs, 2020</td>
+      <td>Twitter, 2012</td>
+    </tr>
+    <tr>
+      <td>Architecture</td>
+      <td>v2 is built on the OpenTelemetry Collector framework</td>
+      <td>Microservices or single binary; object storage only</td>
+      <td>Single Java service</td>
     </tr>
     <tr>
       <td>Storage</td>
-      <td>Cassandra / Elasticsearch / OpenSearch / Badger</td>
-      <td>Object storage (S3/GCS) only</td>
-      <td>In-memory / Cassandra / Elasticsearch / MySQL</td>
+      <td>Elasticsearch, OpenSearch, Cassandra, Badger, memory, or a remote storage plugin</td>
+      <td>S3, GCS, Azure Blob (columnar Parquet blocks)</td>
+      <td>Memory, Cassandra, Elasticsearch, MySQL</td>
     </tr>
     <tr>
-      <td>Indexing</td>
-      <td>Indexes spans for rich attribute search</td>
-      <td><strong>No span index</strong> — find traces by ID; search is via metrics/logs (exemplars, TraceQL)</td>
-      <td>Indexes for service/operation/tag search</td>
+      <td>Finding traces</td>
+      <td>Indexed search by service, operation, tags, duration</td>
+      <td>TraceQL queries over Parquet columns; trace-ID lookup; arrival via exemplars and logs</td>
+      <td>Indexed search by service, span name, tags</td>
     </tr>
     <tr>
-      <td>Cost model</td>
-      <td>Higher storage + index cost</td>
-      <td><strong>Very cheap</strong> — trace ID lookup against cheap object storage</td>
-      <td>Lightweight, simple</td>
+      <td>Cost at scale</td>
+      <td>Dominated by the search index cluster</td>
+      <td>Low; storage is object storage</td>
+      <td>Low at small scale</td>
     </tr>
     <tr>
       <td>UI</td>
-      <td>Standalone Jaeger UI</td>
-      <td>Grafana (integrated with metrics/logs)</td>
-      <td>Standalone Zipkin UI</td>
+      <td>Jaeger UI</td>
+      <td>Grafana (Explore, Traces Drilldown)</td>
+      <td>Zipkin UI</td>
     </tr>
     <tr>
       <td>Best for</td>
-      <td>Standalone tracing with full-text trace search</td>
-      <td>Cost-efficient tracing tightly integrated with Grafana metrics/logs</td>
-      <td>Simple setups, legacy B3 ecosystems</td>
+      <td>Standalone tracing with rich ad hoc search</td>
+      <td>High-volume tracing tied to Grafana metrics and logs</td>
+      <td>Small setups, B3-based ecosystems</td>
     </tr>
   </tbody>
 </table>
 
-<p>The key architectural split is <strong>Tempo’s bet that you should not index spans at all</strong>. Indexing every span’s attributes is the dominant cost of tracing at scale. Tempo instead stores raw traces cheaply in object storage and assumes you arrive at the right trace ID <em>from elsewhere</em> — a metric <strong>exemplar</strong>, a log line’s <code class="language-plaintext highlighter-rouge">trace_id</code>, or a TraceQL query — making it dramatically cheaper but reliant on good metric/log correlation. Jaeger and Zipkin index spans so you can search “all error traces for <code class="language-plaintext highlighter-rouge">order-service</code> tagged <code class="language-plaintext highlighter-rouge">region=eu</code>” directly, at the cost of an Elasticsearch/Cassandra cluster.</p>
+<p><strong>Jaeger v2</strong> re-implemented Jaeger as a distribution of the OpenTelemetry Collector: the same binary can receive OTLP, run Collector processors, and write to Jaeger storage. The 1.x line is now archived and the Jaeger-specific client libraries were retired in favor of OpenTelemetry SDKs, so new deployments should use v2 fed by OTel instrumentation.</p>
 
-<p>Whichever you pick, point the Collector’s exporter at it. Migrating backends is a one-line Collector change, not a redeploy of every service — which is precisely the portability OTel buys you.</p>
+<p><strong>Tempo</strong> takes the opposite design point from Jaeger’s indexed search. It does not maintain a separate per-attribute index; instead it writes traces to object storage in a columnar Parquet format and answers <strong>TraceQL</strong> queries by scanning the relevant columns. TraceQL selects spans by attributes, structure, and timing:</p>
 
-<h2 id="sampling-strategies">Sampling Strategies</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{ resource.service.name = "payment" &amp;&amp; span.http.response.status_code &gt;= 500 }
 
-<p>Tracing every request at high volume is expensive in CPU (span creation), network (export), and storage (indexing). <strong>Sampling</strong> keeps a representative subset. The decision is <em>where</em> and <em>when</em> to make it.</p>
+{ span.db.system.name = "postgresql" &amp;&amp; duration &gt; 200ms } | count() &gt; 3
+</code></pre></div></div>
+
+<p>TraceQL metrics can also compute RED-style rates and latency quantiles directly from stored spans. The design keeps storage cheap but relies on good correlation, since the common workflow is to arrive at a trace from a metric exemplar or a log line.</p>
+
+<p>Managed options (AWS X-Ray, Google Cloud Trace, Azure Monitor, and commercial APM vendors) accept OTLP as well. Because the Collector sits in between, switching or dual-writing backends is a configuration change, not a redeploy of every service.</p>
+
+<h2 id="sampling">Sampling</h2>
+
+<p>Tracing every request at high volume costs CPU to create spans, network to export them, and storage to keep them. <strong>Sampling</strong> keeps a representative subset. The design questions are <em>where</em> the keep/drop decision is made and <em>how much</em> of the trace the decision can see.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Head-based</th>
+      <th>Tail-based</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Decision point</td>
+      <td>At the root span, before the work happens</td>
+      <td>After the trace completes, in a Collector</td>
+    </tr>
+    <tr>
+      <td>Sees</td>
+      <td>Only the trace ID and root attributes</td>
+      <td>Every span: errors, latency, attributes</td>
+    </tr>
+    <tr>
+      <td>Keeps errors and slow outliers</td>
+      <td>Only by chance, at the base rate</td>
+      <td>Reliably, by policy</td>
+    </tr>
+    <tr>
+      <td>Overhead of dropped traces</td>
+      <td>None; unsampled spans are never recorded</td>
+      <td>Every span is created, exported, and buffered</td>
+    </tr>
+    <tr>
+      <td>Infrastructure</td>
+      <td>None beyond the SDK</td>
+      <td>Stateful gateway tier with trace-ID routing</td>
+    </tr>
+    <tr>
+      <td>Failure mode</td>
+      <td>Misses rare interesting traces</td>
+      <td>Late or orphaned spans arrive after the decision</td>
+    </tr>
+  </tbody>
+</table>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Head["Head-based"]
+        R1["Root span starts"] --&gt; D1{"Sample?&lt;br/&gt;(trace ID)"}
+        D1 --&gt;|"yes: sampled flag = 1"| K1["All services record&lt;br/&gt;and export"]
+        D1 --&gt;|"no: sampled flag = 0"| X1["Nothing recorded"]
+    end
+    subgraph Tail["Tail-based"]
+        R2["All spans exported"] --&gt; B2["Gateway buffers&lt;br/&gt;by trace ID"]
+        B2 --&gt; D2{"Policy after&lt;br/&gt;decision_wait"}
+        D2 --&gt;|"error, slow, or baseline"| K2["Keep trace"]
+        D2 --&gt;|"otherwise"| X2["Drop trace"]
+    end
+</code></pre>
 
 <h3 id="head-based-sampling">Head-Based Sampling</h3>
 
-<p><strong>Head-based sampling</strong> decides at the root span, before the trace runs, and propagates that decision in the <code class="language-plaintext highlighter-rouge">traceparent</code> sampled flag so every downstream service honors it. This keeps a trace whole — either all of its spans are kept or none are.</p>
+<p>The root service decides and records the decision in the <code class="language-plaintext highlighter-rouge">traceparent</code> sampled flag. A <strong>parent-based</strong> sampler in every downstream service honors that flag, so traces stay complete: all spans kept or none.</p>
 
-<ul>
-  <li><strong>Pros:</strong> cheap (decide once, up front); unsampled spans are never created or exported; the decision is consistent across services for free.</li>
-  <li><strong>Cons:</strong> it is blind. A flat 1% rate discards 99% of traces <em>including</em> the rare slow and error traces you most want to keep.</li>
-</ul>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">opentelemetry.sdk.trace</span> <span class="kn">import</span> <span class="n">TracerProvider</span>
+<span class="kn">from</span> <span class="n">opentelemetry.sdk.trace.sampling</span> <span class="kn">import</span> <span class="n">ParentBased</span><span class="p">,</span> <span class="n">TraceIdRatioBased</span>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">opentelemetry.sdk.trace.sampling</span> <span class="kn">import</span> <span class="n">TraceIdRatioBased</span><span class="p">,</span> <span class="n">ParentBased</span>
-
-<span class="c1"># Keep 5% of root traces; always honor an upstream service's keep/drop decision.
-# ParentBased ensures consistency: if the caller sampled the trace, we keep our spans.
+<span class="c1"># Sample 5% of new traces at the root; downstream, follow the caller's decision.
 </span><span class="n">sampler</span> <span class="o">=</span> <span class="nc">ParentBased</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="nc">TraceIdRatioBased</span><span class="p">(</span><span class="mf">0.05</span><span class="p">))</span>
-<span class="nc">TracerProvider</span><span class="p">(</span><span class="n">resource</span><span class="o">=</span><span class="n">resource</span><span class="p">,</span> <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">)</span>
+<span class="n">provider</span> <span class="o">=</span> <span class="nc">TracerProvider</span><span class="p">(</span><span class="n">resource</span><span class="o">=</span><span class="n">resource</span><span class="p">,</span> <span class="n">sampler</span><span class="o">=</span><span class="n">sampler</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">TraceIdRatioBased</code> makes the keep/drop decision a deterministic hash of the trace ID, so independently-configured services reach the <em>same</em> decision for the same trace even without communicating — the foundation of consistent head sampling.</p>
+<h3 id="consistent-probability-sampling">Consistent Probability Sampling</h3>
+
+<p><code class="language-plaintext highlighter-rouge">TraceIdRatioBased</code> derives its decision from the trace ID so that services sampling independently at the same rate agree. Its exact algorithm was never specified, however, so different SDKs could disagree, and the sampling rate was not recorded anywhere a backend could read it. The specification now deprecates it (SDKs must keep it working until at least January 2027) in favor of the composable <strong><code class="language-plaintext highlighter-rouge">ProbabilitySampler</code></strong>, currently in development status:</p>
+
+<ul>
+  <li>It relies on the Trace Context Level 2 <strong>random</strong> flag, which guarantees 56 random bits in the trace ID.</li>
+  <li>It compares those bits with a <strong>rejection threshold</strong> and records the threshold in <code class="language-plaintext highlighter-rouge">tracestate</code> as <code class="language-plaintext highlighter-rouge">ot=th:&lt;hex&gt;</code>.</li>
+  <li>Any service or backend can read <code class="language-plaintext highlighter-rouge">th</code> to learn the exact sampling probability, so sampled counts can be scaled back up to true request rates, and different services can sample at different rates while remaining consistent.</li>
+</ul>
 
 <h3 id="tail-based-sampling">Tail-Based Sampling</h3>
 
-<p><strong>Tail-based sampling</strong> buffers all of a trace’s spans and decides <em>after</em> the trace completes, so the policy can see the whole trace: keep 100% of error traces and slow traces, sample the boring fast ones.</p>
+<p>Tail sampling buffers all spans of a trace in a gateway Collector and decides after <code class="language-plaintext highlighter-rouge">decision_wait</code>, when the whole trace is visible. The configuration in <a href="#the-collector">The Collector</a> keeps all error traces, all traces over 500 ms, and 5% of the rest. Operational points:</p>
 
 <ul>
-  <li><strong>Pros:</strong> keeps exactly the interesting traces; the right tradeoff for most production systems.</li>
-  <li><strong>Cons:</strong> every span must be created, emitted, and buffered until the trace finishes (more CPU/network than head sampling), and it requires a stateful collector tier that holds spans in memory and routes all spans of a trace to the same instance.</li>
+  <li><strong>Route by trace ID.</strong> Every span of a trace must reach the same gateway instance (<code class="language-plaintext highlighter-rouge">loadbalancing</code> exporter). Scaling the gateway pool reshuffles routing, so expect a short period of split decisions during scale events.</li>
+  <li><strong>Size <code class="language-plaintext highlighter-rouge">decision_wait</code> to your slowest normal trace.</strong> Spans that arrive after the decision (long async work, retries) are handled by a late-span policy or dropped.</li>
+  <li><strong>Budget memory.</strong> The buffer holds <code class="language-plaintext highlighter-rouge">num_traces</code> complete traces; <code class="language-plaintext highlighter-rouge">memory_limiter</code> must sit in front of <code class="language-plaintext highlighter-rouge">tail_sampling</code>.</li>
 </ul>
 
-<p>The <code class="language-plaintext highlighter-rouge">tail_sampling</code> processor in the Collector config above is the canonical implementation: probabilistically keep ~5% baseline, but force-keep any trace containing an error or exceeding 500ms.</p>
+<h3 id="choosing-a-strategy">Choosing a Strategy</h3>
 
-<h3 id="picking-a-strategy">Picking a Strategy</h3>
+<p>A common production setup combines both: generous head sampling (or none) to bound the span volume created, then tail sampling at the gateway to guarantee that errors and slow traces survive. Tune so that you always capture failures, keep enough successful traces to characterize <em>normal</em> latency (you cannot recognize “slow” from error traces alone), and cap cost. Generate RED metrics from <strong>all</strong> spans before sampling, either with the Collector’s <code class="language-plaintext highlighter-rouge">spanmetrics</code> connector or in the backend, so dashboards stay accurate regardless of the sample rate.</p>
 
-<p>A common, robust production setup combines both: light head sampling to bound the volume of spans created, plus tail sampling in the gateway Collector to guarantee error and slow traces survive. Tune so that (a) you always capture failures, (b) you keep enough successful traces to characterize the <em>normal</em> baseline (you cannot tell “slow” from “typical” with only error traces), and (c) cost stays bounded. Keep the sampling rate in <code class="language-plaintext highlighter-rouge">tracestate</code>/resource attributes so dashboards can scale sampled counts back up to true rates.</p>
+<h2 id="correlating-traces-metrics-logs-and-profiles">Correlating Traces, Metrics, Logs, and Profiles</h2>
 
-<h2 id="correlating-traces-metrics-and-logs">Correlating Traces, Metrics, and Logs</h2>
-
-<p>A trace in isolation is useful; a trace <em>connected to</em> the metric that alerted you and the logs that explain it is the whole point of observability. The connective tissue is the <strong>trace ID</strong>, shared across all three pillars.</p>
+<p>A trace in isolation is useful; a trace connected to the metric that paged you and the logs and profile that explain it is the point of observability. The connective tissue is the <strong>trace ID</strong> (and span ID), carried by all signals.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    Alert["Metric alert&lt;br/&gt;p99 latency up"] --&gt; Trace["Open a trace&lt;br/&gt;find slow span"]
-    Trace --&gt; Log["Read span logs&lt;br/&gt;find root cause"]
-    Log --&gt; Fix["Fix / mitigate"]
-    Trace -. trace_id .-&gt; Log
-    Alert -. exemplar .-&gt; Trace
+    M["Metric alert&lt;br/&gt;p99 latency burn rate"] --&gt;|"exemplar"| T["Trace&lt;br/&gt;find the slow span"]
+    T --&gt;|"trace_id, span_id"| L["Logs&lt;br/&gt;error details"]
+    T --&gt;|"span_id"| P["Profile&lt;br/&gt;hot code in that span"]
+    L --&gt;|"trace_id"| T
 </code></pre>
 
-<p><strong>Metrics -&gt; traces, via exemplars.</strong> An <strong>exemplar</strong> is a trace ID attached to a specific sample in a histogram bucket — a pointer from an aggregate to a concrete example. When a Grafana panel shows p99 latency spiking, the exemplar markers on that line are one click away from an <em>actual slow trace</em> that contributed to the spike. Exemplars are how Tempo’s “no span index” model stays usable: you arrive at the trace ID from the metric.</p>
+<ul>
+  <li><strong>Metrics to traces, via exemplars.</strong> An <a href="./metrics.html">exemplar</a> is a trace ID attached to an individual observation in a histogram bucket. On a latency panel, exemplar markers link from the spike straight to a real slow trace. Exemplars are what make Tempo’s storage model practical.</li>
+  <li><strong>Traces to logs, via IDs on every log line.</strong> When every structured log line carries <code class="language-plaintext highlighter-rouge">trace_id</code> and <code class="language-plaintext highlighter-rouge">span_id</code>, you can jump from a slow span to the logs it produced and from an error log back to the full trace.</li>
+  <li><strong>Traces to profiles.</strong> The OpenTelemetry <strong>profiles</strong> signal (public alpha) and its eBPF-based profiling agent collect continuous CPU and memory profiles and correlate samples with the active span, so a slow span can open onto the stack frames that consumed its time. Several backends (Grafana Pyroscope among them) already offer span-to-profile links.</li>
+</ul>
 
-<p><strong>Traces -&gt; logs, via trace_id on every log line.</strong> Emit the active trace and span IDs on <em>every</em> structured log line. Once your logs carry <code class="language-plaintext highlighter-rouge">trace_id</code>, you pivot directly from a slow span to every log line that span produced, and from an error log back to the full trace. The three pillars become one navigable surface.</p>
+<h3 id="stamping-trace-ids-on-logs">Stamping Trace IDs on Logs</h3>
 
-<p>This logger auto-injects the <em>current</em> trace/span IDs from the active OpenTelemetry context, so callers never thread IDs by hand:</p>
+<p>With the OpenTelemetry logging bridge (<code class="language-plaintext highlighter-rouge">opentelemetry-instrumentation-logging</code> in Python, or the equivalent appenders for Log4j, Logback, and others), trace and span IDs are injected automatically. The mechanism is simple enough to show directly:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">logging</span>
-<span class="kn">from</span> <span class="n">pythonjsonlogger</span> <span class="kn">import</span> <span class="n">jsonlogger</span>
-<span class="kn">from</span> <span class="n">opentelemetry</span> <span class="kn">import</span> <span class="n">trace</span>
-
-<span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nc">StreamHandler</span><span class="p">()</span>
-<span class="n">handler</span><span class="p">.</span><span class="nf">setFormatter</span><span class="p">(</span><span class="n">jsonlogger</span><span class="p">.</span><span class="nc">JsonFormatter</span><span class="p">())</span>
-<span class="n">root</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nf">getLogger</span><span class="p">()</span>
-<span class="n">root</span><span class="p">.</span><span class="nf">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
-<span class="n">root</span><span class="p">.</span><span class="nf">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="p">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="kn">from</span> <span class="n">pythonjsonlogger</span> <span class="kn">import</span> <span class="n">jsonlogger</span>   <span class="c1"># python-json-logger
+</span><span class="kn">from</span> <span class="n">opentelemetry</span> <span class="kn">import</span> <span class="n">trace</span>
 
 
 <span class="k">class</span> <span class="nc">TraceContextFilter</span><span class="p">(</span><span class="n">logging</span><span class="p">.</span><span class="n">Filter</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Stamp the active trace_id/span_id onto every record automatically.</span><span class="sh">"""</span>
-    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Stamp the active trace_id/span_id onto every log record.</span><span class="sh">"""</span>
+    <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">record</span><span class="p">:</span> <span class="n">logging</span><span class="p">.</span><span class="n">LogRecord</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="n">ctx</span> <span class="o">=</span> <span class="n">trace</span><span class="p">.</span><span class="nf">get_current_span</span><span class="p">().</span><span class="nf">get_span_context</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">ctx</span><span class="p">.</span><span class="n">is_valid</span><span class="p">:</span>
-            <span class="c1"># 32-/16-hex-char IDs that match exactly what Jaeger/Tempo show
+            <span class="c1"># Same 32- and 16-hex-character forms that tracing UIs display
 </span>            <span class="n">record</span><span class="p">.</span><span class="n">trace_id</span> <span class="o">=</span> <span class="nf">format</span><span class="p">(</span><span class="n">ctx</span><span class="p">.</span><span class="n">trace_id</span><span class="p">,</span> <span class="sh">"</span><span class="s">032x</span><span class="sh">"</span><span class="p">)</span>
             <span class="n">record</span><span class="p">.</span><span class="n">span_id</span> <span class="o">=</span> <span class="nf">format</span><span class="p">(</span><span class="n">ctx</span><span class="p">.</span><span class="n">span_id</span><span class="p">,</span> <span class="sh">"</span><span class="s">016x</span><span class="sh">"</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">True</span>
 
 
+<span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nc">StreamHandler</span><span class="p">()</span>
+<span class="n">handler</span><span class="p">.</span><span class="nf">setFormatter</span><span class="p">(</span><span class="n">jsonlogger</span><span class="p">.</span><span class="nc">JsonFormatter</span><span class="p">())</span>
 <span class="n">handler</span><span class="p">.</span><span class="nf">addFilter</span><span class="p">(</span><span class="nc">TraceContextFilter</span><span class="p">())</span>
-<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nf">getLogger</span><span class="p">(</span><span class="sh">"</span><span class="s">order</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">logging</span><span class="p">.</span><span class="nf">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="p">.</span><span class="n">INFO</span><span class="p">,</span> <span class="n">handlers</span><span class="o">=</span><span class="p">[</span><span class="n">handler</span><span class="p">])</span>
 
-<span class="c1"># trace_id/span_id are injected automatically; just log structured fields
-</span><span class="n">log</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sh">"</span><span class="s">Order processed</span><span class="sh">"</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">12345</span><span class="sh">"</span><span class="p">})</span>
-<span class="c1"># -&gt; {"message": "Order processed", "order_id": "12345",
-#     "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "span_id": "00f067aa0ba902b7"}
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nf">getLogger</span><span class="p">(</span><span class="sh">"</span><span class="s">order</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">log</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sh">"</span><span class="s">Order processed</span><span class="sh">"</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">12345</span><span class="sh">"</span><span class="p">})</span>
+<span class="c1"># {"message": "Order processed", "order_id": "12345",
+#  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "span_id": "00f067aa0ba902b7"}
 </span></code></pre></div></div>
 
-<p>With this in place a single incident flows as one investigation: a <strong>burn-rate alert</strong> on an SLO fires from RED <strong>metrics</strong>, an <strong>exemplar</strong> jumps you to a representative slow <strong>trace</strong>, the slow <strong>span</strong> links to the <strong>logs</strong> it produced (joined by <code class="language-plaintext highlighter-rouge">trace_id</code>), and those logs reveal the exception. That pivot — metric -&gt; trace -&gt; log, anchored by a shared trace ID — is the payoff of instrumenting all three pillars consistently.</p>
+<p>An incident then flows as one investigation: a burn-rate alert fires on an SLO built from RED metrics; an exemplar opens a representative slow trace; the slowest span on the critical path links to its logs, which show a timeout; its profile shows where the CPU went.</p>
 
-<h2 id="instrumenting-services-practical-guidance">Instrumenting Services: Practical Guidance</h2>
+<h2 id="instrumentation-guidelines">Instrumentation Guidelines</h2>
 
 <ul>
-  <li><strong>Prefer auto-instrumentation first.</strong> Install the OTel instrumentation libraries for your framework and DB driver before writing any manual spans; they cover HTTP/gRPC/DB and propagate context correctly for free.</li>
-  <li><strong>Add manual spans on business operations,</strong> not on every function. A span per <em>meaningful</em> unit of work (validate, charge, persist) reads well; a span per helper call drowns the waterfall.</li>
-  <li><strong>Use the route template, never the raw path,</strong> in span names and <code class="language-plaintext highlighter-rouge">http.route</code> (<code class="language-plaintext highlighter-rouge">/orders/{id}</code>, not <code class="language-plaintext highlighter-rouge">/orders/12345</code>) to keep operation cardinality bounded.</li>
-  <li><strong>Follow semantic conventions</strong> for attribute names so your data is portable across backends and dashboards.</li>
-  <li><strong>Record exceptions and set ERROR status</strong> on the span where the failure occurred so error traces are findable and tail sampling keeps them.</li>
-  <li><strong>Propagate context across <em>every</em> boundary</strong> — including async jobs and message queues — or traces fragment.</li>
-  <li><strong>Keep baggage small.</strong> Anything in baggage is copied onto every hop of every request.</li>
-  <li><strong>Never put high-cardinality identifiers in metric labels;</strong> put them in span attributes and logs instead, where per-request detail belongs.</li>
+  <li><strong>Start with instrumentation libraries or zero-code agents.</strong> They cover HTTP, gRPC, messaging, and database clients, and they propagate context correctly.</li>
+  <li><strong>Add manual spans for business operations,</strong> not every function. A span per meaningful unit of work (validate, charge, persist) produces a readable waterfall; a span per helper call buries it.</li>
+  <li><strong>Keep span names low-cardinality.</strong> Use the route template (<code class="language-plaintext highlighter-rouge">/orders/{id}</code>), never the raw path, in span names and <code class="language-plaintext highlighter-rouge">http.route</code>.</li>
+  <li><strong>Follow semantic conventions</strong> and put custom attributes under your own namespace.</li>
+  <li><strong>Mark failures where they happen.</strong> Set <code class="language-plaintext highlighter-rouge">ERROR</code> status (and <code class="language-plaintext highlighter-rouge">error.type</code>) on the span where the failure occurred so error traces are searchable and tail sampling keeps them.</li>
+  <li><strong>Propagate across every boundary,</strong> including queues, background jobs, and thread pools.</li>
+  <li><strong>Keep baggage small and non-sensitive.</strong></li>
+  <li><strong>Put per-request identifiers in spans and logs, not metric labels.</strong> High-cardinality detail belongs in traces; metric labels should stay bounded.</li>
+  <li><strong>Redact at the Collector.</strong> Strip PII and secrets (query parameters, <code class="language-plaintext highlighter-rouge">db.query.text</code> literals, auth headers) with Collector processors so the policy lives in one place.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">Observability Hub</a></strong> — the three pillars, observability vs monitoring, and SLOs</li>
-  <li><strong><a href="./metrics.html">Observability: Metrics &amp; Monitoring</a></strong> — counters, histograms, Prometheus/PromQL, RED &amp; USE, exemplars</li>
-  <li><strong><a href="./logging.html">Observability: Logging</a></strong> — structured logging, correlation IDs, ELK/Loki, sampling and PII</li>
-  <li><strong><a href="../distributed-systems/observability.html">Distributed Systems: Observability</a></strong> — tracing, metrics, and SLOs framed inside distributed-system design</li>
-  <li><strong><a href="../technology/kubernetes/">Kubernetes</a></strong> — where most traced services run; Collector as a sidecar/DaemonSet</li>
-  <li><strong><a href="../technology/networking/">Networking</a></strong> — the latency and failure modes traces expose</li>
-  <li><strong><a href="../technology/database-design/">Database Design</a></strong> — instrumenting and tracing data-tier calls</li>
+  <li><a href="./">Observability Hub</a>: the signals, observability versus monitoring, and SLOs</li>
+  <li><a href="./metrics.html">Metrics and Monitoring</a>: counters, histograms, Prometheus and PromQL, RED and USE, exemplars</li>
+  <li><a href="./logging.html">Logging</a>: structured logging, correlation IDs, log pipelines, PII handling</li>
+  <li><a href="../distributed-systems/observability.html">Distributed Systems: Observability</a>: tracing and SLOs in the context of distributed-system design</li>
+  <li><a href="../technology/kubernetes/">Kubernetes</a>: where most traced services run, and where Collectors run as DaemonSets and gateways</li>
+  <li><a href="../technology/networking/">Networking</a>: the latency and failure modes traces expose</li>
+  <li><a href="../technology/database-design/">Database Design</a>: the data-tier calls that dominate many traces</li>
 </ul>
 
       </section>

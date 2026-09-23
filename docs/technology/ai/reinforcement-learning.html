@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Markov decision processes, dynamic programming, TD learning, deep Q-networks, policy gradients and PPO, model-based and offline RL, and reinforcement learnin...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AI: Reinforcement Learning">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Markov decision processes, dynamic programming, TD learning, deep Q-networks, policy gradients and PPO, model-based and offline RL, and reinforcement learnin...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/ai/reinforcement-learning.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AI: Reinforcement Learning">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Markov decision processes, dynamic programming, TD learning, deep Q-networks, policy gradients and PPO, model-based and offline RL, and reinforcement learnin...">
 
 <title>AI: Reinforcement Learning | Andrews Notebook</title>
 
@@ -3135,353 +3135,638 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">AI &amp; Machine Learning</a> › Reinforcement Learning</p>
 
-<p>Supervised learning maps inputs to labels; reinforcement learning (RL) learns <strong>behavior</strong>. An <em>agent</em> interacts with an <em>environment</em>, observes states, takes actions, and receives scalar <em>rewards</em>. There is no labeled “correct action” — the only feedback is reward, which may be sparse, delayed, and noisy. The agent’s job is to discover a policy that maximizes cumulative reward over time. This page builds the formalism (Markov decision processes), the classical solution methods (value and policy iteration), the model-free workhorses (Q-learning, policy gradients, actor-critic), the deep-learning era (DQN, A2C, PPO), and the applications that made RL famous, from Atari and Go to robotics and the reinforcement-learning-from-human-feedback (RLHF) pipeline that aligns modern language models.</p>
+<p><strong>Reinforcement learning (RL)</strong> is the part of machine learning that learns <em>behavior</em> from interaction. An <strong>agent</strong> acts in an <strong>environment</strong>, observes the resulting states, and receives scalar <strong>rewards</strong>. It is never told the correct action, and rewards may be sparse, delayed, and noisy. The goal is a <strong>policy</strong> that maximizes cumulative reward. This page covers the formalism (Markov decision processes and the Bellman equations), planning with a known model (dynamic programming), learning without one (temporal-difference learning and Q-learning), deep RL (DQN, policy gradients, actor-critic, PPO, SAC), model-based and offline RL, and RL for large language models, where RLHF and RL from verifiable rewards (RLVR) now train assistants and reasoning models. The standard textbook is Sutton and Barto, <em>Reinforcement Learning: An Introduction</em> (2nd ed., 2018). Its authors received the 2024 ACM Turing Award for founding the field.</p>
 
 <h2 id="the-reinforcement-learning-problem">The Reinforcement Learning Problem</h2>
 
-<p>The defining feature of RL is the <strong>interaction loop</strong>. At each time step $t$ the agent is in state $s_t$, selects an action $a_t$, and the environment responds with a new state $s_{t+1}$ and a reward $r_{t+1}$. The agent never sees the environment’s internal mechanics directly; it learns purely from this stream of experience.</p>
+<p>At each time step $t$, the agent observes state $s_t$ and chooses action $a_t \sim \pi(\cdot \mid s_t)$. The environment then returns reward $r_{t+1}$ and next state $s_{t+1}$. The agent does not see the environment’s internals and learns only from this stream of experience.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>        ┌─────────────────────────────────────┐
-        │            ENVIRONMENT              │
-        └─────────────────────────────────────┘
-            ▲   state s_t, reward r_t   │
-   action  │                           │  next state s_{t+1},
-   a_t     │                           ▼  reward r_{t+1}
-        ┌─────────────────────────────────────┐
-        │               AGENT                 │
-        │   policy π(a | s)  →  chooses a_t   │
-        └─────────────────────────────────────┘
-</code></pre></div></div>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant A as Agent (policy pi)
+    participant E as Environment
+    E-&gt;&gt;A: initial state s_0
+    loop every time step t
+        A-&gt;&gt;E: action a_t ~ pi(a | s_t)
+        E-&gt;&gt;A: reward r_(t+1), next state s_(t+1)
+        Note over A: update policy / value estimates
+    end
+</code></pre>
 
-<p>This loop introduces challenges absent from supervised learning:</p>
+<p>Three difficulties set RL apart from supervised learning:</p>
 
 <ul>
-  <li><strong>Delayed reward (credit assignment).</strong> A move early in a chess game may only pay off twenty moves later. The agent must attribute distant reward to the actions that caused it.</li>
-  <li><strong>Exploration vs. exploitation.</strong> To find the best policy the agent must try actions whose value it does not yet know (explore), but it also wants to use what it already knows to earn reward (exploit). Over-exploiting locks in a mediocre strategy; over-exploring wastes reward.</li>
-  <li><strong>Non-stationarity from the agent’s own learning.</strong> As the policy changes, the distribution of states the agent visits changes too, so the “dataset” is a moving target.</li>
+  <li><strong>Credit assignment.</strong> A reward may arrive long after the actions that caused it. A chess move can decide the game twenty moves later, and the agent has to work out which earlier actions deserve the credit.</li>
+  <li><strong>Exploration versus exploitation.</strong> To find better behavior the agent must try actions whose value it does not yet know. To collect reward it must use what it already knows. Exploiting too much locks in a mediocre strategy, and exploring too much wastes reward.</li>
+  <li><strong>Non-stationary data.</strong> The agent’s own policy determines which states it visits, so every policy update changes the data distribution it trains on.</li>
 </ul>
 
 <h2 id="markov-decision-processes">Markov Decision Processes</h2>
 
-<p>The standard mathematical model of the RL problem is the <strong>Markov decision process (MDP)</strong>, a tuple $(\mathcal{S}, \mathcal{A}, P, R, \gamma)$:</p>
+<p>The standard formal model is the <strong>Markov decision process (MDP)</strong>, a tuple $(\mathcal{S}, \mathcal{A}, P, R, \gamma)$:</p>
 
-<ul>
-  <li>$\mathcal{S}$ — the set of states.</li>
-  <li>$\mathcal{A}$ — the set of actions.</li>
-  <li>$P(s’ \mid s, a)$ — the transition probability of reaching $s’$ after taking action $a$ in state $s$.</li>
-  <li>$R(s, a)$ — the expected immediate reward.</li>
-  <li>$\gamma \in [0, 1]$ — the discount factor.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Symbol</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\mathcal{S}$</td>
+      <td>State space</td>
+    </tr>
+    <tr>
+      <td>$\mathcal{A}$</td>
+      <td>Action space, either discrete or continuous</td>
+    </tr>
+    <tr>
+      <td>$P(s’ \mid s, a)$</td>
+      <td>Transition probability of reaching $s’$ after taking action $a$ in state $s$</td>
+    </tr>
+    <tr>
+      <td>$R(s, a)$</td>
+      <td>Expected immediate reward</td>
+    </tr>
+    <tr>
+      <td>$\gamma \in [0, 1)$</td>
+      <td>Discount factor ($\gamma = 1$ is allowed in episodic tasks)</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The defining <strong>Markov property</strong> is that the future depends on the present state alone, not the full history:</p>
+<p>The <strong>Markov property</strong> requires the future to depend only on the current state and action, not on the full history:</p>
 
 \[P(s_{t+1} \mid s_t, a_t, s_{t-1}, a_{t-1}, \dots) = P(s_{t+1} \mid s_t, a_t).\]
 
-<p>This is what makes the state a sufficient statistic and makes the problem tractable. When the agent cannot observe the full state (only a noisy or partial observation), the problem becomes a <strong>partially observable MDP (POMDP)</strong>, usually handled by maintaining a belief state or by feeding a history of observations into a recurrent network.</p>
+<p>When the agent sees only a partial or noisy observation of the state, the problem is a <strong>partially observable MDP (POMDP)</strong>. It is usually handled by keeping a belief state, or in deep RL by feeding a history of observations into a recurrent network or transformer. Frame stacking in Atari agents is a crude form of this.</p>
 
-<h3 id="returns-and-the-discount-factor">Returns and the Discount Factor</h3>
+<h3 id="returns-and-discounting">Returns and Discounting</h3>
 
-<p>The agent maximizes the <strong>return</strong> $G_t$, the discounted sum of future rewards:</p>
+<p>The agent maximizes the <strong>return</strong>, the discounted sum of future rewards:</p>
 
-\[G_t = \sum_{k=0}^{\infty} \gamma^k \, r_{t+k+1} = r_{t+1} + \gamma \, r_{t+2} + \gamma^2 r_{t+3} + \cdots\]
+\[G_t = \sum_{k=0}^{\infty} \gamma^k \, r_{t+k+1} = r_{t+1} + \gamma\, G_{t+1}.\]
 
-<p>The discount $\gamma$ does double duty. Mathematically, $\gamma &lt; 1$ keeps the infinite sum finite (bounded rewards give a return bounded by $r_{\max}/(1-\gamma)$). Conceptually, it expresses a preference for sooner rewards: $\gamma \to 0$ makes the agent myopic, caring only about immediate reward, while $\gamma \to 1$ makes it far-sighted, weighting distant rewards almost as heavily as near ones. Typical values lie between 0.9 and 0.999.</p>
+<table>
+  <tbody>
+    <tr>
+      <td>With $\gamma &lt; 1$ and bounded rewards, $</td>
+      <td>G_t</td>
+      <td>\le r_{\max}/(1-\gamma)$, so the return stays finite. The discount also sets an effective horizon of about $1/(1-\gamma)$ steps. $\gamma = 0.99$ looks roughly 100 steps ahead, and values between 0.9 and 0.999 are typical. The recursive form $G_t = r_{t+1} + \gamma G_{t+1}$ underlies everything that follows.</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="policies-and-value-functions">Policies and Value Functions</h3>
+<h3 id="policies-value-functions-and-advantage">Policies, Value Functions, and Advantage</h3>
 
-<p>A <strong>policy</strong> $\pi(a \mid s)$ is a (possibly stochastic) mapping from states to a distribution over actions — it <em>is</em> the agent’s behavior. Everything RL does is, ultimately, search over policies.</p>
+<p>A <strong>policy</strong> $\pi(a \mid s)$ maps states to distributions over actions. It is the agent’s behavior. Policies are compared using <strong>value functions</strong>:</p>
 
-<p>To compare policies we use <strong>value functions</strong>, which measure expected return. The <strong>state-value function</strong> of a policy $\pi$ is</p>
+\[V^\pi(s) = \mathbb{E}_\pi\!\left[ G_t \mid s_t = s \right], \qquad Q^\pi(s, a) = \mathbb{E}_\pi\!\left[ G_t \mid s_t = s, \, a_t = a \right].\]
 
-\[V^\pi(s) = \mathbb{E}_\pi\!\left[ G_t \mid s_t = s \right],\]
+<p>$V^\pi$ scores a state, and $Q^\pi$ scores taking action $a$ first and following $\pi$ afterwards. Their difference is the <strong>advantage</strong>,</p>
 
-<p>the expected return starting from state $s$ and following $\pi$ thereafter. The <strong>action-value function</strong> (the “Q-function”) adds a committed first action:</p>
+\[A^\pi(s, a) = Q^\pi(s, a) - V^\pi(s),\]
 
-\[Q^\pi(s, a) = \mathbb{E}_\pi\!\left[ G_t \mid s_t = s, \, a_t = a \right].\]
-
-<p>$Q^\pi$ is what you act on: if you know $Q^\pi(s, \cdot)$, picking the highest-valued action is straightforward.</p>
+<p>which measures how much better $a$ is than the policy’s average action in $s$. Most modern policy-gradient methods are built around estimating it.</p>
 
 <h3 id="the-bellman-equations">The Bellman Equations</h3>
 
-<p>Value functions obey a recursive consistency relation — the <strong>Bellman equation</strong> — which is the engine of nearly every RL algorithm. Splitting the return into the immediate reward plus the discounted return from the next state gives</p>
+<p>Splitting the return into the immediate reward plus the discounted value of the next state gives the <strong>Bellman expectation equations</strong>:</p>
 
-\[V^\pi(s) = \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a)\left[ R(s, a) + \gamma \, V^\pi(s') \right].\]
-
-<p>The corresponding equation for $Q^\pi$ is</p>
+\[V^\pi(s) = \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a)\left[ R(s, a) + \gamma \, V^\pi(s') \right],\]
 
 \[Q^\pi(s, a) = \sum_{s'} P(s' \mid s, a)\left[ R(s, a) + \gamma \sum_{a'} \pi(a' \mid s')\, Q^\pi(s', a') \right].\]
 
-<p>There is always at least one <strong>optimal policy</strong> $\pi^<em>$ that achieves the maximum value in every state. Its value functions $V^</em>$ and $Q^*$ satisfy the <strong>Bellman optimality equations</strong>, which replace the average-over-actions with a max:</p>
+<p>Every finite MDP has at least one deterministic <strong>optimal policy</strong> $\pi^*$ that is best in every state simultaneously. Its value functions satisfy the <strong>Bellman optimality equations</strong>, which replace the average over actions with a max:</p>
 
 \[V^*(s) = \max_{a} \sum_{s'} P(s' \mid s, a)\left[ R(s, a) + \gamma \, V^*(s') \right],\]
 
 \[Q^*(s, a) = \sum_{s'} P(s' \mid s, a)\left[ R(s, a) + \gamma \max_{a'} Q^*(s', a') \right].\]
 
-<p>Once $Q^<em>$ is known, the optimal policy is <strong>greedy</strong>: $\pi^</em>(s) = \arg\max_a Q^*(s, a)$. The entire field can be read as different ways of approximating these equations.</p>
+<p>Once $Q^<em>$ is known, the optimal policy is greedy: $\pi^</em>(s) = \arg\max_a Q^*(s, a)$. The algorithms below differ in how they approximate these equations: with or without a model, with exact expectations or samples, and with tables or neural networks.</p>
 
-<h2 id="dynamic-programming-value-and-policy-iteration">Dynamic Programming: Value and Policy Iteration</h2>
+<h2 id="dynamic-programming">Dynamic Programming</h2>
 
-<p>When the MDP is fully known — transitions $P$ and rewards $R$ are available — the Bellman optimality equations can be solved by <strong>dynamic programming (DP)</strong>. DP is rarely usable at scale (it needs the model and sweeps the whole state space), but it is the conceptual ancestor of every model-free method.</p>
+<p>When $P$ and $R$ are known, the Bellman equations can be solved by <strong>dynamic programming (DP)</strong>. DP needs a full model and sweeps the entire state space, so it only applies to small problems. It is still the conceptual basis of every other method here.</p>
 
-<h3 id="policy-evaluation">Policy Evaluation</h3>
-
-<p>Given a fixed policy $\pi$, <strong>policy evaluation</strong> computes $V^\pi$ by turning the Bellman equation into an iterative update and applying it until convergence:</p>
+<p><strong>Policy evaluation</strong> computes $V^\pi$ by applying the Bellman expectation equation as an update until it converges:</p>
 
 \[V_{k+1}(s) \leftarrow \sum_{a} \pi(a \mid s) \sum_{s'} P(s' \mid s, a)\left[ R(s, a) + \gamma \, V_k(s') \right].\]
 
-<p>Because the Bellman operator is a $\gamma$-contraction (it shrinks the distance between any two value estimates by a factor $\gamma$), this iteration converges to the unique fixed point $V^\pi$.</p>
+<p>The Bellman operator is a $\gamma$-contraction in the max-norm, so the iteration converges to its unique fixed point $V^\pi$ from any starting point.</p>
 
-<h3 id="policy-iteration">Policy Iteration</h3>
+<p><strong>Policy iteration</strong> alternates evaluation with <strong>greedy improvement</strong>, $\pi’(s) = \arg\max_a \sum_{s’} P(s’ \mid s, a)\left[R(s,a) + \gamma V^\pi(s’)\right]$. The <strong>policy improvement theorem</strong> guarantees $V^{\pi’} \ge V^\pi$ in every state. Since there are finitely many deterministic policies, the process reaches $\pi^*$ after a finite number of rounds.</p>
 
-<p><strong>Policy iteration</strong> alternates two steps until the policy stops changing:</p>
-
-<ol>
-  <li><strong>Policy evaluation</strong> — compute $V^\pi$ for the current policy.</li>
-  <li><strong>Policy improvement</strong> — make the policy greedy with respect to that value:</li>
-</ol>
-
-\[\pi'(s) = \arg\max_{a} \sum_{s'} P(s' \mid s, a)\left[ R(s, a) + \gamma \, V^\pi(s') \right].\]
-
-<p>The <strong>policy improvement theorem</strong> guarantees $V^{\pi’} \ge V^\pi$ everywhere, so each round strictly improves (or leaves unchanged) the policy. With finitely many deterministic policies, it converges to $\pi^*$ in a finite number of iterations.</p>
-
-<h3 id="value-iteration">Value Iteration</h3>
-
-<p><strong>Value iteration</strong> fuses evaluation and improvement into a single update by applying the Bellman <em>optimality</em> operator directly, never waiting for full evaluation to converge:</p>
+<p><strong>Value iteration</strong> combines the two steps. Each sweep applies the optimality operator once, without waiting for evaluation to converge:</p>
 
 \[V_{k+1}(s) \leftarrow \max_{a} \sum_{s'} P(s' \mid s, a)\left[ R(s, a) + \gamma \, V_k(s') \right].\]
 
-<p>It converges to $V^*$, and the greedy policy is read off at the end. Value iteration is usually faster in wall-clock terms because each sweep is cheap.</p>
+<p>Sutton and Barto call this interplay <strong>generalized policy iteration (GPI)</strong>. The value estimate is moved toward the current policy’s true value, and the policy is moved toward being greedy with respect to the value estimate. Nearly every RL algorithm, including actor-critic methods and PPO, is a version of GPI.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    P["policy pi"] --&gt;|"evaluation:&lt;br/&gt;V moves toward V^pi"| V["value estimate V"]
+    V --&gt;|"improvement:&lt;br/&gt;pi moves toward greedy(V)"| P
+    P -.-&gt;|"converges to"| O["pi*, V*"]
+</code></pre>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<span class="k">def</span> <span class="nf">value_iteration</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.99</span><span class="p">,</span> <span class="n">theta</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">
-    P[s, a, s</span><span class="sh">'</span><span class="s">] = transition probability, R[s, a] = expected reward.
-    Returns the optimal value function and greedy policy.
-    </span><span class="sh">"""</span>
-    <span class="n">n_states</span><span class="p">,</span> <span class="n">n_actions</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">P</span><span class="p">.</span><span class="n">shape</span>
-    <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">n_states</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">value_iteration</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.99</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">P[s, a, s</span><span class="sh">'</span><span class="s">] = transition probabilities, R[s, a] = expected reward.
+    Returns the optimal state values and a greedy (optimal) policy.</span><span class="sh">"""</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">(</span><span class="n">P</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
-        <span class="n">delta</span> <span class="o">=</span> <span class="mf">0.0</span>
-        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_states</span><span class="p">):</span>
-            <span class="c1"># Q(s, a) for every action, then take the best.
-</span>            <span class="n">q</span> <span class="o">=</span> <span class="n">R</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">+</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">P</span><span class="p">[</span><span class="n">s</span><span class="p">].</span><span class="nf">dot</span><span class="p">(</span><span class="n">V</span><span class="p">)</span>   <span class="c1"># shape (n_actions,)
-</span>            <span class="n">best</span> <span class="o">=</span> <span class="n">q</span><span class="p">.</span><span class="nf">max</span><span class="p">()</span>
-            <span class="n">delta</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="nf">abs</span><span class="p">(</span><span class="n">best</span> <span class="o">-</span> <span class="n">V</span><span class="p">[</span><span class="n">s</span><span class="p">]))</span>
-            <span class="n">V</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">best</span>
-        <span class="k">if</span> <span class="n">delta</span> <span class="o">&lt;</span> <span class="n">theta</span><span class="p">:</span>
-            <span class="k">break</span>
-    <span class="n">policy</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">argmax</span><span class="p">(</span><span class="n">R</span> <span class="o">+</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">einsum</span><span class="p">(</span><span class="sh">"</span><span class="s">sap,p-&gt;sa</span><span class="sh">"</span><span class="p">,</span> <span class="n">P</span><span class="p">,</span> <span class="n">V</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">V</span><span class="p">,</span> <span class="n">policy</span>
+        <span class="n">Q</span> <span class="o">=</span> <span class="n">R</span> <span class="o">+</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">P</span> <span class="o">@</span> <span class="n">V</span>          <span class="c1"># (S, A, S) @ (S,) -&gt; (S, A)
+</span>        <span class="n">V_new</span> <span class="o">=</span> <span class="n">Q</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">V_new</span> <span class="o">-</span> <span class="n">V</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">V_new</span><span class="p">,</span> <span class="n">Q</span><span class="p">.</span><span class="nf">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">V</span> <span class="o">=</span> <span class="n">V_new</span>
 </code></pre></div></div>
 
-<p>The catch: DP requires the model and visits every state, so it is confined to small, fully known MDPs. The rest of RL is about lifting both restrictions — learning from sampled experience without a model, and generalizing across states with function approximation.</p>
+<p>The rest of RL removes DP’s two requirements. It learns from <strong>sampled experience</strong> instead of a known model, and it uses <strong>function approximation</strong> so that learning generalizes across states instead of storing one table entry per state.</p>
 
 <h2 id="model-free-prediction-and-control">Model-Free Prediction and Control</h2>
 
-<p>When the model is unknown, the agent must learn from <strong>sampled experience</strong>. Two ideas dominate.</p>
+<h3 id="monte-carlo-and-temporal-difference-learning">Monte Carlo and Temporal-Difference Learning</h3>
 
-<p><strong>Monte Carlo (MC)</strong> methods estimate value by averaging actual returns observed over complete episodes. They are unbiased but high-variance and need episodes to terminate.</p>
+<p><strong>Monte Carlo (MC)</strong> methods estimate values by averaging the returns actually observed at the end of complete episodes. <strong>Temporal-difference (TD)</strong> learning, the central idea of RL, updates an estimate from <em>other</em> estimates (bootstrapping) without waiting for the episode to end. TD(0) moves $V(s_t)$ toward a one-step target:</p>
 
-<p><strong>Temporal-difference (TD)</strong> learning is the central innovation of RL: it updates value estimates from <em>other</em> estimates (bootstrapping) without waiting for the episode to end. The simplest version, TD(0), nudges $V(s_t)$ toward the observed reward plus the discounted value of the next state:</p>
+\[V(s_t) \leftarrow V(s_t) + \alpha\big[ \underbrace{r_{t+1} + \gamma\, V(s_{t+1})}_{\text{TD target}} - V(s_t) \big].\]
 
-\[V(s_t) \leftarrow V(s_t) + \alpha\left[ \underbrace{r_{t+1} + \gamma\, V(s_{t+1})}_{\text{TD target}} - V(s_t) \right].\]
+<p>The bracketed term is the <strong>TD error</strong> $\delta_t$, the gap between the prediction and the bootstrapped target. (Dopamine neurons in the brain respond in a way that closely resembles a TD error.)</p>
 
-<p>The bracketed quantity is the <strong>TD error</strong> $\delta_t$, the surprise between prediction and bootstrapped target. TD learns online, from incomplete episodes, and trades a little bias (from bootstrapping) for much lower variance than MC. TD($\lambda$) and eligibility traces interpolate smoothly between TD(0) and MC.</p>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Monte Carlo</th>
+      <th>TD(0)</th>
+      <th>$n$-step TD / TD($\lambda$)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Target</td>
+      <td>Full return $G_t$</td>
+      <td>$r_{t+1} + \gamma V(s_{t+1})$</td>
+      <td>$n$ real rewards, then bootstrap; or a $\lambda$-weighted mix</td>
+    </tr>
+    <tr>
+      <td>Bias</td>
+      <td>Unbiased</td>
+      <td>Biased by the current estimate</td>
+      <td>Tunable</td>
+    </tr>
+    <tr>
+      <td>Variance</td>
+      <td>High</td>
+      <td>Low</td>
+      <td>Tunable</td>
+    </tr>
+    <tr>
+      <td>Needs episode end</td>
+      <td>Yes</td>
+      <td>No; learns online</td>
+      <td>After $n$ steps</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="q-learning">Q-Learning</h3>
+<p>Eligibility traces and TD($\lambda$) interpolate between the two extremes. The same trade-off appears again in deep RL as $n$-step returns and generalized advantage estimation.</p>
 
-<p><strong>Q-learning</strong> (Watkins, 1989) is the landmark <em>off-policy</em> TD control algorithm. It learns $Q^<em>$ directly, regardless of the policy actually generating the data, by bootstrapping on the *maximum</em> next-state value:</p>
+<h3 id="q-learning-and-sarsa">Q-Learning and SARSA</h3>
+
+<p><strong>Q-learning</strong> (Watkins, 1989) is an <em>off-policy</em> TD control algorithm. It bootstraps on the best next action, so it learns $Q^*$ whatever policy generated the data:</p>
 
 \[Q(s_t, a_t) \leftarrow Q(s_t, a_t) + \alpha\left[ r_{t+1} + \gamma \max_{a'} Q(s_{t+1}, a') - Q(s_t, a_t) \right].\]
 
-<p>Because the update uses $\max_{a’}$ rather than the action the behavior policy actually took, Q-learning converges to $Q^<em>$ even while exploring with, say, an $\varepsilon$-greedy policy — this is what “off-policy” means. The closely related <strong>SARSA</strong> algorithm is *on-policy</em>: it bootstraps on the action $a_{t+1}$ actually chosen, $r_{t+1} + \gamma\, Q(s_{t+1}, a_{t+1})$, learning the value of the policy it is following (typically yielding more conservative behavior near hazards).</p>
+<p><strong>SARSA</strong> is the <em>on-policy</em> counterpart. It bootstraps on the action $a_{t+1}$ it actually takes next, so it learns the value of the exploring policy it follows. In the classic cliff-walking gridworld, SARSA learns a safer path away from the cliff edge, while Q-learning learns the optimal edge-hugging path and falls off more often while exploring.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<p>The example below uses the current <a href="https://gymnasium.farama.org/">Gymnasium</a> API (the maintained successor to OpenAI Gym; 1.x series). Gymnasium separates <code class="language-plaintext highlighter-rouge">terminated</code> (the episode really ended, so the future value is zero) from <code class="language-plaintext highlighter-rouge">truncated</code> (a time limit cut the episode off, so the agent should still bootstrap). Treating the two the same is a common bug.</p>
 
-<span class="k">def</span> <span class="nf">q_learning</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">n_episodes</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.99</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
-    <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">env</span><span class="p">.</span><span class="n">n_states</span><span class="p">,</span> <span class="n">env</span><span class="p">.</span><span class="n">n_actions</span><span class="p">))</span>
-    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_episodes</span><span class="p">):</span>
-        <span class="n">s</span> <span class="o">=</span> <span class="n">env</span><span class="p">.</span><span class="nf">reset</span><span class="p">()</span>
-        <span class="n">done</span> <span class="o">=</span> <span class="bp">False</span>
-        <span class="k">while</span> <span class="ow">not</span> <span class="n">done</span><span class="p">:</span>
-            <span class="c1"># epsilon-greedy action selection (exploration)
-</span>            <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">rand</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">epsilon</span><span class="p">:</span>
-                <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="n">env</span><span class="p">.</span><span class="n">n_actions</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">argmax</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">])</span>
-            <span class="n">s_next</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">done</span> <span class="o">=</span> <span class="n">env</span><span class="p">.</span><span class="nf">step</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
-            <span class="c1"># off-policy TD update: bootstrap on the BEST next action
-</span>            <span class="n">td_target</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="n">s_next</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="ow">not</span> <span class="n">done</span><span class="p">)</span>
-            <span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="n">a</span><span class="p">]</span> <span class="o">+=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="p">(</span><span class="n">td_target</span> <span class="o">-</span> <span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="n">a</span><span class="p">])</span>
-            <span class="n">s</span> <span class="o">=</span> <span class="n">s_next</span>
-    <span class="k">return</span> <span class="n">Q</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">gymnasium</span> <span class="k">as</span> <span class="n">gym</span>
+<span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="n">env</span> <span class="o">=</span> <span class="n">gym</span><span class="p">.</span><span class="nf">make</span><span class="p">(</span><span class="sh">"</span><span class="s">FrozenLake-v1</span><span class="sh">"</span><span class="p">,</span> <span class="n">is_slippery</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros</span><span class="p">((</span><span class="n">env</span><span class="p">.</span><span class="n">observation_space</span><span class="p">.</span><span class="n">n</span><span class="p">,</span> <span class="n">env</span><span class="p">.</span><span class="n">action_space</span><span class="p">.</span><span class="n">n</span><span class="p">))</span>
+<span class="n">alpha</span><span class="p">,</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">,</span> <span class="mf">0.1</span>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">episode</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">20_000</span><span class="p">):</span>
+    <span class="n">s</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="p">.</span><span class="nf">reset</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="n">episode</span><span class="p">)</span>
+    <span class="n">done</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="k">while</span> <span class="ow">not</span> <span class="n">done</span><span class="p">:</span>
+        <span class="c1"># epsilon-greedy behavior policy
+</span>        <span class="n">a</span> <span class="o">=</span> <span class="n">env</span><span class="p">.</span><span class="n">action_space</span><span class="p">.</span><span class="nf">sample</span><span class="p">()</span> <span class="k">if</span> <span class="n">rng</span><span class="p">.</span><span class="nf">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">epsilon</span> <span class="k">else</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">argmax</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">]))</span>
+        <span class="n">s_next</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">terminated</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="p">.</span><span class="nf">step</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="c1"># Off-policy target: bootstrap on the greedy next action unless the episode truly ended.
+</span>        <span class="n">target</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="n">gamma</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">max</span><span class="p">(</span><span class="n">Q</span><span class="p">[</span><span class="n">s_next</span><span class="p">])</span> <span class="o">*</span> <span class="p">(</span><span class="ow">not</span> <span class="n">terminated</span><span class="p">)</span>
+        <span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="n">a</span><span class="p">]</span> <span class="o">+=</span> <span class="n">alpha</span> <span class="o">*</span> <span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="n">Q</span><span class="p">[</span><span class="n">s</span><span class="p">,</span> <span class="n">a</span><span class="p">])</span>
+        <span class="n">s</span><span class="p">,</span> <span class="n">done</span> <span class="o">=</span> <span class="n">s_next</span><span class="p">,</span> <span class="n">terminated</span> <span class="ow">or</span> <span class="n">truncated</span>
 </code></pre></div></div>
 
-<p>Tabular Q-learning stores one entry per state-action pair, which is hopeless for large or continuous state spaces — a single Atari frame has more configurations than there are atoms in the universe. The fix is <strong>function approximation</strong>: replace the table with a parameterized $Q_\theta(s, a)$.</p>
+<p>A table has one entry for every state–action pair, which is impossible for large or continuous state spaces such as images or joint angles. The solution is a parameterized approximator $Q_\theta(s, a)$, usually a neural network.</p>
 
-<h2 id="deep-q-networks-dqn">Deep Q-Networks (DQN)</h2>
+<h2 id="a-map-of-deep-rl-algorithms">A Map of Deep RL Algorithms</h2>
 
-<p>The <strong>Deep Q-Network</strong> (Mnih et al., DeepMind, 2015) was the breakthrough that launched deep RL: a single architecture learned to play 49 Atari games from raw pixels at human level. It approximates $Q^*(s, a)$ with a convolutional network $Q_\theta$ and trains it by minimizing the squared TD error toward a bootstrapped target:</p>
+<pre><code class="language-mermaid">flowchart TD
+    RL["RL algorithms"] --&gt; MF["Model-free"]
+    RL --&gt; MB["Model-based"]
+    MF --&gt; VB["Value-based&lt;br/&gt;learn Q, act greedily"]
+    MF --&gt; PG["Policy-based&lt;br/&gt;optimize pi directly"]
+    VB --&gt; DQN["DQN, Double DQN,&lt;br/&gt;Rainbow"]
+    PG --&gt; REI["REINFORCE"]
+    VB --&gt; AC["Actor-critic&lt;br/&gt;(both)"]
+    PG --&gt; AC
+    AC --&gt; ON["On-policy:&lt;br/&gt;A2C, TRPO, PPO, GRPO"]
+    AC --&gt; OFF["Off-policy:&lt;br/&gt;DDPG, TD3, SAC"]
+    MB --&gt; PLAN["Planning with known rules:&lt;br/&gt;MCTS, AlphaZero"]
+    MB --&gt; LM["Learned models:&lt;br/&gt;Dyna, MBPO, MuZero, Dreamer"]
+</code></pre>
 
-\[\mathcal{L}(\theta) = \mathbb{E}_{(s, a, r, s')}\!\left[\left( r + \gamma \max_{a'} Q_{\theta^-}(s', a') - Q_\theta(s, a) \right)^2 \right].\]
+<p><strong>On-policy</strong> methods (A2C, PPO) learn only from data collected by the current policy and throw it away after an update. They are simple and stable but use samples inefficiently. <strong>Off-policy</strong> methods (DQN, SAC) learn from a replay buffer of older experience. They reuse data more but are harder to stabilize.</p>
 
-<p>Naively combining Q-learning with a neural network is famously unstable — the “deadly triad” of bootstrapping, off-policy learning, and function approximation can diverge. DQN introduced two stabilizers that became standard:</p>
+<h2 id="deep-q-networks">Deep Q-Networks</h2>
+
+<p>The <strong>Deep Q-Network</strong> (Mnih et al., <em>Nature</em>, 2015) started the deep RL era. One architecture and one set of hyperparameters learned 49 Atari games from raw pixels, reaching human-level play on many of them. A convolutional network $Q_\theta$ is trained to minimize the squared TD error against a <strong>target network</strong> $Q_{\theta^-}$:</p>
+
+\[\mathcal{L}(\theta) = \mathbb{E}_{(s, a, r, s') \sim \mathcal{B}}\!\left[\left( r + \gamma \max_{a'} Q_{\theta^-}(s', a') - Q_\theta(s, a) \right)^2 \right].\]
+
+<p>Combining bootstrapping, off-policy learning, and function approximation can make value estimates diverge. Sutton and Barto call this combination the <strong>deadly triad</strong>. DQN added two stabilizers that are now standard:</p>
 
 <ul>
-  <li><strong>Experience replay.</strong> Transitions $(s, a, r, s’)$ are stored in a replay buffer and sampled in random mini-batches. This breaks the temporal correlation between consecutive samples (which violates the i.i.d. assumption of SGD) and reuses each experience many times, improving data efficiency.</li>
-  <li><strong>Target network.</strong> The bootstrap target uses a separate network $Q_{\theta^-}$ whose weights $\theta^-$ are frozen copies of $\theta$, synced only every few thousand steps. Holding the target fixed stops the network from “chasing its own tail,” dramatically improving stability.</li>
+  <li><strong>Experience replay.</strong> Transitions are stored in a buffer $\mathcal{B}$ and sampled in random mini-batches. This breaks the correlation between consecutive samples and lets each transition be reused many times.</li>
+  <li><strong>Target network.</strong> The bootstrap target uses a copy $\theta^-$ of the weights that is updated only every few thousand steps, or slowly averaged by Polyak averaging, $\theta^- \leftarrow \tau\theta + (1-\tau)\theta^-$. Otherwise the network would be chasing a target that moves with every update.</li>
 </ul>
 
-<p>A family of refinements followed, often combined in the “Rainbow” agent:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Extension</th>
+      <th>Problem addressed</th>
+      <th>Idea</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Double DQN</strong></td>
+      <td>The max operator overestimates values</td>
+      <td>The online network selects $a’$ and the target network evaluates it</td>
+    </tr>
+    <tr>
+      <td><strong>Dueling DQN</strong></td>
+      <td>Many states have similar value for every action</td>
+      <td>Separate streams for $V(s)$ and $A(s,a)$, combined as $Q = V + A - \operatorname{mean}_a A$</td>
+    </tr>
+    <tr>
+      <td><strong>Prioritized replay</strong></td>
+      <td>Uniform sampling wastes updates</td>
+      <td>Sample transitions in proportion to their TD error</td>
+    </tr>
+    <tr>
+      <td><strong>$n$-step returns</strong></td>
+      <td>One-step targets propagate reward slowly</td>
+      <td>Bootstrap after $n$ real rewards</td>
+    </tr>
+    <tr>
+      <td><strong>Distributional RL (C51, QR-DQN)</strong></td>
+      <td>The mean hides risk and multimodality</td>
+      <td>Learn the full distribution of returns</td>
+    </tr>
+    <tr>
+      <td><strong>Noisy Nets</strong></td>
+      <td>$\varepsilon$-greedy explores poorly</td>
+      <td>Learned parametric noise in the weights</td>
+    </tr>
+    <tr>
+      <td><strong>Rainbow</strong> (2017)</td>
+      <td>—</td>
+      <td>Combines all of the above</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>Double DQN</strong> decouples action selection from evaluation to cut the overestimation bias introduced by the $\max$ operator: the action is chosen by the online network but evaluated by the target network.</li>
-  <li><strong>Dueling DQN</strong> splits the network into a state-value stream $V(s)$ and an advantage stream $A(s, a)$, recombined as $Q(s, a) = V(s) + (A(s, a) - \text{mean}_a A(s, a))$, learning state values even when action choice barely matters.</li>
-  <li><strong>Prioritized experience replay</strong> samples surprising (high-TD-error) transitions more often.</li>
-  <li><strong>Distributional RL (C51)</strong> learns the full distribution of returns rather than just its mean.</li>
-</ul>
-
-<p>DQN and its relatives are powerful for discrete action spaces, but the $\max_{a’}$ becomes intractable when actions are continuous (a robot joint torque). That motivates the policy-gradient family.</p>
+<p>Later Atari agents built on replay-based value learning: R2D2 added recurrence, and Agent57 (2020) was the first to beat the human baseline on all 57 games. DQN-style methods still need the $\max_{a’}$, which cannot be computed directly for continuous actions such as joint torques. That limitation motivates policy-gradient methods.</p>
 
 <h2 id="policy-gradient-methods">Policy Gradient Methods</h2>
 
-<p>Value-based methods learn $Q$ and derive a policy implicitly. <strong>Policy-gradient methods</strong> instead parameterize the policy $\pi_\theta(a \mid s)$ directly — typically a neural network whose softmax (discrete) or Gaussian (continuous) output defines the action distribution — and optimize its parameters by gradient ascent on expected return $J(\theta) = \mathbb{E}<em>{\pi</em>\theta}[G_0]$. This handles continuous actions naturally and can represent stochastic policies, which are sometimes optimal (e.g., in partially observed or adversarial settings).</p>
+<p><strong>Policy-gradient methods</strong> parameterize the policy $\pi_\theta(a \mid s)$ directly, typically with a softmax output for discrete actions or a Gaussian for continuous ones, and do gradient ascent on $J(\theta) = \mathbb{E}<em>{\pi</em>\theta}[G_0]$. They handle continuous actions naturally and can represent stochastic policies, which are optimal in some partially observed and adversarial settings.</p>
 
 <h3 id="the-policy-gradient-theorem-and-reinforce">The Policy Gradient Theorem and REINFORCE</h3>
 
-<p>The <strong>policy gradient theorem</strong> gives a remarkably clean expression for the gradient of return, free of the (unknown) transition dynamics:</p>
+<p>The <strong>policy gradient theorem</strong> gives the gradient of expected return without requiring the transition dynamics:</p>
 
 \[\nabla_\theta J(\theta) = \mathbb{E}_{\pi_\theta}\!\left[ \sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t \mid s_t) \, G_t \right].\]
 
-<p>The intuition is “trial and error with a gradient”: each action’s log-probability is pushed up in proportion to the return that followed it. Good trajectories make their actions more likely; bad ones make theirs less likely. The Monte Carlo estimator of this gradient is the <strong>REINFORCE</strong> algorithm (Williams, 1992):</p>
-
-\[\theta \leftarrow \theta + \alpha \, \nabla_\theta \log \pi_\theta(a_t \mid s_t) \, G_t.\]
-
-<p>REINFORCE is unbiased but suffers from <strong>high variance</strong>, because $G_t$ is a noisy single-sample return. The standard variance-reduction trick subtracts a state-dependent <strong>baseline</strong> $b(s_t)$, which leaves the gradient unbiased (its expectation is zero) but shrinks its variance:</p>
+<p>The log-probability of each action is increased in proportion to the return that followed it, so actions from good trajectories become more likely and actions from bad ones less likely. The Monte Carlo estimate of this gradient is <strong>REINFORCE</strong> (Williams, 1992). It is unbiased but has high variance. Subtracting a state-dependent <strong>baseline</strong> $b(s_t)$ keeps the estimate unbiased, because $\mathbb{E}<em>{a \sim \pi}[\nabla</em>\theta \log \pi_\theta(a \mid s)\, b(s)] = 0$, and it can reduce variance a great deal:</p>
 
 \[\nabla_\theta J(\theta) = \mathbb{E}_{\pi_\theta}\!\left[ \sum_t \nabla_\theta \log \pi_\theta(a_t \mid s_t)\,\big(G_t - b(s_t)\big) \right].\]
 
-<p>The natural choice of baseline is the state value $V(s_t)$, which leads directly to actor-critic.</p>
+<p>The usual baseline is the learned state value $V(s_t)$, which leads to actor-critic methods.</p>
 
-<h2 id="actor-critic-methods">Actor-Critic Methods</h2>
+<h3 id="actor-critic-and-advantage-estimation">Actor-Critic and Advantage Estimation</h3>
 
-<p><strong>Actor-critic</strong> methods combine the two families: an <strong>actor</strong> $\pi_\theta(a \mid s)$ proposes actions, and a <strong>critic</strong> $V_\phi(s)$ estimates value and supplies a low-variance learning signal. With $V_\phi$ as the baseline, the term $G_t - V(s_t)$ becomes an estimate of the <strong>advantage</strong></p>
+<p>In an <strong>actor-critic</strong> method, an <strong>actor</strong> $\pi_\theta$ chooses actions and a <strong>critic</strong> $V_\phi$ estimates their value. With the critic as the baseline, $G_t - V_\phi(s_t)$ estimates the advantage. The critic’s one-step TD error is the lowest-variance (and most biased) estimate:</p>
 
-\[A(s, a) = Q(s, a) - V(s),\]
+\[\hat{A}_t^{(1)} = \delta_t = r_{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t).\]
 
-<p>which measures how much better action $a$ is than the policy’s average behavior in state $s$. The one-step advantage estimate is just the TD error of the critic, $\hat{A}<em>t = r</em>{t+1} + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$, and the actor update becomes</p>
+<p><strong>Generalized advantage estimation</strong> (GAE; Schulman et al., 2015) takes an exponentially weighted sum of TD errors, and $\lambda$ trades bias against variance:</p>
 
-\[\theta \leftarrow \theta + \alpha \, \nabla_\theta \log \pi_\theta(a_t \mid s_t)\, \hat{A}_t.\]
+\[\hat{A}_t^{\text{GAE}(\gamma, \lambda)} = \sum_{l=0}^{\infty} (\gamma\lambda)^l\, \delta_{t+l}.\]
 
-<p>The critic is trained by the usual TD regression toward its bootstrapped target. <strong>Generalized advantage estimation (GAE)</strong> interpolates between high-bias one-step and high-variance Monte Carlo advantage estimates with a parameter $\lambda$, and is used in most modern implementations.</p>
+<p>$\lambda = 0$ gives the one-step TD error, and $\lambda = 1$ gives the Monte Carlo advantage. $\lambda \approx 0.95$ is the usual default. <strong>A3C</strong> (2016) ran many asynchronous actor-learners that updated shared weights. Its synchronous version <strong>A2C</strong> batches transitions from parallel environments and usually performs as well on GPUs.</p>
 
-<h3 id="a2c-and-a3c">A2C and A3C</h3>
+<h3 id="trpo-and-ppo">TRPO and PPO</h3>
 
-<p><strong>A3C</strong> (Asynchronous Advantage Actor-Critic) ran many actor-learners in parallel, each on its own copy of the environment, asynchronously updating shared parameters; the diversity of experience decorrelated updates and removed the need for a replay buffer. <strong>A2C</strong> is the synchronous variant — gather a batch of transitions from parallel environments, then perform one combined update — which is simpler and often performs as well on modern hardware.</p>
+<p>A policy-gradient step that is too large can wreck performance, and the policy then collects bad data from which it may not recover. <strong>TRPO</strong> (2015) constrains each update to a KL-divergence trust region, which requires second-order optimization. <strong>PPO</strong> (Schulman et al., 2017) gets similar stability with a clipped first-order objective. With the probability ratio $\rho_t(\theta) = \pi_\theta(a_t \mid s_t) / \pi_{\theta_{\text{old}}}(a_t \mid s_t)$:</p>
 
-<h3 id="proximal-policy-optimization-ppo">Proximal Policy Optimization (PPO)</h3>
+\[\mathcal{L}^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[ \min\!\Big( \rho_t(\theta)\,\hat{A}_t,\; \operatorname{clip}\big(\rho_t(\theta),\, 1 - \epsilon,\, 1 + \epsilon\big)\,\hat{A}_t \Big) \right].\]
 
-<p><strong>PPO</strong> (Schulman et al., OpenAI, 2017) is the most widely used policy-gradient algorithm today, prized for being robust, sample-efficient enough, and simple to tune. The problem it solves: a raw policy-gradient step can move the policy too far, collapsing performance. PPO restricts each update to a <strong>trust region</strong> around the current policy, but does so with a cheap clipped objective rather than the second-order constraint of its predecessor, TRPO.</p>
+<p>Once the ratio for an advantageous action rises above $1 + \epsilon$ (typically $\epsilon = 0.2$), or the ratio for a disadvantageous one falls below $1 - \epsilon$, the objective stops rewarding further change. Because of this, PPO can safely run several epochs of mini-batch updates on each batch of rollouts. The full loss adds a value-function regression term and an entropy bonus:</p>
 
-<p>Defining the probability ratio $r_t(\theta) = \pi_\theta(a_t \mid s_t) / \pi_{\theta_{\text{old}}}(a_t \mid s_t)$, PPO maximizes the clipped surrogate</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">torch</span>
 
-\[\mathcal{L}^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[ \min\!\Big( r_t(\theta)\,\hat{A}_t,\; \text{clip}\big(r_t(\theta),\, 1 - \epsilon,\, 1 + \epsilon\big)\,\hat{A}_t \Big) \right].\]
-
-<p>The clip (typically $\epsilon = 0.2$) removes the incentive to push the ratio far from 1: once an advantageous action’s probability has increased by more than $\epsilon$, the objective flattens, so a single batch cannot be exploited into a destructively large update. This lets PPO safely reuse each batch of data for several gradient epochs. Crucially for what follows, PPO is the optimizer at the heart of the RLHF pipeline.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># PPO clipped objective (the core of an update step), PyTorch-style pseudocode
-</span><span class="kn">import</span> <span class="n">torch</span>
-
-<span class="k">def</span> <span class="nf">ppo_loss</span><span class="p">(</span><span class="n">logp_new</span><span class="p">,</span> <span class="n">logp_old</span><span class="p">,</span> <span class="n">advantages</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
-    <span class="n">ratio</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">logp_new</span> <span class="o">-</span> <span class="n">logp_old</span><span class="p">)</span>         <span class="c1"># pi_new / pi_old
-</span>    <span class="n">unclipped</span> <span class="o">=</span> <span class="n">ratio</span> <span class="o">*</span> <span class="n">advantages</span>
-    <span class="n">clipped</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">clamp</span><span class="p">(</span><span class="n">ratio</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">eps</span><span class="p">,</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">*</span> <span class="n">advantages</span>
-    <span class="c1"># negative because optimizers minimize
-</span>    <span class="k">return</span> <span class="o">-</span><span class="n">torch</span><span class="p">.</span><span class="nf">min</span><span class="p">(</span><span class="n">unclipped</span><span class="p">,</span> <span class="n">clipped</span><span class="p">).</span><span class="nf">mean</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">ppo_loss</span><span class="p">(</span><span class="n">logp_new</span><span class="p">,</span> <span class="n">logp_old</span><span class="p">,</span> <span class="n">adv</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">returns</span><span class="p">,</span> <span class="n">entropy</span><span class="p">,</span>
+             <span class="n">clip_eps</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">vf_coef</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">ent_coef</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
+    <span class="n">adv</span> <span class="o">=</span> <span class="p">(</span><span class="n">adv</span> <span class="o">-</span> <span class="n">adv</span><span class="p">.</span><span class="nf">mean</span><span class="p">())</span> <span class="o">/</span> <span class="p">(</span><span class="n">adv</span><span class="p">.</span><span class="nf">std</span><span class="p">()</span> <span class="o">+</span> <span class="mf">1e-8</span><span class="p">)</span>       <span class="c1"># per-batch advantage normalization
+</span>    <span class="n">ratio</span> <span class="o">=</span> <span class="n">torch</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">logp_new</span> <span class="o">-</span> <span class="n">logp_old</span><span class="p">)</span>                <span class="c1"># pi_new / pi_old
+</span>    <span class="n">policy_loss</span> <span class="o">=</span> <span class="o">-</span><span class="n">torch</span><span class="p">.</span><span class="nf">min</span><span class="p">(</span><span class="n">ratio</span> <span class="o">*</span> <span class="n">adv</span><span class="p">,</span>
+                             <span class="n">torch</span><span class="p">.</span><span class="nf">clamp</span><span class="p">(</span><span class="n">ratio</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">clip_eps</span><span class="p">,</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">clip_eps</span><span class="p">)</span> <span class="o">*</span> <span class="n">adv</span><span class="p">).</span><span class="nf">mean</span><span class="p">()</span>
+    <span class="n">value_loss</span> <span class="o">=</span> <span class="p">(</span><span class="n">values</span> <span class="o">-</span> <span class="n">returns</span><span class="p">).</span><span class="nf">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">).</span><span class="nf">mean</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">policy_loss</span> <span class="o">+</span> <span class="n">vf_coef</span> <span class="o">*</span> <span class="n">value_loss</span> <span class="o">-</span> <span class="n">ent_coef</span> <span class="o">*</span> <span class="n">entropy</span><span class="p">.</span><span class="nf">mean</span><span class="p">()</span>
 </code></pre></div></div>
 
-<p>For continuous control, <strong>DDPG</strong>, <strong>TD3</strong>, and <strong>SAC</strong> form a parallel off-policy actor-critic lineage. <strong>Soft Actor-Critic (SAC)</strong> in particular augments the reward with a policy-entropy bonus, maximizing $\mathbb{E}[\sum_t r_t + \alpha\,\mathcal{H}(\pi(\cdot \mid s_t))]$; the entropy term encourages exploration and makes SAC one of the most sample-efficient and stable algorithms for robotics.</p>
+<p>PPO’s results depend heavily on implementation details: advantage normalization, observation and reward normalization, orthogonal initialization, learning-rate annealing, and gradient clipping. Reference implementations such as CleanRL document these choices explicitly. PPO remains the default for on-policy control and was the original optimizer in RLHF.</p>
+
+<h3 id="off-policy-actor-critic-for-continuous-control">Off-Policy Actor-Critic for Continuous Control</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Algorithm</th>
+      <th>Year</th>
+      <th>Policy</th>
+      <th>Key ideas</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>DDPG</strong></td>
+      <td>2015</td>
+      <td>Deterministic</td>
+      <td>Deterministic policy gradient through a learned $Q$; replay and target networks as in DQN</td>
+    </tr>
+    <tr>
+      <td><strong>TD3</strong></td>
+      <td>2018</td>
+      <td>Deterministic</td>
+      <td>Two critics with the minimum used as target (clipped double-Q), delayed actor updates, and target-policy smoothing to reduce overestimation</td>
+    </tr>
+    <tr>
+      <td><strong>SAC</strong></td>
+      <td>2018</td>
+      <td>Stochastic</td>
+      <td>Maximizes $\mathbb{E}\big[\sum_t r_t + \alpha\,\mathcal{H}(\pi(\cdot \mid s_t))\big]$, trading reward against policy entropy; temperature $\alpha$ tuned automatically</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>SAC’s entropy term keeps exploring without hand-tuned noise, and SAC is a strong default for continuous control from state vectors. Massively parallel on-policy PPO in GPU simulators is the other common recipe, especially for locomotion.</p>
 
 <h2 id="exploration">Exploration</h2>
 
-<p>Balancing exploration and exploitation is the problem unique to RL. A handful of strategies recur:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Strategy</th>
+      <th>Mechanism</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\varepsilon$-greedy</td>
+      <td>Random action with probability $\varepsilon$, usually annealed</td>
+      <td>DQN family</td>
+    </tr>
+    <tr>
+      <td>Boltzmann / softmax</td>
+      <td>Sample $a \propto \exp(Q(s,a)/\tau)$</td>
+      <td>Discrete actions</td>
+    </tr>
+    <tr>
+      <td>Gaussian or OU action noise</td>
+      <td>Add noise to a deterministic action</td>
+      <td>DDPG, TD3</td>
+    </tr>
+    <tr>
+      <td>Entropy regularization</td>
+      <td>Bonus $\beta\,\mathcal{H}(\pi(\cdot \mid s))$ in the objective</td>
+      <td>A2C, PPO, SAC</td>
+    </tr>
+    <tr>
+      <td>Optimism / UCB</td>
+      <td>Bonus for rarely tried actions (“optimism in the face of uncertainty”)</td>
+      <td>Bandits, MCTS (PUCT)</td>
+    </tr>
+    <tr>
+      <td>Thompson sampling</td>
+      <td>Act greedily on a sample from the posterior over values</td>
+      <td>Bandits, bootstrapped DQN</td>
+    </tr>
+    <tr>
+      <td>Intrinsic motivation</td>
+      <td>Bonus for novelty: count-based, curiosity from prediction error, or random network distillation (RND)</td>
+      <td>Sparse-reward games such as Montezuma’s Revenge</td>
+    </tr>
+  </tbody>
+</table>
 
-<ul>
-  <li><strong>$\varepsilon$-greedy.</strong> Act greedily with probability $1 - \varepsilon$, randomly otherwise. Simple and surprisingly effective; $\varepsilon$ is usually annealed from near 1 down to a small floor.</li>
-  <li><strong>Boltzmann (softmax) exploration.</strong> Sample actions in proportion to $\exp(Q(s, a)/\tau)$; the temperature $\tau$ tunes randomness and decays over training.</li>
-  <li><strong>Optimism / upper confidence bounds (UCB).</strong> Add an exploration bonus to actions tried fewer times — “optimism in the face of uncertainty” — which underlies the bandit-style guarantees and the exploration in tree search.</li>
-  <li><strong>Entropy regularization.</strong> Adding $\beta\,\mathcal{H}(\pi(\cdot \mid s))$ to the objective (as in A2C, PPO, and SAC) keeps the policy stochastic and discourages premature collapse to a deterministic, possibly suboptimal, strategy.</li>
-  <li><strong>Intrinsic motivation / curiosity.</strong> When extrinsic reward is sparse, the agent invents its own bonus for visiting novel states — via prediction error (the agent is rewarded for surprising itself), state-visitation counts, or random network distillation. This is what lets agents make progress in games like Montezuma’s Revenge, where reward is almost never seen by a random policy.</li>
-</ul>
+<p>Undirected noise works when reward is dense. When reward is sparse and a random policy almost never reaches it, the agent needs <strong>directed</strong> exploration toward states it has not seen, from intrinsic bonuses or from a model.</p>
 
 <h2 id="model-based-reinforcement-learning">Model-Based Reinforcement Learning</h2>
 
-<p>Everything above is <strong>model-free</strong>: the agent learns values or a policy directly from experience without ever modeling the environment’s dynamics. <strong>Model-based RL</strong> instead learns (or is given) a model $\hat{P}(s’ \mid s, a)$ and $\hat{R}(s, a)$, then uses it to plan or to generate imagined experience. The payoff is <strong>sample efficiency</strong> — planning in a learned model can replace many costly real-environment interactions — at the cost of complexity and the risk that the agent exploits errors in an imperfect model.</p>
+<p><strong>Model-based RL</strong> learns a model $\hat{P}(s’ \mid s, a)$, $\hat{R}(s, a)$ (or is given one) and uses it to plan or to generate simulated experience. It can need far fewer real interactions than model-free RL. The main risk is that the policy exploits errors in the model: plans that look good only because the model is wrong.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>How the model is used</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Dyna-style</td>
+      <td>Imagined transitions supplement real ones in a model-free learner</td>
+      <td>Dyna-Q, MBPO</td>
+    </tr>
+    <tr>
+      <td>Receding-horizon planning</td>
+      <td>Plan a short trajectory at each step, execute the first action, then replan</td>
+      <td>MPC, PETS, TD-MPC2</td>
+    </tr>
+    <tr>
+      <td>Tree search</td>
+      <td>Search over futures, balancing exploration with a UCB-style rule</td>
+      <td>MCTS in AlphaGo and AlphaZero</td>
+    </tr>
+    <tr>
+      <td>Value-equivalent models</td>
+      <td>Learn a latent model that predicts only reward, value, and policy, never raw observations</td>
+      <td>MuZero (2020)</td>
+    </tr>
+    <tr>
+      <td>World models / imagination</td>
+      <td>Learn latent dynamics and train the actor-critic entirely on imagined rollouts</td>
+      <td>Dreamer family</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>MuZero</strong> matched AlphaZero at Go, chess, and shogi and set new results on Atari without being given the rules. <strong>DreamerV3</strong> (Hafner et al., published in <em>Nature</em> in 2025) used one set of hyperparameters across more than 150 tasks and was the first algorithm to collect diamonds in Minecraft from scratch, without human data or curricula. Large video-based “world models” trained on internet-scale data are now a separate research direction that uses these ideas for robotics and agents.</p>
+
+<h2 id="offline-reinforcement-learning">Offline Reinforcement Learning</h2>
+
+<p><strong>Offline</strong> (batch) RL learns a policy from a fixed dataset of logged interactions, with no further environment access. This matters where exploration is expensive or unsafe, as in healthcare, recommendation, and robotics from teleoperation logs. The main problem is <strong>distribution shift</strong>. For actions that do not appear in the data, $\max_{a’} Q(s’, a’)$ picks up overestimated values that the agent can never correct by trying them.</p>
 
 <ul>
-  <li><strong>Dyna</strong> interleaves real experience with simulated experience drawn from a learned model, using both to update the same value function.</li>
-  <li><strong>Model predictive control (MPC)</strong> uses the model to plan a short lookahead at every step, executes the first action, then re-plans — standard in robotics and control.</li>
-  <li><strong>Monte Carlo Tree Search (MCTS)</strong> builds a search tree of futures by sampling, balancing exploration and exploitation with a UCB rule. It is the planning engine behind AlphaGo and AlphaZero.</li>
-  <li><strong>World models</strong> (e.g., the <strong>Dreamer</strong> family) learn a compact latent dynamics model and train the policy almost entirely “in imagination,” rolling out trajectories inside the learned model. <strong>MuZero</strong> learns a model purely in terms of quantities relevant to planning — reward, value, and policy — without ever reconstructing the raw observation, and matched AlphaZero on Go, chess, and shogi while also mastering Atari, all without being told the rules.</li>
+  <li><strong>Policy constraints</strong> keep the learned policy close to the behavior policy that collected the data (BCQ, TD3+BC).</li>
+  <li><strong>Conservative value estimates</strong> push down Q-values for out-of-distribution actions (CQL, 2020).</li>
+  <li><strong>In-sample learning</strong> avoids querying unseen actions at all, for example with expectile regression (IQL, 2021).</li>
+  <li><strong>Sequence modeling</strong> treats RL as conditional generation. The <strong>Decision Transformer</strong> (2021) predicts actions conditioned on a desired return-to-go.</li>
 </ul>
 
-<h2 id="applications">Applications</h2>
+<p>Offline pretraining followed by online fine-tuning is common in robotics, and the constraint idea is closely related to the KL penalty used in RL for language models.</p>
 
-<h3 id="games">Games</h3>
+<h2 id="reinforcement-learning-for-language-models">Reinforcement Learning for Language Models</h2>
 
-<p>Games are RL’s proving ground: clear rewards, unlimited self-play data, and superhuman benchmarks.</p>
+<p>Since 2022 the largest-scale use of RL has been post-training language models. The LM is the policy, a prompt is the state, a generated response is the action (or each token is an action), and a reward model or programmatic checker gives the reward.</p>
 
-<ul>
-  <li><strong>Atari (DQN, 2015)</strong> — learning 49 games from pixels with one architecture was the spark of the deep-RL era.</li>
-  <li><strong>AlphaGo (2016)</strong> combined supervised learning from human games, self-play policy-gradient training, and MCTS to defeat world champion Lee Sedol — a milestone long thought decades away. <strong>AlphaGo Zero</strong> then surpassed it using self-play <em>only</em>, with no human games, and <strong>AlphaZero</strong> generalized the same algorithm to chess and shogi.</li>
-  <li><strong>OpenAI Five</strong> (Dota 2) and <strong>AlphaStar</strong> (StarCraft II) scaled self-play RL to long-horizon, partially observed, multi-agent strategy games.</li>
-</ul>
+<pre><code class="language-mermaid">flowchart LR
+    PT["Pretrained LM"] --&gt; SFT["Supervised fine-tuning&lt;br/&gt;on demonstrations"]
+    SFT --&gt; PREF["Preference data:&lt;br/&gt;pairs of responses ranked by&lt;br/&gt;humans or an AI judge"]
+    PREF --&gt; RM["Reward model r_psi"]
+    SFT --&gt; RL["RL: PPO or GRPO&lt;br/&gt;with KL penalty to reference"]
+    RM --&gt; RL
+    VER["Verifiable rewards:&lt;br/&gt;unit tests, math answer checks"] --&gt; RL
+    RL --&gt; OUT["Aligned or reasoning model"]
+</code></pre>
 
-<h3 id="robotics-and-control">Robotics and Control</h3>
+<h3 id="rlhf">RLHF</h3>
 
-<p>RL controls continuous, high-dimensional systems where hand-designed controllers struggle: dexterous manipulation, legged locomotion, autonomous driving, and data-center cooling. The central obstacle is the <strong>sim-to-real gap</strong> — policies trained in simulation (cheap, safe, massively parallel) must transfer to the messy real world. <strong>Domain randomization</strong> — randomizing physics, textures, lighting, and sensor noise in simulation so reality looks like just another variation — is the standard remedy and powered results such as OpenAI’s robotic-hand Rubik’s-cube manipulation and modern quadruped locomotion.</p>
-
-<h3 id="reinforcement-learning-from-human-feedback-rlhf">Reinforcement Learning from Human Feedback (RLHF)</h3>
-
-<p>RLHF is how RL reaches everyday AI: it is the alignment stage that turns a raw, next-token-predicting language model into a helpful, harmless assistant. Because “helpfulness” has no programmable reward function, RLHF <em>learns</em> one from human preferences. The pipeline has three stages:</p>
+<p><strong>Reinforcement learning from human feedback</strong> was used for InstructGPT (2022) and early ChatGPT. It turns a next-token predictor into an assistant in three stages:</p>
 
 <ol>
-  <li><strong>Supervised fine-tuning (SFT).</strong> Fine-tune the pretrained model on high-quality human demonstrations of the desired behavior.</li>
-  <li><strong>Reward modeling.</strong> Collect human comparisons (given a prompt, which of two responses is better?) and train a <strong>reward model</strong> $r_\psi$ to predict human preference, typically under the Bradley–Terry model: for a preferred response $y_w$ over $y_l$,</li>
+  <li><strong>Supervised fine-tuning (SFT)</strong> on demonstrations of the desired behavior.</li>
+  <li><strong>Reward modeling.</strong> Train $r_\psi$ on human comparisons using the Bradley–Terry model. For a preferred response $y_w$ and a rejected response $y_l$ to prompt $x$:</li>
 </ol>
 
 \[\mathcal{L}(\psi) = -\,\mathbb{E}_{(x,\, y_w,\, y_l)}\Big[ \log \sigma\big( r_\psi(x, y_w) - r_\psi(x, y_l) \big) \Big].\]
 
 <ol>
-  <li><strong>RL fine-tuning.</strong> Treat the language model as a policy and optimize it with <strong>PPO</strong> against the learned reward model, with a KL-divergence penalty that keeps the policy close to the SFT model so it does not drift into degenerate text that merely games the reward:</li>
+  <li><strong>RL fine-tuning</strong> with PPO against the reward model. A KL penalty keeps the policy near the reference (SFT) model:</li>
 </ol>
 
-\[\max_\theta \; \mathbb{E}_{x,\, y \sim \pi_\theta}\!\Big[ r_\psi(x, y) - \beta \, \mathrm{KL}\big( \pi_\theta(y \mid x) \,\|\, \pi_{\text{SFT}}(y \mid x) \big) \Big].\]
+\[\max_\theta \; \mathbb{E}_{x \sim \mathcal{D},\, y \sim \pi_\theta(\cdot \mid x)}\Big[ r_\psi(x, y) \Big] - \beta\, \mathbb{E}_{x \sim \mathcal{D}}\Big[\mathrm{KL}\big( \pi_\theta(\cdot \mid x) \,\|\, \pi_{\text{ref}}(\cdot \mid x) \big)\Big].\]
 
-<p>The KL term is doing the same job as PPO’s clip: bounding how far each update strays from a trusted reference. RLHF was the technique behind InstructGPT and the assistant behavior of systems such as ChatGPT, Claude, and Gemini. Newer variants simplify the pipeline: <strong>Direct Preference Optimization (DPO)</strong> skips the explicit reward model and optimizes the policy on preference data with a single classification-style loss, and <strong>RLAIF</strong> (including Constitutional AI) replaces or augments human labels with AI-generated preference judgments to scale feedback collection.</p>
+<p>The KL term plays the same role as PPO’s clip. It limits how far the policy can move from a trusted reference, which limits <strong>reward hacking</strong>: exploiting flaws in the learned reward model, for example through verbosity, sycophancy, or confident-sounding errors. <strong>RLAIF</strong> and Constitutional AI replace some or all of the human comparisons with AI-generated judgments guided by written principles. <strong>DPO</strong> and related methods (IPO, KTO, ORPO) optimize on preference pairs directly, with no reward model or sampling loop. They are covered in <a href="fine-tuning.html#dpo-direct-preference-optimization">Fine-Tuning: DPO</a>.</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h3 id="rl-from-verifiable-rewards-and-grpo">RL from Verifiable Rewards and GRPO</h3>
 
-<ul>
-  <li><strong>RL is optimization under interaction.</strong> The agent learns a policy that maximizes discounted return $G_t = \sum_k \gamma^k r_{t+k+1}$ from reward alone, fighting delayed credit assignment and the exploration–exploitation trade-off.</li>
-  <li><strong>The Bellman equation is the engine.</strong> Value and policy iteration solve it when the model is known; TD learning and Q-learning approximate it from sampled experience when it is not.</li>
-  <li><strong>Deep RL = function approximation + stabilizers.</strong> DQN made neural Q-learning work with experience replay and a target network; policy-gradient and actor-critic methods (A2C, PPO) scale to continuous actions and stochastic policies.</li>
-  <li><strong>PPO is the modern default.</strong> Its clipped surrogate keeps each update inside a trust region, making it robust enough to be the optimizer behind both game-playing agents and RLHF.</li>
-  <li><strong>From Atari to alignment.</strong> The same principles drive AlphaZero’s self-play, sim-to-real robotics, and the RLHF pipeline (SFT → reward model → PPO) that aligns today’s large language models.</li>
-</ul>
+<p>For tasks whose answers can be checked automatically, such as math with a known final answer or code with unit tests, the learned reward model can be replaced by a programmatic <strong>verifier</strong>. This is <strong>RL from verifiable rewards (RLVR)</strong>. A verifier is much harder to game than a learned preference model, so training can run far longer. Long RL training with verifiable rewards is how <strong>reasoning models</strong> are trained. These models produce a long chain of thought before answering, starting with OpenAI’s o1 (2024) and DeepSeek-R1 (2025). DeepSeek-R1-Zero was trained with pure RL from a base model, with no supervised reasoning traces. Self-verification and backtracking emerged during training, and response length grew on its own. The R1 paper was published in <em>Nature</em> in 2025.</p>
 
-<hr />
+<p><strong>GRPO</strong> (Group Relative Policy Optimization; introduced with DeepSeekMath, 2024) is the algorithm behind R1 and many open reproductions. It drops PPO’s learned critic, which for an LLM is a second model of similar size. For each prompt $q$, GRPO samples a <strong>group</strong> of $G$ responses $o_1, \dots, o_G$, scores them with rewards $r_1, \dots, r_G$, and uses the normalized reward within the group as the advantage for every token of response $i$:</p>
+
+\[\hat{A}_i = \frac{r_i - \operatorname{mean}(r_1, \dots, r_G)}{\operatorname{std}(r_1, \dots, r_G)}.\]
+
+<p>The policy is then updated with PPO’s clipped ratio objective, plus a KL penalty to the reference model. The group mean acts as a Monte Carlo baseline, the same idea as the REINFORCE baseline above, so no value network is needed. If every response in a group gets the same reward, all advantages are zero and the prompt teaches nothing. Practical recipes therefore filter for prompts of intermediate difficulty. Follow-up work has examined GRPO’s normalization choices: Dr. GRPO removes the length and standard-deviation normalizations, which it identifies as biases, and DAPO uses an asymmetric “clip-higher” range and dynamic sampling. Open-source trainers such as Hugging Face TRL (<code class="language-plaintext highlighter-rouge">GRPOTrainer</code>) and verl implement these methods.</p>
+
+<p>Open problems include reward hacking of imperfect verifiers (for example, code that special-cases the tests), exploration collapse as policy entropy falls, and the question of whether RLVR teaches new reasoning abilities or mainly brings out abilities already present in the base model.</p>
+
+<h2 id="applications">Applications</h2>
+
+<pre><code class="language-mermaid">timeline
+    title Selected RL milestones
+    1989 : Q-learning (Watkins)
+    1992 : TD-Gammon reaches expert backgammon; REINFORCE
+    2015 : DQN plays Atari from pixels (Nature)
+    2016 : AlphaGo defeats Lee Sedol
+    2017 : AlphaGo Zero and AlphaZero learn from self-play only; PPO
+    2019 : AlphaStar (StarCraft II), OpenAI Five (Dota 2), robot-hand Rubik's cube
+    2020 : MuZero; Agent57 beats human baseline on all 57 Atari games
+    2022 : InstructGPT and ChatGPT popularize RLHF
+    2024 : OpenAI o1 reasoning model; GRPO introduced
+    2025 : DeepSeek-R1 (pure-RL reasoning); DreamerV3 in Nature; Sutton and Barto receive Turing Award
+</code></pre>
+
+<h3 id="games">Games</h3>
+
+<p>Games give clear rewards, unlimited simulated data, and human experts to compare against. <strong>AlphaGo</strong> (2016) combined supervised learning from human games, self-play policy gradients, and MCTS to beat Lee Sedol. <strong>AlphaGo Zero</strong> learned from self-play alone, and <strong>AlphaZero</strong> used the same algorithm for chess and shogi. <strong>OpenAI Five</strong> (Dota 2) and <strong>AlphaStar</strong> (StarCraft II) scaled self-play to long-horizon, partially observed, multi-agent games. AlphaStar used a league of agents that trained against each other to avoid strategy cycles. Techniques for imperfect-information games (counterfactual regret minimization plus search) produced superhuman poker agents such as Libratus and Pluribus.</p>
+
+<h3 id="robotics-and-control">Robotics and Control</h3>
+
+<p>RL handles high-dimensional continuous control where hand-designed controllers struggle, including dexterous manipulation, legged locomotion, and drone racing. The central difficulty is the <strong>sim-to-real gap</strong>. <strong>Domain randomization</strong> varies physics, visuals, and sensor noise in simulation so that the real world looks like one more variation. Combined with GPU-parallel simulators that run thousands of environments at once, it is the standard recipe for quadruped and humanoid locomotion. Imitation learning and offline RL from teleoperation data increasingly complement it.</p>
+
+<h3 id="science-and-systems">Science and Systems</h3>
+
+<p>RL has also been used to discover algorithms and to control physical and computational systems. Examples include AlphaTensor (faster matrix-multiplication algorithms, 2022), AlphaDev (sorting routines merged into LLVM’s libc++, 2023), tokamak plasma magnetic control (2022), and data-center cooling. <strong>Contextual bandits</strong>, the one-step special case of RL, are widely deployed in recommendation, advertising, and A/B testing.</p>
+
+<h2 id="practice-and-tooling">Practice and Tooling</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Role</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://gymnasium.farama.org/">Gymnasium</a></td>
+      <td>Standard environment API (<code class="language-plaintext highlighter-rouge">reset</code>, <code class="language-plaintext highlighter-rouge">step</code> returning <code class="language-plaintext highlighter-rouge">terminated</code> and <code class="language-plaintext highlighter-rouge">truncated</code>); maintained by the Farama Foundation</td>
+    </tr>
+    <tr>
+      <td>Stable-Baselines3</td>
+      <td>Reliable PyTorch implementations of PPO, SAC, TD3, DQN, and others</td>
+    </tr>
+    <tr>
+      <td>CleanRL</td>
+      <td>Single-file reference implementations, useful for research and for learning implementation details</td>
+    </tr>
+    <tr>
+      <td>RLlib (Ray)</td>
+      <td>Distributed, multi-agent RL at cluster scale</td>
+    </tr>
+    <tr>
+      <td>MuJoCo, Isaac Lab, MJX / Brax</td>
+      <td>Physics simulators, including GPU-accelerated ones for massively parallel training</td>
+    </tr>
+    <tr>
+      <td>PettingZoo</td>
+      <td>Multi-agent environment API</td>
+    </tr>
+    <tr>
+      <td>TRL, verl, OpenRLHF</td>
+      <td>RL post-training for language models (PPO, GRPO, DPO)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Deep RL results are notoriously variable. They can depend strongly on random seeds, implementation details, and reward scaling. Standard practice is to report results over multiple seeds (often 5–10) with confidence intervals or interquartile means rather than single best runs, to tune baselines as carefully as the proposed method, and to check reward functions for unintended shortcuts before long training runs.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="architectures.html">Neural Network Architectures</a> — the CNNs and networks that DQN, actors, and critics are built from</li>
-  <li><a href="generative-models.html">Generative Models</a> — the autoregressive LLMs that RLHF aligns</li>
-  <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a> — scaling, alignment, and AI safety</li>
-  <li><a href="./">AI &amp; Machine Learning</a> — the section hub and full reference index</li>
-  <li><a href="../../advanced/ai-mathematics/">AI Mathematics</a> — formal foundations, including optimization theory</li>
-  <li><a href="../../artificial-intelligence/index.html">AI Documentation Hub</a> — complete index of all AI resources</li>
+  <li><a href="ml-foundations.html">ML Foundations</a>: optimization, generalization, and variational inference used throughout RL</li>
+  <li><a href="architectures.html">Neural Network Architectures</a>: the CNNs and transformers used as policies and critics</li>
+  <li><a href="fine-tuning.html">Fine-Tuning</a>: SFT, RLHF, and DPO from the model-training side</li>
+  <li><a href="generative-models.html">Generative Models</a>: the autoregressive LLMs that RL post-training shapes</li>
+  <li><a href="frontier-and-ethics.html">Frontier Research &amp; Ethics</a>: scaling, alignment, and AI safety</li>
+  <li><a href="../../ai-ml/game-ai.html">Game AI</a>: search, planning, and learning agents in games</li>
+  <li><a href="../../advanced/ai-mathematics/">AI Mathematics</a>: formal optimization theory</li>
+  <li><a href="../../artificial-intelligence/index.html">AI Documentation Hub</a>: index of all AI resources</li>
 </ul>
 
       </section>

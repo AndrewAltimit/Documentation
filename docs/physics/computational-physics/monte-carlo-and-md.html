@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Monte Carlo integration, Markov chain Monte Carlo and its error analysis, quantum Monte Carlo, and classical molecular dynamics: integrators, thermostats, lo...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Computational Physics: Monte Carlo & Molecular Dynamics">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Monte Carlo integration, Markov chain Monte Carlo and its error analysis, quantum Monte Carlo, and classical molecular dynamics: integrators, thermostats, lo...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/physics/computational-physics/monte-carlo-and-md.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Computational Physics: Monte Carlo & Molecular Dynamics">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Monte Carlo integration, Markov chain Monte Carlo and its error analysis, quantum Monte Carlo, and classical molecular dynamics: integrators, thermostats, lo...">
 
 <title>Computational Physics: Monte Carlo & Molecular Dynamics | Andrews Notebook</title>
 
@@ -3133,316 +3133,559 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Computational Physics</a> › Monte Carlo &amp; Molecular Dynamics</p>
 
-<p>Sampling huge state spaces with randomness, and following particles through time with Newton’s laws.</p>
+<p>Monte Carlo (MC) and molecular dynamics (MD) are the two main ways to compute the properties of many-particle systems. <strong>Monte Carlo</strong> draws configurations at random from a probability distribution, usually the Boltzmann distribution $e^{-\beta E}$, and averages over them. <strong>Molecular dynamics</strong> integrates Newton’s equations and averages along the resulting trajectory. By ergodicity both give the same equilibrium averages. They differ in what else they provide: MD gives real dynamics (diffusion, transport, time correlations), while MC can make unphysical moves (cluster flips, particle insertions, swaps between temperatures) that equilibrate much faster. This page covers the estimators, algorithms, and error analysis for each.</p>
 
-<h2 id="monte-carlo-methods">Monte Carlo Methods</h2>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Monte Carlo</th>
+      <th>Molecular dynamics</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Generates</td>
+      <td>A Markov chain of configurations</td>
+      <td>A deterministic (or stochastic) trajectory in time</td>
+    </tr>
+    <tr>
+      <td>Needs</td>
+      <td>Energies only</td>
+      <td>Forces (energy gradients)</td>
+    </tr>
+    <tr>
+      <td>Natural ensemble</td>
+      <td>Any: NVT, NPT, grand canonical, …</td>
+      <td>NVE; NVT/NPT with thermostats and barostats</td>
+    </tr>
+    <tr>
+      <td>Dynamics</td>
+      <td>None (MC “time” is not physical)</td>
+      <td>Physical time evolution</td>
+    </tr>
+    <tr>
+      <td>Moves</td>
+      <td>Can be non-local and unphysical</td>
+      <td>Local, continuous</td>
+    </tr>
+    <tr>
+      <td>Typical use</td>
+      <td>Lattice models, phase equilibria, quantum ground states</td>
+      <td>Liquids, biomolecules, materials, transport</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>Monte Carlo methods trade exactness for scalability: instead of evaluating a sum or integral over every point in a vast space, they <em>sample</em> it randomly and average. The estimate’s error falls as $1/\sqrt{N}$ no matter how many dimensions the space has — the property that makes Monte Carlo indispensable for statistical mechanics (summing over $2^N$ spin configurations), quantum field theory (path integrals), and Bayesian inference. The trade-off is statistical noise: to halve the error you must quadruple the samples.</p>
+<h2 id="monte-carlo-integration">Monte Carlo Integration</h2>
 
-<p><strong>The curse — and blessing — of dimensionality.</strong> A grid with 100 points per axis needs $100^d$ evaluations in $d$ dimensions: hopeless beyond a handful of axes. Monte Carlo sidesteps this entirely — its $1/\sqrt{N}$ error is <em>independent of dimension</em>. This is why simulating $10^{23}$-particle systems is even thinkable.</p>
+<p>To estimate $I = \mathbb{E}_p[f] = \int f(x)\, p(x)\, dx$, draw $x_1, \dots, x_N$ independently from $p$ and average:</p>
 
-<h3 id="basic-monte-carlo-principles">Basic Monte Carlo Principles</h3>
+\[\hat{I}_N = \frac{1}{N} \sum_{i=1}^{N} f(x_i), \qquad \sigma_{\hat{I}} = \frac{\sigma_f}{\sqrt{N}}, \qquad \sigma_f^2 = \mathrm{Var}_p[f].\]
 
-<p>Monte Carlo methods use random sampling to solve problems that might be deterministic in principle:</p>
+<p>The error falls as $N^{-1/2}$ <strong>in any number of dimensions</strong>. A product quadrature rule with $m$ points per axis needs $m^d$ evaluations, and its error in terms of the total point count $N$ degrades as the dimension $d$ grows. Beyond a handful of dimensions, Monte Carlo is the only practical way to integrate, which is why it dominates statistical mechanics, path integrals, and Bayesian inference. The cost is slow convergence: halving the error needs four times as many samples. Improving the method therefore means shrinking $\sigma_f$, not only increasing $N$.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MonteCarloSampler</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Base class for Monte Carlo sampling</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nc">RandomState</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">estimate_pi</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">100000</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Classic example: estimate π using random sampling</span><span class="sh">"""</span>
-        <span class="c1"># Generate random points in unit square
-</span>        <span class="n">x</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
-        
-        <span class="c1"># Count points inside unit circle
-</span>        <span class="n">inside</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">**</span><span class="mi">2</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">)</span>
-        
-        <span class="c1"># Area ratio: circle/square = π/4
-</span>        <span class="n">pi_estimate</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">inside</span> <span class="o">/</span> <span class="n">n_samples</span>
-        <span class="n">error</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">pi_estimate</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">pi_estimate</span><span class="p">,</span> <span class="n">error</span>
-    
-    <span class="k">def</span> <span class="nf">importance_sampling</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Importance sampling for variance reduction</span><span class="sh">"""</span>
-        <span class="c1"># Sample from importance distribution q
-</span>        <span class="n">samples</span> <span class="o">=</span> <span class="n">q</span><span class="p">.</span><span class="nf">rvs</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">rng</span><span class="p">)</span>
-        
-        <span class="c1"># Compute weights
-</span>        <span class="n">weights</span> <span class="o">=</span> <span class="n">p</span><span class="p">.</span><span class="nf">pdf</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span> <span class="o">/</span> <span class="n">q</span><span class="p">.</span><span class="nf">pdf</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
-        
-        <span class="c1"># Estimate expectation
-</span>        <span class="n">expectation</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="nf">f</span><span class="p">(</span><span class="n">samples</span><span class="p">))</span>
-        <span class="n">variance</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">var</span><span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="nf">f</span><span class="p">(</span><span class="n">samples</span><span class="p">))</span> <span class="o">/</span> <span class="n">n_samples</span>
-        
-        <span class="k">return</span> <span class="n">expectation</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">variance</span><span class="p">)</span>
+<h3 id="variance-reduction">Variance reduction</h3>
+
+<p><strong>Importance sampling</strong> draws from a proposal density $q$ and reweights:</p>
+
+\[I = \int \frac{f(x)\, p(x)}{q(x)}\, q(x)\, dx \approx \frac{1}{N} \sum_{i=1}^{N} f(x_i)\, w(x_i), \qquad w = \frac{p}{q}, \quad x_i \sim q.\]
+
+<p>The variance vanishes when $q \propto \lvert f \rvert\, p$, so a good proposal concentrates samples where the integrand is large. A poor $q$ whose tails are lighter than $p$’s can make the variance <em>infinite</em>. Always monitor the weight distribution. The effective sample size $(\sum w)^2 / \sum w^2$ is a standard diagnostic.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Technique</th>
+      <th>Idea</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Importance sampling</td>
+      <td>Sample where $\lvert f\rvert p$ is large; reweight</td>
+    </tr>
+    <tr>
+      <td>Control variates</td>
+      <td>Subtract a correlated function with known mean</td>
+    </tr>
+    <tr>
+      <td>Antithetic variates</td>
+      <td>Pair samples $x$ and $-x$ (or $1-u$) with negatively correlated errors</td>
+    </tr>
+    <tr>
+      <td>Stratified sampling</td>
+      <td>Split the domain and sample each stratum in proportion to its variance</td>
+    </tr>
+    <tr>
+      <td>Quasi-Monte Carlo</td>
+      <td>Low-discrepancy sequences (Sobol, Halton) reach close to $O(N^{-1})$ for smooth, moderate-dimensional integrands (<code class="language-plaintext highlighter-rouge">scipy.stats.qmc</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The example estimates the tail probability $P(X &gt; 4)$ for a standard normal, which is about $3.2 \times 10^{-5}$. Plain MC sees only a handful of hits in $10^5$ draws. Shifting the proposal onto the tail cuts the error by more than two orders of magnitude.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+<span class="kn">from</span> <span class="n">scipy</span> <span class="kn">import</span> <span class="n">stats</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>   <span class="c1"># modern Generator API; avoid np.random.seed
+</span><span class="n">n</span> <span class="o">=</span> <span class="mi">100_000</span>
+<span class="n">f</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mf">4.0</span><span class="p">).</span><span class="nf">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">standard_normal</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>                       <span class="c1"># plain MC
+</span><span class="n">plain</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">).</span><span class="nf">mean</span><span class="p">(),</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">).</span><span class="nf">std</span><span class="p">(</span><span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+
+<span class="n">q</span> <span class="o">=</span> <span class="n">stats</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="mf">4.0</span><span class="p">)</span>                          <span class="c1"># proposal centred on the tail
+</span><span class="n">y</span> <span class="o">=</span> <span class="n">q</span><span class="p">.</span><span class="nf">rvs</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="nf">f</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">stats</span><span class="p">.</span><span class="n">norm</span><span class="p">.</span><span class="nf">pdf</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">/</span> <span class="n">q</span><span class="p">.</span><span class="nf">pdf</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>          <span class="c1"># f * p / q
+</span><span class="n">importance</span> <span class="o">=</span> <span class="n">g</span><span class="p">.</span><span class="nf">mean</span><span class="p">(),</span> <span class="n">g</span><span class="p">.</span><span class="nf">std</span><span class="p">(</span><span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">exact      </span><span class="si">{</span><span class="n">stats</span><span class="p">.</span><span class="n">norm</span><span class="p">.</span><span class="nf">sf</span><span class="p">(</span><span class="mf">4.0</span><span class="p">)</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>                        <span class="c1"># 3.167e-05
+</span><span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">plain MC   </span><span class="si">{</span><span class="n">plain</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">e</span><span class="si">}</span><span class="s"> +/- </span><span class="si">{</span><span class="n">plain</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>               <span class="c1"># ~9e-05 +/- 3e-05
+</span><span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">importance </span><span class="si">{</span><span class="n">importance</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">e</span><span class="si">}</span><span class="s"> +/- </span><span class="si">{</span><span class="n">importance</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>     <span class="c1"># ~3.17e-05 +/- 2e-07
+</span></code></pre></div></div>
+
+<h2 id="markov-chain-monte-carlo">Markov Chain Monte Carlo</h2>
+
+<p>In statistical physics you cannot sample the Boltzmann distribution $\pi(x) = e^{-\beta E(x)}/Z$ directly, because the partition function $Z$ is unknown and the space is vast. <strong>Markov chain Monte Carlo</strong> (MCMC) instead builds a random walk whose <strong>stationary distribution</strong> is $\pi$. A sufficient condition is <strong>detailed balance</strong>,</p>
+
+\[\pi(x)\, P(x \to y) = \pi(y)\, P(y \to x),\]
+
+<p>together with ergodicity, meaning every state can be reached. The <strong>Metropolis–Hastings</strong> algorithm splits each transition into a proposal $q(y \mid x)$ and an acceptance step:</p>
+
+\[A(x \to y) = \min\!\left(1,\ \frac{\pi(y)\, q(x \mid y)}{\pi(x)\, q(y \mid x)}\right).\]
+
+<p>Only ratios of $\pi$ appear, so $Z$ cancels. For a symmetric proposal the $q$ terms cancel too, and for the Boltzmann distribution the rule becomes $A = \min(1, e^{-\beta \Delta E})$: downhill moves are always accepted, and uphill moves are accepted with just the right probability.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    X["Current state x"] --&gt; P["Propose y ~ q(y | x)"]
+    P --&gt; A["Compute acceptance&lt;br/&gt;A = min(1, ratio)"]
+    A --&gt; U{"u below A ?&lt;br/&gt;u ~ U(0,1)"}
+    U --&gt;|"accept"| Y["x := y"]
+    U --&gt;|"reject"| K["keep x&lt;br/&gt;(count it again)"]
+    Y --&gt; R["Record x"]
+    K --&gt; R
+    R --&gt; X
+</code></pre>
+
+<p>A rejected move still adds the <em>current</em> state to the chain again. Dropping rejected steps biases the result. Work with log-probabilities, because ratios of $e^{-\beta E}$ overflow and underflow quickly:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">metropolis</span><span class="p">(</span><span class="n">log_p</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Random-walk Metropolis for an unnormalized log-density log_p.</span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">lp</span> <span class="o">=</span> <span class="nf">log_p</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">chain</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty</span><span class="p">((</span><span class="n">n_steps</span><span class="p">,</span> <span class="n">x</span><span class="p">.</span><span class="n">size</span><span class="p">))</span>
+    <span class="n">accepted</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">step</span> <span class="o">*</span> <span class="n">rng</span><span class="p">.</span><span class="nf">standard_normal</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>     <span class="c1"># symmetric proposal
+</span>        <span class="n">lp_y</span> <span class="o">=</span> <span class="nf">log_p</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">rng</span><span class="p">.</span><span class="nf">random</span><span class="p">())</span> <span class="o">&lt;</span> <span class="n">lp_y</span> <span class="o">-</span> <span class="n">lp</span><span class="p">:</span>            <span class="c1"># accept with min(1, p(y)/p(x))
+</span>            <span class="n">x</span><span class="p">,</span> <span class="n">lp</span> <span class="o">=</span> <span class="n">y</span><span class="p">,</span> <span class="n">lp_y</span>
+            <span class="n">accepted</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">chain</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>                                    <span class="c1"># record even if rejected
+</span>    <span class="k">return</span> <span class="n">chain</span><span class="p">,</span> <span class="n">accepted</span> <span class="o">/</span> <span class="n">n_steps</span>
+
+<span class="c1"># Bimodal target: 0.3 N(2, 1) + 0.7 N(-2, 1); exact mean = -0.8
+</span><span class="n">log_p</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">logaddexp</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="mf">0.3</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span>
+                               <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="mf">0.7</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">chain</span><span class="p">,</span> <span class="n">acc</span> <span class="o">=</span> <span class="nf">metropolis</span><span class="p">(</span><span class="n">log_p</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">50_000</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">rng</span><span class="p">)</span>
+<span class="n">chain</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="mi">5_000</span><span class="p">:]</span>                                   <span class="c1"># discard burn-in
+</span></code></pre></div></div>
+
+<p>The proposal width is a trade-off. Tiny steps are nearly always accepted but barely move, and huge steps are nearly always rejected. For random-walk proposals in high dimensions, the asymptotically optimal acceptance rate is about 23%. In one or two dimensions it is closer to 40–50%.</p>
+
+<h3 id="example-the-2d-ising-model">Example: the 2D Ising model</h3>
+
+<p>The Ising model $E = -J \sum_{\langle ij \rangle} s_i s_j$ with $s_i = \pm 1$ is the standard MCMC test case, and it has an exact solution for comparison: Onsager’s $T_c = 2J / \ln(1+\sqrt{2}) \approx 2.269\,J/k_B$. Flipping spin $i$ costs $\Delta E = 2 J s_i \sum_{j \in \text{nn}(i)} s_j$. On a square lattice, spins of one checkerboard colour do not interact with each other, so all of them can be updated at once:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">ising_sweep</span><span class="p">(</span><span class="n">spins</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">One checkerboard Metropolis sweep of the 2D Ising model (J = 1, periodic).</span><span class="sh">"""</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="n">spins</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">parity</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">add</span><span class="p">.</span><span class="nf">outer</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">L</span><span class="p">))</span> <span class="o">%</span> <span class="mi">2</span>
+    <span class="k">for</span> <span class="n">colour</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">nn_sum</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">roll</span><span class="p">(</span><span class="n">spins</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">roll</span><span class="p">(</span><span class="n">spins</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span>
+                  <span class="n">np</span><span class="p">.</span><span class="nf">roll</span><span class="p">(</span><span class="n">spins</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="nf">roll</span><span class="p">(</span><span class="n">spins</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">dE</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">spins</span> <span class="o">*</span> <span class="n">nn_sum</span>                        <span class="c1"># cost of flipping each spin
+</span>        <span class="n">accept</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">random</span><span class="p">(</span><span class="n">spins</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">beta</span> <span class="o">*</span> <span class="n">dE</span><span class="p">)</span>
+        <span class="n">spins</span><span class="p">[</span><span class="n">accept</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">parity</span> <span class="o">==</span> <span class="n">colour</span><span class="p">)]</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">return</span> <span class="n">spins</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">L</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="k">for</span> <span class="n">T</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">2.269</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">):</span>
+    <span class="n">spins</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">choice</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">L</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">2000</span><span class="p">):</span>                                <span class="c1"># equilibrate
+</span>        <span class="nf">ising_sweep</span><span class="p">(</span><span class="n">spins</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">T</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="p">[</span><span class="nf">abs</span><span class="p">(</span><span class="nf">ising_sweep</span><span class="p">(</span><span class="n">spins</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">T</span><span class="p">,</span> <span class="n">rng</span><span class="p">).</span><span class="nf">mean</span><span class="p">())</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">4000</span><span class="p">)]</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">T = </span><span class="si">{</span><span class="n">T</span><span class="si">:</span><span class="mf">5.3</span><span class="n">f</span><span class="si">}</span><span class="s">   &lt;|m|&gt; = </span><span class="si">{</span><span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">m</span><span class="p">)</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># T = 1.500 -&gt; 0.986 (Onsager: 0.987); T = 3.500 -&gt; ~0.06 (finite-size tail of m = 0)
+</span></code></pre></div></div>
+
+<h3 id="beating-slow-mixing">Beating slow mixing</h3>
+
+<p>Local updates break down exactly where the physics is most interesting. Near a critical point, correlated domains grow to the size of the system, and the autocorrelation time grows as $\tau \sim L^{z}$. For local Metropolis on the 2D Ising model, $z \approx 2.17$. This is <strong>critical slowing down</strong>. At first-order transitions and in glassy systems, the chain gets stuck behind free-energy barriers instead.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Idea</th>
+      <th>Cures</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Cluster algorithms</strong> (Swendsen–Wang, Wolff)</td>
+      <td>Build clusters of aligned spins with bond probability $1 - e^{-2\beta J}$ and flip whole clusters, always accepted</td>
+      <td>Critical slowing down ($z \approx 0.25$ in 2D)</td>
+    </tr>
+    <tr>
+      <td><strong>Parallel tempering</strong> (replica exchange)</td>
+      <td>Run replicas at several temperatures; swap neighbours with probability $\min!\big(1, e^{(\beta_i - \beta_j)(E_i - E_j)}\big)$</td>
+      <td>Barriers and metastability</td>
+    </tr>
+    <tr>
+      <td><strong>Hamiltonian (hybrid) Monte Carlo</strong></td>
+      <td>Propose via a short MD trajectory with random momenta, then a Metropolis test on $\Delta H$</td>
+      <td>Random-walk behaviour in high-dimensional continuous spaces; standard in lattice QCD and Bayesian inference (NUTS in Stan, PyMC, BlackJAX)</td>
+    </tr>
+    <tr>
+      <td><strong>Multicanonical / Wang–Landau</strong></td>
+      <td>Sample a flat energy histogram, then reweight</td>
+      <td>Rough landscapes; gives the density of states $g(E)$ directly</td>
+    </tr>
+    <tr>
+      <td><strong>Event-chain MC</strong></td>
+      <td>Rejection-free, irreversible chains of particle moves</td>
+      <td>Hard spheres and dense soft matter</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="error-analysis-for-correlated-samples">Error analysis for correlated samples</h3>
+
+<p>Successive MCMC samples are correlated, so the naive error $\sigma/\sqrt{N}$ is <strong>too optimistic</strong>. With the normalized autocorrelation function $\rho(t)$ of an observable $A$, define</p>
+
+\[\tau_{\text{int}} = 1 + 2 \sum_{t=1}^{\infty} \rho(t), \qquad N_{\text{eff}} = \frac{N}{\tau_{\text{int}}}, \qquad \sigma_{\bar{A}}^2 \approx \frac{\sigma_A^2}{N}\, \tau_{\text{int}}.\]
+
+<p>(Some texts define $\tau_{\text{int}}$ as half this and write $2\tau_{\text{int}}$.) The sum must be truncated. Sokal’s automatic window cuts it off at the smallest $M$ with $M \ge c\,\tau_{\text{int}}(M)$ for $c \approx 5$. <strong>Blocking analysis</strong> (Flyvbjerg–Petersen) is a robust alternative: average the data into blocks of increasing size until the naive error of the block means reaches a plateau. Run several independent chains and compare them (the Gelman–Rubin $\hat{R}$ statistic) to detect chains that have not mixed.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">integrated_autocorr_time</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">5.0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">tau_int with Sokal</span><span class="sh">'</span><span class="s">s automatic windowing (FFT-based autocorrelation).</span><span class="sh">"""</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">rfft</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">2</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span>                       <span class="c1"># zero-pad: no wrap-around
+</span>    <span class="n">acf</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">fft</span><span class="p">.</span><span class="nf">irfft</span><span class="p">(</span><span class="n">spec</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">conj</span><span class="p">(</span><span class="n">spec</span><span class="p">))[:</span><span class="n">n</span><span class="p">]</span>
+    <span class="n">acf</span> <span class="o">/=</span> <span class="n">acf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cumsum</span><span class="p">(</span><span class="n">acf</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span>                     <span class="c1"># tau(M) = 1 + 2 sum_{t&lt;=M} rho(t)
+</span>    <span class="n">below</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">c</span> <span class="o">*</span> <span class="n">tau</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">argmin</span><span class="p">(</span><span class="n">below</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">below</span><span class="p">.</span><span class="nf">all</span><span class="p">()</span> <span class="k">else</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">[</span><span class="n">window</span><span class="p">]</span>
+
+<span class="n">tau</span> <span class="o">=</span> <span class="nf">integrated_autocorr_time</span><span class="p">(</span><span class="n">chain</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">err</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">].</span><span class="nf">std</span><span class="p">(</span><span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">tau</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">chain</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">mean = </span><span class="si">{</span><span class="n">chain</span><span class="p">.</span><span class="nf">mean</span><span class="p">()</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">f</span><span class="si">}</span><span class="s"> +/- </span><span class="si">{</span><span class="n">err</span><span class="si">:</span><span class="p">.</span><span class="mi">3</span><span class="n">f</span><span class="si">}</span><span class="s">  (tau_int = </span><span class="si">{</span><span class="n">tau</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">f</span><span class="si">}</span><span class="s">)</span><span class="sh">"</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h3 id="markov-chain-monte-carlo-mcmc">Markov Chain Monte Carlo (MCMC)</h3>
+<p>Burn-in (discarding the start of the chain) removes bias from the initial state. It does nothing about correlation. A result is trustworthy only when the run is many $\tau_{\text{int}}$ long, and the slowest mode sets that length, not the observable you happen to measure.</p>
 
-<p>Plain Monte Carlo needs you to draw samples directly from the target distribution — easy for a uniform square, impossible for the Boltzmann distribution $e^{-\beta E}$ over $10^{23}$ interacting particles. <strong>MCMC</strong> solves this by constructing a random walk whose <em>stationary distribution</em> is the target: take many small, correlated steps, and the chain spends time in each state in proportion to its probability. The <strong>Metropolis-Hastings</strong> rule makes this concrete — propose a move, then accept it with probability $\min(1, p_{\text{new}}/p_{\text{old}})$. Moves to more probable states are always accepted; moves to less probable ones are accepted just often enough to sample the tails correctly, never requiring the (usually intractable) normalization constant.</p>
+<h2 id="quantum-monte-carlo">Quantum Monte Carlo</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MetropolisHastings</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Metropolis-Hastings algorithm for sampling from complex distributions</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">target_pdf</span><span class="p">,</span> <span class="n">proposal_std</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">target_pdf</span> <span class="o">=</span> <span class="n">target_pdf</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">proposal_std</span> <span class="o">=</span> <span class="n">proposal_std</span>
-    
-    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">,</span> <span class="n">burn_in</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Generate samples using Metropolis-Hastings</span><span class="sh">"""</span>
-        <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x0</span>
-        <span class="n">n_accepted</span> <span class="o">=</span> <span class="mi">0</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_samples</span> <span class="o">+</span> <span class="n">burn_in</span><span class="p">):</span>
-            <span class="c1"># Propose new state
-</span>            <span class="n">x_proposed</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">proposal_std</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">x</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
-            
-            <span class="c1"># Calculate acceptance ratio
-</span>            <span class="n">ratio</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">target_pdf</span><span class="p">(</span><span class="n">x_proposed</span><span class="p">)</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="nf">target_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-            
-            <span class="c1"># Accept or reject
-</span>            <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">rand</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">ratio</span><span class="p">:</span>
-                <span class="n">x</span> <span class="o">=</span> <span class="n">x_proposed</span>
-                <span class="n">n_accepted</span> <span class="o">+=</span> <span class="mi">1</span>
-            
-            <span class="c1"># Store sample after burn-in
-</span>            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">burn_in</span><span class="p">:</span>
-                <span class="n">samples</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="nf">copy</span><span class="p">())</span>
-        
-        <span class="n">acceptance_rate</span> <span class="o">=</span> <span class="n">n_accepted</span> <span class="o">/</span> <span class="p">(</span><span class="n">n_samples</span> <span class="o">+</span> <span class="n">burn_in</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">samples</span><span class="p">),</span> <span class="n">acceptance_rate</span>
+<p>Quantum Monte Carlo (QMC) applies stochastic sampling to the many-electron Schrödinger equation. It is among the most accurate methods for correlated systems, and its cost scales as roughly $O(N^3)$ to $O(N^4)$ with electron number, against $O(N^7)$ for CCSD(T).</p>
 
-<span class="c1"># Example: Sample from a bimodal distribution
-</span><span class="k">def</span> <span class="nf">bimodal_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Mixture of two Gaussians</span><span class="sh">"""</span>
-    <span class="k">return</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+<h3 id="variational-monte-carlo">Variational Monte Carlo</h3>
 
-<span class="n">sampler</span> <span class="o">=</span> <span class="nc">MetropolisHastings</span><span class="p">(</span><span class="n">bimodal_pdf</span><span class="p">)</span>
-<span class="n">samples</span><span class="p">,</span> <span class="n">acc_rate</span> <span class="o">=</span> <span class="n">sampler</span><span class="p">.</span><span class="nf">sample</span><span class="p">(</span><span class="n">x0</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">]),</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
-<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Acceptance rate: </span><span class="si">{</span><span class="n">acc_rate</span><span class="si">:</span><span class="p">.</span><span class="mi">2</span><span class="o">%</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
-</code></pre></div></div>
+<p>Given a trial wavefunction $\psi_\alpha(\mathbf{R})$ with parameters $\alpha$, the variational energy is an average of the <strong>local energy</strong> $E_L = \hat{H}\psi_\alpha / \psi_\alpha$ over $\lvert\psi_\alpha\rvert^2$:</p>
 
-<h3 id="quantum-monte-carlo">Quantum Monte Carlo</h3>
+\[E(\alpha) = \frac{\int \lvert\psi_\alpha(\mathbf{R})\rvert^2\, E_L(\mathbf{R})\, d\mathbf{R}}{\int \lvert\psi_\alpha(\mathbf{R})\rvert^2\, d\mathbf{R}} \ \ge\ E_0.\]
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">variational_monte_carlo</span><span class="p">(</span><span class="n">psi_trial</span><span class="p">,</span> <span class="n">hamiltonian</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">n_samples</span><span class="o">=</span><span class="mi">10000</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Variational Monte Carlo for quantum systems</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">local_energy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate local energy: H𝜓/𝜓</span><span class="sh">"""</span>
-        <span class="n">psi</span> <span class="o">=</span> <span class="nf">psi_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
-        <span class="n">H_psi</span> <span class="o">=</span> <span class="nf">hamiltonian</span><span class="p">(</span><span class="n">psi_trial</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">H_psi</span> <span class="o">/</span> <span class="n">psi</span>
-    
-    <span class="c1"># Sample from |𝜓|²
-</span>    <span class="n">samples</span> <span class="o">=</span> <span class="nf">metropolis_sample</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="nf">psi_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">params</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)</span>
-    
-    <span class="c1"># Calculate expectation value of energy
-</span>    <span class="n">E_local</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">local_energy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">])</span>
-    <span class="n">E_mean</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">E_local</span><span class="p">)</span>
-    <span class="n">E_var</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">var</span><span class="p">(</span><span class="n">E_local</span><span class="p">)</span> <span class="o">/</span> <span class="n">n_samples</span>
-    
-    <span class="k">return</span> <span class="n">E_mean</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">E_var</span><span class="p">)</span>
+<p>The sampling uses Metropolis on $\lvert\psi_\alpha\rvert^2$, so the normalization is never needed. The <strong>zero-variance principle</strong> says that as $\psi_\alpha$ approaches an eigenstate, $E_L$ becomes constant and its variance goes to zero. The variance is therefore a second optimization target and a measure of wavefunction quality.</p>
 
-<span class="c1"># Example: Hydrogen atom ground state
-</span><span class="k">def</span> <span class="nf">hydrogen_trial</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Trial wavefunction: exp(-alpha * r)</span><span class="sh">"""</span>
-    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+<p>For hydrogen with $\psi_\alpha = e^{-\alpha r}$ (atomic units), $\nabla^2 \psi / \psi = \alpha^2 - 2\alpha/r$, so</p>
 
-<span class="k">def</span> <span class="nf">hydrogen_hamiltonian</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">alpha</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Hamiltonian for hydrogen atom</span><span class="sh">"""</span>
-    <span class="n">r_norm</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-    
-    <span class="c1"># Kinetic energy (using analytical expression)
-</span>    <span class="n">T</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">*</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">-</span> <span class="mi">2</span><span class="o">/</span><span class="n">r_norm</span><span class="p">)</span>
-    
-    <span class="c1"># Potential energy
-</span>    <span class="n">V</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="n">r_norm</span>
-    
-    <span class="nf">return </span><span class="p">(</span><span class="n">T</span> <span class="o">+</span> <span class="n">V</span><span class="p">)</span> <span class="o">*</span> <span class="nf">psi</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
-</code></pre></div></div>
+\[E_L(r) = -\frac{\alpha^2}{2} + \frac{\alpha - 1}{r}, \qquad E(\alpha) = \frac{\alpha^2}{2} - \alpha,\]
 
-<hr />
+<p>minimized at $\alpha = 1$ with $E = -\tfrac{1}{2}$ Ha and zero variance:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">vmc_hydrogen</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">n_walkers</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">VMC for hydrogen with psi = exp(-alpha r), atomic units. Returns &lt;E_L&gt;, var(E_L).</span><span class="sh">"""</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_walkers</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>                 <span class="c1"># an ensemble of walkers in 3D
+</span>    <span class="n">log_psi2</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">lp</span> <span class="o">=</span> <span class="nf">log_psi2</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+        <span class="n">trial</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="n">step</span> <span class="o">*</span> <span class="n">rng</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">lp_trial</span> <span class="o">=</span> <span class="nf">log_psi2</span><span class="p">(</span><span class="n">trial</span><span class="p">)</span>
+        <span class="n">accept</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">rng</span><span class="p">.</span><span class="nf">random</span><span class="p">(</span><span class="n">n_walkers</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">lp_trial</span> <span class="o">-</span> <span class="n">lp</span>
+        <span class="n">r</span><span class="p">[</span><span class="n">accept</span><span class="p">],</span> <span class="n">lp</span><span class="p">[</span><span class="n">accept</span><span class="p">]</span> <span class="o">=</span> <span class="n">trial</span><span class="p">[</span><span class="n">accept</span><span class="p">],</span> <span class="n">lp_trial</span><span class="p">[</span><span class="n">accept</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">n_steps</span> <span class="o">//</span> <span class="mi">4</span><span class="p">:</span>                           <span class="c1"># discard burn-in
+</span>            <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">energies</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">alpha</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">alpha</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">/</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">concatenate</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">E</span><span class="p">.</span><span class="nf">mean</span><span class="p">(),</span> <span class="n">E</span><span class="p">.</span><span class="nf">var</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.1</span><span class="p">,</span> <span class="mf">1.2</span><span class="p">):</span>
+    <span class="n">E</span><span class="p">,</span> <span class="n">var</span> <span class="o">=</span> <span class="nf">vmc_hydrogen</span><span class="p">(</span><span class="n">alpha</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">alpha = </span><span class="si">{</span><span class="n">alpha</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">f</span><span class="si">}</span><span class="s">   E = </span><span class="si">{</span><span class="n">E</span><span class="si">:</span><span class="o">+</span><span class="p">.</span><span class="mi">4</span><span class="n">f</span><span class="si">}</span><span class="s"> Ha   var(E_L) = </span><span class="si">{</span><span class="n">var</span><span class="si">:</span><span class="p">.</span><span class="mi">4</span><span class="n">f</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1"># alpha = 1.0 gives E = -0.5000 with var = 0 exactly; alpha = 0.8 gives -0.480 (exact -0.48)
+</span></code></pre></div></div>
+
+<p>For real molecules and solids, the standard trial function is a <strong>Slater–Jastrow</strong> wavefunction: a determinant (or several) of orbitals from DFT or Hartree–Fock, multiplied by an explicit correlation factor. Since about 2020, <strong>neural-network wavefunctions</strong> (FermiNet, PauliNet, Psiformer, and neural quantum states for lattice models) have replaced hand-built ansätze in many benchmark studies and reach near-exact energies for small systems. See <a href="ml-for-physics.html#other-directions">Machine Learning for Physics</a>.</p>
+
+<h3 id="projector-methods-and-the-sign-problem">Projector methods and the sign problem</h3>
+
+<p><strong>Diffusion Monte Carlo</strong> (DMC) projects the ground state out of a trial state by evolving in imaginary time:</p>
+
+\[\lvert \phi_0 \rangle \propto \lim_{\tau \to \infty} e^{-\tau (\hat{H} - E_T)} \lvert \psi_T \rangle.\]
+
+<p>It does this with a population of walkers that diffuse (kinetic term) and branch or die (potential term). For bosons the projected state is positive everywhere and DMC is exact up to statistical and time-step error. For fermions, the antisymmetric wavefunction changes sign. Sampling it exactly suffers from the <strong>fermion sign problem</strong>: the signal-to-noise ratio decays exponentially with system size and inverse temperature. The standard workaround is the <strong>fixed-node approximation</strong>, which forces the nodes to match the trial function. It gives a variational upper bound that is usually far better than VMC.</p>
+
+<p>Other members of the family include <strong>path-integral Monte Carlo</strong> (finite temperature, bosonic superfluids), <strong>auxiliary-field QMC</strong> (lattice models and ab initio, with a phaseless constraint), and <strong>stochastic series expansion</strong> (unfrustrated quantum spin models, which have no sign problem). QMCPACK and CASINO are the main production codes for continuum electronic structure.</p>
 
 <h2 id="molecular-dynamics">Molecular Dynamics</h2>
 
-<h3 id="classical-molecular-dynamics">Classical Molecular Dynamics</h3>
+<p>Molecular dynamics integrates Newton’s equations $m_i \ddot{\mathbf{r}}<em>i = \mathbf{F}_i = -\nabla</em>{\mathbf{r}_i} U$ for $N$ interacting particles and computes observables as time averages. Nearly all of the cost is in the force evaluation. The rest of an MD code decides how to integrate stably, how to control temperature and pressure, and how to avoid computing all $N^2$ pair interactions.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">MolecularDynamics</span><span class="p">:</span>
-    <span class="sh">"""</span><span class="s">Classical molecular dynamics simulation</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_particles</span><span class="p">,</span> <span class="n">box_size</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">n_particles</span> <span class="o">=</span> <span class="n">n_particles</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">box_size</span> <span class="o">=</span> <span class="n">box_size</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">temperature</span> <span class="o">=</span> <span class="n">temperature</span>
-        
-        <span class="c1"># Initialize positions randomly
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">rand</span><span class="p">(</span><span class="n">n_particles</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">box_size</span>
-        
-        <span class="c1"># Initialize velocities from Maxwell-Boltzmann distribution
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">velocities</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">temperature</span><span class="p">),</span> 
-                                         <span class="p">(</span><span class="n">n_particles</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-        
-        <span class="c1"># Remove center of mass motion
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">velocities</span> <span class="o">-=</span> <span class="n">np</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">velocities</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">lennard_jones_force</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Lennard-Jones potential: 4ε[(σ/r)¹² - (σ/r)⁶]</span><span class="sh">"""</span>
-        <span class="n">r_norm</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">r_norm</span> <span class="o">&lt;</span> <span class="mf">0.01</span><span class="p">:</span>  <span class="c1"># Avoid singularity
-</span>            <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-        
-        <span class="n">r6</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigma</span> <span class="o">/</span> <span class="n">r_norm</span><span class="p">)</span> <span class="o">**</span> <span class="mi">6</span>
-        <span class="n">force_magnitude</span> <span class="o">=</span> <span class="mi">24</span> <span class="o">*</span> <span class="n">epsilon</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">r6</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">r6</span><span class="p">)</span> <span class="o">/</span> <span class="n">r_norm</span><span class="o">**</span><span class="mi">2</span>
-        <span class="k">return</span> <span class="n">force_magnitude</span> <span class="o">*</span> <span class="n">r</span>
-    
-    <span class="k">def</span> <span class="nf">calculate_forces</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate all pairwise forces</span><span class="sh">"""</span>
-        <span class="n">forces</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">)</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">):</span>
-                <span class="c1"># Minimum image convention
-</span>                <span class="n">r</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-                <span class="n">r</span> <span class="o">=</span> <span class="n">r</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span><span class="p">)</span>
-                
-                <span class="c1"># Calculate force
-</span>                <span class="n">f</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">lennard_jones_force</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-                <span class="n">forces</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">f</span>
-                <span class="n">forces</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">f</span>  <span class="c1"># Newton's third law
-</span>        
-        <span class="k">return</span> <span class="n">forces</span>
-    
-    <span class="k">def</span> <span class="nf">velocity_verlet_step</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Velocity Verlet integration</span><span class="sh">"""</span>
-        <span class="c1"># Update positions
-</span>        <span class="n">forces</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">calculate_forces</span><span class="p">()</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">positions</span> <span class="o">+=</span> <span class="n">self</span><span class="p">.</span><span class="n">velocities</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">forces</span> <span class="o">*</span> <span class="n">dt</span><span class="o">**</span><span class="mi">2</span>
-        
-        <span class="c1"># Apply periodic boundary conditions
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">positions</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span> <span class="o">%</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span>
-        
-        <span class="c1"># Update velocities (half step)
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">velocities</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">forces</span> <span class="o">*</span> <span class="n">dt</span>
-        
-        <span class="c1"># Calculate new forces
-</span>        <span class="n">forces_new</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">calculate_forces</span><span class="p">()</span>
-        
-        <span class="c1"># Complete velocity update
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">velocities</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">forces_new</span> <span class="o">*</span> <span class="n">dt</span>
-    
-    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.001</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Run MD simulation</span><span class="sh">"""</span>
-        <span class="n">trajectory</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">energies</span> <span class="o">=</span> <span class="p">[]</span>
-        
-        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
-            <span class="n">self</span><span class="p">.</span><span class="nf">velocity_verlet_step</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
-            
-            <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">trajectory</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">.</span><span class="nf">copy</span><span class="p">())</span>
-                
-                <span class="c1"># Calculate total energy
-</span>                <span class="n">ke</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">velocities</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-                <span class="n">pe</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">calculate_potential_energy</span><span class="p">()</span>
-                <span class="n">energies</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span><span class="sh">'</span><span class="s">kinetic</span><span class="sh">'</span><span class="p">:</span> <span class="n">ke</span><span class="p">,</span> <span class="sh">'</span><span class="s">potential</span><span class="sh">'</span><span class="p">:</span> <span class="n">pe</span><span class="p">,</span> 
-                               <span class="sh">'</span><span class="s">total</span><span class="sh">'</span><span class="p">:</span> <span class="n">ke</span> <span class="o">+</span> <span class="n">pe</span><span class="p">})</span>
-        
-        <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">trajectory</span><span class="p">),</span> <span class="n">energies</span>
-    
-    <span class="k">def</span> <span class="nf">calculate_potential_energy</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Calculate total potential energy</span><span class="sh">"""</span>
-        <span class="n">pe</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">):</span>
-                <span class="n">r</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-                <span class="n">r</span> <span class="o">=</span> <span class="n">r</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span><span class="p">)</span>
-                <span class="n">r_norm</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-                
-                <span class="k">if</span> <span class="n">r_norm</span> <span class="o">&lt;</span> <span class="mf">2.5</span><span class="p">:</span>  <span class="c1"># Cutoff distance
-</span>                    <span class="n">r6</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">r_norm</span><span class="p">)</span> <span class="o">**</span> <span class="mi">6</span>
-                    <span class="n">pe</span> <span class="o">+=</span> <span class="mi">4</span> <span class="o">*</span> <span class="p">(</span><span class="n">r6</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">r6</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">pe</span>
+<pre><code class="language-mermaid">flowchart LR
+    I["Initialize positions&lt;br/&gt;(lattice or structure)&lt;br/&gt;and velocities (Maxwell-Boltzmann)"] --&gt; F["Compute forces&lt;br/&gt;(neighbour list, PME)"]
+    F --&gt; K1["Half kick:&lt;br/&gt;v += F dt / 2m"]
+    K1 --&gt; D["Drift: r += v dt&lt;br/&gt;(apply PBC)"]
+    D --&gt; NL{"Neighbour list&lt;br/&gt;stale?"}
+    NL --&gt;|"yes"| RB["Rebuild list"]
+    NL --&gt;|"no"| F2["Compute new forces"]
+    RB --&gt; F2
+    F2 --&gt; K2["Half kick:&lt;br/&gt;v += F dt / 2m"]
+    K2 --&gt; T["Thermostat / barostat"]
+    T --&gt; O["Accumulate observables&lt;br/&gt;every n steps"]
+    O --&gt; K1
+</code></pre>
 
-<span class="c1"># Run a simple MD simulation
-</span><span class="n">md</span> <span class="o">=</span> <span class="nc">MolecularDynamics</span><span class="p">(</span><span class="n">n_particles</span><span class="o">=</span><span class="mi">108</span><span class="p">,</span> <span class="n">box_size</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-<span class="n">trajectory</span><span class="p">,</span> <span class="n">energies</span> <span class="o">=</span> <span class="n">md</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<h3 id="interaction-potentials">Interaction potentials</h3>
+
+<p>The Lennard-Jones potential is the standard model for neutral atoms:</p>
+
+\[U_{\text{LJ}}(r) = 4\varepsilon \left[ \left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6} \right], \qquad \mathbf{F}_{ij} = \frac{24\varepsilon}{r_{ij}^2} \left[ 2\left(\frac{\sigma}{r_{ij}}\right)^{12} - \left(\frac{\sigma}{r_{ij}}\right)^{6} \right] \mathbf{r}_{ij},\]
+
+<p>with $\mathbf{r}<em>{ij} = \mathbf{r}_i - \mathbf{r}_j$ and $\mathbf{F}</em>{ij}$ the force on $i$ due to $j$. Simulations use <strong>reduced units</strong> ($\varepsilon = \sigma = m = 1$), truncate the potential at $r_c \approx 2.5\sigma$, and shift it so it is continuous there. Real systems use richer force fields: biomolecular force fields (AMBER, CHARMM, OPLS) with bonded terms and partial charges; many-body potentials for metals (EAM) and covalent solids (Tersoff, ReaxFF); and, more and more, <a href="ml-for-physics.html#machine-learned-interatomic-potentials">machine-learned potentials</a> trained on DFT.</p>
+
+<h3 id="the-velocity-verlet-integrator">The velocity Verlet integrator</h3>
+
+<p>The standard integrator is <strong>velocity Verlet</strong>:</p>
+
+\[\mathbf{v}_{n+1/2} = \mathbf{v}_n + \frac{\Delta t}{2m} \mathbf{F}_n, \qquad \mathbf{r}_{n+1} = \mathbf{r}_n + \Delta t\, \mathbf{v}_{n+1/2}, \qquad \mathbf{v}_{n+1} = \mathbf{v}_{n+1/2} + \frac{\Delta t}{2m} \mathbf{F}_{n+1}.\]
+
+<p>It needs one force evaluation per step, is second-order accurate, is time-reversible, and is <strong>symplectic</strong>: it exactly conserves a “shadow Hamiltonian” that differs from the true one by $O(\Delta t^2)$. The practical result is that the energy error stays bounded and oscillates, with no secular drift, over very long runs. A non-symplectic method such as classical RK4 is more accurate per step but drifts steadily. The time step is limited by the fastest motion in the system. Atomistic simulations use about 1–2 fs, or up to 4 fs with bond constraints (SHAKE, LINCS) and hydrogen mass repartitioning.</p>
+
+<p>The vectorized example below simulates 256 Lennard-Jones atoms at liquid density. It starts from an FCC lattice, because random initial positions create overlaps whose huge forces blow up the integration.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">lj_forces</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">rc</span><span class="o">=</span><span class="mf">2.5</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">LJ forces and potential energy (reduced units), minimum image, shifted cutoff. O(N^2).</span><span class="sh">"""</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">pos</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">pos</span><span class="p">[</span><span class="bp">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>               <span class="c1"># r_i - r_j, shape (N, N, 3)
+</span>    <span class="n">d</span> <span class="o">-=</span> <span class="n">box</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">d</span> <span class="o">/</span> <span class="n">box</span><span class="p">)</span>                        <span class="c1"># minimum-image convention
+</span>    <span class="n">r2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">einsum</span><span class="p">(</span><span class="sh">"</span><span class="s">ijk,ijk-&gt;ij</span><span class="sh">"</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">np</span><span class="p">.</span><span class="nf">fill_diagonal</span><span class="p">(</span><span class="n">r2</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">r2</span> <span class="o">&lt;</span> <span class="n">rc</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">inv6</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">r2</span><span class="o">**</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">fmag</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="mf">24.0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">inv6</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">inv6</span><span class="p">)</span> <span class="o">/</span> <span class="n">r2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">forces</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">einsum</span><span class="p">(</span><span class="sh">"</span><span class="s">ij,ijk-&gt;ik</span><span class="sh">"</span><span class="p">,</span> <span class="n">fmag</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">shift</span> <span class="o">=</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">rc</span><span class="o">**-</span><span class="mi">12</span> <span class="o">-</span> <span class="n">rc</span><span class="o">**-</span><span class="mi">6</span><span class="p">)</span>
+    <span class="n">pot</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">inv6</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="n">inv6</span><span class="p">)</span> <span class="o">-</span> <span class="n">shift</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">forces</span><span class="p">,</span> <span class="n">pot</span>
+
+<span class="k">def</span> <span class="nf">fcc_lattice</span><span class="p">(</span><span class="n">n_cells</span><span class="p">,</span> <span class="n">density</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">/</span> <span class="n">density</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>                      <span class="c1"># 4 atoms per cubic cell
+</span>    <span class="n">basis</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]])</span>
+    <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">meshgrid</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="nf">arange</span><span class="p">(</span><span class="n">n_cells</span><span class="p">)]</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="sh">"</span><span class="s">ij</span><span class="sh">"</span><span class="p">)).</span><span class="nf">reshape</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="n">T</span>
+    <span class="nf">return </span><span class="p">((</span><span class="n">cells</span><span class="p">[:,</span> <span class="bp">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">basis</span><span class="p">).</span><span class="nf">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span><span class="p">),</span> <span class="n">n_cells</span> <span class="o">*</span> <span class="n">a</span>
+
+<span class="k">def</span> <span class="nf">velocity_verlet</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">n_steps</span><span class="p">):</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">pot</span> <span class="o">=</span> <span class="nf">lj_forces</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+    <span class="n">energy</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n_steps</span><span class="p">):</span>
+        <span class="n">vel</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f</span>                             <span class="c1"># half kick
+</span>        <span class="n">pos</span> <span class="o">+=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">vel</span>                                 <span class="c1"># drift
+</span>        <span class="n">pos</span> <span class="o">%=</span> <span class="n">box</span>                                      <span class="c1"># wrap into the box
+</span>        <span class="n">f</span><span class="p">,</span> <span class="n">pot</span> <span class="o">=</span> <span class="nf">lj_forces</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>                    <span class="c1"># the only force call per step
+</span>        <span class="n">vel</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f</span>                             <span class="c1"># half kick
+</span>        <span class="n">energy</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">vel</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">pot</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">energy</span><span class="p">)</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">pos</span><span class="p">,</span> <span class="n">box</span> <span class="o">=</span> <span class="nf">fcc_lattice</span><span class="p">(</span><span class="n">n_cells</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>          <span class="c1"># 256 atoms
+</span><span class="n">vel</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">pos</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>                        <span class="c1"># Maxwell-Boltzmann at T = 1
+</span><span class="n">vel</span> <span class="o">-=</span> <span class="n">vel</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>                                 <span class="c1"># zero total momentum
+</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="nf">velocity_verlet</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">relative energy drift: </span><span class="si">{</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="nf">abs</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">:</span><span class="p">.</span><span class="mi">1</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># ~1e-5
+</span></code></pre></div></div>
+
+<p>Energy conservation in an NVE run is the first sanity check for any MD setup. A drift that grows with $\Delta t^2$ is expected. A drift that grows linearly in time points to a bug, a non-smooth potential, or a time step that is too large.</p>
+
+<h3 id="neighbour-lists">Neighbour lists</h3>
+
+<p>The all-pairs loop above is $O(N^2)$. With a short-range cutoff, each atom interacts with only $O(1)$ neighbours, and two standard structures bring the cost down to $O(N)$:</p>
+
+<ul>
+  <li><strong>Cell lists</strong> divide the box into cells at least $r_c$ wide. Each atom only checks its own and adjacent cells.</li>
+  <li><strong>Verlet lists</strong> store, for each atom, the neighbours within $r_c + r_{\text{skin}}$. The list stays valid until some atom has moved more than $r_{\text{skin}}/2$, which typically takes 10–20 steps. It is rebuilt with cell lists.</li>
+</ul>
+
+<h3 id="thermostats-and-barostats">Thermostats and barostats</h3>
+
+<p>Plain Verlet samples the microcanonical (NVE) ensemble. To simulate at constant temperature or pressure, the equations of motion are modified. The choice matters: some popular thermostats <strong>do not</strong> generate the correct ensemble.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Thermostat</th>
+      <th>Mechanism</th>
+      <th>Canonical ensemble?</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Berendsen</td>
+      <td>Rescale velocities toward $T_0$ with time constant $\tau$</td>
+      <td><strong>No</strong> (suppresses fluctuations)</td>
+      <td>Use only for fast equilibration; can cause the “flying ice cube” artefact</td>
+    </tr>
+    <tr>
+      <td>Velocity rescaling (Bussi–Donadio–Parrinello, CSVR)</td>
+      <td>Rescale kinetic energy with a stochastic term</td>
+      <td>Yes</td>
+      <td>Robust default in GROMACS (<code class="language-plaintext highlighter-rouge">v-rescale</code>)</td>
+    </tr>
+    <tr>
+      <td>Nosé–Hoover (chains)</td>
+      <td>Extended system with a friction variable $\xi$</td>
+      <td>Yes, if ergodic</td>
+      <td>Deterministic; use chains, because a single thermostat is non-ergodic for small or stiff systems</td>
+    </tr>
+    <tr>
+      <td>Langevin</td>
+      <td>Friction $-\gamma m \mathbf{v}$ plus random force</td>
+      <td>Yes</td>
+      <td>Perturbs dynamics (diffusion) when $\gamma$ is large; the BAOAB splitting gives very accurate configurational sampling</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For pressure control, Parrinello–Rahman and MTK (Martyna–Tobias–Klein) barostats generate the correct NPT ensemble. Berendsen pressure coupling does not. The stochastic cell-rescaling barostat (Bernetti and Bussi, 2020) is a correct first-order alternative.</p>
+
+<p>A Langevin thermostat with the <strong>BAOAB</strong> splitting (Leimkuhler and Matthews) interleaves Verlet half-steps (B = kick, A = drift) with an exact Ornstein–Uhlenbeck velocity update (O):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">baoab_step</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">kT</span><span class="p">,</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">One BAOAB Langevin step (unit masses): samples the canonical (NVT) ensemble.</span><span class="sh">"""</span>
+    <span class="n">c1</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">gamma</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
+    <span class="n">c2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">c1</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">kT</span><span class="p">)</span>
+    <span class="n">vel</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f</span>                                     <span class="c1"># B
+</span>    <span class="n">pos</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">vel</span>                                   <span class="c1"># A
+</span>    <span class="n">vel</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">c1</span> <span class="o">*</span> <span class="n">vel</span> <span class="o">+</span> <span class="n">c2</span> <span class="o">*</span> <span class="n">rng</span><span class="p">.</span><span class="nf">standard_normal</span><span class="p">(</span><span class="n">vel</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span> <span class="c1"># O: exact OU update
+</span>    <span class="n">pos</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">vel</span>                                   <span class="c1"># A
+</span>    <span class="n">pos</span> <span class="o">%=</span> <span class="n">box</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">pot</span> <span class="o">=</span> <span class="nf">lj_forces</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+    <span class="n">vel</span> <span class="o">+=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">f</span>                                     <span class="c1"># B
+</span>    <span class="k">return</span> <span class="n">pos</span><span class="p">,</span> <span class="n">vel</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">pot</span>
 </code></pre></div></div>
 
-<h3 id="advanced-md-techniques">Advanced MD Techniques</h3>
+<h3 id="long-range-electrostatics">Long-range electrostatics</h3>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">AdvancedMD</span><span class="p">(</span><span class="n">MolecularDynamics</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Advanced molecular dynamics techniques</span><span class="sh">"""</span>
-    
-    <span class="k">def</span> <span class="nf">nose_hoover_thermostat</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">Q</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">target_temp</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Nosé-Hoover thermostat for constant temperature</span><span class="sh">"""</span>
-        <span class="c1"># Calculate current temperature
-</span>        <span class="n">ke</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">velocities</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
-        <span class="n">current_temp</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ke</span> <span class="o">/</span> <span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">)</span>
-        
-        <span class="c1"># Update thermostat variable
-</span>        <span class="k">if</span> <span class="ow">not</span> <span class="nf">hasattr</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="sh">'</span><span class="s">xi</span><span class="sh">'</span><span class="p">):</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">xi</span> <span class="o">=</span> <span class="mf">0.0</span>
-        
-        <span class="n">xi_dot</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_temp</span> <span class="o">-</span> <span class="n">target_temp</span><span class="p">)</span> <span class="o">/</span> <span class="n">Q</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">xi</span> <span class="o">+=</span> <span class="n">xi_dot</span> <span class="o">*</span> <span class="n">dt</span>
-        
-        <span class="c1"># Apply thermostat to velocities
-</span>        <span class="n">self</span><span class="p">.</span><span class="n">velocities</span> <span class="o">*=</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">self</span><span class="p">.</span><span class="n">xi</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span>
-    
-    <span class="k">def</span> <span class="nf">neighbor_list</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">2.5</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Verlet neighbor list for efficiency</span><span class="sh">"""</span>
-        <span class="n">neighbors</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">)}</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">):</span>
-                <span class="n">r</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-                <span class="n">r</span> <span class="o">=</span> <span class="n">r</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span><span class="p">)</span>
-                
-                <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">cutoff</span> <span class="o">*</span> <span class="mf">1.2</span><span class="p">:</span>  <span class="c1"># Include buffer
-</span>                    <span class="n">neighbors</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
-                    <span class="n">neighbors</span><span class="p">[</span><span class="n">j</span><span class="p">].</span><span class="nf">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-        
-        <span class="k">return</span> <span class="n">neighbors</span>
-    
-    <span class="k">def</span> <span class="nf">ewald_summation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">charges</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="sh">"""</span><span class="s">Ewald summation for long-range electrostatics</span><span class="sh">"""</span>
-        <span class="c1"># Default screening parameter depends on the box size; compute it here
-</span>        <span class="c1"># rather than in the signature (a default arg cannot reference `self`).
-</span>        <span class="k">if</span> <span class="n">alpha</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-            <span class="n">alpha</span> <span class="o">=</span> <span class="mf">5.0</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span>
-        
-        <span class="c1"># Real space contribution
-</span>        <span class="n">energy_real</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">forces_real</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">)</span>
-        
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">n_particles</span><span class="p">):</span>
-                <span class="n">r</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-                <span class="n">r</span> <span class="o">=</span> <span class="n">r</span> <span class="o">-</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">round</span><span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="n">self</span><span class="p">.</span><span class="n">box_size</span><span class="p">)</span>
-                <span class="n">r_norm</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-                
-                <span class="c1"># Real space interaction
-</span>                <span class="n">erfc_term</span> <span class="o">=</span> <span class="nf">erfc</span><span class="p">(</span><span class="n">alpha</span> <span class="o">*</span> <span class="n">r_norm</span><span class="p">)</span>
-                <span class="n">energy_real</span> <span class="o">+=</span> <span class="n">charges</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">charges</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">erfc_term</span> <span class="o">/</span> <span class="n">r_norm</span>
-                
-                <span class="n">force_mag</span> <span class="o">=</span> <span class="n">charges</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">charges</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span>
-                    <span class="n">erfc_term</span> <span class="o">/</span> <span class="n">r_norm</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> 
-                    <span class="mi">2</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="n">alpha</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">r_norm</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">r_norm</span>
-                <span class="p">)</span>
-                <span class="n">forces_real</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">force_mag</span> <span class="o">*</span> <span class="n">r</span> <span class="o">/</span> <span class="n">r_norm</span>
-                <span class="n">forces_real</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">-=</span> <span class="n">force_mag</span> <span class="o">*</span> <span class="n">r</span> <span class="o">/</span> <span class="n">r_norm</span>
-        
-        <span class="c1"># Reciprocal space contribution (simplified)
-</span>        <span class="c1"># ... (implementation of k-space sum)
-</span>        
-        <span class="k">return</span> <span class="n">energy_real</span><span class="p">,</span> <span class="n">forces_real</span>
-</code></pre></div></div>
+<p>The Coulomb interaction decays as $1/r$, so the lattice sum over periodic images is only conditionally convergent, and truncating it gives serious artefacts. <strong>Ewald summation</strong> splits the interaction with the identity</p>
+
+\[\frac{1}{r} = \frac{\operatorname{erfc}(\alpha r)}{r} + \frac{\operatorname{erf}(\alpha r)}{r}\]
+
+<p>into a short-range part, summed in real space with a cutoff, and a smooth long-range part, summed in reciprocal space. For point charges $q_i$ in a cubic box of volume $V$ (Gaussian units, conducting boundary conditions):</p>
+
+\[E = \frac{1}{2} \sum_{\mathbf{n}} \sum_{i,j}{}^{\prime}\, q_i q_j \frac{\operatorname{erfc}(\alpha \lvert \mathbf{r}_{ij} + \mathbf{n}L \rvert)}{\lvert \mathbf{r}_{ij} + \mathbf{n}L \rvert} + \frac{2\pi}{V} \sum_{\mathbf{k} \neq 0} \frac{e^{-k^2/4\alpha^2}}{k^2} \left\lvert \sum_{j} q_j e^{i \mathbf{k} \cdot \mathbf{r}_j} \right\rvert^2 - \frac{\alpha}{\sqrt{\pi}} \sum_i q_i^2,\]
+
+<p>where the prime omits $i = j$ in the $\mathbf{n} = 0$ image. The last term removes each charge’s interaction with its own screening Gaussian. With $\alpha$ tuned, plain Ewald costs $O(N^{3/2})$. <strong>Particle-mesh Ewald</strong> (PME) and <strong>P3M</strong> spread the charges onto a grid and do the reciprocal sum with FFTs, bringing the cost to $O(N \log N)$. PME is the default in every major biomolecular code. Fast multipole methods reach $O(N)$ and suit very large or non-periodic systems.</p>
+
+<h3 id="enhanced-sampling-and-free-energies">Enhanced sampling and free energies</h3>
+
+<p>Biomolecular and materials processes such as folding, nucleation, and chemical reactions often happen on timescales far beyond what direct MD can reach. Enhanced-sampling methods bias the simulation along one or more <strong>collective variables</strong> (CVs) and then remove the bias exactly:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Idea</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Umbrella sampling + WHAM/MBAR</td>
+      <td>Harmonic restraints at windows along a CV; combine windows by reweighting</td>
+    </tr>
+    <tr>
+      <td>Metadynamics (well-tempered, OPES)</td>
+      <td>Deposit Gaussians or build a bias on the fly that fills free-energy wells</td>
+    </tr>
+    <tr>
+      <td>Replica exchange MD</td>
+      <td>Parallel tempering in MD; also Hamiltonian replica exchange (REST2)</td>
+    </tr>
+    <tr>
+      <td>Alchemical free-energy perturbation / TI</td>
+      <td>Interpolate between Hamiltonians to get binding and solvation free energies</td>
+    </tr>
+    <tr>
+      <td>Steered MD + Jarzynski equality</td>
+      <td>Non-equilibrium pulling, $\langle e^{-\beta W} \rangle = e^{-\beta \Delta F}$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><a href="https://www.plumed.org/">PLUMED</a> implements most of these as a plugin for all the major MD engines.</p>
+
+<h3 id="production-md-software">Production MD software</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Code</th>
+      <th>Strengths</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://www.lammps.org/">LAMMPS</a></td>
+      <td>Materials, soft matter, many-body and ML potentials; highly extensible (stable releases roughly yearly, e.g. 22 Jul 2025 with rolling updates)</td>
+    </tr>
+    <tr>
+      <td><a href="https://www.gromacs.org/">GROMACS</a></td>
+      <td>Very fast biomolecular MD on CPUs and GPUs; annual releases (2026 series current)</td>
+    </tr>
+    <tr>
+      <td><a href="https://openmm.org/">OpenMM</a></td>
+      <td>Python-scriptable, GPU-first, custom forces; common for free-energy and ML-potential work</td>
+    </tr>
+    <tr>
+      <td>AMBER, NAMD, CHARMM</td>
+      <td>Established biomolecular packages with their own force fields</td>
+    </tr>
+    <tr>
+      <td>HOOMD-blue</td>
+      <td>GPU-native soft matter and coarse-grained models</td>
+    </tr>
+    <tr>
+      <td><a href="https://wiki.fysik.dtu.dk/ase/">ASE</a> / JAX-MD</td>
+      <td>Python-level MD for prototyping, ML potentials, and differentiable simulation</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Analysis tools include MDAnalysis and MDTraj (Python trajectory analysis), and OVITO and VMD (visualization). See <a href="tools-and-practices.html">Visualization, Libraries &amp; Best Practices</a>.</p>
 
 <hr />
 
@@ -3451,9 +3694,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="../statistical-mechanics/">Statistical Mechanics</a> — the physics behind Monte Carlo sampling and ensembles.</li>
-  <li><a href="quantum-methods.html">Quantum Computational Methods</a> — split-operator evolution and DFT.</li>
-  <li><a href="hpc-and-ml.html">Parallel Computing &amp; Machine Learning</a> — scaling MD and Monte Carlo across cores and GPUs.</li>
+  <li><a href="../statistical-mechanics/">Statistical Mechanics</a>: ensembles, partition functions, and the physics that MC and MD sample.</li>
+  <li><a href="../statistical-mechanics/phase-transitions-and-advanced.html">Phase Transitions and Advanced Topics</a>: the Onsager solution and critical exponents used above as benchmarks.</li>
+  <li><a href="quantum-methods.html">Quantum Computational Methods</a>: DFT, whose forces drive <em>ab initio</em> MD.</li>
+  <li><a href="ml-for-physics.html">Machine Learning for Physics</a>: ML interatomic potentials and neural-network wavefunctions.</li>
+  <li><a href="hpc-and-ml.html">Parallel &amp; High-Performance Computing</a>: scaling MD and Monte Carlo across cores and GPUs.</li>
 </ul>
 
       </section>

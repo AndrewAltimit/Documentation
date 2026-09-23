@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Provable security, one-way functions, hardness assumptions, encryption security notions, KEMs, the random-oracle model, zero knowledge, and the post-quantum ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Cryptography: Foundations & Post-Quantum">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Provable security, one-way functions, hardness assumptions, encryption security notions, KEMs, the random-oracle model, zero knowledge, and the post-quantum ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/advanced/cryptography/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Cryptography: Foundations & Post-Quantum">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Provable security, one-way functions, hardness assumptions, encryption security notions, KEMs, the random-oracle model, zero knowledge, and the post-quantum ...">
 
 <title>Cryptography: Foundations & Post-Quantum | Andrews Notebook</title>
 
@@ -3136,372 +3136,457 @@ document.addEventListener('DOMContentLoaded', function () {
 <p><a href="../">Advanced Topics</a> » Cryptography: Foundations &amp; Post-Quantum</p>
 
 <div class="advanced-note">
-  <p><strong>Graduate-level research page.</strong> This is a rigorous, definition-and-reduction-oriented treatment of modern cryptography aimed at theoretical computer scientists, security researchers, and mathematicians. <strong>Prerequisites:</strong> probability theory, computational complexity (P/NP, polynomial-time reductions), number theory, and basic linear algebra over finite fields and lattices. For an applied, hands-on introduction to TLS, hashing, and key management instead, see <a href="../../technology/cybersecurity/cryptography.html">Applied Cryptography</a> and the <a href="../../technology/cybersecurity/">Cybersecurity Hub</a>.</p>
+  <p><strong>Graduate-level research page.</strong> A definition-and-reduction treatment of modern cryptography for theoretical computer scientists, security researchers, and mathematicians. <strong>Prerequisites:</strong> probability, computational complexity (P/NP, polynomial-time reductions), elementary number theory, and linear algebra over finite fields. For TLS, hashing, and key management in practice, see <a href="../../technology/cybersecurity/cryptography.html">Applied Cryptography</a> and the <a href="../../technology/cybersecurity/">Cybersecurity Hub</a>.</p>
 </div>
 
-<p>Cryptography earns its trust not from secrecy of design but from <em>proofs</em>. Modern provable security follows one template: assume a single, well-studied computational problem is hard, then show by an explicit <strong>reduction</strong> that any efficient adversary who breaks your scheme could be reorganized into an efficient algorithm that solves that hard problem. The security of nearly everything you use online ultimately rests on a small handful of such assumptions — and the looming arrival of quantum computers threatens exactly two of them (factoring and discrete log), which is why the field is now migrating to lattice-, code-, hash-, and isogeny-based replacements.</p>
+<p>Modern cryptography earns trust from <strong>proofs</strong>, not from secrecy of design. The template is always the same: assume that one well-studied computational problem is hard, then give an explicit <strong>reduction</strong> showing that any efficient adversary against the scheme can be turned into an efficient solver for that problem. This page develops that framework (negligible functions, games, hybrids), the primitives it builds on (one-way functions, PRGs, PRFs), the structured assumptions behind public-key cryptography (factoring, discrete log, lattices), the standard security notions for encryption and key encapsulation, the random-oracle model, and zero-knowledge proofs. It closes with post-quantum cryptography: the quantum threat to factoring and discrete log, the NIST standards (FIPS 203–205, with FN-DSA and HQC to follow), and the state of deployment in 2026.</p>
+
+<h2 id="contents">Contents</h2>
 
 <ul>
-  <li><strong>Security is a reduction.</strong> “Scheme S is secure” means: break S efficiently and you have efficiently solved problem P. The contrapositive — P is hard, so S is secure — is the entire game.</li>
-  <li><strong>Hardness is an assumption.</strong> We cannot prove factoring or LWE are hard (that would settle P vs NP-style questions). We assume it, having failed to break it for decades, and build on top.</li>
-  <li><strong>Knowledge can be proven without revealing it.</strong> Zero-knowledge proofs let a prover convince a verifier that a statement is true while leaking nothing beyond its truth.</li>
-  <li><strong>Quantum breaks two pillars.</strong> Shor’s algorithm demolishes factoring and discrete log in polynomial time. Lattices, codes, hashes, and isogenies are the candidate replacements NIST is standardizing.</li>
+  <li><a href="#the-logical-structure">The logical structure</a></li>
+  <li><a href="#provable-security-and-reductions">Provable security and reductions</a></li>
+  <li><a href="#one-way-functions">One-way functions</a></li>
+  <li><a href="#computational-hardness-assumptions">Computational hardness assumptions</a></li>
+  <li><a href="#prgs-prfs-and-symmetric-encryption">PRGs, PRFs, and symmetric encryption</a></li>
+  <li><a href="#security-notions-for-encryption">Security notions for encryption</a></li>
+  <li><a href="#key-encapsulation-and-hybrid-encryption">Key encapsulation and hybrid encryption</a></li>
+  <li><a href="#the-random-oracle-model">The random-oracle model</a></li>
+  <li><a href="#zero-knowledge-proofs">Zero-knowledge proofs</a></li>
+  <li><a href="#post-quantum-cryptography">Post-quantum cryptography</a></li>
+  <li><a href="#open-problems-and-frontiers">Open problems and frontiers</a></li>
+  <li><a href="#references">References</a></li>
 </ul>
 
-<h3 id="the-logical-spine">The Logical Spine</h3>
+<h2 id="the-logical-structure">The logical structure</h2>
 
-<p>Provable security is built bottom-up. A single primitive — the <strong>one-way function</strong> — is the minimal assumption from which the entire symmetric world (PRGs, PRFs, signatures from hashes) can be constructed. Richer public-key objects need <em>structured</em> hardness (factoring, discrete log, LWE). The diagram shows what is built from what.</p>
+<p>A single primitive, the <strong>one-way function</strong>, suffices for the whole symmetric world: pseudorandom generators, pseudorandom functions, MACs, commitments, and even digital signatures. Public-key encryption and key exchange need more — a <em>trapdoor</em> or algebraic structure — so they rest on specific problems such as factoring, discrete logarithms, or Learning With Errors. Shor’s algorithm breaks the first two on a large quantum computer; the post-quantum replacements rest on lattices, codes, and hash functions.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    OWF["One-way function (OWF)&lt;br/&gt;minimal assumption"] --&gt; PRG["Pseudorandom generator (PRG)"]
-    PRG --&gt; PRF["Pseudorandom function (PRF)"]
-    PRF --&gt; SKE["Symmetric encryption&lt;br/&gt;+ MACs"]
-    OWF --&gt; SIG["Hash-based signatures"]
-    FACT["Factoring / RSA"] --&gt; PKE1["RSA encryption &amp; signatures"]
-    DLOG["Discrete log / DDH"] --&gt; PKE2["Diffie-Hellman, ElGamal, DSA"]
-    LWE["LWE / lattices"] --&gt; PKE3["Kyber, Dilithium (PQC)"]
-    CODE["Decoding random codes"] --&gt; PKE4["McEliece (PQC)"]
-    ISO["Isogeny walks"] --&gt; PKE5["Isogeny KEMs (PQC)"]
-    PKE2 -. "broken by Shor" .-&gt; Q["Quantum adversary"]
-    PKE1 -. "broken by Shor" .-&gt; Q
+    OWF["One-way function&lt;br/&gt;(minimal assumption)"] --&gt; PRG["Pseudorandom generator"]
+    PRG --&gt; PRF["Pseudorandom function"]
+    PRF --&gt; SKE["Symmetric encryption, MACs,&lt;br/&gt;authenticated encryption"]
+    OWF --&gt; COM["Commitments, ZK for NP"]
+    OWF --&gt; HSIG["Signatures&lt;br/&gt;(Rompel, hash-based)"]
+    FACT["Factoring / RSA"] --&gt; PK1["RSA-OAEP, RSA-PSS"]
+    DLOG["Discrete log / DDH"] --&gt; PK2["Diffie-Hellman, ECDSA, EdDSA"]
+    LWE["Module-LWE / SIS"] --&gt; PK3["ML-KEM, ML-DSA"]
+    CODE["Decoding random codes"] --&gt; PK4["HQC, Classic McEliece"]
+    HASH["Hash function security"] --&gt; PK5["SLH-DSA, XMSS, LMS"]
+    PK1 -. "broken by Shor" .-&gt; Q["Quantum adversary"]
+    PK2 -. "broken by Shor" .-&gt; Q
 </code></pre>
 
-<h2 id="table-of-contents">Table of Contents</h2>
-<ul>
-  <li><a href="#provable-security-and-reductions">Provable Security and Reductions</a></li>
-  <li><a href="#one-way-functions">One-Way Functions</a></li>
-  <li><a href="#computational-hardness-assumptions">Computational Hardness Assumptions</a></li>
-  <li><a href="#prgs-prfs-and-the-symmetric-world">PRGs, PRFs, and the Symmetric World</a></li>
-  <li><a href="#semantic-security">Semantic Security</a></li>
-  <li><a href="#the-random-oracle-model">The Random-Oracle Model</a></li>
-  <li><a href="#zero-knowledge-proofs">Zero-Knowledge Proofs</a></li>
-  <li><a href="#post-quantum-cryptography">Post-Quantum Cryptography</a></li>
-  <li><a href="#open-problems-and-frontiers">Open Problems and Frontiers</a></li>
-</ul>
+<h2 id="provable-security-and-reductions">Provable security and reductions</h2>
 
-<h2 id="provable-security-and-reductions">Provable Security and Reductions</h2>
+<p>Pre-1980s ciphers were broken repeatedly because nobody had said precisely what “secure” meant. Goldwasser and Micali’s program replaced this with three ingredients: a <strong>formal definition</strong> (usually a game between a challenger and an adversary), a <strong>precise assumption</strong>, and a <strong>proof by reduction</strong> from the assumption to the definition.</p>
 
-<p>Classical cryptography (“security through obscurity”) was broken repeatedly precisely because it had no definitions. Modern cryptography rests on three pillars introduced by Goldwasser and Micali: <strong>formal definitions</strong> of security, <strong>precise assumptions</strong>, and <strong>proofs by reduction</strong>.</p>
+<h3 id="asymptotic-and-concrete-security">Asymptotic and concrete security</h3>
 
-<h3 id="the-asymptotic-framework">The Asymptotic Framework</h3>
-
-<p>We measure everything against a <strong>security parameter</strong> $n$ (often the key length). “Efficient” means <strong>probabilistic polynomial-time (PPT)</strong>: running time polynomial in $n$. “Negligible” means smaller than any inverse polynomial.</p>
+<p>Everything is parameterized by a <strong>security parameter</strong> $n$. “Efficient” means <strong>probabilistic polynomial time (PPT)</strong> in $n$; “negligible” means eventually smaller than every inverse polynomial.</p>
 
 <div class="theory-card">
-  <h4 id="definition-negligible-function">Definition (Negligible Function)</h4>
-  <p>A function $\mu : \mathbb{N} \to \mathbb{R}^{+}$ is <strong>negligible</strong> if for every positive polynomial $p$ there exists $N$ such that for all $n &gt; N$,</p>
+  <h4 id="definition-negligible-function">Definition (negligible function)</h4>
+  <p>A function $\mu : \mathbb{N} \to \mathbb{R}_{\ge 0}$ is <strong>negligible</strong> if for every polynomial $p$ there is an $N$ such that for all $n &gt; N$,</p>
 
 \[\mu(n) &lt; \frac{1}{p(n)}.\]
 
-  <p>Equivalently, $\mu(n) = n^{-\omega(1)}$. Examples: $2^{-n}$ and $n^{-\log n}$ are negligible; $n^{-100}$ is not.</p>
+  <p>Equivalently $\mu(n) = n^{-\omega(1)}$. Both $2^{-n}$ and $n^{-\log n}$ are negligible; $n^{-100}$ is not.</p>
 </div>
 
-<p>A scheme is <strong>secure</strong> if every PPT adversary succeeds with at most negligible advantage over trivial guessing. Negligibility is closed under multiplication by polynomials and under polynomial summation, which is exactly what makes hybrid arguments (below) go through.</p>
+<p>A scheme is secure if every PPT adversary has negligible <strong>advantage</strong> in its security game. Negligible functions are closed under addition and under multiplication by polynomials, which is exactly what lets polynomially many proof steps be chained together.</p>
 
-<h3 id="what-a-reduction-is">What a Reduction Is</h3>
+<p>Practitioners use the <strong>concrete</strong> version: a scheme is $(t, \varepsilon)$-secure if no adversary running in time at most $t$ has advantage greater than $\varepsilon$. A “128-bit secure” scheme is one for which $t/\varepsilon \gtrsim 2^{128}$ for every known attack. Concrete statements make the cost of a reduction visible, which the asymptotic view hides.</p>
 
-<p>A security proof is a <strong>reduction</strong>: an explicit, efficient transformation $R$ that turns any adversary $\mathcal{A}$ breaking scheme $S$ into an algorithm $R^{\mathcal{A}}$ solving an assumed-hard problem $P$.</p>
+<h3 id="what-a-reduction-is">What a reduction is</h3>
 
 <div class="principle-card">
-  <h4 id="the-reductionist-method">The Reductionist Method</h4>
-  <p>To prove “$S$ is secure assuming $P$ is hard”:</p>
+  <h4 id="the-reductionist-method">The reductionist method</h4>
+  <p>To prove “scheme $S$ is secure if problem $P$ is hard”:</p>
   <ol>
-    <li><strong>Assume</strong> a PPT $\mathcal{A}$ breaks $S$ with non-negligible advantage $\varepsilon(n)$.</li>
-    <li><strong>Construct</strong> a PPT reduction $R$ that, given an instance of $P$, runs $\mathcal{A}$ as a subroutine (simulating $\mathcal{A}$’s expected environment) and uses $\mathcal{A}$’s output to solve $P$.</li>
-    <li><strong>Conclude</strong> $R$ solves $P$ with probability related to $\varepsilon(n)$ — non-negligible — contradicting the hardness of $P$.</li>
+    <li>Suppose a PPT adversary $\mathcal{A}$ breaks $S$ with non-negligible advantage $\varepsilon(n)$.</li>
+    <li>Build a PPT algorithm $R^{\mathcal{A}}$ that, given an instance of $P$, <strong>simulates</strong> the security game for $\mathcal{A}$ with the instance embedded in it, and uses $\mathcal{A}$’s output to solve the instance.</li>
+    <li>Show $R^{\mathcal{A}}$ succeeds with non-negligible probability, contradicting the hardness of $P$.</li>
   </ol>
-
-  <p>The logic is contrapositive: hard $P \Rightarrow$ no such $\mathcal{A} \Rightarrow$ $S$ is secure.</p>
 </div>
 
-<p>Reductions have a <strong>tightness</strong>. If $R$ solves $P$ with advantage $\varepsilon$ and runs in time $t$, but the proof only guarantees $\varepsilon_P \approx \varepsilon^2 / q$ for $q$ oracle queries, the reduction is <strong>loose</strong> and forces larger key sizes to compensate. Tight reductions ($\varepsilon_P \approx \varepsilon$ with comparable running time) are prized.</p>
+<p>The quality of a reduction is its <strong>tightness</strong>. If $\mathcal{A}$ runs in time $t$ with advantage $\varepsilon$ and $R^{\mathcal{A}}$ runs in time $t’ \approx t$ with advantage $\varepsilon’ \approx \varepsilon$, the reduction is tight. If instead $\varepsilon’ \approx \varepsilon^2/q$ (typical of forking-lemma proofs, with $q$ the number of hash queries), the guarantee degrades and parameters must be enlarged to compensate — or, as is common in practice, the looseness is quietly ignored.</p>
 
-<h3 id="the-hybrid-argument">The Hybrid Argument</h3>
+<h3 id="the-hybrid-argument">The hybrid argument</h3>
 
-<p>The workhorse proof technique. To show two distributions $D_0$ and $D_k$ are computationally indistinguishable, interpolate a sequence of <strong>hybrids</strong> $D_0, D_1, \dots, D_k$ where consecutive hybrids differ in one small step.</p>
+<p>The standard technique for proving two distributions indistinguishable is to walk between them through a sequence of <strong>hybrids</strong>, each differing from the next in one small, separately justified step.</p>
 
 <div class="postulate-card">
-  <h4 id="lemma-hybrid-argument">Lemma (Hybrid Argument)</h4>
-  <p>If $D_0$ and $D_k$ are distinguished with advantage $\varepsilon$, then some adjacent pair $(D_{i}, D_{i+1})$ is distinguished with advantage at least $\varepsilon / k$.</p>
+  <h4 id="lemma-hybrid-argument">Lemma (hybrid argument)</h4>
+  <p>If a distinguisher tells $D_0$ from $D_k$ with advantage $\varepsilon$, it tells some adjacent pair $D_i, D_{i+1}$ apart with advantage at least $\varepsilon/k$.</p>
 
-  <p><strong>Proof.</strong> Let $p_i = \Pr[\text{distinguisher outputs } 1 \mid D_i]$. Then</p>
+  <p><strong>Proof.</strong> Let $p_i = \Pr[\text{distinguisher outputs } 1 \text{ on } D_i]$. Then</p>
 
-\[\varepsilon = |p_0 - p_k| = \left| \sum_{i=0}^{k-1} (p_i - p_{i+1}) \right| \le \sum_{i=0}^{k-1} |p_i - p_{i+1}|.\]
+\[\varepsilon = |p_0 - p_k| = \left| \sum_{i=0}^{k-1} (p_i - p_{i+1}) \right| \le \sum_{i=0}^{k-1} |p_i - p_{i+1}|,\]
 
-  <p>By averaging, some term is at least $\varepsilon/k$. When $k$ is polynomial and each step relies on a negligible-advantage assumption, the total advantage stays negligible. $\square$</p>
+  <p>so some term is at least $\varepsilon/k$. With $k$ polynomial and each adjacent pair indistinguishable, $\varepsilon$ is negligible. $\square$</p>
 </div>
 
-<h2 id="one-way-functions">One-Way Functions</h2>
+<p>Modern proofs are usually written as a <strong>sequence of games</strong> (Shoup; Bellare–Rogaway): Game 0 is the real security experiment, each subsequent game changes one thing, and the final game is one in which the adversary provably has advantage zero. The total advantage is bounded by the sum of the per-step differences.</p>
 
-<p>The one-way function (OWF) is the <strong>minimal</strong> cryptographic primitive: its existence is equivalent to the existence of essentially all of symmetric cryptography (PRGs, PRFs, MACs, commitment schemes, digital signatures from hashing). Whether OWFs exist is open — their existence would imply $\mathrm{P} \ne \mathrm{NP}$.</p>
+<h2 id="one-way-functions">One-way functions</h2>
+
+<p>The one-way function (OWF) is the <strong>minimal</strong> assumption of complexity-based cryptography: almost every cryptographic primitive implies a OWF, and OWFs in turn imply PRGs, PRFs, MACs, commitments, private-key encryption, and signatures (Rompel, 1990). Whether OWFs exist is open; their existence implies $\mathrm{P} \ne \mathrm{NP}$, though the converse is not known.</p>
 
 <div class="theory-card">
-  <h4 id="definition-one-way-function">Definition (One-Way Function)</h4>
-  <p>A function $f : {0,1}^{<em>} \to {0,1}^{</em>}$ is <strong>one-way</strong> if:</p>
-  <ol>
-    <li><strong>Easy to compute:</strong> there is a PPT algorithm evaluating $f(x)$ for all $x$.</li>
-    <li><strong>Hard to invert:</strong> for every PPT adversary $\mathcal{A}$,</li>
-  </ol>
+  <h4 id="definition-one-way-function">Definition (one-way function)</h4>
+  <p>A function $f : \lbrace 0,1\rbrace ^{<em>} \to \lbrace 0,1\rbrace ^{</em>}$ is <strong>one-way</strong> if it is computable in polynomial time and for every PPT adversary $\mathcal{A}$,</p>
 
-  <p>\(\Pr_{x \leftarrow \{0,1\}^{n}}\!\left[\, f\!\left(\mathcal{A}(1^{n}, f(x))\right) = f(x) \,\right] \le \mathrm{negl}(n).\)</p>
+  <p>\(\Pr_{x \leftarrow \{0,1\}^{n}}\left[\, f\left(\mathcal{A}(1^{n}, f(x))\right) = f(x) \,\right] \le \mathrm{negl}(n).\)</p>
 </div>
 
-<p>Note the adversary need only find <em>some</em> preimage, not $x$ itself; and it is handed $1^n$ so that “polynomial time” is measured in the <em>input</em> length, ruling out the trivial attack of writing out the (exponential) inversion table.</p>
+<p>The adversary only has to find <em>some</em> preimage, not $x$ itself. It receives $1^n$ so that its running time is measured against the input length $n$ even when $f$ shrinks its input.</p>
 
-<h3 id="one-way-permutations-and-hardcore-bits">One-Way Permutations and Hardcore Bits</h3>
+<h3 id="hardcore-predicates-and-goldreichlevin">Hardcore predicates and Goldreich–Levin</h3>
 
-<p>A <strong>one-way permutation</strong> is a length-preserving one-way bijection. Even a OWP can leak partial information about $x$; what we need for pseudorandomness is a <strong>hardcore predicate</strong> — a single bit of $x$ that is as hard to predict as inverting $f$ entirely.</p>
+<p>A OWF may leak a lot about $x$ (for example, half its bits). Pseudorandomness needs a <strong>hardcore predicate</strong>: one bit of $x$ that is as hard to guess from $f(x)$ as inverting $f$.</p>
 
 <div class="postulate-card">
-  <h4 id="goldreich-levin-theorem">Goldreich-Levin Theorem</h4>
-  <p>For any one-way function $f$, the function $f’(x, r) = (f(x), r)$ (with $|r| = |x|$) has a hardcore predicate</p>
+  <h4 id="goldreichlevin-theorem-1989">Goldreich–Levin theorem (1989)</h4>
+  <p>For any one-way $f$, define $g(x, r) = (f(x), r)$ with $|r| = |x|$. Then</p>
 
-\[\mathrm{hc}(x, r) = \langle x, r \rangle = \bigoplus_{i} x_i r_i \pmod 2,\]
+\[\mathrm{hc}(x, r) = \langle x, r \rangle = \bigoplus_{i} x_i r_i\]
 
-  <p>the inner product mod 2. No PPT adversary predicts $\langle x, r \rangle$ from $(f(x), r)$ with advantage non-negligibly better than $1/2$.</p>
+  <p>is a hardcore predicate for $g$: no PPT adversary predicts it from $(f(x), r)$ with probability non-negligibly better than $1/2$.</p>
 </div>
 
-<p>The proof is a beautiful list-decoding argument: an adversary predicting the inner product better than chance is converted, via the Goldreich-Levin (Hadamard) decoding algorithm, into an inverter for $f$. The hardcore bit is the bridge from “hard to invert” to “looks random,” which is exactly what a PRG needs.</p>
+<p>The proof is a list-decoding argument for the Hadamard code: a predictor for $\langle x, r \rangle$ that beats $1/2$ by $\varepsilon$ is converted into an inverter that recovers $x$ with probability polynomial in $\varepsilon$. This is the bridge from “hard to invert” to “looks random.”</p>
 
-<h3 id="candidate-one-way-functions">Candidate One-Way Functions</h3>
+<h3 id="candidate-one-way-functions">Candidate one-way functions</h3>
 
 <table>
   <thead>
     <tr>
       <th>Candidate</th>
       <th>Forward direction</th>
-      <th>Hard inverse problem</th>
+      <th>Inverting it means solving</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Multiplication</td>
-      <td>$f(p,q) = pq$ for primes $p,q$</td>
+      <td>$(p, q) \mapsto pq$ for random primes</td>
       <td>Integer factoring</td>
     </tr>
     <tr>
       <td>Modular exponentiation</td>
-      <td>$f(x) = g^x \bmod p$</td>
+      <td>$x \mapsto g^x \bmod p$</td>
       <td>Discrete logarithm</td>
     </tr>
     <tr>
-      <td>Subset sum</td>
-      <td>$f(S) = \sum_{i \in S} a_i$</td>
-      <td>Subset-sum / knapsack</td>
-    </tr>
-    <tr>
       <td>Rabin</td>
-      <td>$f(x) = x^2 \bmod N$</td>
-      <td>Square roots mod composite $N$</td>
+      <td>$x \mapsto x^2 \bmod N$</td>
+      <td>Factoring $N$ (equivalent)</td>
     </tr>
     <tr>
-      <td>Lattice (Ajtai)</td>
-      <td>$f_A(x) = A x \bmod q$, short $x$</td>
+      <td>Subset sum</td>
+      <td>$S \mapsto \sum_{i \in S} a_i \bmod 2^n$</td>
+      <td>Random subset sum</td>
+    </tr>
+    <tr>
+      <td>Ajtai</td>
+      <td>$\mathbf{x} \mapsto A\mathbf{x} \bmod q$ for short $\mathbf{x}$</td>
       <td>Short Integer Solution (SIS)</td>
+    </tr>
+    <tr>
+      <td>Block cipher / hash</td>
+      <td>$k \mapsto \mathrm{AES}_k(0)$, $x \mapsto H(x)$</td>
+      <td>Heuristic: no reduction, decades of cryptanalysis</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="computational-hardness-assumptions">Computational Hardness Assumptions</h2>
+<h2 id="computational-hardness-assumptions">Computational hardness assumptions</h2>
 
-<p>Public-key cryptography needs more than a generic OWF — it needs <em>structured</em> hardness with trapdoors and algebraic homomorphisms. Three families dominate.</p>
+<p>Public-key cryptography needs structured hardness: a trapdoor (RSA), a homomorphism (Diffie–Hellman), or noisy linear algebra (LWE). Each assumption has a best known classical attack, and those attacks set key sizes.</p>
 
-<h3 id="factoring-and-the-rsa-assumption">Factoring and the RSA Assumption</h3>
+<h3 id="factoring-and-rsa">Factoring and RSA</h3>
 
 <div class="theory-card">
-  <h4 id="factoring-assumption">Factoring Assumption</h4>
-  <p>For $N = pq$ a product of two random $n/2$-bit primes, no PPT algorithm outputs ${p, q}$ given $N$ with non-negligible probability.</p>
+  <h4 id="factoring-assumption">Factoring assumption</h4>
+  <p>For $N = pq$ with $p, q$ random $n/2$-bit primes, no PPT algorithm outputs $\lbrace p, q\rbrace $ from $N$ with non-negligible probability.</p>
 
-  <h4 id="rsa-assumption">RSA Assumption</h4>
-  <p>Given $(N, e)$ with $\gcd(e, \varphi(N)) = 1$ and a random $y \in \mathbb{Z}_N^{*}$, no PPT algorithm finds $x$ with $x^e \equiv y \pmod N$ with non-negligible probability.</p>
+  <h4 id="rsa-assumption">RSA assumption</h4>
+  <p>Given $(N, e)$ with $\gcd(e, \varphi(N)) = 1$ and uniform $y \in \mathbb{Z}_N^{*}$, no PPT algorithm finds $x$ with $x^e \equiv y \pmod N$ with non-negligible probability.</p>
 </div>
 
-<p>RSA inverts modular exponentiation; the trapdoor is the private exponent $d = e^{-1} \bmod \varphi(N)$, computable only by whoever knows $\varphi(N) = (p-1)(q-1)$. Best known classical attack is the <strong>General Number Field Sieve</strong>, with sub-exponential complexity</p>
+<p>The trapdoor is $d = e^{-1} \bmod \varphi(N)$, computable from $\varphi(N) = (p-1)(q-1)$. RSA hardness implies factoring hardness is not known to be reversible: breaking RSA might be easier than factoring. The best classical attack is the <strong>General Number Field Sieve</strong>, with heuristic running time</p>
 
-\[L_N\!\left[\tfrac{1}{3},\, \left(\tfrac{64}{9}\right)^{1/3}\right] = \exp\!\left( c\, (\ln N)^{1/3} (\ln \ln N)^{2/3} \right).\]
+\[L_N\left[\tfrac{1}{3}, c\right] = \exp\left( (c + o(1)) (\ln N)^{1/3} (\ln \ln N)^{2/3} \right), \qquad c = \left(\tfrac{64}{9}\right)^{1/3} \approx 1.923.\]
 
-<p>This is why RSA keys must be $\geq 2048$ bits while symmetric keys need only $128$.</p>
+<p>This sub-exponential curve is why RSA moduli are so much longer than symmetric keys: 2048-bit RSA gives about 112-bit security and 3072-bit about 128-bit.</p>
 
-<h3 id="the-discrete-logarithm-family">The Discrete Logarithm Family</h3>
+<h3 id="the-discrete-logarithm-family">The discrete-logarithm family</h3>
 
-<p>Let $\mathbb{G}$ be a cyclic group of prime order $q$ with generator $g$ (e.g., a subgroup of $\mathbb{Z}_p^{*}$ or an elliptic-curve group).</p>
+<p>Let $\mathbb{G} = \langle g \rangle$ be cyclic of prime order $q$, such as a subgroup of $\mathbb{Z}_p^{*}$ or an elliptic-curve group.</p>
 
 <div class="theory-card">
-  <h4 id="discrete-log-dl">Discrete Log (DL)</h4>
-  <p>Given $h = g^x$, find $x$.</p>
+  <h4 id="discrete-log-dl">Discrete log (DL)</h4>
+  <p>Given $h = g^x$ for uniform $x \in \mathbb{Z}_q$, find $x$.</p>
 
-  <h4 id="computational-diffie-hellman-cdh">Computational Diffie-Hellman (CDH)</h4>
+  <h4 id="computational-diffiehellman-cdh">Computational Diffie–Hellman (CDH)</h4>
   <p>Given $(g^a, g^b)$, compute $g^{ab}$.</p>
 
-  <h4 id="decisional-diffie-hellman-ddh">Decisional Diffie-Hellman (DDH)</h4>
-  <p>Distinguish $(g^a, g^b, g^{ab})$ from $(g^a, g^b, g^c)$ for random $c$ with only negligible advantage.</p>
+  <h4 id="decisional-diffiehellman-ddh">Decisional Diffie–Hellman (DDH)</h4>
+  <p>Distinguish $(g^a, g^b, g^{ab})$ from $(g^a, g^b, g^c)$ for uniform $c$.</p>
 </div>
 
-<p>These form a hierarchy: $\text{DL hard} \Leftarrow \text{CDH hard} \Leftarrow \text{DDH hard}$ (DDH is the strongest assumption). DDH underpins ElGamal’s semantic security. On well-chosen elliptic curves no sub-exponential attack is known, so the generic $O(\sqrt{q})$ algorithms (baby-step giant-step, Pollard’s rho) set the bar — giving 256-bit curves about 128-bit security.</p>
+<p>Solving DL solves CDH, and solving CDH solves DDH, so the assumptions strengthen in the order DL, CDH, DDH. DDH is false in some groups where DL is believed hard (e.g. groups with an efficient pairing), which is why the choice of group matters. On well-chosen elliptic curves no attack better than the generic $O(\sqrt{q})$ algorithms (Pollard’s rho, baby-step giant-step) is known; a 256-bit curve therefore gives about 128-bit security.</p>
 
-<h3 id="lattice-assumptions-sis-and-lwe">Lattice Assumptions: SIS and LWE</h3>
+<h3 id="lattices-lwe-and-sis">Lattices: LWE and SIS</h3>
 
-<p>Lattices give the leading <em>post-quantum</em> assumptions because (a) no efficient quantum algorithm is known and (b) they enjoy worst-case-to-average-case reductions: breaking the average random instance is as hard as the worst case of a lattice problem.</p>
-
-<p>A <strong>lattice</strong> $\Lambda = { \sum_i z_i \mathbf{b}_i : z_i \in \mathbb{Z} }$ is the set of integer combinations of basis vectors $\mathbf{b}_i \in \mathbb{R}^m$. The core hard problems are the <strong>Shortest Vector Problem (SVP)</strong> and its approximate/decision variants (GapSVP, SIVP).</p>
+<p>A <strong>lattice</strong> $\Lambda = \lbrace  \sum_i z_i \mathbf{b}_i : z_i \in \mathbb{Z} \rbrace $ is the set of integer combinations of linearly independent basis vectors $\mathbf{b}_i \in \mathbb{R}^m$. The underlying hard problems are approximate versions of the <strong>Shortest Vector Problem</strong> (GapSVP) and the <strong>Shortest Independent Vectors Problem</strong> (SIVP). Lattices lead post-quantum cryptography because no quantum algorithm beats classical ones on them by more than polynomial factors, and because they admit worst-case to average-case reductions.</p>
 
 <div class="theory-card">
-  <h4 id="learning-with-errors-lwe">Learning With Errors (LWE)</h4>
-  <p>Fix dimension $n$, modulus $q$, and an error distribution $\chi$ (typically a discrete Gaussian of small width). The secret is $\mathbf{s} \in \mathbb{Z}_q^{n}$. <strong>Samples</strong> are pairs</p>
+  <h4 id="learning-with-errors-regev-2005">Learning With Errors (Regev, 2005)</h4>
+  <p>Fix dimension $n$, modulus $q$, and a narrow error distribution $\chi$ over $\mathbb{Z}$ (e.g. a discrete Gaussian of width $\alpha q$). For a secret $\mathbf{s} \in \mathbb{Z}_q^{n}$, an LWE sample is</p>
 
-\[(\mathbf{a}_i,\ b_i) = \left(\mathbf{a}_i,\ \langle \mathbf{a}_i, \mathbf{s} \rangle + e_i \bmod q\right), \qquad \mathbf{a}_i \leftarrow \mathbb{Z}_q^{n},\ e_i \leftarrow \chi.\]
+\[(\mathbf{a},\ b) = \left(\mathbf{a},\ \langle \mathbf{a}, \mathbf{s} \rangle + e \bmod q\right), \qquad \mathbf{a} \leftarrow \mathbb{Z}_q^{n},\ e \leftarrow \chi.\]
 
   <ul>
     <li><strong>Search-LWE:</strong> recover $\mathbf{s}$ from polynomially many samples.</li>
-    <li><strong>Decision-LWE:</strong> distinguish ${(\mathbf{a}_i, b_i)}$ from uniform pairs in $\mathbb{Z}_q^{n} \times \mathbb{Z}_q$ with only negligible advantage.</li>
+    <li><strong>Decision-LWE:</strong> distinguish $(A,\ A\mathbf{s} + \mathbf{e})$ from $(A,\ \mathbf{u})$ with $\mathbf{u}$ uniform in $\mathbb{Z}_q^{m}$.</li>
   </ul>
 </div>
 
-<p>Without the error term, $\mathbf{s}$ is recovered instantly by Gaussian elimination; the small noise $e_i$ is what destroys the linear structure and makes the problem hard. Writing the samples in matrix form, distinguish</p>
-
-\[(A,\ A\mathbf{s} + \mathbf{e}) \quad \text{from} \quad (A,\ \mathbf{u}),\qquad \mathbf{u} \leftarrow \mathbb{Z}_q^{m}.\]
+<p>Without $\mathbf{e}$, Gaussian elimination recovers $\mathbf{s}$ immediately; the small noise is what makes the problem hard.</p>
 
 <div class="postulate-card">
-  <h4 id="regevs-reduction-worst-case-to-average-case">Regev’s Reduction (worst-case to average-case)</h4>
-  <p>If there is an efficient algorithm solving decision-LWE on the <em>average</em> (random $A$, $\mathbf{s}$), then there is an efficient <em>quantum</em> algorithm solving the <em>worst case</em> of GapSVP and SIVP to within $\tilde{O}(n/\alpha)$ factors, where $\alpha$ is the relative noise width.</p>
+  <h4 id="regevs-worst-case-to-average-case-reduction">Regev’s worst-case to average-case reduction</h4>
+  <p>If some efficient algorithm solves decision-LWE for random instances, then there is an efficient <strong>quantum</strong> algorithm for GapSVP and SIVP on <strong>every</strong> $n$-dimensional lattice within approximation factor $\tilde{O}(n/\alpha)$. Peikert (2009) and Brakerski–Langlois–Peikert–Regev–Stehlé (2013) made the reduction classical for GapSVP.</p>
 </div>
 
-<p>This worst-case guarantee is what gives LWE-based schemes their unusual confidence: you need not hope a <em>random</em> instance is hard, only that <em>some</em> lattice instance is. The dual assumption, <strong>SIS</strong> (Short Integer Solution) — find short nonzero $\mathbf{z}$ with $A\mathbf{z} = 0 \bmod q$ — supports signatures and is also worst-case hard. Practical schemes use the algebraically structured <strong>Ring-LWE / Module-LWE</strong> variants for efficiency, trading some of the worst-case generality for much smaller keys.</p>
+<p>The dual problem <strong>SIS</strong> — find a short nonzero $\mathbf{z}$ with $A\mathbf{z} \equiv \mathbf{0} \pmod q$ — is also worst-case hard (Ajtai, 1996) and underlies lattice signatures. Deployed schemes use <strong>Module-LWE / Module-SIS</strong>, where $A$ is a small matrix over the polynomial ring $\mathbb{Z}_q[X]/(X^{256} + 1)$. The structure shrinks keys by roughly a factor of the ring degree; its reductions are to worst-case problems on module lattices, a narrower class whose hardness is well studied but younger.</p>
 
-<h2 id="prgs-prfs-and-the-symmetric-world">PRGs, PRFs, and the Symmetric World</h2>
+<h3 id="security-levels">Security levels</h3>
 
-<p>From a OWF (equivalently, a hardcore bit) we bootstrap the objects that make symmetric encryption possible.</p>
+<p>NIST SP 800-57 relates classical key sizes by estimated attack cost. The PQC standards define matching <strong>categories</strong>: category 1 is as hard to break as AES-128 key search, category 3 as AES-192, category 5 as AES-256.</p>
 
-<h3 id="pseudorandom-generators">Pseudorandom Generators</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Security (bits)</th>
+      <th>Symmetric key</th>
+      <th>Hash output (collisions)</th>
+      <th>RSA / finite-field DH</th>
+      <th>Elliptic curve</th>
+      <th>PQC category</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>112</td>
+      <td>3-key 3DES (retired)</td>
+      <td>224</td>
+      <td>2048</td>
+      <td>224</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>128</td>
+      <td>AES-128</td>
+      <td>256</td>
+      <td>3072</td>
+      <td>256</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>192</td>
+      <td>AES-192</td>
+      <td>384</td>
+      <td>7680</td>
+      <td>384</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <td>256</td>
+      <td>AES-256</td>
+      <td>512</td>
+      <td>15360</td>
+      <td>512</td>
+      <td>5</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="prgs-prfs-and-symmetric-encryption">PRGs, PRFs, and symmetric encryption</h2>
+
+<h3 id="pseudorandom-generators">Pseudorandom generators</h3>
 
 <div class="theory-card">
   <h4 id="definition-prg">Definition (PRG)</h4>
-  <p>A deterministic, poly-time $G : {0,1}^{n} \to {0,1}^{\ell(n)}$ with $\ell(n) &gt; n$ is a <strong>pseudorandom generator</strong> if its output is computationally indistinguishable from uniform: for every PPT distinguisher $D$,</p>
+  <p>A deterministic polynomial-time $G : \lbrace 0,1\rbrace ^{n} \to \lbrace 0,1\rbrace ^{\ell(n)}$ with $\ell(n) &gt; n$ is a <strong>pseudorandom generator</strong> if for every PPT distinguisher $D$,</p>
 
-  <p>\(\Big| \Pr_{s \leftarrow \{0,1\}^{n}}[D(G(s)) = 1] - \Pr_{u \leftarrow \{0,1\}^{\ell(n)}}[D(u) = 1] \Big| \le \mathrm{negl}(n).\)</p>
+  <p>\(\left| \Pr_{s \leftarrow \{0,1\}^{n}}[D(G(s)) = 1] - \Pr_{u \leftarrow \{0,1\}^{\ell(n)}}[D(u) = 1] \right| \le \mathrm{negl}(n).\)</p>
 </div>
 
-<p>A PRG stretches $n$ truly random bits into $\ell(n)$ pseudorandom ones — the basis of stream ciphers and the “long random pad” needed for encryption. The <strong>HILL theorem</strong> (Håstad-Impagliazzo-Levin-Luby) proves OWFs imply PRGs; the clean special case is that a one-way permutation $f$ with hardcore bit $\mathrm{hc}$ yields the PRG $G(s) = (f(s), \mathrm{hc}(s))$, extended by iteration (the Blum-Micali construction):</p>
+<p>Håstad, Impagliazzo, Levin, and Luby (HILL, 1999) proved that any OWF yields a PRG. The special case of a one-way <em>permutation</em> $f$ with hardcore bit $\mathrm{hc}$ is short: $s \mapsto (f(s), \mathrm{hc}(s))$ stretches by one bit, and iterating gives the Blum–Micali generator</p>
 
-\[G(s) = \big(\mathrm{hc}(s),\ \mathrm{hc}(f(s)),\ \mathrm{hc}(f^2(s)),\ \dots,\ \mathrm{hc}(f^{\ell-1}(s))\big).\]
+\[G(s) = \left(\mathrm{hc}(s),\ \mathrm{hc}(f(s)),\ \mathrm{hc}(f^2(s)),\ \dots,\ \mathrm{hc}(f^{\ell-1}(s))\right).\]
 
-<h3 id="pseudorandom-functions">Pseudorandom Functions</h3>
+<h3 id="pseudorandom-functions-and-permutations">Pseudorandom functions and permutations</h3>
 
 <div class="theory-card">
   <h4 id="definition-prf">Definition (PRF)</h4>
-  <p>A keyed function $F : {0,1}^{n} \times {0,1}^{n} \to {0,1}^{n}$ is a <strong>pseudorandom function</strong> if no PPT distinguisher with <em>oracle access</em> can tell $F_k$ (random key $k$) from a truly random function $R : {0,1}^{n} \to {0,1}^{n}$:</p>
+  <p>A keyed function $F : \lbrace 0,1\rbrace ^{n} \times \lbrace 0,1\rbrace ^{n} \to \lbrace 0,1\rbrace ^{n}$ is a <strong>pseudorandom function</strong> if no PPT distinguisher with oracle access can tell $F_k$ (uniform $k$) from a uniformly random function $R$:</p>
 
-  <p>\(\Big| \Pr_{k}[D^{F_k(\cdot)} = 1] - \Pr_{R}[D^{R(\cdot)} = 1] \Big| \le \mathrm{negl}(n).\)</p>
+  <p>\(\left| \Pr_{k}[D^{F_k(\cdot)} = 1] - \Pr_{R}[D^{R(\cdot)} = 1] \right| \le \mathrm{negl}(n).\)</p>
 </div>
 
-<p>PRFs are the abstraction behind block ciphers (AES is modeled as a pseudorandom <em>permutation</em>). The <strong>GGM construction</strong> (Goldreich-Goldwasser-Micali) builds a PRF from any length-doubling PRG $G(s) = (G_0(s), G_1(s))$ via a binary tree of depth $n$: the output on input $x = x_1 x_2 \cdots x_n$ is</p>
+<p>The <strong>GGM construction</strong> (Goldreich–Goldwasser–Micali, 1986) builds a PRF from a length-doubling PRG $G(s) = (G_0(s), G_1(s))$ by walking a binary tree: on input $x = x_1 \cdots x_n$,</p>
 
-\[F_k(x) = G_{x_n}\!\big( \cdots G_{x_2}(G_{x_1}(k)) \cdots \big).\]
+\[F_k(x) = G_{x_n}\left( \cdots G_{x_2}(G_{x_1}(k)) \cdots \right).\]
 
-<p>Each bit of $x$ selects the left or right half of the PRG output, walking root-to-leaf. The security proof is a hybrid argument over the $n$ tree levels.</p>
+<p>The proof is a hybrid over the tree levels. A <strong>pseudorandom permutation</strong> is a PRF that is an efficiently invertible bijection; Luby–Rackoff (1988) showed three Feistel rounds of a PRF give a PRP and four give a <em>strong</em> PRP. Block ciphers such as AES are modeled as strong PRPs — an assumption supported by cryptanalysis, not by a reduction.</p>
 
-<h3 id="from-prf-to-encryption">From PRF to Encryption</h3>
+<h3 id="from-prfs-to-encryption-and-authentication">From PRFs to encryption and authentication</h3>
 
-<p>A PRF immediately gives <strong>CPA-secure</strong> symmetric encryption (counter mode): to encrypt $m$, pick random $r$ and send $(r,\ F_k(r) \oplus m)$. Authenticated encryption combines this with a PRF-based MAC ($\mathrm{tag} = F_{k’}(\text{ciphertext})$) under the <strong>encrypt-then-MAC</strong> composition, which provably achieves the strongest standard notion (IND-CCA / authenticated encryption).</p>
+<p>A PRF gives CPA-secure encryption directly: choose a fresh random $r$ and send $(r,\ F_k(r) \oplus m)$. Counter mode is the multi-block version, $c_i = F_k(r + i) \oplus m_i$. A PRF on variable-length inputs is also a secure MAC.</p>
 
-<h2 id="semantic-security">Semantic Security</h2>
+<p>Confidentiality alone is not enough against active attackers, so practice uses <strong>authenticated encryption (AE)</strong>. Bellare and Namprempre (2000) showed that <strong>encrypt-then-MAC</strong> with an IND-CPA cipher and a strongly unforgeable MAC is IND-CCA2 secure and has ciphertext integrity, whereas MAC-then-encrypt and encrypt-and-MAC are not generically secure. Deployed AEAD modes (AES-GCM, ChaCha20-Poly1305) are nonce-based; they are secure only if a nonce is never reused under a key, and nonce-misuse-resistant designs (AES-GCM-SIV, RFC 8452) limit the damage when that fails.</p>
 
-<p>What does it mean for encryption to “hide” a message? Goldwasser and Micali’s answer revolutionized the field: a ciphertext should leak <em>nothing</em> an adversary could not already compute without it.</p>
+<h2 id="security-notions-for-encryption">Security notions for encryption</h2>
+
+<h3 id="semantic-security-and-ind-cpa">Semantic security and IND-CPA</h3>
+
+<p>Goldwasser and Micali (1984) defined encryption security as: whatever an efficient adversary can compute about the plaintext given the ciphertext, it can compute without it (apart from the length). This <strong>semantic security</strong> is hard to use in proofs, so they also gave an equivalent game-based form.</p>
 
 <div class="theory-card">
-  <h4 id="definition-semantic-security-ind-cpa-form">Definition (Semantic Security, IND-CPA form)</h4>
-  <p>A scheme is <strong>IND-CPA secure</strong> if no PPT adversary wins the following game with advantage over $1/2$ that is more than negligible:</p>
+  <h4 id="definition-ind-cpa">Definition (IND-CPA)</h4>
   <ol>
-    <li>The challenger generates keys; the adversary may query an encryption oracle.</li>
-    <li>The adversary submits two equal-length messages $m_0, m_1$.</li>
-    <li>The challenger picks $b \leftarrow {0,1}$ and returns $c = \mathrm{Enc}(m_b)$.</li>
-    <li>The adversary (with continued oracle access) outputs a guess $b’$. It <strong>wins</strong> if $b’ = b$.</li>
+    <li>The challenger generates keys; the adversary gets the public key (or, in the symmetric setting, an encryption oracle).</li>
+    <li>The adversary submits equal-length messages $m_0, m_1$.</li>
+    <li>The challenger picks $b \leftarrow \lbrace 0,1\rbrace $ and returns $c^{*} = \mathrm{Enc}(m_b)$.</li>
+    <li>The adversary, with continued oracle access, outputs $b’$.</li>
   </ol>
 
-  <p>Advantage $= \big| \Pr[b’ = b] - \tfrac{1}{2} \big|$.</p>
+  <p>Its advantage is $\left| \Pr[b’ = b] - \tfrac{1}{2} \right|$; the scheme is IND-CPA secure if this is negligible for every PPT adversary.</p>
 </div>
 
-<p>The deep equivalence — proved by Goldwasser and Micali — is that this <em>indistinguishability</em> notion is exactly equivalent to <strong>semantic security</strong>: whatever a PPT adversary can compute about the plaintext from the ciphertext, it can compute equally well from the message length alone. Indistinguishability is easier to work with in proofs; semantic security is the intuitive guarantee.</p>
+<p>A direct consequence: <strong>encryption must be randomized</strong> (or stateful). Deterministic encryption fails IND-CPA, since the adversary can encrypt $m_0$ itself and compare with $c^{*}$.</p>
 
-<div class="principle-card">
-  <h4 id="consequence-encryption-must-be-randomized">Consequence: Encryption Must Be Randomized</h4>
-  <p>No deterministic encryption can be IND-CPA secure: an adversary submitting $m_0 \ne m_1$ simply re-encrypts $m_0$ via the oracle and compares. Hiding <em>which</em> message requires fresh randomness (an IV/nonce) on every encryption.</p>
-</div>
+<h3 id="stronger-notions">Stronger notions</h3>
 
-<p>Stronger notions handle active adversaries: <strong>IND-CCA2</strong> gives the adversary a decryption oracle for every ciphertext except the challenge, modeling padding-oracle and reaction attacks. Real protocols (TLS) target IND-CCA2 / authenticated encryption.</p>
+<p>Active attackers can submit modified ciphertexts and watch how the receiver reacts — the basis of Bleichenbacher’s 1998 attack on RSA PKCS#1 v1.5 and of CBC padding-oracle attacks. <strong>IND-CCA2</strong> models this by giving the adversary a decryption oracle for every ciphertext except $c^{*}$, before and after the challenge. It is equivalent to <strong>non-malleability</strong> under the same attack (NM-CCA2) and is the standard target for public-key encryption and KEMs.</p>
 
-<h3 id="worked-reduction-elgamal-is-ind-cpa-under-ddh">Worked Reduction: ElGamal is IND-CPA under DDH</h3>
+<pre><code class="language-mermaid">flowchart LR
+    AE["AE&lt;br/&gt;(IND-CPA + INT-CTXT)"] --&gt; CCA2["IND-CCA2&lt;br/&gt;= NM-CCA2"]
+    CCA2 --&gt; CCA1["IND-CCA1&lt;br/&gt;(decryption oracle&lt;br/&gt;before challenge only)"]
+    CCA1 --&gt; CPA["IND-CPA&lt;br/&gt;= semantic security"]
+    CPA --&gt; OW["OW-CPA&lt;br/&gt;(one-wayness)"]
+</code></pre>
 
-<p>ElGamal over a group $\mathbb{G} = \langle g \rangle$ of prime order $q$: public key $h = g^x$; to encrypt $m \in \mathbb{G}$, pick $r \leftarrow \mathbb{Z}_q$ and output $(g^r,\ h^r \cdot m)$.</p>
+<p>Arrows point from stronger to weaker notions; each implication is strict.</p>
 
-<p><strong>Claim.</strong> If DDH holds in $\mathbb{G}$, ElGamal is IND-CPA.</p>
+<h3 id="worked-reduction-elgamal-is-ind-cpa-under-ddh">Worked reduction: ElGamal is IND-CPA under DDH</h3>
 
-<p><strong>Reduction.</strong> Given a DDH challenge $(g^a, g^b, T)$ — where $T$ is either $g^{ab}$ or random — set the public key $h = g^a$. On the adversary’s challenge pair $(m_0, m_1)$, return ciphertext $(g^b,\ T \cdot m_\beta)$ for a random bit $\beta$.</p>
+<p>ElGamal over $\mathbb{G} = \langle g \rangle$ of prime order $q$: the secret key is $x \leftarrow \mathbb{Z}_q$ and the public key $h = g^x$. To encrypt $m \in \mathbb{G}$, choose $r \leftarrow \mathbb{Z}_q$ and output $(g^r,\ h^r \cdot m)$.</p>
+
+<p><strong>Claim.</strong> If DDH holds in $\mathbb{G}$, ElGamal is IND-CPA secure.</p>
+
+<p><strong>Reduction.</strong> On a DDH instance $(g^a, g^b, T)$, give the adversary the public key $h = g^a$. When it submits $(m_0, m_1)$, choose $\beta \leftarrow \lbrace 0,1\rbrace $ and return $(g^b,\ T \cdot m_\beta)$. Output 1 (“real DH triple”) if the adversary’s guess equals $\beta$.</p>
 
 <ul>
-  <li>If $T = g^{ab}$, this is a <em>genuine</em> encryption of $m_\beta$ with $r = b$; the adversary guesses $\beta$ with its full advantage $\varepsilon$.</li>
-  <li>If $T$ is uniform, then $T \cdot m_\beta$ is uniform and independent of $\beta$; the adversary’s guess is correct with probability exactly $1/2$.</li>
+  <li>If $T = g^{ab}$, the challenge is a correctly distributed encryption of $m_\beta$ with $r = b$, so the adversary guesses $\beta$ with probability $\tfrac12 + \varepsilon$.</li>
+  <li>If $T$ is uniform, $T \cdot m_\beta$ is uniform and independent of $\beta$, so the guess is right with probability exactly $\tfrac12$.</li>
 </ul>
 
-<p>So the reduction’s DDH advantage equals the adversary’s IND-CPA advantage $\varepsilon$. A non-negligible $\varepsilon$ breaks DDH. $\square$</p>
+<p>The reduction’s DDH advantage is therefore $\varepsilon$ — a tight reduction. ElGamal is malleable (multiplying the second component by $g$ multiplies the plaintext by $g$), so it is <em>not</em> IND-CCA2; that is what the Fujisaki–Okamoto transform below repairs.</p>
 
-<h2 id="the-random-oracle-model">The Random-Oracle Model</h2>
+<h2 id="key-encapsulation-and-hybrid-encryption">Key encapsulation and hybrid encryption</h2>
 
-<p>Many efficient real-world schemes (RSA-OAEP, RSA-PSS, full-domain hash, Fiat-Shamir signatures) resist proof under standard assumptions alone. The <strong>random-oracle model (ROM)</strong> is an idealization that makes such proofs go through.</p>
+<p>Public-key encryption is almost never used to encrypt data directly. Instead a <strong>key encapsulation mechanism (KEM)</strong> transports a random symmetric key, and an AEAD scheme encrypts the payload (the KEM/DEM paradigm of Cramer and Shoup). Every NIST post-quantum encryption standard is specified as a KEM.</p>
 
 <div class="theory-card">
-  <h4 id="the-random-oracle-model">The Random-Oracle Model</h4>
-  <p>A hash function $H$ is modeled as a truly random function: every party (including the adversary and the reduction) accesses $H$ only as an <strong>oracle</strong> that returns a fresh uniform value on each new query and is consistent on repeats. The reduction <em>programs</em> the oracle — choosing its answers adaptively — while observing every query the adversary makes.</p>
+  <h4 id="definition-kem">Definition (KEM)</h4>
+  <p>A KEM is a triple of algorithms:</p>
+  <ul>
+    <li>$\mathrm{KeyGen}() \to (ek, dk)$</li>
+    <li>$\mathrm{Encaps}(ek) \to (K, c)$: a fresh shared key $K$ and its encapsulation $c$</li>
+    <li>$\mathrm{Decaps}(dk, c) \to K$</li>
+  </ul>
+
+  <p>It is <strong>IND-CCA2 secure</strong> if no PPT adversary with a decapsulation oracle (for ciphertexts other than $c^{<em>}$) can distinguish the real $K^{</em>}$ encapsulated in $c^{*}$ from a uniform key.</p>
 </div>
 
-<p>This grants the reduction two superpowers absent in the standard model: <strong>observability</strong> (it sees the adversary’s hash queries, often “extracting” a secret the adversary must have computed) and <strong>programmability</strong> (it embeds its challenge into an oracle answer). The classic example:</p>
+<p><strong>The Fujisaki–Okamoto transform</strong> turns an IND-CPA (or merely one-way) public-key encryption scheme into an IND-CCA2 KEM in the random-oracle model. The encryption randomness is derived by hashing the message, $r = G(m)$; decapsulation decrypts and then <em>re-encrypts</em> to check that $c$ was honestly formed. On failure, the modern “implicit rejection” variant returns a pseudorandom key derived from a secret value and $c$ rather than an error, so an attacker learns nothing from malformed ciphertexts. ML-KEM uses this variant; its QROM security analysis (Hofheinz–Hövelmanns–Kiltz 2017 and later work) is part of why it was standardized.</p>
+
+<p>A KEM is also a drop-in replacement for Diffie–Hellman in key exchange, which is how post-quantum security is being added to TLS 1.3 and SSH today (see <a href="#migration-in-practice">Migration in practice</a>).</p>
+
+<h2 id="the-random-oracle-model">The random-oracle model</h2>
+
+<p>Many efficient schemes — RSA-OAEP, RSA-PSS, Schnorr and EdDSA signatures, Fujisaki–Okamoto KEMs — have no known proof from standard assumptions alone. The <strong>random-oracle model</strong> (Bellare–Rogaway, 1993) makes such proofs possible by idealizing the hash function.</p>
+
+<div class="theory-card">
+  <h4 id="the-random-oracle-model-rom">The random-oracle model (ROM)</h4>
+  <p>Every party, including the adversary, can evaluate $H$ only by querying an oracle that returns an independent uniform value for each new input and repeats earlier answers. In a proof, the reduction implements the oracle: it <strong>observes</strong> every query the adversary makes and may <strong>program</strong> answers adaptively, as long as they remain uniformly distributed.</p>
+</div>
+
+<p>Observability lets a reduction extract a value the adversary must have hashed; programmability lets it plant its challenge inside a hash output.</p>
 
 <div class="postulate-card">
-  <h4 id="fiat-shamir-transform">Fiat-Shamir Transform</h4>
-  <p>Any public-coin interactive zero-knowledge proof of knowledge ($\Sigma$-protocol) becomes a <strong>non-interactive signature</strong> by replacing the verifier’s random challenge $c$ with $c = H(\text{statement} \,|\, \text{commitment} \,|\, \text{message})$. In the ROM, the reduction simulates by programming $H$, and uses the forking lemma to extract two transcripts with the same commitment but different challenges — from which the secret (and hence a solution to the underlying hard problem) is recovered.</p>
+  <h4 id="fiatshamir-transform-1986">Fiat–Shamir transform (1986)</h4>
+  <p>A public-coin three-move identification protocol ($\Sigma$-protocol) with commitment $a$, challenge $c$, and response $z$ becomes a signature scheme by setting</p>
+
+\[c = H(\text{public key} \,\|\, a \,\|\, m).\]
+
+  <p>In the ROM, the reduction simulates signatures by choosing $c$ and $z$ first and programming $H$; the <strong>forking lemma</strong> (Pointcheval–Stern, 2000) rewinds a forger to obtain two valid transcripts with the same $a$ and different $c$, from which special soundness extracts the secret key. Schnorr signatures, EdDSA, and ML-DSA are all instances.</p>
 </div>
 
-<h3 id="the-caveat">The Caveat</h3>
+<h3 id="limitations">Limitations</h3>
 
-<p>The ROM is a <strong>heuristic, not a theorem about real hash functions</strong>. Canetti-Goldreich-Halevi (1998) constructed (contrived) schemes provably secure in the ROM yet <em>insecure under every concrete instantiation</em> of $H$. No real hash is a random oracle. In practice, ROM proofs are treated as strong evidence — a scheme with a ROM proof and no structural weakness is trusted — but standard-model proofs are strictly preferred when available. The <strong>quantum random-oracle model (QROM)</strong>, where the adversary may query $H$ in superposition, is the relevant idealization for post-quantum schemes and is significantly subtler (observation and programming techniques must be rebuilt).</p>
+<p>The ROM is a heuristic. Canetti, Goldreich, and Halevi (1998) built contrived schemes that are secure in the ROM but insecure for <strong>every</strong> concrete hash function. For decades such counterexamples were considered artificial. In 2025, Khovratovich, Rothblum, and Soukhanov showed a practical attack on the Fiat–Shamir version of a standard GKR-based succinct argument (CRYPTO 2025): for any concrete hash function, they produced accepting proofs of false statements. The protocol was not contrived, which makes the gap between the ROM and real hash functions a practical concern for succinct proof systems.</p>
 
-<h2 id="zero-knowledge-proofs">Zero-Knowledge Proofs</h2>
+<p>For post-quantum schemes the relevant model is the <strong>quantum random-oracle model (QROM)</strong> (Boneh et al., 2011), in which the adversary can query $H$ in superposition. Recording queries and rewinding do not work directly there, so ROM proofs must be redone — for example with Zhandry’s compressed-oracle technique (2019) or the measure-and-reprogram technique of Don, Fehr, Majenz, and Schaffner (2019).</p>
 
-<p>A zero-knowledge proof lets a prover $P$ convince a verifier $V$ that a statement $x \in L$ is true while revealing <em>nothing else</em> — not even <em>why</em> it is true.</p>
+<h2 id="zero-knowledge-proofs">Zero-knowledge proofs</h2>
+
+<p>A zero-knowledge proof (Goldwasser–Micali–Rackoff, 1985) lets a prover $P$ convince a verifier $V$ that $x \in L$ without revealing anything beyond that fact.</p>
 
 <div class="theory-card">
-  <h4 id="definition-interactive-proof--zero-knowledge">Definition (Interactive Proof + Zero Knowledge)</h4>
-  <p>An interactive protocol $(P, V)$ for a language $L$ is a <strong>zero-knowledge proof</strong> if it satisfies:</p>
+  <h4 id="definition-zero-knowledge-interactive-proof">Definition (zero-knowledge interactive proof)</h4>
+  <p>An interactive protocol $(P, V)$ for a language $L$ is a <strong>zero-knowledge proof</strong> if:</p>
   <ul>
-    <li><strong>Completeness:</strong> if $x \in L$, the honest $V$ accepts the honest $P$ with probability $\ge 1 - \mathrm{negl}$.</li>
-    <li><strong>Soundness:</strong> if $x \notin L$, no (even unbounded, for statistical soundness) cheating prover makes $V$ accept with more than negligible probability.</li>
-    <li><strong>Zero-knowledge:</strong> for every PPT verifier $V^{<em>}$ there is a PPT <strong>simulator</strong> $\mathcal{S}$ that, *without</em> the witness, produces transcripts computationally indistinguishable from real $(P, V^{*})$ interactions.</li>
+    <li><strong>Completeness:</strong> for $x \in L$, honest $V$ accepts honest $P$ with probability at least $1 - \mathrm{negl}$.</li>
+    <li><strong>Soundness:</strong> for $x \notin L$, no prover — even a computationally unbounded one — makes $V$ accept except with negligible probability. (If soundness holds only against efficient provers, the protocol is an <strong>argument</strong>.)</li>
+    <li><strong>Zero knowledge:</strong> for every PPT verifier $V^{<em>}$ there is a PPT <strong>simulator</strong> $\mathcal{S}$ that, without the witness, outputs transcripts indistinguishable from real interactions between $P$ and $V^{</em>}$.</li>
   </ul>
 </div>
 
-<p>The simulator is the heart of the definition: if a transcript can be <em>forged</em> without the secret, then the real transcript cannot have leaked the secret. Zero-knowledge is thus formalized as <strong>simulatability</strong>.</p>
+<p>The simulator is the core of the definition: if a verifier could have produced the transcript on its own, seeing it taught the verifier nothing.</p>
 
-<h3 id="the-canonical-example-graph-isomorphism">The Canonical Example: Graph Isomorphism</h3>
+<h3 id="example-graph-isomorphism">Example: graph isomorphism</h3>
 
-<p>To prove two graphs $G_0, G_1$ are isomorphic ($G_1 = \pi(G_0)$) without revealing $\pi$:</p>
+<p>To prove $G_1 = \pi(G_0)$ without revealing $\pi$:</p>
 
-<ol>
-  <li><strong>Commit.</strong> $P$ picks a random permutation $\sigma$, sends $H = \sigma(G_1)$.</li>
-  <li><strong>Challenge.</strong> $V$ sends a random bit $b \in {0,1}$.</li>
-  <li><strong>Respond.</strong> $P$ sends a permutation $\rho$ mapping $G_b \to H$ (namely $\rho = \sigma$ if $b=1$, or $\rho = \sigma \circ \pi$ if $b=0$).</li>
-  <li><strong>Verify.</strong> $V$ checks $\rho(G_b) = H$.</li>
-</ol>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant P as Prover (knows pi)
+    participant V as Verifier
+    P-&gt;&gt;V: H = sigma(G1) for random permutation sigma
+    V-&gt;&gt;P: challenge bit b
+    P-&gt;&gt;V: rho with rho(Gb) = H
+    Note over P: b = 1: rho = sigma&lt;br/&gt;b = 0: rho = sigma composed with pi
+    Note over V: accept iff rho(Gb) = H
+</code></pre>
 
-<p>A cheating prover (graphs <em>not</em> isomorphic) can satisfy only one of the two challenges, so each round catches it with probability $1/2$; repeating $k$ times drives soundness error to $2^{-k}$. The simulator picks $b$ <em>first</em>, then constructs a matching $H$ — producing valid transcripts with no knowledge of $\pi$, which proves zero-knowledge.</p>
+<ul>
+  <li><strong>Soundness.</strong> If $G_0$ and $G_1$ are not isomorphic, $H$ is isomorphic to at most one of them, so a cheating prover fails with probability $1/2$ per round; $k$ sequential rounds give soundness error $2^{-k}$.</li>
+  <li><strong>Zero knowledge.</strong> The simulator guesses $b$ first, sets $H = \rho(G_b)$ for random $\rho$, and rewinds $V^{*}$ whenever its challenge differs from the guess. The output is distributed exactly as a real transcript (perfect ZK), and $\pi$ is never used.</li>
+</ul>
 
 <div class="postulate-card">
-  <h4 id="theorem-gmw">Theorem (GMW)</h4>
-  <p>If one-way functions exist, then <strong>every</strong> language in NP has a computational zero-knowledge proof.</p>
+  <h4 id="theorem-goldreichmicaliwigderson-1986">Theorem (Goldreich–Micali–Wigderson, 1986)</h4>
+  <p>If one-way functions exist, every language in NP has a computational zero-knowledge proof.</p>
 </div>
 
-<p>The constructive proof reduces any NP statement to graph 3-coloring and gives a ZK protocol using a bit-commitment scheme (built from a OWF). Thus ZK is not exotic — anything you can <em>verify</em> efficiently, you can <em>prove in zero knowledge</em>.</p>
+<p>The proof gives a ZK protocol for graph 3-coloring using commitments (built from a OWF) and applies NP-completeness. Anything efficiently verifiable can be proved in zero knowledge.</p>
 
-<h3 id="variants-and-modern-systems">Variants and Modern Systems</h3>
+<h3 id="modern-proof-systems">Modern proof systems</h3>
 
 <table>
   <thead>
@@ -3512,171 +3597,308 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><strong>Proof of knowledge</strong></td>
-      <td>An <em>extractor</em> can recover the witness from a prover that succeeds — proving the prover <em>knows</em> it, not merely that it exists.</td>
+      <td>Proof of knowledge</td>
+      <td>An extractor can recover the witness from any successful prover, so the prover <em>knows</em> a witness rather than merely that one exists.</td>
     </tr>
     <tr>
-      <td><strong>Non-interactive (NIZK)</strong></td>
-      <td>Single message, via a common reference string or Fiat-Shamir in the ROM.</td>
+      <td>Non-interactive (NIZK)</td>
+      <td>A single message, using a common reference string or Fiat–Shamir.</td>
     </tr>
     <tr>
-      <td><strong>Statistical vs computational ZK</strong></td>
-      <td>Simulator output is statistically close vs only computationally indistinguishable.</td>
+      <td>Succinct (SNARK)</td>
+      <td>Proof size and verification time polylogarithmic in the computation (or constant).</td>
     </tr>
     <tr>
-      <td><strong>Succinct (zk-SNARK / zk-STARK)</strong></td>
-      <td>Proof size and verification time are sub-linear (often polylogarithmic) in the statement size.</td>
+      <td>Transparent</td>
+      <td>No trusted setup; all verifier randomness is public.</td>
     </tr>
   </tbody>
 </table>
 
-<p><strong>zk-SNARKs</strong> (succinct non-interactive arguments of knowledge) compress proofs of arbitrary computation to a few hundred bytes verifiable in milliseconds — powering blockchain rollups and private transactions. <strong>zk-STARKs</strong> drop the trusted setup and rely only on collision-resistant hashes, making them <em>post-quantum plausible</em>. Both reduce a computation to an arithmetic circuit / polynomial constraint system and prove its satisfiability succinctly.</p>
-
-<h2 id="post-quantum-cryptography">Post-Quantum Cryptography</h2>
-
-<p>A large fault-tolerant quantum computer running <strong>Shor’s algorithm</strong> factors integers and computes discrete logs in polynomial time — destroying RSA, Diffie-Hellman, and elliptic-curve cryptography. <strong>Grover’s algorithm</strong> gives only a quadratic speedup against symmetric primitives, so doubling key/output lengths (AES-256, SHA-384) restores symmetric security. The urgent task is replacing public-key cryptography with problems believed hard even for quantum computers. (See <a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> for Shor and Grover in full.)</p>
-
-<div class="principle-card">
-  <h4 id="harvest-now-decrypt-later">Harvest Now, Decrypt Later</h4>
-  <p>The threat is not only future: adversaries can record today’s encrypted traffic and decrypt it once quantum hardware matures. Data with a long secrecy lifetime (state secrets, medical records, genomic data) must migrate to post-quantum cryptography <em>now</em>, even before quantum computers exist.</p>
-</div>
-
-<p>NIST’s standardization (2016–2024) selected the first standards in 2024: <strong>ML-KEM</strong> (Kyber, FIPS 203) for key encapsulation, <strong>ML-DSA</strong> (Dilithium, FIPS 204) and <strong>SLH-DSA</strong> (SPHINCS+, FIPS 205) for signatures, with <strong>FN-DSA</strong> (Falcon) to follow. Four mathematical families compete.</p>
-
-<h3 id="lattice-based-kyber-dilithium-falcon">Lattice-Based (Kyber, Dilithium, Falcon)</h3>
-
-<p>Built on <strong>Module-LWE</strong> and <strong>Module-SIS</strong>. The frontrunners: balanced key sizes (around 1–2 KB), fast operations, and worst-case hardness guarantees. <strong>Kyber</strong> is a CPA-secure encryption made CCA-secure via the Fujisaki-Okamoto transform; <strong>Dilithium</strong> is a Fiat-Shamir signature; <strong>Falcon</strong> uses NTRU lattices and Gaussian sampling for the smallest lattice signatures. These are the default choice for general-purpose deployment.</p>
-
-<h3 id="code-based-classic-mceliece">Code-Based (Classic McEliece)</h3>
-
-<p>Based on the hardness of <strong>decoding a random linear code</strong> — NP-hard in the worst case and studied since McEliece (1978), giving it the longest unbroken track record of any candidate. The public key hides the structure of a Goppa code; decryption uses the secret decoder.</p>
-
-\[\text{Ciphertext: } \mathbf{c} = \mathbf{m} G' + \mathbf{e}, \qquad G' = S G P \ (\text{scrambled generator}),\ \mathrm{wt}(\mathbf{e}) = t.\]
-
-<p>The drawback is enormous public keys (hundreds of KB to ~1 MB), but ciphertexts and speed are excellent, so it suits scenarios where the key is distributed once and reused.</p>
-
-<h3 id="hash-based-sphincs-xmss">Hash-Based (SPHINCS+, XMSS)</h3>
-
-<p>The most <em>conservative</em> family: security rests <strong>only</strong> on the collision/preimage resistance of a hash function — the same assumption already trusted everywhere — with no number-theoretic structure to attack.</p>
-
-<ul>
-  <li><strong>One-time signatures</strong> (Lamport, Winternitz) sign a single message from a hash-chain key.</li>
-  <li><strong>Merkle trees</strong> authenticate many one-time public keys under one root, giving <em>stateful</em> many-time schemes (<strong>XMSS</strong>, <strong>LMS</strong>).</li>
-  <li><strong>SPHINCS+</strong> layers a hypertree plus a few-time scheme to become <strong>stateless</strong> (no risk of catastrophic key-reuse), at the cost of larger (~8–50 KB) signatures.</li>
-</ul>
-
-<p>Hash-based signatures are the safest long-term insurance: if every other family falls, secure hashing alone still yields signatures.</p>
-
-<h3 id="isogeny-based-cautionary-tale">Isogeny-Based (cautionary tale)</h3>
-
-<p>Isogeny cryptography uses walks in the graph of <strong>supersingular elliptic curves</strong> connected by isogenies (structure-preserving maps). Its appeal was the smallest keys of any candidate. But in 2022 the <strong>Castryck-Decru attack</strong> broke <strong>SIDH/SIKE</strong> in polynomial time on a laptop, exploiting auxiliary torsion-point information — eliminating a NIST finalist overnight.</p>
-
-<div class="advanced-note">
-  <p><strong>Lesson.</strong> The SIKE break is the field’s sharpest reminder that post-quantum hardness is <em>conjectural and young</em>. Newer isogeny schemes (<strong>CSIDH</strong>, <strong>SQIsign</strong> — notable for very small signatures) avoid the broken structure and remain under active study, but the episode is why NIST standardized a <em>diversified portfolio</em> across unrelated assumptions rather than betting on one.</p>
-</div>
-
-<h3 id="comparison-at-a-glance">Comparison at a Glance</h3>
+<p>Most deployed systems combine a <strong>polynomial interactive oracle proof</strong> (the information-theoretic core, e.g. PLONK-style arithmetization or AIR constraints) with a <strong>polynomial commitment scheme</strong> (the cryptographic compiler), then apply Fiat–Shamir.</p>
 
 <table>
   <thead>
     <tr>
       <th>Family</th>
-      <th>Hard problem</th>
-      <th>Public key</th>
-      <th>Sig/CT size</th>
-      <th>Status</th>
+      <th>Examples</th>
+      <th>Setup</th>
+      <th>Assumption</th>
+      <th>Post-quantum?</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Lattice (Kyber/Dilithium)</td>
-      <td>Module-LWE / SIS</td>
-      <td>~1–2 KB</td>
-      <td>~1–4 KB</td>
-      <td>Standardized (FIPS 203/204)</td>
+      <td>Pairing-based SNARKs</td>
+      <td>Groth16, PLONK with KZG</td>
+      <td>Trusted (per-circuit or universal)</td>
+      <td>Pairing assumptions</td>
+      <td>No</td>
     </tr>
     <tr>
-      <td>Code (McEliece)</td>
-      <td>Decode random code</td>
-      <td>~260 KB–1 MB</td>
-      <td>~100 B–KB</td>
-      <td>NIST round 4 candidate</td>
+      <td>Hash-based / FRI</td>
+      <td>STARKs, Plonky2/3</td>
+      <td>Transparent</td>
+      <td>Collision-resistant hashing (ROM)</td>
+      <td>Plausibly</td>
     </tr>
     <tr>
-      <td>Hash (SPHINCS+)</td>
-      <td>Hash pre/collision resistance</td>
-      <td>~32–64 B</td>
-      <td>~8–50 KB</td>
-      <td>Standardized (FIPS 205)</td>
+      <td>Folding / accumulation</td>
+      <td>Nova and successors</td>
+      <td>Varies</td>
+      <td>Discrete log or lattices</td>
+      <td>Depends on instantiation</td>
     </tr>
     <tr>
-      <td>Isogeny (SQIsign)</td>
-      <td>Endomorphism / isogeny path</td>
-      <td>small</td>
-      <td>very small sig</td>
-      <td>Under study (SIDH broken 2022)</td>
+      <td>Lattice-based</td>
+      <td>LaBRADOR, and others</td>
+      <td>Transparent</td>
+      <td>Module-SIS/LWE</td>
+      <td>Plausibly</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="open-problems-and-frontiers">Open Problems and Frontiers</h2>
+<p>Succinct proofs are used for blockchain rollups, zero-knowledge virtual machines that prove execution of arbitrary programs, and privacy-preserving credentials.</p>
+
+<h2 id="post-quantum-cryptography">Post-quantum cryptography</h2>
+
+<h3 id="the-quantum-threat">The quantum threat</h3>
+
+<p>On a large fault-tolerant quantum computer, <strong>Shor’s algorithm</strong> (1994) factors integers and computes discrete logarithms, including on elliptic curves, in polynomial time. That breaks RSA, finite-field and elliptic-curve Diffie–Hellman, ECDSA, and EdDSA. <strong>Grover’s algorithm</strong> gives only a quadratic speedup for key search, and it parallelizes poorly, so symmetric primitives survive with at most a size increase; NIST continues to treat AES-128 as adequate for category 1. See <a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> for both algorithms.</p>
+
+<p>Resource estimates have fallen steadily. Gidney and Ekerå (2019) estimated that RSA-2048 could be factored in about 8 hours with 20 million noisy qubits; Gidney (2025) lowered this to under one million noisy qubits running for under a week. Machines of this size do not yet exist, but the gap is narrowing.</p>
+
+<div class="principle-card">
+  <h4 id="harvest-now-decrypt-later">Harvest now, decrypt later</h4>
+  <p>An adversary can record encrypted traffic today and decrypt it once a quantum computer exists. Key exchange protecting data with a long confidentiality lifetime must therefore migrate <em>before</em> such a machine is built. Signatures are less urgent (a forged signature requires a quantum computer at signing time) except where keys are long-lived and hard to rotate, such as firmware roots of trust and certificate authorities.</p>
+</div>
+
+<h3 id="standardization">Standardization</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Event</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Dec 2016</td>
+      <td>NIST opens the PQC call for proposals (69 complete submissions in round 1)</td>
+    </tr>
+    <tr>
+      <td>Jul 2022</td>
+      <td>Kyber, Dilithium, Falcon, and SPHINCS+ selected; four KEMs advance to round 4</td>
+    </tr>
+    <tr>
+      <td>Jul 2022</td>
+      <td>Castryck–Decru break SIKE, a round-4 candidate, in about an hour on one core</td>
+    </tr>
+    <tr>
+      <td>Aug 2024</td>
+      <td><strong>FIPS 203 (ML-KEM)</strong>, <strong>FIPS 204 (ML-DSA)</strong>, and <strong>FIPS 205 (SLH-DSA)</strong> published</td>
+    </tr>
+    <tr>
+      <td>Nov 2024</td>
+      <td>NIST IR 8547 (draft): deprecate quantum-vulnerable algorithms at 112-bit strength after 2030, disallow all of them after 2035</td>
+    </tr>
+    <tr>
+      <td>Mar 2025</td>
+      <td><strong>HQC</strong> selected as a code-based backup KEM; BIKE dropped, Classic McEliece deferred pending ISO standardization</td>
+    </tr>
+    <tr>
+      <td>Aug 2025</td>
+      <td>Draft <strong>FIPS 206 (FN-DSA, from Falcon)</strong> submitted for approval; final standard expected late 2026 or 2027</td>
+    </tr>
+    <tr>
+      <td>May 2026</td>
+      <td>Additional-signatures process advances nine schemes to round 3: FAEST, HAWK, MAYO, MQOM, QR-UOV, SDitH, SNOVA, SQIsign, UOV</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The additional-signatures track exists to diversify away from lattices and to find schemes with smaller signatures than ML-DSA or SLH-DSA. Its third round is expected to last about two years.</p>
+
+<h3 id="lattice-based-ml-kem-ml-dsa-fn-dsa">Lattice-based: ML-KEM, ML-DSA, FN-DSA</h3>
 
 <ul>
-  <li><strong>Do one-way functions exist?</strong> The foundational open question — equivalent to the existence of essentially all of cryptography, and tied to $\mathrm{P} \ne \mathrm{NP}$ and average-case complexity.</li>
-  <li><strong>Closing the ROM gap.</strong> Standard-model constructions matching the efficiency of random-oracle schemes (especially for compact signatures and IBE) remain elusive; QROM security proofs for deployed PQC are still being hardened.</li>
-  <li><strong>Confidence in PQC hardness.</strong> Lattice and code assumptions are decades younger than factoring; ongoing cryptanalysis (algebraic attacks, improved sieving, the SIKE break) calibrates real security margins.</li>
-  <li><strong>Practical succinct ZK.</strong> zk-SNARK/STARK proving time and trusted-setup elimination, plus post-quantum-secure proof systems, are rapidly evolving research areas.</li>
-  <li><strong>Fully homomorphic encryption (FHE).</strong> Computing on encrypted data — built from LWE (Gentry 2009) — is now practical-ish; closing the remaining performance gap is a major frontier.</li>
-  <li><strong>Migration at scale.</strong> Hybrid classical+PQC key exchange, crypto-agility, and protocol redesign (TLS, SSH, PKI) constitute an enormous engineering transition already underway.</li>
+  <li><strong>ML-KEM</strong> (Kyber) is an IND-CPA Module-LWE encryption scheme compiled into an IND-CCA2 KEM with the Fujisaki–Okamoto transform. ML-KEM-768 (category 3) has a 1184-byte encapsulation key and a 1088-byte ciphertext, and runs faster than X25519 on common hardware.</li>
+  <li><strong>ML-DSA</strong> (Dilithium) is a Fiat–Shamir-with-aborts signature over Module-LWE/SIS: the signer rejects and retries any signature whose distribution would leak the key. ML-DSA-65 has a 1952-byte public key and 3309-byte signatures.</li>
+  <li><strong>FN-DSA</strong> (Falcon) is a hash-and-sign scheme over NTRU lattices using a trapdoor and discrete Gaussian sampling. It has the smallest lattice signatures (about 666 bytes at level 1) but needs floating-point arithmetic that is difficult to implement in constant time, which slowed its standardization.</li>
 </ul>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h3 id="code-based-hqc-and-classic-mceliece">Code-based: HQC and Classic McEliece</h3>
+
+<p>Decoding a random linear code is NP-hard in the worst case, and McEliece’s 1978 cryptosystem remains unbroken. In McEliece the public key is a disguised generator matrix of a binary Goppa code, and a ciphertext is a codeword plus a weight-$t$ error:</p>
+
+\[\mathbf{c} = \mathbf{m} G_{\text{pub}} + \mathbf{e}, \qquad G_{\text{pub}} = S G P, \qquad \mathrm{wt}(\mathbf{e}) = t.\]
+
+<p>Only the holder of the secret $S$, $G$, and $P$ can decode efficiently. The cost is size: the smallest Classic McEliece public key is about 261 KB, though ciphertexts are only 96–208 bytes. <strong>HQC</strong> (Hamming Quasi-Cyclic) instead uses quasi-cyclic codes with a public decoder, giving keys of a few kilobytes. NIST chose HQC as a backup to ML-KEM that does not depend on lattices. Classic McEliece is being standardized through ISO instead.</p>
+
+<h3 id="hash-based-slh-dsa-xmss-lms">Hash-based: SLH-DSA, XMSS, LMS</h3>
+
+<p>The most conservative family: security depends only on properties of a hash function such as second-preimage resistance.</p>
 
 <ul>
-  <li><strong>Security = reduction.</strong> A proof of security is an efficient transformation turning any scheme-breaker into a solver for an assumed-hard problem. No reduction, no guarantee.</li>
-  <li><strong>OWFs are minimal.</strong> One-way functions are equivalent to PRGs, PRFs, MACs, commitments, and hash-based signatures — the whole symmetric world rests on them.</li>
-  <li><strong>Public key needs structure.</strong> Factoring, discrete log, and LWE provide trapdoors and homomorphisms that generic OWFs cannot.</li>
-  <li><strong>Semantic security forces randomness.</strong> IND-CPA is equivalent to leaking nothing beyond message length; deterministic encryption can never achieve it.</li>
-  <li><strong>The ROM is a heuristic.</strong> Programmable random oracles enable efficient proofs but are provably not realizable by any concrete hash.</li>
-  <li><strong>ZK = simulatability.</strong> If a transcript can be forged without the witness, it leaked nothing. Every NP statement has a ZK proof assuming OWFs.</li>
-  <li><strong>Quantum breaks two pillars.</strong> Shor kills factoring and discrete log; lattices, codes, hashes, and isogenies are the diversified post-quantum replacements.</li>
+  <li><strong>One-time signatures</strong> (Lamport, Winternitz) reveal parts of the secret key when they sign, so each key signs only once.</li>
+  <li><strong>Merkle trees</strong> authenticate many one-time keys under one root, giving <strong>stateful</strong> schemes (XMSS, RFC 8391; LMS, RFC 8554; both in NIST SP 800-208). Reusing a one-time key breaks security, so the signer must never lose track of its state.</li>
+  <li><strong>SLH-DSA</strong> (SPHINCS+) uses a hypertree of Merkle trees plus a few-time scheme and picks leaves pseudorandomly, making it <strong>stateless</strong>. Public keys are 32–64 bytes; signatures run from about 7.9 KB (128s, slow) to about 49 KB (256f, fast).</li>
+</ul>
+
+<p>Stateful schemes are recommended by NSA’s CNSA 2.0 for firmware and software signing, where state can be managed carefully.</p>
+
+<h3 id="isogeny-based-the-sike-break">Isogeny-based: the SIKE break</h3>
+
+<p>Isogeny cryptography works with maps between supersingular elliptic curves. SIDH/SIKE offered the smallest keys of any KEM candidate, but in 2022 Castryck and Decru recovered SIKE keys in polynomial time by exploiting the auxiliary torsion-point images that SIDH publishes, using a 1997 theorem of Kani on abelian surfaces. SIKE was withdrawn.</p>
+
+<p>The break does not apply to schemes that do not reveal torsion points. <strong>SQIsign</strong> has the smallest combined public-key-plus-signature size of any post-quantum signature (148-byte signatures at category 1) and reached round 3 of the additional-signatures process in 2026, though signing remains comparatively slow. The SIKE episode is the main reason NIST standardizes several schemes built on unrelated assumptions.</p>
+
+<h3 id="comparison">Comparison</h3>
+
+<p>Sizes are for the category 1 or 3 parameter sets named; they are approximate.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Scheme</th>
+      <th>Family</th>
+      <th>Status (Sep 2026)</th>
+      <th>Public key</th>
+      <th>Ciphertext / signature</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ML-KEM-768</td>
+      <td>Module-LWE</td>
+      <td>FIPS 203</td>
+      <td>1184 B</td>
+      <td>1088 B</td>
+    </tr>
+    <tr>
+      <td>HQC-128</td>
+      <td>Quasi-cyclic codes</td>
+      <td>Selected 2025; draft FIPS pending</td>
+      <td>~2.2 KB</td>
+      <td>~4.4 KB</td>
+    </tr>
+    <tr>
+      <td>Classic McEliece 348864</td>
+      <td>Goppa codes</td>
+      <td>Deferred by NIST; ISO track</td>
+      <td>~261 KB</td>
+      <td>96 B</td>
+    </tr>
+    <tr>
+      <td>ML-DSA-65</td>
+      <td>Module-LWE/SIS</td>
+      <td>FIPS 204</td>
+      <td>1952 B</td>
+      <td>3309 B</td>
+    </tr>
+    <tr>
+      <td>FN-DSA-512</td>
+      <td>NTRU lattices</td>
+      <td>Draft FIPS 206</td>
+      <td>897 B</td>
+      <td>~666 B</td>
+    </tr>
+    <tr>
+      <td>SLH-DSA-128s</td>
+      <td>Hash functions</td>
+      <td>FIPS 205</td>
+      <td>32 B</td>
+      <td>7856 B</td>
+    </tr>
+    <tr>
+      <td>SQIsign (level I)</td>
+      <td>Isogenies</td>
+      <td>Round 3, additional signatures</td>
+      <td>~65 B</td>
+      <td>148 B</td>
+    </tr>
+    <tr>
+      <td><em>For reference:</em> X25519 / Ed25519</td>
+      <td>Elliptic curves</td>
+      <td>Quantum-vulnerable</td>
+      <td>32 B</td>
+      <td>32 B / 64 B</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="migration-in-practice">Migration in practice</h3>
+
+<p>Deployment is running ahead of mandates by using <strong>hybrid</strong> key exchange: a classical and a post-quantum shared secret are combined, so the result is secure if <em>either</em> component is. Chrome, Firefox, Cloudflare, and other large operators enabled the <code class="language-plaintext highlighter-rouge">X25519MLKEM768</code> TLS 1.3 group in 2024–2025, and it now protects a large share of web traffic. OpenSSL 3.5 (April 2025) added ML-KEM, ML-DSA, and SLH-DSA, and OpenSSH 10.0 (April 2025) made the hybrid <code class="language-plaintext highlighter-rouge">mlkem768x25519-sha256</code> its default key exchange.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C-&gt;&gt;S: ClientHello, key_share X25519MLKEM768:&lt;br/&gt;ML-KEM encapsulation key + X25519 public key
+    Note over S: ML-KEM Encaps(ek) gives (K1, ct)&lt;br/&gt;X25519 gives K2
+    S-&gt;&gt;C: ServerHello, key_share:&lt;br/&gt;ML-KEM ciphertext ct + X25519 public key
+    Note over C: ML-KEM Decaps(dk, ct) gives K1&lt;br/&gt;X25519 gives K2
+    Note over C,S: TLS 1.3 key schedule (HKDF) over K1 concatenated with K2
+</code></pre>
+
+<p>Signatures and certificates move more slowly because post-quantum signatures are larger and PKI changes need coordination across CAs, browsers, and hardware. NIST IR 8547’s draft dates (2030/2035) and NSA’s CNSA 2.0 suite (ML-KEM-1024, ML-DSA-87, and LMS/XMSS for firmware) set the policy timeline. The engineering lesson from the transition is <strong>crypto-agility</strong>: protocols and systems need to be able to change algorithms without redesign.</p>
+
+<h2 id="open-problems-and-frontiers">Open problems and frontiers</h2>
+
+<ul>
+  <li><strong>Do one-way functions exist?</strong> Still open. Liu and Pass (2020) showed OWFs exist if and only if a time-bounded version of Kolmogorov complexity is mildly hard on average, tying cryptography to meta-complexity.</li>
+  <li><strong>Confidence in post-quantum assumptions.</strong> Lattice and code assumptions have far less cryptanalytic history than factoring. In April 2024 a claimed polynomial-time quantum algorithm for LWE (Chen) was withdrawn within about ten days after a bug was found; the episode showed both the stakes and the speed of community review. Improved lattice sieving and side-channel attacks on implementations continue to calibrate real security margins.</li>
+  <li><strong>Indistinguishability obfuscation.</strong> Jain, Lin, and Sahai (2021) built iO from well-founded assumptions (LPN over fields, a PRG in $\mathrm{NC}^0$, and bilinear-map assumptions). iO implies a large part of cryptography, but the construction is far from practical and not post-quantum.</li>
+  <li><strong>Fully homomorphic encryption.</strong> Since Gentry (2009), FHE schemes built on LWE and Ring-LWE (BGV, BFV, CKKS for approximate arithmetic, TFHE for fast bootstrapping) have gone from theoretical to usable for specific workloads. Bootstrapping cost and hardware acceleration are active areas.</li>
+  <li><strong>Closing the ROM gap.</strong> Efficient standard-model constructions matching ROM schemes, tight QROM proofs for deployed schemes, and sound Fiat–Shamir instantiations for succinct arguments after the 2025 attacks.</li>
+  <li><strong>Post-quantum signatures that fit.</strong> ML-DSA and SLH-DSA signatures are too large for some protocols (certificate chains, DNSSEC, constrained devices); much of the additional-signatures process is about this.</li>
 </ul>
 
 <h2 id="references">References</h2>
 
 <ol>
-  <li>Katz, J., &amp; Lindell, Y. (2020). <em>Introduction to Modern Cryptography</em>, 3rd ed.</li>
-  <li>Goldreich, O. (2001/2004). <em>Foundations of Cryptography</em>, Vols. I–II.</li>
-  <li>Goldwasser, S., &amp; Micali, S. (1984). “Probabilistic Encryption.” <em>JCSS</em>.</li>
+  <li>Katz, J., &amp; Lindell, Y. (2020). <em>Introduction to Modern Cryptography</em>, 3rd ed. CRC Press.</li>
+  <li>Goldreich, O. (2001, 2004). <em>Foundations of Cryptography</em>, Vols. I–II. Cambridge University Press.</li>
+  <li>Boneh, D., &amp; Shoup, V. <em>A Graduate Course in Applied Cryptography</em> (online draft, v0.6).</li>
+  <li>Goldwasser, S., &amp; Micali, S. (1984). “Probabilistic Encryption.” <em>JCSS</em> 28(2).</li>
   <li>Goldreich, O., &amp; Levin, L. (1989). “A Hard-Core Predicate for All One-Way Functions.” <em>STOC</em>.</li>
-  <li>Goldreich, O., Goldwasser, S., &amp; Micali, S. (1986). “How to Construct Random Functions.” <em>JACM</em>.</li>
-  <li>Goldwasser, S., Micali, S., &amp; Rackoff, C. (1989). “The Knowledge Complexity of Interactive Proof Systems.” <em>SIAM J. Comput.</em></li>
-  <li>Goldreich, O., Micali, S., &amp; Wigderson, A. (1991). “Proofs that Yield Nothing But Their Validity.” <em>JACM</em>.</li>
+  <li>Goldreich, O., Goldwasser, S., &amp; Micali, S. (1986). “How to Construct Random Functions.” <em>JACM</em> 33(4).</li>
+  <li>Håstad, J., Impagliazzo, R., Levin, L., &amp; Luby, M. (1999). “A Pseudorandom Generator from any One-way Function.” <em>SIAM J. Comput.</em> 28(4).</li>
+  <li>Goldwasser, S., Micali, S., &amp; Rackoff, C. (1989). “The Knowledge Complexity of Interactive Proof Systems.” <em>SIAM J. Comput.</em> 18(1).</li>
+  <li>Goldreich, O., Micali, S., &amp; Wigderson, A. (1991). “Proofs that Yield Nothing But Their Validity.” <em>JACM</em> 38(3).</li>
   <li>Bellare, M., &amp; Rogaway, P. (1993). “Random Oracles Are Practical.” <em>CCS</em>.</li>
-  <li>Canetti, R., Goldreich, O., &amp; Halevi, S. (2004). “The Random Oracle Methodology, Revisited.” <em>JACM</em>.</li>
-  <li>Regev, O. (2009). “On Lattices, Learning with Errors, Random Linear Codes, and Cryptography.” <em>JACM</em>.</li>
-  <li>Shor, P. (1997). “Polynomial-Time Algorithms for Prime Factorization and Discrete Logarithms on a Quantum Computer.” <em>SIAM J. Comput.</em></li>
+  <li>Canetti, R., Goldreich, O., &amp; Halevi, S. (2004). “The Random Oracle Methodology, Revisited.” <em>JACM</em> 51(4).</li>
+  <li>Bellare, M., &amp; Namprempre, C. (2000). “Authenticated Encryption: Relations among Notions and Analysis of the Generic Composition Paradigm.” <em>ASIACRYPT</em>.</li>
+  <li>Fujisaki, E., &amp; Okamoto, T. (1999). “Secure Integration of Asymmetric and Symmetric Encryption Schemes.” <em>CRYPTO</em>.</li>
+  <li>Regev, O. (2009). “On Lattices, Learning with Errors, Random Linear Codes, and Cryptography.” <em>JACM</em> 56(6).</li>
+  <li>Shor, P. (1997). “Polynomial-Time Algorithms for Prime Factorization and Discrete Logarithms on a Quantum Computer.” <em>SIAM J. Comput.</em> 26(5).</li>
   <li>Castryck, W., &amp; Decru, T. (2023). “An Efficient Key Recovery Attack on SIDH.” <em>EUROCRYPT</em>.</li>
+  <li>Liu, Y., &amp; Pass, R. (2020). “On One-way Functions and Kolmogorov Complexity.” <em>FOCS</em>.</li>
+  <li>Jain, A., Lin, H., &amp; Sahai, A. (2021). “Indistinguishability Obfuscation from Well-Founded Assumptions.” <em>STOC</em>.</li>
+  <li>Gidney, C. (2025). “How to factor 2048 bit RSA integers with less than a million noisy qubits.” arXiv:2505.15917.</li>
+  <li>Khovratovich, D., Rothblum, R. D., &amp; Soukhanov, L. (2025). “How to Prove False Statements: Practical Attacks on Fiat-Shamir.” <em>CRYPTO</em>. IACR ePrint 2025/118.</li>
   <li>NIST (2024). FIPS 203 (ML-KEM), FIPS 204 (ML-DSA), FIPS 205 (SLH-DSA).</li>
+  <li>NIST (2024). IR 8547 (initial public draft), “Transition to Post-Quantum Cryptography Standards.”</li>
 </ol>
 
-<h2 id="see-also">See Also</h2>
+<h2 id="see-also">See also</h2>
 
 <div class="see-also-card">
-  <h4 id="see-also">See Also</h4>
-
-  <p><strong>Related Advanced Topics</strong></p>
+  <p><strong>Related advanced topics</strong></p>
   <ul>
-    <li><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> — Shor’s and Grover’s algorithms, the quantum threat to factoring and discrete log</li>
-    <li><a href="../ai-mathematics/">AI Mathematics</a> — Probability, concentration, and complexity tools shared with provable security</li>
-    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> — Byzantine agreement and the cryptographic primitives consensus relies on</li>
+    <li><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> — Shor’s and Grover’s algorithms and quantum resource estimates</li>
+    <li><a href="../complexity-theory/">Computational Complexity Theory</a> — P vs NP, average-case complexity, and the reductions this page relies on</li>
+    <li><a href="../information-coding-theory/">Information &amp; Coding Theory</a> — Error-correcting codes behind code-based cryptography</li>
+    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> — Byzantine agreement and the role of signatures in consensus</li>
   </ul>
 
-  <p><strong>Foundations &amp; Applied</strong></p>
+  <p><strong>Applied</strong></p>
   <ul>
-    <li><a href="../../technology/cybersecurity/cryptography.html">Applied Cryptography</a> — Practical TLS, hashing, and key management</li>
+    <li><a href="../../technology/cybersecurity/cryptography.html">Applied Cryptography</a> — TLS, hashing, and key management in practice</li>
     <li><a href="../../technology/cybersecurity/">Cybersecurity Hub</a> — Attacks, defenses, and security operations</li>
-    <li><a href="../../technology/networking/">Networking Hub</a> — Where cryptographic protocols live on the wire</li>
+    <li><a href="../../technology/networking/">Networking Hub</a> — Where cryptographic protocols run on the wire</li>
     <li><a href="../../reference/">Mathematical Reference</a> — Number theory, finite fields, and complexity quick reference</li>
   </ul>
 </div>

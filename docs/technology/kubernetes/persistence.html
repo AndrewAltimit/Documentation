@@ -3133,66 +3133,76 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">Kubernetes</a> » Stateful Workloads &amp; Persistence</p>
 
-<p>Kubernetes was built for stateless cattle, but the most valuable systems we run — databases, message brokers, caches — are stateful pets that must survive pod rescheduling, keep a stable identity, and never lose a byte. This page covers how Kubernetes makes that possible: the storage primitives (PV, PVC, StorageClass), the controller that gives pods identity (StatefulSet), the DNS that makes peers addressable (headless Services), and the operational disciplines (snapshots, backup, DR) that turn “it runs” into “it survives an outage.”</p>
+<p>Kubernetes treats Pods as disposable, but databases, message brokers, and search clusters must keep their data and identity when a Pod is rescheduled. This page is the reference for how Kubernetes supports them: the storage object model (PersistentVolume, PersistentVolumeClaim, StorageClass, VolumeAttributesClass), the StatefulSet controller that gives Pods stable identity and per-Pod storage, headless Services for peer addressing, and the snapshot, backup, and disaster-recovery practices that make stateful systems survivable. Feature stages are given as of Kubernetes v1.37 (August 2026).</p>
 
-<p>The <a href="workloads.html">Workloads &amp; Storage</a> page introduces these primitives at a glance. This page is the reference treatment: every guarantee, every failure mode, and three production-grade patterns you can lift into a real cluster.</p>
+<p><a href="workloads.html">Workloads &amp; Storage</a> summarises these primitives alongside the other workload controllers; this page covers them in depth.</p>
 
 <h2 id="the-storage-object-model">The Storage Object Model</h2>
 
-<p>Kubernetes deliberately splits storage into a <em>request</em> and a <em>resource</em> so that application authors never have to know what disk technology backs their data.</p>
+<p>Kubernetes separates a <em>request</em> for storage from the storage that satisfies it, so that application manifests never name a disk technology, a zone, or a cloud volume ID.</p>
 
 <table>
   <thead>
     <tr>
       <th>Object</th>
+      <th>Scope</th>
       <th>Owned by</th>
-      <th>Answers the question</th>
+      <th>Answers</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>PersistentVolume (PV)</strong></td>
-      <td>Cluster admin / provisioner</td>
-      <td>“What real storage exists?”</td>
+      <td><strong>PersistentVolumeClaim (PVC)</strong></td>
+      <td>Namespace</td>
+      <td>Application author</td>
+      <td>How much storage, which access mode, which class?</td>
     </tr>
     <tr>
-      <td><strong>PersistentVolumeClaim (PVC)</strong></td>
-      <td>Application author</td>
-      <td>“How much storage, what mode, what class do I want?”</td>
+      <td><strong>PersistentVolume (PV)</strong></td>
+      <td>Cluster</td>
+      <td>Admin or provisioner</td>
+      <td>What real storage exists, and where?</td>
     </tr>
     <tr>
       <td><strong>StorageClass</strong></td>
+      <td>Cluster</td>
       <td>Cluster admin</td>
-      <td>“How do I create a PV on demand, and with what parameters?”</td>
+      <td>How is a PV created on demand, with which fixed parameters?</td>
     </tr>
     <tr>
-      <td><strong>CSI Driver</strong></td>
+      <td><strong>VolumeAttributesClass</strong></td>
+      <td>Cluster</td>
+      <td>Cluster admin</td>
+      <td>Which <em>mutable</em> performance settings (IOPS, throughput) apply, and can they change later?</td>
+    </tr>
+    <tr>
+      <td><strong>CSI driver</strong></td>
+      <td>Node + controller Pods</td>
       <td>Storage vendor</td>
-      <td>“How do I attach, mount, snapshot, and resize real volumes?”</td>
+      <td>How are volumes created, attached, mounted, expanded, and snapshotted?</td>
     </tr>
   </tbody>
 </table>
 
-<p>The PVC is the contract. A Pod references a PVC by name; the PVC binds to exactly one PV; the PV points at real storage through a CSI driver. The Pod never names a disk, a zone, or an AWS volume ID — it names a claim, and that indirection is what makes manifests portable across clouds.</p>
+<p>The PVC is the contract. A Pod references a PVC by name; the PVC binds to exactly one PV; the PV describes real storage that a CSI driver attaches and mounts. The indirection is what makes the same manifest portable across clouds and on-premises clusters.</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    Pod[Pod spec&lt;br/&gt;volumes.persistentVolumeClaim] --&gt;|by name| PVC[PVC: data-0&lt;br/&gt;10Gi RWO class=fast-ssd]
-    PVC --&gt;|references| SC[StorageClass fast-ssd&lt;br/&gt;provisioner=ebs.csi.aws.com]
-    SC --&gt;|provisions| PV[(PersistentVolume&lt;br/&gt;vol-0abc123 gp3)]
-    PVC -.bound 1:1.-&gt; PV
-    PV -.CSI attach+mount.-&gt; Pod
+    Pod["Pod&lt;br/&gt;volumes: persistentVolumeClaim data"] --&gt;|by name| PVC["PVC data&lt;br/&gt;20Gi, RWO, class fast-ssd"]
+    PVC --&gt;|storageClassName| SC["StorageClass fast-ssd&lt;br/&gt;provisioner ebs.csi.aws.com"]
+    SC --&gt;|CSI CreateVolume| PV[("PV pvc-7f3a…&lt;br/&gt;EBS gp3 volume")]
+    PVC -.-|bound 1:1| PV
+    PV -.-&gt;|"CSI attach + mount&lt;br/&gt;on the Pod's node"| Pod
 </code></pre>
 
-<h3 id="static-vs-dynamic-provisioning">Static vs Dynamic Provisioning</h3>
+<p>Almost all modern storage is provided through <strong>CSI</strong> (Container Storage Interface) drivers running in the cluster. The old in-tree cloud volume plugins (<code class="language-plaintext highlighter-rouge">awsElasticBlockStore</code>, <code class="language-plaintext highlighter-rouge">gcePersistentDisk</code>, <code class="language-plaintext highlighter-rouge">azureDisk</code>, and others) have been migrated to CSI, and existing objects that use them are transparently redirected to the corresponding CSI driver.</p>
 
-<p>There are two ways a PVC gets a PV.</p>
+<h3 id="static-and-dynamic-provisioning">Static and Dynamic Provisioning</h3>
 
-<p><strong>Static provisioning</strong> — an administrator pre-creates PV objects describing existing disks (an NFS export, a pre-cut LUN). When a PVC appears, the control plane’s PV controller looks for an <em>unbound</em> PV whose capacity, access modes, and <code class="language-plaintext highlighter-rouge">storageClassName</code> satisfy the claim, and binds them. If nothing matches, the PVC stays <code class="language-plaintext highlighter-rouge">Pending</code> forever. Static provisioning is mostly used for legacy NFS exports and for importing pre-existing cloud disks.</p>
+<p><strong>Static provisioning.</strong> An administrator creates PV objects that describe existing storage, such as an NFS export or a pre-existing cloud disk. When a PVC appears, the PV controller binds it to an unbound PV whose capacity, access modes, and <code class="language-plaintext highlighter-rouge">storageClassName</code> satisfy it. If nothing matches, the PVC stays <code class="language-plaintext highlighter-rouge">Pending</code>. Static provisioning is mainly used to import existing data.</p>
 
-<p><strong>Dynamic provisioning</strong> — the common case. The PVC names a <code class="language-plaintext highlighter-rouge">StorageClass</code>; the class’s external provisioner (the CSI controller plugin) calls the storage backend, creates a brand-new volume sized to the claim, writes a matching PV object, and binds it. No human ever touches a PV.</p>
+<p><strong>Dynamic provisioning.</strong> The common case. The PVC names a StorageClass; the class’s CSI provisioner creates a new volume sized to the claim, writes a matching PV, and binds it.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Dynamic: the PVC names a class, the class makes the disk.</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">data</span>
@@ -3204,37 +3214,73 @@ document.addEventListener('DOMContentLoaded', function () {
       <span class="na">storage</span><span class="pi">:</span> <span class="s">20Gi</span>
 </code></pre></div></div>
 
-<p>A subtle but important rule: <code class="language-plaintext highlighter-rouge">storageClassName: ""</code> (empty string) explicitly <em>disables</em> dynamic provisioning and forces static binding, while <em>omitting</em> the field falls back to the cluster’s <strong>default StorageClass</strong> (the one annotated <code class="language-plaintext highlighter-rouge">storageclass.kubernetes.io/is-default-class: "true"</code>). Forgetting this is the classic cause of a PVC that hangs in <code class="language-plaintext highlighter-rouge">Pending</code> in a cluster that has no default class.</p>
+<p>The <code class="language-plaintext highlighter-rouge">storageClassName</code> field has three distinct meanings:</p>
 
-<h3 id="binding-modes-immediate-vs-waitforfirstconsumer">Binding Modes: Immediate vs WaitForFirstConsumer</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Value</th>
+      <th>Behaviour</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A class name</td>
+      <td>Dynamic provisioning with that class (or static binding to a PV of that class)</td>
+    </tr>
+    <tr>
+      <td>Omitted</td>
+      <td>Use the cluster’s <strong>default StorageClass</strong> (annotated <code class="language-plaintext highlighter-rouge">storageclass.kubernetes.io/is-default-class: "true"</code>). If no default exists yet, the PVC waits, and is assigned the default retroactively once one is created (stable since v1.28)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">""</code> (empty string)</td>
+      <td>Disable dynamic provisioning; bind only to a PV that also has no class</td>
+    </tr>
+  </tbody>
+</table>
 
-<p><code class="language-plaintext highlighter-rouge">volumeBindingMode</code> on the StorageClass decides <em>when</em> the PV is created.</p>
+<h3 id="binding-mode-immediate-or-waitforfirstconsumer">Binding Mode: Immediate or WaitForFirstConsumer</h3>
+
+<p>The StorageClass field <code class="language-plaintext highlighter-rouge">volumeBindingMode</code> decides <em>when</em> the volume is created.</p>
 
 <ul>
-  <li><strong>Immediate</strong> — the volume is provisioned the moment the PVC is created, before any Pod is scheduled. On a multi-zone cluster this is dangerous: the provisioner may put the disk in <code class="language-plaintext highlighter-rouge">us-east-1a</code> while the scheduler later places the Pod in <code class="language-plaintext highlighter-rouge">us-east-1c</code>, and a zonal block device cannot be attached across zones. The Pod is then unschedulable.</li>
-  <li><strong>WaitForFirstConsumer (WFFC)</strong> — provisioning is <em>delayed</em> until a Pod that mounts the PVC is scheduled. The scheduler picks a node first, then the provisioner creates the disk in that node’s zone. This is the correct default for any zonal block storage (EBS, GCE PD, Azure Disk).</li>
+  <li><strong>Immediate</strong> provisions as soon as the PVC exists, before any Pod is scheduled. In a multi-zone cluster the disk may land in <code class="language-plaintext highlighter-rouge">us-east-1a</code> while the scheduler later wants the Pod in <code class="language-plaintext highlighter-rouge">us-east-1c</code>; a zonal block device cannot attach across zones, and the Pod is unschedulable.</li>
+  <li><strong>WaitForFirstConsumer</strong> delays provisioning until a Pod using the PVC is scheduled. The scheduler chooses a node, taking the Pod’s other constraints into account, and the provisioner creates the disk in that node’s zone.</li>
 </ul>
 
-<p>Always prefer <code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> for block storage. Use <code class="language-plaintext highlighter-rouge">Immediate</code> only for topology-independent backends (some networked file systems) where you actively want the volume to exist before scheduling.</p>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant U as kubectl apply
+    participant API as API server
+    participant S as Scheduler
+    participant P as CSI provisioner
+    participant K as kubelet
+    U-&gt;&gt;API: create PVC + Pod
+    Note over API: PVC Pending (WaitForFirstConsumer)
+    S-&gt;&gt;API: pick node in us-east-1c,&lt;br/&gt;annotate PVC with selected node
+    P-&gt;&gt;API: see annotation, CreateVolume in us-east-1c
+    P-&gt;&gt;API: create PV (nodeAffinity: us-east-1c), bind PVC
+    API-&gt;&gt;K: Pod bound to node
+    K-&gt;&gt;K: CSI attach, stage, mount, start containers
+</code></pre>
 
-<h2 id="storageclasses-in-depth">StorageClasses in Depth</h2>
+<p>Use <code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> for any zonal block storage (EBS, Persistent Disk, Azure Disk, local volumes). <code class="language-plaintext highlighter-rouge">Immediate</code> is only appropriate for storage reachable from every node, such as a regional file service.</p>
 
-<p>A StorageClass is a named recipe for making PVs. The same cluster typically defines several tiers.</p>
+<h2 id="storageclasses">StorageClasses</h2>
+
+<p>A StorageClass is a named recipe for creating PVs. A cluster usually offers a few tiers: a default general-purpose class, a high-performance class, and a shared-filesystem class.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">fast-ssd</span>
-  <span class="na">annotations</span><span class="pi">:</span>
-    <span class="na">storageclass.kubernetes.io/is-default-class</span><span class="pi">:</span> <span class="s2">"</span><span class="s">false"</span>
 <span class="na">provisioner</span><span class="pi">:</span> <span class="s">ebs.csi.aws.com</span>
 <span class="na">parameters</span><span class="pi">:</span>
   <span class="na">type</span><span class="pi">:</span> <span class="s">gp3</span>
   <span class="na">iops</span><span class="pi">:</span> <span class="s2">"</span><span class="s">5000"</span>
-  <span class="na">throughput</span><span class="pi">:</span> <span class="s2">"</span><span class="s">250"</span>
+  <span class="na">throughput</span><span class="pi">:</span> <span class="s2">"</span><span class="s">250"</span>          <span class="c1"># MiB/s</span>
   <span class="na">encrypted</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
-<span class="na">reclaimPolicy</span><span class="pi">:</span> <span class="s">Retain</span>            <span class="c1"># keep the disk if the PVC is deleted</span>
-<span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="kc">true</span>       <span class="c1"># PVCs of this class can grow</span>
+<span class="na">reclaimPolicy</span><span class="pi">:</span> <span class="s">Retain</span>          <span class="c1"># keep the disk if the PVC is deleted</span>
+<span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="kc">true</span>     <span class="c1"># PVCs of this class can grow</span>
 <span class="na">volumeBindingMode</span><span class="pi">:</span> <span class="s">WaitForFirstConsumer</span>
 </code></pre></div></div>
 
@@ -3249,77 +3295,124 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">provisioner</code></td>
-      <td>Which CSI driver creates the volume</td>
-      <td>Match your platform (EBS, PD, Disk, Ceph)</td>
+      <td>CSI driver that creates the volume</td>
+      <td>Match the platform (EBS, PD, Azure Disk, Ceph RBD, Longhorn)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">parameters</code></td>
-      <td>Backend-specific tuning (disk type, IOPS, encryption)</td>
-      <td>Always enable encryption at rest</td>
+      <td>Driver-specific settings: disk type, IOPS, encryption, filesystem</td>
+      <td>Enable encryption at rest</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">reclaimPolicy</code></td>
-      <td>Fate of the PV when its PVC is deleted</td>
-      <td><code class="language-plaintext highlighter-rouge">Retain</code> for stateful data, <code class="language-plaintext highlighter-rouge">Delete</code> for scratch</td>
+      <td>Fate of the PV when its PVC is deleted (default <code class="language-plaintext highlighter-rouge">Delete</code>)</td>
+      <td><code class="language-plaintext highlighter-rouge">Retain</code> for irreplaceable data</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">allowVolumeExpansion</code></td>
-      <td>Whether PVCs can be grown in place</td>
-      <td><code class="language-plaintext highlighter-rouge">true</code> so you can resize without re-creating</td>
+      <td>Whether PVCs can be enlarged in place</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">volumeBindingMode</code></td>
       <td>When to provision</td>
-      <td><code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> for zonal block storage</td>
+      <td><code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> for zonal storage</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">allowedTopologies</code></td>
+      <td>Restrict provisioning to certain zones</td>
+      <td>Use when only some zones have capacity</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">mountOptions</code></td>
-      <td>Mount flags passed to the kernel</td>
-      <td>e.g. NFS <code class="language-plaintext highlighter-rouge">nconnect</code>, <code class="language-plaintext highlighter-rouge">hard</code></td>
+      <td>Mount flags passed to the node</td>
+      <td>For example NFS <code class="language-plaintext highlighter-rouge">nconnect=8</code>, <code class="language-plaintext highlighter-rouge">hard</code></td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="reclaim-policy-and-the-released-state">Reclaim Policy and the Released State</h3>
+<p>Most StorageClass fields are immutable. To change them, create a new class and migrate.</p>
 
-<p>The reclaim policy is the single most consequential storage setting, because it decides whether deleting a PVC also destroys your data.</p>
+<h3 id="changing-performance-later-volumeattributesclass">Changing Performance Later: VolumeAttributesClass</h3>
+
+<p>StorageClass parameters are fixed at creation, so historically moving a database from 3,000 to 10,000 IOPS meant either a new volume and a data copy, or an out-of-band change in the cloud console that Kubernetes knew nothing about. <strong>VolumeAttributesClass</strong> (stable since v1.34) separates <em>mutable</em> attributes into their own class. A PVC references one with <code class="language-plaintext highlighter-rouge">volumeAttributesClassName</code>, and editing that field asks the CSI driver to modify the live volume through the CSI <code class="language-plaintext highlighter-rouge">ModifyVolume</code> call, without detaching it.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeAttributesClass</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">gp3-high</span>
+<span class="na">driverName</span><span class="pi">:</span> <span class="s">ebs.csi.aws.com</span>
+<span class="na">parameters</span><span class="pi">:</span>          <span class="c1"># names are driver-specific</span>
+  <span class="na">iops</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10000"</span>
+  <span class="na">throughput</span><span class="pi">:</span> <span class="s2">"</span><span class="s">500"</span>
+<span class="nn">---</span>
+<span class="c1"># Upgrade an existing claim in place:</span>
+<span class="c1">#   kubectl patch pvc data-postgres-0 \</span>
+<span class="c1">#     -p '{"spec":{"volumeAttributesClassName":"gp3-high"}}'</span>
+</code></pre></div></div>
+
+<p>The driver must implement <code class="language-plaintext highlighter-rouge">ModifyVolume</code>, and the backend’s own limits still apply; EBS, for example, allows a limited number of modifications per volume in a time window. Progress is reported in the PVC’s <code class="language-plaintext highlighter-rouge">status.currentVolumeAttributesClassName</code> and <code class="language-plaintext highlighter-rouge">status.modifyVolumeStatus</code>.</p>
+
+<h3 id="reclaim-policy-and-the-pv-lifecycle">Reclaim Policy and the PV Lifecycle</h3>
+
+<p>The reclaim policy is the most consequential storage setting, because it decides whether deleting a PVC also destroys the data.</p>
 
 <table>
   <thead>
     <tr>
       <th>Policy</th>
-      <th>On PVC delete</th>
+      <th>On PVC deletion</th>
       <th>Use for</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>Delete</strong></td>
-      <td>PV and the underlying disk are destroyed</td>
-      <td>Caches, CI scratch, replaceable data</td>
+      <td>PV and backing volume are deleted</td>
+      <td>Caches, CI scratch, anything reproducible</td>
     </tr>
     <tr>
       <td><strong>Retain</strong></td>
-      <td>PV moves to <code class="language-plaintext highlighter-rouge">Released</code>; the disk and its data survive</td>
-      <td>Databases, anything you cannot lose</td>
+      <td>PV becomes <code class="language-plaintext highlighter-rouge">Released</code>; the volume and its data survive</td>
+      <td>Databases and anything you cannot lose</td>
+    </tr>
+    <tr>
+      <td><strong>Recycle</strong></td>
+      <td>Deprecated; do not use</td>
+      <td>(Previously scrubbed the volume for reuse)</td>
     </tr>
   </tbody>
 </table>
 
-<p>With <code class="language-plaintext highlighter-rouge">Retain</code>, after the PVC is gone the PV is <code class="language-plaintext highlighter-rouge">Released</code> but <strong>not</strong> <code class="language-plaintext highlighter-rouge">Available</code> — it still records the UID of the old claim and Kubernetes will not auto-bind a new PVC to it. To re-use a retained disk you manually clear <code class="language-plaintext highlighter-rouge">spec.claimRef</code> on the PV, which returns it to <code class="language-plaintext highlighter-rouge">Available</code>. This friction is intentional: it forces a human decision before stale data is handed to a new workload.</p>
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; Available: PV created (static) or provisioned
+    Available --&gt; Bound: PVC binds
+    [*] --&gt; Bound: dynamic provisioning binds immediately
+    Bound --&gt; Released: PVC deleted (Retain)
+    Bound --&gt; [*]: PVC deleted (Delete), volume removed
+    Released --&gt; Available: admin clears spec.claimRef
+    Released --&gt; [*]: admin deletes PV and volume
+    Bound --&gt; Failed: reclamation error
+</code></pre>
+
+<p>A <code class="language-plaintext highlighter-rouge">Released</code> PV still records the old claim’s UID in <code class="language-plaintext highlighter-rouge">spec.claimRef</code>, so Kubernetes will not bind it to a new PVC automatically. Reusing it is a deliberate human step: inspect the data, then clear <code class="language-plaintext highlighter-rouge">claimRef</code> to make the PV <code class="language-plaintext highlighter-rouge">Available</code>, or pre-bind it by setting <code class="language-plaintext highlighter-rouge">volumeName</code> on the new PVC. With the <code class="language-plaintext highlighter-rouge">Delete</code> policy, a PV deletion-protection finalizer (stable since v1.33) ensures the backing volume is also deleted even if someone deletes the PV object before its PVC, preventing orphaned cloud disks.</p>
 
 <h3 id="volume-expansion">Volume Expansion</h3>
 
-<p>When <code class="language-plaintext highlighter-rouge">allowVolumeExpansion: true</code>, growing a volume is as simple as editing the PVC’s requested size upward (you can never shrink):</p>
+<p>With <code class="language-plaintext highlighter-rouge">allowVolumeExpansion: true</code>, a volume is grown by raising the PVC’s request. Volumes can never shrink.</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl patch pvc data-postgres-0 <span class="nt">-p</span> <span class="s1">'{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>kubectl patch pvc data-postgres-0 <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'</span>
+kubectl get pvc data-postgres-0 <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.allocatedResourceStatuses}'</span>
 </code></pre></div></div>
 
-<p>The CSI controller enlarges the backend volume. Filesystem expansion happens online for most drivers; a few require the Pod to restart so the node plugin can run <code class="language-plaintext highlighter-rouge">resize2fs</code>/<code class="language-plaintext highlighter-rouge">xfs_growfs</code>. Watch the PVC’s <code class="language-plaintext highlighter-rouge">status.conditions</code> for <code class="language-plaintext highlighter-rouge">FileSystemResizePending</code>.</p>
+<p>The CSI controller enlarges the backend volume, then the node plugin grows the filesystem. Online expansion of in-use volumes has been stable since v1.24, so no Pod restart is normally needed. If the backend cannot satisfy the new size, the request can be lowered again to a value that still exceeds the current capacity, and Kubernetes retries with the smaller size (recovery from failed expansion, stable since v1.34). Previously the only escape was a manual PV/PVC rebind.</p>
+
+<p>StatefulSet <code class="language-plaintext highlighter-rouge">volumeClaimTemplates</code> are immutable, so resizing a StatefulSet’s storage means patching each PVC individually. Update the template for future replicas by deleting the StatefulSet with <code class="language-plaintext highlighter-rouge">--cascade=orphan</code> (which leaves Pods and PVCs running) and re-creating it with the larger size.</p>
 
 <h2 id="access-modes">Access Modes</h2>
 
-<p>Access modes describe <em>how many nodes</em> may mount a volume and in what mode — they are a property of the volume technology, not a wish.</p>
+<p>Access modes state how a volume may be mounted. They are properties of the storage technology, not preferences.</p>
 
 <table>
   <thead>
@@ -3327,74 +3420,83 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Mode</th>
       <th>Short</th>
       <th>Meaning</th>
-      <th>Backed by</th>
+      <th>Typical backends</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td><strong>ReadWriteOnce</strong></td>
       <td>RWO</td>
-      <td>One <em>node</em> mounts read-write</td>
-      <td>Block storage (EBS, PD, Azure Disk)</td>
+      <td>Read-write by Pods on <strong>one node</strong></td>
+      <td>Block storage: EBS, Persistent Disk, Azure Disk, Ceph RBD</td>
     </tr>
     <tr>
       <td><strong>ReadOnlyMany</strong></td>
       <td>ROX</td>
-      <td>Many nodes mount read-only</td>
-      <td>File storage, snapshots</td>
+      <td>Read-only by many nodes</td>
+      <td>File storage, volumes cloned from snapshots</td>
     </tr>
     <tr>
       <td><strong>ReadWriteMany</strong></td>
       <td>RWX</td>
-      <td>Many nodes mount read-write</td>
-      <td>File storage (EFS, NFS, CephFS, Longhorn)</td>
+      <td>Read-write by many nodes</td>
+      <td>File storage: EFS, Azure Files, Filestore, NFS, CephFS</td>
     </tr>
     <tr>
       <td><strong>ReadWriteOncePod</strong></td>
       <td>RWOP</td>
-      <td>Exactly one <em>Pod</em> (cluster-wide) mounts read-write</td>
-      <td>CSI drivers supporting it (1.22+)</td>
+      <td>Read-write by exactly <strong>one Pod</strong> in the cluster</td>
+      <td>CSI drivers only; stable since v1.29</td>
     </tr>
   </tbody>
 </table>
 
-<p>Two traps catch nearly everyone:</p>
+<p>Two traps catch most people:</p>
 
 <ol>
-  <li><strong>RWO is per-node, not per-pod.</strong> Two Pods scheduled to the <em>same</em> node can both mount an RWO volume read-write. If you need a hard “only one writer in the entire cluster” guarantee (e.g. to prevent a split-brain second writer during a rolling update), use <strong>ReadWriteOncePod</strong>.</li>
-  <li><strong>You cannot get RWX from block storage.</strong> A PVC requesting <code class="language-plaintext highlighter-rouge">ReadWriteMany</code> against an EBS/PD-backed StorageClass will sit in <code class="language-plaintext highlighter-rouge">Pending</code> forever, because block devices physically attach to one node. RWX requires a file-based backend.</li>
+  <li><strong>RWO is per node, not per Pod.</strong> Two Pods scheduled on the same node can both mount an RWO volume read-write. For a guaranteed single writer (for example, to rule out two database primaries during a rollout) use <strong>ReadWriteOncePod</strong>; the scheduler will not place a second Pod that uses the claim.</li>
+  <li><strong>Block storage cannot be RWX.</strong> A block device attaches to one node at a time, so an RWX claim against an EBS or Persistent Disk class stays <code class="language-plaintext highlighter-rouge">Pending</code>. Shared read-write access needs a file-based backend, with the consistency and latency costs of a network filesystem.</li>
 </ol>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A volume that must never have two writers, even briefly.</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOncePod"</span><span class="pi">]</span>
-  <span class="na">resources</span><span class="pi">:</span>
-    <span class="na">requests</span><span class="pi">:</span>
-      <span class="na">storage</span><span class="pi">:</span> <span class="s">10Gi</span>
-</code></pre></div></div>
+<p>The <code class="language-plaintext highlighter-rouge">volumeMode</code> field is separate: <code class="language-plaintext highlighter-rouge">Filesystem</code> (default) mounts a formatted filesystem, while <code class="language-plaintext highlighter-rouge">Block</code> presents a raw block device to the container, which some databases and storage systems prefer.</p>
 
 <h2 id="statefulsets-identity-storage-and-ordering">StatefulSets: Identity, Storage, and Ordering</h2>
 
-<p>A Deployment treats Pods as fungible cattle: any replica is as good as any other, names are random, and storage (if any) is shared. That model breaks for clustered stateful systems where each member has a <em>role</em> — a Postgres primary, a Kafka broker with assigned partitions, a Redis master. The StatefulSet controller exists to give Pods three things Deployments cannot:</p>
+<p>A Deployment treats its Pods as interchangeable: random names, no per-Pod storage, and replacement in any order. Clustered stateful systems break that model because each member has a role and its own data: a Postgres primary and its replicas, Kafka brokers that own specific partitions, Elasticsearch nodes that hold specific shards. The <strong>StatefulSet</strong> controller provides the three guarantees they need:</p>
 
 <ol>
-  <li><strong>Stable network identity</strong> — a deterministic, ordinal hostname that survives rescheduling.</li>
-  <li><strong>Stable per-Pod storage</strong> — each ordinal gets its <em>own</em> PVC that follows it across nodes.</li>
-  <li><strong>Ordered, controlled lifecycle</strong> — predictable creation, scaling, and rollout order.</li>
+  <li><strong>Stable network identity.</strong> Pod names are <code class="language-plaintext highlighter-rouge">&lt;statefulset&gt;-&lt;ordinal&gt;</code> and survive rescheduling.</li>
+  <li><strong>Stable per-Pod storage.</strong> Each ordinal gets its own PVC, which follows the Pod to whatever node it lands on.</li>
+  <li><strong>Ordered, controlled lifecycle.</strong> Creation, scaling, and updates proceed in a predictable order.</li>
 </ol>
+
+<pre><code class="language-mermaid">flowchart TB
+    SVC["Headless Service postgres-headless&lt;br/&gt;clusterIP: None"]
+    subgraph STS["StatefulSet postgres (replicas: 3)"]
+        P0["Pod postgres-0"] --- C0[("PVC data-postgres-0")]
+        P1["Pod postgres-1"] --- C1[("PVC data-postgres-1")]
+        P2["Pod postgres-2"] --- C2[("PVC data-postgres-2")]
+    end
+    SVC -.-&gt;|postgres-0.postgres-headless| P0
+    SVC -.-&gt;|postgres-1.postgres-headless| P1
+    SVC -.-&gt;|postgres-2.postgres-headless| P2
+</code></pre>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">StatefulSet</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">postgres</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">serviceName</span><span class="pi">:</span> <span class="s">postgres-headless</span>   <span class="c1"># MUST be a headless Service</span>
+  <span class="na">serviceName</span><span class="pi">:</span> <span class="s">postgres-headless</span>     <span class="c1"># the governing headless Service</span>
   <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
-  <span class="na">podManagementPolicy</span><span class="pi">:</span> <span class="s">OrderedReady</span> <span class="c1"># or Parallel</span>
+  <span class="na">podManagementPolicy</span><span class="pi">:</span> <span class="s">OrderedReady</span>  <span class="c1"># default; immutable after creation</span>
   <span class="na">updateStrategy</span><span class="pi">:</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">RollingUpdate</span>
     <span class="na">rollingUpdate</span><span class="pi">:</span>
       <span class="na">partition</span><span class="pi">:</span> <span class="m">0</span>
+  <span class="na">persistentVolumeClaimRetentionPolicy</span><span class="pi">:</span>
+    <span class="na">whenDeleted</span><span class="pi">:</span> <span class="s">Retain</span>              <span class="c1"># default: keep data if the StatefulSet is deleted</span>
+    <span class="na">whenScaled</span><span class="pi">:</span> <span class="s">Retain</span>               <span class="c1"># default: keep data for scaled-down ordinals</span>
   <span class="na">selector</span><span class="pi">:</span>
     <span class="na">matchLabels</span><span class="pi">:</span>
       <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
@@ -3406,89 +3508,124 @@ document.addEventListener('DOMContentLoaded', function () {
       <span class="na">terminationGracePeriodSeconds</span><span class="pi">:</span> <span class="m">60</span>
       <span class="na">containers</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">postgres</span>
-        <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:16</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">postgres:18</span>
+        <span class="na">env</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">POSTGRES_PASSWORD</span>
+          <span class="na">valueFrom</span><span class="pi">:</span>
+            <span class="na">secretKeyRef</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">name</span><span class="pi">:</span> <span class="nv">postgres-auth</span><span class="pi">,</span> <span class="nv">key</span><span class="pi">:</span> <span class="nv">password</span><span class="pi">}</span>
         <span class="na">ports</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">5432</span>
           <span class="na">name</span><span class="pi">:</span> <span class="s">pg</span>
         <span class="na">volumeMounts</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">data</span>
-          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/lib/postgresql/data</span>
-  <span class="na">volumeClaimTemplates</span><span class="pi">:</span>           <span class="c1"># one PVC per ordinal, created automatically</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/lib/postgresql</span>   <span class="c1"># PostgreSQL 18+ image layout</span>
+  <span class="na">volumeClaimTemplates</span><span class="pi">:</span>              <span class="c1"># one PVC per ordinal</span>
   <span class="pi">-</span> <span class="na">metadata</span><span class="pi">:</span>
       <span class="na">name</span><span class="pi">:</span> <span class="s">data</span>
     <span class="na">spec</span><span class="pi">:</span>
-      <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOnce"</span><span class="pi">]</span>
+      <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOncePod"</span><span class="pi">]</span>
       <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">fast-ssd</span>
       <span class="na">resources</span><span class="pi">:</span>
         <span class="na">requests</span><span class="pi">:</span>
           <span class="na">storage</span><span class="pi">:</span> <span class="s">50Gi</span>
 </code></pre></div></div>
 
+<p>The mount path matters. From PostgreSQL 18, the official image stores data in a version-specific <code class="language-plaintext highlighter-rouge">PGDATA</code> (<code class="language-plaintext highlighter-rouge">/var/lib/postgresql/18/docker</code>) and declares its volume at <code class="language-plaintext highlighter-rouge">/var/lib/postgresql</code>; for 17 and earlier the volume must be mounted at <code class="language-plaintext highlighter-rouge">/var/lib/postgresql/data</code>. Mounting at the wrong path writes the database to the container’s anonymous volume, and the data is lost when the Pod is replaced.</p>
+
 <h3 id="stable-identity">Stable Identity</h3>
 
-<p>Each Pod is named <code class="language-plaintext highlighter-rouge">&lt;statefulset&gt;-&lt;ordinal&gt;</code>: <code class="language-plaintext highlighter-rouge">postgres-0</code>, <code class="language-plaintext highlighter-rouge">postgres-1</code>, <code class="language-plaintext highlighter-rouge">postgres-2</code>. The ordinal is sticky — if <code class="language-plaintext highlighter-rouge">postgres-1</code> is deleted, its replacement is <em>also</em> named <code class="language-plaintext highlighter-rouge">postgres-1</code> and re-attaches the same PVC. That stability is what lets a peer hard-code “the primary is <code class="language-plaintext highlighter-rouge">postgres-0</code>” or “broker id = ordinal.”</p>
+<p>The ordinal is sticky: if <code class="language-plaintext highlighter-rouge">postgres-1</code> is deleted, its replacement is also <code class="language-plaintext highlighter-rouge">postgres-1</code> and reattaches <code class="language-plaintext highlighter-rouge">data-postgres-1</code>. Each Pod carries the labels <code class="language-plaintext highlighter-rouge">statefulset.kubernetes.io/pod-name</code> and <code class="language-plaintext highlighter-rouge">apps.kubernetes.io/pod-index</code> (stable since v1.32), so a Service or a monitoring rule can select one specific member. Ordinals start at 0 by default; <code class="language-plaintext highlighter-rouge">.spec.ordinals.start</code> (stable since v1.31) can start them elsewhere, which lets a StatefulSet be split or migrated across clusters without renumbering members.</p>
 
-<h3 id="per-ordinal-storage-via-volumeclaimtemplates">Per-Ordinal Storage via volumeClaimTemplates</h3>
+<h3 id="per-ordinal-storage">Per-Ordinal Storage</h3>
 
-<p><code class="language-plaintext highlighter-rouge">volumeClaimTemplates</code> is the heart of StatefulSet persistence. The controller stamps out one PVC <em>per Pod</em>, named <code class="language-plaintext highlighter-rouge">&lt;template&gt;-&lt;statefulset&gt;-&lt;ordinal&gt;</code> — <code class="language-plaintext highlighter-rouge">data-postgres-0</code>, <code class="language-plaintext highlighter-rouge">data-postgres-1</code>, and so on. Critically, <strong>these PVCs are not deleted when the StatefulSet scales down or is deleted.</strong> That is a safety feature: deleting the StatefulSet does not throw away your database. (Kubernetes 1.27+ adds <code class="language-plaintext highlighter-rouge">persistentVolumeClaimRetentionPolicy</code> to opt into automatic cleanup on <code class="language-plaintext highlighter-rouge">whenScaled</code>/<code class="language-plaintext highlighter-rouge">whenDeleted</code> if you genuinely want it.)</p>
+<p>The controller creates one PVC per Pod from each <code class="language-plaintext highlighter-rouge">volumeClaimTemplate</code>, named <code class="language-plaintext highlighter-rouge">&lt;template&gt;-&lt;statefulset&gt;-&lt;ordinal&gt;</code>:</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>kubectl get pvc <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>postgres
-NAME              STATUS   VOLUME       CAPACITY   ACCESS MODES   STORAGECLASS
-data-postgres-0   Bound    pvc-aaa...   50Gi       RWO            fast-ssd
-data-postgres-1   Bound    pvc-bbb...   50Gi       RWO            fast-ssd
-data-postgres-2   Bound    pvc-ccc...   50Gi       RWO            fast-ssd
+NAME              STATUS   VOLUME        CAPACITY   ACCESS MODES   STORAGECLASS
+data-postgres-0   Bound    pvc-a1b2...   50Gi       RWOP           fast-ssd
+data-postgres-1   Bound    pvc-c3d4...   50Gi       RWOP           fast-ssd
+data-postgres-2   Bound    pvc-e5f6...   50Gi       RWOP           fast-ssd
 </code></pre></div></div>
 
-<h3 id="ordering-guarantees">Ordering Guarantees</h3>
+<p>By default these PVCs <strong>outlive</strong> the StatefulSet: scaling down or deleting it leaves the claims, and their data, in place, and scaling back up reattaches them. <code class="language-plaintext highlighter-rouge">persistentVolumeClaimRetentionPolicy</code> (stable since v1.32) changes this per event: <code class="language-plaintext highlighter-rouge">whenScaled: Delete</code> removes the PVCs of ordinals removed by a scale-down, and <code class="language-plaintext highlighter-rouge">whenDeleted: Delete</code> removes all of them when the StatefulSet is deleted. Neither applies when a Pod is merely rescheduled after a node failure; the existing PVC is always reattached.</p>
 
-<p><code class="language-plaintext highlighter-rouge">podManagementPolicy</code> controls scaling order:</p>
+<h3 id="ordering-and-updates">Ordering and Updates</h3>
 
-<ul>
-  <li><strong>OrderedReady</strong> (default) — Pods are created strictly one at a time in ascending ordinal order, and each must pass its readiness probe before the next starts. Scale-down deletes in <em>descending</em> order, one at a time. This is what you want when member N must register with members 0..N-1 before it is useful (most quorum systems).</li>
-  <li><strong>Parallel</strong> — all Pods are launched/terminated at once. Faster, appropriate when members are truly independent and self-discover (some sharded stores).</li>
-</ul>
-
-<p>Rolling updates honor the same ordering in reverse — highest ordinal first, down to zero — and the <code class="language-plaintext highlighter-rouge">partition</code> knob enables <strong>canary/staged rollouts</strong>: setting <code class="language-plaintext highlighter-rouge">rollingUpdate.partition: 2</code> means only Pods with ordinal ≥ 2 are updated, letting you soak a new image on <code class="language-plaintext highlighter-rouge">postgres-2</code> before lowering the partition to <code class="language-plaintext highlighter-rouge">0</code> to roll the rest.</p>
+<p><code class="language-plaintext highlighter-rouge">podManagementPolicy</code> governs <strong>scaling</strong>:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Guarantee</th>
-      <th>OrderedReady</th>
+      <th> </th>
+      <th>OrderedReady (default)</th>
       <th>Parallel</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Creation order</td>
-      <td>0, 1, 2 sequentially, gated on Ready</td>
-      <td>all at once</td>
+      <td>Scale up</td>
+      <td>0, 1, 2 in turn; each waits for the previous to be Running and Ready</td>
+      <td>All at once</td>
     </tr>
     <tr>
-      <td>Deletion order</td>
-      <td>2, 1, 0 sequentially</td>
-      <td>all at once</td>
+      <td>Scale down</td>
+      <td>Highest ordinal first, one at a time</td>
+      <td>All at once</td>
     </tr>
     <tr>
       <td>Use when</td>
-      <td>Members depend on lower ordinals</td>
-      <td>Members are independent</td>
+      <td>Members must join an existing quorum in order</td>
+      <td>Members self-organise (many modern clustered systems)</td>
     </tr>
   </tbody>
 </table>
 
-<p>A caution: OrderedReady can deadlock a rollout. If <code class="language-plaintext highlighter-rouge">postgres-1</code> is broken and never becomes Ready, the controller will not proceed to <code class="language-plaintext highlighter-rouge">postgres-0</code> — the update stalls. The fix is usually to correct the manifest and force-delete the stuck Pod, or temporarily switch troubleshooting to <code class="language-plaintext highlighter-rouge">Parallel</code>.</p>
+<p><code class="language-plaintext highlighter-rouge">updateStrategy</code> governs <strong>template changes</strong>, independently of the policy above:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Strategy</th>
+      <th>Behaviour</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RollingUpdate</code> (default)</td>
+      <td>Replace Pods from the highest ordinal down, one at a time, waiting for each to become Ready (plus <code class="language-plaintext highlighter-rouge">minReadySeconds</code>)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RollingUpdate</code> + <code class="language-plaintext highlighter-rouge">partition: N</code></td>
+      <td>Only ordinals ≥ N are updated; lower ordinals stay on (and are recreated at) the old revision. Used for canaries and staged rollouts</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">RollingUpdate</code> + <code class="language-plaintext highlighter-rouge">maxUnavailable</code></td>
+      <td>Replace up to this many Pods at once (beta; enabled by default in v1.37). Speeds up large sets whose members tolerate it</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OnDelete</code></td>
+      <td>Never replace automatically; new Pods pick up the template only when you delete old ones. Used when an operator or a human sequences upgrades</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Recreate</code></td>
+      <td>Delete every Pod, then create new ones; for software that cannot run two versions at once (alpha in v1.37, behind the <code class="language-plaintext highlighter-rouge">StatefulSetRecreateStrategy</code> feature gate)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Stuck rollouts.</strong> With <code class="language-plaintext highlighter-rouge">OrderedReady</code> and <code class="language-plaintext highlighter-rouge">RollingUpdate</code>, a template that never becomes Ready halts the rollout at that Pod. Reverting the template is not enough on its own: the controller keeps waiting for the broken Pod. After reverting, delete the Pods that were created from the bad revision so they are recreated from the good one. <code class="language-plaintext highlighter-rouge">podManagementPolicy</code> cannot be changed on an existing StatefulSet, so switching to <code class="language-plaintext highlighter-rouge">Parallel</code> is not an option mid-incident.</p>
 
 <h2 id="headless-services-dns-for-peers">Headless Services: DNS for Peers</h2>
 
-<p>A normal <code class="language-plaintext highlighter-rouge">ClusterIP</code> Service gives you <em>one</em> virtual IP and load-balances across Pods — exactly wrong for a database cluster where you must address a <em>specific</em> member. A <strong>headless Service</strong> (<code class="language-plaintext highlighter-rouge">clusterIP: None</code>) allocates no virtual IP; instead DNS returns the individual Pod addresses, and combined with a StatefulSet’s <code class="language-plaintext highlighter-rouge">serviceName</code>, each Pod gets a stable, resolvable hostname.</p>
+<p>A normal ClusterIP Service gives one virtual IP and load-balances across Pods, which is exactly wrong when a client must reach a <em>specific</em> member, such as the primary or the leader of a partition. A <strong>headless Service</strong> (<code class="language-plaintext highlighter-rouge">clusterIP: None</code>) allocates no virtual IP. DNS returns the individual Pod addresses instead, and combined with a StatefulSet’s <code class="language-plaintext highlighter-rouge">serviceName</code>, each Pod gets its own stable DNS name.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-headless</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">clusterIP</span><span class="pi">:</span> <span class="s">None</span>                 <span class="c1"># this is what makes it headless</span>
+  <span class="na">clusterIP</span><span class="pi">:</span> <span class="s">None</span>                  <span class="c1"># headless</span>
+  <span class="na">publishNotReadyAddresses</span><span class="pi">:</span> <span class="kc">true</span>   <span class="c1"># peers can find each other while bootstrapping</span>
   <span class="na">selector</span><span class="pi">:</span>
     <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
   <span class="na">ports</span><span class="pi">:</span>
@@ -3496,166 +3633,162 @@ data-postgres-2   Bound    pvc-ccc...   50Gi       RWO            fast-ssd
     <span class="na">name</span><span class="pi">:</span> <span class="s">pg</span>
 </code></pre></div></div>
 
-<p>With this Service plus the StatefulSet above, each Pod is reachable at:</p>
+<p>Each Pod is then resolvable as <code class="language-plaintext highlighter-rouge">&lt;pod&gt;.&lt;service&gt;.&lt;namespace&gt;.svc.&lt;cluster-domain&gt;</code>:</p>
 
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>postgres-0.postgres-headless.default.svc.cluster.local
 postgres-1.postgres-headless.default.svc.cluster.local
 postgres-2.postgres-headless.default.svc.cluster.local
 </code></pre></div></div>
 
-<p>This is the linchpin of clustered systems: a replica can <code class="language-plaintext highlighter-rouge">pg_basebackup</code> directly from <code class="language-plaintext highlighter-rouge">postgres-0.postgres-headless</code>, a Kafka broker advertises its own ordinal hostname so clients connect to the right partition leader, and Redis sentinels gossip over the per-Pod DNS names. A common production layout pairs <strong>two</strong> Services: the headless one for peer discovery, and a regular ClusterIP (or a <code class="language-plaintext highlighter-rouge">postgres-0</code>-selecting Service) that points clients at the current primary for writes.</p>
+<p><code class="language-plaintext highlighter-rouge">publishNotReadyAddresses: true</code> matters for clustered systems: members often need to discover each other <em>before</em> they pass readiness (forming a quorum is what makes them ready), and by default DNS only publishes Ready Pods. Keep it on the peer-discovery Service only, never on the Service clients use.</p>
+
+<p>A common layout pairs two Services: the headless one for replication and peer discovery, and a regular ClusterIP Service whose selector matches only the current primary (for example <code class="language-plaintext highlighter-rouge">role: primary</code>) for client writes, with an optional third for read replicas.</p>
 
 <h2 id="snapshots-backup-and-disaster-recovery">Snapshots, Backup, and Disaster Recovery</h2>
 
-<h3 id="volume-snapshots-are-not-backups">Volume Snapshots Are Not Backups</h3>
+<h3 id="volume-snapshots">Volume Snapshots</h3>
 
-<p>CSI <code class="language-plaintext highlighter-rouge">VolumeSnapshot</code> objects create a point-in-time copy of a PVC at the block layer.</p>
+<p>CSI <code class="language-plaintext highlighter-rouge">VolumeSnapshot</code> objects (stable since v1.20) capture a point-in-time copy of a PVC at the storage layer. They require the external snapshot controller, the snapshot CRDs, and a driver that supports snapshots, which most managed Kubernetes offerings install.</p>
 
 <div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">snapshot.storage.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeSnapshot</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-0-snap-2026-06-06</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-0-2026-09-22</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">volumeSnapshotClassName</span><span class="pi">:</span> <span class="s">csi-snapshots</span>
+  <span class="na">volumeSnapshotClassName</span><span class="pi">:</span> <span class="s">csi-snapclass</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">persistentVolumeClaimName</span><span class="pi">:</span> <span class="s">data-postgres-0</span>
-</code></pre></div></div>
-
-<p>Restoring is a PVC with a <code class="language-plaintext highlighter-rouge">dataSource</code>:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="nn">---</span>
+<span class="c1"># Restore: a new PVC whose dataSource is the snapshot</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">data-postgres-0-restored</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">fast-ssd</span>
   <span class="na">dataSource</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-0-snap-2026-06-06</span>
-    <span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeSnapshot</span>
     <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">snapshot.storage.k8s.io</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeSnapshot</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-0-2026-09-22</span>
   <span class="na">accessModes</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ReadWriteOnce"</span><span class="pi">]</span>
   <span class="na">resources</span><span class="pi">:</span>
     <span class="na">requests</span><span class="pi">:</span>
       <span class="na">storage</span><span class="pi">:</span> <span class="s">50Gi</span>
 </code></pre></div></div>
 
-<p>Snapshots are fast and convenient, but they have two limits that disqualify them as your <em>only</em> backup:</p>
+<p>A PVC can also use another PVC as its <code class="language-plaintext highlighter-rouge">dataSource</code> to <strong>clone</strong> a volume, and <strong>volume populators</strong> (<code class="language-plaintext highlighter-rouge">dataSourceRef</code>) fill a new volume from arbitrary custom sources. <strong>VolumeGroupSnapshot</strong> (beta since v1.32, implemented by the CSI external snapshotter) snapshots several PVCs at the same instant, for applications whose data and logs live on separate volumes.</p>
+
+<h3 id="snapshots-are-not-backups">Snapshots Are Not Backups</h3>
+
+<p>Snapshots are fast and convenient, but two properties disqualify them as the only copy of your data:</p>
 
 <ol>
-  <li><strong>They usually live in the same storage system</strong> as the source. A regional outage or account compromise that takes the volume takes the snapshot with it.</li>
-  <li><strong>They are crash-consistent, not application-consistent.</strong> A block snapshot of a running database captures whatever was on disk at that instant — equivalent to pulling the power cord. The database will recover via its WAL on restore, but for guaranteed consistency you should quiesce or use the engine’s own backup tool (<code class="language-plaintext highlighter-rouge">pg_basebackup</code>, <code class="language-plaintext highlighter-rouge">pg_dump</code>, a WAL archive).</li>
+  <li><strong>Shared fate.</strong> Snapshots usually live in the same storage system, region, and account as the source. A regional outage, an account compromise, or a ransomware actor with delete permissions takes both.</li>
+  <li><strong>Crash consistency.</strong> A block-level snapshot of a running database captures the disk as if the power had been cut. Well-behaved engines recover from their write-ahead log, but application-consistent copies need the engine’s cooperation: a checkpoint or freeze hook before the snapshot, or the engine’s own backup tooling.</li>
 </ol>
 
 <h3 id="a-layered-backup-strategy">A Layered Backup Strategy</h3>
-
-<p>Treat backup as defense in depth:</p>
 
 <table>
   <thead>
     <tr>
       <th>Layer</th>
-      <th>Tool</th>
+      <th>Tooling</th>
       <th>Protects against</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Volume snapshots</strong></td>
-      <td>CSI <code class="language-plaintext highlighter-rouge">VolumeSnapshot</code> (often via <a href="operations.html">Velero</a>)</td>
-      <td>Accidental delete, fast rollback</td>
+      <td>Volume snapshots</td>
+      <td>CSI <code class="language-plaintext highlighter-rouge">VolumeSnapshot</code>, scheduled by Velero or the storage platform</td>
+      <td>Accidental deletion, fast rollback before risky changes</td>
     </tr>
     <tr>
-      <td><strong>Logical / engine backups</strong></td>
-      <td><code class="language-plaintext highlighter-rouge">pg_dump</code>, <code class="language-plaintext highlighter-rouge">mongodump</code>, WAL archiving to S3</td>
-      <td>Logical corruption, cross-version restore</td>
+      <td>Engine-level backups</td>
+      <td>Continuous WAL archiving plus base backups (pgBackRest, Barman, CloudNativePG’s backup plugin), <code class="language-plaintext highlighter-rouge">mongodump</code>, Kafka tiered storage</td>
+      <td>Logical corruption, point-in-time recovery, restore to another version</td>
     </tr>
     <tr>
-      <td><strong>Off-site object copy</strong></td>
-      <td>Snapshot/dump shipped to a <em>different</em> region/account</td>
-      <td>Regional outage, ransomware</td>
+      <td>Off-site copies</td>
+      <td>Object storage replicated to another region <strong>and</strong> account, with object lock (immutability)</td>
+      <td>Regional loss, account compromise, ransomware</td>
     </tr>
     <tr>
-      <td><strong>Cluster-state backup</strong></td>
-      <td>Velero (manifests + PV data)</td>
-      <td>Whole-cluster loss, namespace recreation</td>
+      <td>Cluster state</td>
+      <td>Velero or GitOps repositories for manifests, plus the layers above for data</td>
+      <td>Losing the whole cluster; rebuilding namespaces elsewhere</td>
     </tr>
   </tbody>
 </table>
 
-<p><a href="operations.html">Velero</a> is the de facto tool: it backs up Kubernetes API objects <em>and</em> triggers CSI snapshots, can copy them to a different cloud region, and restores an entire namespace — Pods, Services, PVCs, and data — into a fresh cluster, which is the backbone of cross-cluster DR.</p>
+<p><a href="https://velero.io/">Velero</a> is the most widely used open-source tool for the cluster layer. It backs up Kubernetes objects, triggers CSI snapshots or copies volume data to object storage with its file-system backup, and restores whole namespaces into another cluster. Test restores regularly: a backup that has never been restored is a hope, not a backup.</p>
 
-<h3 id="disaster-recovery-targets">Disaster Recovery Targets</h3>
+<h3 id="recovery-objectives">Recovery Objectives</h3>
 
-<p>Two numbers drive every DR design:</p>
+<p>Two targets drive every disaster-recovery design:</p>
 
 <ul>
-  <li><strong>RPO (Recovery Point Objective)</strong> — how much data you can afford to lose, set by backup/replication frequency. Continuous WAL streaming gives an RPO of seconds; nightly dumps give an RPO of up to 24 hours.</li>
-  <li><strong>RTO (Recovery Time Objective)</strong> — how long recovery may take. A warm standby in another region promotes in minutes; restoring a multi-terabyte snapshot may take hours.</li>
+  <li><strong>RPO (recovery point objective):</strong> how much data you can afford to lose, set by how often data is copied. Continuous WAL streaming gives seconds; nightly dumps give up to 24 hours.</li>
+  <li><strong>RTO (recovery time objective):</strong> how long recovery may take. Promoting a warm standby in another region takes minutes; restoring a multi-terabyte snapshot can take hours.</li>
 </ul>
 
-<p>For stateful systems the highest-leverage DR pattern is <strong>asynchronous replication to a standby cluster in another region</strong> (Postgres streaming replication, Kafka MirrorMaker, Redis replica) backed by periodic off-site snapshots. Replication keeps RPO low; the off-site backup is the floor you fall back to when replication itself is the thing that broke.</p>
+<p>For stateful systems the highest-leverage pattern is <strong>asynchronous replication to a standby in another region</strong> (Postgres streaming replication, Kafka MirrorMaker 2 or cluster linking, database-native cross-region replicas) backed by off-site backups. Replication keeps RPO low; the backup is the floor you fall back to when replication faithfully copies a mistake, such as a dropped table.</p>
 
 <h2 id="production-patterns">Production Patterns</h2>
 
+<h3 id="operators-over-hand-built-statefulsets">Operators Over Hand-Built StatefulSets</h3>
+
+<p>A StatefulSet provides identity and storage but knows nothing about the software inside it: it cannot promote a replica, rebalance partitions, or take a consistent backup. That knowledge lives in <strong>operators</strong>, controllers that encode an experienced administrator’s runbook as a reconcile loop (<a href="advanced.html#custom-resource-definitions">Advanced Topics</a>). For production databases and brokers an operator is the default choice.</p>
+
+<p>Notably, several leading operators no longer use StatefulSets at all. <strong>CloudNativePG</strong> manages Postgres Pods and PVCs directly, and <strong>Strimzi</strong> manages Kafka brokers through its own <code class="language-plaintext highlighter-rouge">StrimziPodSet</code> resource. Owning the Pods lets them choose which instance to update or remove, resize storage per instance, and sequence failover in ways the generic StatefulSet ordering cannot express. The storage and identity concepts on this page still apply; only the controller changes.</p>
+
 <h3 id="postgresql-with-high-availability">PostgreSQL with High Availability</h3>
 
-<p>A self-managed Postgres HA cluster is the canonical StatefulSet workload. The shape:</p>
+<p>The shape of a highly available Postgres cluster, whether built by an operator or by hand:</p>
 
 <ul>
-  <li>A <strong>3-replica StatefulSet</strong> so each Pod has its own RWO volume from <code class="language-plaintext highlighter-rouge">volumeClaimTemplates</code>.</li>
-  <li>A <strong>headless Service</strong> for replica discovery so <code class="language-plaintext highlighter-rouge">postgres-1</code> and <code class="language-plaintext highlighter-rouge">postgres-2</code> can stream WAL from the primary at <code class="language-plaintext highlighter-rouge">postgres-0.postgres-headless</code>.</li>
-  <li>A <strong>primary Service</strong> (selecting the current leader by label) that clients use for writes; failover updates the label so traffic follows the new primary.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">ReadWriteOncePod</code></strong> on the data volume to make split-brain physically impossible: even a stray second Pod cannot mount the primary’s disk.</li>
-  <li><strong>WAL archiving to object storage</strong> for point-in-time recovery, plus nightly <code class="language-plaintext highlighter-rouge">pg_basebackup</code>.</li>
+  <li><strong>Three instances</strong>, each with its own RWO or RWOP volume, spread across zones with topology spread constraints.</li>
+  <li><strong>Streaming replication</strong> from the primary to the replicas, discovered through per-instance DNS names.</li>
+  <li><strong>A primary Service</strong> that selects the current primary by label (<code class="language-plaintext highlighter-rouge">role: primary</code>); failover moves the label, so clients follow the new primary. A read-only Service selects replicas.</li>
+  <li><strong>ReadWriteOncePod</strong> on data volumes, so no second Pod can mount a primary’s disk during a botched failover.</li>
+  <li><strong>Continuous WAL archiving to object storage</strong> plus scheduled base backups for point-in-time recovery.</li>
 </ul>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Primary Service: points clients at whichever Pod carries role=primary.</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># CloudNativePG: the operator creates Pods, PVCs, Services, and backups from this</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">postgresql.cnpg.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Cluster</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">postgres-primary</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">orders-db</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">selector</span><span class="pi">:</span>
-    <span class="na">app</span><span class="pi">:</span> <span class="s">postgres</span>
-    <span class="na">role</span><span class="pi">:</span> <span class="s">primary</span>       <span class="c1"># a controller/operator flips this label on failover</span>
-  <span class="na">ports</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">5432</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pg</span>
+  <span class="na">instances</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">storageClass</span><span class="pi">:</span> <span class="s">fast-ssd</span>
+    <span class="na">size</span><span class="pi">:</span> <span class="s">50Gi</span>
 </code></pre></div></div>
 
-<p>In practice almost nobody hand-rolls the failover controller. The labels-and-streaming choreography — promoting a replica, repointing the primary Service, re-syncing the old leader — is exactly what a <strong><a href="advanced.html">Postgres operator</a></strong> (CloudNativePG, Zalando Postgres Operator, Crunchy PGO) automates. You declare a <code class="language-plaintext highlighter-rouge">Cluster</code> object with a replica count and backup target, and the operator owns the StatefulSet, the Services, failover, and base backups. This is the textbook case for the <a href="advanced.html">operator pattern</a>: encode an experienced DBA’s runbook as a reconcile loop.</p>
+<p>With CloudNativePG this produces <code class="language-plaintext highlighter-rouge">orders-db-rw</code> (primary), <code class="language-plaintext highlighter-rouge">orders-db-ro</code> (replicas), and <code class="language-plaintext highlighter-rouge">orders-db-r</code> (any instance) Services, and handles failover and switchover. Other mature Postgres operators include Crunchy Postgres for Kubernetes (PGO), the Zalando Postgres Operator, and Percona’s operator; these typically combine StatefulSets with Patroni for failover.</p>
 
 <h3 id="kafka-brokers-with-stable-identity">Kafka: Brokers with Stable Identity</h3>
 
-<p>Kafka maps almost perfectly onto a StatefulSet because each broker has a fixed <code class="language-plaintext highlighter-rouge">broker.id</code> and owns specific partition replicas:</p>
+<p>Kafka maps closely onto per-instance identity, because each broker has a fixed node ID and owns specific partition replicas:</p>
 
 <ul>
-  <li>The <strong>ordinal becomes the broker id</strong> — <code class="language-plaintext highlighter-rouge">kafka-0</code> is broker 0 — so partition assignments survive rescheduling.</li>
-  <li>The <strong>headless Service</strong> lets each broker advertise its own <code class="language-plaintext highlighter-rouge">kafka-N.kafka-headless...</code> hostname; producers and consumers must reach the <em>specific</em> leader of a partition, which a load-balanced ClusterIP would break.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">podManagementPolicy: Parallel</code></strong> is often used — brokers self-organize through the controller quorum (KRaft) and don’t need strict ordinal startup gating.</li>
-  <li>Each broker keeps its <strong>own large RWO log volume</strong>; throughput, not capacity, usually drives the StorageClass choice (<code class="language-plaintext highlighter-rouge">iops</code>/<code class="language-plaintext highlighter-rouge">throughput</code> on gp3).</li>
-  <li>Durability comes from <strong>replication factor ≥ 3 with <code class="language-plaintext highlighter-rouge">min.insync.replicas=2</code></strong>, so a single Pod (and its volume) can be lost without data loss — the cluster, not the disk, is the unit of durability.</li>
+  <li><strong>Node ID from the ordinal or pod-set index</strong>, so partition assignments survive rescheduling.</li>
+  <li><strong>Per-broker DNS names</strong> that each broker advertises. Clients must reach the specific leader of each partition, which a load-balanced ClusterIP would break; external access needs one address per broker (a load balancer or node port each, or a Gateway with TLS passthrough and SNI routing).</li>
+  <li><strong>KRaft</strong> controllers for metadata. Kafka 4.0 (2025) removed ZooKeeper entirely, and Strimzi dropped ZooKeeper support in 0.46.</li>
+  <li><strong>A large RWO log volume per broker</strong>, chosen for throughput as much as capacity. Tiered storage can move older log segments to object storage, shrinking local volumes.</li>
+  <li><strong>Durability from replication</strong>, not from the disk: replication factor 3 with <code class="language-plaintext highlighter-rouge">min.insync.replicas=2</code> lets any single broker and its volume be lost without losing acknowledged writes.</li>
 </ul>
 
-<p>Because rebalancing partitions on broker loss is heavy, Kafka in production is typically run via the <strong>Strimzi operator</strong>, which manages the StatefulSet, per-broker storage, rolling restarts that respect in-sync replicas, and certificate rotation.</p>
+<h3 id="redis-and-valkey-cache-or-store">Redis and Valkey: Cache or Store</h3>
 
-<h3 id="redis-cache-vs-durable-store">Redis: Cache vs Durable Store</h3>
-
-<p>Redis spans the spectrum, and the right design depends entirely on whether you can lose the data:</p>
-
-<ul>
-  <li><strong>Pure cache</strong> — run Redis as a <strong>Deployment</strong> with <code class="language-plaintext highlighter-rouge">emptyDir</code> (or no volume at all). If a Pod dies the cache simply re-warms; persistence would be wasted I/O. This is the one stateful-looking workload that is correctly stateless.</li>
-  <li><strong>Durable store / queue</strong> — run Redis as a <strong>StatefulSet</strong> with per-Pod RWO volumes and AOF (append-only file) persistence so a restarted Pod recovers its data from disk.</li>
-  <li><strong>High availability</strong> — Redis Sentinel or Redis Cluster, both StatefulSets behind a headless Service. Sentinel watches the master over the per-Pod DNS names and promotes a replica on failure; Redis Cluster shards keyspace across ordinals using the same stable hostnames for the cluster bus.</li>
-</ul>
-
-<p>The decision table:</p>
+<p>Redis (and <strong>Valkey</strong>, the Linux Foundation fork created in 2024 when Redis changed its licence, now common in managed cloud offerings) spans a spectrum, and the right design depends on whether the data can be lost:</p>
 
 <table>
   <thead>
     <tr>
       <th>Need</th>
-      <th>Workload type</th>
+      <th>Workload</th>
       <th>Storage</th>
       <th>Persistence</th>
     </tr>
@@ -3664,62 +3797,101 @@ postgres-2.postgres-headless.default.svc.cluster.local
     <tr>
       <td>Ephemeral cache</td>
       <td>Deployment</td>
-      <td>none / emptyDir</td>
-      <td>off</td>
+      <td>None or <code class="language-plaintext highlighter-rouge">emptyDir</code></td>
+      <td>Off; the cache re-warms after a restart</td>
     </tr>
     <tr>
       <td>Durable single instance</td>
-      <td>StatefulSet (1 replica)</td>
+      <td>StatefulSet, 1 replica</td>
       <td>RWO PVC</td>
-      <td>AOF</td>
+      <td>AOF (append-only file)</td>
     </tr>
     <tr>
-      <td>HA / failover</td>
+      <td>High availability</td>
       <td>StatefulSet + Sentinel</td>
       <td>RWO PVC per Pod</td>
-      <td>AOF + replication</td>
+      <td>AOF + replication; Sentinel promotes a replica</td>
     </tr>
     <tr>
       <td>Sharded at scale</td>
-      <td>StatefulSet (Redis Cluster)</td>
+      <td>StatefulSet in cluster mode</td>
       <td>RWO PVC per Pod</td>
-      <td>AOF + replication</td>
+      <td>AOF + replication; keyspace split into 16,384 hash slots</td>
     </tr>
   </tbody>
 </table>
 
-<div class="notice--warning">
-  <h4>Stateful Workload Pitfalls</h4>
-  <ul>
-    <li><strong>Assuming RWO means one Pod:</strong> RWO is per-<em>node</em> — two Pods on the same node can both write. Use <code>ReadWriteOncePod</code> when you need a single cluster-wide writer.</li>
-    <li><strong>Requesting RWX from block storage:</strong> EBS/PD/Azure Disk are RWO only. An RWX claim against them sits <code>Pending</code> forever; use EFS/NFS/CephFS for shared read-write.</li>
-    <li><strong>Immediate binding across zones:</strong> Without <code>WaitForFirstConsumer</code>, a zonal disk can be provisioned in a zone with no schedulable node, leaving the Pod unschedulable.</li>
-    <li><strong>Treating snapshots as backups:</strong> Snapshots are crash-consistent and usually co-located with the source. Pair them with engine-level, off-site backups.</li>
-    <li><strong>Expecting StatefulSet delete to clean up data:</strong> <code>volumeClaimTemplate</code> PVCs (and their disks) survive scale-down and deletion by design. Reclaim them deliberately, or set <code>persistentVolumeClaimRetentionPolicy</code>.</li>
-    <li><strong>Deadlocked OrderedReady rollout:</strong> One un-Ready ordinal blocks the entire rollout. Watch readiness probes and the rollout <code>partition</code>.</li>
-  </ul>
-</div>
+<p>A pure cache is the one stateful-looking workload that is correctly run as a stateless Deployment: persistence there only adds I/O and slower restarts.</p>
 
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h2 id="common-pitfalls">Common Pitfalls</h2>
 
-<ul>
-  <li><strong>Claims, not disks.</strong> Pods reference PVCs; StorageClasses dynamically provision PVs. The indirection keeps manifests portable. Use <code class="language-plaintext highlighter-rouge">WaitForFirstConsumer</code> so zonal disks land where the Pod is scheduled.</li>
-  <li><strong>StatefulSets give identity.</strong> Stable ordinal names, per-ordinal <code class="language-plaintext highlighter-rouge">volumeClaimTemplate</code> PVCs that follow the Pod, and an ordered lifecycle. The PVCs outlive the StatefulSet on purpose.</li>
-  <li><strong>Headless Services address peers.</strong> <code class="language-plaintext highlighter-rouge">clusterIP: None</code> plus a StatefulSet <code class="language-plaintext highlighter-rouge">serviceName</code> yields stable per-Pod DNS — the foundation of replication, leader election, and partition routing.</li>
-  <li><strong>Back up in layers.</strong> Snapshots for fast rollback, engine/logical dumps for consistency, off-site copies for regional DR. Drive the design from explicit RPO and RTO targets.</li>
-</ul>
-
-<hr />
+<table>
+  <thead>
+    <tr>
+      <th>Pitfall</th>
+      <th>Consequence</th>
+      <th>Remedy</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Treating RWO as “one Pod”</td>
+      <td>Two Pods on one node both write the volume</td>
+      <td>Use <code class="language-plaintext highlighter-rouge">ReadWriteOncePod</code> for single-writer data</td>
+    </tr>
+    <tr>
+      <td>Requesting RWX from block storage</td>
+      <td>PVC <code class="language-plaintext highlighter-rouge">Pending</code> forever</td>
+      <td>Use a file backend (EFS, Azure Files, Filestore, CephFS)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Immediate</code> binding for zonal disks</td>
+      <td>Volume in one zone, Pod needs another; Pod unschedulable</td>
+      <td><code class="language-plaintext highlighter-rouge">volumeBindingMode: WaitForFirstConsumer</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Delete</code> reclaim policy on the default class</td>
+      <td>Deleting a PVC (or a namespace) destroys the data</td>
+      <td><code class="language-plaintext highlighter-rouge">Retain</code> for important data, plus backups</td>
+    </tr>
+    <tr>
+      <td>Snapshots as the only backup</td>
+      <td>Snapshot lost with the source; crash-consistent only</td>
+      <td>Engine-level backups, off-site, immutable</td>
+    </tr>
+    <tr>
+      <td>Expecting StatefulSet deletion to remove data</td>
+      <td>Orphaned PVCs and cloud disks keep costing money</td>
+      <td>Clean up deliberately, or set <code class="language-plaintext highlighter-rouge">persistentVolumeClaimRetentionPolicy</code></td>
+    </tr>
+    <tr>
+      <td>Editing <code class="language-plaintext highlighter-rouge">volumeClaimTemplates</code> to resize</td>
+      <td>Update rejected (field is immutable)</td>
+      <td>Patch each PVC; re-create the StatefulSet with <code class="language-plaintext highlighter-rouge">--cascade=orphan</code></td>
+    </tr>
+    <tr>
+      <td>Wrong mount path for the database image</td>
+      <td>Data written to an ephemeral anonymous volume</td>
+      <td>Mount where the image declares its volume (Postgres 18+: <code class="language-plaintext highlighter-rouge">/var/lib/postgresql</code>)</td>
+    </tr>
+    <tr>
+      <td>Rollout stuck on an un-Ready ordinal</td>
+      <td>Update halts indefinitely</td>
+      <td>Revert the template, then delete the Pods from the bad revision</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><a href="workloads.html">Workloads &amp; Storage</a> - The storage primitives at a glance, plus resource limits and RBAC</li>
-  <li><a href="fundamentals.html">Fundamentals</a> - Pods, Deployments, Services, and the Deployment-vs-StatefulSet decision</li>
-  <li><a href="operations.html">Operations</a> - kubectl, Helm, Velero, and a systematic troubleshooting guide</li>
-  <li><a href="advanced.html">Advanced Topics</a> - CRDs and the Operator pattern that automates database HA</li>
-  <li><a href="../docker/storage-security.html">Docker Storage &amp; Security</a> - Volumes and persistence at the container level</li>
-  <li><a href="../aws/compute.html">AWS EKS</a> - Managed Kubernetes, EBS/EFS CSI drivers, and cross-AZ storage</li>
+  <li><a href="workloads.html">Workloads &amp; Storage</a>: the workload controllers and a storage overview</li>
+  <li><a href="fundamentals.html">Fundamentals</a>: Pods, Deployments, and the control plane</li>
+  <li><a href="fundamentals-networking.html">Networking &amp; Configuration</a>: Services, headless Services, and DNS</li>
+  <li><a href="operations.html">Operations</a>: kubectl, Helm, and troubleshooting</li>
+  <li><a href="advanced.html">Advanced Topics</a>: CRDs and the operator pattern</li>
+  <li><a href="../docker/storage-security.html">Docker Storage &amp; Security</a>: volumes at the container level</li>
+  <li><a href="../aws/storage.html">AWS Storage</a>: EBS, EFS, and snapshots behind the CSI drivers</li>
 </ul>
 
       </section>

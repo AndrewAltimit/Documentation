@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Reference documentation for software infrastructure: networking, databases, security, Git, CI/CD and builds, containers, Kubernetes, Terraform, AWS, AI, and ...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Technology Documentation Hub">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Reference documentation for software infrastructure: networking, databases, security, Git, CI/CD and builds, containers, Kubernetes, Terraform, AWS, AI, and ...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Technology Documentation Hub">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Reference documentation for software infrastructure: networking, databases, security, Git, CI/CD and builds, containers, Kubernetes, Terraform, AWS, AI, and ...">
 
 <title>Technology Documentation Hub | Andrews Notebook</title>
 
@@ -3136,11 +3136,40 @@ document.addEventListener('DOMContentLoaded', function () {
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">A reference library for DevOps, cloud, data, and modern software infrastructure</p>
 </div>
 
-<p>This is a practical, reference-oriented knowledge base spanning the full software delivery stack — from the network packets and database rows beneath an application, through the version control and CI/CD that ship it, up to the containers, orchestration, and cloud platforms that run it in production. Pages favor concrete commands, comparison tables, and decision guidance over tutorials: the <strong>full stack</strong> in one place, <strong>command-first</strong> examples and cheat sheets, and <strong>decision guidance</strong> on when to use X vs Y.</p>
+<p>This section is a reference library for the software delivery stack. It starts with the network, storage, and security foundations an application depends on, moves through the version control, build, and CI/CD tooling that ships it, and ends with the containers, orchestration, infrastructure-as-code, and cloud platforms that run it in production. The pages are written as references rather than tutorials: they explain how each system works, give current commands and configuration, and compare the alternatives where there is a real choice to make.</p>
 
-<h2 id="browse-by-area">Browse by Area</h2>
+<p>Topics that span several technologies, such as distributed systems, API design, observability, and testing, have their own hubs, listed under <a href="#related-sections">Related sections</a>.</p>
 
-<h3 id="infrastructure--devops">Infrastructure &amp; DevOps</h3>
+<h2 id="how-the-topics-fit-together">How the topics fit together</h2>
+
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Build["Build and ship"]
+        GIT["Git"] --&gt; CI["CI/CD"]
+        PLZ["Build systems&lt;br/&gt;(Please)"] --&gt; CI
+    end
+    subgraph Package["Package"]
+        IMG["Docker images"]
+        RT["Container runtimes"]
+    end
+    subgraph Run["Run"]
+        K8S["Kubernetes"]
+        CLOUD["AWS"]
+        TF["Terraform"]
+    end
+    subgraph Found["Foundations"]
+        NET["Networking"]
+        DB["Databases"]
+        SEC["Security"]
+    end
+    CI --&gt; IMG --&gt; RT --&gt; K8S --&gt; CLOUD
+    TF --&gt;|"provisions"| CLOUD
+    TF --&gt;|"provisions"| K8S
+    Found -.-&gt;|"underpin every layer"| Run
+</code></pre>
+
+<p>Code lives in <strong>Git</strong>. A <strong>CI/CD</strong> pipeline, often driven by a build system, tests it and packages it as a <strong>container image</strong>. A <strong>container runtime</strong> executes the image, <strong>Kubernetes</strong> schedules containers across machines, and <strong>Terraform</strong> provisions the <strong>AWS</strong> infrastructure underneath. <strong>Networking</strong>, <strong>databases</strong>, and <strong>security</strong> apply at every layer.</p>
+
+<h2 id="foundations">Foundations</h2>
 
 <table>
   <thead>
@@ -3151,33 +3180,25 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><a href="docker/">Docker</a></td>
-      <td>Containerization fundamentals, Dockerfiles, storage, and security. Start here for images and containers.</td>
+      <td><a href="networking/">Networking</a></td>
+      <td>The TCP/IP stack, transport protocols (TCP, QUIC, HTTP/3), routing, congestion control, wireless, cloud networking, and programmable networks</td>
     </tr>
     <tr>
-      <td><a href="docker-essentials.html">Docker Essentials</a></td>
-      <td>A daily-driver command cheat sheet — run, build, compose, network, and clean up.</td>
+      <td><a href="database-crash-course.html">Database Crash Course</a></td>
+      <td>Relational concepts and SQL essentials: the quick on-ramp</td>
     </tr>
     <tr>
-      <td><a href="kubernetes/">Kubernetes</a></td>
-      <td>Container orchestration at scale: pods, deployments, services, and production patterns.</td>
+      <td><a href="database-design/">Database Design</a></td>
+      <td>Modeling and normalization, indexing and query execution, transactions and concurrency, storage internals, replication, distributed SQL, and NoSQL data models</td>
     </tr>
     <tr>
-      <td><a href="terraform/">Terraform</a></td>
-      <td>Infrastructure as Code for multi-cloud provisioning, state, and modules.</td>
-    </tr>
-    <tr>
-      <td><a href="aws/">AWS</a></td>
-      <td>Core cloud services — compute, storage, databases, and networking on Amazon Web Services.</td>
-    </tr>
-    <tr>
-      <td><a href="ci-cd/">CI/CD</a></td>
-      <td>Pipelines from code to production: testing strategies, deployment patterns, and GitOps.</td>
+      <td><a href="cybersecurity/">Cybersecurity</a></td>
+      <td>Applied cryptography, attack techniques and defenses, application and cloud security, security operations, incident response, compliance, and privacy engineering</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="development--tools">Development &amp; Tools</h3>
+<h2 id="version-control-and-delivery">Version control and delivery</h2>
 
 <table>
   <thead>
@@ -3189,32 +3210,36 @@ document.addEventListener('DOMContentLoaded', function () {
   <tbody>
     <tr>
       <td><a href="git-crash-course.html">Git Crash Course</a></td>
-      <td>Zero-to-productive in version control. The fastest on-ramp if you are new to Git.</td>
+      <td>The fastest route to working with Git: the everyday workflow and the mental model behind it</td>
     </tr>
     <tr>
-      <td><a href="git/">Git Version Control</a></td>
-      <td>Architecture and internals: the object model, the DAG, and how Git actually works.</td>
+      <td><a href="git/">Git Internals</a></td>
+      <td>The object model, the commit DAG, merge and rebase algorithms, transfer protocols, and recovery</td>
     </tr>
     <tr>
       <td><a href="git-reference.html">Git Command Reference</a></td>
-      <td>The lookup cheat sheet — every common command with syntax and examples.</td>
+      <td>Lookup tables for common commands, with syntax and examples</td>
     </tr>
     <tr>
-      <td><a href="branching.html">Branching Strategies</a></td>
-      <td>Git Flow vs GitHub Flow vs trunk-based development, with a decision matrix.</td>
+      <td><a href="branching.html">Git Branching Strategies</a></td>
+      <td>GitHub Flow, GitLab Flow, Git Flow, and trunk-based development compared, with a decision guide</td>
+    </tr>
+    <tr>
+      <td><a href="advanced-branching-techniques.html">Advanced Branching Techniques</a></td>
+      <td>Feature flags, rulesets and merge queues, stacked pull requests, and release and hotfix branches</td>
+    </tr>
+    <tr>
+      <td><a href="ci-cd/">CI/CD</a></td>
+      <td>Pipeline design, test stages, deployment strategies (blue-green, canary), GitOps, and pipeline security</td>
     </tr>
     <tr>
       <td><a href="please-build.html">Please Build</a></td>
-      <td>A high-performance, Bazel-style build system for polyglot monorepos.</td>
-    </tr>
-    <tr>
-      <td><a href="unreal.html">Unreal Engine</a></td>
-      <td>UE5 real-time 3D: Nanite, Lumen, and Blueprints for games and beyond.</td>
+      <td>A Bazel-style build system for polyglot monorepos: build graph, caching, remote execution, and querying</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="data">Data</h3>
+<h2 id="containers-and-infrastructure">Containers and infrastructure</h2>
 
 <table>
   <thead>
@@ -3225,21 +3250,33 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><a href="database-crash-course.html">Database Crash Course</a></td>
-      <td>Core concepts and SQL basics — the quick on-ramp to working with databases.</td>
+      <td><a href="docker/">Docker</a></td>
+      <td>Images, Dockerfiles, networking, storage, registries, security, and design patterns</td>
     </tr>
     <tr>
-      <td><a href="database-design/">Database Design</a></td>
-      <td>Deep dive: normalization, indexing, query execution, distributed databases, and NoSQL.</td>
+      <td><a href="docker-essentials.html">Docker Essentials</a></td>
+      <td>A command cheat sheet for running, building, Compose, networking, and cleanup</td>
     </tr>
     <tr>
-      <td><a href="networking/">Networking</a></td>
-      <td>TCP/IP, routing, congestion control, and modern network architecture.</td>
+      <td><a href="container-runtimes.html">Container Runtimes</a></td>
+      <td>The layers beneath Docker: OCI specifications, runc and crun, containerd and CRI-O, gVisor, Kata, Firecracker, and WebAssembly</td>
+    </tr>
+    <tr>
+      <td><a href="kubernetes/">Kubernetes</a></td>
+      <td>Cluster architecture, workloads, networking, storage, resource management, and day-2 operations</td>
+    </tr>
+    <tr>
+      <td><a href="terraform/">Terraform</a></td>
+      <td>Infrastructure as code: core workflow, state and modules, patterns, and advanced usage (including OpenTofu)</td>
+    </tr>
+    <tr>
+      <td><a href="aws/">AWS</a></td>
+      <td>Compute, storage, databases, networking, security, monitoring, cost management, and reference architectures</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="security">Security</h3>
+<h2 id="ai-and-emerging-technology">AI and emerging technology</h2>
 
 <table>
   <thead>
@@ -3250,97 +3287,81 @@ document.addEventListener('DOMContentLoaded', function () {
   </thead>
   <tbody>
     <tr>
-      <td><a href="cybersecurity/">Cybersecurity</a></td>
-      <td>Cryptography, web/cloud security, attack techniques, and incident response.</td>
+      <td><a href="ai-fundamentals-simple.html">AI Fundamentals (Simplified)</a></td>
+      <td>A plain-language introduction to AI, machine learning, and large language models, with no mathematics</td>
     </tr>
-  </tbody>
-</table>
-
-<h3 id="advanced--emerging">Advanced &amp; Emerging</h3>
-
-<table>
-  <thead>
     <tr>
-      <th>Topic</th>
-      <th>Covers</th>
+      <td><a href="ai-lecture-2023.html">AI Deep Dive</a></td>
+      <td>How transformers and LLMs work: attention, pre-training and post-training, inference, retrieval, agents, and LLM security</td>
     </tr>
-  </thead>
-  <tbody>
     <tr>
-      <td><a href="ai/">AI Fundamentals</a></td>
-      <td>Comprehensive technical overview of modern AI and large language models.</td>
+      <td><a href="ai/">AI &amp; Machine Learning</a></td>
+      <td>The full technical treatment: ML foundations, deep learning architectures and theory, generative models, reinforcement learning, and fine-tuning</td>
     </tr>
     <tr>
       <td><a href="quantumcomputing.html">Quantum Computing</a></td>
-      <td>Quantum algorithms, the NISQ era, and quantum programming platforms.</td>
+      <td>Qubits and gates, the main algorithms and their real speedups, error correction, hardware platforms, and programming today’s machines</td>
+    </tr>
+    <tr>
+      <td><a href="unreal.html">Unreal Engine</a></td>
+      <td>Real-time 3D with UE5: Nanite, Lumen, the gameplay framework, and Blueprints</td>
     </tr>
   </tbody>
 </table>
 
-<blockquote>
-  <p><strong>Note on layout:</strong> The platform topics — <strong>Docker</strong>, <strong>Kubernetes</strong>, <strong>AWS</strong>, and <strong>Terraform</strong> — are multi-page sections living in their own subdirectories (e.g. <code class="language-plaintext highlighter-rouge">docker/</code>, <code class="language-plaintext highlighter-rouge">kubernetes/</code>). Their links above point to each section’s landing page. Everything else is a single reference page (<code class="language-plaintext highlighter-rouge">.html</code>).</p>
-</blockquote>
+<p>Multi-page topics (Docker, Kubernetes, Terraform, AWS, CI/CD, Git internals, networking, databases, cybersecurity, and AI) live in their own subdirectories, and the links above go to each section’s landing page.</p>
 
-<h2 id="how-these-topics-connect">How These Topics Connect</h2>
+<h2 id="learning-paths">Learning paths</h2>
 
-<p>A typical web application sits on top of the foundations and is delivered by the tooling and infrastructure layers below:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Goal</th>
+      <th>Suggested order</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>New to software infrastructure</td>
+      <td><a href="networking/">Networking</a> → <a href="database-crash-course.html">Database Crash Course</a> → <a href="git-crash-course.html">Git Crash Course</a> → <a href="docker/">Docker</a></td>
+    </tr>
+    <tr>
+      <td>DevOps / platform engineering</td>
+      <td><a href="git/">Git</a> → <a href="branching.html">Branching Strategies</a> → <a href="ci-cd/">CI/CD</a> → <a href="docker/">Docker</a> → <a href="kubernetes/">Kubernetes</a> → <a href="terraform/">Terraform</a></td>
+    </tr>
+    <tr>
+      <td>Cloud architecture</td>
+      <td><a href="networking/">Networking</a> → <a href="aws/">AWS</a> → <a href="terraform/">Terraform</a> → <a href="kubernetes/">Kubernetes</a>, with <a href="cybersecurity/">Cybersecurity</a> throughout</td>
+    </tr>
+    <tr>
+      <td>Backend and data</td>
+      <td><a href="database-design/">Database Design</a> → <a href="../distributed-systems/">Distributed Systems</a> → <a href="../api-design/">API Design</a></td>
+    </tr>
+    <tr>
+      <td>Large codebases</td>
+      <td><a href="git/">Git Internals</a> → <a href="../advanced/monorepo/">Monorepos</a> → <a href="please-build.html">Please Build</a> → <a href="ci-cd/">CI/CD</a></td>
+    </tr>
+    <tr>
+      <td>AI</td>
+      <td><a href="ai-fundamentals-simple.html">AI Fundamentals</a> → <a href="ai-lecture-2023.html">AI Deep Dive</a> → <a href="ai/">AI &amp; Machine Learning</a> → <a href="../ai-ml/">Generative AI hub</a></td>
+    </tr>
+  </tbody>
+</table>
 
-<pre><code class="language-mermaid">flowchart TD
-    subgraph Foundations
-        NET[Networking]
-        DB[Databases]
-        SEC[Cybersecurity]
-    end
-    subgraph Tooling
-        GIT[Git]
-        CI[CI/CD]
-        BUILD[Please Build]
-    end
-    subgraph Infrastructure
-        DOCKER[Docker]
-        K8S[Kubernetes]
-        TF[Terraform]
-        AWS[AWS]
-    end
-    APP([Application])
-    NET --&gt; APP
-    DB --&gt; APP
-    GIT --&gt; CI
-    BUILD --&gt; CI
-    CI --&gt; DOCKER
-    DOCKER --&gt; K8S
-    TF --&gt; AWS
-    K8S --&gt; AWS
-    APP --&gt; DOCKER
-    SEC -.guards.-&gt; APP
-    SEC -.guards.-&gt; K8S
-    SEC -.guards.-&gt; NET
-</code></pre>
-
-<p>Each layer builds on the ones beneath it: code lives in <strong>Git</strong>, is built and tested by <strong>CI/CD</strong>, packaged into <strong>Docker</strong> images, orchestrated by <strong>Kubernetes</strong>, and runs on infrastructure provisioned with <strong>Terraform</strong> on a cloud like <strong>AWS</strong> — all underpinned by <strong>networking</strong>, <strong>databases</strong>, and <strong>security</strong>.</p>
-
-<h2 id="suggested-learning-paths">Suggested Learning Paths</h2>
+<h2 id="related-sections">Related sections</h2>
 
 <ul>
-  <li><strong>New to the field</strong> — build foundations first: <a href="networking/">Networking</a> → <a href="database-crash-course.html">Database Crash Course</a> → <a href="git-crash-course.html">Git Crash Course</a>.</li>
-  <li><strong>Learning DevOps</strong> — <a href="git/">Git</a> → <a href="ci-cd/">CI/CD</a> → <a href="docker/">Docker</a> → <a href="kubernetes/">Kubernetes</a> → <a href="terraform/">Terraform</a>.</li>
-  <li><strong>Cloud / platform engineer</strong> — focus on <a href="aws/">AWS</a>, <a href="terraform/">Terraform</a>, and <a href="kubernetes/">Kubernetes</a>, with <a href="cybersecurity/">Cybersecurity</a> throughout.</li>
-  <li><strong>Backend / data</strong> — <a href="database-design/">Database Design</a> for modeling and scaling, plus <a href="networking/">Networking</a> for performance.</li>
+  <li><a href="../distributed-systems/">Distributed Systems</a>: consensus, replication, consistency, resilience, and service discovery</li>
+  <li><a href="../api-design/">API Design</a>: REST, GraphQL, gRPC, and asynchronous APIs</li>
+  <li><a href="../event-driven/">Event-Driven Architecture</a>: message brokers and event patterns</li>
+  <li><a href="../observability/">Observability</a>: logging, metrics, and distributed tracing</li>
+  <li><a href="../testing/">Software Testing</a>: unit, integration, and advanced testing techniques</li>
+  <li><a href="../advanced/monorepo/">Monorepos</a>: scaling a single repository, with tooling comparisons</li>
+  <li><a href="../ai-ml/">Generative AI</a>: Stable Diffusion, ComfyUI, LoRA training, and ML operations</li>
+  <li><a href="../quantum-computing/">Quantum Computing Hub</a>: learning paths from quantum theory to programming</li>
+  <li><a href="../reference/">Reference Sheets</a>: quick command and configuration cheat sheets</li>
+  <li><a href="../physics/">Physics</a>: the quantum mechanics and condensed-matter physics behind the hardware</li>
 </ul>
-
-<h2 id="related-documentation">Related Documentation</h2>
-
-<ul>
-  <li><a href="../ai-ml/">AI/ML Hub</a> — Stable Diffusion, ComfyUI, LoRA training, and generative AI</li>
-  <li><a href="../quantum-computing/">Quantum Computing Hub</a> — from quantum theory to programming</li>
-  <li><a href="../distributed-systems/">Distributed Systems</a> — consensus, replication, and architecture patterns</li>
-  <li><a href="../reference/">Reference Sheets</a> — quick command and configuration cheat sheets</li>
-  <li><a href="../physics/">Physics Documentation</a> — quantum mechanics underlying quantum computing</li>
-</ul>
-
-<hr />
-
-<p><em>This documentation combines reference depth with practical examples. For corrections or suggestions, visit the <a href="https://github.com/AndrewAltimit/Documentation">GitHub repository</a>.</em></p>
 
       </section>
     </div>

@@ -3135,64 +3135,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <p><a href="./">Performance Optimization</a> » Algorithmic Optimization</p>
 
-<p>The single most valuable optimization is rarely a faster line of code — it is a <em>better algorithm</em>. A change from $O(n^2)$ to $O(n \log n)$ shrinks a one-second operation on a million elements to a few milliseconds, a speedup no amount of constant-factor tuning can match. This page covers how complexity analysis plays out in real systems: reading the asymptotics that actually matter, choosing data structures by their operation profile, partitioning space to avoid all-pairs work, and trading memory for time through caching, memoization, and amortization. For the constant-factor and hardware-level work that comes <em>after</em> the algorithm is right, see <a href="./cpu-optimization.html">CPU Optimization</a> and <a href="./memory-optimization.html">Memory Optimization</a>.</p>
-
-<h2 class="no_toc text-delta" id="table-of-contents">Table of contents</h2>
-
-<ol id="markdown-toc">
-  <li><a href="#algorithmic-optimization" id="markdown-toc-algorithmic-optimization">Algorithmic Optimization</a>    <ol>
-      <li><a href="#complexity-analysis-in-practice" id="markdown-toc-complexity-analysis-in-practice">Complexity Analysis in Practice</a>        <ol>
-          <li><a href="#why-big-o-dominates" id="markdown-toc-why-big-o-dominates">Why Big O Dominates</a></li>
-          <li><a href="#when-big-o-lies-constants-and-cache" id="markdown-toc-when-big-o-lies-constants-and-cache">When Big O Lies: Constants and Cache</a></li>
-          <li><a href="#a-worked-example-de-quadratifying-a-hot-loop" id="markdown-toc-a-worked-example-de-quadratifying-a-hot-loop">A Worked Example: De-quadratifying a Hot Loop</a></li>
-        </ol>
-      </li>
-      <li><a href="#choosing-data-structures" id="markdown-toc-choosing-data-structures">Choosing Data Structures</a>        <ol>
-          <li><a href="#practical-heuristics" id="markdown-toc-practical-heuristics">Practical Heuristics</a></li>
-          <li><a href="#the-cost-of-indirection" id="markdown-toc-the-cost-of-indirection">The Cost of Indirection</a></li>
-        </ol>
-      </li>
-      <li><a href="#spatial-data-structures" id="markdown-toc-spatial-data-structures">Spatial Data Structures</a>        <ol>
-          <li><a href="#choosing-by-use-case" id="markdown-toc-choosing-by-use-case">Choosing by Use Case</a></li>
-          <li><a href="#the-broad-phase--narrow-phase-pattern" id="markdown-toc-the-broad-phase--narrow-phase-pattern">The Broad-Phase / Narrow-Phase Pattern</a></li>
-          <li><a href="#uniform-spatial-hashing" id="markdown-toc-uniform-spatial-hashing">Uniform Spatial Hashing</a></li>
-          <li><a href="#hierarchical-trees-octrees-and-bvhs" id="markdown-toc-hierarchical-trees-octrees-and-bvhs">Hierarchical Trees: Octrees and BVHs</a></li>
-        </ol>
-      </li>
-      <li><a href="#caching-and-memoization" id="markdown-toc-caching-and-memoization">Caching and Memoization</a>        <ol>
-          <li><a href="#memoizing-a-pure-function" id="markdown-toc-memoizing-a-pure-function">Memoizing a Pure Function</a></li>
-          <li><a href="#memoization-and-dynamic-programming" id="markdown-toc-memoization-and-dynamic-programming">Memoization and Dynamic Programming</a></li>
-          <li><a href="#cache-invalidation-and-eviction" id="markdown-toc-cache-invalidation-and-eviction">Cache Invalidation and Eviction</a></li>
-          <li><a href="#caching-across-the-stack" id="markdown-toc-caching-across-the-stack">Caching Across the Stack</a></li>
-        </ol>
-      </li>
-      <li><a href="#amortized-analysis" id="markdown-toc-amortized-analysis">Amortized Analysis</a>        <ol>
-          <li><a href="#the-dynamic-array-doubling-argument" id="markdown-toc-the-dynamic-array-doubling-argument">The Dynamic Array Doubling Argument</a></li>
-          <li><a href="#why-the-distinction-matters" id="markdown-toc-why-the-distinction-matters">Why the Distinction Matters</a></li>
-          <li><a href="#the-three-analysis-methods" id="markdown-toc-the-three-analysis-methods">The Three Analysis Methods</a></li>
-        </ol>
-      </li>
-      <li><a href="#key-takeaways" id="markdown-toc-key-takeaways">Key Takeaways</a></li>
-      <li><a href="#see-also" id="markdown-toc-see-also">See Also</a></li>
-    </ol>
-  </li>
-</ol>
-
-<hr />
+<p>The most valuable optimization is usually a better algorithm, not a faster line of code. Replacing an $O(n^2)$ pass with an $O(n \log n)$ one turns a million-element job from roughly $10^{12}$ operations into about $2 \times 10^7$, a gap no amount of constant-factor tuning can close. This page covers complexity analysis as it plays out on real hardware, choosing data structures by their operation profile, spatial partitioning, caching and memoization, probabilistic data structures, and amortized analysis. Constant-factor and hardware-level work that comes after the algorithm is right is covered in <a href="./cpu-optimization.html">CPU Optimization</a> and <a href="./memory-optimization.html">Memory Optimization</a>; the theory behind complexity classes is in <a href="../advanced/complexity-theory/">Complexity Theory</a>.</p>
 
 <h2 id="complexity-analysis-in-practice">Complexity Analysis in Practice</h2>
 
-<h3 id="why-big-o-dominates">Why Big O Dominates</h3>
+<h3 id="why-growth-rate-dominates">Why Growth Rate Dominates</h3>
 
-<p>Asymptotic complexity describes how an algorithm’s cost grows with input size $n$. Because it ignores constant factors and lower-order terms, it tells you which algorithm <em>wins as the problem scales</em> — and in practice problems always scale. The table below shows operation counts for common growth rates; note how the gap between classes explodes:</p>
+<p>Asymptotic complexity describes how cost grows with input size $n$, ignoring constant factors and lower-order terms. It predicts which algorithm wins as the problem scales, and production inputs nearly always grow.</p>
 
 <table>
   <thead>
     <tr>
       <th>$n$</th>
-      <th>$\log n$</th>
+      <th>$\log_2 n$</th>
       <th>$n$</th>
-      <th>$n \log n$</th>
+      <th>$n \log_2 n$</th>
       <th>$n^2$</th>
       <th>$2^n$</th>
     </tr>
@@ -3211,105 +3168,121 @@ document.addEventListener('DOMContentLoaded', function () {
       <td>10</td>
       <td>1,024</td>
       <td>~10,240</td>
-      <td>~1.05M</td>
-      <td>~$10^{308}$</td>
+      <td>~$1.05 \times 10^6$</td>
+      <td>~$1.8 \times 10^{308}$</td>
     </tr>
     <tr>
-      <td>1,000,000</td>
+      <td>$10^6$</td>
       <td>~20</td>
       <td>$10^6$</td>
       <td>~$2 \times 10^7$</td>
       <td>$10^{12}$</td>
-      <td>overflow</td>
+      <td>astronomically large</td>
     </tr>
   </tbody>
 </table>
 
-<p>A constant-factor optimization that makes your code 2x faster moves the $n^2$ row’s $10^{12}$ down to $5 \times 10^{11}$ — still astronomically worse than the $n \log n$ alternative at $2 \times 10^7$. This is the core lesson: <strong>fix the complexity class before tuning constants.</strong></p>
+<p>At roughly $10^9$ simple operations per second per core, the $n \log n$ column for a million items is about 20 ms; the $n^2$ column is about 17 minutes. A 2x constant-factor improvement to the quadratic version still leaves it more than four orders of magnitude behind. <strong>Fix the complexity class before tuning constants.</strong></p>
 
-<p>The standard algorithmic upgrades, drawn from the same operations a profiler will flag as hot:</p>
+<p>Common upgrades, usually spotted as hot spots in a profile:</p>
 
 <table>
   <thead>
     <tr>
       <th>Operation</th>
       <th>Naive</th>
-      <th>Optimized</th>
+      <th>Better</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Find in list</td>
-      <td>O(n) linear scan</td>
-      <td>O(1) hash table</td>
+      <td>Lookup by key</td>
+      <td>$O(n)$ linear scan</td>
+      <td>$O(1)$ average hash table</td>
+      <td>Or $O(\log n)$ binary search on a sorted array</td>
     </tr>
     <tr>
       <td>Sort</td>
-      <td>O(n²) bubble/insertion</td>
-      <td>O(n log n) merge/quick/heap</td>
+      <td>$O(n^2)$ insertion/bubble</td>
+      <td>$O(n \log n)$ comparison sort</td>
+      <td>Radix sort is $O(n \cdot w)$ for $w$-digit fixed-width keys</td>
     </tr>
     <tr>
-      <td>Nearest neighbor</td>
-      <td>O(n) brute force</td>
-      <td>O(log n) spatial tree</td>
+      <td>Repeated membership test</td>
+      <td>$O(n)$ per query</td>
+      <td>$O(1)$ hash set, or a Bloom filter when approximate is acceptable</td>
+      <td> </td>
     </tr>
     <tr>
-      <td>Path finding</td>
-      <td>O(n²) Dijkstra (dense)</td>
-      <td>O(n log n) A* with heap</td>
+      <td>Nearest neighbor (low dimensions)</td>
+      <td>$O(n)$ per query</td>
+      <td>~$O(\log n)$ k-d tree, BVH, or grid</td>
+      <td>Tree methods degrade toward $O(n)$ as dimensions grow</td>
+    </tr>
+    <tr>
+      <td>Nearest neighbor (high dimensions)</td>
+      <td>$O(n d)$ brute force</td>
+      <td>Approximate search (HNSW, IVF)</td>
+      <td>Trades exact recall for sub-linear queries</td>
+    </tr>
+    <tr>
+      <td>Shortest path (non-negative weights)</td>
+      <td>Repeated relaxation, $O(VE)$ (Bellman-Ford)</td>
+      <td>$O((V + E) \log V)$ Dijkstra with a binary heap</td>
+      <td>A* adds a heuristic that usually explores far fewer nodes</td>
     </tr>
     <tr>
       <td>Collision detection</td>
-      <td>O(n²) all-pairs</td>
-      <td>O(n log n) broad phase</td>
+      <td>$O(n^2)$ all pairs</td>
+      <td>~$O(n \log n)$ broad phase</td>
+      <td>See <a href="#spatial-data-structures">Spatial Data Structures</a></td>
     </tr>
     <tr>
-      <td>Membership test (repeated)</td>
-      <td>O(n) per query</td>
-      <td>O(1) hash set</td>
+      <td>Range sum/min over a changing array</td>
+      <td>$O(n)$ per query</td>
+      <td>$O(\log n)$ Fenwick or segment tree</td>
+      <td>Prefix sums give $O(1)$ if the array is static</td>
     </tr>
     <tr>
-      <td>Range/min query</td>
-      <td>O(n) per query</td>
-      <td>O(log n) segment/Fenwick tree</td>
+      <td>Top-$k$ of $n$</td>
+      <td>$O(n \log n)$ full sort</td>
+      <td>$O(n \log k)$ bounded heap, or $O(n)$ average selection</td>
+      <td><code class="language-plaintext highlighter-rouge">std::partial_sort</code>, <code class="language-plaintext highlighter-rouge">std::nth_element</code>, <code class="language-plaintext highlighter-rouge">heapq.nlargest</code></td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="when-big-o-lies-constants-and-cache">When Big O Lies: Constants and Cache</h3>
+<h3 id="when-big-o-misleads">When Big O Misleads</h3>
 
-<p>Asymptotics are necessary but not sufficient. Three caveats decide whether the theoretically faster algorithm wins on real hardware:</p>
+<p>Asymptotics are necessary but not sufficient. Three effects decide whether the theoretically faster algorithm wins on real hardware.</p>
 
 <ol>
-  <li>
-    <p><strong>Small $n$ favors simple algorithms.</strong> Insertion sort beats quicksort for arrays of ~16 elements because its constant factor and cache behavior are excellent. Production sorts (<code class="language-plaintext highlighter-rouge">std::sort</code>, Timsort) switch to insertion sort below a threshold for exactly this reason.</p>
-  </li>
-  <li>
-    <p><strong>Memory locality is a hidden constant.</strong> A linear scan over a contiguous array can outrun a “faster” pointer-chasing structure (linked list, tree) because every cache miss costs ~200 cycles. Big O counts operations, not cache misses. See <a href="./memory-optimization.html">Memory Optimization</a> for how data layout interacts with the cache hierarchy.</p>
-  </li>
-  <li>
-    <p><strong>Amortized vs worst-case matters for latency.</strong> An $O(1)$ amortized hash insert can stall for $O(n)$ on a resize — fine for throughput, fatal for a real-time frame budget. Knowing <em>which</em> bound you need is part of the analysis (covered under <a href="#amortized-analysis">Amortized Analysis</a> below).</p>
-  </li>
+  <li><strong>Small $n$ favors simple algorithms.</strong> Insertion sort beats quicksort on arrays of a few dozen elements because its inner loop is tiny and branch- and cache-friendly. Production sorts are hybrids for exactly this reason: <code class="language-plaintext highlighter-rouge">std::sort</code> implementations use introsort or pattern-defeating quicksort (pdqsort) with an insertion-sort cutoff; Python’s list sort is a merge-based adaptive sort (Timsort, with the Powersort merge policy since Python 3.11); Rust’s standard library switched to the driftsort and ipnsort hybrids in Rust 1.81.</li>
+  <li><strong>Memory access is a hidden constant.</strong> Big O counts operations, not cache misses. A miss to main memory costs on the order of 100 ns, hundreds of cycles, so a linear scan of a contiguous array can outrun a pointer-chasing tree or linked list for surprisingly large $n$. See <a href="./memory-optimization.html">Memory Optimization</a>.</li>
+  <li><strong>Average, amortized, and worst case are different guarantees.</strong> A hash insert that is $O(1)$ amortized can stall for $O(n)$ during a resize, and a hash lookup that is $O(1)$ on average can be $O(n)$ under adversarial keys. Which bound matters depends on whether you care about throughput or tail latency (see <a href="#amortized-analysis">Amortized Analysis</a>).</li>
 </ol>
 
-<h3 id="a-worked-example-de-quadratifying-a-hot-loop">A Worked Example: De-quadratifying a Hot Loop</h3>
+<p>The practical rule: use complexity analysis to pick the candidates, then benchmark them on realistic data sizes and distributions.</p>
 
-<p>A common $O(n^2)$ pattern is “for each item, search a list for a match”:</p>
+<h3 id="worked-example-removing-a-nested-search">Worked Example: Removing a Nested Search</h3>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// O(n*m): for each event, linearly find its handler by id.</span>
-<span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="n">Event</span><span class="o">&amp;</span> <span class="n">e</span> <span class="o">:</span> <span class="n">events</span><span class="p">)</span> <span class="p">{</span>              <span class="c1">// n events</span>
-    <span class="k">for</span> <span class="p">(</span><span class="n">Handler</span><span class="o">&amp;</span> <span class="n">h</span> <span class="o">:</span> <span class="n">handlers</span><span class="p">)</span> <span class="p">{</span>            <span class="c1">// m handlers</span>
+<p>A frequent accidental $O(n \cdot m)$ pattern is “for each item, search a list for its match”:</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// O(n * m): for each event, linearly search for its handler</span>
+<span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="n">Event</span><span class="o">&amp;</span> <span class="n">e</span> <span class="o">:</span> <span class="n">events</span><span class="p">)</span> <span class="p">{</span>            <span class="c1">// n events</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">Handler</span><span class="o">&amp;</span> <span class="n">h</span> <span class="o">:</span> <span class="n">handlers</span><span class="p">)</span> <span class="p">{</span>          <span class="c1">// m handlers</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">h</span><span class="p">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">e</span><span class="p">.</span><span class="n">target_id</span><span class="p">)</span> <span class="p">{</span> <span class="n">h</span><span class="p">.</span><span class="n">process</span><span class="p">(</span><span class="n">e</span><span class="p">);</span> <span class="k">break</span><span class="p">;</span> <span class="p">}</span>
     <span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>If <code class="language-plaintext highlighter-rouge">events</code> and <code class="language-plaintext highlighter-rouge">handlers</code> are both large, this is quadratic. Building a hash index once turns the inner scan into an $O(1)$ lookup, making the whole loop $O(n + m)$:</p>
+<p>Building an index once makes each lookup $O(1)$ on average and the whole pass $O(n + m)$:</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// O(n + m): index handlers by id once, then look up directly.</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// O(n + m): index handlers by id once, then look up directly</span>
 <span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">Id</span><span class="p">,</span> <span class="n">Handler</span><span class="o">*&gt;</span> <span class="n">by_id</span><span class="p">;</span>
-<span class="n">by_id</span><span class="p">.</span><span class="n">reserve</span><span class="p">(</span><span class="n">handlers</span><span class="p">.</span><span class="n">size</span><span class="p">());</span>
-<span class="k">for</span> <span class="p">(</span><span class="n">Handler</span><span class="o">&amp;</span> <span class="n">h</span> <span class="o">:</span> <span class="n">handlers</span><span class="p">)</span> <span class="n">by_id</span><span class="p">[</span><span class="n">h</span><span class="p">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">h</span><span class="p">;</span>
+<span class="n">by_id</span><span class="p">.</span><span class="n">reserve</span><span class="p">(</span><span class="n">handlers</span><span class="p">.</span><span class="n">size</span><span class="p">());</span>            <span class="c1">// avoid rehashing while building</span>
+<span class="k">for</span> <span class="p">(</span><span class="n">Handler</span><span class="o">&amp;</span> <span class="n">h</span> <span class="o">:</span> <span class="n">handlers</span><span class="p">)</span> <span class="n">by_id</span><span class="p">.</span><span class="n">emplace</span><span class="p">(</span><span class="n">h</span><span class="p">.</span><span class="n">id</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">h</span><span class="p">);</span>
 
 <span class="k">for</span> <span class="p">(</span><span class="k">const</span> <span class="n">Event</span><span class="o">&amp;</span> <span class="n">e</span> <span class="o">:</span> <span class="n">events</span><span class="p">)</span> <span class="p">{</span>
     <span class="k">if</span> <span class="p">(</span><span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">by_id</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">target_id</span><span class="p">);</span> <span class="n">it</span> <span class="o">!=</span> <span class="n">by_id</span><span class="p">.</span><span class="n">end</span><span class="p">())</span>
@@ -3317,11 +3290,11 @@ document.addEventListener('DOMContentLoaded', function () {
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>The pattern generalizes: <strong>whenever you see a search nested inside a loop, ask whether the searched collection can be pre-indexed</strong> into a hash map, sorted array (for binary search), or spatial structure.</p>
+<p>The same pattern hides in SQL (a query per row, the “N+1 queries” problem), in nested list comprehensions, and in <code class="language-plaintext highlighter-rouge">list.index()</code> or <code class="language-plaintext highlighter-rouge">x in list</code> inside a loop. <strong>When a search sits inside a loop, ask whether the searched collection can be indexed first</strong>: a hash map, a sorted array for binary search, or a spatial structure.</p>
 
 <h2 id="choosing-data-structures">Choosing Data Structures</h2>
 
-<p>A data structure is a contract over the <em>operations</em> you perform and their costs. Picking the right one is often the entire optimization, because it changes the complexity of every operation that touches it. Profile your access pattern first: are you mostly inserting, searching, iterating in order, querying ranges, or removing from the middle?</p>
+<p>A data structure is a contract over operations and their costs, so choosing one is often the entire optimization. Start from the access pattern: mostly lookups by key, in-order iteration, range queries, repeated extraction of the minimum, or inserts and removals in the middle?</p>
 
 <table>
   <thead>
@@ -3330,285 +3303,466 @@ document.addEventListener('DOMContentLoaded', function () {
       <th>Lookup</th>
       <th>Insert</th>
       <th>Delete</th>
-      <th>Ordered iteration</th>
-      <th>Notes</th>
+      <th>Ordered</th>
+      <th>Typical use</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Dynamic array (<code class="language-plaintext highlighter-rouge">vector</code>)</td>
-      <td>O(n) search / O(1) index</td>
-      <td>O(1) amortized (back)</td>
-      <td>O(n) (middle)</td>
-      <td>Yes (sorted)</td>
-      <td>Best cache locality; ideal default</td>
+      <td>Dynamic array (<code class="language-plaintext highlighter-rouge">std::vector</code>, <code class="language-plaintext highlighter-rouge">Vec</code>, <code class="language-plaintext highlighter-rouge">list</code>)</td>
+      <td>$O(1)$ by index, $O(n)$ by value</td>
+      <td>$O(1)$ amortized at end</td>
+      <td>$O(n)$ in middle</td>
+      <td>If kept sorted</td>
+      <td>Default choice; best locality</td>
     </tr>
     <tr>
-      <td>Hash map (<code class="language-plaintext highlighter-rouge">unordered_map</code>)</td>
-      <td>O(1) avg</td>
-      <td>O(1) avg</td>
-      <td>O(1) avg</td>
-      <td>No</td>
-      <td>Random-access lookups; resize stalls</td>
-    </tr>
-    <tr>
-      <td>Balanced BST (<code class="language-plaintext highlighter-rouge">map</code>)</td>
-      <td>O(log n)</td>
-      <td>O(log n)</td>
-      <td>O(log n)</td>
+      <td>Sorted array + binary search</td>
+      <td>$O(\log n)$</td>
+      <td>$O(n)$</td>
+      <td>$O(n)$</td>
       <td>Yes</td>
-      <td>Ordered + range queries</td>
+      <td>Build once, query many times</td>
+    </tr>
+    <tr>
+      <td>Open-addressing hash map (Swiss table)</td>
+      <td>$O(1)$ avg</td>
+      <td>$O(1)$ amortized</td>
+      <td>$O(1)$ avg</td>
+      <td>No</td>
+      <td>General key lookup</td>
+    </tr>
+    <tr>
+      <td>Node-based hash map (<code class="language-plaintext highlighter-rouge">std::unordered_map</code>)</td>
+      <td>$O(1)$ avg</td>
+      <td>$O(1)$ amortized</td>
+      <td>$O(1)$ avg</td>
+      <td>No</td>
+      <td>When stable element addresses are required</td>
+    </tr>
+    <tr>
+      <td>Balanced BST (<code class="language-plaintext highlighter-rouge">std::map</code>, <code class="language-plaintext highlighter-rouge">TreeMap</code>)</td>
+      <td>$O(\log n)$</td>
+      <td>$O(\log n)$</td>
+      <td>$O(\log n)$</td>
+      <td>Yes</td>
+      <td>Ordered data with frequent updates</td>
+    </tr>
+    <tr>
+      <td>B-tree / B+ tree (<code class="language-plaintext highlighter-rouge">BTreeMap</code>, database indexes)</td>
+      <td>$O(\log n)$</td>
+      <td>$O(\log n)$</td>
+      <td>$O(\log n)$</td>
+      <td>Yes</td>
+      <td>Ordered data; cache- and page-friendly</td>
+    </tr>
+    <tr>
+      <td>Binary heap</td>
+      <td>$O(1)$ peek min</td>
+      <td>$O(\log n)$</td>
+      <td>$O(\log n)$ pop min</td>
+      <td>No</td>
+      <td>Priority queues, schedulers, Dijkstra/A* frontier</td>
     </tr>
     <tr>
       <td>Linked list</td>
-      <td>O(n)</td>
-      <td>O(1) at node</td>
-      <td>O(1) at node</td>
-      <td>Yes</td>
-      <td>Poor locality; rarely worth it</td>
-    </tr>
-    <tr>
-      <td>Binary heap (priority queue)</td>
-      <td>O(1) peek</td>
-      <td>O(log n)</td>
-      <td>O(log n) pop-min</td>
-      <td>No</td>
-      <td>Scheduling, Dijkstra/A* frontier</td>
+      <td>$O(n)$</td>
+      <td>$O(1)$ at a known node</td>
+      <td>$O(1)$ at a known node</td>
+      <td>Insertion order</td>
+      <td>Intrusive lists, splicing; rarely otherwise</td>
     </tr>
     <tr>
       <td>Bitset</td>
-      <td>O(1)</td>
-      <td>O(1)</td>
-      <td>O(1)</td>
+      <td>$O(1)$</td>
+      <td>$O(1)$</td>
+      <td>$O(1)$</td>
       <td>Yes</td>
-      <td>Dense small-integer sets, very fast</td>
-    </tr>
-    <tr>
-      <td>B-tree / B+tree</td>
-      <td>O(log n)</td>
-      <td>O(log n)</td>
-      <td>O(log n)</td>
-      <td>Yes</td>
-      <td>Disk/page-friendly; database indexes</td>
+      <td>Dense sets of small integers</td>
     </tr>
   </tbody>
 </table>
 
-<h3 id="practical-heuristics">Practical Heuristics</h3>
+<pre><code class="language-mermaid">flowchart TD
+    A["What dominates the workload?"] --&gt; B{"Lookup by key?"}
+    B --&gt;|"yes, order irrelevant"| H["Hash map / hash set&lt;br/&gt;(open addressing)"]
+    B --&gt;|"yes, need order or ranges"| C{"Mostly static?"}
+    C --&gt;|"yes"| S["Sorted array +&lt;br/&gt;binary search"]
+    C --&gt;|"no"| T["B-tree or balanced BST"]
+    A --&gt; D{"Repeatedly take&lt;br/&gt;the smallest or largest?"}
+    D --&gt;|"yes"| P["Binary heap"]
+    A --&gt; E{"Iterate everything,&lt;br/&gt;append at end?"}
+    E --&gt;|"yes"| V["Dynamic array"]
+    A --&gt; F{"Small integer keys?"}
+    F --&gt;|"yes"| BS["Bitset or&lt;br/&gt;direct-indexed array"]
+</code></pre>
+
+<h3 id="heuristics">Heuristics</h3>
 
 <ul>
-  <li><strong>Default to a contiguous array.</strong> Its cache behavior beats node-based structures so often that you should justify <em>not</em> using one. Linear search over a packed array can outperform a tree up to surprisingly large $n$.</li>
-  <li><strong>Use a hash map for repeated membership/lookup by key</strong>, but reserve capacity up front (<code class="language-plaintext highlighter-rouge">reserve(n)</code>) to avoid incremental rehashing, and remember it gives no ordering and has worst-case $O(n)$ buckets under collisions.</li>
-  <li><strong>Use a balanced tree (or sorted array + binary search) when you need order</strong>: range queries, nearest-key, or in-order traversal. A sorted <code class="language-plaintext highlighter-rouge">vector</code> with <code class="language-plaintext highlighter-rouge">lower_bound</code> beats <code class="language-plaintext highlighter-rouge">std::map</code> when the data is built once and queried many times, because it stays contiguous.</li>
-  <li><strong>Use a heap for “repeatedly extract the best”</strong>: priority scheduling, event queues, and the open set in A*.</li>
-  <li><strong>Match the structure to the storage tier.</strong> In-memory work favors flat arrays and hash maps; on-disk or paged data favors B-trees, which is why <a href="../technology/database-design/">databases</a> build B+tree indexes — they minimize page reads, the dominant cost when data lives on disk.</li>
+  <li><strong>Default to a contiguous array.</strong> Its locality wins so often that a node-based structure needs a reason. Linear search over a small packed array frequently beats a tree or even a hash map.</li>
+  <li><strong>Prefer open-addressing hash tables for lookups.</strong> “Swiss table” designs (Abseil <code class="language-plaintext highlighter-rouge">flat_hash_map</code>, <code class="language-plaintext highlighter-rouge">boost::unordered_flat_map</code>, Rust’s standard <code class="language-plaintext highlighter-rouge">HashMap</code>, which is built on hashbrown) store entries inline and probe groups of control bytes with SIMD, and are typically several times faster than node-based <code class="language-plaintext highlighter-rouge">std::unordered_map</code>. The standard container’s API requires stable element addresses, which forces a node per element.</li>
+  <li><strong>Reserve capacity when the size is known</strong> (<code class="language-plaintext highlighter-rouge">reserve(n)</code>, <code class="language-plaintext highlighter-rouge">with_capacity(n)</code>) to avoid repeated rehashing or reallocation.</li>
+  <li><strong>Use ordered structures only when you need order.</strong> For build-once, query-many data, a sorted vector with <code class="language-plaintext highlighter-rouge">std::lower_bound</code> beats <code class="language-plaintext highlighter-rouge">std::map</code> because it stays contiguous. For ordered data under frequent updates, B-trees generally beat red-black trees in memory because each node holds many keys and fills whole cache lines.</li>
+  <li><strong>Mind adversarial input.</strong> Hash tables keyed by untrusted data need a keyed or randomized hash (SipHash in Rust and Python) to resist collision-flooding denial of service.</li>
+  <li><strong>Match the structure to the storage tier.</strong> On disk or SSD, cost is counted in page reads, which is why <a href="../technology/database-design/">databases</a> index with B+ trees and LSM trees rather than hash maps or binary trees.</li>
 </ul>
 
 <h3 id="the-cost-of-indirection">The Cost of Indirection</h3>
 
-<p>Two structures with the same Big O can differ by an order of magnitude in wall-clock time because of pointer chasing. A <code class="language-plaintext highlighter-rouge">std::map</code> and a sorted <code class="language-plaintext highlighter-rouge">std::vector</code> are both $O(\log n)$ for lookup, but the vector touches contiguous memory while the map jumps across heap-scattered nodes, missing cache on nearly every step. When you have a choice between equal asymptotics, <strong>prefer the structure with better locality</strong> — this is the bridge from algorithmic optimization into <a href="./cpu-optimization.html">data-oriented design</a>.</p>
+<p>Two structures with identical Big O can differ by an order of magnitude in wall-clock time. <code class="language-plaintext highlighter-rouge">std::map</code> and a sorted <code class="language-plaintext highlighter-rouge">std::vector</code> are both $O(\log n)$ for lookup, but the map follows a pointer to a separately allocated node at every level, often missing cache each time, while binary search over the vector touches one contiguous block. When asymptotics tie, <strong>prefer the structure with better locality</strong>. This is the bridge from algorithmic work into data-oriented design (<a href="./cpu-optimization.html#data-oriented-design-aos-vs-soa">CPU Optimization</a>).</p>
 
 <h2 id="spatial-data-structures">Spatial Data Structures</h2>
 
-<p>Many performance problems are “find all objects near a point or region” — collision detection, rendering culling, nearest-neighbor queries, AI perception. Done naively this is $O(n^2)$ (test every pair) or $O(n)$ per query. Spatial data structures partition space so that each query only examines nearby candidates, cutting this to roughly $O(\log n)$ per query or $O(n \log n)$ for the all-pairs broad phase.</p>
+<p>Many performance problems reduce to “find the objects near a point or region”: collision detection, view-frustum culling, ray casting, nearest-neighbor queries, AI perception. Done naively this is $O(n)$ per query, or $O(n^2)$ to test every pair. Spatial structures partition space so that a query examines only nearby candidates.</p>
 
-<h3 id="choosing-by-use-case">Choosing by Use Case</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Structure</th>
+      <th>Build</th>
+      <th>Handles</th>
+      <th>Strengths</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Uniform grid / spatial hash</td>
+      <td>$O(n)$, cheap to rebuild every frame</td>
+      <td>Similar-sized, evenly spread objects</td>
+      <td>Simplest; constant-time cell lookup</td>
+      <td>Particles, crowds, tile games</td>
+    </tr>
+    <tr>
+      <td>Quadtree / octree</td>
+      <td>$O(n \log n)$</td>
+      <td>Uneven density</td>
+      <td>Adapts depth to detail</td>
+      <td>Static or slowly changing worlds</td>
+    </tr>
+    <tr>
+      <td>Loose octree</td>
+      <td>$O(n \log n)$</td>
+      <td>Moving objects that straddle cells</td>
+      <td>Objects need not be split across cells</td>
+      <td>Dynamic scenes</td>
+    </tr>
+    <tr>
+      <td>BVH (bounding volume hierarchy)</td>
+      <td>$O(n \log n)$; can be refit in $O(n)$</td>
+      <td>Arbitrary objects</td>
+      <td>Excellent ray and query pruning</td>
+      <td>Ray tracing, physics broad phase</td>
+    </tr>
+    <tr>
+      <td>k-d tree</td>
+      <td>$O(n \log n)$</td>
+      <td>Points</td>
+      <td>Exact nearest neighbor in low dimensions</td>
+      <td>Point clouds, low-dimensional search</td>
+    </tr>
+    <tr>
+      <td>R-tree</td>
+      <td>$O(n \log n)$</td>
+      <td>Rectangles, polygons</td>
+      <td>Disk-friendly, balanced</td>
+      <td>Spatial databases (PostGIS), GIS</td>
+    </tr>
+    <tr>
+      <td>BSP tree</td>
+      <td>Expensive, offline</td>
+      <td>Static polygons</td>
+      <td>Exact visibility ordering</td>
+      <td>Classic level geometry</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Static geometry (built once, queried often):
-- BVH (Bounding Volume Hierarchy)  — ray tracing, static collision
-- BSP trees                        — visibility, classic level geometry
-- Octrees                          — uniform 3D subdivision
+<h3 id="broad-phase-and-narrow-phase">Broad Phase and Narrow Phase</h3>
 
-Dynamic objects (rebuilt/updated every frame):
-- Spatial hashing                  — uniform-size objects, cheap rebuild
-- Uniform grid partitioning        — bounded worlds, fast neighbor lookup
-- Loose octrees                    — moving objects spanning cell boundaries
+<p>Collision detection uses spatial structures in two stages instead of testing all $\binom{n}{2}$ pairs:</p>
 
-2D / GIS:
-- Quadtrees                        — adaptive 2D subdivision
-- R-trees                          — bounding-box indexing, spatial databases
-- Spatial hashing                  — particles, tile-based games
-</code></pre></div></div>
+<pre><code class="language-mermaid">flowchart LR
+    A["n objects"] --&gt; B["Broad phase&lt;br/&gt;grid, BVH, or sweep-and-prune&lt;br/&gt;compares bounding boxes"]
+    B --&gt; C["Candidate pairs&lt;br/&gt;(overlapping bounds)"]
+    C --&gt; D["Narrow phase&lt;br/&gt;exact shape tests&lt;br/&gt;(GJK, SAT)"]
+    D --&gt; E["Contacts"]
+</code></pre>
 
-<h3 id="the-broad-phase--narrow-phase-pattern">The Broad-Phase / Narrow-Phase Pattern</h3>
-
-<p>The canonical use of spatial structures is collision detection. Instead of testing all $\binom{n}{2}$ pairs:</p>
-
-<ol>
-  <li><strong>Broad phase</strong> — a spatial structure (grid, BVH, or sweep-and-prune) cheaply finds <em>candidate</em> pairs whose bounding volumes overlap. This is the step that turns $O(n^2)$ into roughly $O(n \log n)$.</li>
-  <li><strong>Narrow phase</strong> — exact, expensive intersection tests run only on the few candidate pairs the broad phase produced.</li>
-</ol>
+<p>The broad phase cheaply discards pairs whose bounding volumes cannot touch, cutting the work to roughly $O(n \log n)$ (or near $O(n)$ with a well-tuned grid); the expensive exact tests run only on the few candidate pairs that remain.</p>
 
 <h3 id="uniform-spatial-hashing">Uniform Spatial Hashing</h3>
 
-<p>For evenly distributed, similarly sized objects, a spatial hash is the simplest fast structure: map each object’s position to a grid cell and store cell occupants in a hash map. Neighbor queries inspect only the object’s cell and its eight (2D) or 26 (3D) neighbors:</p>
+<p>For evenly distributed, similarly sized objects, a spatial hash is the simplest fast option. Each position maps to an integer cell; cells live in a hash map; a neighbor query inspects the object’s cell and its 8 (2D) or 26 (3D) neighbors.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Hash a world position into an integer grid cell.</span>
-<span class="k">struct</span> <span class="nc">CellKey</span> <span class="p">{</span> <span class="kt">int</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">;</span> <span class="kt">bool</span> <span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="k">const</span> <span class="n">CellKey</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="k">default</span><span class="p">;</span> <span class="p">};</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;cmath&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;cstdint&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;unordered_map&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;vector&gt;</span><span class="cp">
+</span>
+<span class="k">struct</span> <span class="nc">CellKey</span> <span class="p">{</span>
+    <span class="kt">int32_t</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">;</span>
+    <span class="kt">bool</span> <span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="k">const</span> <span class="n">CellKey</span><span class="o">&amp;</span><span class="p">)</span> <span class="k">const</span> <span class="o">=</span> <span class="k">default</span><span class="p">;</span>   <span class="c1">// C++20</span>
+<span class="p">};</span>
 
 <span class="k">struct</span> <span class="nc">CellHash</span> <span class="p">{</span>
-    <span class="kt">size_t</span> <span class="k">operator</span><span class="p">()(</span><span class="k">const</span> <span class="n">CellKey</span><span class="o">&amp;</span> <span class="n">k</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
-        <span class="c1">// Mix the three coordinates; large primes reduce collisions.</span>
-        <span class="k">return</span> <span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="mi">73856093</span><span class="p">)</span> <span class="o">^</span> <span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">y</span> <span class="o">*</span> <span class="mi">19349663</span><span class="p">)</span> <span class="o">^</span> <span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">z</span> <span class="o">*</span> <span class="mi">83492791</span><span class="p">);</span>
+    <span class="kt">size_t</span> <span class="k">operator</span><span class="p">()(</span><span class="k">const</span> <span class="n">CellKey</span><span class="o">&amp;</span> <span class="n">k</span><span class="p">)</span> <span class="k">const</span> <span class="k">noexcept</span> <span class="p">{</span>
+        <span class="c1">// Multiply in unsigned arithmetic: signed overflow would be undefined behavior.</span>
+        <span class="kt">uint64_t</span> <span class="n">h</span> <span class="o">=</span> <span class="kt">uint64_t</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">x</span><span class="p">))</span> <span class="o">*</span> <span class="mi">73856093u</span>
+                   <span class="o">^</span> <span class="kt">uint64_t</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">y</span><span class="p">))</span> <span class="o">*</span> <span class="mi">19349663u</span>
+                   <span class="o">^</span> <span class="kt">uint64_t</span><span class="p">(</span><span class="kt">uint32_t</span><span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">z</span><span class="p">))</span> <span class="o">*</span> <span class="mi">83492791u</span><span class="p">;</span>
+        <span class="k">return</span> <span class="kt">size_t</span><span class="p">(</span><span class="n">h</span><span class="p">);</span>
     <span class="p">}</span>
 <span class="p">};</span>
 
 <span class="k">class</span> <span class="nc">SpatialHash</span> <span class="p">{</span>
-    <span class="kt">float</span> <span class="n">cell_size</span><span class="p">;</span>
-    <span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">CellKey</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">*&gt;</span><span class="p">,</span> <span class="n">CellHash</span><span class="o">&gt;</span> <span class="n">cells</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">cell_size_</span><span class="p">;</span>
+    <span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">CellKey</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">*&gt;</span><span class="p">,</span> <span class="n">CellHash</span><span class="o">&gt;</span> <span class="n">cells_</span><span class="p">;</span>
 
     <span class="n">CellKey</span> <span class="n">key_of</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector3</span><span class="o">&amp;</span> <span class="n">p</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
-        <span class="k">return</span> <span class="p">{</span> <span class="kt">int</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">floor</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">x</span> <span class="o">/</span> <span class="n">cell_size</span><span class="p">)),</span>
-                 <span class="kt">int</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">floor</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">y</span> <span class="o">/</span> <span class="n">cell_size</span><span class="p">)),</span>
-                 <span class="kt">int</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">floor</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">z</span> <span class="o">/</span> <span class="n">cell_size</span><span class="p">))</span> <span class="p">};</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="kt">int32_t</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">floor</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">x</span> <span class="o">/</span> <span class="n">cell_size_</span><span class="p">)),</span>
+                 <span class="kt">int32_t</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">floor</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">y</span> <span class="o">/</span> <span class="n">cell_size_</span><span class="p">)),</span>
+                 <span class="kt">int32_t</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">floor</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">z</span> <span class="o">/</span> <span class="n">cell_size_</span><span class="p">))</span> <span class="p">};</span>
     <span class="p">}</span>
-<span class="k">public</span><span class="o">:</span>
-    <span class="kt">void</span> <span class="nf">insert</span><span class="p">(</span><span class="n">Object</span><span class="o">*</span> <span class="n">o</span><span class="p">)</span> <span class="p">{</span> <span class="n">cells</span><span class="p">[</span><span class="n">key_of</span><span class="p">(</span><span class="n">o</span><span class="o">-&gt;</span><span class="n">position</span><span class="p">)].</span><span class="n">push_back</span><span class="p">(</span><span class="n">o</span><span class="p">);</span> <span class="p">}</span>
 
-    <span class="c1">// Gather candidates in the object's cell and its 26 neighbors.</span>
-    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">*&gt;</span> <span class="n">query_neighbors</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector3</span><span class="o">&amp;</span> <span class="n">p</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
-        <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">*&gt;</span> <span class="n">out</span><span class="p">;</span>
-        <span class="n">CellKey</span> <span class="n">c</span> <span class="o">=</span> <span class="n">key_of</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+<span class="k">public</span><span class="o">:</span>
+    <span class="k">explicit</span> <span class="nf">SpatialHash</span><span class="p">(</span><span class="kt">float</span> <span class="n">cell_size</span><span class="p">)</span> <span class="o">:</span> <span class="n">cell_size_</span><span class="p">(</span><span class="n">cell_size</span><span class="p">)</span> <span class="p">{}</span>
+
+    <span class="kt">void</span> <span class="nf">clear</span><span class="p">()</span> <span class="p">{</span> <span class="n">cells_</span><span class="p">.</span><span class="n">clear</span><span class="p">();</span> <span class="p">}</span>                    <span class="c1">// rebuild each frame</span>
+    <span class="kt">void</span> <span class="nf">insert</span><span class="p">(</span><span class="n">Object</span><span class="o">*</span> <span class="n">o</span><span class="p">)</span> <span class="p">{</span> <span class="n">cells_</span><span class="p">[</span><span class="n">key_of</span><span class="p">(</span><span class="n">o</span><span class="o">-&gt;</span><span class="n">position</span><span class="p">)].</span><span class="n">push_back</span><span class="p">(</span><span class="n">o</span><span class="p">);</span> <span class="p">}</span>
+
+    <span class="c1">// Append candidates from the object's cell and its 26 neighbors to `out`.</span>
+    <span class="kt">void</span> <span class="nf">query_neighbors</span><span class="p">(</span><span class="k">const</span> <span class="n">Vector3</span><span class="o">&amp;</span> <span class="n">p</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Object</span><span class="o">*&gt;&amp;</span> <span class="n">out</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+        <span class="k">const</span> <span class="n">CellKey</span> <span class="n">c</span> <span class="o">=</span> <span class="n">key_of</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
         <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">dz</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span> <span class="n">dz</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">;</span> <span class="o">++</span><span class="n">dz</span><span class="p">)</span>
         <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">dy</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span> <span class="n">dy</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">;</span> <span class="o">++</span><span class="n">dy</span><span class="p">)</span>
         <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">dx</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span> <span class="n">dx</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">;</span> <span class="o">++</span><span class="n">dx</span><span class="p">)</span>
-            <span class="k">if</span> <span class="p">(</span><span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">cells</span><span class="p">.</span><span class="n">find</span><span class="p">({</span><span class="n">c</span><span class="p">.</span><span class="n">x</span><span class="o">+</span><span class="n">dx</span><span class="p">,</span> <span class="n">c</span><span class="p">.</span><span class="n">y</span><span class="o">+</span><span class="n">dy</span><span class="p">,</span> <span class="n">c</span><span class="p">.</span><span class="n">z</span><span class="o">+</span><span class="n">dz</span><span class="p">});</span> <span class="n">it</span> <span class="o">!=</span> <span class="n">cells</span><span class="p">.</span><span class="n">end</span><span class="p">())</span>
+            <span class="k">if</span> <span class="p">(</span><span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">cells_</span><span class="p">.</span><span class="n">find</span><span class="p">({</span><span class="n">c</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">dx</span><span class="p">,</span> <span class="n">c</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="n">dy</span><span class="p">,</span> <span class="n">c</span><span class="p">.</span><span class="n">z</span> <span class="o">+</span> <span class="n">dz</span><span class="p">});</span> <span class="n">it</span> <span class="o">!=</span> <span class="n">cells_</span><span class="p">.</span><span class="n">end</span><span class="p">())</span>
                 <span class="n">out</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="n">out</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">.</span><span class="n">end</span><span class="p">());</span>
-        <span class="k">return</span> <span class="n">out</span><span class="p">;</span>
     <span class="p">}</span>
 <span class="p">};</span>
 </code></pre></div></div>
 
-<p>The <code class="language-plaintext highlighter-rouge">cell_size</code> is the key tuning parameter: too large and each cell holds too many objects (degenerating toward $O(n^2)$); too small and objects span many cells, wasting memory and broadening queries. A good default is roughly the diameter of a typical object.</p>
+<p><code class="language-plaintext highlighter-rouge">cell_size</code> is the tuning knob. Too large and each cell holds many objects, sliding back toward $O(n^2)$; too small and objects span many cells and queries touch many empty ones. Start near the diameter of a typical object. Passing the output vector in by reference lets callers reuse its allocation across queries.</p>
 
-<h3 id="hierarchical-trees-octrees-and-bvhs">Hierarchical Trees: Octrees and BVHs</h3>
+<h3 id="hierarchical-structures">Hierarchical Structures</h3>
 
-<p>When object density is <em>non-uniform</em> — clusters of detail amid empty space — a flat grid wastes memory on empty cells. Hierarchical structures adapt:</p>
+<p>When density is uneven, with clusters of detail in mostly empty space, a flat grid wastes memory on empty cells or overloads dense ones. Hierarchies adapt:</p>
 
 <ul>
-  <li><strong>Octree (3D) / Quadtree (2D)</strong> recursively subdivides a cube/square into eight/four children only where objects are present, giving $O(\log n)$ depth in well-balanced scenes. Ideal for static or slowly changing worlds.</li>
-  <li><strong>BVH (Bounding Volume Hierarchy)</strong> wraps objects in nested bounding boxes (or spheres) forming a binary tree. A ray or query descends only into boxes it intersects, pruning whole subtrees. BVHs are the backbone of modern ray tracing and are cheap to refit (update bounds without rebuilding) when objects move slightly. See how this feeds into rendering in <a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a>.</li>
+  <li><strong>Quadtrees and octrees</strong> subdivide a square or cube into four or eight children only where objects exist, giving roughly $O(\log n)$ depth in reasonably balanced scenes.</li>
+  <li><strong>BVHs</strong> wrap objects in nested bounding boxes forming a tree. A ray or query descends only into boxes it intersects, pruning whole subtrees. BVHs are the acceleration structure behind hardware ray tracing (the DXR and Vulkan ray-tracing APIs build them for you), and they can be <strong>refit</strong> cheaply (recompute bounds bottom-up without restructuring) when objects move a little. See <a href="../graphics/3d-rendering.html">3D Graphics and Rendering</a>.</li>
 </ul>
 
-<p>The shared idea across all of these: <strong>convert a global “test everything” into a local “test only what’s nearby” by exploiting spatial coherence.</strong></p>
+<p>The common idea: turn a global “test everything” into a local “test only what is nearby” by exploiting spatial coherence.</p>
+
+<h3 id="high-dimensional-search">High-Dimensional Search</h3>
+
+<p>Space-partitioning trees stop helping as dimensionality grows: beyond a few dozen dimensions nearly every partition must be visited (the curse of dimensionality). Similarity search over embeddings, which have hundreds or thousands of dimensions, therefore uses <strong>approximate nearest neighbor</strong> (ANN) indexes. <strong>HNSW</strong> (hierarchical navigable small-world graphs) and <strong>IVF</strong> (inverted file with clustering, often combined with product quantization) answer queries in sub-linear time at a recall below 100%, tunable against speed and memory. Libraries such as FAISS and the vector indexes built into PostgreSQL (pgvector) and search engines implement these.</p>
 
 <h2 id="caching-and-memoization">Caching and Memoization</h2>
 
-<p>When the same expensive computation recurs with the same inputs, store the result and return it on subsequent calls. This trades memory for time — the central trade-off of algorithmic optimization — and is most effective when the function is <em>pure</em> (output depends only on inputs) and recomputation is costly relative to a lookup.</p>
+<p>When the same expensive computation recurs with the same inputs, store the result and return it next time. This trades memory for time, and it is most effective when the function is <strong>pure</strong> (its output depends only on its inputs) and recomputation is expensive relative to a lookup.</p>
 
 <h3 id="memoizing-a-pure-function">Memoizing a Pure Function</h3>
 
-<p>The pattern, preserved and expanded from the optimization hub, wraps an expensive calculation in a cache keyed by its inputs:</p>
-
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Expensive computation caching (memoization)</span>
-<span class="k">class</span> <span class="nc">ExpensiveComputation</span> <span class="p">{</span>
-    <span class="k">mutable</span> <span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">Key</span><span class="p">,</span> <span class="n">Result</span><span class="o">&gt;</span> <span class="n">cache</span><span class="p">;</span>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">ExpensiveComputation</span> <span class="p">{</span>
+    <span class="k">mutable</span> <span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">Key</span><span class="p">,</span> <span class="n">Result</span><span class="p">,</span> <span class="n">KeyHash</span><span class="o">&gt;</span> <span class="n">cache_</span><span class="p">;</span>
 
 <span class="nl">public:</span>
-    <span class="n">Result</span> <span class="n">compute</span><span class="p">(</span><span class="k">const</span> <span class="n">Key</span><span class="o">&amp;</span> <span class="n">key</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
-        <span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">cache</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">it</span> <span class="o">!=</span> <span class="n">cache</span><span class="p">.</span><span class="n">end</span><span class="p">())</span> <span class="p">{</span>
-            <span class="k">return</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>   <span class="c1">// cache hit: O(1)</span>
-        <span class="p">}</span>
-
-        <span class="n">Result</span> <span class="n">result</span> <span class="o">=</span> <span class="n">expensive_calculation</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>  <span class="c1">// cache miss: full cost</span>
-        <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="p">;</span>
-        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+    <span class="k">const</span> <span class="n">Result</span><span class="o">&amp;</span> <span class="n">compute</span><span class="p">(</span><span class="k">const</span> <span class="n">Key</span><span class="o">&amp;</span> <span class="n">key</span><span class="p">)</span> <span class="k">const</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="k">auto</span> <span class="n">it</span> <span class="o">=</span> <span class="n">cache_</span><span class="p">.</span><span class="n">find</span><span class="p">(</span><span class="n">key</span><span class="p">);</span> <span class="n">it</span> <span class="o">!=</span> <span class="n">cache_</span><span class="p">.</span><span class="n">end</span><span class="p">())</span>
+            <span class="k">return</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>                       <span class="c1">// hit: O(1) average</span>
+        <span class="k">auto</span> <span class="p">[</span><span class="n">it</span><span class="p">,</span> <span class="n">_</span><span class="p">]</span> <span class="o">=</span> <span class="n">cache_</span><span class="p">.</span><span class="n">emplace</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">expensive_calculation</span><span class="p">(</span><span class="n">key</span><span class="p">));</span>
+        <span class="k">return</span> <span class="n">it</span><span class="o">-&gt;</span><span class="n">second</span><span class="p">;</span>                           <span class="c1">// miss: full cost, once</span>
     <span class="p">}</span>
 
-    <span class="kt">void</span> <span class="nf">invalidate</span><span class="p">()</span> <span class="p">{</span> <span class="n">cache</span><span class="p">.</span><span class="n">clear</span><span class="p">();</span> <span class="p">}</span>
+    <span class="kt">void</span> <span class="nf">invalidate</span><span class="p">()</span> <span class="p">{</span> <span class="n">cache_</span><span class="p">.</span><span class="n">clear</span><span class="p">();</span> <span class="p">}</span>
 <span class="p">};</span>
 </code></pre></div></div>
 
+<p>This version is not thread-safe; a cache shared between threads needs a lock, sharding, or a concurrent map. Most languages ship a memoization helper: <code class="language-plaintext highlighter-rouge">functools.cache</code> and <code class="language-plaintext highlighter-rouge">functools.lru_cache</code> in Python, <code class="language-plaintext highlighter-rouge">computeIfAbsent</code> on a Java <code class="language-plaintext highlighter-rouge">ConcurrentHashMap</code>, <code class="language-plaintext highlighter-rouge">useMemo</code> in React.</p>
+
 <h3 id="memoization-and-dynamic-programming">Memoization and Dynamic Programming</h3>
 
-<p>Memoization is the top-down face of dynamic programming: a naive recursive solution that recomputes overlapping subproblems becomes linear once each subproblem is cached. The textbook example is Fibonacci, where naive recursion is $O(2^n)$ but memoized recursion is $O(n)$:</p>
+<p>Memoization is the top-down form of dynamic programming. A recursive solution that recomputes overlapping subproblems becomes polynomial once each subproblem is cached. Fibonacci shows the effect: naive recursion makes $O(\varphi^n)$ calls (with $\varphi \approx 1.618$), memoized recursion makes $O(n)$.</p>
 
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">long</span> <span class="kt">long</span> <span class="nf">fib</span><span class="p">(</span><span class="kt">int</span> <span class="n">n</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">long</span> <span class="kt">long</span><span class="o">&gt;&amp;</span> <span class="n">memo</span><span class="p">)</span> <span class="p">{</span>
+\[F(n) = F(n-1) + F(n-2), \qquad F(0) = 0, \quad F(1) = 1\]
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;cstdint&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;vector&gt;</span><span class="cp">
+</span>
+<span class="c1">// memo must have size n + 1, initialized to -1</span>
+<span class="kt">int64_t</span> <span class="nf">fib</span><span class="p">(</span><span class="kt">int</span> <span class="n">n</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int64_t</span><span class="o">&gt;&amp;</span> <span class="n">memo</span><span class="p">)</span> <span class="p">{</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">)</span> <span class="k">return</span> <span class="n">n</span><span class="p">;</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">memo</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">return</span> <span class="n">memo</span><span class="p">[</span><span class="n">n</span><span class="p">];</span>        <span class="c1">// already computed</span>
-    <span class="k">return</span> <span class="n">memo</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">fib</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">memo</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">memo</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">memo</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">return</span> <span class="n">memo</span><span class="p">[</span><span class="n">n</span><span class="p">];</span>
+    <span class="k">return</span> <span class="n">memo</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="n">fib</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">memo</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">,</span> <span class="n">memo</span><span class="p">);</span>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>Each value <code class="language-plaintext highlighter-rouge">fib(k)</code> is computed once and reused, collapsing the exponential call tree into $n$ distinct evaluations. The recurrence it encodes is:</p>
+<p>The bottom-up form fills a table in dependency order and avoids recursion depth limits; when each state depends only on the previous few, the table shrinks to a few variables (Fibonacci needs two). The same move, identifying overlapping subproblems and caching them, turns exponential search into polynomial time for edit distance, sequence alignment, knapsack with integer weights, and shortest paths in DAGs.</p>
 
-\[F(n) = F(n-1) + F(n-2), \quad F(0) = 0, \; F(1) = 1\]
+<h3 id="invalidation-and-eviction">Invalidation and Eviction</h3>
 
-<p>The same transformation — identify overlapping subproblems, cache them — turns exponential brute force into polynomial time across an enormous class of problems (shortest paths, edit distance, knapsack, sequence alignment).</p>
-
-<h3 id="cache-invalidation-and-eviction">Cache Invalidation and Eviction</h3>
-
-<p>The two hard parts of caching are <em>when results stop being valid</em> and <em>what to throw away when the cache is full</em>.</p>
+<p>The two hard parts of caching are deciding when a stored result stops being valid and what to discard when the cache is full.</p>
 
 <ul>
-  <li><strong>Invalidation.</strong> A memoized result is only correct while its inputs are unchanged. Pure functions of immutable inputs never need invalidation; caches over mutable state must be cleared or selectively evicted when that state changes. Stale-cache bugs are notorious precisely because the wrong answer is fast and silent.</li>
-  <li><strong>Eviction (bounded caches).</strong> An unbounded cache is a memory leak. Real caches cap their size and evict under a policy: <strong>LRU</strong> (least-recently-used) for temporal locality, <strong>LFU</strong> (least-frequently-used) when some keys are persistently hot, or simple FIFO/random when cheap is good enough. The hit rate of the policy, not its theoretical elegance, is what to measure.</li>
+  <li><strong>Invalidation.</strong> A cached result is correct only while its inputs are unchanged. Pure functions of immutable inputs never need invalidation; caches over mutable state must be cleared, versioned, or given a time-to-live. Stale-cache bugs are notorious because the wrong answer arrives quickly and silently.</li>
+  <li><strong>Eviction.</strong> An unbounded cache is a memory leak. Bounded caches evict under a policy:</li>
 </ul>
+
+<table>
+  <thead>
+    <tr>
+      <th>Policy</th>
+      <th>Evicts</th>
+      <th>Good for</th>
+      <th>Weakness</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>LRU</td>
+      <td>Least recently used</td>
+      <td>Temporal locality</td>
+      <td>A single large scan flushes the whole cache</td>
+    </tr>
+    <tr>
+      <td>LFU</td>
+      <td>Least frequently used</td>
+      <td>Persistently hot keys</td>
+      <td>Slow to adapt; needs frequency aging</td>
+    </tr>
+    <tr>
+      <td>FIFO / random</td>
+      <td>Oldest or random entry</td>
+      <td>Very cheap bookkeeping</td>
+      <td>Ignores access pattern</td>
+    </tr>
+    <tr>
+      <td>W-TinyLFU (Caffeine)</td>
+      <td>Admits new entries only if estimated to be hotter than the victim</td>
+      <td>Mixed workloads</td>
+      <td>More complex</td>
+    </tr>
+    <tr>
+      <td>S3-FIFO, SIEVE</td>
+      <td>FIFO queues with a small probationary queue or a “visited” bit</td>
+      <td>Web and CDN caches with many one-hit keys</td>
+      <td>Newer; less tooling</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Measure hit rate on real traces; the best policy is workload-specific.</p>
 
 <h3 id="caching-across-the-stack">Caching Across the Stack</h3>
 
-<p>The same store-and-reuse principle recurs at every scale: the <a href="./cpu-optimization.html">CPU’s L1/L2/L3 hierarchy</a> caches memory, web layers cache HTTP responses, <a href="../technology/database-design/">databases</a> cache query plans and pages, and applications memoize functions. Each level trades cheaper, larger, slower storage for a fast copy of recent results.</p>
+<p>The same principle recurs at every scale: CPU caches hold recently used memory lines, operating systems keep a page cache, <a href="../technology/database-design/">databases</a> cache pages and query plans, CDNs and HTTP caches hold responses, and applications memoize functions. Each level keeps a small, fast copy of data whose authoritative home is larger and slower.</p>
+
+<h2 id="probabilistic-data-structures">Probabilistic Data Structures</h2>
+
+<p>When an exact answer is unnecessary, a probabilistic structure can answer in constant time and a small, fixed amount of memory, with a bounded error.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Structure</th>
+      <th>Answers</th>
+      <th>Error</th>
+      <th>Memory</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Bloom filter</strong></td>
+      <td>“Is $x$ in the set?”</td>
+      <td>False positives possible, no false negatives</td>
+      <td>~9.6 bits per element at 1% false-positive rate</td>
+    </tr>
+    <tr>
+      <td><strong>Cuckoo / xor filter</strong></td>
+      <td>Membership, like Bloom</td>
+      <td>Same one-sided error; cuckoo filters support deletion</td>
+      <td>Often smaller than Bloom at low error rates</td>
+    </tr>
+    <tr>
+      <td><strong>HyperLogLog</strong></td>
+      <td>“How many distinct items?”</td>
+      <td>Relative standard error $\approx 1.04/\sqrt{m}$ for $m$ registers</td>
+      <td>~12 KB estimates billions of distinct items to within ~1%</td>
+    </tr>
+    <tr>
+      <td><strong>Count-Min sketch</strong></td>
+      <td>“How often has $x$ appeared?”</td>
+      <td>Overestimates only, by a bounded amount</td>
+      <td>Fixed, independent of stream length</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A Bloom filter with $m$ bits, $k$ hash functions, and $n$ inserted elements has false-positive probability</p>
+
+\[p \approx \left(1 - e^{-kn/m}\right)^{k},\]
+
+<p>minimized at $k = (m/n) \ln 2$, which gives $m/n = -\ln p / (\ln 2)^2$ bits per element. The typical use is a cheap pre-check in front of an expensive lookup: LSM-tree databases (RocksDB, Cassandra) keep a Bloom filter per file so most reads for absent keys never touch disk.</p>
 
 <h2 id="amortized-analysis">Amortized Analysis</h2>
 
-<p>Some operations are usually cheap but occasionally expensive. <strong>Amortized analysis</strong> measures the <em>average</em> cost per operation over a long sequence, proving that the rare expensive case is paid for by the many cheap ones. This is the right lens for any structure that does bulk work intermittently.</p>
+<p>Some operations are usually cheap and occasionally expensive. <strong>Amortized analysis</strong> bounds the average cost per operation over any sequence of operations, showing that the rare expensive step is paid for by the many cheap ones. Unlike average-case analysis it makes no assumption about input distribution.</p>
 
-<h3 id="the-dynamic-array-doubling-argument">The Dynamic Array Doubling Argument</h3>
+<h3 id="dynamic-array-growth">Dynamic Array Growth</h3>
 
-<p>The canonical example is appending to a dynamic array (<code class="language-plaintext highlighter-rouge">std::vector</code>). Most <code class="language-plaintext highlighter-rouge">push_back</code> calls are $O(1)$: write to the next slot. But when the array fills, it must allocate a larger buffer and copy every element — an $O(n)$ operation. Is <code class="language-plaintext highlighter-rouge">push_back</code> therefore $O(n)$?</p>
+<p>Appending to a dynamic array usually writes to the next free slot in $O(1)$. When the array is full, it allocates a larger buffer and copies every element, an $O(n)$ step. Growing the capacity by a constant <strong>factor</strong> keeps the total cost linear. With doubling, starting at capacity 1 and appending $n = 2^j$ elements, the copies across all resizes total</p>
 
-<p>No. The trick is the <strong>growth factor</strong>: when full, the array doubles its capacity. Starting from capacity 1 and inserting $n$ elements, the total copying work across all resizes is:</p>
+\[1 + 2 + 4 + \cdots + 2^{j-1} = 2^{j} - 1 = n - 1 = O(n),\]
 
-\[1 + 2 + 4 + 8 + \cdots + n = \sum_{k=0}^{\log_2 n} 2^k = 2n - 1 = O(n)\]
+<p>so each append costs $O(1)$ amortized. Growing by a constant <em>amount</em> $c$ instead makes the total $c + 2c + 3c + \cdots = O(n^2/c)$, or $O(n)$ per append. Real implementations use factors between 1.5 (MSVC, folly) and 2 (libstdc++, libc++); smaller factors waste less memory and can reuse freed blocks. Calling <code class="language-plaintext highlighter-rouge">reserve()</code> when the final size is known removes all intermediate copies.</p>
 
-<p>Spread over $n$ insertions, that is $O(1)$ <strong>amortized</strong> per <code class="language-plaintext highlighter-rouge">push_back</code>. The geometric (not linear) growth is essential: growing by a constant amount instead of a factor would make total work $O(n^2)$ and the amortized cost $O(n)$. This is exactly why you <code class="language-plaintext highlighter-rouge">reserve()</code> capacity when the final size is known — it eliminates <em>all</em> intermediate copies, turning amortized $O(1)$ into guaranteed $O(1)$.</p>
+<pre><code class="language-mermaid">flowchart LR
+    A["cap 4, full"] --&gt;|"append: allocate 8,&lt;br/&gt;copy 4"| B["cap 8"]
+    B --&gt;|"4 cheap appends"| C["cap 8, full"]
+    C --&gt;|"append: allocate 16,&lt;br/&gt;copy 8"| D["cap 16"]
+    D --&gt;|"8 cheap appends"| E["cap 16, full"]
+</code></pre>
 
-<h3 id="why-the-distinction-matters">Why the Distinction Matters</h3>
+<p>Each resize copies as many elements as there were cheap appends since the previous resize, which is why the copying cost averages out to a constant per append.</p>
 
-<p>Amortized $O(1)$ is excellent for <strong>throughput</strong> but says nothing about any single operation’s <strong>latency</strong>. The one <code class="language-plaintext highlighter-rouge">push_back</code> that triggers a resize stalls for $O(n)$ — invisible in a server’s average request time, but a frame-rate killer in a game that hits it inside the 16 ms budget. The same caveat applies to hash-map rehashing and incremental garbage collection.</p>
+<h3 id="throughput-versus-latency">Throughput Versus Latency</h3>
 
-<p>The defenses are the same in every case:</p>
+<p>Amortized $O(1)$ is a statement about throughput. It says nothing about a single operation’s latency: the append that triggers a resize still takes $O(n)$. That is invisible in a server’s mean request time but can blow a 16.7 ms frame budget in a game or a deadline in a real-time controller. Hash-table rehashing and garbage-collection pauses have the same shape.</p>
+
+<p>The defenses:</p>
 
 <ul>
-  <li><strong>Pre-size structures</strong> (<code class="language-plaintext highlighter-rouge">reserve</code>) when the eventual size is known, so the expensive grow never happens on the hot path.</li>
-  <li><strong>Amortize deliberately</strong> by spreading the expensive work across frames, or do it during a load screen or idle period rather than mid-action.</li>
-  <li><strong>Choose worst-case-bounded structures</strong> for hard-real-time paths — a fixed-capacity pool or ring buffer never resizes, trading flexibility for predictable latency. This connects directly to the pooling and frame-allocator techniques in <a href="./cpu-optimization.html">CPU Optimization</a> and <a href="./memory-optimization.html">Memory Optimization</a>.</li>
+  <li><strong>Pre-size</strong> structures when the final size is known, so growth never happens on the hot path.</li>
+  <li><strong>Do the expensive work deliberately</strong>: during a loading screen, at idle, or spread incrementally across frames. Some hash tables and garbage collectors resize or collect incrementally for this reason.</li>
+  <li><strong>Use worst-case-bounded structures</strong> on hard real-time paths: fixed-capacity pools, ring buffers, and arena allocators never resize. See <a href="./memory-optimization.html#allocation-strategies">Memory Optimization</a>.</li>
 </ul>
 
-<h3 id="the-three-analysis-methods">The Three Analysis Methods</h3>
+<h3 id="proof-techniques">Proof Techniques</h3>
 
-<p>Formally, amortized bounds are proven by one of three equivalent techniques:</p>
+<p>Amortized bounds are proved in one of three equivalent ways:</p>
 
 <ol>
-  <li><strong>Aggregate method</strong> — bound the total cost of $n$ operations, then divide by $n$ (the doubling-array sum above).</li>
-  <li><strong>Accounting (banker’s) method</strong> — charge each cheap operation a small surplus “credit” that prepays for future expensive ones; if credit never goes negative, the charged rate is a valid amortized bound.</li>
-  <li><strong>Potential method</strong> — define a potential function $\Phi$ over the data structure’s state; the amortized cost of an operation is its actual cost plus the change in potential, $\hat{c}<em>i = c_i + \Phi_i - \Phi</em>{i-1}$.</li>
+  <li><strong>Aggregate method.</strong> Bound the total cost of $n$ operations, then divide by $n$ (the doubling sum above).</li>
+  <li><strong>Accounting (banker’s) method.</strong> Charge each cheap operation a small surplus that prepays future expensive ones. If the stored credit never goes negative, the charge is a valid amortized bound. For doubling arrays, charging 3 per append suffices: 1 for the write, 2 banked toward future copies.</li>
+  <li><strong>Potential method.</strong> Define a potential $\Phi \ge 0$ on the data structure’s state, with $\Phi_0 = 0$. The amortized cost of operation $i$ is $\hat{c}<em>i = c_i + \Phi_i - \Phi</em>{i-1}$, and summing gives $\sum_i \hat{c}_i \ge \sum_i c_i$. For doubling arrays, $\Phi = 2 \cdot \text{size} - \text{capacity}$ (floored at 0) works.</li>
 </ol>
 
-<p>In practice you rarely write these proofs, but recognizing <em>which</em> bound a structure provides — worst-case, average, or amortized — is what lets you choose correctly for throughput-bound versus latency-bound code.</p>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Complexity class first.</strong> An O(n²)→O(n log n) change dwarfs any constant-factor tuning at scale. Fix the asymptotics before touching the hot path.</li>
-  <li><strong>But measure the constants.</strong> Small n, cache locality, and amortized-vs-worst-case can make the “slower” Big O win on real hardware.</li>
-  <li><strong>The structure is the algorithm.</strong> Match the data structure to your operation profile; a contiguous array’s locality often beats a node-based structure of equal Big O.</li>
-  <li><strong>Partition space for locality.</strong> Grids, octrees, and BVHs turn O(n²) all-pairs queries into O(n log n) by only testing nearby candidates.</li>
-  <li><strong>Trade memory for time.</strong> Memoization and caching collapse repeated work — but bound the cache and get invalidation right, or you leak memory and serve stale answers.</li>
-  <li><strong>Know which bound you need.</strong> Amortized O(1) is great for throughput and lethal for latency; pre-size or use fixed-capacity structures on real-time paths.</li>
-</ul>
+<p>You rarely write these proofs in practice, but knowing whether a structure’s guarantee is worst-case, average, or amortized is what lets you choose correctly between throughput-bound and latency-bound code.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
-  <li><strong><a href="./">Performance Optimization Hub</a></strong> — the full optimization section index, philosophy, and learning paths</li>
-  <li><strong><a href="./cpu-optimization.html">CPU Optimization</a></strong> — cache-aware data-oriented design, multithreading, and pooling that turn good algorithms into fast code</li>
-  <li><strong><a href="./memory-optimization.html">Memory Optimization</a></strong> — the memory hierarchy and data layout that determine the hidden constants behind Big O</li>
-  <li><strong><a href="./cpu-optimization.html#profiling-tools">Profiling Best Practices</a></strong> — measuring before optimizing, so you target the algorithm that actually dominates</li>
-  <li><strong><a href="../technology/database-design/">Database Design</a></strong> — B-tree indexes, query-plan caching, and page-oriented structures in action</li>
-  <li><strong><a href="../graphics/3d-rendering.html">3D Graphics &amp; Rendering</a></strong> — BVHs and spatial structures driving culling and ray tracing</li>
-  <li><strong><a href="../advanced/distributed-systems-theory/">Distributed Systems Theory</a></strong> — complexity and coordination costs at scale</li>
+  <li><a href="./">Performance Optimization Hub</a>: the optimization section index and process</li>
+  <li><a href="./cpu-optimization.html">CPU Optimization</a>: profiling, cache-aware layout, SIMD, and threading that make a good algorithm fast</li>
+  <li><a href="./memory-optimization.html">Memory Optimization</a>: the memory hierarchy and allocators behind the hidden constants</li>
+  <li><a href="./cpu-optimization.html#profiling-tools">Profiling tools</a>: measure before optimizing so you target the algorithm that actually dominates</li>
+  <li><a href="../advanced/complexity-theory/">Complexity Theory</a> and <a href="../advanced/approximation-algorithms/">Approximation Algorithms</a>: the theory of what can be computed efficiently, and what to do when it cannot</li>
+  <li><a href="../technology/database-design/">Database Design</a>: B-tree and LSM indexes, query planning, and page caching</li>
+  <li><a href="../graphics/3d-rendering.html">3D Graphics and Rendering</a>: BVHs and spatial structures in culling and ray tracing</li>
 </ul>
 
       </section>

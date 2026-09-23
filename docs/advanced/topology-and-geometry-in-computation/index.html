@@ -3133,123 +3133,144 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <h1 id="topology--geometry-in-computation">Topology &amp; Geometry in Computation</h1>
 
-<p><a href="./">Advanced Topics</a> » Topology &amp; Geometry in Computation</p>
+<p><a href="../">Advanced Topics</a> » Topology &amp; Geometry in Computation</p>
 
 <div class="advanced-note">
-  <p><strong>Graduate-level research page.</strong> This page develops the algebraic-topological machinery behind topological data analysis (TDA) and the topological theory of asynchronous distributed computing, for researchers in applied topology, theoretical computer science, and data science. <strong>Prerequisites:</strong> point-set topology, linear algebra over fields, basic abstract algebra (groups, rings, quotients), and — for the distributed-computing sections — the read–write shared-memory model treated in <a href="../distributed-systems-theory/">Distributed Systems Theory</a>. For a gentler, applied tour of data geometry instead, see the <a href="../../ai-ml/">AI/ML Documentation</a>.</p>
+  <p><strong>Graduate-level research page.</strong> This page develops the algebraic-topological machinery behind topological data analysis (TDA) and the topological theory of asynchronous distributed computing. <strong>Prerequisites:</strong> point-set topology, linear algebra over a field, basic abstract algebra (groups, quotients), and, for the distributed-computing sections, the read–write shared-memory model treated in <a href="../distributed-systems-theory/">Distributed Systems Theory</a>. For an applied tour of data geometry, see the <a href="../../ai-ml/">AI/ML Documentation</a>.</p>
 </div>
 
-<p>Topology is the mathematics of shape that survives continuous deformation — what stays the same when you stretch but do not tear. Two ideas turn this into a computational tool. First, the shape of a finite point cloud or a finite set of process states can be encoded as a <em>simplicial complex</em>, a combinatorial object a computer can store and manipulate. Second, the algebraic invariants of that complex — its <em>homology groups</em> — count connected components, loops, and voids in a way that is robust to noise and basis choice. This page builds that pipeline twice: once for <strong>topological data analysis</strong>, where persistent homology reads multiscale structure out of data, and once for <strong>distributed computing</strong>, where the same homological obstructions decide which coordination tasks are solvable at all.</p>
+<p>Topology studies the properties of a shape that survive continuous deformation. Two ideas make it computational. First, a finite point cloud, or the finite set of states a distributed system can reach, can be encoded as a <strong>simplicial complex</strong>: a combinatorial object that a computer can store. Second, the <strong>homology groups</strong> of that complex count connected components, loops, and voids using nothing but linear algebra, and the count does not depend on coordinates or a choice of basis. This page builds that pipeline and then applies it twice. In <strong>topological data analysis</strong>, persistent homology extracts multiscale structure from data. In <strong>distributed computing</strong>, the same homological obstructions decide which coordination tasks can be solved at all.</p>
 
 <ul>
-  <li><strong>Shape becomes combinatorics.</strong> A simplicial complex turns a continuous space into a finite list of simplices, so its topology can be computed with linear algebra over a field.</li>
-  <li><strong>Homology counts holes.</strong> The Betti number bk = dim Hk counts k-dimensional holes: b0 components, b1 loops, b2 voids. It is a deformation invariant.</li>
-  <li><strong>Persistence separates signal from noise.</strong> Tracking homology across a filtration ranks features by how long they survive; long bars are real structure, short bars are noise — with a stability guarantee.</li>
-  <li><strong>Topology decides solvability.</strong> An asynchronous task is solvable iff a continuous-looking simplicial map exists between input and output complexes — connectivity obstructions are impossibility proofs.</li>
+  <li><strong>Shape becomes combinatorics.</strong> A simplicial complex replaces a continuous space by a finite list of simplices.</li>
+  <li><strong>Homology counts holes.</strong> The Betti number $b_k = \dim H_k$ counts $k$-dimensional holes: $b_0$ components, $b_1$ loops, $b_2$ voids.</li>
+  <li><strong>Persistence separates signal from noise.</strong> Tracking homology across a range of scales ranks features by lifetime, and a stability theorem guarantees that small perturbations of the input change the result only slightly.</li>
+  <li><strong>Topology decides solvability.</strong> An asynchronous task is wait-free solvable if and only if a certain simplicial map exists from a subdivided input complex to the output complex. Connectivity obstructions are therefore impossibility proofs.</li>
 </ul>
 
 <h3 id="the-logical-spine">The Logical Spine</h3>
 
-<p>The results below form a dependency chain, not a grab-bag. A simplicial complex is the data structure; the chain complex and its boundary maps turn it into algebra; homology is the cokernel/kernel quotient that extracts holes; functoriality lets homology track a <em>family</em> of complexes (a filtration), which is persistence; and the same functorial picture, applied to the <em>protocol complex</em> of a distributed system, yields impossibility theorems.</p>
+<p>The results form a dependency chain. The simplicial complex is the data structure. The chain complex and its boundary maps turn it into linear algebra. Homology, a kernel-modulo-image quotient, extracts the holes. Functoriality lets homology follow a whole <em>family</em> of complexes (a filtration), which is persistence. The same functorial picture, applied to the <em>protocol complex</em> of a distributed system, yields impossibility theorems.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    SC["Simplicial complex&lt;br/&gt;(combinatorial shape)"] --&gt; CC["Chain complex C&amp;bull;&lt;br/&gt;boundary maps &amp;part;&lt;sub&gt;k&lt;/sub&gt;"]
-    CC --&gt; HOM["Homology H&lt;sub&gt;k&lt;/sub&gt; = ker &amp;part;&lt;sub&gt;k&lt;/sub&gt; / im &amp;part;&lt;sub&gt;k+1&lt;/sub&gt;"]
-    HOM --&gt; FUN["Functoriality&lt;br/&gt;maps induce H&lt;sub&gt;k&lt;/sub&gt; maps"]
-    FUN --&gt; PH["Persistent homology&lt;br/&gt;(filtration &amp;rArr; barcode)"]
-    FUN --&gt; ASC["Asynchronous computability&lt;br/&gt;(protocol complex)"]
+    SC["Simplicial complex&lt;br/&gt;(combinatorial shape)"] --&gt; CC["Chain complex&lt;br/&gt;boundary maps"]
+    CC --&gt; HOM["Homology&lt;br/&gt;H_k = ker / im"]
+    HOM --&gt; FUN["Functoriality&lt;br/&gt;maps induce maps on H_k"]
+    FUN --&gt; PH["Persistent homology&lt;br/&gt;filtration to barcode"]
+    FUN --&gt; ASC["Asynchronous computability&lt;br/&gt;protocol complex"]
     PH --&gt; TDA["Topological data analysis"]
-    ASC --&gt; IMP["Impossibility / solvability results"]
+    ASC --&gt; IMP["Impossibility and solvability results"]
 </code></pre>
-
-<h2 id="table-of-contents">Table of Contents</h2>
-<ul>
-  <li><a href="#topological-foundations">Topological Foundations</a></li>
-  <li><a href="#simplicial-complexes">Simplicial Complexes</a></li>
-  <li><a href="#simplicial-homology">Simplicial Homology</a></li>
-  <li><a href="#persistent-homology-and-tda">Persistent Homology and TDA</a></li>
-  <li><a href="#topology-in-distributed-computing">Topology in Distributed Computing</a></li>
-  <li><a href="#computation-and-tooling">Computation and Tooling</a></li>
-  <li><a href="#research-frontiers">Research Frontiers</a></li>
-</ul>
 
 <h2 id="topological-foundations">Topological Foundations</h2>
 
 <h3 id="what-topology-keeps-and-what-it-forgets">What Topology Keeps and What It Forgets</h3>
 
-<p><strong>Intuition.</strong> Geometry remembers distances and angles; topology forgets them and remembers only what is preserved by <em>homeomorphisms</em> — continuous bijections with continuous inverses. A coffee mug and a doughnut are the same to a topologist because each has exactly one handle (one “hole”). The job of computational topology is to make “number of holes” precise, basis-independent, and computable.</p>
+<p>Geometry keeps distances and angles. Topology discards them and keeps only what is preserved by <em>homeomorphisms</em>, which are continuous bijections with continuous inverses. A coffee mug and a doughnut are topologically the same because each has exactly one handle. Computational topology makes “number of holes” precise, independent of any basis, and computable.</p>
 
 <div class="theory-card">
   <h4 id="definition-topological-space">Definition (Topological space)</h4>
   <p>A <strong>topological space</strong> is a set $X$ with a collection $\tau$ of subsets (the <em>open sets</em>) such that $\varnothing, X \in \tau$, $\tau$ is closed under arbitrary unions, and $\tau$ is closed under finite intersections. A map $f: X \to Y$ is <strong>continuous</strong> if preimages of open sets are open. $X$ and $Y$ are <strong>homeomorphic</strong> ($X \cong Y$) if there is a continuous bijection with continuous inverse.</p>
 </div>
 
-<p>Homeomorphism is too rigid to compute with directly, so applied topology works one level coarser, with <strong>homotopy equivalence</strong>: two maps $f, g: X \to Y$ are homotopic if one can be continuously deformed into the other, and $X \simeq Y$ if there are maps whose composites are homotopic to the identities. Homology, the central invariant of this page, is a <em>homotopy invariant</em>: homotopy-equivalent spaces have identical homology, so we may replace an awkward continuous space by any convenient combinatorial model of the same homotopy type.</p>
+<p>Homeomorphism is too rigid to compute with directly, so applied topology works with the coarser relation of <strong>homotopy equivalence</strong>. Two maps $f, g: X \to Y$ are <em>homotopic</em> if one can be continuously deformed into the other. Two spaces satisfy $X \simeq Y$ if there are maps $f: X \to Y$ and $g: Y \to X$ whose composites are homotopic to the identities. Homology is a <em>homotopy invariant</em>: homotopy-equivalent spaces have isomorphic homology. We may therefore replace an awkward continuous space by any convenient combinatorial model of the same homotopy type.</p>
 
 <h3 id="from-spaces-to-invariants">From Spaces to Invariants</h3>
 
-<p>The strategy is <em>algebraization</em>: assign to each space an algebraic object (here a sequence of vector spaces, its homology) and to each continuous map a linear map, in a way that respects composition. Then a topological question (“are these spaces different?”) reduces to an algebraic one (“are these vector spaces non-isomorphic?”), and impossibility (“there is no continuous map of such-and-such kind”) follows whenever the induced algebra cannot exist.</p>
+<p>The general strategy is <em>algebraization</em>. Each space is assigned an algebraic object (here a sequence of vector spaces, its homology), and each continuous map is assigned a linear map, in a way that respects composition. A topological question such as “are these spaces different?” then becomes an algebraic one: “are these vector spaces non-isomorphic?” Impossibility results follow the same way. If the required linear map cannot exist, the continuous map cannot exist either.</p>
 
 <div class="principle-card">
   <h4 id="the-functoriality-principle">The functoriality principle</h4>
-  <p>Homology is a <strong>functor</strong>: a continuous map $f: X \to Y$ induces linear maps $f_<em>: H_k(X) \to H_k(Y)$ for every $k$, with $(g \circ f)_</em> = g_* \circ f_<em>$ and $(\mathrm{id})_</em> = \mathrm{id}$. Consequently, if no linear map between the homologies can satisfy a required equation, no continuous map between the spaces exists. This single observation is what powers both the stability of persistence diagrams and the impossibility theorems of distributed computing.</p>
+  <p>Homology is a <strong>functor</strong>. A continuous map $f: X \to Y$ induces linear maps $f_<em>: H_k(X) \to H_k(Y)$ for every $k$, with $(g \circ f)_</em> = g_* \circ f_<em>$ and $(\mathrm{id})_</em> = \mathrm{id}$. So if no linear maps between the homologies can satisfy a required equation, no continuous map between the spaces exists. This one observation underlies both the stability of persistence diagrams and the impossibility theorems of distributed computing.</p>
 </div>
 
 <h2 id="simplicial-complexes">Simplicial Complexes</h2>
 
-<p>A simplicial complex is the finite, combinatorial stand-in for a space — the object a computer actually stores.</p>
+<p>A simplicial complex is the finite, combinatorial stand-in for a space. It is the object a computer actually stores.</p>
 
 <div class="theory-card">
   <h4 id="definition-abstract-simplicial-complex">Definition (Abstract simplicial complex)</h4>
-  <p>Given a finite vertex set $V$, an <strong>abstract simplicial complex</strong> $K$ is a collection of nonempty subsets of $V$ (called <strong>simplices</strong>) that is closed under taking nonempty subsets: if $\sigma \in K$ and $\varnothing \neq \tau \subseteq \sigma$, then $\tau \in K$. A simplex with $k+1$ vertices is a <strong>$k$-simplex</strong> and has <strong>dimension</strong> $k$; the subsets $\tau \subset \sigma$ are its <strong>faces</strong>.</p>
+  <p>Given a finite vertex set $V$, an <strong>abstract simplicial complex</strong> $K$ is a collection of nonempty subsets of $V$ (the <strong>simplices</strong>) that is closed under taking nonempty subsets: if $\sigma \in K$ and $\varnothing \neq \tau \subseteq \sigma$, then $\tau \in K$. A simplex with $k+1$ vertices is a <strong>$k$-simplex</strong> of <strong>dimension</strong> $k$, and its nonempty subsets are its <strong>faces</strong>.</p>
 </div>
 
-<table>
-  <tbody>
-    <tr>
-      <td>A 0-simplex is a vertex, a 1-simplex an edge, a 2-simplex a filled triangle, a 3-simplex a solid tetrahedron. The <strong>geometric realization</strong> $</td>
-      <td>K</td>
-      <td>$ glues one standard geometric simplex per abstract simplex along shared faces, producing an honest topological space; computational topology computes invariants of $</td>
-      <td>K</td>
-      <td>$ purely from the combinatorial list $K$.</td>
-    </tr>
-  </tbody>
-</table>
+<p>A 0-simplex is a vertex, a 1-simplex an edge, a 2-simplex a filled triangle, and a 3-simplex a solid tetrahedron. The <strong>geometric realization</strong> $\lvert K\rvert$ is built by taking one standard geometric simplex for each abstract simplex and gluing them along shared faces. The result is a genuine topological space, but every invariant on this page is computed from the combinatorial list $K$ alone.</p>
+
+<p>A complex need not be simplicial. <strong>Cubical complexes</strong> index cells by pixels or voxels and are the natural model for images and volumetric data. <strong>Cell (CW) complexes</strong> allow cells with arbitrary attaching maps. The homology theory below carries over to both with the appropriate boundary maps.</p>
 
 <h3 id="building-complexes-from-data">Building Complexes from Data</h3>
 
-<p>Real input is usually a point cloud $X = {x_1, \dots, x_n} \subset \mathbb{R}^d$, not a complex. Two constructions turn distances into a complex parameterized by a scale $\varepsilon$:</p>
+<p>Real input is usually a point cloud $X = {x_1, \dots, x_n}$ in a metric space, not a complex. Two standard constructions turn distances into a complex that depends on a scale parameter $\varepsilon$.</p>
 
 <div class="theory-card">
-  <h4 id="definition-vietorisrips-and-cech-complexes">Definition (Vietoris–Rips and Cech complexes)</h4>
-  <p>For a finite metric space and scale $\varepsilon &gt; 0$:</p>
+  <h4 id="definition-vietorisrips-and-ech-complexes">Definition (Vietoris–Rips and Čech complexes)</h4>
+  <p>For a finite metric space $X$ and scale $\varepsilon &gt; 0$:</p>
 
   <ul>
-    <li>The <strong>Vietoris–Rips complex</strong> $\mathrm{VR}<em>\varepsilon(X)$ contains a simplex ${x</em>{i_0}, \dots, x_{i_k}}$ whenever every pairwise distance satisfies $d(x_{i_a}, x_{i_b}) \le \varepsilon$.</li>
-    <li>The <strong>Cech complex</strong> $\check{\mathrm{C}}<em>\varepsilon(X)$ contains ${x</em>{i_0}, \dots, x_{i_k}}$ whenever the closed balls $\bar B(x_{i_a}, \varepsilon/2)$ have nonempty common intersection.</li>
+    <li>The <strong>Vietoris–Rips complex</strong> $\mathrm{VR}<em>\varepsilon(X)$ contains a simplex ${x</em>{i_0}, \dots, x_{i_k}}$ whenever every pairwise distance satisfies $d(x_{i_a}, x_{i_b}) \le \varepsilon$. (It is the <em>clique complex</em> of the $\varepsilon$-neighborhood graph.)</li>
+    <li>The <strong>Čech complex</strong> $\check{\mathrm{C}}<em>\varepsilon(X)$ contains ${x</em>{i_0}, \dots, x_{i_k}}$ whenever the closed balls $\bar B(x_{i_a}, \varepsilon/2)$ have a common point.</li>
   </ul>
 </div>
 
-<p>The Rips complex needs only pairwise distances, so it is cheap and ubiquitous; the Cech complex is geometrically faithful (its <strong>Nerve Theorem</strong> guarantees $\check{\mathrm{C}}_\varepsilon(X)$ is homotopy equivalent to the union of balls) but expensive to check. They interleave, which is enough for persistence:</p>
+<p>The Rips complex needs only pairwise distances, so it is cheap to build and very widely used. The Čech complex is geometrically faithful: by the <strong>Nerve Theorem</strong>, $\check{\mathrm{C}}_\varepsilon(X)$ is homotopy equivalent to the union of the balls. It is, however, expensive to test. The two complexes interleave. In Euclidean space $\mathbb{R}^d$, Jung’s theorem gives</p>
 
-\[\check{\mathrm{C}}_{\varepsilon}(X) \subseteq \mathrm{VR}_{\varepsilon}(X) \subseteq \check{\mathrm{C}}_{\sqrt{2}\,\varepsilon}(X).\]
+\[\check{\mathrm{C}}_{\varepsilon}(X) \subseteq \mathrm{VR}_{\varepsilon}(X) \subseteq \check{\mathrm{C}}_{\sqrt{2}\,\varepsilon}(X),\]
+
+<p>and in a general metric space the right-hand factor becomes $2$. An interleaving of this kind is all persistence needs: the two complexes carry the same long-lived features, up to a bounded rescaling of $\varepsilon$.</p>
+
+<p>For low-dimensional Euclidean data, the <strong>alpha complex</strong> is usually preferable. It is the subcomplex of the Delaunay triangulation obtained by intersecting each ball with its Voronoi cell. The Nerve Theorem still applies, so it has the same homotopy type as the Čech complex, but it has far fewer simplices.</p>
 
 <div class="example-card">
   <h4 id="worked-example-a-complex-on-four-points">Worked Example: a complex on four points</h4>
-  <p>Take four points at the corners of a unit square, with side length $1$ and diagonal $\sqrt 2 \approx 1.41$.</p>
+  <p>Take the four corners of a unit square, with side length $1$ and diagonal $\sqrt 2 \approx 1.41$, and build $\mathrm{VR}_\varepsilon$.</p>
 
   <ul>
-    <li>At $\varepsilon &lt; 1$: only the four vertices. $K$ is four disjoint 0-simplices.</li>
-    <li>At $1 \le \varepsilon &lt; \sqrt 2$: the four sides become edges, but the diagonals do not. $K$ is a 4-cycle (a square loop) — it has one 1-dimensional hole.</li>
-    <li>At $\varepsilon \ge \sqrt 2$: both diagonals appear, all $\binom{4}{2}=6$ edges are present, and every triple is within $\varepsilon$, so all four triangles fill in. The loop is killed; $K$ is a filled solid (contractible).</li>
+    <li><strong>$\varepsilon &lt; 1$:</strong> four isolated vertices, so $b_0 = 4$.</li>
+    <li><strong>$1 \le \varepsilon &lt; \sqrt 2$:</strong> the four sides become edges but the diagonals do not. $K$ is a 4-cycle with one 1-dimensional hole, so $b_0 = 1$ and $b_1 = 1$.</li>
+    <li><strong>$\varepsilon \ge \sqrt 2$:</strong> both diagonals appear, every triple is pairwise within $\varepsilon$, so all four triangles and the tetrahedron fill in. $K$ is contractible and $b_1 = 0$.</li>
   </ul>
 
-  <p>The “loop” feature is born at $\varepsilon = 1$ and dies at $\varepsilon = \sqrt 2$. That birth–death pair is exactly what persistent homology records.</p>
+  <p>The loop is <em>born</em> at $\varepsilon = 1$ and <em>dies</em> at $\varepsilon = \sqrt 2$. Three of the four components die at $\varepsilon = 1$ when they merge, and one survives indefinitely. These birth–death pairs are exactly what persistent homology records.</p>
 </div>
+
+<figure style="margin: 1.5rem auto; max-width: 640px;">
+<svg viewBox="0 0 640 330" width="100%" role="img" aria-labelledby="sqfilt-title" style="color: inherit; background: transparent;">
+<title id="sqfilt-title">Rips filtration of four square corners and its barcode</title>
+<g fill="none" stroke="currentColor" stroke-width="2">
+<circle cx="60" cy="40" r="5" fill="currentColor" /><circle cx="140" cy="40" r="5" fill="currentColor" /><circle cx="60" cy="120" r="5" fill="currentColor" /><circle cx="140" cy="120" r="5" fill="currentColor" />
+<rect x="260" y="40" width="80" height="80" />
+<circle cx="260" cy="40" r="5" fill="currentColor" /><circle cx="340" cy="40" r="5" fill="currentColor" /><circle cx="260" cy="120" r="5" fill="currentColor" /><circle cx="340" cy="120" r="5" fill="currentColor" />
+<rect x="460" y="40" width="80" height="80" fill="currentColor" fill-opacity="0.18" />
+<line x1="460" y1="40" x2="540" y2="120" /><line x1="540" y1="40" x2="460" y2="120" />
+<circle cx="460" cy="40" r="5" fill="currentColor" /><circle cx="540" cy="40" r="5" fill="currentColor" /><circle cx="460" cy="120" r="5" fill="currentColor" /><circle cx="540" cy="120" r="5" fill="currentColor" />
+</g>
+<g fill="currentColor" font-size="14" text-anchor="middle" font-family="sans-serif">
+<text x="100" y="150">&#949; &lt; 1: four points</text>
+<text x="300" y="150">1 &#8804; &#949; &lt; &#8730;2: a loop</text>
+<text x="500" y="150">&#949; &#8805; &#8730;2: filled</text>
+<text x="40" y="199" text-anchor="start">H0</text>
+<text x="40" y="279" text-anchor="start">H1</text>
+<text x="100" y="322">0</text><text x="340" y="322">1</text><text x="448" y="322">&#8730;2</text><text x="600" y="322">&#949;</text>
+</g>
+<g stroke="currentColor" stroke-width="6" stroke-linecap="butt">
+<line x1="100" y1="180" x2="590" y2="180" />
+<line x1="100" y1="194" x2="340" y2="194" />
+<line x1="100" y1="208" x2="340" y2="208" />
+<line x1="100" y1="222" x2="340" y2="222" />
+<line x1="340" y1="274" x2="448" y2="274" />
+</g>
+<g stroke="currentColor" stroke-width="1" fill="none">
+<line x1="100" y1="300" x2="610" y2="300" />
+<line x1="340" y1="170" x2="340" y2="300" stroke-dasharray="4 4" stroke-opacity="0.5" />
+<line x1="448" y1="170" x2="448" y2="300" stroke-dasharray="4 4" stroke-opacity="0.5" />
+<polyline points="582,172 592,180 582,188" />
+</g>
+</svg>
+<figcaption>Top: the Rips complex of the four corners of a unit square at three scales. Bottom: the resulting barcode. In H0, one bar is infinite and three die at &#949; = 1. In H1, a single bar spans [1, &#8730;2).</figcaption>
+</figure>
 
 <h2 id="simplicial-homology">Simplicial Homology</h2>
 
-<p>Homology turns the complex into a sequence of vector spaces whose dimensions count holes. We work over a field $\mathbb{F}$ (commonly $\mathbb{F}_2 = \mathbb{Z}/2$, which removes orientation bookkeeping), so chain groups are vector spaces and homology groups are too.</p>
+<p>Homology turns a complex into a sequence of vector spaces whose dimensions count holes. We work over a field $\mathbb{F}$, most often $\mathbb{F}_2 = \mathbb{Z}/2$, which removes the need to track orientation signs. The chain groups are then vector spaces, and so are the homology groups. Over $\mathbb{Z}$, homology can also contain <em>torsion</em> (for example $H_1(\mathbb{RP}^2;\mathbb{Z}) = \mathbb{Z}/2$), which field coefficients either lose or detect depending on the characteristic.</p>
 
 <h3 id="chains-boundaries-cycles">Chains, Boundaries, Cycles</h3>
 
@@ -3259,14 +3280,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
 \[\partial_k [v_0, v_1, \dots, v_k] = \sum_{i=0}^{k} (-1)^i [v_0, \dots, \hat v_i, \dots, v_k],\]
 
-  <p>where $\hat v_i$ denotes omission of vertex $v_i$. The graded sequence $(C_k, \partial_k)$ is the <strong>chain complex</strong> of $K$.</p>
+  <p>where $\hat v_i$ means that $v_i$ is omitted. The sequence $(C_k, \partial_k)$ is the <strong>chain complex</strong> of $K$.</p>
 </div>
 
-<p>The single fact that makes homology work is that boundaries have no boundary:</p>
+<p>Homology rests on one fact: a boundary has no boundary.</p>
 
-\[\partial_{k-1} \circ \partial_k = 0 \quad\Longleftrightarrow\quad \operatorname{im} \partial_{k+1} \subseteq \ker \partial_k.\]
+\[\partial_{k-1} \circ \partial_k = 0 \quad\Longleftrightarrow\quad \operatorname{im} \partial_{k} \subseteq \ker \partial_{k-1}.\]
 
-<p>Elements of $Z_k := \ker \partial_k$ are <strong>cycles</strong> (closed chains, e.g. loops with no endpoints); elements of $B_k := \operatorname{im}\partial_{k+1}$ are <strong>boundaries</strong> (cycles that bound a higher-dimensional region). The inclusion $B_k \subseteq Z_k$ lets us take a quotient.</p>
+<p>Elements of $Z_k := \ker \partial_k$ are <strong>cycles</strong>, closed chains such as loops with no endpoints. Elements of $B_k := \operatorname{im}\partial_{k+1}$ are <strong>boundaries</strong>, cycles that bound a higher-dimensional region. Since $B_k \subseteq Z_k$, we can form the quotient.</p>
 
 <div class="principle-card">
   <h4 id="definition-homology-and-betti-numbers">Definition (Homology and Betti numbers)</h4>
@@ -3274,254 +3295,347 @@ document.addEventListener('DOMContentLoaded', function () {
 
 \[H_k(K) = Z_k / B_k = \ker \partial_k \,/\, \operatorname{im}\partial_{k+1}.\]
 
-  <p>Its dimension is the <strong>$k$-th Betti number</strong> $b_k = \dim_{\mathbb F} H_k(K)$. Intuitively $b_0$ counts connected components, $b_1$ counts independent loops, $b_2$ counts enclosed voids, and $b_k$ counts $k$-dimensional holes. A cycle that is <em>not</em> a boundary represents a genuine hole; quotienting by $B_k$ discards holes that have been filled in.</p>
+  <p>Its dimension is the <strong>$k$-th Betti number</strong> $b_k = \dim_{\mathbb F} H_k(K)$. In low dimensions, $b_0$ counts connected components, $b_1$ independent loops, and $b_2$ enclosed voids. A cycle that is <em>not</em> a boundary represents a genuine hole. Taking the quotient by $B_k$ discards holes that have been filled in.</p>
 </div>
 
 <div class="example-card">
   <h4 id="worked-example-homology-of-a-hollow-triangle">Worked Example: homology of a hollow triangle</h4>
-  <p>Let $K$ be the boundary of a triangle: vertices ${a,b,c}$ and edges ${ab, bc, ca}$, with no 2-simplex. Over $\mathbb{F}_2$:</p>
+  <p>Let $K$ be the boundary of a triangle, with vertices ${a,b,c}$, edges ${ab, bc, ca}$, and no 2-simplex. Over $\mathbb{F}_2$:</p>
 
   <ul>
-    <li>$\partial_1(ab) = a+b$, and similarly for the others. The cycle $z = ab + bc + ca$ satisfies $\partial_1 z = (a+b)+(b+c)+(c+a) = 0$, so $z \in Z_1$.</li>
+    <li>$\partial_1(ab) = a+b$, and similarly for the other edges. The chain $z = ab + bc + ca$ has $\partial_1 z = (a+b)+(b+c)+(c+a) = 0$, so $z \in Z_1$.</li>
     <li>There are no 2-simplices, so $B_1 = \operatorname{im}\partial_2 = 0$.</li>
-    <li>Hence $H_1 = Z_1/B_1 = Z_1 = \langle z\rangle$, giving $b_1 = 1$: one loop, as expected.</li>
-    <li>$\partial_1$ has rank $2$ on the 3-dimensional edge space, so $\dim Z_1 = 1$ confirms the count; and $b_0 = 1$ since the figure is connected.</li>
+    <li>$\partial_1$ has rank $2$ on the 3-dimensional edge space, so $\dim Z_1 = 1$ and $H_1 = Z_1 = \langle z\rangle$. This gives $b_1 = 1$, one loop.</li>
+    <li>The figure is connected, so $b_0 = 3 - \operatorname{rank}\partial_1 = 1$.</li>
   </ul>
 
-  <p>The <strong>Euler characteristic</strong> offers a sanity check: $\chi = b_0 - b_1 = 1 - 1 = 0$, matching $\chi = #\text{vertices} - #\text{edges} = 3 - 3 = 0$. In general $\chi = \sum_k (-1)^k b_k = \sum_k (-1)^k (#k\text{-simplices})$ — the <strong>Euler–Poincare formula</strong>, a homotopy invariant computed two different ways.</p>
+  <p>The <strong>Euler characteristic</strong> provides a check: $\chi = b_0 - b_1 = 0$, which matches $#\text{vertices} - #\text{edges} = 3 - 3 = 0$. In general the <strong>Euler–Poincaré formula</strong> says $\chi = \sum_k (-1)^k b_k = \sum_k (-1)^k \,#{k\text{-simplices}}$. The same homotopy invariant is computed in two different ways.</p>
 </div>
 
 <h3 id="computing-homology">Computing Homology</h3>
 
-<p>Because everything is linear algebra over a field, Betti numbers are just ranks of the boundary matrices:</p>
+<p>Over a field, Betti numbers are determined by the ranks of the boundary matrices (rank–nullity):</p>
 
 \[b_k = \dim C_k - \operatorname{rank}\partial_k - \operatorname{rank}\partial_{k+1}.\]
 
-<p>Gaussian elimination (or Smith normal form over $\mathbb{Z}$ when torsion matters) reduces each $\partial_k$ to read off its rank. The naive cost is cubic in the number of simplices, but the boundary matrices are extremely sparse, and persistence introduces a column-reduction algorithm tuned to filtrations (below).</p>
+<p>Gaussian elimination gives each rank. When torsion matters, the Smith normal form over $\mathbb{Z}$ is used instead. Dense elimination costs $O(n^3)$ in the number of simplices $n$, and matrix-multiplication-time algorithms reach $O(n^\omega)$. In practice the boundary matrices are extremely sparse, and persistence uses a column-reduction algorithm designed for filtrations, described below.</p>
+
+<p><strong>Cohomology</strong> is the dual theory: cochains $C^k = \operatorname{Hom}(C_k, \mathbb F)$ with the transposed coboundary $\delta^k$. Over a field it has the same Betti numbers. Its extra structure (the cup product) and its better computational behavior on Rips filtrations are the reasons Ripser computes persistent <em>co</em>homology.</p>
 
 <h2 id="persistent-homology-and-tda">Persistent Homology and TDA</h2>
 
-<p>The defect of single-scale homology is the choice of $\varepsilon$: too small and the complex is dust, too large and everything fuses into one blob. <strong>Persistent homology</strong> removes the choice by computing homology across <em>all</em> scales at once and recording how features are born and die.</p>
+<p>Single-scale homology forces a choice of $\varepsilon$. If it is too small, the complex is scattered dust. If it is too large, everything fuses into one blob. <strong>Persistent homology</strong> avoids the choice by computing homology at all scales at once and recording when each feature is born and when it dies.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    X["Point cloud,&lt;br/&gt;image, or graph"] --&gt; F["Filtration&lt;br/&gt;(Rips, alpha,&lt;br/&gt;cubical, sublevel)"]
+    F --&gt; M["Filtered boundary&lt;br/&gt;matrix"]
+    M --&gt; R["Column reduction&lt;br/&gt;(clearing, cohomology)"]
+    R --&gt; B["Barcode /&lt;br/&gt;persistence diagram"]
+    B --&gt; V["Vectorization&lt;br/&gt;(images, landscapes,&lt;br/&gt;kernels)"]
+    V --&gt; ML["Statistics or&lt;br/&gt;machine learning"]
+</code></pre>
 
 <h3 id="filtrations-and-the-persistence-module">Filtrations and the Persistence Module</h3>
 
 <div class="theory-card">
   <h4 id="definition-filtration-and-persistence-module">Definition (Filtration and persistence module)</h4>
-  <p>A <strong>filtration</strong> of $K$ is a nested family of subcomplexes indexed by a scale parameter,</p>
+  <p>A <strong>filtration</strong> of $K$ is a nested family of subcomplexes indexed by a scale parameter:</p>
 
 \[\varnothing = K_0 \subseteq K_1 \subseteq \cdots \subseteq K_N = K.\]
 
-  <p>Applying $H_k(-;\mathbb F)$ and the inclusion-induced maps yields a <strong>persistence module</strong>: a sequence of vector spaces with linear transition maps</p>
+  <p>Applying $H_k(-;\mathbb F)$ and the maps induced by inclusion gives a <strong>persistence module</strong>, a sequence of vector spaces connected by linear maps:</p>
 
 \[H_k(K_0) \to H_k(K_1) \to \cdots \to H_k(K_N).\]
 
-  <p>The map $H_k(K_i) \to H_k(K_j)$ for $i \le j$ tracks which homology classes survive from scale $i$ to scale $j$.</p>
+  <p>For $i \le j$, the map $H_k(K_i) \to H_k(K_j)$ records which homology classes survive from scale $i$ to scale $j$.</p>
 </div>
 
-<p>A class is <strong>born</strong> at the first index where it appears and <strong>dies</strong> at the first index where it merges into an older class or becomes a boundary. The <strong>persistence</strong> of a feature is $\text{death} - \text{birth}$.</p>
+<p>A class is <strong>born</strong> at the first index where it appears. It <strong>dies</strong> at the first index where it becomes a boundary or merges into an older class (the <em>elder rule</em>: when two classes merge, the younger one dies). The <strong>persistence</strong> of a feature is $\text{death} - \text{birth}$.</p>
 
 <div class="principle-card">
   <h4 id="structure-theorem-decomposition-into-intervals">Structure Theorem (decomposition into intervals)</h4>
-  <p>Over a field, a persistence module indexed by a finite totally ordered set decomposes <strong>uniquely</strong> (up to isomorphism and reordering) as a direct sum of <em>interval modules</em> $\mathbb{I}[b, d)$ — modules that are $\mathbb F$ on $[b,d)$, zero elsewhere, with identity transition maps inside the interval. Each interval $[b,d)$ is one <strong>bar</strong>; the multiset of bars is a complete invariant of the module.</p>
+  <p>Over a field, a pointwise finite-dimensional persistence module indexed by a totally ordered set decomposes <strong>uniquely</strong>, up to isomorphism and reordering, as a direct sum of <em>interval modules</em> $\mathbb{I}[b, d)$. Each interval module is $\mathbb F$ on $[b,d)$ and zero elsewhere, with identity maps inside the interval. Each interval is one <strong>bar</strong>, and the multiset of bars is a complete invariant of the module. (Zomorodian and Carlsson, 2005, for finite filtrations; Crawley-Boevey, 2015, in general.)</p>
 </div>
 
-<p>The collected bars form a <strong>barcode</strong>; plotting each bar as a point $(b,d)$ in the plane gives the equivalent <strong>persistence diagram</strong>. Long bars (far from the diagonal $b=d$) are robust topological features; short bars are noise.</p>
+<p>The collection of bars is the <strong>barcode</strong>. Plotting each bar as a point $(b,d)$ gives the equivalent <strong>persistence diagram</strong>. Long bars, whose points lie far from the diagonal $b=d$, are robust topological features. Short bars are usually noise.</p>
 
 <div class="example-card">
   <h4 id="worked-example-a-noisy-circle">Worked Example: a noisy circle</h4>
-  <p>Sample $200$ points near the unit circle with small radial jitter, then build the Vietoris–Rips filtration.</p>
+  <p>Sample $200$ points near the unit circle with small radial jitter and build the Vietoris–Rips filtration.</p>
 
   <ul>
-    <li><strong>$H_0$:</strong> at $\varepsilon=0$ there are 200 components; as $\varepsilon$ grows they merge, so the $H_0$ barcode is one infinite bar (the whole connected circle) plus many short bars that die quickly — the merging of nearby samples.</li>
-    <li><strong>$H_1$:</strong> a single long bar appears once $\varepsilon$ is large enough to close the ring but small enough that the disk has not filled in. That one persistent bar is the loop of the circle: the algorithm recovers $b_1 = 1$ despite never being told the data came from a circle, and despite the noise.</li>
+    <li><strong>$H_0$:</strong> at $\varepsilon=0$ there are 200 components. They merge quickly as $\varepsilon$ grows, so the $H_0$ barcode is one infinite bar (the connected circle) plus many short bars.</li>
+    <li><strong>$H_1$:</strong> a single long bar appears once $\varepsilon$ is large enough to close the ring and dies once the disk fills in, at roughly $\varepsilon \approx \sqrt 3$, the side of an inscribed equilateral triangle. That bar is the circle’s loop. The algorithm recovers $b_1 = 1$ without being told the data came from a circle, and despite the noise.</li>
   </ul>
 
-  <p>The contrast between the one long $H_1$ bar and the cloud of short ones is the entire value proposition of TDA: <strong>persistence ranks features by lifetime</strong>, separating signal from sampling noise automatically.</p>
+  <p>The gap between the one long $H_1$ bar and the cloud of short ones is the core of TDA: <strong>persistence ranks features by lifetime</strong>, which separates signal from sampling noise without a hand-picked scale.</p>
 </div>
 
 <h3 id="the-stability-theorem">The Stability Theorem</h3>
 
-<p>Persistence would be useless if a tiny perturbation of the data could scramble the diagram. The <strong>stability theorem</strong> guarantees it cannot. Distances between diagrams use the <strong>bottleneck distance</strong> $W_\infty(D_1, D_2)$, the smallest $\delta$ for which some bijection between the points of $D_1$ and $D_2$ (allowing points to be matched to the diagonal) moves every point by at most $\delta$ in $\ell^\infty$.</p>
+<p>Persistence would be of little use if a tiny perturbation of the data could scramble the diagram. The <strong>stability theorem</strong> rules this out. Diagrams are compared with the <strong>bottleneck distance</strong> $W_\infty(D_1, D_2)$: the smallest $\delta$ for which there is a bijection between the points of $D_1$ and $D_2$ that moves every point by at most $\delta$ in the $\ell^\infty$ norm. Points may be matched to the diagonal.</p>
 
 <div class="principle-card">
-  <h4 id="stability-theorem-cohen-steineredelsbrunnerharer">Stability Theorem (Cohen-Steiner–Edelsbrunner–Harer)</h4>
-  <p>If $f, g: |K| \to \mathbb{R}$ are tame functions inducing sublevel-set filtrations with persistence diagrams $D_f, D_g$, then</p>
+  <h4 id="stability-theorem-cohen-steineredelsbrunnerharer-2007">Stability Theorem (Cohen-Steiner–Edelsbrunner–Harer, 2007)</h4>
+  <p>If $f, g: \lvert K\rvert \to \mathbb{R}$ are tame functions whose sublevel-set filtrations have persistence diagrams $D_f, D_g$, then</p>
 
 \[W_\infty(D_f, D_g) \le \lVert f - g \rVert_\infty.\]
 
-  <p>For point clouds, perturbing the input by $\eta$ in Hausdorff distance moves the Rips/Cech persistence diagram by at most $\eta$ in bottleneck distance. Persistence is <strong>Lipschitz</strong>: small input noise yields a small diagram change, which is exactly why short bars (noise) stay short.</p>
+  <p>For point clouds (Chazal–de Silva–Oudot, 2014), the Rips diagrams of two finite metric spaces satisfy $W_\infty \le 2\, d_{GH}(X,Y)$ in the diameter convention used here, where $d_{GH}$ is the Gromov–Hausdorff distance. The Hausdorff distance between two samples of the same space bounds $d_{GH}$. Persistence is therefore <strong>Lipschitz</strong>: a small perturbation of the input produces a small change in the diagram, so short bars stay short.</p>
 </div>
+
+<p>Stability is the property that justifies statistics on diagrams. It allows confidence sets, bootstrap bands that separate significant bars from noise, and the use of diagrams as inputs to learning algorithms.</p>
 
 <h3 id="the-persistence-algorithm">The Persistence Algorithm</h3>
 
-<p>The <strong>standard algorithm</strong> computes the barcode by reducing the <em>filtration boundary matrix</em> $\partial$ — columns and rows ordered by filtration time. One left-to-right column reduction, where column $j$ is reduced against earlier columns until its lowest nonzero entry (“low$(j)$”) is unique, pairs each <em>positive</em> simplex (one that creates a cycle, a birth) with a <em>negative</em> simplex (one that destroys it, a death):</p>
+<p>The <strong>standard algorithm</strong> computes the barcode by reducing the <em>filtered boundary matrix</em> $D$, whose rows and columns are ordered by the time each simplex enters the filtration. Columns are processed left to right. Each column is reduced by adding earlier columns until its lowest nonzero entry, $\mathrm{low}(j)$, is not shared with any earlier column. After reduction:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">persistence</span><span class="p">(</span><span class="n">D</span><span class="p">):</span>
-    <span class="c1"># D: boundary matrix over F2, columns/rows in filtration order.
-</span>    <span class="c1"># Returns birth-death simplex pairs. low[j] = row index of lowest 1 in col j.
-</span>    <span class="n">n</span> <span class="o">=</span> <span class="n">D</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">low</span> <span class="o">=</span> <span class="p">[</span><span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
-    <span class="n">pairs</span> <span class="o">=</span> <span class="p">[]</span>
+<ul>
+  <li>a column that becomes zero belongs to a <strong>positive</strong> simplex, which creates a cycle (a birth);</li>
+  <li>a nonzero column $j$ with $\mathrm{low}(j) = i$ belongs to a <strong>negative</strong> simplex, which kills the class born at simplex $i$. This gives the bar $[t_i, t_j)$;</li>
+  <li>a positive simplex that is never paired gives an infinite bar.</li>
+</ul>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="k">def</span> <span class="nf">persistence_pairs</span><span class="p">(</span><span class="n">D</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Standard persistence reduction over F2.
+
+    D: square 0/1 NumPy array, the filtered boundary matrix, with
+       rows and columns in filtration order. It is modified in place.
+    Returns (pairs, essential): birth-death simplex index pairs and the
+    indices of simplices that create classes which never die.
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">D</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">low_to_col</span> <span class="o">=</span> <span class="p">{}</span>                       <span class="c1"># pivot row -&gt; column that owns it
+</span>    <span class="n">pairs</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
-            <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">D</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">D</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">rows</span><span class="p">:</span>
-                <span class="n">low</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span>          <span class="c1"># empty column: a birth (unpaired so far)
-</span>                <span class="k">break</span>
-            <span class="n">lj</span> <span class="o">=</span> <span class="nf">max</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
-            <span class="c1"># find an earlier column with the same lowest 1
-</span>            <span class="n">k</span> <span class="o">=</span> <span class="nf">next</span><span class="p">((</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">j</span><span class="p">)</span> <span class="k">if</span> <span class="n">low</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">==</span> <span class="n">lj</span><span class="p">),</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="k">while</span> <span class="n">D</span><span class="p">[:,</span> <span class="n">j</span><span class="p">].</span><span class="nf">any</span><span class="p">():</span>
+            <span class="n">low</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">flatnonzero</span><span class="p">(</span><span class="n">D</span><span class="p">[:,</span> <span class="n">j</span><span class="p">])[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">low_to_col</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">low</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
-                <span class="n">low</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">lj</span>             <span class="c1"># column reduced; lj pairs birth(lj)-death(j)
-</span>                <span class="n">pairs</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">lj</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span>
+                <span class="n">low_to_col</span><span class="p">[</span><span class="n">low</span><span class="p">]</span> <span class="o">=</span> <span class="n">j</span>       <span class="c1"># simplex `low` is born, `j` kills it
+</span>                <span class="n">pairs</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">low</span><span class="p">,</span> <span class="n">j</span><span class="p">))</span>
                 <span class="k">break</span>
-            <span class="n">D</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">D</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">+</span> <span class="n">D</span><span class="p">[:,</span> <span class="n">k</span><span class="p">])</span> <span class="o">%</span> <span class="mi">2</span>   <span class="c1"># add earlier column, retry
-</span>    <span class="k">return</span> <span class="n">pairs</span>
+            <span class="n">D</span><span class="p">[:,</span> <span class="n">j</span><span class="p">]</span> <span class="o">^=</span> <span class="n">D</span><span class="p">[:,</span> <span class="n">k</span><span class="p">]</span>            <span class="c1"># add the earlier column (mod 2)
+</span>    <span class="n">paired</span> <span class="o">=</span> <span class="p">{</span><span class="n">i</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pairs</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">p</span><span class="p">}</span>
+    <span class="n">essential</span> <span class="o">=</span> <span class="p">[</span><span class="n">j</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">if</span> <span class="n">j</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">paired</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">D</span><span class="p">[:,</span> <span class="n">j</span><span class="p">].</span><span class="nf">any</span><span class="p">()]</span>
+    <span class="k">return</span> <span class="n">pairs</span><span class="p">,</span> <span class="n">essential</span>
 </code></pre></div></div>
 
-<p>The reduction is cubic in the number of simplices in the worst case, but real complexes are sparse and the practical implementations (PHAT, Ripser, GUDHI) add clearing, twist, and cohomology optimizations that make million-simplex filtrations routine.</p>
+<p>The worst case is cubic in the number of simplices. Real complexes are sparse, however, and production implementations (PHAT, Ripser, GUDHI) add further optimizations. <strong>Clearing</strong> (the twist) skips columns already known to reduce to zero. <strong>Apparent pairs</strong> are read off without any reduction. Computing <strong>cohomology</strong> makes clearing far more effective on Rips filtrations. Together these make filtrations with hundreds of millions of simplices routine.</p>
 
 <h3 id="applications-of-tda">Applications of TDA</h3>
 
 <ul>
-  <li><strong>Shape of data.</strong> Recovering loops, voids, and clusters from high-dimensional point clouds (e.g. the celebrated $H_1$ loop in natural-image patch statistics, or branching structure in single-cell genomics).</li>
-  <li><strong>Featurization for ML.</strong> Persistence diagrams are vectorized into <em>persistence images</em>, <em>landscapes</em>, or kernels so they can feed standard classifiers; this connects directly to the kernel methods in <a href="../ai-mathematics/">AI Mathematics</a>.</li>
-  <li><strong>Sensor coverage.</strong> Homological criteria certify that a network of range-limited sensors covers a region with no holes, <em>without</em> knowing sensor coordinates.</li>
-  <li><strong>Time series.</strong> Sliding-window (Takens) embeddings turn periodicity into a persistent $H_1$ loop, giving a topological periodicity detector.</li>
+  <li><strong>Shape of data.</strong> Recovering loops, voids, and branching from high-dimensional point clouds. Examples include the $H_1$ circle and Klein-bottle structure in natural-image patch statistics, the toroidal population activity of grid cells in neuroscience, and branching trajectories in single-cell genomics.</li>
+  <li><strong>Featurization for machine learning.</strong> Persistence diagrams are converted into vectors (<em>persistence images</em>, <em>landscapes</em>, <em>silhouettes</em>) or compared with kernels (the sliced-Wasserstein kernel, for example) so they can feed standard classifiers. This connects to the kernel methods in <a href="../ai-mathematics/">AI Mathematics</a>.</li>
+  <li><strong>Materials and molecules.</strong> Persistence of atomic configurations characterizes pore geometry in porous materials, medium-range order in glasses, and protein-ligand binding sites.</li>
+  <li><strong>Sensor coverage.</strong> Homological criteria can certify that a network of range-limited sensors covers a region with no holes, <em>without</em> knowing the sensors’ coordinates.</li>
+  <li><strong>Time series.</strong> Sliding-window (Takens) embeddings turn periodic behavior into a persistent $H_1$ loop, which gives a topological detector for periodicity.</li>
+  <li><strong>Analysis of learned representations.</strong> Persistence of activation and embedding point clouds is used to study how the topology of data changes through the layers of a neural network, and to compare representations across models.</li>
 </ul>
 
 <h2 id="topology-in-distributed-computing">Topology in Distributed Computing</h2>
 
-<p>The deepest application of computational topology in computer science is not in data analysis but in establishing what asynchronous distributed systems <em>can and cannot</em> compute. This is the <strong>Herlihy–Shavit asynchronous computability theorem</strong>, which won the 2004 Godel Prize and recasts solvability as the existence of a simplicial map.</p>
+<p>In computer science, one of the deepest uses of combinatorial topology is not data analysis. It is the question of what asynchronous distributed systems <em>can and cannot</em> compute. The <strong>asynchronous computability theorem</strong> of Herlihy and Shavit recasts solvability as the existence of a simplicial map. Herlihy–Shavit and Saks–Zaharoglou shared the 2004 Gödel Prize for the topological proofs that wait-free $k$-set agreement is impossible. Borowsky and Gafni obtained the same result independently in 1993.</p>
 
 <h3 id="encoding-computation-as-topology">Encoding Computation as Topology</h3>
 
-<p>In the wait-free shared-memory model, $n+1$ processes communicate through atomic read–write registers; any subset may run at arbitrary speed or crash, and a <em>wait-free</em> protocol must let every non-faulty process finish in a bounded number of its own steps regardless of others. The key move is to encode global states as simplices.</p>
+<p>In the wait-free shared-memory model, $n+1$ processes communicate through atomic read–write registers. Any subset of them may run at arbitrary relative speeds or crash. A <em>wait-free</em> protocol must let every non-faulty process finish in a bounded number of its own steps, whatever the others do. The key idea is to encode global states as simplices.</p>
 
 <div class="theory-card">
   <h4 id="definition-input-output-and-protocol-complexes">Definition (Input, output, and protocol complexes)</h4>
   <ul>
-    <li>The <strong>input complex</strong> $\mathcal I$ has one vertex per (process id, input value) pair; a simplex is a set of such vertices with distinct process ids — a globally consistent assignment of inputs to a group of processes.</li>
-    <li>The <strong>output complex</strong> $\mathcal O$ is defined the same way for output values, with simplices the <em>legal</em> joint outputs.</li>
-    <li>A <strong>task</strong> is a relation $\Delta \subseteq \mathcal I \times \mathcal O$ specifying, for each input simplex, the output simplices that satisfy the task.</li>
-    <li>The <strong>protocol complex</strong> $\mathcal P$ is the complex of all <em>reachable executions</em>: each vertex is a process’s local view (its id plus everything it has read), and a simplex is a set of mutually compatible views from one run.</li>
+    <li>The <strong>input complex</strong> $\mathcal I$ has one vertex per (process id, input value) pair. Its simplices are sets of such vertices with distinct process ids, each a consistent assignment of inputs to a group of processes.</li>
+    <li>The <strong>output complex</strong> $\mathcal O$ is defined in the same way for output values. Its simplices are the <em>legal</em> joint outputs.</li>
+    <li>A <strong>task</strong> is a carrier map $\Delta$ that assigns to each input simplex the subcomplex of output simplices allowed for it.</li>
+    <li>The <strong>protocol complex</strong> $\mathcal P$ is the complex of reachable final states. Each vertex is one process’s local view (its id together with everything it has read), and each simplex is a set of views that can occur together in a single execution.</li>
   </ul>
 </div>
 
-<p>A protocol <em>solves</em> the task if there is a <strong>simplicial map</strong> $\delta : \mathcal P \to \mathcal O$ — a vertex map carrying simplices to simplices — that is <em>carried by</em> $\Delta$ (each process’s view maps to a legal output consistent with the inputs). Simplicial maps are the combinatorial shadow of continuous maps, so solvability becomes a topological question about whether $\mathcal P$ can be mapped compatibly into $\mathcal O$.</p>
+<p>A protocol <em>solves</em> the task if there is a <strong>simplicial map</strong> $\delta : \mathcal P \to \mathcal O$, a vertex map that sends simplices to simplices, that is <em>carried by</em> $\Delta$. In other words, each process’s final view is mapped to an output that is legal for the inputs actually present. Simplicial maps are the combinatorial counterpart of continuous maps, so solvability becomes the topological question of whether $\mathcal P$ can be mapped into $\mathcal O$ compatibly with $\Delta$.</p>
 
 <div class="principle-card">
-  <h4 id="asynchronous-computability-theorem-herlihyshavit">Asynchronous Computability Theorem (Herlihy–Shavit)</h4>
-  <p>A task $(\mathcal I, \mathcal O, \Delta)$ is <strong>wait-free solvable</strong> by $n+1$ asynchronous processes using read–write registers <strong>if and only if</strong> there exists a subdivision $\mathrm{Div}(\mathcal I)$ of the input complex and a simplicial map</p>
+  <h4 id="asynchronous-computability-theorem-herlihyshavit-1999">Asynchronous Computability Theorem (Herlihy–Shavit, 1999)</h4>
+  <p>A task $(\mathcal I, \mathcal O, \Delta)$ is <strong>wait-free solvable</strong> by $n+1$ asynchronous processes using read–write registers <strong>if and only if</strong> there exist a chromatic subdivision $\mathrm{Div}(\mathcal I)$ of the input complex and a color-preserving simplicial map</p>
 
 \[\delta : \mathrm{Div}(\mathcal I) \to \mathcal O\]
 
-  <p>that is carried by $\Delta$. Wait-free read–write protocols can realize exactly the subdivisions of the input complex — and nothing more.</p>
+  <p>that is carried by $\Delta$.</p>
 </div>
 
-<p>The reason is geometric: a single round of write-then-snapshot performs a <strong>chromatic (barycentric-style) subdivision</strong> of the participating simplex, and repeated rounds iterate the subdivision. Crucially, <em>subdivision preserves topology</em> — it refines a simplex into smaller pieces but does not tear it, change its connectivity, or create holes. Whatever a wait-free protocol does to the input complex, the result is homeomorphic to the original. This is the source of every impossibility result below.</p>
+<p>The reason is geometric. One round of the <em>immediate-snapshot</em> protocol, in which each process writes its value and then takes an atomic snapshot of memory, produces the <strong>standard chromatic subdivision</strong> of each participating simplex. Repeated rounds iterate that subdivision, and any wait-free read–write protocol can be simulated in this iterated model. A subdivision refines a simplex into smaller pieces without tearing it, changing its connectivity, or creating holes: its geometric realization is homeomorphic to the original. Every impossibility result below comes from this fact.</p>
+
+<figure style="margin: 1.5rem auto; max-width: 640px;">
+<svg viewBox="0 0 640 220" width="100%" role="img" aria-labelledby="chrom-title" style="color: inherit; background: transparent;">
+<title id="chrom-title">One immediate-snapshot round subdivides an input edge into three edges</title>
+<g stroke="currentColor" stroke-width="2" fill="none">
+<line x1="60" y1="60" x2="580" y2="60" />
+<line x1="60" y1="160" x2="580" y2="160" />
+<circle cx="60" cy="60" r="8" fill="currentColor" />
+<circle cx="580" cy="60" r="8" fill="currentColor" fill-opacity="0.001" />
+<circle cx="60" cy="160" r="8" fill="currentColor" />
+<circle cx="233" cy="160" r="8" fill="currentColor" fill-opacity="0.001" />
+<circle cx="407" cy="160" r="8" fill="currentColor" />
+<circle cx="580" cy="160" r="8" fill="currentColor" fill-opacity="0.001" />
+</g>
+<g fill="currentColor" font-size="14" font-family="sans-serif" text-anchor="middle">
+<text x="320" y="40">input edge: P has input 0, Q has input 1</text>
+<text x="60" y="95">P:0</text><text x="580" y="95">Q:1</text>
+<text x="60" y="195">P sees {P}</text>
+<text x="233" y="195">Q sees {P,Q}</text>
+<text x="407" y="195">P sees {P,Q}</text>
+<text x="580" y="195">Q sees {Q}</text>
+<text x="320" y="128">after one round: three edges, still one connected path</text>
+</g>
+</svg>
+<figcaption>The chromatic subdivision for two processes. Filled circles are process P and hollow circles are process Q. The three edges correspond to the three possible orders: P runs first, both run concurrently, or Q runs first. The subdivided edge is still connected, so it cannot be mapped onto an output complex that splits into disconnected pieces.</figcaption>
+</figure>
 
 <h3 id="impossibility-via-connectivity">Impossibility via Connectivity</h3>
 
-<p>Because subdivision preserves connectivity, a task is unsolvable whenever its output complex is “less connected” than any subdivision of the input can be. The canonical example is <strong>consensus</strong>.</p>
+<p>A subdivision preserves connectivity. A task is therefore unsolvable whenever its output complex is less connected than the task requires of the image of any subdivision of the input. The canonical example is <strong>consensus</strong>.</p>
 
 <div class="example-card">
   <h4 id="worked-example-why-wait-free-consensus-is-impossible">Worked Example: why wait-free consensus is impossible</h4>
-  <p>For two processes deciding a single bit, the input complex (each can start with $0$ or $1$) is a connected path of edges — it is <strong>path-connected</strong>, i.e. $0$-connected. Binary consensus requires all non-faulty processes to agree, so its output complex is <em>two disjoint simplices</em> — “all decide 0” and “all decide 1” — which is <strong>disconnected</strong>.</p>
+  <p>Consider two processes that must agree on a bit. The input complex has four vertices, $P{:}0, P{:}1, Q{:}0, Q{:}1$, and an edge joining every $P$ vertex to every $Q$ vertex. It is a 4-cycle and in particular <strong>connected</strong>. The output complex for binary consensus consists of the two edges “both decide 0” and “both decide 1”, which are <strong>disjoint</strong>.</p>
 
-  <p>Any wait-free protocol can only subdivide the input complex, and <strong>subdivision cannot disconnect a connected complex</strong> (a path stays a path no matter how finely you cut it). So there is no simplicial map from a subdivided, still-connected input complex onto the disconnected output complex that respects the task. Hence wait-free consensus is impossible — the topological counterpart of the <a href="../distributed-systems-theory/">FLP impossibility result</a>, recovered from pure connectivity.</p>
+  <p>Validity requires the edge ${P{:}0, Q{:}0}$ to be mapped into “both decide 0” and ${P{:}1, Q{:}1}$ into “both decide 1”. The mixed edge ${P{:}0, Q{:}1}$ joins these two regions, and any subdivision of it is still a connected path from a 0-deciding vertex to a 1-deciding vertex. A simplicial map sends connected complexes to connected complexes, so the path would have to land inside a single component of the output. It cannot. Wait-free consensus is therefore impossible. This is the shared-memory, topological counterpart of the <a href="../distributed-systems-theory/">FLP impossibility result</a>, obtained from connectivity alone.</p>
 </div>
 
-<p>The framework grades tasks by <em>how much</em> connectivity is needed:</p>
+<p>The framework grades tasks by how much connectivity they require:</p>
 
 <ul>
-  <li><strong>Consensus</strong> needs the output to be disconnected ($0$-dimensional obstruction): impossible wait-free.</li>
-  <li><strong>$k$-set agreement</strong> (decide so that at most $k$ distinct values survive among $n+1$ processes) is wait-free solvable iff $k \ge n+1$ — i.e. <em>not</em> for $k \le n$. The proof needs <strong>Sperner’s lemma</strong>: any chromatic subdivision of an $n$-simplex with a proper boundary coloring contains a fully-colored (“rainbow”) small simplex, which forces $n+1$ distinct decisions and blocks $n$-set agreement. This is a striking case where a classical combinatorial-topology lemma is <em>exactly</em> a lower bound in computing.</li>
-  <li><strong>Renaming</strong> (pick distinct names from a small space) is solvable, but the minimal name-space size is governed by the topology of the output complex (a result on the existence of certain simplicial maps).</li>
+  <li><strong>Consensus</strong> fails because of a $0$-dimensional obstruction, disconnection. It is impossible wait-free even for two processes.</li>
+  <li><strong>$k$-set agreement</strong> requires that at most $k$ distinct input values be decided among $n+1$ processes. It is wait-free solvable if and only if $k \ge n+1$, where the trivial protocol in which each process decides its own input works. The lower bound uses <strong>Sperner’s lemma</strong>: every subdivision of an $n$-simplex whose vertices are colored consistently with the boundary contains a fully colored (“rainbow”) small simplex. That simplex is an execution in which $n+1$ distinct values are decided, so $n$-set agreement is impossible. Here a classical combinatorial-topology lemma is exactly a lower bound in computing.</li>
+  <li><strong>Renaming</strong> requires processes to pick distinct names from a small namespace. For $n+1$ processes, $2n+1$ names always suffice. Castañeda and Rajsbaum proved that $2n$ names suffice <strong>if and only if $n+1$ is not a prime power</strong>. This corrected an error in the original topological lower-bound proof, and the number-theoretic condition comes from the topology of the associated <em>weak symmetry breaking</em> task.</li>
 </ul>
 
 <div class="principle-card">
   <h4 id="the-unifying-message">The unifying message</h4>
-  <p>Asynchronous solvability is a <strong>topological invariant of the task</strong>, not an artifact of any particular protocol or proof technique. Higher-dimensional connectivity of the protocol complex is the obstruction: a task is solvable iff its output complex can absorb a sufficiently subdivided, sufficiently connected image of the inputs. The classical pencil-and-paper impossibility proofs (bivalency arguments) are special low-dimensional cases of one connectivity statement.</p>
+  <p>Asynchronous solvability is a <strong>topological property of the task</strong>, not an artifact of a particular protocol or proof technique. The obstruction is the higher-dimensional connectivity of the protocol complex. A task is solvable if and only if its output complex can receive a sufficiently fine subdivision of the inputs in a way the task allows. The classical pencil-and-paper impossibility proofs, such as bivalency arguments, are low-dimensional special cases of a single connectivity statement.</p>
 </div>
 
-<p>This topological program extends well past read–write registers: stronger synchronization primitives (test-and-set, compare-and-swap) correspond to richer allowable subdivisions and operations on the protocol complex, giving Herlihy’s <strong>consensus hierarchy</strong> a clean geometric reading, and connecting directly to the consensus-number theory in <a href="../distributed-systems-theory/">Distributed Systems Theory</a>.</p>
+<p>The same approach extends well beyond read–write registers. Adding objects such as test-and-set or compare-and-swap, or tolerating only $t$ crashes, changes which protocol complexes can be built. This gives geometric characterizations of $t$-resilient computation, of message-passing models, and of the levels of Herlihy’s <strong>consensus hierarchy</strong>, which connects to the consensus-number theory in <a href="../distributed-systems-theory/">Distributed Systems Theory</a>.</p>
 
 <h2 id="computation-and-tooling">Computation and Tooling</h2>
 
-<p>Computational topology is a mature software area. The dominant tools:</p>
+<p>Computational topology has a mature software ecosystem.</p>
 
-<ul>
-  <li><strong>GUDHI</strong> (C++/Python) — simplicial complexes, Rips/Cech/alpha filtrations, persistence, representations.</li>
-  <li><strong>Ripser</strong> — extremely fast Vietoris–Rips persistence via the cohomology algorithm; the de facto baseline for large point clouds.</li>
-  <li><strong>PHAT / DIPHA</strong> — high-performance persistence reduction (matrix and distributed).</li>
-  <li><strong>Dionysus, scikit-tda, giotto-tda</strong> — Python ecosystems integrating persistence with NumPy/scikit-learn pipelines.</li>
-</ul>
+<table>
+  <thead>
+    <tr>
+      <th>Library</th>
+      <th>Language</th>
+      <th>Strengths</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>GUDHI</strong></td>
+      <td>C++ / Python</td>
+      <td>Broadest coverage: Rips, alpha, Čech, witness, cubical, and simplex-tree complexes; persistence, representations, and scikit-learn-style estimators. Actively released (3.13 in July 2026).</td>
+    </tr>
+    <tr>
+      <td><strong>Ripser</strong> / <strong>ripser.py</strong></td>
+      <td>C++ / Python</td>
+      <td>Very fast Vietoris–Rips persistence using cohomology, clearing, and apparent pairs. The standard baseline.</td>
+    </tr>
+    <tr>
+      <td><strong>Ripser++</strong></td>
+      <td>CUDA / Python</td>
+      <td>GPU port of Ripser, with large speedups on big Rips filtrations.</td>
+    </tr>
+    <tr>
+      <td><strong>PHAT / DIPHA</strong></td>
+      <td>C++</td>
+      <td>Reference implementations of matrix reduction, shared-memory and distributed.</td>
+    </tr>
+    <tr>
+      <td><strong>Dionysus 2</strong></td>
+      <td>C++ / Python</td>
+      <td>Zigzag persistence, cohomology, and persistent cohomology circular coordinates.</td>
+    </tr>
+    <tr>
+      <td><strong>giotto-tda, scikit-tda (persim, kmapper)</strong></td>
+      <td>Python</td>
+      <td>Integration with scikit-learn pipelines, Mapper graphs, diagram distances, and vectorizations.</td>
+    </tr>
+    <tr>
+      <td><strong>multipers, RIVET</strong></td>
+      <td>Python / C++</td>
+      <td>Two- and multi-parameter persistence. multipers supports PyTorch autodiff.</td>
+    </tr>
+    <tr>
+      <td><strong>TopoX (TopoNetX, TopoModelX)</strong></td>
+      <td>Python</td>
+      <td>Data structures and neural layers for topological deep learning on simplicial and cell complexes.</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>A minimal end-to-end persistence computation on a point cloud, using the standard scientific Python stack:</p>
+<p>A minimal persistence computation on a point cloud:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 <span class="kn">from</span> <span class="n">ripser</span> <span class="kn">import</span> <span class="n">ripser</span>
 <span class="kn">from</span> <span class="n">persim</span> <span class="kn">import</span> <span class="n">plot_diagrams</span>
 
-<span class="c1"># Sample a noisy circle: 200 points, radial jitter
-</span><span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
-<span class="n">r</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">randn</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">random</span><span class="p">.</span><span class="nf">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="c1"># Sample a noisy circle: 200 points with radial jitter
+</span><span class="n">theta</span> <span class="o">=</span> <span class="n">rng</span><span class="p">.</span><span class="nf">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="n">rng</span><span class="p">.</span><span class="nf">standard_normal</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
 <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">column_stack</span><span class="p">([</span><span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">),</span> <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)])</span>
 
-<span class="c1"># Vietoris-Rips persistence up to dimension 1
-</span><span class="n">result</span> <span class="o">=</span> <span class="nf">ripser</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">maxdim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">dgms</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="sh">"</span><span class="s">dgms</span><span class="sh">"</span><span class="p">]</span>          <span class="c1"># dgms[0] = H0 bars, dgms[1] = H1 bars
+<span class="c1"># Vietoris-Rips persistence in dimensions 0 and 1
+</span><span class="n">dgms</span> <span class="o">=</span> <span class="nf">ripser</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">maxdim</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="sh">"</span><span class="s">dgms</span><span class="sh">"</span><span class="p">]</span>   <span class="c1"># dgms[0]: H0 pairs, dgms[1]: H1 pairs
 </span>
-<span class="c1"># The single long H1 bar = the circle's loop; short bars = noise
-</span><span class="n">h1</span> <span class="o">=</span> <span class="n">dgms</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">h1</span> <span class="o">=</span> <span class="n">dgms</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 <span class="n">lifetimes</span> <span class="o">=</span> <span class="n">h1</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">h1</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">most persistent H1 lifetime:</span><span class="sh">"</span><span class="p">,</span> <span class="n">lifetimes</span><span class="p">.</span><span class="nf">max</span><span class="p">())</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">most persistent H1 bar:</span><span class="sh">"</span><span class="p">,</span> <span class="n">h1</span><span class="p">[</span><span class="n">lifetimes</span><span class="p">.</span><span class="nf">argmax</span><span class="p">()])</span>   <span class="c1"># death near sqrt(3)
+</span>
+<span class="nf">plot_diagrams</span><span class="p">(</span><span class="n">dgms</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+</code></pre></div></div>
 
-<span class="nf">plot_diagrams</span><span class="p">(</span><span class="n">dgms</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>   <span class="c1"># birth-death scatter (persistence diagram)
-</span></code></pre></div></div>
+<p><strong>Complexity in practice.</strong> A Rips complex on $n$ points has up to $\binom{n}{k+1}$ simplices of dimension $k$, so the size grows combinatorially in $n$ and exponentially in dimension. Several mitigations are standard:</p>
 
-<p><strong>Complexity in practice.</strong> The number of simplices in a Rips complex up to dimension $k$ grows like $\binom{n}{k+1}$, so the cost is combinatorial in $n$ and exponential in dimension. Mitigations are essential: capping the maximal dimension, <strong>sparse Rips</strong> (approximating the filtration with a guaranteed multiplicative error), <strong>witness complexes</strong> (building on a small landmark subset), and the cohomology/clearing optimizations in Ripser. For coverage and many geometric problems, <strong>alpha complexes</strong> (subcomplexes of the Delaunay triangulation) give the exact homotopy type with far fewer simplices in low ambient dimension.</p>
+<ul>
+  <li>cap the maximum homology dimension, since $H_0$ and $H_1$ are often enough;</li>
+  <li>truncate the filtration at a threshold radius;</li>
+  <li>use <strong>sparse Rips</strong> (Sheehy), which approximates the filtration with a guaranteed multiplicative error and has linear size;</li>
+  <li>build <strong>witness complexes</strong> on a small set of landmark points;</li>
+  <li>use <strong>alpha complexes</strong> in low ambient dimension, which have the exact homotopy type with far fewer simplices;</li>
+  <li>use <strong>cubical complexes</strong> for image and voxel data.</li>
+</ul>
 
 <h2 id="research-frontiers">Research Frontiers</h2>
 
 <ul>
-  <li><strong>Multiparameter persistence.</strong> Filtering by two or more parameters at once (e.g. scale <em>and</em> density) has no complete discrete invariant like the barcode — its algebraic structure (modules over $\mathbb{F}[x,y]$) is genuinely harder, and finding stable, computable invariants is an active area.</li>
-  <li><strong>Topological deep learning.</strong> Differentiable persistence layers, message passing on simplicial and cell complexes, and sheaf neural networks push topology into trainable models; the differentiability of the persistence map (a.k.a. its subgradients) is now well understood.</li>
-  <li><strong>Statistical foundations.</strong> Confidence sets for persistence diagrams, bootstrap procedures, and central-limit behavior of persistence summaries put TDA on rigorous inferential footing.</li>
-  <li><strong>Distributed computing beyond wait-free.</strong> Topological characterizations for $t$-resilient, message-passing, and Byzantine models; the relationship between higher-dimensional connectivity and the round/space complexity of set agreement remains incompletely mapped.</li>
-  <li><strong>Directed and persistent (co)homology of dynamics.</strong> Applying these invariants to time-evolving and directed data (directed flag complexes, zigzag persistence) for networks and neuroscience.</li>
-</ul>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Complexes make shape computable.</strong> A simplicial complex stores a space as a finite list of simplices; Rips and Cech complexes turn point clouds into complexes parameterized by scale.</li>
-  <li><strong>Homology is a quotient.</strong> Hk = ker ∂k / im ∂k+1 counts k-dimensional holes via ranks of boundary matrices — pure linear algebra over a field.</li>
-  <li><strong>Persistence ranks features.</strong> The barcode of a filtration separates long-lived signal from short-lived noise, with a Lipschitz stability guarantee in bottleneck distance.</li>
-  <li><strong>Solvability is topological.</strong> The asynchronous computability theorem makes wait-free solvability equivalent to the existence of a simplicial map from a subdivided input complex.</li>
-  <li><strong>Connectivity is the obstruction.</strong> Subdivision preserves connectivity, so consensus (disconnected output) and k-set agreement (Sperner’s lemma) are impossible — FLP recovered geometrically.</li>
-  <li><strong>Functoriality unifies both halves.</strong> The same “maps induce maps” principle drives persistence stability and distributed impossibility — one idea, two applications.</li>
+  <li><strong>Multiparameter persistence.</strong> Filtering by two or more parameters at once (for example scale <em>and</em> density, which makes the result robust to outliers) produces modules over $\mathbb{F}[x_1, \dots, x_m]$. These have no complete discrete invariant analogous to the barcode. Current work focuses on computable, stable partial invariants: the rank invariant, fibered barcodes, signed barcodes, Hilbert-function decompositions, and multiparameter landscapes. Libraries such as multipers make these usable in machine-learning pipelines.</li>
+  <li><strong>Topological deep learning.</strong> Message passing on simplicial, cell, and combinatorial complexes, sheaf neural networks, and differentiable persistence layers bring higher-order topology into trainable models. The persistence map is differentiable almost everywhere, and its subgradients are well characterized, so topological losses and regularizers can be optimized with ordinary gradient descent.</li>
+  <li><strong>Statistical foundations.</strong> Confidence sets for persistence diagrams, bootstrap and subsampling procedures, Fréchet means in diagram space, and limit theorems for persistence summaries give TDA a rigorous inferential basis.</li>
+  <li><strong>Beyond wait-free.</strong> Topological characterizations of $t$-resilient, message-passing, Byzantine, and dynamic-network models. The relationship between higher-dimensional connectivity and the round and space complexity of tasks such as set agreement is still only partly understood.</li>
+  <li><strong>Dynamics and directed data.</strong> Zigzag persistence for time-varying complexes, directed flag complexes for connectomes and other directed networks, and persistence of dynamical systems through Conley-index methods.</li>
 </ul>
 
 <h2 id="references-and-further-reading">References and Further Reading</h2>
 
 <ol>
-  <li>Edelsbrunner, H., &amp; Harer, J. (2010). <em>Computational Topology: An Introduction</em>.</li>
-  <li>Hatcher, A. (2002). <em>Algebraic Topology</em>. (Standard reference for simplicial homology.)</li>
-  <li>Carlsson, G. (2009). “Topology and Data.” <em>Bulletin of the AMS</em>.</li>
-  <li>Cohen-Steiner, D., Edelsbrunner, H., &amp; Harer, J. (2007). “Stability of Persistence Diagrams.” <em>Discrete &amp; Computational Geometry</em>.</li>
-  <li>Zomorodian, A., &amp; Carlsson, G. (2005). “Computing Persistent Homology.” <em>Discrete &amp; Computational Geometry</em>.</li>
-  <li>Herlihy, M., &amp; Shavit, N. (1999). “The Topological Structure of Asynchronous Computability.” <em>Journal of the ACM</em>. (Godel Prize 2004.)</li>
-  <li>Herlihy, M., Kozlov, D., &amp; Rajsbaum, S. (2013). <em>Distributed Computing Through Combinatorial Topology</em>.</li>
-  <li>Saraf, M., &amp; Edelsbrunner, H. — surveys on multiparameter persistence and stability.</li>
-  <li>Otter, N., et al. (2017). “A roadmap for the computation of persistent homology.” <em>EPJ Data Science</em>.</li>
-  <li>Bauer, U. (2021). “Ripser: efficient computation of Vietoris-Rips persistence barcodes.” <em>Journal of Applied and Computational Topology</em>.</li>
+  <li>Edelsbrunner, H., &amp; Harer, J. (2010). <em>Computational Topology: An Introduction</em>. AMS.</li>
+  <li>Hatcher, A. (2002). <em>Algebraic Topology</em>. Cambridge University Press. (Standard reference for simplicial homology.)</li>
+  <li>Carlsson, G. (2009). “Topology and Data.” <em>Bulletin of the AMS</em>, 46(2).</li>
+  <li>Zomorodian, A., &amp; Carlsson, G. (2005). “Computing Persistent Homology.” <em>Discrete &amp; Computational Geometry</em>, 33.</li>
+  <li>Cohen-Steiner, D., Edelsbrunner, H., &amp; Harer, J. (2007). “Stability of Persistence Diagrams.” <em>Discrete &amp; Computational Geometry</em>, 37.</li>
+  <li>Chazal, F., de Silva, V., &amp; Oudot, S. (2014). “Persistence stability for geometric complexes.” <em>Geometriae Dedicata</em>, 173.</li>
+  <li>Otter, N., Porter, M. A., Tillmann, U., Grindrod, P., &amp; Harrington, H. A. (2017). “A roadmap for the computation of persistent homology.” <em>EPJ Data Science</em>, 6.</li>
+  <li>Bauer, U. (2021). “Ripser: efficient computation of Vietoris–Rips persistence barcodes.” <em>Journal of Applied and Computational Topology</em>, 5.</li>
+  <li>Botnan, M. B., &amp; Lesnick, M. (2023). “An Introduction to Multiparameter Persistence.” In <em>Representations of Algebras and Related Structures</em>, EMS Press.</li>
+  <li>Herlihy, M., &amp; Shavit, N. (1999). “The Topological Structure of Asynchronous Computability.” <em>Journal of the ACM</em>, 46(6).</li>
+  <li>Saks, M., &amp; Zaharoglou, F. (2000). “Wait-Free k-Set Agreement Is Impossible: The Topology of Public Knowledge.” <em>SIAM Journal on Computing</em>, 29(5).</li>
+  <li>Herlihy, M., Kozlov, D., &amp; Rajsbaum, S. (2013). <em>Distributed Computing Through Combinatorial Topology</em>. Morgan Kaufmann.</li>
+  <li>Castañeda, A., &amp; Rajsbaum, S. (2010, 2012). “New combinatorial topology bounds for renaming: the lower bound” and “… the upper bound.” <em>Distributed Computing</em> and <em>Journal of the ACM</em>.</li>
 </ol>
-
-<hr />
-
-<p><em>Note: This page assumes graduate-level mathematics. For applied, code-first material on data geometry and dimensionality reduction, see the <a href="../../ai-ml/">AI/ML Documentation</a>.</em></p>
 
 <h2 id="see-also">See Also</h2>
 
@@ -3530,17 +3644,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
   <p><strong>Related Advanced Topics</strong></p>
   <ul>
-    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> — FLP impossibility and consensus, the operational counterpart of the topological computability results here</li>
-    <li><a href="../ai-mathematics/">AI Mathematics</a> — Kernel methods and RKHS that consume persistence-based features; statistical learning theory</li>
-    <li><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> — Topological quantum computing and anyonic braiding, a different role for topology in computation</li>
-    <li><a href="../monorepo/">Monorepo Strategies</a> — Build-graph and dependency-graph modeling at scale</li>
+    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a>: FLP impossibility and consensus, the operational counterpart of the topological computability results here</li>
+    <li><a href="../ai-mathematics/">AI Mathematics</a>: kernel methods and RKHS that consume persistence-based features, and statistical learning theory</li>
+    <li><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a>: topological quantum computing and anyonic braiding, a different role for topology in computation</li>
+    <li><a href="../monorepo/">Monorepo Strategies</a>: build-graph and dependency-graph modeling at scale</li>
   </ul>
 
   <p><strong>Applied &amp; Foundational</strong></p>
   <ul>
-    <li><a href="../../ai-ml/">AI/ML Documentation</a> — Practical dimensionality reduction, manifold learning, and clustering</li>
-    <li><a href="../../physics/computational-physics/">Computational Physics</a> — Numerical methods, meshing, and simulation that share simplicial machinery</li>
-    <li><a href="../../reference/">Mathematical Reference</a> — Linear algebra and group theory quick reference</li>
+    <li><a href="../../ai-ml/">AI/ML Documentation</a>: practical dimensionality reduction, manifold learning, and clustering</li>
+    <li><a href="../../physics/computational-physics/">Computational Physics</a>: numerical methods, meshing, and simulation that share simplicial machinery</li>
+    <li><a href="../../reference/">Mathematical Reference</a>: linear algebra and group theory quick reference</li>
   </ul>
 </div>
 

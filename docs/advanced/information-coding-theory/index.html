@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Shannon entropy, mutual information, the AEP, source and channel coding theorems, finite-blocklength limits, modern error-correcting codes (LDPC, polar, Reed...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Information & Coding Theory">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Shannon entropy, mutual information, the AEP, source and channel coding theorems, finite-blocklength limits, modern error-correcting codes (LDPC, polar, Reed...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/advanced/information-coding-theory/">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Information & Coding Theory">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Shannon entropy, mutual information, the AEP, source and channel coding theorems, finite-blocklength limits, modern error-correcting codes (LDPC, polar, Reed...">
 
 <title>Information & Coding Theory | Andrews Notebook</title>
 
@@ -3133,476 +3133,697 @@ document.addEventListener('DOMContentLoaded', function () {
       <section id="page-content" class="page__content">
         <h1 id="information--coding-theory">Information &amp; Coding Theory</h1>
 
-<p><a href="./">Advanced Topics</a> » Information &amp; Coding Theory</p>
+<p><a href="../">Advanced Topics</a> » Information &amp; Coding Theory</p>
 
 <div class="advanced-note">
-  <p><strong>Graduate-level research page.</strong> This is a rigorous, theorem-oriented treatment of Shannon’s information theory and the coding theory that operationalizes it, aimed at researchers in communications, computer science, and statistics. <strong>Prerequisites:</strong> probability theory, linear algebra over finite fields, and basic real analysis. For an accessible introduction to compression and reliable transmission, see the <a href="../../technology/networking/">Networking</a> section.</p>
+  <p><strong>Graduate-level reference.</strong> Theorem-oriented treatment of Shannon theory and the coding theory that realizes it. <strong>Prerequisites:</strong> probability, linear algebra over finite fields, basic real analysis. The standard textbook is Cover &amp; Thomas, <em>Elements of Information Theory</em> (2nd ed.); for modern codes, Richardson &amp; Urbanke, <em>Modern Coding Theory</em>. For applied error detection in protocols see <a href="../../technology/networking/">Networking</a>.</p>
 </div>
 
-<p>In 1948 Claude Shannon asked two questions that look unrelated and answered them with the same currency — the <em>bit</em>. How far can a source be compressed without losing information? And how fast can information be pushed through a noisy channel while keeping the error probability arbitrarily small? The astonishing answer is that both limits are sharp, both are computed from the same logarithmic quantity, and — crucially — <strong>the two problems separate</strong>: you can compress optimally first and protect against noise second, losing nothing by treating them independently.</p>
+<p><strong>Information theory</strong> quantifies how much can be said about a random quantity, how compactly it can be stored, and how quickly it can be sent through a noisy medium. <strong>Coding theory</strong> builds the explicit codes that approach those limits with efficient encoders and decoders. Claude Shannon’s 1948 paper answered the two founding questions — <em>how far can a source be compressed?</em> and <em>how fast can data cross a noisy channel reliably?</em> — with sharp limits computed from one quantity, entropy, and showed that the two problems <strong>separate</strong>: compress to the entropy, then protect against noise at any rate below capacity, and nothing is lost by designing the two stages independently.</p>
 
-<ul>
-  <li><strong>Entropy is the only sensible measure.</strong> Demanding continuity, monotonicity, and a grouping (chain) rule forces the measure of uncertainty to be Shannon entropy up to the choice of logarithm base.</li>
-  <li><strong>Compression has a floor.</strong> No uniquely decodable code beats the source entropy on average; Huffman and arithmetic coding get within one bit and one symbol of it respectively.</li>
-  <li><strong>Capacity is a phase transition.</strong> Below capacity, error probability can be driven to zero; above it, error is bounded away from zero. There is no graceful middle ground in the asymptotic limit.</li>
-  <li><strong>Random codes are optimal.</strong> Shannon proved capacity is achievable by averaging over random codebooks — but the constructive race to build explicit, efficiently decodable capacity-achieving codes took another fifty years (LDPC, turbo, polar).</li>
-</ul>
+<h2 id="overview">Overview</h2>
 
-<h3 id="the-logical-spine">The Logical Spine</h3>
+<p>A point-to-point communication system has the structure below. Each block corresponds to one of the theorems on this page.</p>
 
-<p>The results below form a dependency chain, not a list. Entropy and its conditional/joint variants are defined axiomatically; mutual information is the unique quantity that drops out as “shared uncertainty”; the Asymptotic Equipartition Property (AEP) turns these averages into hard combinatorial facts about <em>typical sequences</em>; and the two coding theorems — source coding and channel coding — are both proved by counting typical sequences.</p>
+<pre><code class="language-mermaid">flowchart LR
+    S["Source&lt;br/&gt;X"] --&gt; SE["Source encoder&lt;br/&gt;(compression)"]
+    SE -- "~H(X) bits/symbol" --&gt; CE["Channel encoder&lt;br/&gt;(add redundancy)"]
+    CE -- "rate R &lt; C" --&gt; CH["Noisy channel&lt;br/&gt;p(y|x)"]
+    CH --&gt; CD["Channel decoder"]
+    CD --&gt; SD["Source decoder"]
+    SD --&gt; D["Destination&lt;br/&gt;X-hat"]
+</code></pre>
+
+<table>
+  <thead>
+    <tr>
+      <th>Block</th>
+      <th>Governing limit</th>
+      <th>Result</th>
+      <th>Practical realizations</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Source encoder (lossless)</td>
+      <td>Entropy $H(X)$</td>
+      <td>Source coding theorem</td>
+      <td>Huffman, arithmetic coding, ANS, Lempel–Ziv</td>
+    </tr>
+    <tr>
+      <td>Source encoder (lossy)</td>
+      <td>Rate–distortion function $R(D)$</td>
+      <td>Rate–distortion theorem</td>
+      <td>Transform codecs, vector quantization, neural codecs</td>
+    </tr>
+    <tr>
+      <td>Channel encoder/decoder</td>
+      <td>Capacity $C = \max I(X;Y)$</td>
+      <td>Noisy-channel coding theorem</td>
+      <td>LDPC, polar, turbo, Reed–Solomon</td>
+    </tr>
+    <tr>
+      <td>Whole chain</td>
+      <td>$H(X) &lt; C$ (or $R(D) &lt; C$)</td>
+      <td>Source–channel separation</td>
+      <td>Almost every digital system</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The results form a dependency chain. Entropy and its conditional variants are defined first; mutual information falls out as “shared uncertainty”; the Asymptotic Equipartition Property (AEP) turns averages into counting statements about typical sequences; and both coding theorems are proved by counting typical sequences.</p>
 
 <pre><code class="language-mermaid">flowchart TD
-    AX["Axioms: continuity, grouping"] --&gt; H["Shannon entropy H(X)"]
-    H --&gt; JC["Joint / conditional entropy"]
+    H["Entropy H(X)"] --&gt; JC["Joint and conditional entropy"]
     JC --&gt; MI["Mutual information I(X;Y)"]
     H --&gt; AEP["Asymptotic Equipartition Property"]
-    AEP --&gt; SCT["Source Coding Theorem&lt;br/&gt;(compression limit = H)"]
-    MI --&gt; CC["Channel capacity C = max I(X;Y)"]
-    AEP --&gt; NCT["Noisy-Channel Coding Theorem&lt;br/&gt;(reliable rate &amp;lt; C)"]
+    AEP --&gt; SCT["Source coding theorem"]
+    MI --&gt; CC["Capacity C = max I(X;Y)"]
+    AEP --&gt; NCT["Noisy-channel coding theorem"]
     CC --&gt; NCT
-    SCT --&gt; SEP["Source–channel separation"]
+    MI --&gt; RD["Rate-distortion R(D)"]
+    SCT --&gt; SEP["Source-channel separation"]
     NCT --&gt; SEP
 </code></pre>
 
-<h2 id="table-of-contents">Table of Contents</h2>
-<ul>
-  <li><a href="#entropy-and-information-measures">Entropy and Information Measures</a></li>
-  <li><a href="#mutual-information-and-relative-entropy">Mutual Information and Relative Entropy</a></li>
-  <li><a href="#the-asymptotic-equipartition-property">The Asymptotic Equipartition Property</a></li>
-  <li><a href="#source-coding-compression">Source Coding (Compression)</a></li>
-  <li><a href="#channel-capacity-and-the-noisy-channel-theorem">Channel Capacity and the Noisy-Channel Theorem</a></li>
-  <li><a href="#error-correcting-codes">Error-Correcting Codes</a></li>
-  <li><a href="#ratedistortion-theory">Rate–Distortion Theory</a></li>
-  <li><a href="#quantum-information-measures">Quantum Information Measures</a></li>
-</ul>
-
 <h2 id="entropy-and-information-measures">Entropy and Information Measures</h2>
 
-<h3 id="shannon-entropy">Shannon Entropy</h3>
+<h3 id="shannon-entropy">Shannon entropy</h3>
 
-<p><strong>Intuition</strong>: The entropy of a random variable is the average number of bits needed to describe its outcome — equivalently, the average “surprise” of an observation, where the surprise of an event of probability $p$ is $\log(1/p)$. Rare events carry more information.</p>
+<p>The <strong>surprise</strong> of an outcome of probability $p$ is $\log(1/p)$: rare events carry more information. Entropy is the expected surprise, equivalently the average number of bits needed to describe the outcome.</p>
 
 <div class="theory-card">
   <h4 id="definition-entropy">Definition (Entropy)</h4>
-  <p>For a discrete random variable $X$ with probability mass function $p(x)$ over alphabet $\mathcal{X}$, the <strong>entropy</strong> is</p>
+  <p>For a discrete random variable $X$ with probability mass function $p(x)$ on alphabet $\mathcal{X}$,</p>
 
-\[H(X) = -\sum_{x \in \mathcal{X}} p(x) \log_2 p(x) = \mathbb{E}\!\left[\log_2 \frac{1}{p(X)}\right],\]
+\[H(X) = -\sum_{x \in \mathcal{X}} p(x) \log_2 p(x) = \mathbb{E}\!\left[\log_2 \frac{1}{p(X)}\right].\]
 
-  <p>measured in bits (using $\log_2$). With the natural logarithm the unit is the <em>nat</em>. By convention $0 \log 0 = 0$.</p>
+  <p>The unit is the <strong>bit</strong> with $\log_2$ and the <strong>nat</strong> with $\ln$; by convention $0 \log 0 = 0$.</p>
 </div>
 
-<p>Entropy is not an arbitrary choice. Shannon’s axiomatic theorem shows that any measure $H(p_1,\dots,p_n)$ that is (i) continuous in the probabilities, (ii) monotonically increasing in $n$ for the uniform distribution, and (iii) satisfies the grouping/chain rule must equal $-K\sum_i p_i \log p_i$ for some positive constant $K$ — the base of the logarithm being the only freedom.</p>
+<p>Entropy is not an arbitrary choice. Shannon’s uniqueness theorem (refined by Khinchin and Faddeev) shows that any measure $H(p_1,\dots,p_n)$ that is continuous, increasing in $n$ for uniform distributions, and satisfies the <strong>grouping rule</strong> (splitting an outcome into sub-outcomes adds the weighted entropy of the split) must equal $-K\sum_i p_i \log p_i$ for some $K&gt;0$. The only freedom is the base of the logarithm.</p>
 
-<div class="example-card">
-  <h4 id="worked-example-the-binary-entropy-function">Worked Example: the binary entropy function</h4>
-  <p>For a Bernoulli($p$) variable, $H(X) = H_b(p) = -p\log_2 p - (1-p)\log_2(1-p)$. It is $0$ at $p=0$ and $p=1$ (a sure outcome carries no information), rises to its maximum $1$ bit at $p=\tfrac12$ (maximal uncertainty), and is concave and symmetric about $\tfrac12$. A biased coin with $p=0.11$ has $H_b(0.11)\approx 0.5$ bits — so a long sequence of such flips can in principle be compressed to half its naive length.</p>
-</div>
+<p>For a Bernoulli($p$) variable the entropy is the <strong>binary entropy function</strong> $H_b(p) = -p\log_2 p - (1-p)\log_2(1-p)$. It is zero at $p \in {0,1}$, peaks at 1 bit when $p = \tfrac12$, and is concave and symmetric. A coin with $p = 0.11$ has $H_b(0.11) \approx 0.50$ bits, so a long run of its flips can in principle be stored in about half the naive length. The same curve reappears below as the capacity of the binary symmetric channel.</p>
 
-<h3 id="joint-conditional-and-the-chain-rule">Joint, Conditional, and the Chain Rule</h3>
+<figure style="margin:1.5rem auto; max-width:520px;">
+<svg viewBox="0 0 500 290" width="100%" role="img" aria-label="Binary entropy H_b(p) and binary symmetric channel capacity 1 - H_b(p) plotted against p from 0 to 1" style="color:currentColor; background:transparent; font-family:inherit;">
+<line x1="50" y1="210" x2="455" y2="210" stroke="currentColor" stroke-width="1" />
+<line x1="50" y1="210" x2="50" y2="25" stroke="currentColor" stroke-width="1" />
+<g stroke="currentColor" stroke-opacity="0.15" stroke-width="1"><line x1="50" y1="30" x2="450" y2="30" /><line x1="50" y1="120" x2="450" y2="120" /><line x1="250" y1="30" x2="250" y2="210" /><line x1="450" y1="30" x2="450" y2="210" /></g>
+<g fill="currentColor" font-size="12" text-anchor="middle"><text x="50" y="226">0</text><text x="150" y="226">0.25</text><text x="250" y="226">0.5</text><text x="350" y="226">0.75</text><text x="450" y="226">1</text><text x="250" y="248">crossover / bias probability p</text></g>
+<g fill="currentColor" font-size="12" text-anchor="end"><text x="44" y="214">0</text><text x="44" y="124">0.5</text><text x="44" y="34">1</text></g>
+<text x="16" y="120" fill="currentColor" font-size="12" text-anchor="middle" transform="rotate(-90 16 120)">bits</text>
+<polyline fill="none" stroke="currentColor" stroke-width="2.25" points="50,210.0 54,195.5 58,184.5 62,175.0 66,166.4 74,151.1 82,137.6 90,125.6 98,114.7 106,104.8 114,95.8 122,87.6 130,80.1 138,73.2 146,66.9 154,61.2 162,56.0 170,51.4 178,47.2 186,43.5 194,40.3 202,37.6 210,35.2 218,33.3 226,31.9 234,30.8 242,30.2 250,30.0 258,30.2 266,30.8 274,31.9 282,33.3 290,35.2 298,37.6 306,40.3 314,43.5 322,47.2 330,51.4 338,56.0 346,61.2 354,66.9 362,73.2 370,80.1 378,87.6 386,95.8 394,104.8 402,114.7 410,125.6 418,137.6 426,151.1 434,166.4 438,175.0 442,184.5 446,195.5 450,210.0" />
+<polyline fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4" points="50,30.0 54,44.5 58,55.5 62,65.0 66,73.6 74,88.9 82,102.4 90,114.4 98,125.3 106,135.2 114,144.2 122,152.4 130,159.9 138,166.8 146,173.1 154,178.8 162,184.0 170,188.6 178,192.8 186,196.5 194,199.7 202,202.4 210,204.8 218,206.7 226,208.1 234,209.2 242,209.8 250,210.0 258,209.8 266,209.2 274,208.1 282,206.7 290,204.8 298,202.4 306,199.7 314,196.5 322,192.8 330,188.6 338,184.0 346,178.8 354,173.1 362,166.8 370,159.9 378,152.4 386,144.2 394,135.2 402,125.3 410,114.4 418,102.4 426,88.9 434,73.6 438,65.0 442,55.5 446,44.5 450,30.0" />
+<line x1="70" y1="272" x2="100" y2="272" stroke="currentColor" stroke-width="2.25" /><line x1="265" y1="272" x2="295" y2="272" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4" /><g fill="currentColor" font-size="12"><text x="106" y="276">H_b(p): source entropy</text><text x="301" y="276">1 - H_b(p): BSC capacity</text></g>
+</svg>
+<figcaption style="text-align:center; font-size:0.9em;">Binary entropy (solid) and the capacity of a binary symmetric channel with crossover probability p (dashed).</figcaption>
+</figure>
 
-<p>For a pair $(X,Y)\sim p(x,y)$ the <strong>joint entropy</strong> is $H(X,Y) = -\sum_{x,y} p(x,y)\log_2 p(x,y)$, and the <strong>conditional entropy</strong> — the residual uncertainty in $Y$ once $X$ is known — is</p>
+<h3 id="joint-and-conditional-entropy-the-chain-rule">Joint and conditional entropy; the chain rule</h3>
 
-\[H(Y \mid X) = -\sum_{x,y} p(x,y) \log_2 p(y \mid x) = \mathbb{E}_X\!\left[H(Y \mid X = x)\right].\]
+<p>For $(X,Y)\sim p(x,y)$ the <strong>joint entropy</strong> is $H(X,Y) = -\sum_{x,y} p(x,y)\log_2 p(x,y)$. The <strong>conditional entropy</strong> is the uncertainty left in $Y$ once $X$ is known:</p>
 
-<p>These obey the <strong>chain rule</strong>, the workhorse identity of the whole subject:</p>
+\[H(Y \mid X) = -\sum_{x,y} p(x,y) \log_2 p(y \mid x) = \sum_x p(x)\, H(Y \mid X = x).\]
 
-\[H(X,Y) = H(X) + H(Y \mid X) = H(Y) + H(X \mid Y).\]
+<p>These satisfy the <strong>chain rule</strong>, the most-used identity in the subject:</p>
 
-<p>More generally, $H(X_1,\dots,X_n) = \sum_{i=1}^n H(X_i \mid X_1,\dots,X_{i-1})$. Conditioning never increases entropy, $H(Y\mid X) \le H(Y)$, with equality iff $X$ and $Y$ are independent — extra side information can only reduce (or preserve) uncertainty.</p>
+\[H(X,Y) = H(X) + H(Y \mid X), \qquad H(X_1,\dots,X_n) = \sum_{i=1}^{n} H(X_i \mid X_1,\dots,X_{i-1}).\]
 
-<div class="principle-card">
-  <h4 id="bounds-on-entropy">Bounds on Entropy</h4>
-  <p>For a variable on an alphabet of size $|\mathcal{X}|$,</p>
+<p>Conditioning never increases entropy on average, $H(Y\mid X) \le H(Y)$, with equality iff $X$ and $Y$ are independent. (A <em>particular</em> observation $X = x$ can increase uncertainty; only the average cannot.)</p>
+
+<h3 id="bounds-and-maximum-entropy">Bounds and maximum entropy</h3>
 
 \[0 \le H(X) \le \log_2 |\mathcal{X}|,\]
 
-  <p>with the upper bound attained <strong>iff</strong> $X$ is uniform (maximum-entropy principle) and the lower bound iff $X$ is deterministic. The maximum-entropy property generalizes: subject to moment constraints, the entropy-maximizing distribution is exponential-family (e.g. Gaussian under a variance constraint, geometric under a mean constraint).</p>
-</div>
+<p>with the lower bound attained iff $X$ is deterministic and the upper bound iff $X$ is uniform. More generally, among all distributions satisfying linear moment constraints $\mathbb{E}[f_k(X)] = \alpha_k$, entropy is maximized by the exponential-family form $p(x) \propto \exp\big(\sum_k \lambda_k f_k(x)\big)$: the geometric distribution under a mean constraint on ${0,1,2,\dots}$, the Gaussian under a variance constraint on $\mathbb{R}$.</p>
 
-<h2 id="mutual-information-and-relative-entropy">Mutual Information and Relative Entropy</h2>
+<h3 id="differential-entropy">Differential entropy</h3>
 
-<h3 id="relative-entropy-kl-divergence">Relative Entropy (KL Divergence)</h3>
+<table>
+  <tbody>
+    <tr>
+      <td>For a continuous density $f$, the <strong>differential entropy</strong> is $h(X) = -\int f(x)\log_2 f(x)\,dx$. It can be negative and is not invariant under change of variables ($h(aX) = h(X) + \log_2</td>
+      <td>a</td>
+      <td>$), so it is not a limit of discrete entropy; but differences such as mutual information remain well defined. The key example: for $X\sim\mathcal{N}(\mu,\sigma^2)$,</td>
+    </tr>
+  </tbody>
+</table>
 
-<p>The <strong>Kullback–Leibler divergence</strong> measures the inefficiency of assuming distribution $q$ when the truth is $p$ — the extra bits per symbol paid by coding for the wrong distribution:</p>
+\[h(X) = \tfrac{1}{2}\log_2\!\left(2\pi e\,\sigma^2\right),\]
 
-\[D(p \,\|\, q) = \sum_{x} p(x) \log_2 \frac{p(x)}{q(x)}.\]
+<p>and this is the largest differential entropy of any density with variance $\sigma^2$. That extremal property is why Gaussian noise is the worst case for a power-limited channel.</p>
 
-<p>By Gibbs’ inequality, $D(p\,|\,q) \ge 0$, with equality iff $p = q$. It is <strong>not</strong> a metric — asymmetric and violating the triangle inequality — but it is the canonical “statistical distance” and underlies hypothesis testing (Stein’s lemma) and large-deviations theory.</p>
+<h2 id="relative-entropy-and-mutual-information">Relative Entropy and Mutual Information</h2>
 
-<h3 id="mutual-information">Mutual Information</h3>
+<h3 id="relative-entropy-kullbackleibler-divergence">Relative entropy (Kullback–Leibler divergence)</h3>
+
+\[D(p \,\|\, q) = \sum_{x} p(x) \log_2 \frac{p(x)}{q(x)}\]
+
+<p>is the expected number of extra bits per symbol paid for coding a $p$-source with a code optimized for $q$. <strong>Gibbs’ inequality</strong> gives $D(p\,|\,q) \ge 0$ with equality iff $p = q$. KL divergence is not a metric (it is asymmetric and violates the triangle inequality), but it is the exponent that governs hypothesis testing: by <strong>Stein’s lemma</strong>, the best type-II error probability at fixed type-I error decays as $2^{-n D(p|q)}$. Cross-entropy training loss in machine learning is $H(p) + D(p\,|\,q_\theta)$, so minimizing it minimizes the divergence from the data distribution.</p>
+
+<h3 id="mutual-information">Mutual information</h3>
 
 <div class="theory-card">
   <h4 id="definition-mutual-information">Definition (Mutual Information)</h4>
-  <p>The <strong>mutual information</strong> between $X$ and $Y$ is the KL divergence between the joint and the product of marginals:</p>
-
-\[I(X;Y) = D\big(p(x,y) \,\big\|\, p(x)p(y)\big) = \sum_{x,y} p(x,y)\log_2 \frac{p(x,y)}{p(x)p(y)}.\]
-
-  <p>Equivalently, in entropy terms,</p>
-
-  <p>\(I(X;Y) = H(X) - H(X \mid Y) = H(Y) - H(Y \mid X) = H(X) + H(Y) - H(X,Y).\)</p>
+  <p>\(I(X;Y) = D\big(p(x,y) \,\big\|\, p(x)p(y)\big) = H(X) - H(X \mid Y) = H(X) + H(Y) - H(X,Y).\)</p>
 </div>
 
-<p>Mutual information is the reduction in uncertainty about $X$ from observing $Y$ (and symmetrically). It is non-negative, symmetric, and zero <strong>iff</strong> $X \perp Y$. The relationships are captured by the familiar information diagram:</p>
+<p>Mutual information is the reduction in uncertainty about $X$ from observing $Y$. It is symmetric, non-negative, and zero iff $X$ and $Y$ are independent. The relations among the entropies are captured by the information diagram:</p>
 
-<pre><code class="language-mermaid">flowchart LR
-    subgraph HX["H(X)"]
-      A["H(X|Y)"]
-    end
-    subgraph HY["H(Y)"]
-      C["H(Y|X)"]
-    end
-    A --- B["I(X;Y)"]
-    B --- C
-</code></pre>
+<figure style="margin:1.5rem auto; max-width:460px;">
+<svg viewBox="0 0 440 210" width="100%" role="img" aria-label="Information diagram: two overlapping circles H(X) and H(Y); the overlap is I(X;Y), the left-only part is H(X|Y), the right-only part is H(Y|X), and the union is H(X,Y)" style="color:currentColor; background:transparent; font-family:inherit;">
+<circle cx="170" cy="105" r="85" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" />
+<circle cx="270" cy="105" r="85" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.5" />
+<g fill="currentColor" font-size="13" text-anchor="middle"><text x="130" y="110">H(X|Y)</text><text x="220" y="110" font-weight="bold">I(X;Y)</text><text x="310" y="110">H(Y|X)</text><text x="120" y="14">H(X)</text><text x="320" y="14">H(Y)</text><text x="220" y="206">union = H(X,Y)</text></g>
+</svg>
+</figure>
 
-<p>The <strong>data-processing inequality</strong> is the structural consequence that matters most in practice: if $X \to Y \to Z$ forms a Markov chain (post-processing $Y$ to get $Z$), then</p>
+<p>The diagram is a mnemonic for two variables only: for three or more, the central “co-information” region can be negative.</p>
+
+<h3 id="data-processing-and-fano-inequalities">Data-processing and Fano inequalities</h3>
+
+<p>If $X \to Y \to Z$ is a Markov chain (so $Z$ is any processing of $Y$, deterministic or random), then</p>
 
 \[I(X;Z) \le I(X;Y).\]
 
-<p>No deterministic or stochastic processing of the data can manufacture information about $X$ that the data did not already contain. This single inequality bounds estimators, justifies sufficient statistics, and constrains the layers of any pipeline.</p>
+<p>No post-processing creates information about $X$ that $Y$ did not already carry. Equality holds iff $Z$ is a <strong>sufficient statistic</strong> of $Y$ for $X$.</p>
+
+<p><strong>Fano’s inequality</strong> turns this into a bound on estimation error. For any estimator $\hat{X}$ of $X$ built from $Y$, with $P_e = \Pr[\hat{X} \ne X]$,</p>
+
+\[H(X \mid Y) \le H_b(P_e) + P_e \log_2\!\left(|\mathcal{X}| - 1\right) \le 1 + P_e \log_2 |\mathcal{X}|.\]
+
+<p>If the residual uncertainty $H(X\mid Y)$ is large, no estimator can have small error. Fano’s inequality supplies the converse half of almost every coding theorem.</p>
 
 <h2 id="the-asymptotic-equipartition-property">The Asymptotic Equipartition Property</h2>
 
-<p>The AEP is the information-theoretic analog of the law of large numbers, and it is the technical engine behind both coding theorems.</p>
+<p>The AEP is the law of large numbers applied to $-\log p(X)$, and it is the engine behind both coding theorems.</p>
 
 <div class="principle-card">
   <h4 id="theorem-aep">Theorem (AEP)</h4>
-  <p>If $X_1, X_2, \dots$ are i.i.d. $\sim p(x)$, then</p>
+  <p>If $X_1, X_2, \dots$ are i.i.d. with pmf $p$, then</p>
 
 \[-\frac{1}{n}\log_2 p(X_1,\dots,X_n) \xrightarrow{\ \text{prob}\ } H(X).\]
 
-  <p>Consequently, for any $\epsilon&gt;0$, the <strong>typical set</strong> $A_\epsilon^{(n)}$ of sequences with empirical log-probability within $\epsilon$ of $H(X)$ satisfies: (i) $P(A_\epsilon^{(n)}) \to 1$; (ii) every typical sequence has probability $\approx 2^{-nH(X)}$; and (iii) $|A_\epsilon^{(n)}| \doteq 2^{nH(X)}$.</p>
+  <p>For $\epsilon&gt;0$ define the <strong>typical set</strong> $A_\epsilon^{(n)}$ as the sequences with $2^{-n(H+\epsilon)} \le p(x^n) \le 2^{-n(H-\epsilon)}$. Then for large $n$: (i) $\Pr[A_\epsilon^{(n)}] &gt; 1-\epsilon$; (ii) $|A_\epsilon^{(n)}| \le 2^{n(H+\epsilon)}$; (iii) $|A_\epsilon^{(n)}| \ge (1-\epsilon)\,2^{n(H-\epsilon)}$.</p>
 </div>
 
 <table>
   <tbody>
     <tr>
-      <td>In words: although there are $</td>
+      <td>Of the $</td>
       <td>\mathcal{X}</td>
-      <td>^n$ possible sequences, essentially all the probability concentrates on roughly $2^{nH(X)}$ of them, each nearly equally likely. Compression simply indexes the typical set with $nH(X)$ bits; everything outside it is rare enough to ignore. This is why entropy is <em>the</em> compression limit.</td>
+      <td>^n$ possible sequences, essentially all the probability sits on about $2^{nH(X)}$ of them, each roughly equally likely. Unless $X$ is uniform this is an exponentially small fraction of all sequences. Compression indexes the typical set with about $nH$ bits and spends a flag bit plus a raw description on the rare non-typical sequences. <strong>Joint typicality</strong> extends the idea to pairs $(x^n, y^n)$ and underlies the channel coding theorem. The AEP extends to stationary ergodic sources (the Shannon–McMillan–Breiman theorem), with $H$ replaced by the entropy rate.</td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="source-coding-compression">Source Coding (Compression)</h2>
+<h2 id="source-coding">Source Coding</h2>
 
-<h3 id="the-source-coding-theorem-and-krafts-inequality">The Source Coding Theorem and Kraft’s Inequality</h3>
+<h3 id="kraftmcmillan-inequality">Kraft–McMillan inequality</h3>
 
-<p>A code assigns to each symbol a binary string (codeword). For a code to be <strong>uniquely decodable</strong>, codeword lengths $\ell(x)$ must satisfy the <strong>Kraft–McMillan inequality</strong>:</p>
+<p>A code maps each symbol to a binary codeword. <strong>Prefix codes</strong> (no codeword is a prefix of another) decode instantaneously. Any <strong>uniquely decodable</strong> code has codeword lengths satisfying</p>
 
-\[\sum_{x \in \mathcal{X}} 2^{-\ell(x)} \le 1.\]
+\[\sum_{x \in \mathcal{X}} 2^{-\ell(x)} \le 1,\]
 
-<p>Conversely, any lengths satisfying Kraft admit a <em>prefix</em> (instantaneously decodable) code. Minimizing expected length $L = \sum_x p(x)\ell(x)$ subject to Kraft, via Lagrange multipliers, gives the ideal lengths $\ell^*(x) = -\log_2 p(x)$ and recovers the entropy.</p>
+<p>and conversely any lengths satisfying this admit a prefix code. So restricting to prefix codes loses nothing. Minimizing expected length $L = \sum_x p(x)\ell(x)$ subject to Kraft, ignoring integrality, gives $\ell^<em>(x) = -\log_2 p(x)$ and $L^</em> = H(X)$.</p>
 
 <div class="principle-card">
-  <h4 id="theorem-shannon-source-coding">Theorem (Shannon Source Coding)</h4>
-  <p>For any uniquely decodable code, the expected codeword length satisfies $L \ge H(X)$. Moreover there exists a prefix code with</p>
+  <h4 id="theorem-source-coding">Theorem (Source Coding)</h4>
+  <p>Every uniquely decodable code has $L \ge H(X)$, and there is a prefix code (for example with lengths $\lceil -\log_2 p(x) \rceil$) with</p>
 
-\[H(X) \le L &lt; H(X) + 1,\]
+\[H(X) \le L &lt; H(X) + 1.\]
 
-  <p>and by coding blocks of $n$ symbols the per-symbol overhead shrinks to $1/n$, so the rate approaches $H(X)$ arbitrarily closely.</p>
+  <p>Coding blocks of $n$ symbols reduces the overhead to $1/n$ bit per symbol, so the rate approaches $H(X)$. For a stationary source the limit is the <strong>entropy rate</strong> $\mathcal{H} = \lim_{n\to\infty} \tfrac{1}{n} H(X_1,\dots,X_n)$.</p>
 </div>
 
-<h3 id="huffman-coding">Huffman Coding</h3>
+<h3 id="huffman-coding">Huffman coding</h3>
 
-<p>Huffman’s algorithm builds the <strong>provably optimal</strong> symbol-by-symbol prefix code by a greedy bottom-up merge: repeatedly combine the two least-probable symbols into a subtree, summing their probabilities, until one tree remains. Its expected length satisfies $H(X) \le L_{\text{Huffman}} &lt; H(X)+1$ and no other prefix code does better on the same symbol distribution.</p>
-
-<div class="example-card">
-  <h4 id="worked-example-a-four-symbol-huffman-code">Worked Example: a four-symbol Huffman code</h4>
-  <p>Let $p = (0.5, 0.25, 0.125, 0.125)$ for symbols $(a,b,c,d)$. Merge $c,d \to 0.25$; merge that with $b \to 0.5$; merge with $a \to 1.0$. Codewords: $a=0$, $b=10$, $c=110$, $d=111$. Expected length $L = 0.5(1) + 0.25(2) + 0.125(3) + 0.125(3) = 1.75$ bits. Here $H(X) = 1.75$ bits exactly — the code is optimal <em>and</em> hits the entropy because every probability is a power of two (a dyadic source).</p>
-</div>
+<p>Huffman’s algorithm builds the optimal symbol-by-symbol prefix code by repeatedly merging the two least-probable nodes. For $p = (0.5, 0.25, 0.125, 0.125)$ on $(a,b,c,d)$ it yields $a=0$, $b=10$, $c=110$, $d=111$, with $L = 1.75$ bits, which equals $H(X)$ exactly because every probability is a power of two (a dyadic source). For non-dyadic sources the gap to entropy can approach 1 bit per symbol when one symbol dominates.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">heapq</span>
-<span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="n">itertools</span> <span class="kn">import</span> <span class="n">count</span>
 
-<span class="k">def</span> <span class="nf">huffman</span><span class="p">(</span><span class="n">symbol_probs</span><span class="p">):</span>
-    <span class="sh">"""</span><span class="s">Build a Huffman code; returns {symbol: bitstring}.</span><span class="sh">"""</span>
-    <span class="n">heap</span> <span class="o">=</span> <span class="p">[[</span><span class="n">p</span><span class="p">,</span> <span class="p">[</span><span class="n">sym</span><span class="p">,</span> <span class="sh">""</span><span class="p">]]</span> <span class="k">for</span> <span class="n">sym</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">symbol_probs</span><span class="p">.</span><span class="nf">items</span><span class="p">()]</span>
+<span class="k">def</span> <span class="nf">huffman</span><span class="p">(</span><span class="n">probs</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Return an optimal prefix code {symbol: bitstring} for a pmf.</span><span class="sh">"""</span>
+    <span class="n">tie</span> <span class="o">=</span> <span class="nf">count</span><span class="p">()</span>                       <span class="c1"># tie-breaker so the heap never compares dicts
+</span>    <span class="n">heap</span> <span class="o">=</span> <span class="p">[(</span><span class="n">p</span><span class="p">,</span> <span class="nf">next</span><span class="p">(</span><span class="n">tie</span><span class="p">),</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="sh">""</span><span class="p">})</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">probs</span><span class="p">.</span><span class="nf">items</span><span class="p">()]</span>
     <span class="n">heapq</span><span class="p">.</span><span class="nf">heapify</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>                  <span class="c1"># degenerate one-symbol source
+</span>        <span class="k">return</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="sh">"</span><span class="s">0</span><span class="sh">"</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">probs</span><span class="p">}</span>
     <span class="k">while</span> <span class="nf">len</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">lo</span> <span class="o">=</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span>
-        <span class="n">hi</span> <span class="o">=</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">lo</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-            <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">0</span><span class="sh">"</span> <span class="o">+</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">hi</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-            <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">1</span><span class="sh">"</span> <span class="o">+</span> <span class="n">pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">heap</span><span class="p">,</span> <span class="p">[</span><span class="n">lo</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">hi</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="n">lo</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">hi</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
-    <span class="k">return</span> <span class="p">{</span><span class="n">sym</span><span class="p">:</span> <span class="n">code</span> <span class="k">for</span> <span class="n">sym</span><span class="p">,</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">heap</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">:]}</span>
+        <span class="n">p0</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">c0</span> <span class="o">=</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span>
+        <span class="n">p1</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">c1</span> <span class="o">=</span> <span class="n">heapq</span><span class="p">.</span><span class="nf">heappop</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span>
+        <span class="n">merged</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="sh">"</span><span class="s">0</span><span class="sh">"</span> <span class="o">+</span> <span class="n">w</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">c0</span><span class="p">.</span><span class="nf">items</span><span class="p">()}</span>
+        <span class="n">merged</span><span class="p">.</span><span class="nf">update</span><span class="p">({</span><span class="n">s</span><span class="p">:</span> <span class="sh">"</span><span class="s">1</span><span class="sh">"</span> <span class="o">+</span> <span class="n">w</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">c1</span><span class="p">.</span><span class="nf">items</span><span class="p">()})</span>
+        <span class="n">heapq</span><span class="p">.</span><span class="nf">heappush</span><span class="p">(</span><span class="n">heap</span><span class="p">,</span> <span class="p">(</span><span class="n">p0</span> <span class="o">+</span> <span class="n">p1</span><span class="p">,</span> <span class="nf">next</span><span class="p">(</span><span class="n">tie</span><span class="p">),</span> <span class="n">merged</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">heap</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
 
 <span class="n">probs</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="sh">"</span><span class="s">b</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">,</span> <span class="sh">"</span><span class="s">c</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.125</span><span class="p">,</span> <span class="sh">"</span><span class="s">d</span><span class="sh">"</span><span class="p">:</span> <span class="mf">0.125</span><span class="p">}</span>
-<span class="n">code</span> <span class="o">=</span> <span class="nf">huffman</span><span class="p">(</span><span class="n">probs</span><span class="p">)</span>
-<span class="n">L</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">probs</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">*</span> <span class="nf">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">code</span><span class="p">.</span><span class="nf">items</span><span class="p">())</span>  <span class="c1"># 1.75 bits
+<span class="n">code</span> <span class="o">=</span> <span class="nf">huffman</span><span class="p">(</span><span class="n">probs</span><span class="p">)</span>                   <span class="c1"># {'a': '0', 'b': '10', 'c': '110', 'd': '111'}
+</span><span class="n">L</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">probs</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">*</span> <span class="nf">len</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">code</span><span class="p">.</span><span class="nf">items</span><span class="p">())</span>   <span class="c1"># 1.75
 </span></code></pre></div></div>
 
-<h3 id="arithmetic-coding">Arithmetic Coding</h3>
+<h3 id="arithmetic-coding-and-ans">Arithmetic coding and ANS</h3>
 
-<p>Huffman’s one-bit-per-symbol overhead is wasteful when symbols are highly skewed (a symbol with $p=0.9$ “deserves” $0.15$ bits but Huffman must spend at least one). <strong>Arithmetic coding</strong> sidesteps this by encoding the <em>entire message</em> as a single real number in $[0,1)$. The current interval is recursively subdivided in proportion to the symbol probabilities; the final interval is identified by any binary fraction inside it.</p>
+<p><strong>Arithmetic coding</strong> removes Huffman’s integer-length restriction by encoding the whole message as a subinterval of $[0,1)$: the interval is repeatedly subdivided in proportion to the (possibly adaptive) symbol probabilities, and any binary fraction inside the final interval identifies the message. A block of $n$ symbols costs fewer than $nH(X) + 2$ bits, so the per-symbol redundancy is $O(1/n)$ however skewed the source. Because the model can change at every symbol, arithmetic coding is the natural back end for context modeling: <strong>CABAC</strong> in H.264/HEVC/VVC is a binary arithmetic coder driven by adaptive context models.</p>
 
-<p>Its expected length for a block of $n$ symbols satisfies $L_n &lt; nH(X) + 2$, so the per-symbol redundancy is $O(1/n)$ — vanishing, regardless of how skewed the source is. It also pairs naturally with <strong>adaptive</strong> and <strong>context</strong> models (the basis of modern codecs like the range coder in PPM/CABAC and the entropy stage of many image and video standards).</p>
+<p><strong>Asymmetric numeral systems (ANS)</strong>, introduced by Jarek Duda (2009–2013), achieve arithmetic-coding compression at roughly Huffman speed by keeping the state in a single integer that is updated with table lookups (tANS) or a multiply-and-shift (rANS). ANS is now the entropy stage of Zstandard (as “FSE”), Apple’s LZFSE, JPEG XL, and several GPU and genomics codecs.</p>
 
-<div class="comparison-table">
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Huffman</th>
+      <th>Arithmetic</th>
+      <th>ANS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Bits per symbol</td>
+      <td>Integer</td>
+      <td>Fractional</td>
+      <td>Fractional</td>
+    </tr>
+    <tr>
+      <td>Redundancy</td>
+      <td>$&lt; 1$ bit/symbol</td>
+      <td>$&lt; 2$ bits/message</td>
+      <td>Near-arithmetic; small table-quantization loss</td>
+    </tr>
+    <tr>
+      <td>Adaptive models</td>
+      <td>Needs code rebuild</td>
+      <td>Natural</td>
+      <td>Possible (rANS); static tables typical for tANS</td>
+    </tr>
+    <tr>
+      <td>Speed</td>
+      <td>Very fast (table lookup)</td>
+      <td>Slower (per-symbol multiply/renormalize)</td>
+      <td>Near Huffman speed</td>
+    </tr>
+    <tr>
+      <td>Order</td>
+      <td>FIFO</td>
+      <td>FIFO</td>
+      <td>LIFO (encode in reverse)</td>
+    </tr>
+    <tr>
+      <td>Typical use</td>
+      <td>DEFLATE, JPEG baseline</td>
+      <td>CABAC, PPM, CM compressors</td>
+      <td>Zstandard, LZFSE, JPEG XL</td>
+    </tr>
+  </tbody>
+</table>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Property</th>
-        <th>Huffman</th>
-        <th>Arithmetic</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Granularity</td>
-        <td>integer bits/symbol</td>
-        <td>fractional bits/symbol</td>
-      </tr>
-      <tr>
-        <td>Redundancy</td>
-        <td>$&lt; 1$ bit/symbol</td>
-        <td>$&lt; 2$ bits/message ($O(1/n)$/symbol)</td>
-      </tr>
-      <tr>
-        <td>Adaptivity</td>
-        <td>needs code rebuild</td>
-        <td>natural, online</td>
-      </tr>
-      <tr>
-        <td>Speed</td>
-        <td>very fast (table lookup)</td>
-        <td>slower (arithmetic per symbol)</td>
-      </tr>
-      <tr>
-        <td>Optimality</td>
-        <td>optimal <em>prefix</em> code</td>
-        <td>approaches entropy arbitrarily</td>
-      </tr>
-    </tbody>
-  </table>
+<h3 id="universal-coding-and-the-predictioncompression-equivalence">Universal coding and the prediction–compression equivalence</h3>
 
-</div>
+<p>Huffman and arithmetic coding need the source distribution. <strong>Universal</strong> codes do not. Lempel–Ziv parsing (LZ77, LZ78) replaces repeated substrings with back-references and achieves the entropy rate of <em>any</em> stationary ergodic source asymptotically; LZ77 plus Huffman is DEFLATE (gzip, PNG, zip), and LZ77 plus ANS is Zstandard.</p>
 
-<h2 id="channel-capacity-and-the-noisy-channel-theorem">Channel Capacity and the Noisy-Channel Theorem</h2>
+<p>Arithmetic coding also makes explicit that <strong>compression equals prediction</strong>: a model assigning probability $q(x_t \mid x_{&lt;t})$ to each next symbol yields a code of length $-\sum_t \log_2 q(x_t \mid x_{&lt;t})$ bits, which is exactly the model’s cross-entropy (log-loss) on the data. Better predictors are better compressors. Delétang et al., “Language Modeling Is Compression” (ICLR 2024), made the point quantitatively: Chinchilla 70B driving an arithmetic coder compressed ImageNet patches to 43.4% of raw size and LibriSpeech audio to 16.4%, beating PNG (58.5%) and FLAC (30.3%), though the model’s own size is not counted and it is far too slow for practical use. The same identity is the basis of the minimum description length (MDL) principle discussed on the <a href="../ai-mathematics/">AI Mathematics</a> page.</p>
 
-<h3 id="discrete-memoryless-channels">Discrete Memoryless Channels</h3>
+<h2 id="channel-capacity-and-the-noisy-channel-coding-theorem">Channel Capacity and the Noisy-Channel Coding Theorem</h2>
 
-<p>A <strong>discrete memoryless channel (DMC)</strong> is specified by an input alphabet $\mathcal{X}$, output alphabet $\mathcal{Y}$, and transition probabilities $p(y \mid x)$, applied independently to each transmitted symbol. The <strong>capacity</strong> is the maximum mutual information over input distributions:</p>
+<h3 id="discrete-memoryless-channels">Discrete memoryless channels</h3>
+
+<p>A <strong>discrete memoryless channel (DMC)</strong> has input alphabet $\mathcal{X}$, output alphabet $\mathcal{Y}$, and transition probabilities $p(y\mid x)$ applied independently to each use.</p>
 
 <div class="theory-card">
-  <h4 id="definition-channel-capacity">Definition (Channel Capacity)</h4>
+  <h4 id="definition-capacity">Definition (Capacity)</h4>
   <p>\(C = \max_{p(x)} I(X;Y) \quad \text{bits per channel use.}\)</p>
 </div>
 
-<div class="example-card">
-  <h4 id="worked-example-capacities-of-two-canonical-channels">Worked Example: capacities of two canonical channels</h4>
-  <p><strong>Binary symmetric channel (BSC)</strong> with crossover probability $p$ flips each bit independently with probability $p$. Its capacity is</p>
+<p>$I(X;Y)$ is concave in $p(x)$ for a fixed channel, so the maximization is a convex problem.</p>
 
-\[C_{\text{BSC}} = 1 - H_b(p),\]
+<table>
+  <thead>
+    <tr>
+      <th>Channel</th>
+      <th>Model</th>
+      <th>Capacity</th>
+      <th>Optimal input</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Binary symmetric (BSC)</td>
+      <td>Each bit flipped with probability $p$</td>
+      <td>$1 - H_b(p)$</td>
+      <td>Uniform</td>
+    </tr>
+    <tr>
+      <td>Binary erasure (BEC)</td>
+      <td>Each bit erased (“?”) with probability $\alpha$</td>
+      <td>$1 - \alpha$</td>
+      <td>Uniform</td>
+    </tr>
+    <tr>
+      <td>Z-channel</td>
+      <td>$1 \to 0$ with probability $p$; $0$ is error-free</td>
+      <td>$\log_2!\big(1 + (1-p)\,p^{p/(1-p)}\big)$</td>
+      <td>Non-uniform</td>
+    </tr>
+    <tr>
+      <td>AWGN (real, power $P$, noise variance $N$)</td>
+      <td>$Y = X + Z$, $Z\sim\mathcal{N}(0,N)$</td>
+      <td>$\tfrac12\log_2(1 + P/N)$</td>
+      <td>Gaussian</td>
+    </tr>
+  </tbody>
+</table>
 
-  <p>so a clean channel ($p=0$) carries 1 bit/use, a useless one ($p=\tfrac12$) carries 0, and the loss is exactly the binary entropy of the noise. <strong>Binary erasure channel (BEC)</strong> with erasure probability $\alpha$ either delivers the bit or outputs “?”; it has</p>
-
-\[C_{\text{BEC}} = 1 - \alpha,\]
-
-  <p>the intuitive statement that a fraction $\alpha$ of uses are simply lost.</p>
-</div>
-
-<h3 id="the-noisy-channel-coding-theorem">The Noisy-Channel Coding Theorem</h3>
-
-<div class="principle-card">
-  <h4 id="theorem-shannon-1948">Theorem (Shannon, 1948)</h4>
-  <p>For a DMC with capacity $C$, and any rate $R &lt; C$, there exist codes of rate $R$ whose maximal probability of error $\to 0$ as the block length $n \to \infty$. Conversely (the <strong>converse</strong>), every sequence of codes with $R &gt; C$ has error probability bounded away from zero.</p>
-</div>
-
-<p>The proof of achievability is a <em>non-constructive</em> tour de force: pick a codebook of $2^{nR}$ codewords i.i.d. from the capacity-achieving input distribution, decode by <strong>joint typicality</strong> (declare the unique codeword jointly typical with the received sequence), and show the average error over random codebooks $\to 0$ when $R&lt;C$. Since the average is small, <em>some</em> codebook is good. The converse follows from Fano’s inequality, which lower-bounds the error probability by the residual conditional entropy:</p>
-
-\[H(W \mid \hat{W}) \le 1 + P_e \log_2 |\mathcal{W}|.\]
-
-<p>The theorem is a genuine <strong>threshold phenomenon</strong>: arbitrarily reliable communication is possible up to $C$ and impossible beyond it. For the bandlimited Gaussian channel with bandwidth $B$, signal power $P$, and noise power spectral density $N_0$, this specializes to the celebrated <strong>Shannon–Hartley</strong> formula</p>
-
-\[C = B \log_2\!\left(1 + \frac{P}{N_0 B}\right) \quad \text{bits per second.}\]
-
-<h2 id="error-correcting-codes">Error-Correcting Codes</h2>
-
-<p>Shannon proved capacity-achieving codes <em>exist</em>; coding theory builds them with <strong>structure</strong> so that encoding and decoding are efficient. The central objects are <strong>linear block codes</strong> over finite fields.</p>
-
-<h3 id="linear-block-codes-and-the-hamming-bound">Linear Block Codes and the Hamming Bound</h3>
-
-<p>An $[n,k]$ <strong>linear code</strong> over $\mathbb{F}_q$ is a $k$-dimensional subspace of $\mathbb{F}_q^n$: $k$ information symbols map to $n$ transmitted symbols, giving rate $R = k/n$. It is described by a <strong>generator matrix</strong> $G$ (codewords are $\mathbf{c} = \mathbf{m}G$) and a <strong>parity-check matrix</strong> $H$ with $G H^\top = 0$, so that $\mathbf{c}H^\top = 0$ for every codeword. The <strong>minimum distance</strong> $d$ — the smallest Hamming weight of a nonzero codeword — governs error handling: a code can <strong>detect</strong> up to $d-1$ errors and <strong>correct</strong> up to $\lfloor (d-1)/2 \rfloor$. The <strong>Hamming (sphere-packing) bound</strong> limits how good a code can be:</p>
-
-\[q^k \le \frac{q^n}{\sum_{i=0}^{t} \binom{n}{i}(q-1)^i}, \qquad t = \left\lfloor \frac{d-1}{2} \right\rfloor.\]
-
-<h3 id="hamming-codes">Hamming Codes</h3>
-
-<p>The $[7,4]$ <strong>Hamming code</strong> is the canonical single-error-correcting code: $d=3$, so it corrects any single bit error. Decoding is elegant — compute the <strong>syndrome</strong> $\mathbf{s} = \mathbf{r}H^\top$ of the received word $\mathbf{r}$; if $\mathbf{s}=0$ the word is a codeword, otherwise $\mathbf{s}$ equals the column of $H$ indexed by the error position, which directly names the bit to flip. Hamming codes are <strong>perfect</strong>: they meet the sphere-packing bound with equality, tiling the space exactly.</p>
+<p>For channels without a closed form, the <strong>Blahut–Arimoto algorithm</strong> (1972) computes capacity by alternating maximization; each iteration also gives upper and lower bounds on $C$, so it has a built-in stopping rule.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
 
-<span class="c1"># Parity-check matrix for the [7,4] Hamming code (columns 1..7 in binary)
+<span class="k">def</span> <span class="nf">dmc_capacity</span><span class="p">(</span><span class="n">W</span><span class="p">,</span> <span class="n">iters</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Blahut-Arimoto. W[x, y] = p(y|x). Returns (capacity in bits, optimal p(x)).</span><span class="sh">"""</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="n">W</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">W</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">iters</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">p</span> <span class="o">@</span> <span class="n">W</span>                                        <span class="c1"># induced output distribution
+</span>        <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">W</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">W</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">log2</span><span class="p">(</span><span class="n">W</span> <span class="o">/</span> <span class="n">q</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">).</span><span class="nf">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># D(W(.|x) || q)
+</span>        <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span> <span class="o">=</span> <span class="n">p</span> <span class="o">@</span> <span class="n">d</span><span class="p">,</span> <span class="n">d</span><span class="p">.</span><span class="nf">max</span><span class="p">()</span>                    <span class="c1"># lower &lt;= C &lt;= upper
+</span>        <span class="k">if</span> <span class="n">upper</span> <span class="o">-</span> <span class="n">lower</span> <span class="o">&lt;</span> <span class="n">tol</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">p</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp2</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+        <span class="n">p</span> <span class="o">/=</span> <span class="n">p</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">lower</span><span class="p">,</span> <span class="n">p</span>
+
+<span class="n">eps</span> <span class="o">=</span> <span class="mf">0.11</span>
+<span class="n">bsc</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="mi">1</span> <span class="o">-</span> <span class="n">eps</span><span class="p">,</span> <span class="n">eps</span><span class="p">],</span> <span class="p">[</span><span class="n">eps</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">eps</span><span class="p">]])</span>
+<span class="n">C</span><span class="p">,</span> <span class="n">p_opt</span> <span class="o">=</span> <span class="nf">dmc_capacity</span><span class="p">(</span><span class="n">bsc</span><span class="p">)</span>     <span class="c1"># C ~ 0.5000 bits = 1 - H_b(0.11); p_opt = [0.5, 0.5]
+</span></code></pre></div></div>
+
+<h3 id="the-coding-theorem">The coding theorem</h3>
+
+<div class="principle-card">
+  <h4 id="theorem-shannon-1948">Theorem (Shannon, 1948)</h4>
+  <p>For a DMC of capacity $C$: for every rate $R &lt; C$ there exist block codes of rate $R$ whose maximal error probability tends to $0$ as the block length $n \to \infty$ (<strong>achievability</strong>). Every sequence of codes with $R &gt; C$ has error probability bounded away from zero (<strong>weak converse</strong>); in fact for DMCs it tends to one (<strong>strong converse</strong>, Wolfowitz).</p>
+</div>
+
+<p><strong>Achievability</strong> is proved by random coding. Draw $2^{nR}$ codewords i.i.d. from the capacity-achieving input distribution; decode by finding the unique codeword jointly typical with the received sequence. The transmitted codeword is jointly typical with high probability, while any other codeword is jointly typical by chance with probability about $2^{-nI(X;Y)}$; a union bound over $2^{nR}$ competitors gives vanishing error when $R &lt; I(X;Y)$. Since the error averaged over codebooks is small, some fixed codebook is good, and discarding its worst half of codewords turns average error into maximal error.</p>
+
+<p><strong>The converse</strong> applies Fano’s inequality to the message $W$: $nR = H(W) \le I(W;\hat{W}) + 1 + P_e nR \le nC + 1 + P_e nR$, so $P_e \ge 1 - C/R - 1/(nR)$, which is bounded away from zero when $R &gt; C$.</p>
+
+<p>Feedback does not increase the capacity of a memoryless channel, though it can greatly simplify coding and improve error exponents.</p>
+
+<h3 id="the-gaussian-channel-and-the-shannon-limit">The Gaussian channel and the Shannon limit</h3>
+
+<p>For a band-limited AWGN channel with bandwidth $B$ (Hz), received power $P$, and one-sided noise spectral density $N_0$, the <strong>Shannon–Hartley</strong> formula is</p>
+
+\[C = B \log_2\!\left(1 + \frac{P}{N_0 B}\right) \quad \text{bits per second.}\]
+
+<p>Writing $P = E_b C$ (energy per information bit times bit rate) and letting the spectral efficiency $C/B \to 0$ gives the ultimate power-efficiency limit</p>
+
+\[\frac{E_b}{N_0} \ge \ln 2 \approx 0.693, \quad \text{i.e. about } -1.59 \text{ dB}.\]
+
+<p>No code, at any bandwidth, communicates reliably below this ratio. With parallel Gaussian sub-channels of different noise levels (OFDM tones, MIMO eigenmodes), the capacity-achieving power allocation is <strong>water-filling</strong>: pour power into the quietest sub-channels first, up to a common “water level”.</p>
+
+<h3 id="finite-blocklength">Finite blocklength</h3>
+
+<p>The coding theorem is asymptotic. Real systems use blocks of hundreds to tens of thousands of bits, and ultra-reliable low-latency links (5G URLLC, control loops) use very short blocks. Polyanskiy, Poor, and Verdú (2010) gave the second-order <strong>normal approximation</strong> for the largest number of messages $M^*(n,\epsilon)$ decodable with error probability $\epsilon$ at blocklength $n$:</p>
+
+\[\log_2 M^*(n,\epsilon) = nC - \sqrt{nV}\, Q^{-1}(\epsilon) + O(\log n),\]
+
+<p>where $V$ is the <strong>channel dispersion</strong> (the variance of the information density) and $Q^{-1}$ is the inverse Gaussian tail function. The rate penalty shrinks only as $1/\sqrt{n}$: for the BSC with $p = 0.11$ ($C \approx 0.50$, $V \approx 0.89$), blocklength $n = 1000$ and block error $\epsilon = 10^{-3}$, the approximation gives about 0.41 bits per use, roughly 18% below capacity. Benchmarking modern short codes against this bound, rather than against $C$, is now standard.</p>
+
+<h2 id="error-correcting-codes">Error-Correcting Codes</h2>
+
+<p>Shannon’s proof shows that good codes exist but gives no efficient decoder; a random code of length $n$ needs exponential-time decoding. Coding theory supplies <strong>structured</strong> codes with fast encoders and decoders. The history splits into an <em>algebraic</em> era (distance guarantees, bounded-distance decoding) and a <em>modern</em> era (sparse graphs and iterative or successive decoding that operate near capacity).</p>
+
+<pre><code class="language-mermaid">timeline
+    title Milestones in channel coding
+    1948 : Shannon - capacity theorem
+    1950 : Hamming codes
+    1954 : Reed-Muller codes
+    1955 : Convolutional codes (Elias)
+    1960 : Reed-Solomon and BCH codes
+    1962 : LDPC codes (Gallager), then largely forgotten
+    1967 : Viterbi algorithm
+    1993 : Turbo codes (Berrou, Glavieux, Thitimajshima)
+    1996 : LDPC rediscovered (MacKay, Neal)
+    2001 : Irregular LDPC within 0.0045 dB of capacity
+    2009 : Polar codes (Arikan) - first explicit capacity-achieving family
+    2018 : 5G NR adopts LDPC (data) and polar (control)
+    2023 : Reed-Muller codes proved capacity-achieving on BMS channels
+</code></pre>
+
+<h3 id="linear-block-codes">Linear block codes</h3>
+
+<p>An $[n,k,d]$ <strong>linear code</strong> over $\mathbb{F}_q$ is a $k$-dimensional subspace of $\mathbb{F}_q^n$ with minimum Hamming distance $d$. It has rate $R = k/n$, a <strong>generator matrix</strong> $G$ ($\mathbf{c} = \mathbf{m}G$), and a <strong>parity-check matrix</strong> $H$ with $GH^\top = 0$, so every codeword satisfies $\mathbf{c}H^\top = 0$. For a linear code, $d$ equals the minimum weight of a nonzero codeword. A code detects up to $d-1$ errors, corrects up to $t = \lfloor (d-1)/2 \rfloor$ errors, or corrects up to $d-1$ erasures.</p>
+
+<p>The fundamental bounds relate $n$, $k$, and $d$:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Bound</th>
+      <th>Statement</th>
+      <th>Type</th>
+      <th>Codes meeting it</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Singleton</td>
+      <td>$d \le n - k + 1$</td>
+      <td>Upper</td>
+      <td>MDS codes (Reed–Solomon)</td>
+    </tr>
+    <tr>
+      <td>Hamming (sphere packing)</td>
+      <td>$q^k \sum_{i=0}^{t} \binom{n}{i}(q-1)^i \le q^n$</td>
+      <td>Upper</td>
+      <td>Perfect codes: Hamming, Golay</td>
+    </tr>
+    <tr>
+      <td>Gilbert–Varshamov</td>
+      <td>Codes exist with $q^k \sum_{i=0}^{d-2}\binom{n-1}{i}(q-1)^i &lt; q^n$</td>
+      <td>Existence (lower)</td>
+      <td>Random linear codes</td>
+    </tr>
+    <tr>
+      <td>Plotkin, Elias–Bassalygo, LP (MRRW)</td>
+      <td>Tighter upper bounds at large $d/n$</td>
+      <td>Upper</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Whether the Gilbert–Varshamov bound is asymptotically tight for binary codes is a long-standing open problem.</p>
+
+<h3 id="hamming-codes">Hamming codes</h3>
+
+<p>The $[7,4,3]$ <strong>Hamming code</strong> corrects any single error. Its parity-check matrix lists the binary numbers 1 to 7 as columns, so the <strong>syndrome</strong> $\mathbf{s} = H\mathbf{r}^\top$ of a received word is zero for a codeword and otherwise spells out the position of the flipped bit. Hamming codes are <strong>perfect</strong>: radius-1 spheres around the 16 codewords tile $\mathbb{F}_2^7$ exactly. Extended with an overall parity bit they become the SEC-DED codes of ECC memory.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
+
+<span class="c1"># Parity-check matrix of the [7,4] Hamming code: column j is j in binary (MSB on top)
 </span><span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span>
-    <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span>
-    <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span>
-    <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
 <span class="p">])</span>
 
 <span class="k">def</span> <span class="nf">correct</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
-    <span class="n">s</span> <span class="o">=</span> <span class="n">H</span><span class="p">.</span><span class="nf">dot</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">%</span> <span class="mi">2</span>            <span class="c1"># syndrome
-</span>    <span class="n">pos</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="sh">""</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="nf">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">s</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>   <span class="c1"># column index (1-based) or 0
+    <span class="sh">"""</span><span class="s">Correct up to one bit error in a length-7 received word.</span><span class="sh">"""</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">H</span> <span class="o">@</span> <span class="n">r</span> <span class="o">%</span> <span class="mi">2</span>                               <span class="c1"># syndrome
+</span>    <span class="n">pos</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="sh">""</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="nf">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">s</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>          <span class="c1"># 1-based error position, 0 = none
 </span>    <span class="k">if</span> <span class="n">pos</span><span class="p">:</span>
         <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="p">.</span><span class="nf">copy</span><span class="p">()</span>
-        <span class="n">r</span><span class="p">[</span><span class="n">pos</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">^=</span> <span class="mi">1</span>        <span class="c1"># flip the indicated bit
-</span>    <span class="k">return</span> <span class="n">r</span>
+        <span class="n">r</span><span class="p">[</span><span class="n">pos</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">^=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">r</span>
 </code></pre></div></div>
 
-<h3 id="reedsolomon-codes">Reed–Solomon Codes</h3>
+<h3 id="reedsolomon-codes">Reed–Solomon codes</h3>
 
-<p><strong>Reed–Solomon (RS)</strong> codes are nonbinary $[n,k]$ codes over $\mathbb{F}_q$ (typically $q=256$, working on bytes) built by evaluating a degree-$&lt;k$ message polynomial at $n$ distinct field points. They are <strong>maximum-distance-separable (MDS)</strong>: they meet the Singleton bound</p>
+<p><strong>Reed–Solomon (RS)</strong> codes evaluate a message polynomial of degree less than $k$ at $n$ distinct points of $\mathbb{F}_q$ (typically $q = 256$, so symbols are bytes, and $n \le q$). Two distinct polynomials of degree less than $k$ agree on at most $k-1$ points, so codewords differ in at least $n-k+1$ positions: RS codes are <strong>MDS</strong>, meeting the Singleton bound. An RS code corrects $\lfloor (n-k)/2 \rfloor$ symbol errors or $n-k$ erasures, and because errors are counted per symbol, a burst that corrupts every bit of a byte costs one unit of the budget. Berlekamp–Massey or Euclidean decoding runs in polynomial time; Guruswami–Sudan <strong>list decoding</strong> corrects beyond half the distance (up to $n - \sqrt{nk}$ errors).</p>
 
-\[d = n - k + 1\]
+<p>Applications: CDs and DVDs (cross-interleaved RS), QR codes, deep-space telemetry (concatenated with convolutional codes on Voyager), DSL, RAID-6, and <strong>erasure-coded storage</strong>, where an object is split into $k$ data and $n-k$ parity fragments and survives the loss of any $n-k$ disks or nodes. Large storage systems also use <strong>locally repairable codes</strong> (for example Azure’s LRC) that trade a little of RS’s optimality for cheaper single-node repair.</p>
 
-<p>with equality, the best possible distance for given $n,k$. An $[n,k]$ RS code corrects up to $\lfloor (n-k)/2 \rfloor$ symbol errors (or twice as many erasures), and because errors are counted <em>per symbol</em>, a single corrupted byte costs only one of the budget no matter how many of its bits flipped — making RS ideal against <strong>burst errors</strong>. Practical decoders (Berlekamp–Massey, Euclidean) run in polynomial time. RS codes underpin QR codes, CDs/DVDs, deep-space telemetry (the Voyager probes), and RAID-6 storage.</p>
+<h3 id="ldpc-codes">LDPC codes</h3>
 
-<h3 id="ldpc-codes-and-modern-capacity-approaching-codes">LDPC Codes and Modern Capacity-Approaching Codes</h3>
-
-<p><strong>Low-density parity-check (LDPC)</strong> codes, introduced by Gallager (1962) and rediscovered in the 1990s, are linear codes whose parity-check matrix $H$ is <strong>sparse</strong>. That sparsity is the whole point: it admits near-linear-time iterative decoding by <strong>belief propagation</strong> (the sum–product algorithm) on the code’s bipartite <strong>Tanner graph</strong>, passing log-likelihood messages between variable nodes and check nodes until they converge.</p>
+<p><strong>Low-density parity-check (LDPC)</strong> codes, introduced by Gallager in 1962 and rediscovered in the 1990s, are linear codes with a <strong>sparse</strong> parity-check matrix. Sparsity allows near-linear-time decoding by <strong>belief propagation</strong> (the sum–product algorithm) on the code’s bipartite <strong>Tanner graph</strong>: variable nodes (bits) and check nodes (parity equations) exchange log-likelihood-ratio messages for a fixed number of iterations or until all checks are satisfied.</p>
 
 <pre><code class="language-mermaid">flowchart TB
-    subgraph V["Variable nodes (bits)"]
-      v1((v1)); v2((v2)); v3((v3)); v4((v4))
+    subgraph C["Check nodes (rows of H)"]
+      c1["c1: v1+v2+v3 = 0"]; c2["c2: v2+v4+v5 = 0"]; c3["c3: v3+v5+v6 = 0"]
     end
-    subgraph C["Check nodes (parity)"]
-      c1["c1"]; c2["c2"]
+    subgraph V["Variable nodes (codeword bits, columns of H)"]
+      v1((v1)); v2((v2)); v3((v3)); v4((v4)); v5((v5)); v6((v6))
     end
-    v1 --- c1; v2 --- c1; v3 --- c1
-    v2 --- c2; v3 --- c2; v4 --- c2
+    v1 --- c1
+    v2 --- c1
+    v3 --- c1
+    v2 --- c2
+    v4 --- c2
+    v5 --- c2
+    v3 --- c3
+    v5 --- c3
+    v6 --- c3
 </code></pre>
 
-<p>Well-designed LDPC ensembles provably approach the Shannon limit — the <strong>density-evolution</strong> analysis predicts a decoding <em>threshold</em> noise level below which the bit-error rate $\to 0$, and optimized irregular degree distributions push that threshold to within hundredths of a dB of capacity. LDPC codes are now standard in Wi-Fi (802.11n/ac/ax), 5G NR data channels, DVB-S2, and 10GBASE-T Ethernet. Alongside them sit two other capacity-approaching families: <strong>turbo codes</strong> (parallel concatenated convolutional codes with iterative decoding, used in 3G/4G and deep space) and <strong>polar codes</strong> (Arıkan, 2009 — the first <em>provably</em> capacity-achieving codes with explicit construction and $O(n\log n)$ decoding, adopted for 5G control channels).</p>
+<p><strong>Density evolution</strong> (Richardson–Urbanke) tracks the distribution of messages in the large-$n$ limit and predicts a sharp noise <strong>threshold</strong> below which decoding succeeds with high probability. Optimized irregular degree distributions push that threshold to within a few thousandths of a dB of capacity on the AWGN channel (Chung et al., 2001). <strong>Spatially coupled</strong> LDPC codes go further: their belief-propagation threshold provably rises to the optimal (MAP) threshold, a phenomenon called <em>threshold saturation</em>. The practical challenges are the <strong>error floor</strong> (a flattening of the error curve at low error rates caused by small graph substructures called trapping sets) and hardware-friendly structure, typically obtained with quasi-cyclic constructions.</p>
 
-<div class="comparison-table">
+<p>LDPC codes are used in Wi-Fi (802.11n onward, including Wi-Fi 6/7), the 5G NR data channels, DVB-S2/S2X, 10GBASE-T and faster Ethernet PHYs, and the read channels of NAND flash SSDs.</p>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Code family</th>
-        <th>Structure</th>
-        <th>Distance / limit</th>
-        <th>Decoding</th>
-        <th>Where used</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Hamming</td>
-        <td>perfect linear, $d=3$</td>
-        <td>meets sphere-packing</td>
-        <td>syndrome lookup</td>
-        <td>ECC RAM, teaching</td>
-      </tr>
-      <tr>
-        <td>Reed–Solomon</td>
-        <td>MDS over $\mathbb{F}_q$</td>
-        <td>$d = n-k+1$ (Singleton)</td>
-        <td>Berlekamp–Massey</td>
-        <td>QR, CD/DVD, RAID-6, space</td>
-      </tr>
-      <tr>
-        <td>LDPC</td>
-        <td>sparse parity-check</td>
-        <td>approaches capacity</td>
-        <td>belief propagation</td>
-        <td>Wi-Fi, 5G, DVB-S2</td>
-      </tr>
-      <tr>
-        <td>Turbo</td>
-        <td>concatenated convolutional</td>
-        <td>approaches capacity</td>
-        <td>iterative (BCJR)</td>
-        <td>3G/4G, deep space</td>
-      </tr>
-      <tr>
-        <td>Polar</td>
-        <td>channel polarization</td>
-        <td>achieves capacity</td>
-        <td>successive cancellation</td>
-        <td>5G control</td>
-      </tr>
-    </tbody>
-  </table>
+<h3 id="turbo-polar-and-reedmuller-codes">Turbo, polar, and Reed–Muller codes</h3>
 
-</div>
+<p><strong>Turbo codes</strong> (1993) concatenate two convolutional encoders through an interleaver and decode iteratively by exchanging soft information between two BCJR decoders. They were the first practical codes within about 1 dB of capacity and were used in 3G/4G LTE data channels and deep-space links.</p>
+
+<p><strong>Polar codes</strong> (Arıkan, 2009) are the first explicit, provably capacity-achieving codes for binary-input symmetric memoryless channels with $O(n\log n)$ encoding and decoding. Recursively combining two copies of a channel and splitting them creates synthetic channels that <strong>polarize</strong>: as $n$ grows, a fraction $C$ of them become nearly noiseless and the rest nearly useless. Information bits go on the good channels and known “frozen” bits on the bad ones. Plain successive-cancellation decoding is weak at short lengths; <strong>CRC-aided successive-cancellation list decoding</strong> (Tal–Vardy) makes polar codes competitive, and this is the form adopted for the 5G NR control channels.</p>
+
+<p><strong>Reed–Muller (RM) codes</strong> (1954) are among the oldest codes and are closely related to polar codes (both use the same Kronecker-power matrix, choosing rows differently). Whether they achieve capacity was open for decades. Kudekar et al. (2016) proved it for the erasure channel; Reeves and Pfister (2021) showed vanishing bit-error probability on binary memoryless symmetric (BMS) channels; and Abbe and Sandon (FOCS 2023) proved vanishing block-error probability, settling the question for BMS channels. Efficient decoding that matches this performance at long lengths remains an active research topic.</p>
+
+<h3 id="comparison">Comparison</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Family</th>
+      <th>Structure</th>
+      <th>Guarantee</th>
+      <th>Decoder</th>
+      <th>Deployed in</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Hamming / BCH</td>
+      <td>Algebraic, binary</td>
+      <td>Designed distance</td>
+      <td>Syndrome, Berlekamp–Massey</td>
+      <td>ECC DRAM, flash (older), teaching</td>
+    </tr>
+    <tr>
+      <td>Reed–Solomon</td>
+      <td>MDS over $\mathbb{F}_q$</td>
+      <td>$d = n-k+1$</td>
+      <td>Berlekamp–Massey, list decoding</td>
+      <td>QR, optical media, RAID-6, storage clusters</td>
+    </tr>
+    <tr>
+      <td>Convolutional</td>
+      <td>Shift-register trellis</td>
+      <td>Free distance</td>
+      <td>Viterbi</td>
+      <td>Legacy cellular, satellite, Wi-Fi (legacy rates)</td>
+    </tr>
+    <tr>
+      <td>Turbo</td>
+      <td>Parallel concatenated convolutional</td>
+      <td>Near capacity</td>
+      <td>Iterative BCJR</td>
+      <td>3G/4G data, deep space</td>
+    </tr>
+    <tr>
+      <td>LDPC</td>
+      <td>Sparse parity-check graph</td>
+      <td>Near capacity (threshold)</td>
+      <td>Belief propagation</td>
+      <td>Wi-Fi, 5G data, DVB-S2, Ethernet, SSDs</td>
+    </tr>
+    <tr>
+      <td>Polar</td>
+      <td>Channel polarization</td>
+      <td>Achieves capacity (BMS)</td>
+      <td>SC list + CRC</td>
+      <td>5G control channels</td>
+    </tr>
+    <tr>
+      <td>Reed–Muller</td>
+      <td>Evaluations of Boolean polynomials</td>
+      <td>Achieves capacity (BMS, 2023)</td>
+      <td>Recursive / list (research)</td>
+      <td>Research; historical deep space (Mariner 9)</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2 id="ratedistortion-theory">Rate–Distortion Theory</h2>
 
-<p>Lossless compression bottoms out at $H(X)$. <strong>Rate–distortion theory</strong> answers the lossy question: if we tolerate average distortion $D$ under a measure $d(x,\hat{x})$, what is the <em>minimum</em> rate $R(D)$ needed to represent the source? It is the <strong>dual</strong> of channel coding — instead of maximizing mutual information subject to a power constraint, we minimize it subject to a fidelity constraint.</p>
+<p>Lossless compression stops at $H(X)$, and continuous sources cannot be described losslessly with finitely many bits at all. <strong>Rate–distortion theory</strong> asks: at average distortion at most $D$ under a per-symbol measure $d(x,\hat{x})$, what is the least rate needed?</p>
 
 <div class="theory-card">
   <h4 id="definition-ratedistortion-function">Definition (Rate–Distortion Function)</h4>
   <p>\(R(D) = \min_{p(\hat{x} \mid x)\,:\,\mathbb{E}[d(X,\hat{X})] \le D} I(X;\hat{X}).\)</p>
 </div>
 
-<p>$R(D)$ is non-increasing and convex: more allowed distortion buys a lower rate, with diminishing returns. Two cornerstone results make it concrete:</p>
+<p>The <strong>rate–distortion theorem</strong> states that $R(D)$ is exactly the minimum achievable rate at distortion $D$, proved by a random-coding argument that mirrors the channel theorem. $R(D)$ is non-increasing and convex, and it is the <em>dual</em> of capacity: capacity maximizes mutual information over the input, rate–distortion minimizes it over the “test channel” from source to reconstruction. Blahut–Arimoto computes both.</p>
+
+<p>Two closed forms:</p>
 
 <ul>
   <li>
-    <p><strong>Gaussian source, squared-error distortion.</strong> For $X \sim \mathcal{N}(0,\sigma^2)$,
-\(R(D) = \begin{cases} \frac{1}{2}\log_2 \frac{\sigma^2}{D}, &amp; 0 \le D \le \sigma^2 \\ 0, &amp; D &gt; \sigma^2. \end{cases}\)
-Each extra bit halves the distortion (the classic 6 dB/bit rule), and once $D \ge \sigma^2$ the source is described for free by its mean.</p>
+    <p><strong>Gaussian source, squared error.</strong> For $X\sim\mathcal{N}(0,\sigma^2)$,</p>
+
+\[R(D) = \max\!\left(0,\ \tfrac{1}{2}\log_2 \frac{\sigma^2}{D}\right).\]
+
+    <p>Each additional bit per sample divides the distortion by four (about 6.02 dB per bit), and for $D \ge \sigma^2$ the mean alone suffices. For a vector of independent Gaussians with different variances the optimal allocation is <strong>reverse water-filling</strong>: components with variance below a threshold get zero bits.</p>
   </li>
   <li>
-    <p><strong>Bernoulli source, Hamming distortion.</strong> For $X \sim \text{Bernoulli}(p)$ with $p \le \tfrac12$,
-\(R(D) = \begin{cases} H_b(p) - H_b(D), &amp; 0 \le D \le p \\ 0, &amp; D &gt; p. \end{cases}\)</p>
+    <p><strong>Bernoulli($p$) source, Hamming distortion</strong> ($p \le \tfrac12$):</p>
+
+\[R(D) = \max\!\big(0,\ H_b(p) - H_b(D)\big) \quad \text{for } 0 \le D \le p.\]
   </li>
 </ul>
 
-<p>The <strong>rate–distortion theorem</strong> establishes that $R(D)$ is the true asymptotic limit (achievable and not beatable), proved again by a random-coding/typicality argument that mirrors the channel theorem. This is the theoretical backbone of every lossy codec — JPEG, MP3/AAC, and modern neural compressors all trade rate against a perceptual distortion measure.</p>
+<p><strong>Source–channel separation</strong> combines the two halves: a source can be sent over a channel and reconstructed with distortion $D$ iff $R(D) \le C$ (per channel use, with matched symbol rates), and it loses nothing to design the source code and channel code separately. Separation can fail for multi-user networks and for finite blocklengths, which is one motivation for joint source–channel coding.</p>
+
+<p>Every lossy codec is an engineering approximation of $R(D)$: transform coding (DCT in JPEG, MDCT in AAC and Opus) decorrelates the source so that reverse water-filling can be approximated by quantizing coefficients separately. <strong>Learned (neural) image and video codecs</strong>, trained end-to-end on a loss of the form $R + \lambda D$ with an entropy model driving an arithmetic coder, now outperform hand-designed codecs such as VVC intra coding in rate–distortion terms in research benchmarks, at much higher decoding cost. JPEG AI, the first standardized learning-based image codec, was completed by the JPEG committee in 2025. For perceptual quality, <strong>rate–distortion–perception</strong> theory (Blau and Michaeli, 2019) adds a constraint on the divergence between source and reconstruction distributions and shows that realism costs extra rate.</p>
 
 <h2 id="quantum-information-measures">Quantum Information Measures</h2>
 
-<p>Classical information theory has a non-commutative sibling. Replace probability distributions by <strong>density operators</strong> $\rho$ (positive semidefinite, unit trace) and the role of Shannon entropy is played by the <strong>von Neumann entropy</strong>:</p>
+<p>Replace probability distributions by <strong>density operators</strong> $\rho$ (positive semidefinite, unit trace). Shannon entropy becomes the <strong>von Neumann entropy</strong></p>
 
-\[S(\rho) = -\operatorname{Tr}(\rho \log_2 \rho) = -\sum_i \lambda_i \log_2 \lambda_i,\]
+\[S(\rho) = -\mathrm{Tr}\left(\rho \log_2 \rho\right) = -\sum_i \lambda_i \log_2 \lambda_i,\]
 
-<p>where $\lambda_i$ are the eigenvalues of $\rho$. For a diagonal $\rho$ this reduces to Shannon entropy, but quantum mechanics adds genuinely new phenomena:</p>
+<p>where $\lambda_i$ are the eigenvalues of $\rho$; for diagonal $\rho$ it reduces to Shannon entropy. Schumacher compression (1995) is the quantum source coding theorem: $n$ copies of a source with average state $\rho$ can be compressed into about $nS(\rho)$ qubits. Quantum mechanics also adds new behavior:</p>
 
 <ul>
-  <li><strong>Entanglement breaks subadditivity intuition.</strong> Classically $H(X,Y) \ge \max{H(X),H(Y)}$, but a pure entangled state can have $S(\rho_{AB}) = 0$ while each subsystem is maximally mixed, $S(\rho_A) = S(\rho_B) &gt; 0$. The <strong>conditional entropy can go negative</strong> — a uniquely quantum signature with operational meaning in state merging.</li>
-  <li><strong>Holevo bound.</strong> The accessible classical information extractable from a quantum ensemble ${p_i, \rho_i}$ is capped by the Holevo quantity $\chi = S!\big(\sum_i p_i \rho_i\big) - \sum_i p_i S(\rho_i)$. This is <em>why</em> $n$ qubits store at most $n$ classical bits despite their continuous parameters.</li>
-  <li><strong>Quantum mutual information</strong> $I(A;B) = S(\rho_A) + S(\rho_B) - S(\rho_{AB})$ remains non-negative (strong subadditivity), and quantum channel capacities (classical, quantum, private) replace the single classical $C$.</li>
+  <li><strong>Negative conditional entropy.</strong> Classically $H(X,Y) \ge H(X)$. For a maximally entangled pair of qubits, $S(\rho_{AB}) = 0$ while $S(\rho_A) = S(\rho_B) = 1$, so $S(A\mid B) = S(\rho_{AB}) - S(\rho_B) = -1$. Negative conditional entropy has an operational meaning in <strong>state merging</strong>: it counts entanglement gained rather than consumed.</li>
+  <li><strong>Holevo bound.</strong> The classical information accessible from an ensemble ${p_i, \rho_i}$ is at most $\chi = S\big(\sum_i p_i \rho_i\big) - \sum_i p_i S(\rho_i)$. Hence $n$ qubits convey at most $n$ classical bits despite their continuous parameters (or $2n$ with pre-shared entanglement, via superdense coding).</li>
+  <li><strong>Strong subadditivity.</strong> $S(\rho_{ABC}) + S(\rho_B) \le S(\rho_{AB}) + S(\rho_{BC})$ (Lieb–Ruskai, 1973), equivalent to non-negativity of quantum conditional mutual information, is the deepest general inequality of the theory.</li>
+  <li><strong>Many capacities.</strong> A quantum channel has distinct classical, private, and quantum capacities; the quantum capacity is not additive in general and needs regularization, and entanglement assistance changes the answer.</li>
 </ul>
 
-<p>These measures are developed in full — together with stabilizer error correction and the quantum threshold theorem — on the <a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> page. The recurring lesson is that Shannon’s framework is robust enough that its scaffolding (entropy, mutual information, capacity, coding theorems) survives the jump to the quantum world, even as the inequalities acquire new and stranger behavior.</p>
+<p>Quantum error correction transfers classical coding ideas to qubits. Stabilizer codes are built from pairs of classical codes (CSS construction), and <strong>quantum LDPC codes</strong> are the active frontier: IBM’s bivariate-bicycle “gross” code, $[[144,12,12]]$, encodes 12 logical qubits in 144 data qubits (Bravyi et al., <em>Nature</em>, 2024), roughly an order of magnitude fewer physical qubits than a surface code of similar distance. Details, together with the threshold theorem, are on the <a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> page.</p>
 
 <h2 id="key-takeaways">Key Takeaways</h2>
 
 <ul>
-  <li><strong>Entropy is the unique measure.</strong> Continuity plus a grouping axiom forces Shannon’s $-\sum p\log p$; it is both the compression floor and the building block of every other measure.</li>
-  <li><strong>Mutual information is shared bits.</strong> $I(X;Y)$ quantifies how much $Y$ reveals about $X$, obeys the data-processing inequality, and defines channel capacity as $\max_{p(x)} I(X;Y)$.</li>
-  <li><strong>Capacity is a sharp threshold.</strong> Below $C$, error $\to 0$; above $C$, error is bounded away from zero — proved by typicality (achievability) and Fano’s inequality (converse).</li>
-  <li><strong>Compression reaches the entropy.</strong> Huffman is optimal among prefix codes; arithmetic coding drives per-symbol redundancy to $O(1/n)$ for any source.</li>
-  <li><strong>Structured codes approach the limit.</strong> Hamming and Reed–Solomon give exact algebraic guarantees; LDPC, turbo, and polar codes approach or achieve capacity with efficient decoders.</li>
-  <li><strong>Lossy has its own limit.</strong> The rate–distortion function $R(D)$ is the sharp rate for tolerated distortion $D$, the dual of channel coding and the basis of every lossy codec.</li>
+  <li><strong>Entropy is forced by its axioms.</strong> Continuity, monotonicity, and grouping determine $-\sum p\log p$; it is the lossless compression limit and the building block of every other measure.</li>
+  <li><strong>Mutual information is shared information.</strong> It defines capacity, obeys the data-processing inequality, and with Fano’s inequality supplies converse bounds.</li>
+  <li><strong>Capacity is a sharp threshold, approached at rate $1/\sqrt{n}$.</strong> Error can be made arbitrarily small below $C$ and not above it; channel dispersion measures the finite-length penalty.</li>
+  <li><strong>Compression is prediction.</strong> Huffman, arithmetic coding, and ANS turn a probability model into bits; the code length is the model’s log-loss.</li>
+  <li><strong>Modern codes operate at the limit.</strong> LDPC and polar codes run within a fraction of a dB of capacity in Wi-Fi, 5G, and storage; Reed–Muller codes were proved capacity-achieving in 2023.</li>
+  <li><strong>Lossy compression has its own limit.</strong> $R(D)$ is the dual of capacity and the target every lossy and learned codec approximates.</li>
 </ul>
 
 <h2 id="see-also">See Also</h2>
 
 <div class="see-also-card">
-  <h4 id="see-also">See Also</h4>
-
-  <p><strong>Related Advanced Topics</strong></p>
+  <p><strong>Related advanced topics</strong></p>
   <ul>
-    <li><a href="../ai-mathematics/">AI Mathematics</a> — The information bottleneck, MDL, and PAC-Bayes recast learning as compression</li>
-    <li><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> — Quantum error correction, the Holevo bound, and quantum Shannon theory</li>
-    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> — Coding-theoretic tools in replication, erasure-coded storage, and consensus</li>
-    <li><a href="../monorepo/">Monorepo Strategies</a> — Content-addressable caching and hashing in large-scale build systems</li>
+    <li><a href="../ai-mathematics/">AI Mathematics</a> — information bottleneck, MDL, PAC-Bayes, and learning as compression</li>
+    <li><a href="../quantum-algorithms-research/">Quantum Algorithms Research</a> — quantum error correction, the Holevo bound, and fault tolerance</li>
+    <li><a href="../cryptography/">Cryptography</a> — perfect secrecy, min-entropy, randomness extraction, and code-based post-quantum schemes</li>
+    <li><a href="../distributed-systems-theory/">Distributed Systems Theory</a> — erasure-coded replication and storage</li>
+    <li><a href="../complexity-theory/">Complexity Theory</a> — Kolmogorov complexity and the limits of compression</li>
   </ul>
 
-  <p><strong>Applied &amp; Foundational</strong></p>
+  <p><strong>Applied and foundational</strong></p>
   <ul>
-    <li><a href="../../technology/networking/">Networking</a> — Channels, error detection, and reliable transmission in practice</li>
-    <li><a href="../../technology/cybersecurity/">Cybersecurity</a> — Hash functions, entropy, and key material</li>
-    <li><a href="../../physics/statistical-mechanics/">Statistical Mechanics</a> — Boltzmann/Gibbs entropy and the physics roots of information</li>
-    <li><a href="../../ai-ml/">AI/ML Documentation</a> — Where compression, cross-entropy, and KL divergence appear in practice</li>
-    <li><a href="../../reference/">Mathematical Reference</a> — Probability, linear algebra, and finite-field quick reference</li>
+    <li><a href="../../technology/networking/">Networking</a> — checksums, CRCs, and reliable transmission in practice</li>
+    <li><a href="../../technology/cybersecurity/">Cybersecurity</a> — hash functions, entropy, and key material</li>
+    <li><a href="../../physics/statistical-mechanics/">Statistical Mechanics</a> — Boltzmann and Gibbs entropy</li>
+    <li><a href="../../ai-ml/">AI/ML Documentation</a> — cross-entropy and KL divergence in practice</li>
+    <li><a href="../../reference/">Mathematical Reference</a> — probability and linear-algebra quick reference</li>
   </ul>
 </div>
 

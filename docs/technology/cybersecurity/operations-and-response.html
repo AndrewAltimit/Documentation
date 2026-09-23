@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="The formal foundations of security — security games, reductions, and universal composability — and the research frontiers reshaping it: secure multi-party co...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Cybersecurity: Foundations, Operations & Research">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="The formal foundations of security — security games, reductions, and universal composability — and the research frontiers reshaping it: secure multi-party co...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/cybersecurity/operations-and-response.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Cybersecurity: Foundations, Operations & Research">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="The formal foundations of security — security games, reductions, and universal composability — and the research frontiers reshaping it: secure multi-party co...">
 
 <title>Cybersecurity: Foundations, Operations & Research | Andrews Notebook</title>
 
@@ -3226,6 +3226,23 @@ document.addEventListener('DOMContentLoaded', function () {
   <li>the <strong>ideal world</strong>, where parties just hand inputs to $\mathcal{F}$ and a <strong>simulator</strong> $\mathcal{S}$ tries to fake the adversary’s view.</li>
 </ul>
 
+<pre><code class="language-mermaid">flowchart TB
+    Z["Environment Z&lt;br/&gt;(chooses inputs, sees outputs)"]
+    subgraph REAL["Real world"]
+        P["Parties run protocol π"]
+        A["Adversary A"]
+    end
+    subgraph IDEAL["Ideal world"]
+        F["Ideal functionality F&lt;br/&gt;(trusted, does the right thing)"]
+        Sim["Simulator S&lt;br/&gt;(fakes A's view)"]
+    end
+    Z --&gt; REAL
+    Z --&gt; IDEAL
+    P &lt;--&gt; A
+    F &lt;--&gt; Sim
+    REAL -. "Z cannot tell which world it is in" .- IDEAL
+</code></pre>
+
 \[\forall \mathcal{A}\ \exists \mathcal{S}\ \forall \mathcal{Z}: \quad
 \mathrm{REAL}_{\pi,\mathcal{A},\mathcal{Z}} \ \approx_c\ \mathrm{IDEAL}_{\mathcal{F},\mathcal{S},\mathcal{Z}}\]
 
@@ -3333,58 +3350,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h3 id="the-quantum-threat">The Quantum Threat</h3>
 
-<p>Quantum computers threaten to break most current public-key encryption. A classical computer factoring a 2048-bit RSA modulus by trial division needs billions of years; a sufficiently large quantum computer running <strong>Shor’s algorithm</strong> could do it in hours or days, because Shor’s algorithm factors integers and computes discrete logarithms in polynomial time. That single result undermines RSA, Diffie–Hellman, and elliptic-curve cryptography simultaneously — essentially all of today’s public-key infrastructure. Symmetric ciphers fare better: <strong>Grover’s algorithm</strong> only gives a quadratic speedup on brute-force search, so doubling the key length (e.g., AES-256) restores the security margin.</p>
+<p>Quantum computers threaten to break most current public-key encryption. A classical computer factoring a 2048-bit RSA modulus needs far longer than the age of the universe; a sufficiently large quantum computer running <strong>Shor’s algorithm</strong> could do it in hours or days, because Shor’s algorithm factors integers and computes discrete logarithms in polynomial time. That single result undermines RSA, Diffie–Hellman, and elliptic-curve cryptography simultaneously — essentially all of today’s public-key infrastructure. Symmetric ciphers fare better: <strong>Grover’s algorithm</strong> gives only a quadratic speedup on brute-force search, so doubling the key length (e.g., AES-256) restores the security margin.</p>
 
-<p>The response — <strong>post-quantum cryptography</strong> (lattice-based, hash-based, code-based, and multivariate schemes) — is covered in full in <a href="cryptography.html#the-quantum-threat-why-we-need-new-cryptography">Cryptography → The Quantum Threat</a>. Operationally, two concerns drive action <em>today</em>, before large quantum computers exist:</p>
+<p>No machine can run Shor’s algorithm at that scale yet, but the resource estimates keep falling. In 2025 Craig Gidney revised his own widely cited 2019 figure of ~20 million noisy qubits down to <strong>under one million qubits, factoring RSA-2048 in under a week</strong> — a reminder that the threat timeline depends on algorithmic and error-correction progress, not just qubit counts, and that it moves in the attacker’s favor.</p>
+
+<p>The response — <strong>post-quantum cryptography</strong> (lattice-based, hash-based, code-based, and multivariate schemes) — is covered in full in <a href="cryptography.html#the-quantum-threat-why-we-need-new-cryptography">Cryptography → The Quantum Threat</a>. NIST finalized its first three standards in August 2024: <strong>ML-KEM (Kyber, FIPS 203)</strong> for key encapsulation, and <strong>ML-DSA (Dilithium, FIPS 204)</strong> plus the hash-based <strong>SLH-DSA (SPHINCS+, FIPS 205)</strong> for signatures, with the lattice signature <strong>FN-DSA (Falcon)</strong> and the code-based <strong>HQC</strong> — chosen in 2025 as a backup KEM built on different math than ML-KEM — following as later standards. Operationally, two concerns drive action <em>today</em>, before large quantum computers exist:</p>
 
 <ul>
-  <li><strong>“Harvest now, decrypt later.”</strong> An adversary can record encrypted traffic now and decrypt it once a quantum computer is available. Any data that must stay confidential for a decade or more is already at risk.</li>
-  <li><strong>Crypto-agility.</strong> The practical task is inventorying where your systems use RSA/ECC and being ready to swap in NIST’s standardized algorithms — <strong>ML-KEM (Kyber)</strong> for key encapsulation, <strong>ML-DSA (Dilithium)</strong> and <strong>FALCON</strong> for signatures, and the hash-based <strong>SPHINCS+</strong> as a conservative backup — without re-architecting everything.</li>
+  <li><strong>“Harvest now, decrypt later.”</strong> An adversary can record encrypted traffic now and decrypt it once a quantum computer is available. Any data that must stay confidential for a decade or more is already at risk, which is why hybrid post-quantum key exchange (X25519 combined with ML-KEM) is already the default in TLS 1.3 stacks such as Chrome and OpenSSL.</li>
+  <li><strong>Crypto-agility.</strong> The practical task is inventorying where systems use RSA/ECC and being ready to swap in the standardized algorithms without re-architecting everything.</li>
 </ul>
 
 <h3 id="ai-both-sword-and-shield">AI: Both Sword and Shield</h3>
 
-<p>AI is revolutionizing both attack and defense, and the two are locked in an escalating loop. On defense, machine learning excels at the volume-and-anomaly problems that overwhelm human analysts — establishing behavioral baselines and flagging deviations across billions of events:</p>
+<p>AI is reshaping both attack and defense, and the two are locked in an escalating loop. Three distinct threads are worth separating, because they are often conflated.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># AI-powered defense
-</span><span class="k">class</span> <span class="nc">AISecurityAnalyst</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">detect_anomalies</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">network_traffic</span><span class="p">):</span>
-        <span class="c1"># Learn normal behavior patterns
-</span>        <span class="n">baseline</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="nf">learn_baseline</span><span class="p">(</span><span class="n">historical_traffic</span><span class="p">)</span>
+<p><strong>AI for defense.</strong> Machine learning excels at the volume-and-anomaly problems that overwhelm human analysts: establishing behavioral baselines and flagging deviations across billions of events (the UEBA model), triaging and summarizing alerts, and drafting response steps. Large-language-model “SOC copilots” now sit inside detection platforms, turning natural-language questions into queries and condensing an incident’s evidence into a narrative. The gain is speed; the risk is over-trust, since a confident but wrong summary can send an investigation down the wrong path.</p>
 
-        <span class="c1"># Detect deviations
-</span>        <span class="k">for</span> <span class="n">packet</span> <span class="ow">in</span> <span class="n">network_traffic</span><span class="p">:</span>
-            <span class="n">anomaly_score</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="nf">predict_anomaly</span><span class="p">(</span><span class="n">packet</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">anomaly_score</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">:</span>
-                <span class="c1"># AI found something human analysts might miss
-</span>                <span class="nf">investigate</span><span class="p">(</span><span class="n">packet</span><span class="p">)</span>
+<p><strong>AI for attack.</strong> AI lowers the cost of <em>scaling</em> offense — hyper-personalized phishing at volume, deepfake voice and video for social engineering (increasingly used against IT help desks to bypass MFA), and ML-guided fuzzing that widens automated vulnerability discovery. It compresses the time from a leaked credential to a working intrusion, shrinking defenders’ margin.</p>
 
-    <span class="k">def</span> <span class="nf">respond_to_threats</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">threat</span><span class="p">):</span>
-        <span class="c1"># AI can respond faster than humans
-</span>        <span class="n">response</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="nf">recommend_response</span><span class="p">(</span><span class="n">threat</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">confidence</span> <span class="o">&gt;</span> <span class="mf">0.95</span><span class="p">:</span>
-            <span class="nf">execute_response</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>  <span class="c1"># Automatic mitigation
-</span>        <span class="k">else</span><span class="p">:</span>
-            <span class="nf">alert_human_analyst</span><span class="p">(</span><span class="n">threat</span><span class="p">,</span> <span class="n">response</span><span class="p">)</span>  <span class="c1"># Human decision needed
-</span>
-<span class="c1"># But attackers use AI too...
-</span><span class="k">class</span> <span class="nc">AIAttacker</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">generate_phishing_email</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-        <span class="c1"># AI creates personalized, convincing phishing emails
-</span>        <span class="n">profile</span> <span class="o">=</span> <span class="nf">scrape_social_media</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-        <span class="n">email</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">language_model</span><span class="p">.</span><span class="nf">generate</span><span class="p">(</span>
-            <span class="sa">f</span><span class="sh">"</span><span class="s">Write email to </span><span class="si">{</span><span class="n">target</span><span class="p">.</span><span class="n">name</span><span class="si">}</span><span class="s"> about </span><span class="si">{</span><span class="n">target</span><span class="p">.</span><span class="n">interests</span><span class="si">}</span><span class="sh">"</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">email</span>
-
-    <span class="k">def</span> <span class="nf">evade_detection</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">malware</span><span class="p">):</span>
-        <span class="c1"># AI modifies malware until it bypasses antivirus
-</span>        <span class="k">while</span> <span class="nf">detected_by_antivirus</span><span class="p">(</span><span class="n">malware</span><span class="p">):</span>
-            <span class="n">malware</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">model</span><span class="p">.</span><span class="nf">mutate</span><span class="p">(</span><span class="n">malware</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">malware</span>
-</code></pre></div></div>
-
-<p>The attacker’s side is just as active: AI lowers the cost of <em>scaling</em> attacks — hyper-personalized phishing, deepfake voice and video for social engineering, and automated vulnerability discovery via fuzzing guided by ML. There is also a security problem <em>of</em> AI itself, distinct from AI <em>for</em> security. ML models can be subverted through <strong>adversarial examples</strong> (inputs perturbed to force misclassification), <strong>data-poisoning</strong> (corrupting the training set), <strong>model extraction</strong> (stealing a model through its API), and, for large language models, <strong>prompt injection</strong> (smuggling instructions through untrusted input). These ML-specific attacks are treated in <a href="attacks-and-defense.html#machine-learning-under-attack">Attacks &amp; Network Defense → Machine Learning Under Attack</a>.</p>
+<p><strong>Attacks on AI.</strong> Distinct from either is the security problem <em>of</em> AI systems themselves. Models can be subverted through <strong>adversarial examples</strong> (inputs perturbed to force misclassification), <strong>data poisoning</strong> (corrupting the training set), <strong>model extraction</strong> (reconstructing a model through its API), and, for large language models, <strong>prompt injection</strong> (smuggling instructions through untrusted input) — the top entry in the OWASP Top 10 for LLM Applications. These ML-specific attacks are treated in <a href="attacks-and-defense.html#machine-learning-under-attack">Attacks &amp; Network Defense → Machine Learning Under Attack</a>.</p>
 
 <p>The defensive trajectory bends toward <strong>Zero Trust</strong> — assuming compromise and verifying continuously rather than trusting the perimeter — which pairs naturally with continuous ML-driven monitoring. Its full treatment lives in <a href="attacks-and-defense.html#zero-trust-never-trust-always-verify">Attacks &amp; Network Defense → Zero Trust</a>.</p>
 

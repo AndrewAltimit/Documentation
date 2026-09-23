@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="How a Security Operations Center works: SIEM log pipelines, detection engineering and MITRE ATT&CK coverage, SOAR automation, continuous monitoring, threat h...">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="Cybersecurity: Security Operations">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="How a Security Operations Center works: SIEM log pipelines, detection engineering and MITRE ATT&CK coverage, SOAR automation, continuous monitoring, threat h...">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/cybersecurity/security-operations.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Cybersecurity: Security Operations">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="How a Security Operations Center works: SIEM log pipelines, detection engineering and MITRE ATT&CK coverage, SOAR automation, continuous monitoring, threat h...">
 
 <title>Cybersecurity: Security Operations | Andrews Notebook</title>
 
@@ -3135,311 +3135,295 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <h1 id="security-operations">Security Operations</h1>
 
-<p>Security operations is the day-to-day work of keeping an organization defended: collecting and correlating telemetry in a SIEM, engineering detections that fire on real attacks (and not on noise), continuously monitoring for compromise, proactively hunting for adversaries that slipped past automated alerts, and validating all of it with offensive testing — penetration tests and red/blue/purple team exercises. This page covers how a Security Operations Center (SOC) is built and run end to end.</p>
+<p><strong>Security operations</strong> (SecOps) is the continuous work of detecting and stopping attacks that got past preventive controls. It covers the Security Operations Center (SOC) and its staffing model, the SIEM and log pipeline that feed it, detection engineering, response automation, continuous monitoring of security posture, proactive threat hunting, and offensive testing that checks whether any of it works. What happens once an alert becomes a confirmed incident — containment, forensics, post-mortems — is covered in <a href="incident-response.html">Incident Response &amp; Forensics</a>.</p>
 
-<h2 id="the-security-operations-center-soc">The Security Operations Center (SOC)</h2>
+<pre><code class="language-mermaid">flowchart LR
+    SRC["Telemetry&lt;br/&gt;(endpoint, identity,&lt;br/&gt;cloud, network, SaaS)"] --&gt; PIPE["Log pipeline&lt;br/&gt;(collect, normalize,&lt;br/&gt;enrich, store)"]
+    PIPE --&gt; DET["Detections&lt;br/&gt;(rules, analytics, UEBA)"]
+    DET --&gt; TRI["Triage&lt;br/&gt;(SOAR + analysts)"]
+    TRI --&gt;|confirmed| IR["Incident response"]
+    TRI --&gt;|benign| TUNE["Tuning"]
+    HUNT["Threat hunting"] --&gt; PIPE
+    HUNT --&gt;|new rule| DET
+    VAL["Offensive validation"] --&gt;|coverage gaps| DET
+    TUNE --&gt; DET
+</code></pre>
 
-<p>A <strong>SOC</strong> is the team, process, and tooling responsible for monitoring, detecting, analyzing, and responding to security events. It is the place where prevention meets reality: firewalls, EDR, and access controls reduce risk, but the SOC exists because some attacks always get through, and someone has to be watching.</p>
+<h2 id="the-security-operations-center">The Security Operations Center</h2>
 
-<h3 id="soc-tiers-and-roles">SOC Tiers and Roles</h3>
+<p>A <strong>SOC</strong> is the team, processes, and tooling that monitor an environment, analyze what they see, and start the response. Preventive controls such as firewalls, EDR, and access policy lower the number of successful attacks, but never to zero. The SOC exists to catch what they miss.</p>
 
-<p>Most SOCs organize analysts into tiers, escalating an event up the chain as it proves to be real and serious:</p>
+<h3 id="staffing-model">Staffing Model</h3>
+
+<p>The traditional SOC is organized in tiers, with an alert escalating as it proves real and serious:</p>
 
 <table>
   <thead>
     <tr>
-      <th>Tier</th>
       <th>Role</th>
       <th>Responsibility</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Tier 1</strong></td>
-      <td>Triage analyst</td>
-      <td>First responder to alerts; validates, closes false positives, escalates real ones</td>
+      <td><strong>Tier 1: triage analyst</strong></td>
+      <td>Reviews incoming alerts, closes false positives, escalates credible ones</td>
     </tr>
     <tr>
-      <td><strong>Tier 2</strong></td>
-      <td>Incident responder</td>
-      <td>Deep investigation, scoping, containment of confirmed incidents</td>
+      <td><strong>Tier 2: incident responder</strong></td>
+      <td>Investigates and scopes confirmed incidents, starts containment</td>
     </tr>
     <tr>
-      <td><strong>Tier 3</strong></td>
-      <td>Threat hunter / forensics</td>
-      <td>Proactive hunting, malware analysis, advanced forensics, complex intrusions</td>
+      <td><strong>Tier 3: threat hunter / forensic analyst</strong></td>
+      <td>Proactive hunting, malware analysis, complex intrusions</td>
     </tr>
     <tr>
-      <td><strong>SOC Manager</strong></td>
-      <td>Lead</td>
-      <td>Owns metrics, staffing, escalation to leadership, process improvement</td>
+      <td><strong>Detection engineer</strong></td>
+      <td>Writes, tests, and tunes detections; owns the detection content library</td>
     </tr>
     <tr>
-      <td><strong>Detection Engineer</strong></td>
-      <td>Builder</td>
-      <td>Writes and tunes detections, maintains the SIEM content library</td>
+      <td><strong>SOC manager</strong></td>
+      <td>Metrics, staffing, escalation to leadership, process improvement</td>
     </tr>
   </tbody>
 </table>
 
-<p>A common failure mode is the <strong>“tier 1 treadmill”</strong>: analysts drowning in low-value alerts, alert fatigue setting in, and real attacks getting closed as noise. Good SOCs aggressively automate triage so humans spend time on judgment, not button-clicking.</p>
+<p>The tiered model’s classic failure mode is the <strong>Tier 1 treadmill</strong>: analysts spend their shifts on low-value alerts, fatigue sets in, and real attacks get closed as noise. Most SOCs now push repetitive triage onto automation — SOAR playbooks and, increasingly, AI triage assistants — and flatten the tiers so analysts work incidents end to end. Platforms that correlate alerts from several products into a single incident help, because the analyst starts from one attack story instead of a dozen unrelated alerts.</p>
 
-<h3 id="key-soc-metrics">Key SOC Metrics</h3>
+<p>Many organizations don’t run a 24×7 SOC in-house. They buy <strong>MDR</strong> (managed detection and response) or run a hybrid model where a provider covers after-hours triage and the internal team owns detection content and response decisions.</p>
 
-<p>You manage what you measure. The metrics that matter for a SOC are about <em>speed</em> and <em>signal quality</em>:</p>
+<h3 id="soc-metrics">SOC Metrics</h3>
 
-<ul>
-  <li><strong>MTTD (Mean Time To Detect)</strong> — how long from compromise to detection. The “dwell time” attackers enjoy.</li>
-  <li><strong>MTTR (Mean Time To Respond)</strong> — how long from detection to containment.</li>
-  <li><strong>False positive rate</strong> — fraction of alerts that turn out to be benign. High FPR burns out analysts.</li>
-  <li><strong>Alert volume per analyst</strong> — a capacity and tuning signal.</li>
-  <li><strong>Coverage</strong> — fraction of relevant attack techniques (e.g., MITRE ATT&amp;CK techniques) you can actually detect.</li>
-</ul>
+<p>SOC metrics measure speed, signal quality, and coverage:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A simple operational scorecard a SOC manager might compute weekly
-</span><span class="k">def</span> <span class="nf">soc_scorecard</span><span class="p">(</span><span class="n">events</span><span class="p">):</span>
-    <span class="n">detected</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span> <span class="k">if</span> <span class="n">e</span><span class="p">.</span><span class="n">detected</span><span class="p">]</span>
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Definition</th>
+      <th>What it tells you</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>MTTD</strong> (mean time to detect)</td>
+      <td>Compromise → detection</td>
+      <td>How long attackers operate unseen (<strong>dwell time</strong>)</td>
+    </tr>
+    <tr>
+      <td><strong>MTTR</strong> (mean time to respond)</td>
+      <td>Detection → containment</td>
+      <td>How fast the SOC acts once it knows</td>
+    </tr>
+    <tr>
+      <td><strong>False-positive rate</strong></td>
+      <td>Benign alerts / all alerts</td>
+      <td>Detection quality; high rates burn out analysts</td>
+    </tr>
+    <tr>
+      <td><strong>Alerts per analyst per shift</strong></td>
+      <td>Workload</td>
+      <td>Capacity and tuning pressure</td>
+    </tr>
+    <tr>
+      <td><strong>ATT&amp;CK coverage</strong></td>
+      <td>Techniques with a tested detection / techniques in scope</td>
+      <td>Where detection is missing</td>
+    </tr>
+    <tr>
+      <td><strong>Automation rate</strong></td>
+      <td>Alerts closed or enriched with no human action</td>
+      <td>How far automation has taken over routine triage</td>
+    </tr>
+  </tbody>
+</table>
 
-    <span class="n">mttd</span> <span class="o">=</span> <span class="nf">average</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">detected_at</span> <span class="o">-</span> <span class="n">e</span><span class="p">.</span><span class="n">compromised_at</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">detected</span><span class="p">)</span>
-    <span class="n">mttr</span> <span class="o">=</span> <span class="nf">average</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">contained_at</span> <span class="o">-</span> <span class="n">e</span><span class="p">.</span><span class="n">detected_at</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">detected</span><span class="p">)</span>
+<p>For outside reference, Mandiant’s <em>M-Trends 2026</em> reports a global median dwell time of <strong>14 days</strong> for intrusions investigated in 2025 (up from 11 the year before); espionage cases ran to a median of about four months. Exploits were again the most common initial vector (32%), and interactive voice phishing of IT help desks rose to second place (11%). Medians hide a skewed distribution, so track percentiles (p50, p90), not just means.</p>
 
-    <span class="n">alerts</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span> <span class="k">if</span> <span class="n">e</span><span class="p">.</span><span class="n">generated_alert</span><span class="p">]</span>
-    <span class="n">false_positives</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alerts</span> <span class="k">if</span> <span class="n">a</span><span class="p">.</span><span class="n">benign</span><span class="p">]</span>
-    <span class="n">fpr</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">false_positives</span><span class="p">)</span> <span class="o">/</span> <span class="nf">max</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">alerts</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">statistics</span> <span class="kn">import</span> <span class="n">median</span><span class="p">,</span> <span class="n">quantiles</span>
 
+<span class="k">def</span> <span class="nf">soc_scorecard</span><span class="p">(</span><span class="n">incidents</span><span class="p">,</span> <span class="n">alerts</span><span class="p">,</span> <span class="n">analyst_shifts</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Weekly scorecard. Timestamps are datetimes; incidents are confirmed intrusions.</span><span class="sh">"""</span>
+    <span class="n">dwell</span>   <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">.</span><span class="n">detected_at</span>  <span class="o">-</span> <span class="n">i</span><span class="p">.</span><span class="n">compromised_at</span><span class="p">).</span><span class="nf">total_seconds</span><span class="p">()</span> <span class="o">/</span> <span class="mi">3600</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">incidents</span><span class="p">]</span>
+    <span class="n">respond</span> <span class="o">=</span> <span class="p">[(</span><span class="n">i</span><span class="p">.</span><span class="n">contained_at</span> <span class="o">-</span> <span class="n">i</span><span class="p">.</span><span class="n">detected_at</span><span class="p">).</span><span class="nf">total_seconds</span><span class="p">()</span>   <span class="o">/</span> <span class="mi">3600</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">incidents</span><span class="p">]</span>
+    <span class="n">benign</span>  <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">alerts</span> <span class="k">if</span> <span class="n">a</span><span class="p">.</span><span class="n">disposition</span> <span class="o">==</span> <span class="sh">"</span><span class="s">benign</span><span class="sh">"</span><span class="p">)</span>
     <span class="k">return</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">mttd_hours</span><span class="sh">"</span><span class="p">:</span> <span class="n">mttd</span> <span class="o">/</span> <span class="mi">3600</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">mttr_hours</span><span class="sh">"</span><span class="p">:</span> <span class="n">mttr</span> <span class="o">/</span> <span class="mi">3600</span><span class="p">,</span>
-        <span class="sh">"</span><span class="s">false_positive_rate</span><span class="sh">"</span><span class="p">:</span> <span class="nf">round</span><span class="p">(</span><span class="n">fpr</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
-        <span class="sh">"</span><span class="s">alerts_per_analyst_per_day</span><span class="sh">"</span><span class="p">:</span> <span class="nf">len</span><span class="p">(</span><span class="n">alerts</span><span class="p">)</span> <span class="o">/</span> <span class="n">num_analysts</span> <span class="o">/</span> <span class="mi">7</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">dwell_hours_p50</span><span class="sh">"</span><span class="p">:</span>   <span class="nf">median</span><span class="p">(</span><span class="n">dwell</span><span class="p">)</span> <span class="k">if</span> <span class="n">dwell</span> <span class="k">else</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">dwell_hours_p90</span><span class="sh">"</span><span class="p">:</span>   <span class="nf">quantiles</span><span class="p">(</span><span class="n">dwell</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">10</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">dwell</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="k">else</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">respond_hours_p50</span><span class="sh">"</span><span class="p">:</span> <span class="nf">median</span><span class="p">(</span><span class="n">respond</span><span class="p">)</span> <span class="k">if</span> <span class="n">respond</span> <span class="k">else</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">false_positive_rate</span><span class="sh">"</span><span class="p">:</span> <span class="nf">round</span><span class="p">(</span><span class="n">benign</span> <span class="o">/</span> <span class="nf">max</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">alerts</span><span class="p">),</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">3</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">alerts_per_analyst_shift</span><span class="sh">"</span><span class="p">:</span> <span class="nf">round</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">alerts</span><span class="p">)</span> <span class="o">/</span> <span class="nf">max</span><span class="p">(</span><span class="n">analyst_shifts</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">),</span>
     <span class="p">}</span>
 </code></pre></div></div>
 
-<h2 id="siem-and-log-pipelines">SIEM and Log Pipelines</h2>
+<h2 id="siem-and-the-log-pipeline">SIEM and the Log Pipeline</h2>
 
-<p>A <strong>Security Information and Event Management</strong> system is the SOC’s nerve center: it ingests logs from across the environment, normalizes them, correlates events, and raises alerts. It is like having thousands of security cameras with an analyst — and increasingly an ML model — watching them all.</p>
+<p>A <strong>SIEM</strong> (security information and event management) system ingests logs from across the environment, normalizes them, correlates events, and raises alerts. Detection quality depends entirely on the data underneath it: a SIEM cannot alert on a source it never collected or a field it cannot parse.</p>
 
-<h3 id="the-log-pipeline">The Log Pipeline</h3>
-
-<p>Before a SIEM can detect anything, raw telemetry has to be collected, shipped, parsed, and stored. This pipeline is where a surprising amount of operational pain lives:</p>
+<h3 id="pipeline-stages">Pipeline Stages</h3>
 
 <pre><code class="language-mermaid">flowchart LR
-    S["Sources&lt;br/&gt;(auth, DNS, EDR,&lt;br/&gt;cloud, firewall, app)"] --&gt; C["Collection&lt;br/&gt;(agents, syslog,&lt;br/&gt;API pulls)"]
-    C --&gt; P["Parsing &amp;amp; Normalization&lt;br/&gt;(schema, enrichment)"]
-    P --&gt; I["Index / Store&lt;br/&gt;(hot + cold tiers)"]
-    I --&gt; D["Detection &amp;amp; Correlation&lt;br/&gt;(rules, ML, hunting)"]
-    D --&gt; A["Alerts &amp;amp; Dashboards"]
+    S["Sources&lt;br/&gt;(IdP, EDR, DNS,&lt;br/&gt;cloud audit, SaaS, app)"] --&gt; C["Collection&lt;br/&gt;(agents, syslog,&lt;br/&gt;API pulls)"]
+    C --&gt; R["Route &amp;amp; reduce&lt;br/&gt;(filter, sample,&lt;br/&gt;drop noise)"]
+    R --&gt; N["Normalize &amp;amp; enrich&lt;br/&gt;(schema, asset,&lt;br/&gt;identity, intel)"]
+    N --&gt; H["Hot tier&lt;br/&gt;(indexed search)"]
+    N --&gt; L["Cold / lake tier&lt;br/&gt;(cheap, slow)"]
+    H --&gt; D["Detect &amp;amp; correlate"]
+    D --&gt; A["Alerts &amp;amp; dashboards"]
 </code></pre>
 
-<p>Each stage matters:</p>
-
 <ul>
-  <li><strong>Collection</strong> — agents (e.g., a forwarder), syslog, or API pulls from cloud providers. The hard problem is <em>completeness</em>: a source you don’t collect is a blind spot.</li>
-  <li><strong>Parsing and normalization</strong> — raw logs come in dozens of formats. They must be mapped to a common schema (so a “source IP” means the same field everywhere) and <strong>enriched</strong> with context (geolocation, asset criticality, user identity, threat-intel reputation).</li>
-  <li><strong>Indexing and storage</strong> — telemetry is huge and expensive. Most SIEMs use <strong>hot/cold tiering</strong>: recent data in fast searchable storage, older data archived cheaply but slower to query. This trades cost against retention, which directly limits how far back you can investigate.</li>
+  <li><strong>Collection</strong> — agents, syslog, streaming, or API pulls from cloud and SaaS providers. The hard problem is <em>completeness</em>: any source you don’t collect is a blind spot, and identity and SaaS logs are now as important as endpoint and network data.</li>
+  <li><strong>Routing and reduction</strong> — a <strong>telemetry pipeline</strong> (tools such as Cribl, Vector, or the OpenTelemetry Collector) sits ahead of the SIEM to filter, sample, and reshape events. Because most SIEMs price on ingest volume, dropping predictably useless data before it lands is a direct cost lever and a way to keep the index fast.</li>
+  <li><strong>Normalization and enrichment</strong> — raw logs arrive in dozens of formats and must be mapped to a common schema (so “source IP” is the same field everywhere) and enriched with context: geolocation, asset criticality, resolved user identity, and threat-intel reputation. Open schemas such as the <strong>Open Cybersecurity Schema Framework (OCSF)</strong> and Elastic’s ECS reduce the per-source parser sprawl that used to dominate this stage.</li>
+  <li><strong>Storage tiering</strong> — telemetry is large and expensive, so SIEMs split <strong>hot</strong> (recent, fast to search) from <strong>cold or data-lake</strong> tiers (older, cheap object storage, slower to query). The split directly bounds how far back an investigation can reach. <strong>Security data lake</strong> architectures (Amazon Security Lake on OCSF, Google SecOps, Microsoft Sentinel’s data lake tier) decouple cheap long-term retention from the query engine so retention is no longer rationed as tightly.</li>
 </ul>
 
-<h3 id="next-generation-siem">Next-Generation SIEM</h3>
+<h3 id="the-modern-platform">The Modern Platform</h3>
 
-<p>Modern SIEM platforms have moved well beyond simple rule matching:</p>
+<p>The market has largely folded standalone SIEM, endpoint, and response tooling into unified platforms:</p>
 
 <ul>
-  <li><strong>XDR (Extended Detection and Response)</strong> — unified detection across endpoints, network, identity, and cloud rather than siloed tools.</li>
-  <li><strong>SOAR integration</strong> — Security Orchestration, Automation, and Response: playbooks that automate triage and response (enrich an alert, isolate a host, disable an account) so analysts handle exceptions, not every event.</li>
-  <li><strong>ML-powered analytics</strong> — behavioral baselines and anomaly detection (often called UEBA, User and Entity Behavior Analytics) to catch attacks that no static rule anticipated.</li>
-  <li><strong>Cloud-native SIEM</strong> — elastic, managed platforms (Elastic Security, Splunk Cloud, Microsoft Sentinel, Google Chronicle) that scale ingestion without managing servers.</li>
+  <li><strong>XDR</strong> (extended detection and response) correlates detections across endpoint, identity, email, network, and cloud instead of leaving each in its own console. Vendors increasingly ship SIEM and XDR as one product — for example, Microsoft has consolidated Sentinel into the Defender portal, and Google runs Chronicle/SecOps as a cloud-native backend.</li>
+  <li><strong>SOAR</strong> (security orchestration, automation, and response) runs playbooks that enrich an alert, isolate a host, or disable an account automatically, so analysts handle exceptions rather than every event. SOAR is now usually a feature of the platform rather than a separate purchase.</li>
+  <li><strong>UEBA</strong> (user and entity behavior analytics) builds behavioral baselines and flags deviations, catching attacks no static rule anticipated — a compromised account suddenly pulling gigabytes from a repository it never touched before.</li>
+  <li><strong>AI assistants</strong> — LLM-based “SOC copilots” now summarize incidents, draft queries from natural language, and propose response steps. They accelerate triage but need the same skepticism as any junior analyst; their output is a starting point, not a verdict.</li>
 </ul>
 
 <h3 id="detection-queries">Detection Queries</h3>
 
-<p>SIEM detections are typically expressed as searches over the normalized data. A canonical example is brute-force login detection:</p>
+<p>SIEM detections are searches over the normalized data, written in the platform’s query language (SPL in Splunk, KQL in Sentinel/Chronicle, or a portable format such as <strong>Sigma</strong> that compiles to many backends). A canonical example is brute-force login detection:</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Example: Detecting brute force attacks
-# SIEM query to find multiple failed logins
-</span><span class="n">query</span> <span class="o">=</span> <span class="sh">"""</span><span class="s">
-index=auth action=failed
-| stats count by src_ip, username
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>index=auth action=failed
+| stats count by src_ip, user
 | where count &gt; 5
-| eval risk_score = count * 10
-| sort -risk_score
-</span><span class="sh">"""</span>
-
-<span class="c1"># But smart attackers know about SIEMs...
-# They might try 4 attempts, wait, then try 4 more
-# So we need smarter detection:
-</span>
-<span class="n">advanced_query</span> <span class="o">=</span> <span class="sh">"""</span><span class="s">
-index=auth action=failed
-| bucket _time span=1h
-| stats count by src_ip, username, _time
-| streamstats sum(count) as total_count by src_ip, username time_window=24h
-| where total_count &gt; 10
-</span><span class="sh">"""</span>
 </code></pre></div></div>
 
-<p>The second query illustrates a recurring theme: naive thresholds are trivially evaded by attackers who throttle their activity, so detections must reason over <strong>windows and behavior</strong>, not single events.</p>
+<p>That naive threshold is trivially evaded by an attacker who throttles — four attempts, wait, four more — so real detections reason over sliding windows and behavior, not single events:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>index=auth action=failed
+| bin _time span=1h
+| stats count by src_ip, user, _time
+| streamstats sum(count) as total by src_ip, user time_window=24h
+| where total &gt; 10
+</code></pre></div></div>
+
+<p>Password spraying (one password against many accounts) needs the inverse grouping — count distinct <em>users</em> per source rather than attempts per user — which is why detections are written against attacker <em>behavior</em> rather than a fixed number.</p>
 
 <h2 id="detection-engineering">Detection Engineering</h2>
 
-<p><strong>Detection engineering</strong> is the discipline of building, testing, and maintaining the detections that the SOC runs on. Treating detections as a one-time configuration task is a mistake; they are software, and they need the same lifecycle — version control, testing, and tuning.</p>
+<p><strong>Detection engineering</strong> builds, tests, and maintains the detections the SOC runs on. Detections are software, not one-time configuration, and need the same lifecycle: version control, code review, automated testing, and continuous tuning. Mature teams manage rules as code (“detection-as-code”) in a Git repository with CI that validates and deploys them.</p>
 
 <h3 id="the-detection-lifecycle">The Detection Lifecycle</h3>
 
 <pre><code class="language-mermaid">flowchart LR
-    H["Hypothesis&lt;br/&gt;(what attack&lt;br/&gt;to detect)"] --&gt; D["Develop&lt;br/&gt;(write the rule)"]
+    H["Hypothesis&lt;br/&gt;(attack to detect)"] --&gt; D["Develop rule"]
     D --&gt; T["Test&lt;br/&gt;(true + false&lt;br/&gt;positives)"]
     T --&gt; Dep["Deploy"]
     Dep --&gt; Tu["Tune&lt;br/&gt;(reduce noise)"]
-    Tu --&gt; R["Retire / revise"]
+    Tu --&gt; M["Monitor efficacy"]
+    M --&gt; R["Retire / revise"]
     R --&gt; H
 </code></pre>
 
-<p>A good detection is anchored to <strong>attacker behavior</strong>, not a single indicator. This is the “Pyramid of Pain”: detecting a specific file hash is trivial for the attacker to evade (recompile, hash changes), while detecting a <em>technique</em> (e.g., a service binary spawning a command shell) forces the attacker to change how they operate — which is expensive for them.</p>
+<p>A good detection is anchored to attacker <em>behavior</em>, not a single indicator. This is the point of David Bianco’s <strong>Pyramid of Pain</strong>: detecting a specific file hash is trivial for an attacker to evade (recompile, the hash changes), whereas detecting a <em>technique</em> — a service binary spawning a command shell — forces them to change how they operate, which is expensive.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A behavior-based detection (hard to evade) vs an indicator-based one (easy to evade)
-</span>
-<span class="k">def</span> <span class="nf">indicator_detection</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
-    <span class="c1"># Brittle: breaks the moment the attacker changes the hash
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">indicator_detection</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+    <span class="c1"># Brittle: breaks the moment the attacker recompiles
 </span>    <span class="k">return</span> <span class="n">event</span><span class="p">.</span><span class="n">file_hash</span> <span class="o">==</span> <span class="sh">"</span><span class="s">a1b2c3...known_bad</span><span class="sh">"</span>
 
 <span class="k">def</span> <span class="nf">behavior_detection</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
     <span class="c1"># Robust: catches the technique regardless of the specific binary
 </span>    <span class="n">suspicious_parents</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">services.exe</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">svchost.exe</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">winlogon.exe</span><span class="sh">"</span><span class="p">}</span>
-    <span class="n">shells</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">cmd.exe</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">powershell.exe</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bash</span><span class="sh">"</span><span class="p">}</span>
-    <span class="nf">return </span><span class="p">(</span><span class="n">event</span><span class="p">.</span><span class="n">parent_process</span> <span class="ow">in</span> <span class="n">suspicious_parents</span>
-            <span class="ow">and</span> <span class="n">event</span><span class="p">.</span><span class="n">process</span> <span class="ow">in</span> <span class="n">shells</span><span class="p">)</span>
+    <span class="n">shells</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">cmd.exe</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">powershell.exe</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">pwsh.exe</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bash</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">wscript.exe</span><span class="sh">"</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">event</span><span class="p">.</span><span class="n">parent_process</span> <span class="ow">in</span> <span class="n">suspicious_parents</span> <span class="ow">and</span> <span class="n">event</span><span class="p">.</span><span class="n">process</span> <span class="ow">in</span> <span class="n">shells</span>
 </code></pre></div></div>
 
-<h3 id="mapping-coverage-with-mitre-attck">Mapping Coverage with MITRE ATT&amp;CK</h3>
+<h3 id="mitre-attck-coverage">MITRE ATT&amp;CK Coverage</h3>
 
-<p>The <strong>MITRE ATT&amp;CK</strong> framework catalogs real-world adversary tactics (the <em>why</em> — e.g., Persistence, Lateral Movement) and techniques (the <em>how</em> — e.g., T1053 Scheduled Task). Detection engineers map their rules to ATT&amp;CK techniques to build a <strong>coverage matrix</strong>: which techniques you can detect, which you can’t, and where to invest next.</p>
+<p>The <strong>MITRE ATT&amp;CK</strong> framework catalogs real-world adversary <em>tactics</em> (the goal — Persistence, Lateral Movement) and <em>techniques</em> (the method — T1053 Scheduled Task/Job). Detection engineers map rules to techniques to build a <strong>coverage matrix</strong> showing what they can detect, what they can’t, and where to invest next. The ATT&amp;CK Navigator is the standard tool for visualizing this heatmap.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Coverage analysis: which ATT&amp;CK techniques do our detections cover?
-</span><span class="k">def</span> <span class="nf">coverage_report</span><span class="p">(</span><span class="n">detections</span><span class="p">,</span> <span class="n">attack_techniques</span><span class="p">):</span>
-    <span class="n">covered</span> <span class="o">=</span> <span class="p">{</span><span class="n">d</span><span class="p">.</span><span class="n">technique_id</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">detections</span> <span class="k">if</span> <span class="n">d</span><span class="p">.</span><span class="n">enabled</span><span class="p">}</span>
-    <span class="n">gaps</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">attack_techniques</span> <span class="k">if</span> <span class="n">t</span><span class="p">.</span><span class="nb">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">covered</span><span class="p">]</span>
+<p>ATT&amp;CK is a moving target. The <strong>v18 release (October 2025)</strong> substantially reworked the defensive side of the model: per-technique “Detections” were replaced by structured <strong>Detection Strategies</strong> and concrete <strong>Analytics</strong> (roughly 1,700 analytics for Enterprise), the older <strong>Data Sources</strong> were deprecated in favor of an expanded <strong>Data Components</strong> model aligned to STIX, and new techniques such as Container Administration Command and Delay Execution were added. If your coverage tooling still keys off Data Sources, it needs updating to the new schema; the 2026 releases (v19 and the “agile” point releases) build on that structure.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">coverage_report</span><span class="p">(</span><span class="n">detections</span><span class="p">,</span> <span class="n">techniques_in_scope</span><span class="p">):</span>
+    <span class="n">covered</span> <span class="o">=</span> <span class="p">{</span><span class="n">d</span><span class="p">.</span><span class="n">technique_id</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">detections</span> <span class="k">if</span> <span class="n">d</span><span class="p">.</span><span class="n">enabled</span> <span class="ow">and</span> <span class="n">d</span><span class="p">.</span><span class="n">tested</span><span class="p">}</span>
+    <span class="n">gaps</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">techniques_in_scope</span> <span class="k">if</span> <span class="n">t</span><span class="p">.</span><span class="nb">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">covered</span><span class="p">]</span>
     <span class="k">return</span> <span class="p">{</span>
-        <span class="sh">"</span><span class="s">coverage_pct</span><span class="sh">"</span><span class="p">:</span> <span class="mi">100</span> <span class="o">*</span> <span class="nf">len</span><span class="p">(</span><span class="n">covered</span><span class="p">)</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">attack_techniques</span><span class="p">),</span>
-        <span class="sh">"</span><span class="s">uncovered_techniques</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="n">t</span><span class="p">.</span><span class="nb">id</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">gaps</span><span class="p">],</span>
-        <span class="c1"># Prioritize gaps by how commonly the technique is used in the wild
-</span>        <span class="sh">"</span><span class="s">priority_gaps</span><span class="sh">"</span><span class="p">:</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">gaps</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="o">-</span><span class="n">t</span><span class="p">.</span><span class="n">prevalence</span><span class="p">)[:</span><span class="mi">10</span><span class="p">],</span>
+        <span class="sh">"</span><span class="s">coverage_pct</span><span class="sh">"</span><span class="p">:</span> <span class="nf">round</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="nf">len</span><span class="p">(</span><span class="n">covered</span><span class="p">)</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">techniques_in_scope</span><span class="p">),</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="c1"># Prioritize gaps by how often the technique appears in real intrusions
+</span>        <span class="sh">"</span><span class="s">priority_gaps</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="n">t</span><span class="p">.</span><span class="nb">id</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">gaps</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="o">-</span><span class="n">t</span><span class="p">.</span><span class="n">prevalence</span><span class="p">)[:</span><span class="mi">10</span><span class="p">]],</span>
     <span class="p">}</span>
 </code></pre></div></div>
 
+<p>Coverage percentages flatter more than they inform: a detection that exists but is disabled, untested, or drowned in false positives is not real coverage. Weight the matrix by technique prevalence in your threat model, and treat “tested and tuned” as the bar, not “written.”</p>
+
 <h3 id="tuning-fighting-false-positives">Tuning: Fighting False Positives</h3>
 
-<p>The single biggest determinant of whether a SOC is effective is <strong>signal-to-noise ratio</strong>. A detection that fires 200 times a day with two real hits will be ignored within a week. Tuning techniques include:</p>
+<p>Signal-to-noise ratio is the single biggest determinant of whether a SOC is effective. A detection that fires 200 times a day with two real hits gets muted within a week. Tuning techniques:</p>
 
 <ul>
-  <li><strong>Allow-listing</strong> known-benign sources (the backup server <em>should</em> touch every host at 2 a.m.).</li>
-  <li><strong>Thresholding and aggregation</strong> so a burst is one alert, not a hundred.</li>
-  <li><strong>Risk-based alerting</strong> — accumulate small risk signals per entity and alert only when an entity crosses a score, rather than alerting on each weak signal.</li>
+  <li><strong>Allow-listing</strong> known-benign behavior (the backup server <em>should</em> touch every host at 02:00).</li>
+  <li><strong>Thresholds and aggregation</strong> so a burst becomes one alert, not a hundred.</li>
+  <li><strong>Risk-based alerting (RBA)</strong> — accumulate small risk scores per user or host across many weak signals and alert only when an entity crosses a threshold, rather than paging on each weak signal alone. This is now the dominant model for high-fidelity alerting in large environments.</li>
 </ul>
 
 <h2 id="continuous-monitoring">Continuous Monitoring</h2>
 
-<p>Detections fire on events, but continuous monitoring is the broader practice of <em>always knowing the security state of your environment</em> — not just whether an attack is happening, but whether your defenses are even working.</p>
-
-<p>Effective continuous monitoring spans several layers:</p>
+<p>Detections fire on events; continuous monitoring is the broader practice of always knowing the security <em>state</em> of the environment — not only whether an attack is in progress, but whether the defenses themselves still work. It spans several layers:</p>
 
 <ul>
-  <li><strong>Telemetry health</strong> — are all expected log sources still reporting? A source that silently stops sending logs is a blind spot, and attackers deliberately disable logging. Monitoring for the <em>absence</em> of expected data is as important as monitoring the data itself.</li>
-  <li><strong>Configuration and posture</strong> — continuous checks that controls remain in place: are S3 buckets still private, is MFA still enforced, did anyone open a management port to the internet?</li>
-  <li><strong>Vulnerability and patch state</strong> — ongoing scanning so newly disclosed vulnerabilities are matched against your asset inventory quickly.</li>
-  <li><strong>Identity and access</strong> — watching for privilege escalation, dormant accounts being reactivated, and impossible-travel logins.</li>
+  <li><strong>Telemetry health</strong> — are all expected log sources still reporting? A source that silently goes dark is a blind spot, and disabling logging is a common attacker step. Monitoring for the <em>absence</em> of expected data matters as much as monitoring the data.</li>
+  <li><strong>Configuration and posture</strong> — continuous checks that controls hold: are storage buckets still private, is MFA still enforced, did anyone expose a management port? Cloud posture drift is a leading cause of breaches.</li>
+  <li><strong>Vulnerability and patch state</strong> — ongoing scanning so newly disclosed CVEs are matched against the asset inventory quickly, since exploitation of known vulnerabilities remains a top initial vector.</li>
+  <li><strong>Identity and access</strong> — privilege escalation, dormant accounts reactivating, impossible-travel logins, and abuse of OAuth/SaaS grants.</li>
 </ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Monitoring for the absence of telemetry — a frequently missed control
-</span><span class="k">def</span> <span class="nf">detect_silent_log_sources</span><span class="p">(</span><span class="n">expected_sources</span><span class="p">,</span> <span class="n">last_seen</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">max_gap</span><span class="o">=</span><span class="mi">3600</span><span class="p">):</span>
-    <span class="n">silent</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="n">expected_sources</span><span class="p">:</span>
-        <span class="n">gap</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_seen</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">gap</span> <span class="o">&gt;</span> <span class="n">max_gap</span><span class="p">:</span>
-            <span class="c1"># A source going dark may mean an outage — or an attacker
-</span>            <span class="c1"># disabling logging to cover their tracks.
-</span>            <span class="n">silent</span><span class="p">.</span><span class="nf">append</span><span class="p">((</span><span class="n">src</span><span class="p">,</span> <span class="n">gap</span><span class="p">))</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">detect_silent_sources</span><span class="p">(</span><span class="n">expected_sources</span><span class="p">,</span> <span class="n">last_seen</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">max_gap</span><span class="o">=</span><span class="mi">3600</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Alert on the absence of telemetry — a frequently missed control.</span><span class="sh">"""</span>
+    <span class="n">silent</span> <span class="o">=</span> <span class="p">[(</span><span class="n">src</span><span class="p">,</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_seen</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+              <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="n">expected_sources</span>
+              <span class="k">if</span> <span class="n">now</span> <span class="o">-</span> <span class="n">last_seen</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_gap</span><span class="p">]</span>
     <span class="k">return</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">silent</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 </code></pre></div></div>
 
-<p>The mindset here overlaps with <strong>Zero Trust</strong>: assume compromise is possible at any time and verify continuously rather than trusting that yesterday’s secure state still holds. (See <a href="attacks-and-defense.html#zero-trust-never-trust-always-verify">Attacks &amp; Network Defense → Zero Trust</a>.)</p>
+<p>The mindset overlaps with <strong>Zero Trust</strong>: assume compromise is always possible and verify continuously rather than trusting that yesterday’s secure state still holds. (See <a href="attacks-and-defense.html#zero-trust-never-trust-always-verify">Attacks &amp; Network Defense → Zero Trust</a>.)</p>
 
-<h2 id="threat-hunting-finding-the-hidden">Threat Hunting: Finding the Hidden</h2>
+<h2 id="threat-hunting">Threat Hunting</h2>
 
-<p>Not all attackers trigger alerts. <strong>Threat hunting</strong> is the proactive, hypothesis-driven search for adversaries that have evaded automated detection. Where the SIEM asks “did a known-bad thing happen?”, the hunter asks “if a sophisticated attacker were already inside, where would I find them?”</p>
+<p>Not every attacker trips an alert. <strong>Threat hunting</strong> is the proactive, hypothesis-driven search for adversaries that evaded automated detection. Where the SIEM asks “did a known-bad thing happen?”, the hunter asks “if a capable attacker were already inside, where would I find them?”</p>
 
-<h3 id="hypothesis-driven-hunting">Hypothesis-Driven Hunting</h3>
-
-<p>A hunt starts from a hypothesis grounded in attacker behavior — for example, “an attacker maintaining persistence would likely use a scheduled task or run service on a server that doesn’t normally have one.” The hunter then queries the data to confirm or refute it, and crucially, <strong>every successful hunt feeds back into detection engineering</strong> as a new automated rule so the same hunt never has to be done by hand again.</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Hunting for data exfiltration
-</span><span class="k">def</span> <span class="nf">hunt_data_exfiltration</span><span class="p">(</span><span class="n">network_logs</span><span class="p">):</span>
-    <span class="c1"># Look for unusual data transfers
-</span>    <span class="k">for</span> <span class="n">connection</span> <span class="ow">in</span> <span class="n">network_logs</span><span class="p">:</span>
-        <span class="c1"># Large upload to uncommon destination?
-</span>        <span class="nf">if </span><span class="p">(</span><span class="n">connection</span><span class="p">.</span><span class="n">bytes_sent</span> <span class="o">&gt;</span> <span class="mi">100_000_000</span> <span class="ow">and</span>  <span class="c1"># 100MB+
-</span>            <span class="n">connection</span><span class="p">.</span><span class="n">destination</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">known_services</span><span class="p">):</span>
-            <span class="nf">investigate</span><span class="p">(</span><span class="n">connection</span><span class="p">)</span>
-
-        <span class="c1"># DNS tunneling? (hiding data in DNS queries)
-</span>        <span class="nf">if </span><span class="p">(</span><span class="n">connection</span><span class="p">.</span><span class="n">protocol</span> <span class="o">==</span> <span class="sh">'</span><span class="s">DNS</span><span class="sh">'</span> <span class="ow">and</span>
-            <span class="nf">len</span><span class="p">(</span><span class="n">connection</span><span class="p">.</span><span class="n">query</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">):</span>  <span class="c1"># Unusually long domain
-</span>            <span class="nf">flag_suspicious</span><span class="p">(</span><span class="n">connection</span><span class="p">)</span>
-
-        <span class="c1"># Beaconing? (malware calling home)
-</span>        <span class="k">if</span> <span class="nf">is_periodic</span><span class="p">(</span><span class="n">connection</span><span class="p">.</span><span class="n">timestamps</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mi">60</span><span class="p">):</span>  <span class="c1"># Every ~60 seconds
-</span>            <span class="nf">investigate</span><span class="p">(</span><span class="n">connection</span><span class="p">)</span>
-</code></pre></div></div>
+<p>A hunt starts from a hypothesis grounded in attacker behavior — for example, “an attacker maintaining persistence would likely register a scheduled task or service on a server that normally has none.” The hunter queries the data to confirm or refute it, and every productive hunt feeds back into detection engineering as a new automated rule, so the same hunt never has to be run by hand twice.</p>
 
 <h3 id="detecting-beaconing-statistically">Detecting Beaconing Statistically</h3>
 
-<p>Beaconing — malware “calling home” to its command-and-control server at regular intervals — is one of the most productive hunts because it is hard for an attacker to hide entirely. Even with jitter, the timing of callbacks tends to cluster. A hunter can quantify this with the coefficient of variation of the inter-arrival times:</p>
+<p>Beaconing — malware calling home to its command-and-control server at regular intervals — is one of the most productive hunts because it is hard to hide completely. Even with jitter, callback timing tends to cluster. A hunter quantifies regularity with the coefficient of variation of the inter-arrival gaps:</p>
 
 \[CV = \frac{\sigma}{\mu}\]
 
-<p>where $\mu$ is the mean gap between connections and $\sigma$ their standard deviation. Automated, periodic beacons produce a <strong>low</strong> $CV$ (highly regular spacing); genuine human-driven traffic is bursty and produces a high $CV$.</p>
+<p>where $\mu$ is the mean gap between connections and $\sigma$ their standard deviation. Automated beacons produce a <strong>low</strong> $CV$ (regular spacing); genuine human-driven traffic is bursty and produces a high $CV$. Modern C2 frameworks add large random jitter specifically to raise $CV$, so hunters pair timing analysis with other signals — rare destinations, uniform request sizes, long-lived low-volume sessions, and JA3/JA4 TLS fingerprints.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">statistics</span>
 
-<span class="k">def</span> <span class="nf">beaconing_score</span><span class="p">(</span><span class="n">timestamps</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">beaconing_score</span><span class="p">(</span><span class="n">timestamps</span><span class="p">,</span> <span class="n">cv_threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
     <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">None</span>  <span class="c1"># not enough data to judge regularity
+        <span class="k">return</span> <span class="bp">None</span>  <span class="c1"># too few points to judge regularity
 </span>    <span class="n">gaps</span> <span class="o">=</span> <span class="p">[</span><span class="n">t2</span> <span class="o">-</span> <span class="n">t1</span> <span class="k">for</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">timestamps</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">[</span><span class="mi">1</span><span class="p">:])]</span>
     <span class="n">mean</span> <span class="o">=</span> <span class="n">statistics</span><span class="p">.</span><span class="nf">mean</span><span class="p">(</span><span class="n">gaps</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">mean</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">None</span>
     <span class="n">cv</span> <span class="o">=</span> <span class="n">statistics</span><span class="p">.</span><span class="nf">pstdev</span><span class="p">(</span><span class="n">gaps</span><span class="p">)</span> <span class="o">/</span> <span class="n">mean</span>
-    <span class="c1"># Low CV =&gt; suspiciously regular =&gt; likely a beacon
-</span>    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">coefficient_of_variation</span><span class="sh">"</span><span class="p">:</span> <span class="n">cv</span><span class="p">,</span> <span class="sh">"</span><span class="s">likely_beacon</span><span class="sh">"</span><span class="p">:</span> <span class="n">cv</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">coefficient_of_variation</span><span class="sh">"</span><span class="p">:</span> <span class="nf">round</span><span class="p">(</span><span class="n">cv</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="sh">"</span><span class="s">likely_beacon</span><span class="sh">"</span><span class="p">:</span> <span class="n">cv</span> <span class="o">&lt;</span> <span class="n">cv_threshold</span><span class="p">}</span>
 </code></pre></div></div>
 
-<h2 id="penetration-testing-and-offensive-validation">Penetration Testing and Offensive Validation</h2>
+<p>Other high-yield hunts look for data staging before exfiltration (large uploads to rare destinations, long DNS queries suggesting tunneling), living-off-the-land use of built-in admin tools, and anomalous OAuth consent grants in cloud tenants.</p>
 
-<p>Defenses are only as good as their last test. Offensive validation deliberately attacks your own systems to find what real adversaries would find first.</p>
+<h2 id="offensive-validation">Offensive Validation</h2>
 
-<h3 id="penetration-testing-thinking-like-an-attacker">Penetration Testing: Thinking Like an Attacker</h3>
-
-<p>The best way to find vulnerabilities is to try exploiting them — ethically, with explicit authorization (a signed <strong>rules of engagement</strong> and scope). A penetration test typically follows the kill-chain: reconnaissance, scanning, exploitation, and reporting.</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Reconnaissance phase</span>
-nmap <span class="nt">-sS</span> <span class="nt">-sV</span> <span class="nt">-O</span> target.com  <span class="c"># Stealthy scan</span>
-
-<span class="c"># Found port 8080 running outdated Tomcat?</span>
-<span class="c"># Check for known vulnerabilities</span>
-searchsploit tomcat 7.0.52
-
-<span class="c"># Found SQL injection in login form?</span>
-<span class="c"># Carefully test (with permission!)</span>
-sqlmap <span class="nt">-u</span> <span class="s2">"https://target.com/login"</span> <span class="nt">--data</span><span class="o">=</span><span class="s2">"user=test&amp;pass=test"</span> <span class="nt">--level</span><span class="o">=</span>3
-
-<span class="c"># Document everything for the client</span>
-<span class="c"># The goal isn't to break in—it's to help them fix vulnerabilities</span>
-</code></pre></div></div>
-
-<p>The deliverable of a pentest is not a trophy — it is a prioritized report of findings, each with reproduction steps, impact, and remediation guidance.</p>
+<p>Defenses are only as good as their last test. Offensive validation deliberately probes your own systems to find what a real adversary would find first — and, just as importantly, to confirm the SOC can <em>see</em> it.</p>
 
 <h3 id="pentest-vs-vulnerability-scan-vs-red-team">Pentest vs. Vulnerability Scan vs. Red Team</h3>
 
-<p>These terms are often conflated but answer different questions:</p>
+<p>These terms are routinely conflated but answer different questions:</p>
 
 <table>
   <thead>
@@ -3459,62 +3443,70 @@ sqlmap <span class="nt">-u</span> <span class="s2">"https://target.com/login"</s
     </tr>
     <tr>
       <td><strong>Penetration test</strong></td>
-      <td>Can a known weakness be exploited, and how far?</td>
+      <td>Can a weakness be exploited, and how far?</td>
       <td>Defined target</td>
       <td>Usually overt</td>
     </tr>
     <tr>
       <td><strong>Red team</strong></td>
-      <td>Can a realistic adversary achieve a specific objective without being caught?</td>
+      <td>Can a realistic adversary reach an objective without being caught?</td>
       <td>Whole org, objective-driven</td>
       <td>Covert</td>
+    </tr>
+    <tr>
+      <td><strong>BAS / continuous validation</strong></td>
+      <td>Do our controls still catch known techniques, today?</td>
+      <td>Broad, automated, safe</td>
+      <td>Overt</td>
     </tr>
   </tbody>
 </table>
 
+<p>A <strong>penetration test</strong> follows the kill chain — reconnaissance, scanning, exploitation, and reporting — under an explicit, signed <strong>rules of engagement</strong> and scope. The deliverable is not a trophy but a prioritized report: each finding with reproduction steps, impact, and remediation guidance. <strong>Breach and attack simulation (BAS)</strong> tools automate the safe replay of known techniques on a continuous schedule, filling the long gap between annual pentests.</p>
+
 <h3 id="red-blue-and-purple-teaming">Red, Blue, and Purple Teaming</h3>
 
-<p>The most mature offensive validation is structured around teams that mirror real attack and defense:</p>
+<p>The most mature validation mirrors real attack and defense with dedicated roles:</p>
 
 <pre><code class="language-mermaid">flowchart LR
-    R["Red Team&lt;br/&gt;(offense:&lt;br/&gt;emulate adversary)"] --&gt;|attacks| T["Target&lt;br/&gt;Environment"]
-    B["Blue Team&lt;br/&gt;(defense:&lt;br/&gt;SOC, detection)"] --&gt;|monitors / responds| T
-    R &lt;--&gt;|share TTPs &amp;amp; findings| P["Purple Team&lt;br/&gt;(collaboration)"]
-    B &lt;--&gt;|share gaps &amp;amp; detections| P
-    P --&gt;|improved detections| B
+    R["Red team&lt;br/&gt;(offense:&lt;br/&gt;emulate adversary)"] --&gt;|attacks| T["Target&lt;br/&gt;environment"]
+    B["Blue team&lt;br/&gt;(defense:&lt;br/&gt;SOC, detection)"] --&gt;|monitors / responds| T
+    R &lt;--&gt;|share TTPs| P["Purple team&lt;br/&gt;(collaboration)"]
+    B &lt;--&gt;|share gaps| P
+    P --&gt;|new detections| B
 </code></pre>
 
 <ul>
-  <li><strong>Red team</strong> — emulates a specific adversary (often using ATT&amp;CK-mapped tactics) against the whole organization to test whether the blue team can <em>detect and respond</em>, not just whether a vulnerability exists. Success is measured against an objective (“exfiltrate the crown-jewel database without being caught”), and the blue team is typically not told in advance.</li>
-  <li><strong>Blue team</strong> — the defenders: the SOC, detection engineers, and responders working to detect, contain, and evict the red team.</li>
-  <li><strong>Purple team</strong> — not a separate team but a <em>mode of collaboration</em>. Red and blue work together in real time: red executes a technique, blue checks whether it was detected, and if not, a detection is engineered on the spot. Purple teaming converts an adversarial exercise into a fast feedback loop that directly improves coverage.</li>
+  <li><strong>Red team</strong> — emulates a specific adversary (usually using ATT&amp;CK-mapped techniques) against the whole organization to test whether the blue team can <em>detect and respond</em>, not merely whether a vulnerability exists. Success is measured against an objective (“reach the crown-jewel database without being caught”), and the blue team is typically not warned.</li>
+  <li><strong>Blue team</strong> — the defenders: SOC, detection engineers, and responders working to detect, contain, and evict the red team.</li>
+  <li><strong>Purple team</strong> — not a separate team but a <em>mode of collaboration</em>. Red executes a technique, blue checks whether it fired, and if not, a detection is engineered on the spot. Purple teaming turns an adversarial exercise into a fast feedback loop that directly improves coverage. Adversary-emulation tooling (Atomic Red Team, MITRE Caldera, and commercial C2 frameworks under strict authorization) drives the exercises.</li>
 </ul>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># A purple-team exercise turns each emulated technique into a coverage test
-</span><span class="k">def</span> <span class="nf">purple_team_run</span><span class="p">(</span><span class="n">techniques</span><span class="p">,</span> <span class="n">run_technique</span><span class="p">,</span> <span class="n">detection_fired</span><span class="p">):</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">purple_team_run</span><span class="p">(</span><span class="n">techniques</span><span class="p">,</span> <span class="n">run_technique</span><span class="p">,</span> <span class="n">detection_fired</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">Each emulated technique becomes a coverage test.</span><span class="sh">"""</span>
     <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">techniques</span><span class="p">:</span>  <span class="c1"># e.g., ATT&amp;CK techniques to emulate
-</span>        <span class="nf">run_technique</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>                     <span class="c1"># red executes
-</span>        <span class="n">detected</span> <span class="o">=</span> <span class="nf">detection_fired</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>        <span class="c1"># blue checks the SIEM/EDR
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">techniques</span><span class="p">:</span>                      <span class="c1"># e.g., ATT&amp;CK techniques to emulate
+</span>        <span class="nf">run_technique</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>                       <span class="c1"># red executes
+</span>        <span class="n">detected</span> <span class="o">=</span> <span class="nf">detection_fired</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>          <span class="c1"># blue checks the SIEM/EDR
 </span>        <span class="n">results</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span>
             <span class="sh">"</span><span class="s">technique</span><span class="sh">"</span><span class="p">:</span> <span class="n">t</span><span class="p">.</span><span class="nb">id</span><span class="p">,</span>
             <span class="sh">"</span><span class="s">detected</span><span class="sh">"</span><span class="p">:</span> <span class="n">detected</span><span class="p">,</span>
-            <span class="c1"># Each miss becomes a detection-engineering backlog item
-</span>            <span class="sh">"</span><span class="s">action</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">covered</span><span class="sh">"</span> <span class="k">if</span> <span class="n">detected</span> <span class="k">else</span> <span class="sh">"</span><span class="s">build detection</span><span class="sh">"</span><span class="p">,</span>
-        <span class="p">})</span>
+            <span class="sh">"</span><span class="s">action</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">covered</span><span class="sh">"</span> <span class="k">if</span> <span class="n">detected</span> <span class="k">else</span> <span class="sh">"</span><span class="s">build detection</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># miss → backlog item
+</span>        <span class="p">})</span>
     <span class="k">return</span> <span class="n">results</span>
 </code></pre></div></div>
 
-<p>The output of a purple-team engagement is a measurable improvement in ATT&amp;CK coverage — every technique the blue team missed becomes a new, tested detection, closing the loop back to <a href="#detection-engineering">detection engineering</a>.</p>
+<p>The output of a purple-team engagement is a measurable improvement in ATT&amp;CK coverage: every missed technique becomes a new, tested detection, closing the loop back to <a href="#detection-engineering">detection engineering</a>.</p>
 
 <h2 id="see-also">See Also</h2>
 
 <ul>
   <li><a href="./">Cybersecurity Hub</a> — overview of the cybersecurity section</li>
-  <li><a href="operations-and-response.html">Operations, Response &amp; Compliance</a> — incident response, forensics, and the compliance frameworks operations works within</li>
-  <li><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> — the attacks this operations work detects and responds to</li>
+  <li><a href="incident-response.html">Incident Response &amp; Forensics</a> — what happens once a SOC alert becomes a confirmed incident</li>
+  <li><a href="operations-and-response.html">Operations, Response &amp; Compliance</a> — the formal foundations and research frontiers behind these controls</li>
+  <li><a href="compliance-and-governance.html">Compliance &amp; Governance</a> — the frameworks and metrics operations reports into</li>
+  <li><a href="attacks-and-defense.html">Attacks &amp; Network Defense</a> — the attacks this work detects and responds to</li>
   <li><a href="application-and-cloud-security.html">Web, Cloud &amp; Container Security</a> — securing the systems the SOC monitors</li>
-  <li><a href="cryptography.html">Cryptography</a> — the math underpinning the controls you operate</li>
 </ul>
 
       </section>

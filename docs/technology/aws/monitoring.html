@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="CloudWatch metrics, alarms, logs, and tracing on AWS, plus decoupled messaging with SNS, SQS, and EventBridge.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AWS Monitoring & Messaging">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="CloudWatch metrics, alarms, logs, and tracing on AWS, plus decoupled messaging with SNS, SQS, and EventBridge.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/monitoring.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AWS Monitoring & Messaging">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="CloudWatch metrics, alarms, logs, and tracing on AWS, plus decoupled messaging with SNS, SQS, and EventBridge.">
 
 <title>AWS Monitoring & Messaging | Andrews Notebook</title>
 
@@ -3131,297 +3131,681 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>You can only operate what you can see, and resilient systems are built from components that do not block on each other. This page covers the two halves of that story: <strong>CloudWatch</strong> for monitoring and management, and <strong>SNS/SQS</strong> for messaging and integration. It closes with a proactive monitoring and troubleshooting toolkit you can reach for when something looks off.</p>
+        <p>This page covers two complementary parts of running workloads on AWS. <strong>Amazon CloudWatch</strong> collects metrics, logs, and traces and turns them into alarms and dashboards. <strong>Amazon SNS, Amazon SQS, and Amazon EventBridge</strong> let components communicate asynchronously, so a slow or failed consumer does not take its producers down with it. The two meet in practice: alarms publish to SNS, queues are the first place a backlog becomes visible, and queue depth is one of the most useful scaling signals. For vendor-neutral background on the three telemetry signals, see <a href="../../observability/">Observability</a>.</p>
 
 <hr />
 
-<h2 id="monitoring-and-management-your-cloud-operations-center">Monitoring and Management: Your Cloud Operations Center</h2>
+<h2 id="observability-on-aws">Observability on AWS</h2>
 
-<h3 id="amazon-cloudwatch---your-eyes-in-the-cloud">Amazon CloudWatch - Your Eyes in the Cloud</h3>
-<p>CloudWatch is AWS’s monitoring service that collects and tracks metrics, logs, and events from every part of your infrastructure. Think of it as your 24/7 operations center.</p>
+<pre><code class="language-mermaid">flowchart LR
+    subgraph Sources
+        Svc["AWS services&lt;br/&gt;(automatic metrics)"]
+        App["Applications&lt;br/&gt;(EMF, SDK, OpenTelemetry)"]
+        Agent["CloudWatch agent /&lt;br/&gt;OTel collector"]
+    end
+    subgraph CloudWatch
+        M[Metrics]
+        L[Logs]
+        T["Traces&lt;br/&gt;(X-Ray)"]
+        A[Alarms]
+        D[Dashboards]
+    end
+    Svc --&gt; M
+    App --&gt; L
+    App --&gt; T
+    Agent --&gt; M
+    Agent --&gt; L
+    Agent --&gt; T
+    L -- metric filters / EMF --&gt; M
+    M --&gt; A
+    M --&gt; D
+    A --&gt; SNS[SNS topic]
+    A --&gt; EB[EventBridge]
+    A --&gt; Act["Auto Scaling ·&lt;br/&gt;EC2 actions ·&lt;br/&gt;SSM automation"]
+    SNS --&gt; People["Email · chat ·&lt;br/&gt;incident tooling"]
+</code></pre>
 
-<p><strong>Key CloudWatch Features</strong>:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Signal</th>
+      <th>CloudWatch feature</th>
+      <th>Answers</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Metrics</td>
+      <td>CloudWatch Metrics, alarms, anomaly detection</td>
+      <td><em>Is something wrong, and since when?</em></td>
+    </tr>
+    <tr>
+      <td>Logs</td>
+      <td>CloudWatch Logs, Logs Insights, Live Tail</td>
+      <td><em>What exactly happened in this component?</em></td>
+    </tr>
+    <tr>
+      <td>Traces</td>
+      <td>X-Ray (via OpenTelemetry), Application Signals</td>
+      <td><em>Where in the request path did time or errors go?</em></td>
+    </tr>
+    <tr>
+      <td>Audit</td>
+      <td>AWS CloudTrail</td>
+      <td><em>Who changed what, through which API call?</em></td>
+    </tr>
+    <tr>
+      <td>Platform health</td>
+      <td>AWS Health Dashboard</td>
+      <td><em>Is AWS itself having a problem that affects my resources?</em></td>
+    </tr>
+  </tbody>
+</table>
 
-<ol>
-  <li><strong>Metrics and Alarms</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create billing alarm to avoid surprises</span>
-aws cloudwatch put-metric-alarm <span class="se">\</span>
-  <span class="nt">--alarm-name</span> billing-alarm <span class="se">\</span>
-  <span class="nt">--alarm-description</span> <span class="s2">"Alert when AWS charges exceed </span><span class="nv">$100</span><span class="s2">"</span> <span class="se">\</span>
-  <span class="nt">--metric-name</span> EstimatedCharges <span class="se">\</span>
-  <span class="nt">--namespace</span> AWS/Billing <span class="se">\</span>
-  <span class="nt">--statistic</span> Maximum <span class="se">\</span>
-  <span class="nt">--period</span> 86400 <span class="se">\</span>
-  <span class="nt">--threshold</span> 100 <span class="se">\</span>
+<hr />
+
+<h2 id="cloudwatch-metrics">CloudWatch metrics</h2>
+
+<p>A <strong>metric</strong> is a time series identified by a <strong>namespace</strong> (<code class="language-plaintext highlighter-rouge">AWS/EC2</code>, <code class="language-plaintext highlighter-rouge">AWS/ApplicationELB</code>, or your own such as <code class="language-plaintext highlighter-rouge">Checkout</code>), a <strong>name</strong> (<code class="language-plaintext highlighter-rouge">CPUUtilization</code>), and up to 30 <strong>dimensions</strong> (name/value pairs such as <code class="language-plaintext highlighter-rouge">InstanceId=i-0abc...</code>). Each unique combination of dimensions is a separate metric and is billed separately, so dimensions must have bounded cardinality: <code class="language-plaintext highlighter-rouge">Environment</code> or <code class="language-plaintext highlighter-rouge">Endpoint</code> is fine, <code class="language-plaintext highlighter-rouge">UserId</code> or <code class="language-plaintext highlighter-rouge">RequestId</code> is not.</p>
+
+<p>Most AWS services publish metrics automatically at 1-minute or 5-minute granularity (EC2 basic monitoring is 5-minute; detailed monitoring is 1-minute at extra cost). Custom metrics can be standard (1-minute) or <strong>high resolution</strong> (down to 1 second). CloudWatch keeps metric data for 15 months, rolling it up as it ages:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Data point period</th>
+      <th>Retained for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Under 60 s (high resolution)</td>
+      <td>3 hours</td>
+    </tr>
+    <tr>
+      <td>60 s</td>
+      <td>15 days</td>
+    </tr>
+    <tr>
+      <td>5 minutes</td>
+      <td>63 days</td>
+    </tr>
+    <tr>
+      <td>1 hour</td>
+      <td>455 days (15 months)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Statistics include <code class="language-plaintext highlighter-rouge">Sum</code>, <code class="language-plaintext highlighter-rouge">Average</code>, <code class="language-plaintext highlighter-rouge">Minimum</code>, <code class="language-plaintext highlighter-rouge">Maximum</code>, <code class="language-plaintext highlighter-rouge">SampleCount</code>, and percentiles (<code class="language-plaintext highlighter-rouge">p50</code>, <code class="language-plaintext highlighter-rouge">p99</code>, <code class="language-plaintext highlighter-rouge">p99.9</code>). Latency should almost always be alarmed on a high percentile, not the average, which hides the tail that users actually notice.</p>
+
+<h3 id="publishing-custom-metrics">Publishing custom metrics</h3>
+
+<p>There are two main ways to emit application metrics:</p>
+
+<ul>
+  <li><strong>Embedded Metric Format (EMF)</strong>: write a structured JSON log line; CloudWatch Logs extracts the metrics asynchronously. There is no extra API call on the request path, and the full log line (with high-cardinality fields such as <code class="language-plaintext highlighter-rouge">orderId</code>) stays queryable in Logs Insights. This is the preferred approach for Lambda and containers.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">PutMetricData</code></strong>: a synchronous API call. Batch values into as few calls as possible; calling it once per request adds latency and cost.</li>
+</ul>
+
+<p>An EMF log line, printed to stdout from a Lambda function or container:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"_aws"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"Timestamp"</span><span class="p">:</span><span class="w"> </span><span class="mi">1790000000000</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"CloudWatchMetrics"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w">
+      </span><span class="nl">"Namespace"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Checkout"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"Dimensions"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">"Service"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Environment"</span><span class="p">]],</span><span class="w">
+      </span><span class="nl">"Metrics"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="nl">"Name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OrderLatency"</span><span class="p">,</span><span class="w"> </span><span class="nl">"Unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Milliseconds"</span><span class="p">},</span><span class="w">
+        </span><span class="p">{</span><span class="nl">"Name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"OrdersPlaced"</span><span class="p">,</span><span class="w"> </span><span class="nl">"Unit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Count"</span><span class="p">}</span><span class="w">
+      </span><span class="p">]</span><span class="w">
+    </span><span class="p">}]</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"Service"</span><span class="p">:</span><span class="w"> </span><span class="s2">"checkout-api"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"Environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"prod"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"OrderLatency"</span><span class="p">:</span><span class="w"> </span><span class="mi">184</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"OrdersPlaced"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"orderId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"o-81723"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Libraries such as Powertools for AWS Lambda (Python, TypeScript, Java, .NET) and the <code class="language-plaintext highlighter-rouge">aws-embedded-metrics</code> packages generate this format. The equivalent direct API call with boto3:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">import</span> <span class="n">boto3</span>
+
+<span class="n">cloudwatch</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">"</span><span class="s">cloudwatch</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">cloudwatch</span><span class="p">.</span><span class="nf">put_metric_data</span><span class="p">(</span>
+    <span class="n">Namespace</span><span class="o">=</span><span class="sh">"</span><span class="s">Checkout</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">MetricData</span><span class="o">=</span><span class="p">[{</span>
+        <span class="sh">"</span><span class="s">MetricName</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">OrdersPlaced</span><span class="sh">"</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">Dimensions</span><span class="sh">"</span><span class="p">:</span> <span class="p">[{</span><span class="sh">"</span><span class="s">Name</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Environment</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Value</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">prod</span><span class="sh">"</span><span class="p">}],</span>
+        <span class="sh">"</span><span class="s">Timestamp</span><span class="sh">"</span><span class="p">:</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">(</span><span class="n">timezone</span><span class="p">.</span><span class="n">utc</span><span class="p">),</span>
+        <span class="sh">"</span><span class="s">Value</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="sh">"</span><span class="s">Unit</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Count</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">}],</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="cloudwatch-alarms">CloudWatch alarms</h2>
+
+<p>An <strong>alarm</strong> watches one metric or metric-math expression and moves between three states. State changes, not the state itself, trigger actions: publishing to SNS, scaling an Auto Scaling group, stopping or recovering an EC2 instance, or starting a Systems Manager automation.</p>
+
+<pre><code class="language-mermaid">stateDiagram-v2
+    [*] --&gt; INSUFFICIENT_DATA
+    INSUFFICIENT_DATA --&gt; OK: enough data, within threshold
+    INSUFFICIENT_DATA --&gt; ALARM: M of N datapoints breach
+    OK --&gt; ALARM: M of N datapoints breach
+    ALARM --&gt; OK: datapoints back within threshold
+    OK --&gt; INSUFFICIENT_DATA: metric stops reporting
+    ALARM --&gt; INSUFFICIENT_DATA: metric stops reporting
+</code></pre>
+
+<p>Settings that decide whether an alarm is useful or noisy:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Setting</th>
+      <th>Meaning</th>
+      <th>Guidance</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Period</code></td>
+      <td>Aggregation window for each datapoint</td>
+      <td>60 s for user-facing signals</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">EvaluationPeriods</code> (N) and <code class="language-plaintext highlighter-rouge">DatapointsToAlarm</code> (M)</td>
+      <td>Alarm when M of the last N datapoints breach</td>
+      <td>“3 of 5” tolerates a single spike without waiting long</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">TreatMissingData</code></td>
+      <td>How gaps are treated: <code class="language-plaintext highlighter-rouge">missing</code>, <code class="language-plaintext highlighter-rouge">notBreaching</code>, <code class="language-plaintext highlighter-rouge">breaching</code>, <code class="language-plaintext highlighter-rouge">ignore</code></td>
+      <td><code class="language-plaintext highlighter-rouge">notBreaching</code> for sparse error counts; <code class="language-plaintext highlighter-rouge">breaching</code> for heartbeats</td>
+    </tr>
+    <tr>
+      <td>Threshold type</td>
+      <td>Static value, or an <strong>anomaly detection</strong> band learned from history</td>
+      <td>Use anomaly detection for seasonal traffic</td>
+    </tr>
+    <tr>
+      <td>Composite alarm</td>
+      <td>Boolean rule over other alarms (<code class="language-plaintext highlighter-rouge">ALARM(a) AND ALARM(b)</code>)</td>
+      <td>Page on the composite; keep component alarms silent to reduce alert fatigue</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="alarming-on-a-rate-with-metric-math">Alarming on a rate with metric math</h3>
+
+<p>Absolute error counts scale with traffic; an error <em>rate</em> does not. Metric math computes the rate from two metrics, and the alarm evaluates the expression:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="w">
+  </span><span class="p">{</span><span class="nl">"Id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"errors"</span><span class="p">,</span><span class="w"> </span><span class="nl">"ReturnData"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+   </span><span class="nl">"MetricStat"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nl">"Period"</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span><span class="w"> </span><span class="nl">"Stat"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sum"</span><span class="p">,</span><span class="w">
+     </span><span class="nl">"Metric"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nl">"Namespace"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AWS/ApplicationELB"</span><span class="p">,</span><span class="w"> </span><span class="nl">"MetricName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"HTTPCode_Target_5XX_Count"</span><span class="p">,</span><span class="w">
+       </span><span class="nl">"Dimensions"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nl">"Name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LoadBalancer"</span><span class="p">,</span><span class="w"> </span><span class="nl">"Value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"app/web-alb/0123456789abcdef"</span><span class="p">}]}}},</span><span class="w">
+  </span><span class="p">{</span><span class="nl">"Id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"requests"</span><span class="p">,</span><span class="w"> </span><span class="nl">"ReturnData"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+   </span><span class="nl">"MetricStat"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nl">"Period"</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span><span class="w"> </span><span class="nl">"Stat"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sum"</span><span class="p">,</span><span class="w">
+     </span><span class="nl">"Metric"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nl">"Namespace"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AWS/ApplicationELB"</span><span class="p">,</span><span class="w"> </span><span class="nl">"MetricName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"RequestCount"</span><span class="p">,</span><span class="w">
+       </span><span class="nl">"Dimensions"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nl">"Name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"LoadBalancer"</span><span class="p">,</span><span class="w"> </span><span class="nl">"Value"</span><span class="p">:</span><span class="w"> </span><span class="s2">"app/web-alb/0123456789abcdef"</span><span class="p">}]}}},</span><span class="w">
+  </span><span class="p">{</span><span class="nl">"Id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rate"</span><span class="p">,</span><span class="w"> </span><span class="nl">"Expression"</span><span class="p">:</span><span class="w"> </span><span class="s2">"100 * FILL(errors, 0) / requests"</span><span class="p">,</span><span class="w">
+   </span><span class="nl">"Label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5xx rate (%)"</span><span class="p">,</span><span class="w"> </span><span class="nl">"ReturnData"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}</span><span class="w">
+</span><span class="p">]</span><span class="w">
+</span></code></pre></div></div>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws cloudwatch put-metric-alarm <span class="se">\</span>
+  <span class="nt">--alarm-name</span> web-5xx-rate <span class="se">\</span>
+  <span class="nt">--alarm-description</span> <span class="s2">"Target 5xx rate above 1% for 3 of 5 minutes"</span> <span class="se">\</span>
+  <span class="nt">--metrics</span> file://5xx-rate.json <span class="se">\</span>
   <span class="nt">--comparison-operator</span> GreaterThanThreshold <span class="se">\</span>
-  <span class="nt">--dimensions</span> <span class="nv">Name</span><span class="o">=</span>Currency,Value<span class="o">=</span>USD
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Custom Metrics for Application Monitoring</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">boto3</span>
-<span class="kn">import</span> <span class="n">time</span>
+  <span class="nt">--threshold</span> 1 <span class="se">\</span>
+  <span class="nt">--evaluation-periods</span> 5 <span class="se">\</span>
+  <span class="nt">--datapoints-to-alarm</span> 3 <span class="se">\</span>
+  <span class="nt">--treat-missing-data</span> notBreaching <span class="se">\</span>
+  <span class="nt">--alarm-actions</span> arn:aws:sns:us-east-1:123456789012:oncall
+</code></pre></div></div>
 
-<span class="n">cloudwatch</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">cloudwatch</span><span class="sh">'</span><span class="p">)</span>
+<h3 id="billing-alarm">Billing alarm</h3>
 
-<span class="c1"># Send custom metric
-</span><span class="k">def</span> <span class="nf">track_user_login</span><span class="p">(</span><span class="n">user_id</span><span class="p">):</span>
-    <span class="n">cloudwatch</span><span class="p">.</span><span class="nf">put_metric_data</span><span class="p">(</span>
-        <span class="n">Namespace</span><span class="o">=</span><span class="sh">'</span><span class="s">MyApp</span><span class="sh">'</span><span class="p">,</span>
-        <span class="n">MetricData</span><span class="o">=</span><span class="p">[</span>
-            <span class="p">{</span>
-                <span class="sh">'</span><span class="s">MetricName</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">UserLogins</span><span class="sh">'</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">Dimensions</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="p">{</span>
-                        <span class="sh">'</span><span class="s">Name</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Environment</span><span class="sh">'</span><span class="p">,</span>
-                        <span class="sh">'</span><span class="s">Value</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Production</span><span class="sh">'</span>
-                    <span class="p">}</span>
-                <span class="p">],</span>
-                <span class="sh">'</span><span class="s">Value</span><span class="sh">'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">Unit</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Count</span><span class="sh">'</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">Timestamp</span><span class="sh">'</span><span class="p">:</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
-            <span class="p">}</span>
-        <span class="p">]</span>
-    <span class="p">)</span>
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Log Insights for Troubleshooting</strong>
-    <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Find slowest API endpoints</span>
-<span class="n">fields</span> <span class="o">@</span><span class="nb">timestamp</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">path</span>
-<span class="o">|</span> <span class="n">filter</span> <span class="n">duration</span> <span class="o">&gt;</span> <span class="mi">1000</span>
-<span class="o">|</span> <span class="n">sort</span> <span class="n">duration</span> <span class="k">desc</span>
-<span class="o">|</span> <span class="k">limit</span> <span class="mi">20</span>
+<p>Billing metrics exist only in <strong>us-east-1</strong> and only after <em>Receive CloudWatch billing alerts</em> is enabled in the Billing console. <code class="language-plaintext highlighter-rouge">EstimatedCharges</code> is updated several times a day, so a 6-hour period is appropriate. AWS Budgets is the more capable tool for forecasts and per-service budgets; see <a href="cost.html">Cost Optimization</a>.</p>
 
-<span class="c1">-- Count errors by type</span>
-<span class="n">fields</span> <span class="o">@</span><span class="nb">timestamp</span><span class="p">,</span> <span class="n">error_type</span>
-<span class="o">|</span> <span class="n">filter</span> <span class="o">@</span><span class="n">message</span> <span class="k">like</span> <span class="o">/</span><span class="n">ERROR</span><span class="o">/</span>
-<span class="o">|</span> <span class="n">stats</span> <span class="k">count</span><span class="p">()</span> <span class="k">by</span> <span class="n">error_type</span>
-</code></pre></div>    </div>
-  </li>
-</ol>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws cloudwatch put-metric-alarm <span class="nt">--region</span> us-east-1 <span class="se">\</span>
+  <span class="nt">--alarm-name</span> monthly-spend-over-100 <span class="se">\</span>
+  <span class="nt">--namespace</span> AWS/Billing <span class="nt">--metric-name</span> EstimatedCharges <span class="se">\</span>
+  <span class="nt">--dimensions</span> <span class="nv">Name</span><span class="o">=</span>Currency,Value<span class="o">=</span>USD <span class="se">\</span>
+  <span class="nt">--statistic</span> Maximum <span class="nt">--period</span> 21600 <span class="se">\</span>
+  <span class="nt">--evaluation-periods</span> 1 <span class="nt">--threshold</span> 100 <span class="se">\</span>
+  <span class="nt">--comparison-operator</span> GreaterThanThreshold <span class="se">\</span>
+  <span class="nt">--alarm-actions</span> arn:aws:sns:us-east-1:123456789012:billing
+</code></pre></div></div>
 
-<p><strong>Common CloudWatch Pitfall</strong>: Not setting up log retention, leading to unexpected costs. Always set retention policies:</p>
+<hr />
+
+<h2 id="cloudwatch-logs">CloudWatch Logs</h2>
+
+<p>Logs are organised into <strong>log groups</strong> (usually one per application or function, such as <code class="language-plaintext highlighter-rouge">/aws/lambda/checkout</code>) containing <strong>log streams</strong> (one per instance, container, or Lambda execution environment). Log groups <strong>never expire by default</strong>, and log ingestion is typically the largest line item on a CloudWatch bill, so set a retention period on every group, ideally in IaC:</p>
+
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws logs put-retention-policy <span class="se">\</span>
-  <span class="nt">--log-group-name</span> /aws/lambda/my-function <span class="se">\</span>
+  <span class="nt">--log-group-name</span> /aws/lambda/checkout <span class="se">\</span>
   <span class="nt">--retention-in-days</span> 30
 </code></pre></div></div>
 
+<p><strong>Log classes</strong> are chosen when a group is created and cannot be changed afterwards:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Class</th>
+      <th>Use</th>
+      <th>Notable limitations</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Standard</strong></td>
+      <td>Operational logs that feed alarms, dashboards, or real-time processing</td>
+      <td>None</td>
+    </tr>
+    <tr>
+      <td><strong>Infrequent Access</strong></td>
+      <td>Logs kept for forensics or compliance and queried rarely; lower ingestion price</td>
+      <td>No metric filters, subscription filters, Live Tail, field indexes, anomaly detection, or EMF extraction; read through Logs Insights only</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Beyond storage, CloudWatch Logs provides:</p>
+
+<ul>
+  <li><strong>Metric filters</strong> that turn matching log lines into metrics (for example, count lines containing <code class="language-plaintext highlighter-rouge">"level":"ERROR"</code>).</li>
+  <li><strong>Subscription filters</strong> that stream log events in near real time to Lambda, Kinesis Data Streams, Amazon Data Firehose, or OpenSearch.</li>
+  <li><strong>Live Tail</strong> for streaming new events to the console or CLI during an incident.</li>
+  <li><strong>Anomaly detection</strong> and <strong>pattern analysis</strong>, which cluster similar log lines and flag unusual ones.</li>
+  <li><strong>Data protection policies</strong> that mask sensitive data such as credentials or personal information at ingestion.</li>
+</ul>
+
+<h3 id="logs-insights">Logs Insights</h3>
+
+<p>Logs Insights queries one or many log groups (including across accounts with cross-account observability) and bills by data scanned. It supports three query languages: the purpose-built <strong>Logs Insights QL</strong>, <strong>OpenSearch PPL</strong>, and <strong>OpenSearch SQL</strong>, which allows joins and sub-queries across log groups. <strong>Field indexes</strong> on commonly filtered fields (such as <code class="language-plaintext highlighter-rouge">requestId</code> or <code class="language-plaintext highlighter-rouge">userId</code>) let a query skip events that cannot match, reducing both latency and cost. Queries time out after 60 minutes.</p>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Logs Insights QL: slowest requests in the last hour (JSON logs)</span>
+<span class="n">fields</span> <span class="o">@</span><span class="nb">timestamp</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">duration_ms</span><span class="p">,</span> <span class="n">status</span>
+<span class="o">|</span> <span class="n">filter</span> <span class="n">duration_ms</span> <span class="o">&gt;</span> <span class="mi">1000</span>
+<span class="o">|</span> <span class="n">sort</span> <span class="n">duration_ms</span> <span class="k">desc</span>
+<span class="o">|</span> <span class="k">limit</span> <span class="mi">20</span>
+</code></pre></div></div>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Error count per 5-minute bucket, by error type</span>
+<span class="n">fields</span> <span class="o">@</span><span class="nb">timestamp</span><span class="p">,</span> <span class="n">error_type</span>
+<span class="o">|</span> <span class="n">filter</span> <span class="k">level</span> <span class="o">=</span> <span class="nv">"ERROR"</span>
+<span class="o">|</span> <span class="n">stats</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="k">as</span> <span class="n">errors</span> <span class="k">by</span> <span class="n">error_type</span><span class="p">,</span> <span class="n">bin</span><span class="p">(</span><span class="mi">5</span><span class="n">m</span><span class="p">)</span>
+</code></pre></div></div>
+
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Lambda cold starts and their init duration (Lambda REPORT lines)</span>
+<span class="n">filter</span> <span class="o">@</span><span class="k">type</span> <span class="o">=</span> <span class="nv">"REPORT"</span> <span class="k">and</span> <span class="n">ispresent</span><span class="p">(</span><span class="o">@</span><span class="n">initDuration</span><span class="p">)</span>
+<span class="o">|</span> <span class="n">stats</span> <span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="k">as</span> <span class="n">coldStarts</span><span class="p">,</span> <span class="k">avg</span><span class="p">(</span><span class="o">@</span><span class="n">initDuration</span><span class="p">)</span> <span class="k">as</span> <span class="n">avgInitMs</span><span class="p">,</span>
+        <span class="n">pct</span><span class="p">(</span><span class="o">@</span><span class="n">duration</span><span class="p">,</span> <span class="mi">99</span><span class="p">)</span> <span class="k">as</span> <span class="n">p99DurationMs</span> <span class="k">by</span> <span class="n">bin</span><span class="p">(</span><span class="mi">1</span><span class="n">h</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Structured JSON logging makes all of this cheaper and simpler: fields are discovered automatically and filters operate on typed values instead of regular expressions. See <a href="../../observability/logging.html">Logging</a> for general practice.</p>
+
 <hr />
 
-<h2 id="messaging-and-integration-connecting-your-services">Messaging and Integration: Connecting Your Services</h2>
+<h2 id="tracing-and-application-monitoring">Tracing and application monitoring</h2>
 
-<h3 id="amazon-sns---simple-notification-service">Amazon SNS - Simple Notification Service</h3>
-<p>SNS is a pub/sub messaging service that lets you send messages to multiple subscribers. Think of it as a broadcasting system for your applications.</p>
+<p><strong>AWS X-Ray</strong> stores distributed traces and renders the service map; API Gateway, Lambda, and other services can emit segments natively. AWS has standardised instrumentation on <strong>OpenTelemetry</strong>: the X-Ray SDKs and X-Ray daemon entered maintenance mode (security fixes only) on 25 February 2026, and new work should use the OpenTelemetry SDKs or the <strong>AWS Distro for OpenTelemetry (ADOT)</strong>, with the CloudWatch agent or an OpenTelemetry Collector replacing the daemon. Traces still appear in the same CloudWatch trace views; OpenTelemetry span attributes map to X-Ray metadata by default. See <a href="../../observability/tracing.html">Tracing</a> for the underlying concepts.</p>
 
-<p><strong>Real-world SNS Patterns</strong>:</p>
+<p>Higher-level CloudWatch features build on these signals:</p>
 
-<ol>
-  <li><strong>Multi-Channel Notifications</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">boto3</span>
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>What it provides</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Application Signals</strong></td>
+      <td>Automatic RED metrics (requests, errors, duration) per service and operation from OpenTelemetry auto-instrumentation, a service map, and <strong>service level objectives (SLOs)</strong> with error-budget tracking</td>
+    </tr>
+    <tr>
+      <td><strong>Container Insights</strong></td>
+      <td>Cluster, node, pod, and task metrics for ECS and EKS, with an enhanced-observability mode for per-container detail</td>
+    </tr>
+    <tr>
+      <td><strong>Lambda Insights</strong></td>
+      <td>Per-invocation memory, CPU, and cold-start metrics through a Lambda extension</td>
+    </tr>
+    <tr>
+      <td><strong>Synthetics</strong></td>
+      <td>Scripted canaries that exercise endpoints and user flows on a schedule</td>
+    </tr>
+    <tr>
+      <td><strong>RUM</strong></td>
+      <td>Real-user monitoring from browsers: page loads, JavaScript errors, Web Vitals</td>
+    </tr>
+    <tr>
+      <td><strong>Internet Monitor</strong></td>
+      <td>Availability and latency between your users’ networks and your AWS resources</td>
+    </tr>
+    <tr>
+      <td><strong>Investigations</strong></td>
+      <td>A generative-AI assistant that, starting from an alarm, metric, or Logs Insights query, gathers related metrics, logs, deployments, CloudTrail changes, and traces and proposes root-cause hypotheses; every action it takes is logged in CloudTrail</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="n">sns</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">sns</span><span class="sh">'</span><span class="p">)</span>
+<p>For multi-account environments, <strong>CloudWatch cross-account observability</strong> links source accounts to a central monitoring account so dashboards, Logs Insights queries, alarms, and traces can span the whole Organization.</p>
 
-<span class="c1"># Create topic
-</span><span class="n">topic</span> <span class="o">=</span> <span class="n">sns</span><span class="p">.</span><span class="nf">create_topic</span><span class="p">(</span><span class="n">Name</span><span class="o">=</span><span class="sh">'</span><span class="s">order-updates</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">topic_arn</span> <span class="o">=</span> <span class="n">topic</span><span class="p">[</span><span class="sh">'</span><span class="s">TopicArn</span><span class="sh">'</span><span class="p">]</span>
+<h3 id="a-baseline-alarm-set">A baseline alarm set</h3>
 
-<span class="c1"># Subscribe email
-</span><span class="n">sns</span><span class="p">.</span><span class="nf">subscribe</span><span class="p">(</span>
-    <span class="n">TopicArn</span><span class="o">=</span><span class="n">topic_arn</span><span class="p">,</span>
-    <span class="n">Protocol</span><span class="o">=</span><span class="sh">'</span><span class="s">email</span><span class="sh">'</span><span class="p">,</span>
-    <span class="n">Endpoint</span><span class="o">=</span><span class="sh">'</span><span class="s">customer@example.com</span><span class="sh">'</span>
-<span class="p">)</span>
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Metric</th>
+      <th>Typical alarm</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ALB</td>
+      <td><code class="language-plaintext highlighter-rouge">HTTPCode_Target_5XX_Count / RequestCount</code>, <code class="language-plaintext highlighter-rouge">TargetResponseTime</code> p99</td>
+      <td>5xx rate &gt; 1%; p99 above the latency SLO</td>
+    </tr>
+    <tr>
+      <td>ALB target group</td>
+      <td><code class="language-plaintext highlighter-rouge">UnHealthyHostCount</code></td>
+      <td>&gt; 0 for 3 of 5 minutes</td>
+    </tr>
+    <tr>
+      <td>Lambda</td>
+      <td><code class="language-plaintext highlighter-rouge">Errors / Invocations</code>, <code class="language-plaintext highlighter-rouge">Throttles</code>, <code class="language-plaintext highlighter-rouge">Duration</code> p99</td>
+      <td>Error rate &gt; 1%; any sustained throttling</td>
+    </tr>
+    <tr>
+      <td>SQS</td>
+      <td><code class="language-plaintext highlighter-rouge">ApproximateAgeOfOldestMessage</code></td>
+      <td>Older than the processing SLO; this catches stuck consumers that depth alone misses</td>
+    </tr>
+    <tr>
+      <td>SQS dead-letter queue</td>
+      <td><code class="language-plaintext highlighter-rouge">ApproximateNumberOfMessagesVisible</code></td>
+      <td>&gt; 0</td>
+    </tr>
+    <tr>
+      <td>RDS / Aurora</td>
+      <td><code class="language-plaintext highlighter-rouge">CPUUtilization</code>, <code class="language-plaintext highlighter-rouge">FreeableMemory</code>, <code class="language-plaintext highlighter-rouge">FreeStorageSpace</code>, <code class="language-plaintext highlighter-rouge">DatabaseConnections</code></td>
+      <td>Sustained CPU &gt; 80%; storage below 10%</td>
+    </tr>
+    <tr>
+      <td>DynamoDB</td>
+      <td><code class="language-plaintext highlighter-rouge">ThrottledRequests</code>, <code class="language-plaintext highlighter-rouge">SystemErrors</code></td>
+      <td>&gt; 0 sustained</td>
+    </tr>
+    <tr>
+      <td>Account</td>
+      <td><code class="language-plaintext highlighter-rouge">EstimatedCharges</code> (us-east-1)</td>
+      <td>Monthly budget threshold</td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1"># Subscribe SMS
-</span><span class="n">sns</span><span class="p">.</span><span class="nf">subscribe</span><span class="p">(</span>
-    <span class="n">TopicArn</span><span class="o">=</span><span class="n">topic_arn</span><span class="p">,</span>
-    <span class="n">Protocol</span><span class="o">=</span><span class="sh">'</span><span class="s">sms</span><span class="sh">'</span><span class="p">,</span>
-    <span class="n">Endpoint</span><span class="o">=</span><span class="sh">'</span><span class="s">+1234567890</span><span class="sh">'</span>
-<span class="p">)</span>
+<hr />
 
-<span class="c1"># Subscribe Lambda for processing
-</span><span class="n">sns</span><span class="p">.</span><span class="nf">subscribe</span><span class="p">(</span>
-    <span class="n">TopicArn</span><span class="o">=</span><span class="n">topic_arn</span><span class="p">,</span>
-    <span class="n">Protocol</span><span class="o">=</span><span class="sh">'</span><span class="s">lambda</span><span class="sh">'</span><span class="p">,</span>
-    <span class="n">Endpoint</span><span class="o">=</span><span class="sh">'</span><span class="s">arn:aws:lambda:region:account:function:process-order</span><span class="sh">'</span>
-<span class="p">)</span>
+<h2 id="messaging-and-integration">Messaging and integration</h2>
 
-<span class="c1"># Send notification to all subscribers
-</span><span class="n">sns</span><span class="p">.</span><span class="nf">publish</span><span class="p">(</span>
-    <span class="n">TopicArn</span><span class="o">=</span><span class="n">topic_arn</span><span class="p">,</span>
-    <span class="n">Message</span><span class="o">=</span><span class="sh">'</span><span class="s">Order #12345 has been shipped!</span><span class="sh">'</span><span class="p">,</span>
-    <span class="n">Subject</span><span class="o">=</span><span class="sh">'</span><span class="s">Order Update</span><span class="sh">'</span>
-<span class="p">)</span>
-</code></pre></div>    </div>
-  </li>
-  <li><strong>Fan-out Pattern for Microservices</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Order service publishes once
-</span><span class="k">def</span> <span class="nf">complete_order</span><span class="p">(</span><span class="n">order_id</span><span class="p">):</span>
-    <span class="n">sns</span><span class="p">.</span><span class="nf">publish</span><span class="p">(</span>
-        <span class="n">TopicArn</span><span class="o">=</span><span class="sh">'</span><span class="s">arn:aws:sns:region:account:order-completed</span><span class="sh">'</span><span class="p">,</span>
-        <span class="n">Message</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span>
-            <span class="sh">'</span><span class="s">orderId</span><span class="sh">'</span><span class="p">:</span> <span class="n">order_id</span><span class="p">,</span>
-            <span class="sh">'</span><span class="s">timestamp</span><span class="sh">'</span><span class="p">:</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">isoformat</span><span class="p">(),</span>
-            <span class="sh">'</span><span class="s">amount</span><span class="sh">'</span><span class="p">:</span> <span class="mf">99.99</span>
-        <span class="p">})</span>
-    <span class="p">)</span>
+<p>Asynchronous messaging decouples producers from consumers in time and in failure: the producer hands a message to a durable service and moves on, and consumers process it at their own pace, retrying on failure. AWS offers three core services with different delivery models.</p>
 
-<span class="c1"># Multiple services subscribe and react
-# - Inventory service updates stock
-# - Email service sends confirmation
-# - Analytics service records sale
-# - Shipping service creates label
-</span></code></pre></div>    </div>
-  </li>
-</ol>
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th><strong>SNS</strong></th>
+      <th><strong>SQS</strong></th>
+      <th><strong>EventBridge</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Model</td>
+      <td>Publish/subscribe (push)</td>
+      <td>Queue (consumers poll)</td>
+      <td>Event bus with content-based routing (push)</td>
+    </tr>
+    <tr>
+      <td>Consumers per message</td>
+      <td>Every matching subscriber</td>
+      <td>One consumer</td>
+      <td>Every matching rule target</td>
+    </tr>
+    <tr>
+      <td>Persistence</td>
+      <td>None beyond delivery retries</td>
+      <td>Up to 14 days</td>
+      <td>Retries up to 24 hours; optional archive and replay</td>
+    </tr>
+    <tr>
+      <td>Filtering</td>
+      <td>Subscription filter policies on attributes or body</td>
+      <td>None</td>
+      <td>Rich event patterns on any JSON field</td>
+    </tr>
+    <tr>
+      <td>Ordering</td>
+      <td>FIFO topics</td>
+      <td>FIFO queues</td>
+      <td>Not guaranteed</td>
+    </tr>
+    <tr>
+      <td>Typical targets</td>
+      <td>SQS, Lambda, HTTP(S), email, mobile push</td>
+      <td>Worker fleets, Lambda</td>
+      <td>Over 20 AWS services, API destinations (SaaS webhooks)</td>
+    </tr>
+    <tr>
+      <td>Choose when</td>
+      <td>Broadcasting one event to many independent consumers at high throughput</td>
+      <td>Buffering and load-levelling work for one consumer group</td>
+      <td>Routing events by content, integrating AWS service and SaaS events, schedules</td>
+    </tr>
+  </tbody>
+</table>
 
-<h3 id="amazon-sqs---simple-queue-service">Amazon SQS - Simple Queue Service</h3>
-<p>SQS provides reliable, scalable message queues. Unlike SNS (push), SQS is pull-based - consumers request messages when ready to process them.</p>
+<p>EventBridge also includes <strong>Pipes</strong> (point-to-point source-to-target integration with optional filtering, enrichment, and transformation) and <strong>Scheduler</strong> (one-time and recurring invocations at scale, replacing cron-on-an-instance). For protocol-level background on event-driven design, see <a href="../../api-design/async-and-events.html">Async APIs and Events</a>.</p>
 
-<p><strong>SQS Best Practices</strong>:</p>
+<h3 id="amazon-sqs">Amazon SQS</h3>
 
-<ol>
-  <li><strong>Decoupling with Standard Queues</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">boto3</span>
-<span class="kn">import</span> <span class="n">json</span>
+<p>SQS stores messages until a consumer receives and explicitly deletes them. A received message is not removed; it becomes invisible for the <strong>visibility timeout</strong> and reappears if not deleted in time, which is how SQS provides at-least-once delivery without the consumer holding a connection.</p>
 
-<span class="n">sqs</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">sqs</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">queue_url</span> <span class="o">=</span> <span class="sh">'</span><span class="s">https://sqs.region.amazonaws.com/account/my-queue</span><span class="sh">'</span>
+<pre><code class="language-mermaid">sequenceDiagram
+    participant P as Producer
+    participant Q as SQS queue
+    participant C as Consumer
+    participant D as Dead-letter queue
+    P-&gt;&gt;Q: SendMessage
+    C-&gt;&gt;Q: ReceiveMessage (long poll, up to 20 s)
+    Q--&gt;&gt;C: message + receipt handle
+    Note over Q: message invisible for visibility timeout
+    alt processed successfully
+        C-&gt;&gt;Q: DeleteMessage(receipt handle)
+    else consumer fails or times out
+        Note over Q: message becomes visible again
+        Q--&gt;&gt;C: redelivered (receive count + 1)
+        Q-&gt;&gt;D: moved after maxReceiveCount receives
+    end
+</code></pre>
 
-<span class="c1"># Producer: Send messages
-</span><span class="k">def</span> <span class="nf">send_task</span><span class="p">(</span><span class="n">task_data</span><span class="p">):</span>
-    <span class="n">sqs</span><span class="p">.</span><span class="nf">send_message</span><span class="p">(</span>
-        <span class="n">QueueUrl</span><span class="o">=</span><span class="n">queue_url</span><span class="p">,</span>
-        <span class="n">MessageBody</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">task_data</span><span class="p">),</span>
-        <span class="n">MessageAttributes</span><span class="o">=</span><span class="p">{</span>
-            <span class="sh">'</span><span class="s">Priority</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
-                <span class="sh">'</span><span class="s">StringValue</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">High</span><span class="sh">'</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">DataType</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">String</span><span class="sh">'</span>
-            <span class="p">}</span>
-        <span class="p">}</span>
-    <span class="p">)</span>
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Standard queue</th>
+      <th>FIFO queue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Ordering</td>
+      <td>Best effort</td>
+      <td>Strict within a <strong>message group</strong> (<code class="language-plaintext highlighter-rouge">MessageGroupId</code>)</td>
+    </tr>
+    <tr>
+      <td>Delivery</td>
+      <td>At least once; occasional duplicates</td>
+      <td>Exactly-once processing within a 5-minute deduplication window</td>
+    </tr>
+    <tr>
+      <td>Throughput</td>
+      <td>Nearly unlimited</td>
+      <td>300 API calls/s per action (3,000 messages/s with batches of 10); high-throughput mode reaches up to 70,000 calls/s in the largest Regions</td>
+    </tr>
+    <tr>
+      <td>Name</td>
+      <td>Any</td>
+      <td>Must end in <code class="language-plaintext highlighter-rouge">.fifo</code></td>
+    </tr>
+  </tbody>
+</table>
 
-<span class="c1"># Consumer: Process messages
-</span><span class="k">def</span> <span class="nf">process_messages</span><span class="p">():</span>
+<p>Limits worth knowing: messages up to <strong>1 MiB</strong> (larger payloads go to S3 via the extended client libraries), retention from 60 seconds to <strong>14 days</strong> (default 4 days), visibility timeout up to <strong>12 hours</strong>, long-poll wait up to <strong>20 seconds</strong>, batches of up to <strong>10</strong> messages.</p>
+
+<p>A worker that handles failures correctly:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">boto3</span>
+
+<span class="n">sqs</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">"</span><span class="s">sqs</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">QUEUE_URL</span> <span class="o">=</span> <span class="sh">"</span><span class="s">https://sqs.us-east-1.amazonaws.com/123456789012/orders</span><span class="sh">"</span>
+
+<span class="k">def</span> <span class="nf">poll_forever</span><span class="p">(</span><span class="n">handle</span><span class="p">):</span>
     <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
-        <span class="n">response</span> <span class="o">=</span> <span class="n">sqs</span><span class="p">.</span><span class="nf">receive_message</span><span class="p">(</span>
-            <span class="n">QueueUrl</span><span class="o">=</span><span class="n">queue_url</span><span class="p">,</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">sqs</span><span class="p">.</span><span class="nf">receive_message</span><span class="p">(</span>
+            <span class="n">QueueUrl</span><span class="o">=</span><span class="n">QUEUE_URL</span><span class="p">,</span>
             <span class="n">MaxNumberOfMessages</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-            <span class="n">WaitTimeSeconds</span><span class="o">=</span><span class="mi">20</span>  <span class="c1"># Long polling
+            <span class="n">WaitTimeSeconds</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>        <span class="c1"># long polling: fewer empty responses
+</span>            <span class="n">VisibilityTimeout</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>      <span class="c1"># longer than worst-case processing time
 </span>        <span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">response</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">Messages</span><span class="sh">'</span><span class="p">,</span> <span class="p">[]):</span>
-            <span class="c1"># Process message
-</span>            <span class="nf">process_task</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">message</span><span class="p">[</span><span class="sh">'</span><span class="s">Body</span><span class="sh">'</span><span class="p">]))</span>
-
-            <span class="c1"># Delete after successful processing
-</span>            <span class="n">sqs</span><span class="p">.</span><span class="nf">delete_message</span><span class="p">(</span>
-                <span class="n">QueueUrl</span><span class="o">=</span><span class="n">queue_url</span><span class="p">,</span>
-                <span class="n">ReceiptHandle</span><span class="o">=</span><span class="n">message</span><span class="p">[</span><span class="sh">'</span><span class="s">ReceiptHandle</span><span class="sh">'</span><span class="p">]</span>
-            <span class="p">)</span>
-</code></pre></div>    </div>
-  </li>
-  <li><strong>FIFO Queues for Order Guarantees</strong>
-    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Create FIFO queue for ordered processing
-</span><span class="n">fifo_queue</span> <span class="o">=</span> <span class="n">sqs</span><span class="p">.</span><span class="nf">create_queue</span><span class="p">(</span>
-    <span class="n">QueueName</span><span class="o">=</span><span class="sh">'</span><span class="s">payment-processing.fifo</span><span class="sh">'</span><span class="p">,</span>
-    <span class="n">Attributes</span><span class="o">=</span><span class="p">{</span>
-        <span class="sh">'</span><span class="s">FifoQueue</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">true</span><span class="sh">'</span><span class="p">,</span>
-        <span class="sh">'</span><span class="s">ContentBasedDeduplication</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">true</span><span class="sh">'</span>
-    <span class="p">}</span>
-<span class="p">)</span>
-
-<span class="c1"># Send with message group ID for ordering
-</span><span class="n">sqs</span><span class="p">.</span><span class="nf">send_message</span><span class="p">(</span>
-    <span class="n">QueueUrl</span><span class="o">=</span><span class="n">fifo_queue</span><span class="p">[</span><span class="sh">'</span><span class="s">QueueUrl</span><span class="sh">'</span><span class="p">],</span>
-    <span class="n">MessageBody</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">payment_data</span><span class="p">),</span>
-    <span class="n">MessageGroupId</span><span class="o">=</span><span class="n">user_id</span>  <span class="c1"># All messages for user processed in order
-</span><span class="p">)</span>
-</code></pre></div>    </div>
-  </li>
-</ol>
-
-<p><strong>Common SQS + SNS Pattern</strong>: Fan-out with buffering</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>SNS Topic → SQS Queue 1 → Lambda/EC2 processors
-          → SQS Queue 2 → Different processors
-          → SQS Queue 3 → Analytics pipeline
+        <span class="n">done</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">resp</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">Messages</span><span class="sh">"</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="nf">handle</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">msg</span><span class="p">[</span><span class="sh">"</span><span class="s">Body</span><span class="sh">"</span><span class="p">]))</span>
+                <span class="n">done</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span><span class="sh">"</span><span class="s">Id</span><span class="sh">"</span><span class="p">:</span> <span class="n">msg</span><span class="p">[</span><span class="sh">"</span><span class="s">MessageId</span><span class="sh">"</span><span class="p">],</span>
+                             <span class="sh">"</span><span class="s">ReceiptHandle</span><span class="sh">"</span><span class="p">:</span> <span class="n">msg</span><span class="p">[</span><span class="sh">"</span><span class="s">ReceiptHandle</span><span class="sh">"</span><span class="p">]})</span>
+            <span class="k">except</span> <span class="nb">Exception</span><span class="p">:</span>
+                <span class="c1"># Do not delete: the message reappears after the visibility
+</span>                <span class="c1"># timeout and moves to the DLQ after maxReceiveCount attempts.
+</span>                <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">done</span><span class="p">:</span>
+            <span class="n">sqs</span><span class="p">.</span><span class="nf">delete_message_batch</span><span class="p">(</span><span class="n">QueueUrl</span><span class="o">=</span><span class="n">QUEUE_URL</span><span class="p">,</span> <span class="n">Entries</span><span class="o">=</span><span class="n">done</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>This pattern combines SNS’s broadcasting with SQS’s reliable delivery and buffering.</p>
+<p>Operational practices:</p>
+
+<ul>
+  <li><strong>Always attach a dead-letter queue</strong> with a <code class="language-plaintext highlighter-rouge">maxReceiveCount</code> (3 to 5 is common) and alarm when it is non-empty. After fixing the bug, use <strong>DLQ redrive</strong> to move messages back to the source queue.</li>
+  <li><strong>Make consumers idempotent.</strong> Standard queues can deliver twice, and any consumer can crash after doing the work but before deleting the message. Deduplicate on a business key.</li>
+  <li><strong>Set the visibility timeout above the worst-case processing time</strong>, or extend it with <code class="language-plaintext highlighter-rouge">ChangeMessageVisibility</code> for long jobs. For Lambda consumers, AWS recommends a queue visibility timeout of at least six times the function timeout.</li>
+  <li><strong>With Lambda, report partial batch failures.</strong> Enable <code class="language-plaintext highlighter-rouge">ReportBatchItemFailures</code> on the event source mapping and return the IDs of failed messages, so one bad message does not force the whole batch to be retried.</li>
+  <li><strong>Scale on backlog per worker</strong>, <code class="language-plaintext highlighter-rouge">ApproximateNumberOfMessagesVisible</code> divided by the number of consumers, rather than on CPU.</li>
+</ul>
+
+<p><strong>Fair queues</strong> address the noisy-neighbour problem in multi-tenant standard queues. When producers set <code class="language-plaintext highlighter-rouge">MessageGroupId</code> to a tenant identifier on a standard queue, SQS detects a tenant with a disproportionate share of in-flight messages and prioritises delivery of other tenants’ messages, keeping their dwell time low. No consumer changes are needed, and unlike on FIFO queues the group ID does not impose ordering.</p>
+
+<p>FIFO example, ordering payments per customer while processing different customers in parallel:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">sqs</span><span class="p">.</span><span class="nf">send_message</span><span class="p">(</span>
+    <span class="n">QueueUrl</span><span class="o">=</span><span class="sh">"</span><span class="s">https://sqs.us-east-1.amazonaws.com/123456789012/payments.fifo</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">MessageBody</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">payment</span><span class="p">),</span>
+    <span class="n">MessageGroupId</span><span class="o">=</span><span class="n">payment</span><span class="p">[</span><span class="sh">"</span><span class="s">customer_id</span><span class="sh">"</span><span class="p">],</span>        <span class="c1"># ordering scope
+</span>    <span class="n">MessageDeduplicationId</span><span class="o">=</span><span class="n">payment</span><span class="p">[</span><span class="sh">"</span><span class="s">payment_id</span><span class="sh">"</span><span class="p">],</span>  <span class="c1"># or enable content-based dedup
+</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Throughput on a FIFO queue scales with the number of distinct message groups; a single hot group is processed strictly one message at a time.</p>
+
+<h3 id="amazon-sns">Amazon SNS</h3>
+
+<p>SNS pushes each published message to every subscription on a <strong>topic</strong>. Subscribers can be SQS queues, Lambda functions, HTTP(S) endpoints, Amazon Data Firehose, email, SMS, and mobile push. <strong>Subscription filter policies</strong> let each subscriber receive only the messages it cares about, so producers do not need to know who is listening.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">boto3</span>
+
+<span class="n">sns</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">"</span><span class="s">sns</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">TOPIC_ARN</span> <span class="o">=</span> <span class="sh">"</span><span class="s">arn:aws:sns:us-east-1:123456789012:order-events</span><span class="sh">"</span>
+
+<span class="n">sns</span><span class="p">.</span><span class="nf">publish</span><span class="p">(</span>
+    <span class="n">TopicArn</span><span class="o">=</span><span class="n">TOPIC_ARN</span><span class="p">,</span>
+    <span class="n">Message</span><span class="o">=</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">orderId</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">o-81723</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">total</span><span class="sh">"</span><span class="p">:</span> <span class="mf">99.99</span><span class="p">}),</span>
+    <span class="n">MessageAttributes</span><span class="o">=</span><span class="p">{</span>
+        <span class="sh">"</span><span class="s">eventType</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span><span class="sh">"</span><span class="s">DataType</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">String</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">StringValue</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">OrderCompleted</span><span class="sh">"</span><span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+
+<span class="c1"># The shipping queue only receives completed orders
+</span><span class="n">sns</span><span class="p">.</span><span class="nf">subscribe</span><span class="p">(</span>
+    <span class="n">TopicArn</span><span class="o">=</span><span class="n">TOPIC_ARN</span><span class="p">,</span>
+    <span class="n">Protocol</span><span class="o">=</span><span class="sh">"</span><span class="s">sqs</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">Endpoint</span><span class="o">=</span><span class="sh">"</span><span class="s">arn:aws:sqs:us-east-1:123456789012:shipping</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">Attributes</span><span class="o">=</span><span class="p">{</span>
+        <span class="sh">"</span><span class="s">FilterPolicy</span><span class="sh">"</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">eventType</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">OrderCompleted</span><span class="sh">"</span><span class="p">]}),</span>
+        <span class="sh">"</span><span class="s">RawMessageDelivery</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">true</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">)</span>
+</code></pre></div></div>
+
+<p>SNS retries failed deliveries according to a per-protocol policy; attach a <strong>dead-letter queue to each subscription</strong> so undeliverable messages are kept rather than dropped. <strong>FIFO topics</strong> preserve ordering and deduplicate, and can deliver to FIFO or standard SQS queues.</p>
+
+<h3 id="fan-out-sns-to-sqs">Fan-out: SNS to SQS</h3>
+
+<p>The most common composition publishes once to SNS and gives each consumer its own SQS queue. Each consumer gets durable buffering, independent retries, and its own dead-letter queue, and a slow or failing consumer cannot affect the others.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+    Orders[Order service] -- publish once --&gt; T[(SNS topic&lt;br/&gt;order-events)]
+    T -- filter: OrderCompleted --&gt; Q1[SQS: inventory]
+    T -- filter: OrderCompleted --&gt; Q2[SQS: shipping]
+    T -- all events --&gt; Q3[SQS: analytics]
+    T --&gt; F[Email / chat notification]
+    Q1 --&gt; W1[Inventory workers]
+    Q2 --&gt; W2[Shipping Lambda]
+    Q3 --&gt; W3[Analytics loader]
+    Q1 -.-&gt; DLQ1[DLQ]
+    Q2 -.-&gt; DLQ2[DLQ]
+    Q3 -.-&gt; DLQ3[DLQ]
+</code></pre>
+
+<p>The queue policy on each SQS queue must allow the topic to send to it (<code class="language-plaintext highlighter-rouge">sqs:SendMessage</code> with an <code class="language-plaintext highlighter-rouge">aws:SourceArn</code> condition naming the topic); the CDK <code class="language-plaintext highlighter-rouge">SqsSubscription</code> construct and SNS console add this automatically. When routing rules become content-heavy or events come from many AWS services, EventBridge with SQS targets is the equivalent pattern.</p>
 
 <hr />
 
-<h2 id="proactive-monitoring-setup">Proactive Monitoring Setup</h2>
+<h2 id="operational-tooling">Operational tooling</h2>
 
-<p>Prevent issues before they happen:</p>
+<ul>
+  <li>
+    <p><strong>AWS CLI <code class="language-plaintext highlighter-rouge">--query</code></strong> filters output with JMESPath on the client side:</p>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Create comprehensive CloudWatch dashboard</span>
-aws cloudwatch put-dashboard <span class="se">\</span>
-  <span class="nt">--dashboard-name</span> ProductionHealth <span class="se">\</span>
-  <span class="nt">--dashboard-body</span> file://dashboard.json
-
-<span class="c"># Set up alerts for common issues</span>
-<span class="c"># High error rate</span>
-aws cloudwatch put-metric-alarm <span class="se">\</span>
-  <span class="nt">--alarm-name</span> high-error-rate <span class="se">\</span>
-  <span class="nt">--alarm-description</span> <span class="s2">"Alert when error rate exceeds 1%"</span> <span class="se">\</span>
-  <span class="nt">--metric-name</span> 4XXError <span class="se">\</span>
-  <span class="nt">--namespace</span> AWS/ApiGateway <span class="se">\</span>
-  <span class="nt">--statistic</span> Sum <span class="se">\</span>
-  <span class="nt">--period</span> 300 <span class="se">\</span>
-  <span class="nt">--threshold</span> 50 <span class="se">\</span>
-  <span class="nt">--comparison-operator</span> GreaterThanThreshold
-
-<span class="c"># Database CPU</span>
-aws cloudwatch put-metric-alarm <span class="se">\</span>
-  <span class="nt">--alarm-name</span> rds-high-cpu <span class="se">\</span>
-  <span class="nt">--alarm-description</span> <span class="s2">"RDS CPU above 80%"</span> <span class="se">\</span>
-  <span class="nt">--metric-name</span> CPUUtilization <span class="se">\</span>
-  <span class="nt">--namespace</span> AWS/RDS <span class="se">\</span>
-  <span class="nt">--statistic</span> Average <span class="se">\</span>
-  <span class="nt">--period</span> 300 <span class="se">\</span>
-  <span class="nt">--threshold</span> 80 <span class="se">\</span>
-  <span class="nt">--comparison-operator</span> GreaterThanThreshold
-</code></pre></div></div>
-
-<h3 id="tools-every-aws-developer-should-know">Tools Every AWS Developer Should Know</h3>
-
-<ol>
-  <li><strong>AWS CLI with Query Powers</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Find specific resources quickly</span>
-aws ec2 describe-instances <span class="se">\</span>
-  <span class="nt">--query</span> <span class="s1">'Reservations[*].Instances[?State.Name==`running`].[InstanceId,Tags[?Key==`Name`].Value|[0]]'</span> <span class="se">\</span>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aws ec2 describe-instances <span class="se">\</span>
+  <span class="nt">--filters</span> <span class="nv">Name</span><span class="o">=</span>instance-state-name,Values<span class="o">=</span>running <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s1">'Reservations[].Instances[].[InstanceId, Tags[?Key==`Name`]|[0].Value]'</span> <span class="se">\</span>
   <span class="nt">--output</span> table
 </code></pre></div>    </div>
   </li>
-  <li><strong>Systems Manager Session Manager</strong>
-    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Connect without SSH keys or bastion hosts</span>
-aws ssm start-session <span class="nt">--target</span> i-xxxxx
-</code></pre></div>    </div>
-  </li>
-  <li><strong>CloudWatch Logs Insights</strong>
-    <div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Find errors across all Lambda functions</span>
-<span class="n">fields</span> <span class="o">@</span><span class="nb">timestamp</span><span class="p">,</span> <span class="o">@</span><span class="n">message</span>
-<span class="o">|</span> <span class="n">filter</span> <span class="o">@</span><span class="n">message</span> <span class="k">like</span> <span class="o">/</span><span class="n">ERROR</span><span class="o">/</span>
-<span class="o">|</span> <span class="n">stats</span> <span class="k">count</span><span class="p">()</span> <span class="k">by</span> <span class="n">bin</span><span class="p">(</span><span class="mi">5</span><span class="n">m</span><span class="p">)</span>
-</code></pre></div>    </div>
-  </li>
-  <li><strong>AWS Personal Health Dashboard</strong>
-    <ul>
-      <li>Check for AWS service issues affecting you</li>
-      <li>Get advance notice of maintenance</li>
-    </ul>
-  </li>
-</ol>
-
-<hr />
-
-<h2 id="key-takeaways">Key Takeaways</h2>
-
-<ul>
-  <li><strong>Instrument before you need it.</strong> CloudWatch metrics, logs, and alarms turn outages into diagnosable events. Add custom metrics and set log retention so data is there — and costs stay bounded — when something breaks.</li>
-  <li><strong>Decouple with SNS and SQS.</strong> SNS broadcasts to many subscribers; SQS buffers work for reliable, at-your-own-pace processing. Combine them for fan-out with durable delivery.</li>
-  <li><strong>FIFO when order matters.</strong> Reach for SQS FIFO queues and message group IDs when per-key ordering and exactly-once processing are required, such as payments.</li>
+  <li><strong>Systems Manager Session Manager</strong> opens a shell on an instance through the SSM agent, with no open inbound ports, SSH keys, or bastion hosts, and records sessions to CloudWatch Logs or S3: <code class="language-plaintext highlighter-rouge">aws ssm start-session --target i-0123456789abcdef0</code>.</li>
+  <li><strong>AWS Health Dashboard</strong> (formerly the Personal Health Dashboard) lists AWS service events and scheduled maintenance that affect your specific resources; Health events can be routed through EventBridge to the same notification channels as alarms.</li>
+  <li><strong>CloudTrail Lake</strong> or CloudTrail event history answers “who changed this?” during an incident; see <a href="security.html">Security</a>.</li>
 </ul>
+
+<p>For step-by-step incident response, see <a href="troubleshooting.html">Troubleshooting</a>.</p>
 
 <hr />
 
@@ -3429,10 +3813,12 @@ aws ssm start-session <span class="nt">--target</span> i-xxxxx
 
 <ul>
   <li><a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
-  <li><a href="iac.html">Infrastructure as Code</a> - CloudFormation and CDK</li>
+  <li><a href="../../observability/">Observability</a> - Metrics, logs, and traces beyond AWS</li>
   <li><a href="troubleshooting.html">Troubleshooting &amp; Emergency Response</a> - Diagnosing production issues</li>
+  <li><a href="iac.html">Infrastructure as Code</a> - Define alarms, queues, and topics in CloudFormation or CDK</li>
   <li><a href="compute.html">Compute Services</a> - EC2, Lambda, and Auto Scaling</li>
-  <li><a href="security.html">Security</a> - IAM and security automation</li>
+  <li><a href="cost.html">Cost Optimization</a> - Budgets and controlling CloudWatch spend</li>
+  <li><a href="../../distributed-systems/">Distributed Systems</a> - Delivery semantics and idempotency in depth</li>
 </ul>
 
       </section>

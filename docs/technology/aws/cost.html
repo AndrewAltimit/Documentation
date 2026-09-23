@@ -4,19 +4,19 @@
   <meta charset="utf-8">
 
 <!-- SEO Meta Tags -->
-<meta name="description" content="Technology and Physics notes">
+<meta name="description" content="Where AWS spend comes from, the tools that expose it, and the levers (commitments, Spot, right-sizing, storage tiering, network design) that reduce it.">
 <meta name="author" content="Andrew">
 
 <!-- Open Graph -->
 <meta property="og:title" content="AWS Cost Optimization">
-<meta property="og:description" content="Technology and Physics notes">
+<meta property="og:description" content="Where AWS spend comes from, the tools that expose it, and the levers (commitments, Spot, right-sizing, storage tiering, network design) that reduce it.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://andrewaltimit.github.io/Documentation/docs/technology/aws/cost.html">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AWS Cost Optimization">
-<meta name="twitter:description" content="Technology and Physics notes">
+<meta name="twitter:description" content="Where AWS spend comes from, the tools that expose it, and the levers (commitments, Spot, right-sizing, storage tiering, network design) that reduce it.">
 
 <title>AWS Cost Optimization | Andrews Notebook</title>
 
@@ -2873,125 +2873,187 @@ document.addEventListener('DOMContentLoaded', function () {
       </header>
 
       <section id="page-content" class="page__content">
-        <p>The cloud’s pay-as-you-go model is powerful, but without management, costs can spiral. The key is understanding how pricing works and putting automated guardrails — budgets, anomaly detection, lifecycle policies, and Spot — in place from the start. This page walks through where cloud spend comes from and gives ready-to-adapt Terraform and boto3 building blocks for keeping it under control.</p>
+        <p>AWS bills for what you provision and what you move, not for what you meant to use. Controlling spend therefore comes down to three things: <strong>seeing</strong> where money goes (tags, Cost Explorer, billing exports), <strong>acting</strong> on the biggest levers (commitment discounts, Spot, right-sizing, storage tiering, network design), and <strong>automating guardrails</strong> (budgets, anomaly detection, policies) so cost regressions are caught without someone watching a dashboard. This page covers each in turn. Service-level pricing details live on the <a href="compute.html#purchasing-options">Compute</a>, <a href="storage.html">Storage</a>, and <a href="databases.html">Database</a> pages.</p>
 
 <hr>
 
-<h2 id="cost-optimization-spending-smart-in-the-cloud">Cost Optimization: Spending Smart in the Cloud</h2>
+<h2 id="where-the-money-goes">Where the Money Goes</h2>
 
-<h3 id="the-cost-evolution-pattern">The Cost Evolution Pattern</h3>
+<p>Most AWS bills are dominated by a few categories:</p>
 
-<p>Most teams follow this cost optimization journey:</p>
+<table>
+  <thead>
+    <tr>
+      <th>Cost driver</th>
+      <th>What is billed</th>
+      <th>Frequent sources of waste</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Compute</strong></td>
+      <td>Instance-seconds (EC2, RDS, ElastiCache, OpenSearch), vCPU/GB-seconds (Fargate, Lambda)</td>
+      <td>Over-sized instances, idle non-production environments, no commitment coverage for steady load</td>
+    </tr>
+    <tr>
+      <td><strong>Storage</strong></td>
+      <td>GB-months by storage class, plus requests and retrievals</td>
+      <td>Everything in S3 Standard, unattached EBS volumes, old snapshots, logs kept forever</td>
+    </tr>
+    <tr>
+      <td><strong>Data transfer</strong></td>
+      <td>GB leaving AWS, crossing Regions, or crossing AZs; NAT gateway processing</td>
+      <td>Chatty cross-AZ traffic, S3/DynamoDB traffic routed through NAT, uncached internet egress</td>
+    </tr>
+    <tr>
+      <td><strong>Idle managed resources</strong></td>
+      <td>Hourly charges regardless of use</td>
+      <td>NAT gateways, load balancers, public IPv4 addresses, provisioned databases in test accounts</td>
+    </tr>
+    <tr>
+      <td><strong>Licensing and support</strong></td>
+      <td>Per-hour licence-included instances, support plan percentage</td>
+      <td>Windows/SQL Server licence-included instances where BYOL or Linux would do</td>
+    </tr>
+  </tbody>
+</table>
 
-<ol>
-  <li>
-<strong>Shock Phase</strong>: First AWS bill surprises everyone</li>
-  <li>
-<strong>Panic Cuts</strong>: Turning off resources randomly</li>
-  <li>
-<strong>Understanding</strong>: Learning what actually drives costs</li>
-  <li>
-<strong>Optimization</strong>: Right-sizing and automated management</li>
-  <li>
-<strong>Mastery</strong>: Costs become predictable and optimized</li>
-</ol>
+<h3 id="data-transfer">Data transfer</h3>
 
-<h3 id="understanding-your-bill">Understanding Your Bill</h3>
+<p>Data transfer is the line item teams most often fail to predict, because it depends on architecture rather than on any single resource. Representative us-east-1 list prices:</p>
 
-<p>AWS costs break down into three main categories:</p>
+<pre><code class="language-mermaid">flowchart LR
+    I([Internet]) --&gt;|inbound: free| A
+    subgraph R1[Region A]
+        subgraph AZ1[AZ 1]
+            A[EC2]
+            B[EC2]
+        end
+        subgraph AZ2[AZ 2]
+            C[EC2]
+        end
+        NAT[NAT gateway]
+        S3[(S3 / DynamoDB)]
+    end
+    subgraph R2[Region B]
+        D[EC2]
+    end
+    A &lt;--&gt;|same AZ, private IP: free| B
+    A &lt;--&gt;|cross-AZ: about 0.01 USD/GB each way| C
+    A --&gt;|inter-Region: about 0.02 USD/GB| D
+    A --&gt;|via NAT: about 0.045 USD/GB processing| NAT
+    A -.-&gt;|via gateway endpoint: free| S3
+    A --&gt;|internet egress: first 100 GB/month free,&lt;br/&gt;then from about 0.09 USD/GB| I
+</code></pre>
 
-<h4 id="compute-costs">Compute Costs</h4>
+<p>Consequences for design:</p>
+
 <ul>
   <li>
-<strong>On-Demand</strong>: Like hotel rooms - flexible but expensive</li>
+<strong>Gateway VPC endpoints for S3 and DynamoDB are free</strong> and remove NAT processing charges for that traffic. Interface endpoints (PrivateLink) for other services cost an hourly fee plus a small per-GB charge, which is usually still cheaper than NAT for heavy traffic.</li>
   <li>
-<strong>Reserved Instances</strong>: Like apartment leases - cheaper with commitment</li>
+<strong>Cross-AZ traffic</strong> is the price of high availability. Keep chatty service-to-service calls AZ-local where possible (topology-aware routing in Kubernetes, AZ-affinity in service discovery) while still deploying across AZs.</li>
   <li>
-<strong>Spot Instances</strong>: Like last-minute deals - up to 90% off but can be interrupted</li>
+<strong>CloudFront</strong> absorbs egress: transfer from AWS origins to CloudFront is free, and CloudFront’s own egress is cheaper than EC2 egress and includes a monthly free allowance.</li>
   <li>
-<strong>Savings Plans</strong>: Flexible commitment across instance types</li>
+<strong>Public IPv4 addresses</strong> cost 0.005 USD per hour each (about 3.60 USD a month), including idle Elastic IPs.</li>
 </ul>
 
-<p><strong>Real example</strong>: A startup’s API servers cost $5,000/month on-demand. After analyzing usage patterns, they buy Reserved Instances for baseline capacity and use Spot for batch processing, reducing costs to $2,000/month.</p>
+<hr>
 
-<h4 id="storage-costs">Storage Costs</h4>
-<ul>
-  <li>
-<strong>S3 Storage Classes</strong>: Match storage to access patterns
-    <ul>
-      <li>Standard: Frequently accessed data</li>
-      <li>Infrequent Access: 50% cheaper for archived data</li>
-      <li>Glacier: 90% cheaper for long-term archives</li>
-    </ul>
-  </li>
-  <li>
-<strong>Lifecycle Policies</strong>: Automatically move data to cheaper storage</li>
-</ul>
+<h2 id="the-cost-management-loop">The Cost Management Loop</h2>
 
-<p><strong>Real example</strong>: A photo sharing app automatically moves photos older than 30 days to Infrequent Access, and after 1 year to Glacier. Storage costs drop 70% with no user impact.</p>
+<p>Cost optimization is continuous. The FinOps Foundation describes it as three repeating phases; AWS tools map onto each.</p>
 
-<h4 id="data-transfer-costs">Data Transfer Costs</h4>
-<ul>
-  <li>
-<strong>Within Region</strong>: Free between services</li>
-  <li>
-<strong>Cross-Region</strong>: Charged per GB</li>
-  <li>
-<strong>Internet Egress</strong>: Most expensive</li>
-</ul>
+<pre><code class="language-mermaid">flowchart LR
+    Inform["Inform&lt;br/&gt;tags, Cost Explorer,&lt;br/&gt;CUR 2.0 / FOCUS exports"] --&gt; Optimize["Optimize&lt;br/&gt;Cost Optimization Hub,&lt;br/&gt;Compute Optimizer, commitments"]
+    Optimize --&gt; Operate["Operate&lt;br/&gt;budgets, anomaly detection,&lt;br/&gt;tag and SCP policies"]
+    Operate --&gt; Inform
+</code></pre>
 
-<h3 id="advanced-cost-management-tools">Advanced Cost Management Tools</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Purpose</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Cost Explorer</strong></td>
+      <td>Interactive charts and a query API over the last 13 months (up to 38 months at monthly granularity when enabled); forecasts; Savings Plans and RI recommendations</td>
+    </tr>
+    <tr>
+      <td><strong>AWS Budgets</strong></td>
+      <td>Thresholds on cost, usage, or commitment coverage/utilization, with email/SNS alerts and optional <strong>budget actions</strong> (apply an IAM policy or SCP, stop EC2/RDS instances)</td>
+    </tr>
+    <tr>
+      <td><strong>Cost Anomaly Detection</strong></td>
+      <td>Machine-learning monitors per service, account, cost category, or tag; alerts when spend deviates from the learned pattern</td>
+    </tr>
+    <tr>
+      <td><strong>Data Exports</strong></td>
+      <td>Scheduled billing data in S3: <strong>CUR 2.0</strong>, <strong>FOCUS 1.2</strong> (the vendor-neutral FinOps Open Cost and Usage Specification), cost optimization recommendations, and carbon emissions. Query with Athena or load into a BI tool</td>
+    </tr>
+    <tr>
+      <td><strong>Cost Optimization Hub</strong></td>
+      <td>Consolidates and de-duplicates savings opportunities (right-sizing, idle resources, Graviton migration, Savings Plans, RIs) across accounts and Regions, priced with your actual discounts</td>
+    </tr>
+    <tr>
+      <td><strong>AWS Compute Optimizer</strong></td>
+      <td>The engine behind rightsizing and idle recommendations for EC2, ASGs, EBS, Lambda, Fargate, RDS, and more</td>
+    </tr>
+    <tr>
+      <td><strong>Cost allocation tags and Cost Categories</strong></td>
+      <td>Attribute spend to teams, products, and environments</td>
+    </tr>
+  </tbody>
+</table>
 
-<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># cost-optimization.tf - Cost management and optimization</span>
+<p>Legacy Cost and Usage Reports (CUR) still work, but new setups should use CUR 2.0 through Data Exports, which has a fixed schema, supports SQL column selection, and can be delivered as Parquet.</p>
 
-<span class="c1"># Cost anomaly detection</span>
-<span class="nx">resource</span> <span class="s2">"aws_ce_anomaly_monitor"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span>              <span class="o">=</span> <span class="s2">"${var.environment}-cost-anomaly-monitor"</span>
-  <span class="nx">monitor_type</span>      <span class="o">=</span> <span class="s2">"DIMENSIONAL"</span>
-  <span class="nx">monitor_dimension</span> <span class="o">=</span> <span class="s2">"SERVICE"</span>
-<span class="p">}</span>
+<h3 id="querying-costs">Querying costs</h3>
 
-<span class="nx">resource</span> <span class="s2">"aws_ce_anomaly_subscription"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">name</span>      <span class="o">=</span> <span class="s2">"${var.environment}-cost-anomaly-subscription"</span>
-  <span class="nx">threshold</span> <span class="o">=</span> <span class="mf">100.0</span>  <span class="c1"># USD</span>
-  <span class="nx">frequency</span> <span class="o">=</span> <span class="s2">"DAILY"</span>
+<p>The Cost Explorer API answers most questions without an export:</p>
 
-  <span class="nx">monitor_arn_list</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="nx">aws_ce_anomaly_monitor</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="p">]</span>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Last month's cost by service</span>
+aws ce get-cost-and-usage <span class="se">\</span>
+  <span class="nt">--time-period</span> <span class="nv">Start</span><span class="o">=</span>2026-08-01,End<span class="o">=</span>2026-09-01 <span class="se">\</span>
+  <span class="nt">--granularity</span> MONTHLY <span class="se">\</span>
+  <span class="nt">--metrics</span> UnblendedCost <span class="se">\</span>
+  <span class="nt">--group-by</span> <span class="nv">Type</span><span class="o">=</span>DIMENSION,Key<span class="o">=</span>SERVICE <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s1">'ResultsByTime[0].Groups[].[Keys[0],Metrics.UnblendedCost.Amount]'</span> <span class="se">\</span>
+  <span class="nt">--output</span> text | <span class="nb">sort</span> <span class="nt">-t</span><span class="s1">$'</span><span class="se">\t</span><span class="s1">'</span> <span class="nt">-k2</span> <span class="nt">-rn</span> | <span class="nb">head</span> <span class="nt">-15</span>
+</code></pre></div></div>
 
-  <span class="nx">subscriber</span> <span class="p">{</span>
-    <span class="nx">type</span>    <span class="o">=</span> <span class="s2">"EMAIL"</span>
-    <span class="nx">address</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">cost_alert_email</span>
-  <span class="p">}</span>
+<p>For resource-level or tag-level analysis over long periods, query a CUR 2.0 export with Athena:</p>
 
-  <span class="nx">subscriber</span> <span class="p">{</span>
-    <span class="nx">type</span>    <span class="o">=</span> <span class="s2">"SNS"</span>
-    <span class="nx">address</span> <span class="o">=</span> <span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cost_alerts</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="p">}</span>
-<span class="p">}</span>
+<div class="language-sql highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">-- Top resources by cost for one team tag in August 2026 (CUR 2.0 schema)</span>
+<span class="k">SELECT</span> <span class="n">line_item_product_code</span>          <span class="k">AS</span> <span class="n">service</span><span class="p">,</span>
+       <span class="n">line_item_resource_id</span>           <span class="k">AS</span> <span class="n">resource</span><span class="p">,</span>
+       <span class="k">SUM</span><span class="p">(</span><span class="n">line_item_unblended_cost</span><span class="p">)</span>   <span class="k">AS</span> <span class="n">cost</span>
+<span class="k">FROM</span>   <span class="n">cur2</span>
+<span class="k">WHERE</span>  <span class="n">line_item_usage_start_date</span> <span class="o">&gt;=</span> <span class="nb">TIMESTAMP</span> <span class="s1">'2026-08-01 00:00:00'</span>
+  <span class="k">AND</span>  <span class="n">line_item_usage_start_date</span> <span class="o">&lt;</span>  <span class="nb">TIMESTAMP</span> <span class="s1">'2026-09-01 00:00:00'</span>
+  <span class="k">AND</span>  <span class="n">resource_tags</span><span class="p">[</span><span class="s1">'user_team'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'payments'</span>
+<span class="k">GROUP</span>  <span class="k">BY</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span>
+<span class="k">ORDER</span>  <span class="k">BY</span> <span class="n">cost</span> <span class="k">DESC</span>
+<span class="k">LIMIT</span>  <span class="mi">20</span><span class="p">;</span>
+</code></pre></div></div>
 
-<span class="c1"># Budget alerts</span>
+<hr>
+
+<h2 id="budgets-and-alerts">Budgets and Alerts</h2>
+
+<p>Every account, including sandboxes, should have a budget and an anomaly monitor from day one. They cost little or nothing (Cost Anomaly Detection has no charge) and they are the only thing standing between a misconfigured loop and a five-figure invoice.</p>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Monthly budget with a forecast warning and an actual-spend alert</span>
 <span class="nx">resource</span> <span class="s2">"aws_budgets_budget"</span> <span class="s2">"monthly"</span> <span class="p">{</span>
-  <span class="nx">name</span>              <span class="o">=</span> <span class="s2">"${var.environment}-monthly-budget"</span>
-  <span class="nx">budget_type</span>       <span class="o">=</span> <span class="s2">"COST"</span>
-  <span class="nx">limit_amount</span>      <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">monthly_budget_limit</span>
-  <span class="nx">limit_unit</span>        <span class="o">=</span> <span class="s2">"USD"</span>
-  <span class="nx">time_unit</span>         <span class="o">=</span> <span class="s2">"MONTHLY"</span>
-  <span class="nx">time_period_start</span> <span class="o">=</span> <span class="s2">"2024-01-01_00:00"</span>
-
-  <span class="nx">cost_types</span> <span class="p">{</span>
-    <span class="nx">include_credit</span>             <span class="o">=</span> <span class="kc">false</span>
-    <span class="nx">include_discount</span>           <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_other_subscription</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_recurring</span>          <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_refund</span>             <span class="o">=</span> <span class="kc">false</span>
-    <span class="nx">include_subscription</span>       <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_support</span>            <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_tax</span>                <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_upfront</span>            <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">use_blended</span>                <span class="o">=</span> <span class="kc">false</span>
-  <span class="err">}</span>
+  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"${var.environment}-monthly"</span>
+  <span class="nx">budget_type</span>  <span class="o">=</span> <span class="s2">"COST"</span>
+  <span class="nx">limit_amount</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">monthly_budget_usd</span>
+  <span class="nx">limit_unit</span>   <span class="o">=</span> <span class="s2">"USD"</span>
+  <span class="nx">time_unit</span>    <span class="o">=</span> <span class="s2">"MONTHLY"</span>
 
   <span class="nx">notification</span> <span class="p">{</span>
     <span class="nx">comparison_operator</span>        <span class="o">=</span> <span class="s2">"GREATER_THAN"</span>
@@ -2999,47 +3061,30 @@ document.addEventListener('DOMContentLoaded', function () {
     <span class="nx">threshold_type</span>             <span class="o">=</span> <span class="s2">"PERCENTAGE"</span>
     <span class="nx">notification_type</span>          <span class="o">=</span> <span class="s2">"FORECASTED"</span>
     <span class="nx">subscriber_email_addresses</span> <span class="o">=</span> <span class="p">[</span><span class="nx">var</span><span class="p">.</span><span class="nx">cost_alert_email</span><span class="p">]</span>
-    <span class="nx">subscriber_sns_topic_arns</span>  <span class="o">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cost_alerts</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
   <span class="p">}</span>
 
   <span class="nx">notification</span> <span class="p">{</span>
-    <span class="nx">comparison_operator</span>        <span class="o">=</span> <span class="s2">"GREATER_THAN"</span>
-    <span class="nx">threshold</span>                  <span class="o">=</span> <span class="mi">100</span>
-    <span class="nx">threshold_type</span>             <span class="o">=</span> <span class="s2">"PERCENTAGE"</span>
-    <span class="nx">notification_type</span>          <span class="o">=</span> <span class="s2">"ACTUAL"</span>
-    <span class="nx">subscriber_email_addresses</span> <span class="o">=</span> <span class="p">[</span><span class="nx">var</span><span class="p">.</span><span class="nx">cost_alert_email</span><span class="p">]</span>
-    <span class="nx">subscriber_sns_topic_arns</span>  <span class="o">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cost_alerts</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
+    <span class="nx">comparison_operator</span>       <span class="o">=</span> <span class="s2">"GREATER_THAN"</span>
+    <span class="nx">threshold</span>                 <span class="o">=</span> <span class="mi">100</span>
+    <span class="nx">threshold_type</span>            <span class="o">=</span> <span class="s2">"PERCENTAGE"</span>
+    <span class="nx">notification_type</span>         <span class="o">=</span> <span class="s2">"ACTUAL"</span>
+    <span class="nx">subscriber_sns_topic_arns</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cost_alerts</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
   <span class="p">}</span>
 <span class="p">}</span>
 
-<span class="c1"># Service-specific budgets</span>
-<span class="nx">resource</span> <span class="s2">"aws_budgets_budget"</span> <span class="s2">"service_budgets"</span> <span class="p">{</span>
-  <span class="nx">for_each</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">service_budgets</span>
-
-  <span class="nx">name</span>              <span class="o">=</span> <span class="s2">"${var.environment}-${each.key}-budget"</span>
-  <span class="nx">budget_type</span>       <span class="o">=</span> <span class="s2">"COST"</span>
-  <span class="nx">limit_amount</span>      <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span><span class="p">.</span><span class="nx">limit</span>
-  <span class="nx">limit_unit</span>        <span class="o">=</span> <span class="s2">"USD"</span>
-  <span class="nx">time_unit</span>         <span class="o">=</span> <span class="s2">"MONTHLY"</span>
-  <span class="nx">time_period_start</span> <span class="o">=</span> <span class="s2">"2024-01-01_00:00"</span>
+<span class="c1"># Per-service budget, e.g. to catch a runaway Lambda or data-transfer bill</span>
+<span class="nx">resource</span> <span class="s2">"aws_budgets_budget"</span> <span class="s2">"per_service"</span> <span class="p">{</span>
+  <span class="nx">for_each</span>     <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">service_budgets</span> <span class="c1"># { "AWS Lambda" = 200, "Amazon Elastic Compute Cloud - Compute" = 3000 }</span>
+  <span class="nx">name</span>         <span class="o">=</span> <span class="s2">"${var.environment}-${each.key}"</span>
+  <span class="nx">budget_type</span>  <span class="o">=</span> <span class="s2">"COST"</span>
+  <span class="nx">limit_amount</span> <span class="o">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">value</span>
+  <span class="nx">limit_unit</span>   <span class="o">=</span> <span class="s2">"USD"</span>
+  <span class="nx">time_unit</span>    <span class="o">=</span> <span class="s2">"MONTHLY"</span>
 
   <span class="nx">cost_filter</span> <span class="p">{</span>
-    <span class="nx">name</span> <span class="o">=</span> <span class="s2">"Service"</span>
+    <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"Service"</span>
     <span class="nx">values</span> <span class="o">=</span> <span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">]</span>
   <span class="p">}</span>
-
-  <span class="nx">cost_types</span> <span class="p">{</span>
-    <span class="nx">include_credit</span>             <span class="o">=</span> <span class="kc">false</span>
-    <span class="nx">include_discount</span>           <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_other_subscription</span> <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_recurring</span>          <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_refund</span>             <span class="o">=</span> <span class="kc">false</span>
-    <span class="nx">include_subscription</span>       <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_support</span>            <span class="o">=</span> <span class="kc">false</span>
-    <span class="nx">include_tax</span>                <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">include_upfront</span>            <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">use_blended</span>                <span class="o">=</span> <span class="kc">false</span>
-  <span class="err">}</span>
 
   <span class="nx">notification</span> <span class="p">{</span>
     <span class="nx">comparison_operator</span>        <span class="o">=</span> <span class="s2">"GREATER_THAN"</span>
@@ -3050,409 +3095,328 @@ document.addEventListener('DOMContentLoaded', function () {
   <span class="p">}</span>
 <span class="p">}</span>
 
-<span class="c1"># Compute Optimizer enrollment</span>
-<span class="nx">resource</span> <span class="s2">"aws_organizations_policy"</span> <span class="s2">"compute_optimizer"</span> <span class="p">{</span>
-  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"ComputeOptimizerEnrollment"</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Enable Compute Optimizer for all accounts"</span>
-  <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"SERVICE_CONTROL_POLICY"</span>
-
-  <span class="nx">content</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-    <span class="nx">Version</span> <span class="o">=</span> <span class="s2">"2012-10-17"</span>
-    <span class="nx">Statement</span> <span class="o">=</span> <span class="p">[</span>
-      <span class="p">{</span>
-        <span class="nx">Effect</span> <span class="o">=</span> <span class="s2">"Allow"</span>
-        <span class="nx">Action</span> <span class="o">=</span> <span class="s2">"compute-optimizer:*"</span>
-        <span class="nx">Resource</span> <span class="o">=</span> <span class="s2">"*"</span>
-      <span class="p">}</span>
-    <span class="p">]</span>
-  <span class="p">})</span>
+<span class="c1"># Anomaly detection across all services, alerting on anomalies of 100 USD or more</span>
+<span class="nx">resource</span> <span class="s2">"aws_ce_anomaly_monitor"</span> <span class="s2">"services"</span> <span class="p">{</span>
+  <span class="nx">name</span>              <span class="o">=</span> <span class="s2">"${var.environment}-services"</span>
+  <span class="nx">monitor_type</span>      <span class="o">=</span> <span class="s2">"DIMENSIONAL"</span>
+  <span class="nx">monitor_dimension</span> <span class="o">=</span> <span class="s2">"SERVICE"</span>
 <span class="p">}</span>
 
-<span class="c1"># Lambda for cost optimization recommendations</span>
-<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"cost_optimizer"</span> <span class="p">{</span>
-  <span class="nx">filename</span>         <span class="o">=</span> <span class="s2">"cost_optimizer.zip"</span>
-  <span class="nx">function_name</span>    <span class="o">=</span> <span class="s2">"${var.environment}-cost-optimizer"</span>
-  <span class="nx">role</span>            <span class="o">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">cost_optimizer</span><span class="p">.</span><span class="nx">arn</span>
-  <span class="nx">handler</span>         <span class="o">=</span> <span class="s2">"index.handler"</span>
-  <span class="nx">runtime</span>         <span class="o">=</span> <span class="s2">"python3.12"</span>
-  <span class="nx">timeout</span>         <span class="o">=</span> <span class="mi">900</span>
-  <span class="nx">memory_size</span>     <span class="o">=</span> <span class="mi">3008</span>
+<span class="nx">resource</span> <span class="s2">"aws_ce_anomaly_subscription"</span> <span class="s2">"services"</span> <span class="p">{</span>
+  <span class="nx">name</span>             <span class="o">=</span> <span class="s2">"${var.environment}-anomalies"</span>
+  <span class="nx">frequency</span>        <span class="o">=</span> <span class="s2">"IMMEDIATE"</span> <span class="c1"># IMMEDIATE requires an SNS subscriber</span>
+  <span class="nx">monitor_arn_list</span> <span class="o">=</span> <span class="p">[</span><span class="nx">aws_ce_anomaly_monitor</span><span class="p">.</span><span class="nx">services</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
 
-  <span class="nx">environment</span> <span class="p">{</span>
-    <span class="nx">variables</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">SNS_TOPIC_ARN</span>    <span class="o">=</span> <span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cost_recommendations</span><span class="p">.</span><span class="nx">arn</span>
-      <span class="nx">S3_BUCKET</span>        <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">cost_reports</span><span class="p">.</span><span class="nx">id</span>
-      <span class="nx">ENVIRONMENT</span>      <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-    <span class="p">}</span>
+  <span class="nx">subscriber</span> <span class="p">{</span>
+    <span class="nx">type</span>    <span class="o">=</span> <span class="s2">"SNS"</span>
+    <span class="nx">address</span> <span class="o">=</span> <span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cost_alerts</span><span class="p">.</span><span class="nx">arn</span>
   <span class="p">}</span>
 
-  <span class="nx">layers</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">"arn:aws:lambda:${var.aws_region}:336392948345:layer:AWSSDKPandas-Python312:1"</span>
-  <span class="p">]</span>
-<span class="p">}</span>
-
-<span class="c1"># EventBridge rule for weekly cost analysis</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"cost_analysis"</span> <span class="p">{</span>
-  <span class="nx">name</span>                <span class="o">=</span> <span class="s2">"${var.environment}-weekly-cost-analysis"</span>
-  <span class="nx">description</span>         <span class="o">=</span> <span class="s2">"Trigger weekly cost analysis"</span>
-  <span class="nx">schedule_expression</span> <span class="o">=</span> <span class="s2">"cron(0 9 ? * MON *)"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_target"</span> <span class="s2">"cost_optimizer"</span> <span class="p">{</span>
-  <span class="nx">rule</span>      <span class="o">=</span> <span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">cost_analysis</span><span class="p">.</span><span class="nx">name</span>
-  <span class="nx">target_id</span> <span class="o">=</span> <span class="s2">"CostOptimizer"</span>
-  <span class="nx">arn</span>       <span class="o">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">cost_optimizer</span><span class="p">.</span><span class="nx">arn</span>
-<span class="p">}</span>
-
-<span class="c1"># Cost and Usage Report</span>
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"cost_reports"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="s2">"${var.environment}-cost-reports-${data.aws_caller_identity.current.account_id}"</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket_policy"</span> <span class="s2">"cost_reports"</span> <span class="p">{</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">cost_reports</span><span class="p">.</span><span class="nx">id</span>
-
-  <span class="nx">policy</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-    <span class="nx">Version</span> <span class="o">=</span> <span class="s2">"2012-10-17"</span>
-    <span class="nx">Statement</span> <span class="o">=</span> <span class="p">[</span>
-      <span class="p">{</span>
-        <span class="nx">Effect</span> <span class="o">=</span> <span class="s2">"Allow"</span>
-        <span class="nx">Principal</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="nx">Service</span> <span class="o">=</span> <span class="s2">"billingreports.amazonaws.com"</span>
-        <span class="p">}</span>
-        <span class="nx">Action</span> <span class="o">=</span> <span class="p">[</span>
-          <span class="s2">"s3:GetBucketAcl"</span><span class="p">,</span>
-          <span class="s2">"s3:GetBucketPolicy"</span>
-        <span class="p">]</span>
-        <span class="nx">Resource</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">cost_reports</span><span class="p">.</span><span class="nx">arn</span>
-      <span class="p">},</span>
-      <span class="p">{</span>
-        <span class="nx">Effect</span> <span class="o">=</span> <span class="s2">"Allow"</span>
-        <span class="nx">Principal</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="nx">Service</span> <span class="o">=</span> <span class="s2">"billingreports.amazonaws.com"</span>
-        <span class="p">}</span>
-        <span class="nx">Action</span> <span class="o">=</span> <span class="s2">"s3:PutObject"</span>
-        <span class="nx">Resource</span> <span class="o">=</span> <span class="s2">"${aws_s3_bucket.cost_reports.arn}/*"</span>
-      <span class="p">}</span>
-    <span class="p">]</span>
-  <span class="p">})</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_cur_report_definition"</span> <span class="s2">"main"</span> <span class="p">{</span>
-  <span class="nx">report_name</span>                <span class="o">=</span> <span class="s2">"${var.environment}-cost-usage-report"</span>
-  <span class="nx">time_unit</span>                  <span class="o">=</span> <span class="s2">"DAILY"</span>
-  <span class="nx">format</span>                     <span class="o">=</span> <span class="s2">"Parquet"</span>
-  <span class="nx">compression</span>                <span class="o">=</span> <span class="s2">"Parquet"</span>
-  <span class="nx">additional_schema_elements</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"RESOURCES"</span><span class="p">]</span>
-  <span class="nx">s3_bucket</span>                  <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="err">.</span><span class="nx">cost_reports</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">s3_prefix</span>                  <span class="o">=</span> <span class="s2">"cur"</span>
-  <span class="nx">s3_region</span>                  <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">aws_region</span>
-  <span class="nx">additional_artifacts</span>       <span class="o">=</span> <span class="p">[</span><span class="s2">"QUICKSIGHT"</span><span class="p">]</span>
-  <span class="nx">report_versioning</span>          <span class="o">=</span> <span class="s2">"OVERWRITE_REPORT"</span>
-<span class="p">}</span>
-
-<span class="c1"># Reserved Instance utilization alerts</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_metric_alarm"</span> <span class="s2">"ri_utilization"</span> <span class="p">{</span>
-  <span class="nx">alarm_name</span>          <span class="o">=</span> <span class="s2">"${var.environment}-low-ri-utilization"</span>
-  <span class="nx">comparison_operator</span> <span class="o">=</span> <span class="s2">"LessThanThreshold"</span>
-  <span class="nx">evaluation_periods</span>  <span class="o">=</span> <span class="s2">"1"</span>
-  <span class="nx">metric_name</span>         <span class="o">=</span> <span class="s2">"ReservedInstanceUtilization"</span>
-  <span class="nx">namespace</span>           <span class="o">=</span> <span class="s2">"AWS/CE"</span>
-  <span class="nx">period</span>              <span class="o">=</span> <span class="s2">"86400"</span>  <span class="c1"># 24 hours</span>
-  <span class="nx">statistic</span>           <span class="o">=</span> <span class="s2">"Average"</span>
-  <span class="nx">threshold</span>           <span class="o">=</span> <span class="s2">"75"</span>
-  <span class="nx">alarm_description</span>   <span class="o">=</span> <span class="s2">"Reserved Instance utilization below 75%"</span>
-  <span class="nx">alarm_actions</span>       <span class="o">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cost_alerts</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
-
-  <span class="nx">dimensions</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nx">Currency</span> <span class="o">=</span> <span class="s2">"USD"</span>
-  <span class="p">}</span>
-<span class="err">}</span>
-
-<span class="c1"># Savings Plans utilization alerts</span>
-<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_metric_alarm"</span> <span class="s2">"sp_utilization"</span> <span class="p">{</span>
-  <span class="nx">alarm_name</span>          <span class="o">=</span> <span class="s2">"${var.environment}-low-sp-utilization"</span>
-  <span class="nx">comparison_operator</span> <span class="o">=</span> <span class="s2">"LessThanThreshold"</span>
-  <span class="nx">evaluation_periods</span>  <span class="o">=</span> <span class="s2">"1"</span>
-  <span class="nx">metric_name</span>         <span class="o">=</span> <span class="s2">"SavingsPlansUtilization"</span>
-  <span class="nx">namespace</span>           <span class="o">=</span> <span class="s2">"AWS/CE"</span>
-  <span class="nx">period</span>              <span class="o">=</span> <span class="s2">"86400"</span>
-  <span class="nx">statistic</span>           <span class="o">=</span> <span class="s2">"Average"</span>
-  <span class="nx">threshold</span>           <span class="o">=</span> <span class="s2">"90"</span>
-  <span class="nx">alarm_description</span>   <span class="o">=</span> <span class="s2">"Savings Plans utilization below 90%"</span>
-  <span class="nx">alarm_actions</span>       <span class="o">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cost_alerts</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
-<span class="err">}</span>
-
-<span class="c1"># Cost allocation tags</span>
-<span class="nx">resource</span> <span class="s2">"aws_organizations_policy"</span> <span class="s2">"tagging"</span> <span class="p">{</span>
-  <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"MandatoryTaggingPolicy"</span>
-  <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Enforce cost allocation tags"</span>
-  <span class="nx">type</span>        <span class="o">=</span> <span class="s2">"TAG_POLICY"</span>
-
-  <span class="nx">content</span> <span class="o">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
-    <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">Environment</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">tag_key</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="s2">"@@assign"</span> <span class="p">=</span> <span class="s2">"Environment"</span>
-        <span class="p">}</span>
-        <span class="nx">tag_value</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="s2">"@@assign"</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"Production"</span><span class="p">,</span> <span class="s2">"Staging"</span><span class="p">,</span> <span class="s2">"Development"</span><span class="p">]</span>
-        <span class="p">}</span>
-        <span class="nx">enforced_for</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="s2">"@@assign"</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"ec2:instance"</span><span class="p">,</span> <span class="s2">"s3:bucket"</span><span class="p">,</span> <span class="s2">"rds:db"</span><span class="p">]</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-      <span class="nx">CostCenter</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">tag_key</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="s2">"@@assign"</span> <span class="p">=</span> <span class="s2">"CostCenter"</span>
-        <span class="p">}</span>
-        <span class="nx">enforced_for</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="s2">"@@assign"</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"ec2:*"</span><span class="p">,</span> <span class="s2">"s3:*"</span><span class="p">,</span> <span class="s2">"rds:*"</span><span class="p">]</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-      <span class="nx">Project</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="nx">tag_key</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="s2">"@@assign"</span> <span class="p">=</span> <span class="s2">"Project"</span>
-        <span class="p">}</span>
-        <span class="nx">enforced_for</span> <span class="o">=</span> <span class="p">{</span>
-          <span class="s2">"@@assign"</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"ec2:*"</span><span class="p">,</span> <span class="s2">"s3:*"</span><span class="p">,</span> <span class="s2">"rds:*"</span><span class="p">]</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">})</span>
-<span class="p">}</span>
-
-<span class="c1"># Attach tagging policy to organization</span>
-<span class="nx">resource</span> <span class="s2">"aws_organizations_policy_attachment"</span> <span class="s2">"tagging"</span> <span class="p">{</span>
-  <span class="nx">policy_id</span> <span class="o">=</span> <span class="nx">aws_organizations_policy</span><span class="p">.</span><span class="nx">tagging</span><span class="p">.</span><span class="nx">id</span>
-  <span class="nx">target_id</span> <span class="o">=</span> <span class="nx">aws_organizations_organization</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">roots</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">id</span>
-<span class="p">}</span>
-
-<span class="c1"># Instance Scheduler for non-production environments</span>
-<span class="nx">module</span> <span class="s2">"instance_scheduler"</span> <span class="p">{</span>
-  <span class="nx">source</span>  <span class="o">=</span> <span class="s2">"aws-ia/instance-scheduler/aws"</span>
-  <span class="nx">version</span> <span class="o">=</span> <span class="s2">"2.0.0"</span>
-
-  <span class="nx">scheduler_frequency</span> <span class="o">=</span> <span class="s2">"5"</span>
-
-  <span class="nx">schedules</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="p">{</span>
-      <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"business-hours"</span>
-      <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Run instances during business hours only"</span>
-      <span class="nx">timezone</span>    <span class="o">=</span> <span class="s2">"America/New_York"</span>
-
-      <span class="nx">periods</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">{</span>
-          <span class="nx">name</span>        <span class="o">=</span> <span class="s2">"weekdays"</span>
-          <span class="nx">description</span> <span class="o">=</span> <span class="s2">"Monday to Friday"</span>
-          <span class="nx">begintime</span>   <span class="o">=</span> <span class="s2">"08:00"</span>
-          <span class="nx">endtime</span>     <span class="o">=</span> <span class="s2">"18:00"</span>
-          <span class="nx">weekdays</span>    <span class="o">=</span> <span class="s2">"mon-fri"</span>
-        <span class="p">}</span>
-      <span class="p">]</span>
-    <span class="p">}</span>
-  <span class="p">]</span>
-
-  <span class="nx">tag_name</span> <span class="o">=</span> <span class="s2">"Schedule"</span>
-<span class="p">}</span>
-
-<span class="c1"># Spot Instance configuration</span>
-<span class="nx">resource</span> <span class="s2">"aws_launch_template"</span> <span class="s2">"spot"</span> <span class="p">{</span>
-  <span class="nx">name_prefix</span> <span class="o">=</span> <span class="s2">"${var.environment}-spot-"</span>
-
-  <span class="nx">instance_market_options</span> <span class="p">{</span>
-    <span class="nx">market_type</span> <span class="o">=</span> <span class="s2">"spot"</span>
-
-    <span class="nx">spot_options</span> <span class="p">{</span>
-      <span class="nx">max_price</span>                      <span class="o">=</span> <span class="s2">"0.5"</span>  <span class="c1"># 50% of on-demand price</span>
-      <span class="nx">spot_instance_type</span>             <span class="o">=</span> <span class="s2">"persistent"</span>
-      <span class="nx">instance_interruption_behavior</span> <span class="o">=</span> <span class="s2">"stop"</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-
-  <span class="nx">tag_specifications</span> <span class="p">{</span>
-    <span class="nx">resource_type</span> <span class="o">=</span> <span class="s2">"instance"</span>
-
-    <span class="nx">tags</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="nx">Environment</span> <span class="o">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
-      <span class="nx">InstanceType</span> <span class="o">=</span> <span class="s2">"spot"</span>
+  <span class="nx">threshold_expression</span> <span class="p">{</span>
+    <span class="nx">dimension</span> <span class="p">{</span>
+      <span class="nx">key</span>           <span class="o">=</span> <span class="s2">"ANOMALY_TOTAL_IMPACT_ABSOLUTE"</span>
+      <span class="nx">match_options</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"GREATER_THAN_OR_EQUAL"</span><span class="p">]</span>
+      <span class="nx">values</span>        <span class="o">=</span> <span class="p">[</span><span class="s2">"100"</span><span class="p">]</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
+</code></pre></div></div>
 
-<span class="c1"># S3 lifecycle policies for cost optimization</span>
-<span class="nx">resource</span> <span class="s2">"aws_s3_bucket_lifecycle_configuration"</span> <span class="s2">"logs"</span> <span class="p">{</span>
+<p>The SNS topic needs a resource policy allowing <code class="language-plaintext highlighter-rouge">budgets.amazonaws.com</code> and <code class="language-plaintext highlighter-rouge">costalerts.amazonaws.com</code> to publish. Budgets also track <strong>Savings Plans and RI utilization and coverage</strong>, which is how to be alerted when a commitment is going unused.</p>
+
+<hr>
+
+<h2 id="commitment-discounts">Commitment Discounts</h2>
+
+<p>Commitments trade flexibility for price: you agree to spend a fixed amount per hour (Savings Plans) or to run specific resources (Reserved Instances) for one or three years. Longer terms and more upfront payment give larger discounts.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Commitment</th>
+      <th>Maximum discount</th>
+      <th>Applies to</th>
+      <th>Flexibility</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Compute Savings Plans</strong></td>
+      <td>66%</td>
+      <td>EC2, Fargate, Lambda</td>
+      <td>Any instance family, size, Region, OS, or tenancy</td>
+    </tr>
+    <tr>
+      <td><strong>EC2 Instance Savings Plans</strong></td>
+      <td>72%</td>
+      <td>EC2</td>
+      <td>One instance family in one Region; any size, OS, tenancy</td>
+    </tr>
+    <tr>
+      <td><strong>Database Savings Plans</strong></td>
+      <td>35%</td>
+      <td>Aurora, RDS, DynamoDB, ElastiCache, DocumentDB, Neptune, Keyspaces, Timestream, DMS, OpenSearch Service</td>
+      <td>Latest-generation instances across engines, families, sizes, and Regions; also serverless usage</td>
+    </tr>
+    <tr>
+      <td><strong>SageMaker AI Savings Plans</strong></td>
+      <td>64%</td>
+      <td>SageMaker AI instances</td>
+      <td>Any instance family, size, Region, or component</td>
+    </tr>
+    <tr>
+      <td><strong>Reserved Instances / reserved nodes</strong></td>
+      <td>Up to about 72%</td>
+      <td>EC2, RDS, ElastiCache, OpenSearch, Redshift, MemoryDB, DynamoDB reserved capacity</td>
+      <td>Tied to instance attributes; Convertible EC2 RIs can be exchanged</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="sizing-a-commitment">Sizing a commitment</h3>
+
+<p>Commit to the <strong>floor</strong> of usage, not the average. Anything above the commitment is billed at On-Demand (or covered by Spot); anything below it is paid for and wasted.</p>
+
+<figure style="margin: 1.5rem 0;">
+<svg viewbox="0 0 640 260" role="img" aria-labelledby="cost-layer-title" style="width:100%; max-width:640px; height:auto; color: currentColor;">
+  <title id="cost-layer-title">Layering Savings Plans, On-Demand, and Spot under a daily usage curve</title>
+  <g fill="none" stroke="currentColor" stroke-width="1" opacity="0.6">
+    <line x1="50" y1="220" x2="620" y2="220"></line>
+    <line x1="50" y1="20" x2="50" y2="220"></line>
+  </g>
+  <rect x="50" y="160" width="570" height="60" fill="currentColor" opacity="0.28"></rect>
+  <path d="M50 160 L50 140 C110 130 150 90 210 80 C260 72 300 110 350 100 C400 90 430 50 480 45 C530 40 570 110 620 130 L620 160 Z" fill="currentColor" opacity="0.12"></path>
+  <path d="M50 140 C110 130 150 90 210 80 C260 72 300 110 350 100 C400 90 430 50 480 45 C530 40 570 110 620 130" fill="none" stroke="currentColor" stroke-width="2.5"></path>
+  <line x1="50" y1="160" x2="620" y2="160" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"></line>
+  <g font-family="inherit" font-size="13" fill="currentColor">
+    <text x="335" y="196" text-anchor="middle">Savings Plans / RIs: steady floor, committed spend per hour</text>
+    <text x="330" y="140" text-anchor="middle">On-Demand or Spot: variable load above the floor</text>
+    <text x="480" y="34" text-anchor="middle">total usage</text>
+    <text x="625" y="164" font-size="11">commitment</text>
+    <text x="335" y="242" text-anchor="middle" font-size="12" opacity="0.8">time (hours of a typical week)</text>
+    <text x="20" y="120" font-size="12" opacity="0.8" transform="rotate(-90 20 120)" text-anchor="middle">cost per hour</text>
+  </g>
+</svg>
+<figcaption style="font-size:0.9em; opacity:0.8;">Cover the baseline with commitments; leave peaks to On-Demand, Spot, or scaling.</figcaption>
+</figure>
+
+<p>Practical guidance:</p>
+
+<ul>
+  <li>
+<strong>Right-size first, then commit.</strong> A commitment locks in the current footprint; shrinking afterwards leaves the commitment underused.</li>
+  <li>
+<strong>Buy in tranches.</strong> Purchase part of the recommended commitment every month or quarter instead of all at once, so commitments expire at staggered dates and track changing usage.</li>
+  <li>
+<strong>Prefer Compute Savings Plans</strong> unless usage is certain to stay on one EC2 family in one Region; the extra discount of EC2 Instance Savings Plans rarely justifies the lock-in for evolving workloads.</li>
+  <li>
+<strong>Purchase from the management (payer) account</strong> in AWS Organizations so discounts float to wherever matching usage occurs.</li>
+  <li>
+<strong>Watch utilization.</strong> Target close to 100% utilization and a coverage level that matches the steady floor (often 60 to 80% of compute spend).</li>
+</ul>
+
+<hr>
+
+<h2 id="optimization-levers-by-area">Optimization Levers by Area</h2>
+
+<h3 id="compute">Compute</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Lever</th>
+      <th>Typical effect</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Right-size</strong></td>
+      <td>10 to 40% on over-provisioned instances</td>
+      <td>Use Compute Optimizer with memory metrics from the CloudWatch agent; downsize one step at a time</td>
+    </tr>
+    <tr>
+      <td><strong>Move to Graviton</strong></td>
+      <td>Often 20% or more better price-performance</td>
+      <td>Needs arm64 builds; managed services (RDS, ElastiCache, OpenSearch, Lambda, Fargate) usually switch with a configuration change</td>
+    </tr>
+    <tr>
+      <td><strong>Spot</strong></td>
+      <td>Up to 90% off</td>
+      <td>For interruptible, diversified workloads; see <a href="compute.html#spot-instances">Spot Instances</a>
+</td>
+    </tr>
+    <tr>
+      <td><strong>Schedule non-production</strong></td>
+      <td>About 65 to 70% off for business-hours-only environments</td>
+      <td>Stop dev/test EC2 and RDS nights and weekends (the <em>Instance Scheduler on AWS</em> solution, EventBridge Scheduler, or ASG scheduled actions)</td>
+    </tr>
+    <tr>
+      <td><strong>Scale to zero</strong></td>
+      <td>Idle cost near zero</td>
+      <td>Lambda, Fargate tasks scaled to zero, Aurora Serverless v2 (can pause at 0 ACUs)</td>
+    </tr>
+    <tr>
+      <td><strong>Tune Lambda memory</strong></td>
+      <td>Varies</td>
+      <td>More memory adds CPU and can lower cost for CPU-bound functions; measure with AWS Lambda Power Tuning</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="storage">Storage</h3>
+
+<ul>
+  <li>
+<strong>S3 storage classes.</strong> Use <strong>S3 Intelligent-Tiering</strong> for data with unknown or changing access patterns: it moves objects between tiers automatically for a small per-object monitoring fee. Use lifecycle rules where access patterns are known.</li>
+  <li>
+<strong>Minimum durations and sizes.</strong> Standard-IA and One Zone-IA bill at least 30 days and 128 KB per object; Glacier Flexible Retrieval at least 90 days; Glacier Deep Archive at least 180 days. Transitioning many small or short-lived objects can <em>increase</em> cost.</li>
+  <li>
+<strong>Clean up incomplete multipart uploads and old versions</strong>, which are billed but invisible in normal listings.</li>
+  <li>
+<strong>EBS:</strong> migrate gp2 to <strong>gp3</strong> (about 20% cheaper per GB, with IOPS and throughput provisioned independently), delete unattached volumes, and apply retention to snapshots with Amazon Data Lifecycle Manager or AWS Backup.</li>
+  <li>
+<strong>CloudWatch Logs:</strong> set retention on every log group; the default is to keep logs forever. Use the Infrequent Access log class for logs that are rarely queried.</li>
+</ul>
+
+<div class="language-hcl highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nx">resource</span> <span class="s2">"aws_s3_bucket_lifecycle_configuration"</span> <span class="s2">"logs"</span> <span class="p">{</span>
   <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">logs</span><span class="p">.</span><span class="nx">id</span>
 
   <span class="nx">rule</span> <span class="p">{</span>
-    <span class="nx">id</span>     <span class="o">=</span> <span class="s2">"transition-old-logs"</span>
+    <span class="nx">id</span>     <span class="o">=</span> <span class="s2">"tier-and-expire-logs"</span>
     <span class="nx">status</span> <span class="o">=</span> <span class="s2">"Enabled"</span>
+    <span class="nx">filter</span> <span class="p">{}</span> <span class="c1"># applies to the whole bucket</span>
 
     <span class="nx">transition</span> <span class="p">{</span>
       <span class="nx">days</span>          <span class="o">=</span> <span class="mi">30</span>
       <span class="nx">storage_class</span> <span class="o">=</span> <span class="s2">"STANDARD_IA"</span>
     <span class="p">}</span>
-
     <span class="nx">transition</span> <span class="p">{</span>
       <span class="nx">days</span>          <span class="o">=</span> <span class="mi">90</span>
-      <span class="nx">storage_class</span> <span class="o">=</span> <span class="s2">"GLACIER"</span>
+      <span class="nx">storage_class</span> <span class="o">=</span> <span class="s2">"GLACIER"</span> <span class="c1"># Glacier Flexible Retrieval</span>
     <span class="p">}</span>
-
-    <span class="nx">transition</span> <span class="p">{</span>
-      <span class="nx">days</span>          <span class="o">=</span> <span class="mi">180</span>
-      <span class="nx">storage_class</span> <span class="o">=</span> <span class="s2">"DEEP_ARCHIVE"</span>
-    <span class="p">}</span>
-
     <span class="nx">expiration</span> <span class="p">{</span>
       <span class="nx">days</span> <span class="o">=</span> <span class="mi">365</span>
+    <span class="p">}</span>
+    <span class="nx">noncurrent_version_expiration</span> <span class="p">{</span>
+      <span class="nx">noncurrent_days</span> <span class="o">=</span> <span class="mi">30</span>
     <span class="p">}</span>
   <span class="p">}</span>
 
   <span class="nx">rule</span> <span class="p">{</span>
-    <span class="nx">id</span>     <span class="o">=</span> <span class="s2">"delete-incomplete-uploads"</span>
+    <span class="nx">id</span>     <span class="o">=</span> <span class="s2">"abort-incomplete-uploads"</span>
     <span class="nx">status</span> <span class="o">=</span> <span class="s2">"Enabled"</span>
+    <span class="nx">filter</span> <span class="p">{}</span>
 
     <span class="nx">abort_incomplete_multipart_upload</span> <span class="p">{</span>
       <span class="nx">days_after_initiation</span> <span class="o">=</span> <span class="mi">7</span>
     <span class="p">}</span>
   <span class="p">}</span>
 <span class="p">}</span>
-
-<span class="c1"># Athena for cost analysis</span>
-<span class="nx">resource</span> <span class="s2">"aws_athena_database"</span> <span class="s2">"cost_analysis"</span> <span class="p">{</span>
-  <span class="nx">name</span>   <span class="o">=</span> <span class="s2">"${var.environment}_cost_analysis"</span>
-  <span class="nx">bucket</span> <span class="o">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">cost_reports</span><span class="p">.</span><span class="nx">id</span>
-<span class="p">}</span>
-
-<span class="nx">resource</span> <span class="s2">"aws_athena_workgroup"</span> <span class="s2">"cost_analysis"</span> <span class="p">{</span>
-  <span class="nx">name</span> <span class="o">=</span> <span class="s2">"${var.environment}-cost-analysis"</span>
-
-  <span class="nx">configuration</span> <span class="p">{</span>
-    <span class="nx">enforce_workgroup_configuration</span>    <span class="o">=</span> <span class="kc">true</span>
-    <span class="nx">publish_cloudwatch_metrics_enabled</span> <span class="o">=</span> <span class="kc">true</span>
-
-    <span class="nx">result_configuration</span> <span class="p">{</span>
-      <span class="nx">output_location</span> <span class="o">=</span> <span class="s2">"s3://${aws_s3_bucket.cost_reports.id}/athena-results/"</span>
-
-      <span class="nx">encryption_configuration</span> <span class="p">{</span>
-        <span class="nx">encryption_option</span> <span class="o">=</span> <span class="s2">"SSE_S3"</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="c1"># QuickSight for cost visualization</span>
-<span class="nx">resource</span> <span class="s2">"aws_quicksight_data_source"</span> <span class="s2">"cost_data"</span> <span class="p">{</span>
-  <span class="nx">data_source_id</span> <span class="o">=</span> <span class="s2">"${var.environment}-cost-data"</span>
-  <span class="nx">name</span>           <span class="o">=</span> <span class="s2">"Cost and Usage Report"</span>
-
-  <span class="nx">parameters</span> <span class="p">{</span>
-    <span class="nx">athena</span> <span class="p">{</span>
-      <span class="nx">work_group</span> <span class="o">=</span> <span class="nx">aws_athena_workgroup</span><span class="p">.</span><span class="nx">cost_analysis</span><span class="p">.</span><span class="nx">name</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-
-  <span class="nx">type</span> <span class="o">=</span> <span class="s2">"ATHENA"</span>
-<span class="p">}</span>
 </code></pre></div></div>
 
-<p>Cost categories and Spot Fleet management can be automated in Python with boto3:</p>
-
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">CostCategoryManager</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">ce_client</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">ce</span><span class="sh">'</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">create_cost_categories</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">tag_schema</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">tag_schema</span><span class="p">.</span><span class="nf">keys</span><span class="p">():</span>
-            <span class="n">self</span><span class="p">.</span><span class="n">ce_client</span><span class="p">.</span><span class="nf">create_cost_category_definition</span><span class="p">(</span>
-                <span class="n">Name</span><span class="o">=</span><span class="sa">f</span><span class="sh">'</span><span class="s">CostCategory-</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="sh">'</span><span class="p">,</span>
-                <span class="n">Rules</span><span class="o">=</span><span class="p">[</span>
-                    <span class="p">{</span>
-                        <span class="sh">'</span><span class="s">Value</span><span class="sh">'</span><span class="p">:</span> <span class="n">value</span><span class="p">,</span>
-                        <span class="sh">'</span><span class="s">Rule</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
-                            <span class="sh">'</span><span class="s">Tags</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
-                                <span class="sh">'</span><span class="s">Key</span><span class="sh">'</span><span class="p">:</span> <span class="n">key</span><span class="p">,</span>
-                                <span class="sh">'</span><span class="s">Values</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span><span class="n">value</span><span class="p">]</span>
-                            <span class="p">}</span>
-                        <span class="p">}</span>
-                    <span class="p">}</span> <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">tag_schema</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
-                <span class="p">]</span>
-            <span class="p">)</span>
-
-<span class="c1"># Spot Instance management
-</span><span class="k">class</span> <span class="nc">SpotInstanceManager</span><span class="p">:</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
-        <span class="n">self</span><span class="p">.</span><span class="n">ec2</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">ec2</span><span class="sh">'</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">create_spot_fleet</span><span class="p">(</span><span class="n">self</span><span class="p">,</span>
-                         <span class="n">target_capacity</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-                         <span class="n">instance_types</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-                         <span class="n">max_price</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-                         <span class="n">subnets</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sh">"""</span><span class="s">Create diversified Spot Fleet</span><span class="sh">"""</span>
-
-        <span class="c1"># Build launch specifications for each instance type
-</span>        <span class="n">launch_specs</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="k">for</span> <span class="n">instance_type</span> <span class="ow">in</span> <span class="n">instance_types</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">subnet</span> <span class="ow">in</span> <span class="n">subnets</span><span class="p">:</span>
-                <span class="n">launch_specs</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span>
-                    <span class="sh">'</span><span class="s">InstanceType</span><span class="sh">'</span><span class="p">:</span> <span class="n">instance_type</span><span class="p">,</span>
-                    <span class="sh">'</span><span class="s">ImageId</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">ami-12345678</span><span class="sh">'</span><span class="p">,</span>  <span class="c1"># Your AMI
-</span>                    <span class="sh">'</span><span class="s">KeyName</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">your-key-pair</span><span class="sh">'</span><span class="p">,</span>
-                    <span class="sh">'</span><span class="s">SecurityGroups</span><span class="sh">'</span><span class="p">:</span> <span class="p">[{</span><span class="sh">'</span><span class="s">GroupId</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">sg-12345678</span><span class="sh">'</span><span class="p">}],</span>
-                    <span class="sh">'</span><span class="s">SubnetId</span><span class="sh">'</span><span class="p">:</span> <span class="n">subnet</span><span class="p">,</span>
-                    <span class="sh">'</span><span class="s">IamInstanceProfile</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
-                        <span class="sh">'</span><span class="s">Arn</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">arn:aws:iam::account:instance-profile/role</span><span class="sh">'</span>
-                    <span class="p">},</span>
-                    <span class="sh">'</span><span class="s">TagSpecifications</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span>
-                        <span class="p">{</span>
-                            <span class="sh">'</span><span class="s">ResourceType</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">instance</span><span class="sh">'</span><span class="p">,</span>
-                            <span class="sh">'</span><span class="s">Tags</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span>
-                                <span class="p">{</span><span class="sh">'</span><span class="s">Key</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Name</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Value</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">SpotFleet-Instance</span><span class="sh">'</span><span class="p">},</span>
-                                <span class="p">{</span><span class="sh">'</span><span class="s">Key</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Type</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Value</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Spot</span><span class="sh">'</span><span class="p">}</span>
-                            <span class="p">]</span>
-                        <span class="p">}</span>
-                    <span class="p">]</span>
-                <span class="p">})</span>
-
-        <span class="n">response</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">ec2</span><span class="p">.</span><span class="nf">request_spot_fleet</span><span class="p">(</span>
-            <span class="n">SpotFleetRequestConfig</span><span class="o">=</span><span class="p">{</span>
-                <span class="sh">'</span><span class="s">AllocationStrategy</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">diversified</span><span class="sh">'</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">TargetCapacity</span><span class="sh">'</span><span class="p">:</span> <span class="n">target_capacity</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">SpotPrice</span><span class="sh">'</span><span class="p">:</span> <span class="n">max_price</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">IamFleetRole</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">arn:aws:iam::account:role/aws-ec2-spot-fleet-role</span><span class="sh">'</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">LaunchSpecifications</span><span class="sh">'</span><span class="p">:</span> <span class="n">launch_specs</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">TerminateInstancesWithExpiration</span><span class="sh">'</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">Type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">maintain</span><span class="sh">'</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">ReplaceUnhealthyInstances</span><span class="sh">'</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">InstanceInterruptionBehavior</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">terminate</span><span class="sh">'</span><span class="p">,</span>
-                <span class="sh">'</span><span class="s">TagSpecifications</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span>
-                    <span class="p">{</span>
-                        <span class="sh">'</span><span class="s">ResourceType</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">spot-fleet-request</span><span class="sh">'</span><span class="p">,</span>
-                        <span class="sh">'</span><span class="s">Tags</span><span class="sh">'</span><span class="p">:</span> <span class="p">[</span>
-                            <span class="p">{</span><span class="sh">'</span><span class="s">Key</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Name</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">Value</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">MySpotFleet</span><span class="sh">'</span><span class="p">}</span>
-                        <span class="p">]</span>
-                    <span class="p">}</span>
-                <span class="p">]</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">response</span><span class="p">[</span><span class="sh">'</span><span class="s">SpotFleetRequestId</span><span class="sh">'</span><span class="p">]</span>
-</code></pre></div></div>
-
-<hr>
-
-<h2 id="key-takeaways">Key Takeaways</h2>
+<h3 id="databases">Databases</h3>
 
 <ul>
   <li>
-<strong>Cost is a design constraint.</strong> Right-size, use the appropriate pricing model (Spot, Savings Plans, Reserved), and set billing alerts early. Optimization is continuous, not a one-time cleanup.</li>
+<strong>Database Savings Plans</strong> (up to 35%) cover steady database spend across engines and Regions; RDS and ElastiCache reserved instances remain an alternative for fixed footprints.</li>
   <li>
-<strong>Automate the guardrails.</strong> Budgets, cost anomaly detection, and lifecycle policies catch overspend without anyone watching a dashboard. Codify them so they ship with every environment.</li>
+<strong>Aurora I/O-Optimized</strong> removes per-request I/O charges for a higher instance and storage price; AWS suggests it when I/O is more than about 25% of an Aurora cluster’s spend.</li>
   <li>
-<strong>Tag for attribution.</strong> Enforced cost-allocation tags (Environment, CostCenter, Project) turn one big bill into per-team, per-project numbers you can actually act on.</li>
+<strong>RDS Extended Support</strong> adds a per-vCPU-hour charge when a database stays on a major engine version past its end of standard support. Upgrading on schedule avoids it.</li>
+  <li>
+<strong>DynamoDB:</strong> on-demand capacity (its price was halved in November 2024) is the right default; switch to provisioned with auto scaling for steady, predictable traffic. The <strong>Standard-IA table class</strong> lowers storage cost for tables where storage dominates.</li>
+  <li>
+<strong>ElastiCache for Valkey</strong> is priced 20% lower (node-based) and 33% lower (serverless) than Redis OSS for the same node types, and existing Redis OSS reserved nodes carry over.</li>
 </ul>
+
+<h3 id="networking">Networking</h3>
+
+<ul>
+  <li>Add <strong>gateway endpoints</strong> for S3 and DynamoDB in every VPC that uses them.</li>
+  <li>Use <strong>one NAT gateway per AZ</strong> only where resilience requires it; in development VPCs a single NAT gateway (or none, with endpoints) is often enough.</li>
+  <li>Put <strong>CloudFront</strong> in front of public content and APIs to reduce origin egress.</li>
+  <li>Release unused <strong>Elastic IPs</strong> and prefer IPv6 or private addressing where clients support it.</li>
+</ul>
+
+<hr>
+
+<h2 id="governance-and-attribution">Governance and Attribution</h2>
+
+<p>Costs that cannot be attributed to an owner do not get fixed.</p>
+
+<ol>
+  <li>
+<strong>Define a small tag schema</strong> (for example <code class="language-plaintext highlighter-rouge">Owner</code>, <code class="language-plaintext highlighter-rouge">Environment</code>, <code class="language-plaintext highlighter-rouge">CostCenter</code>, <code class="language-plaintext highlighter-rouge">Project</code>) and <strong>activate the tags as cost allocation tags</strong> in the Billing console; tags do not appear in cost data until activated, and are not applied retroactively.</li>
+  <li>
+<strong>Enforce it</strong> with tag policies in AWS Organizations (standardising keys and allowed values), SCPs or IaC checks that deny untagged resource creation, and AWS Config rules to find drift.</li>
+  <li>
+<strong>Group spend with Cost Categories</strong> (rules over accounts, tags, and services) to produce team- or product-level views, including for shared costs such as support or networking.</li>
+  <li>
+<strong>Use an account per workload and environment.</strong> Account boundaries give clean attribution for resources that cannot be tagged and limit the blast radius of mistakes.</li>
+</ol>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"tags"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"Environment"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"tag_key"</span><span class="p">:</span><span class="w">   </span><span class="p">{</span><span class="w"> </span><span class="nl">"@@assign"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Environment"</span><span class="w"> </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"tag_value"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"@@assign"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Production"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Staging"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Development"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"enforced_for"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"@@assign"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"ec2:instance"</span><span class="p">,</span><span class="w"> </span><span class="s2">"rds:db"</span><span class="p">,</span><span class="w"> </span><span class="s2">"s3:bucket"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="nl">"CostCenter"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"tag_key"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"@@assign"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CostCenter"</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>A tag policy’s <code class="language-plaintext highlighter-rouge">enforced_for</code> only blocks <em>non-compliant</em> values on the listed resource types; it does not require the tag to be present. Requiring tags needs an SCP with an <code class="language-plaintext highlighter-rouge">aws:RequestTag</code> condition, or checks in the deployment pipeline.</p>
+
+<hr>
+
+<h2 id="common-cost-surprises">Common Cost Surprises</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Surprise</th>
+      <th>Cause</th>
+      <th>Prevention</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Large NAT gateway bill</td>
+      <td>S3, DynamoDB, or ECR traffic from private subnets routed through NAT</td>
+      <td>Gateway endpoints for S3 and DynamoDB; interface endpoints for ECR</td>
+    </tr>
+    <tr>
+      <td>Cross-AZ transfer charges</td>
+      <td>Replication, chatty microservices, or load balancer cross-zone traffic</td>
+      <td>AZ-local routing; review <code class="language-plaintext highlighter-rouge">DataTransfer-Regional-Bytes</code> usage types</td>
+    </tr>
+    <tr>
+      <td>Bill continues after “deleting” a project</td>
+      <td>Snapshots, unattached EBS volumes, Elastic IPs, idle load balancers, log groups</td>
+      <td>Account-level cleanup, tags on everything, AWS Resource Explorer to search by tag</td>
+    </tr>
+    <tr>
+      <td>Runaway Lambda or Step Functions cost</td>
+      <td>Recursive triggers or retry storms</td>
+      <td>Per-service budgets, anomaly detection, reserved concurrency caps</td>
+    </tr>
+    <tr>
+      <td>Old engine versions cost more</td>
+      <td>RDS or EKS Extended Support fees on versions past standard support</td>
+      <td>Track engine and Kubernetes version end-of-support dates</td>
+    </tr>
+    <tr>
+      <td>Unused commitments</td>
+      <td>Workload migrated or shrank after purchasing RIs/Savings Plans</td>
+      <td>Right-size first, buy in tranches, alert on utilization</td>
+    </tr>
+  </tbody>
+</table>
 
 <hr>
 
@@ -3462,13 +3426,19 @@ document.addEventListener('DOMContentLoaded', function () {
   <li>
 <a href="./">AWS Hub</a> - Overview of all AWS documentation</li>
   <li>
-<a href="iac.html">Infrastructure as Code</a> - Codify budgets and Spot launch templates</li>
+<a href="compute.html">Compute Services</a> - Purchasing options, Spot, and Lambda pricing</li>
   <li>
-<a href="compute.html">Compute Services</a> - Spot, Reserved, and Savings Plans pricing models</li>
+<a href="storage.html">Storage Services</a> - S3 storage classes and EBS volume types</li>
   <li>
-<a href="storage.html">Storage Services</a> - S3 storage classes and lifecycle policies</li>
+<a href="databases.html">Database Services</a> - Choosing capacity modes and engines</li>
   <li>
-<a href="monitoring.html">Monitoring &amp; Messaging</a> - CloudWatch alarms behind cost alerts</li>
+<a href="networking.html">Networking &amp; Content Delivery</a> - VPC endpoints, NAT, and CloudFront</li>
+  <li>
+<a href="monitoring.html">Monitoring &amp; Messaging</a> - CloudWatch alarms and SNS notifications</li>
+  <li>
+<a href="iac.html">Infrastructure as Code</a> - Codifying budgets and policies</li>
+  <li>
+<a href="../terraform/">Terraform</a> - The HCL used in the examples above</li>
 </ul>
 
       </section>
